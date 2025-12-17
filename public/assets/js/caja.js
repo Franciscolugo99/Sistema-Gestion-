@@ -1,6 +1,6 @@
 // public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
-  const apiBase = "/kiosco/public/api/api.php";
+  const apiBase = "/kiosco/public/api/index.php";
   const STORAGE_KEY = "kiosco-caja-estado-v1";
   const API_TIMEOUT_MS = 8000;
 
@@ -44,8 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!aviso) return;
       const valor = parseSaldo(inputSaldo.value);
       if (valor > 0 && valor < MIN_SALDO_SUG) {
-        aviso.textContent =
-          `Saldo inicial bajo: $${valor.toFixed(2)}. Revisá si es suficiente para el turno.`;
+        aviso.textContent = `Saldo inicial bajo: $${valor.toFixed(
+          2
+        )}. Revisá si es suficiente para el turno.`;
         aviso.classList.remove("hidden");
       } else {
         aviso.textContent = "";
@@ -58,7 +59,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     formApertura.addEventListener("submit", (e) => {
       const valor = parseSaldo(inputSaldo.value);
-      if (!window.confirm(`¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`)) {
+      if (
+        !window.confirm(
+          `¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`
+        )
+      ) {
         e.preventDefault();
       }
     });
@@ -75,25 +80,25 @@ document.addEventListener("DOMContentLoaded", () => {
   let carrito = [];
   let totalNetoActual = 0;
 
-  const msgBox        = document.getElementById("msg");
-  const tbodyTicket   = document.querySelector("#tabla tbody");
-  const inputCodigo   = document.getElementById("codigo");
-  const inputCant     = document.getElementById("cantidad");
-  const inputPagado   = document.getElementById("montoPagado");
-  const lblTotal      = document.getElementById("lblTotal");
-  const lblVuelto     = document.getElementById("lblVuelto");
-  const selMedio      = document.getElementById("medioPago");
+  const msgBox = document.getElementById("msg");
+  const tbodyTicket = document.querySelector("#tabla tbody");
+  const inputCodigo = document.getElementById("codigo");
+  const inputCant = document.getElementById("cantidad");
+  const inputPagado = document.getElementById("montoPagado");
+  const lblTotal = document.getElementById("lblTotal");
+  const lblVuelto = document.getElementById("lblVuelto");
+  const selMedio = document.getElementById("medioPago");
   const lblTotalBruto = document.getElementById("lblTotalBruto");
   const lblDescGlobal = document.getElementById("lblDescGlobal");
 
-  const modal          = document.getElementById("modal");
-  const modalTitulo    = document.getElementById("modal-titulo");
-  const modalTexto     = document.getElementById("modal-texto");
+  const modal = document.getElementById("modal");
+  const modalTitulo = document.getElementById("modal-titulo");
+  const modalTexto = document.getElementById("modal-texto");
   const modalInputArea = document.getElementById("modal-input-container");
-  const modalLabel     = document.getElementById("modal-label");
-  const modalInput     = document.getElementById("modal-input");
-  const btnConfirm     = document.getElementById("modal-confirm");
-  const btnCancel      = document.getElementById("modal-cancel");
+  const modalLabel = document.getElementById("modal-label");
+  const modalInput = document.getElementById("modal-input");
+  const btnConfirm = document.getElementById("modal-confirm");
+  const btnCancel = document.getElementById("modal-cancel");
 
   let modalResolver = null;
   let modalIsInput = false;
@@ -101,10 +106,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // HELPERS
   // =========================
-  const fmt = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fmtQty3 = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fmt = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const fmtQty3 = new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
+
+  function getCsrf() {
+    return (
+      document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content") || ""
+    );
+  }
 
   function mostrarMensaje(tipo, texto) {
     if (!msgBox) return;
@@ -125,7 +144,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
 
     if (item.esPesable) {
-      return esEntero ? `${entero} ${unidad}` : `${fmtQty3.format(cant)} ${unidad}`;
+      return esEntero
+        ? `${entero} ${unidad}`
+        : `${fmtQty3.format(cant)} ${unidad}`;
     }
     return `${entero} ${unidad}`;
   }
@@ -168,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
         carrito,
         medio: selMedio?.value || "EFECTIVO",
         pagado: inputPagado?.value || "",
-      }),
+      })
     );
   }
 
@@ -192,8 +213,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
 
+    const csrf = getCsrf();
+
+    // Headers merge
+    const headers = new Headers(opt.headers || {});
+    if (!headers.has("Content-Type") && opt.body) {
+      headers.set("Content-Type", "application/json");
+    }
+    // Mandar CSRF siempre (si existe)
+    if (csrf) headers.set("X-CSRF-Token", csrf);
+
     try {
-      const res = await fetch(url, { ...opt, signal: ctrl.signal });
+      const res = await fetch(url, { ...opt, headers, signal: ctrl.signal });
       const text = await res.text();
 
       let data;
@@ -336,7 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const sumaLista = cb.combo.items.reduce((acc, it) => {
         const prod = carrito.find((p) => Number(p.id) === it.producto_id);
         if (!prod) return acc;
-        return acc + (prod.precioLista * it.cantidad);
+        return acc + prod.precioLista * it.cantidad;
       }, 0);
 
       const descuentoUnit = sumaLista - cb.combo.precio_combo;
@@ -443,7 +474,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const precioLista = Number(p.precio) || 0;
       const stock = Number(p.stock) || 0;
-      const esPesable = p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
+      const esPesable =
+        p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
       const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
 
       let cantidad = esPesable
@@ -456,7 +488,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const enCarrito = existente ? Number(existente.cantidad) : 0;
 
       if (stock > 0 && enCarrito + cantidad > stock) {
-        return mostrarMensaje("error", `Stock insuficiente. Disponible: ${stock}`);
+        return mostrarMensaje(
+          "error",
+          `Stock insuficiente. Disponible: ${stock}`
+        );
       }
 
       if (existente) {
@@ -467,7 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
           codigo: String(p.codigo),
           nombre: String(p.nombre),
           cantidad: Number(cantidad),
-          precio: Number(precioLista),      // precio “actual”
+          precio: Number(precioLista), // precio “actual”
           precioLista: Number(precioLista), // precio lista
           esPesable,
           unidadVenta,
@@ -523,7 +558,8 @@ document.addEventListener("DOMContentLoaded", () => {
   btnCancel?.addEventListener("click", () => cerrarModal(false));
 
   document.addEventListener("keydown", (e) => {
-    if (!modal.classList.contains("hidden") && e.key === "Escape") cerrarModal(false);
+    if (!modal.classList.contains("hidden") && e.key === "Escape")
+      cerrarModal(false);
   });
 
   // =========================
@@ -604,19 +640,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!medioEsEfectivo()) {
       pagado = total;
     } else {
-      if (pagado + 0.0001 < total) return mostrarMensaje("error", "El pago no alcanza.");
+      if (pagado + 0.0001 < total) {
+        return mostrarMensaje("error", "El pago no alcanza.");
+      }
     }
 
     try {
       const itemsLimpios = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
-        precio_unitario: Number(i.precio),
-        precioLista: Number(i.precioLista),
-        subtotal: Number(i.precio * i.cantidad),
+        // La API usa "precio"
+        precio: Number(i.precio),
       }));
 
       const payload = {
+        csrf: getCsrf(),
         items: itemsLimpios,
         medio_pago: selMedio?.value || "EFECTIVO",
         monto_pagado: pagado,
@@ -624,26 +662,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await fetchJson(`${apiBase}?action=registrar_venta`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      if (!data.ok) return mostrarMensaje("error", data.error);
+      if (!data?.ok)
+        return mostrarMensaje("error", data?.error || "Error en la API");
+
+      const ventaId = data.venta_id || data.ventaId;
+      if (!ventaId) {
+        console.warn("Respuesta API sin venta_id:", data);
+        return mostrarMensaje(
+          "error",
+          "Venta registrada, pero no llegó el ID."
+        );
+      }
 
       // OK
       carrito = [];
       localStorage.removeItem(STORAGE_KEY);
-      inputPagado.value = "";
+      if (inputPagado) inputPagado.value = "";
       actualizarVista();
 
       // imprimir ticket
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
-      iframe.src = `ticket.php?venta_id=${encodeURIComponent(data.venta_id)}&paper=${getPaper()}&autoprint=1`;
+      iframe.src = `ticket.php?venta_id=${encodeURIComponent(
+        ventaId
+      )}&paper=${getPaper()}&autoprint=1`;
       document.body.appendChild(iframe);
     } catch (e) {
       console.error("Error registrar venta:", e);
-      mostrarMensaje("error", "Error al registrar la venta");
+      mostrarMensaje("error", e?.message || "Error al registrar la venta");
     }
   }
 
@@ -662,7 +711,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   document.getElementById("btnAgregar")?.addEventListener("click", agregarItem);
   document.getElementById("btnCobrar")?.addEventListener("click", cobrar);
-  document.getElementById("btnCancelar")?.addEventListener("click", cancelarVenta);
+  document
+    .getElementById("btnCancelar")
+    ?.addEventListener("click", cancelarVenta);
 
   inputCodigo?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -687,9 +738,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Atajos (ya que los mostrás en UI)
   document.addEventListener("keydown", (e) => {
-    if (e.key === "F2") { e.preventDefault(); cobrar(); }
-    if (e.key === "F4") { e.preventDefault(); cancelarVenta(); }
-    if (e.key === "F5") { e.preventDefault(); inputCodigo?.focus(); }
+    if (e.key === "F2") {
+      e.preventDefault();
+      cobrar();
+    }
+    if (e.key === "F4") {
+      e.preventDefault();
+      cancelarVenta();
+    }
+    if (e.key === "F5") {
+      e.preventDefault();
+      inputCodigo?.focus();
+    }
   });
 
   // =========================

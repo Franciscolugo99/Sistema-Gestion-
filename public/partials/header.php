@@ -63,6 +63,7 @@ $bodyClass = $bodyClass ?? '';
   <?php if ($inlineCss): ?>
     <style><?= $inlineCss ?></style>
   <?php endif; ?>
+  <?= $extraHead ?? '' ?>
 </head>
 
 <body

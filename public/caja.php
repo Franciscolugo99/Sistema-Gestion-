@@ -68,6 +68,7 @@ $extraJs  = [
   'assets/js/caja_ui.js',
   'assets/js/caja.js',
 ];
+$extraHead = '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">';
 
 require __DIR__ . '/partials/header.php';
 
