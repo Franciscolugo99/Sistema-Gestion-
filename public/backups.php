@@ -6,7 +6,11 @@ require_once __DIR__ . '/auth.php';
 require_login();
 require_permission('gestionar_backups');
 
+require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/../src/backup_lib.php';
+
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
 function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
@@ -18,25 +22,28 @@ $info = null;
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $accion = (string)($_POST['accion'] ?? '');
+  $token = (string)($_POST['csrf_token'] ?? '');
+  if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    $error = 'Token inválido. Recargá la página e intentá de nuevo.';
+  } else {
+    $accion = (string)($_POST['accion'] ?? '');
 
-  if ($accion === 'crear') {
-    $err = null;
-    $file = backup_create($err);
-    if ($file) {
-      $info = 'Backup creado: ' . $file;
-    } else {
-      $error = $err ?: 'No se pudo crear el backup.';
+    if ($accion === 'crear') {
+      $err = null;
+      $file = backup_create($err);
+      $info = $file ? ('Backup creado: ' . $file) : ($err ?: 'No se pudo crear el backup.');
+      if (!$file) $error = $info;
+      if ($file) $info = 'Backup creado: ' . $file;
     }
-  }
 
-  if ($accion === 'borrar') {
-    $file = (string)($_POST['file'] ?? '');
-    $err = null;
-    if (backup_delete($file, $err)) {
-      $info = 'Backup borrado: ' . basename($file);
-    } else {
-      $error = $err ?: 'No se pudo borrar el backup.';
+    if ($accion === 'borrar') {
+      $file = (string)($_POST['file'] ?? '');
+      $err = null;
+      if (backup_delete($file, $err)) {
+        $info = 'Backup borrado: ' . basename($file);
+      } else {
+        $error = $err ?: 'No se pudo borrar el backup.';
+      }
     }
   }
 }
@@ -50,6 +57,7 @@ require __DIR__ . '/partials/header.php';
   <div class="panel-head">
     <h1>Backups</h1>
     <form method="post" class="bk-actions">
+      <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
       <input type="hidden" name="accion" value="crear">
       <button class="btn btn-primary" type="submit">Crear backup ahora</button>
     </form>
@@ -80,9 +88,7 @@ require __DIR__ . '/partials/header.php';
       </thead>
       <tbody>
       <?php if (!$items): ?>
-        <tr>
-          <td colspan="4" class="muted">No hay backups todavía.</td>
-        </tr>
+        <tr><td colspan="4" class="muted">No hay backups todavía.</td></tr>
       <?php else: ?>
         <?php foreach ($items as $it): ?>
           <tr>
@@ -91,7 +97,9 @@ require __DIR__ . '/partials/header.php';
             <td><?= h(date('d/m/Y H:i:s', (int)$it['mtime'])) ?></td>
             <td class="t-right">
               <a class="btn btn-ghost" href="backup_download.php?f=<?= urlencode($it['file']) ?>">Descargar</a>
+
               <form method="post" class="inline" onsubmit="return confirm('¿Borrar este backup?');">
+                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="borrar">
                 <input type="hidden" name="file" value="<?= h($it['file']) ?>">
                 <button class="btn btn-danger" type="submit">Borrar</button>

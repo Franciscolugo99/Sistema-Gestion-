@@ -8,10 +8,9 @@ require_permission('gestionar_backups');
 
 require_once __DIR__ . '/../src/backup_lib.php';
 
-$f = (string)($_GET['f'] ?? '');
-$f = basename($f);
+$f = basename((string)($_GET['f'] ?? ''));
 
-if (!preg_match('/^[A-Za-z0-9._-]+\.sql$/', $f)) {
+if (!preg_match('/^[A-Za-z0-9._-]+\.sql(\.gz)?$/', $f)) {
   http_response_code(400);
   echo 'Archivo inválido.';
   exit;
@@ -24,10 +23,16 @@ if (!is_file($path)) {
   exit;
 }
 
-// Descargar
-header('Content-Type: application/sql');
-header('Content-Disposition: attachment; filename="' . $f . '"');
+header('X-Content-Type-Options: nosniff');
 header('Content-Length: ' . (string)filesize($path));
+
+if (str_ends_with($f, '.gz')) {
+  header('Content-Type: application/gzip');
+} else {
+  header('Content-Type: application/sql');
+}
+
+header('Content-Disposition: attachment; filename="' . $f . '"');
 
 readfile($path);
 exit;
