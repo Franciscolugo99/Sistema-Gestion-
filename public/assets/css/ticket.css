@@ -1,0 +1,162 @@
+:root {
+  --font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  --w-58: 58mm;
+  --w-80: 80mm;
+  --paper-w: var(--w-80);
+}
+
+body[data-paper="58"] {
+  --paper-w: var(--w-58);
+}
+body[data-paper="80"] {
+  --paper-w: var(--w-80);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: #fff;
+  color: #111;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 16px 10px;
+}
+
+.ticket {
+  width: var(--paper-w);
+  max-width: 96vw;
+  padding: 14px 10px 16px;
+}
+
+.t-center {
+  text-align: center;
+}
+.t-right {
+  text-align: right;
+}
+
+.brand {
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  font-size: 22px;
+}
+
+.sub {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.sep {
+  border-top: 2px dashed #222;
+  margin: 14px 0;
+  opacity: 0.9;
+}
+.sep.soft {
+  opacity: 0.65;
+}
+
+.thead,
+.row {
+  display: grid;
+  grid-template-columns: 1fr 48px 78px;
+  gap: 8px;
+}
+
+body[data-paper="58"] .thead,
+body[data-paper="58"] .row {
+  grid-template-columns: 1fr 44px 66px;
+}
+
+.thead {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.row {
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.prod .name {
+  font-weight: 800;
+  line-height: 1.2;
+}
+.prod .meta {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.totals .line {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.foot {
+  margin-top: 16px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.toolbar {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.paper-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.paper-label select {
+  height: 30px;
+  border-radius: 10px;
+  padding: 0 10px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.btn-print {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+/* Impresión */
+@media print {
+  body {
+    padding: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .ticket {
+    width: var(--paper-w);
+    max-width: var(--paper-w);
+    padding: 0;
+  }
+}

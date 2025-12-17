@@ -1,0 +1,288 @@
+/* assets/css/caja_cerrar.css */
+/* Estilos específicos para cierre de caja (armonizado con core + theme) */
+
+/* PANEL PRINCIPAL -------------------------------------------------- */
+.panel-cierre {
+  padding: 24px 26px 26px;
+}
+
+/* HEADER ----------------------------------------------------------- */
+.cierre-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cierre-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  background: transparent;
+}
+
+.cierre-title {
+  margin: 6px 0 4px;
+  font-size: 1.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cierre-meta {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.cierre-meta .strong {
+  font-weight: 600;
+}
+
+.cierre-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Pills de estado (reusa las del sistema) */
+.pill.pill-open {
+  background: rgba(34, 197, 94, 0.10);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.pill.pill-closed {
+  background: rgba(248, 113, 113, 0.10);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}
+
+/* GRID RESUMEN + TOTAL --------------------------------------------- */
+.cierre-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.6fr);
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.cierre-card {
+  background: var(--panel);
+  border-radius: 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Títulos de secciones */
+.cierre-section-title {
+  font-size: 0.95rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+/* Lista resumen */
+.cierre-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cierre-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.32);
+  font-size: 0.92rem;
+}
+
+.cierre-row:last-child {
+  border-bottom: none;
+}
+
+.cierre-row.cierre-row-simple {
+  border-bottom: none;
+  padding-top: 10px;
+}
+
+.cierre-row span:first-child {
+  color: var(--muted);
+}
+
+/* CARD TOTAL SISTEMA ----------------------------------------------- */
+.cierre-total {
+  position: relative;
+  overflow: hidden;
+
+  /* fondo consistente: panel + glow verde suave */
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.16), transparent 58%),
+    var(--panel);
+}
+
+.cierre-total-label {
+  font-size: 0.88rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.cierre-total-amount {
+  font-size: 2.4rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.cierre-total-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cierre-total-extra {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.32);
+}
+
+.cierre-total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  padding: 4px 0;
+}
+
+.cierre-total-line span:first-child {
+  color: var(--muted);
+}
+
+/* Diferencias */
+.dif-ok  { color: #22c55e; }
+.dif-pos { color: #16a34a; }
+.dif-neg { color: #f87171; }
+
+/* CONTEO DE CAJA --------------------------------------------------- */
+.cierre-conteo {
+  margin-top: 4px;
+}
+
+.cierre-form {
+  margin-top: 10px;
+}
+
+.cierre-label {
+  display: block;
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.cierre-label-notas {
+  margin-top: 14px;
+}
+
+.cierre-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Input pill, pero usando variables del theme */
+.cierre-input {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.95rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.cierre-input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+.cierre-btn {
+  white-space: nowrap;
+  padding-inline: 22px;
+}
+
+/* textarea notas (mismo idioma que inputs) */
+.cierre-textarea {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.9rem;
+  resize: vertical;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.cierre-textarea:focus {
+  outline: none;
+  border-color: var(--accent-green);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.22);
+}
+
+/* errores */
+.cierre-error {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.86rem;
+  border: 1px solid rgba(248, 113, 113, 0.7);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+/* info cuando ya está cerrada */
+.cierre-cerrada-info {
+  margin-top: 8px;
+}
+
+.cierre-notas {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--muted);
+  border-top: 1px dashed rgba(148, 163, 184, 0.32);
+  padding-top: 8px;
+}
+
+/* RESPONSIVE ------------------------------------------------------- */
+@media (max-width: 900px) {
+  .cierre-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cierre-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cierre-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cierre-btn {
+    width: 100%;
+    text-align: center;
+  }
+}

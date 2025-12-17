@@ -1,0 +1,170 @@
+/* ============================================================
+   STOCK – Estilos específicos del módulo
+   (todo lo general está en app.css / theme.css)
+============================================================ */
+
+/* ---------- Header ----------- */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+.page-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* ---------- KPIs ----------- */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--panel);
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.stat-card .stat-label {
+  font-size: 0.86rem;
+  opacity: 0.7;
+}
+
+.stat-card .stat-value {
+  font-size: 1.4rem;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.stat-ok {
+  background: rgba(60, 200, 120, 0.08);
+}
+.stat-bajo {
+  background: rgba(255, 200, 60, 0.08);
+}
+.stat-sin {
+  background: rgba(255, 60, 60, 0.08);
+}
+.stat-inactivo {
+  background: rgba(130, 130, 130, 0.08);
+}
+
+/* ---------- Filtros ----------- */
+.filters {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.filters-left input {
+  width: 260px;
+}
+
+.filters-right {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Tabla principal ----------- */
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stock-table th,
+.stock-table td {
+  padding: 10px 12px;
+}
+
+.stock-table thead th {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.stock-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.stock-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ---------- Estado (tags) ----------- */
+.tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.tag-ok {
+  background: #3cc878;
+}
+
+.tag-bajo {
+  background: #e9b83f;
+}
+
+.tag-sin {
+  background: #e05d5d;
+}
+
+.tag-inactivo {
+  background: #6f6f6f;
+}
+
+/* ---------- Sección A Reponer ----------- */
+.reponer-toggle {
+  margin-top: 22px;
+  margin-bottom: 10px;
+}
+
+.reponer-section {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-border);
+  display: none;
+}
+
+.reponer-section.show {
+  display: block;
+}
+
+/* Reducir un poco el tamaño de celdas de esta tabla */
+#tablaReponer td,
+#tablaReponer th {
+  padding: 8px 10px;
+}
+
+.reponer-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+/* ---------- Responsivo básico ----------- */
+@media (max-width: 720px) {
+  .filters-left input {
+    width: 100%;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}

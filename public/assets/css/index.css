@@ -1,0 +1,315 @@
+/* ============================
+   INICIO – Sistema Kiosco
+   (index.php)
+============================ */
+
+/* ----------------------------
+   PANEL PRINCIPAL
+----------------------------- */
+
+.page-index .index-panel {
+  padding: 24px 26px 24px;
+  background: var(--panel);
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+}
+
+/* ----------------------------
+   HEADER
+----------------------------- */
+
+.page-index .index-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.page-index .index-header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Logo */
+
+.page-index .logo-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-index .logo-sistema {
+  height: 120px;
+  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.45));
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.page-index .logo-sistema:hover {
+  transform: scale(1.05);
+  filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.55));
+}
+
+/* Título / subtítulo */
+
+.page-index .index-title {
+  margin: 0;
+  font-size: 1.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.page-index .index-subtitle {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Pill de estado */
+
+.page-index .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 0.78rem;
+  color: #e5e7eb;
+}
+
+/* Punto de estado base */
+
+.page-index .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+/* Local OK (verde) */
+.page-index .status-dot-ok {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.95);
+}
+
+/* Remoto (celeste) */
+.page-index .status-dot-remote {
+  background: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.95);
+}
+
+/* ----------------------------
+   GRID DE MÓDULOS
+----------------------------- */
+
+.page-index .index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  margin-top: 8px;
+}
+
+/* Tarjetas base (Caja y resto) */
+
+.page-index .index-card,
+.page-index .index-card-primary {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: radial-gradient(
+    circle at top,
+    #020617 0,
+    #020617 45%,
+    #020617 100%
+  );
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    border-color 0.1s ease;
+  cursor: pointer;
+}
+
+.page-index .index-card::before,
+.page-index .index-card-primary::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    circle at top,
+    var(--accent-cyan) 0,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.page-index .index-card:hover,
+.page-index .index-card-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
+  border-color: rgba(148, 163, 184, 0.8);
+}
+
+.page-index .index-card:hover::before,
+.page-index .index-card-primary:hover::before {
+  opacity: 0.18;
+}
+
+.page-index .index-card .card-title,
+.page-index .index-card-primary .card-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.page-index .index-card .card-desc,
+.page-index .index-card-primary .card-desc {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.page-index .index-card .card-tag,
+.page-index .index-card-primary .card-tag {
+  margin-top: auto;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+}
+
+/* Card principal (Caja) en modo oscuro */
+
+.page-index .index-card-primary {
+  border-color: rgba(34, 197, 94, 0.8);
+  box-shadow: 0 26px 70px rgba(34, 197, 94, 0.75);
+  background: radial-gradient(
+    circle at top,
+    #16a34a 0%,
+    #022c22 40%,
+    #020617 100%
+  );
+}
+
+/* Colores de tags (modo oscuro) */
+
+.page-index .tag-blue {
+  color: #7dd3fc;
+}
+.page-index .tag-green {
+  color: #bbf7d0;
+}
+.page-index .tag-orange {
+  color: #fed7aa;
+}
+.page-index .tag-purple {
+  color: #e9d5ff;
+}
+.page-index .tag-pink {
+  color: #fbcfe8;
+}
+
+/* ----------------------------
+   RESPONSIVE
+----------------------------- */
+
+@media (max-width: 768px) {
+  .page-index .index-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-index .logo-sistema {
+    height: 90px;
+  }
+
+  .page-index .status-pill {
+    align-self: flex-start;
+  }
+}
+
+/* ============================
+   MODO CLARO – INICIO
+============================ */
+
+body[data-theme="light"].page-index {
+  background: #e5ecf7;
+}
+
+/* Panel principal */
+
+body[data-theme="light"].page-index .index-panel {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.15);
+}
+
+/* Texto header */
+
+body[data-theme="light"].page-index .index-title {
+  color: #0f172a;
+}
+
+body[data-theme="light"].page-index .index-subtitle {
+  color: #64748b;
+}
+
+/* Pill estado */
+
+body[data-theme="light"].page-index .status-pill {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+/* Tarjetas claras en modo claro */
+
+body[data-theme="light"].page-index .index-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+body[data-theme="light"].page-index .index-card-primary {
+  background: linear-gradient(135deg, #22c55e, #bbf7d0);
+  border-color: #22c55e;
+  box-shadow: 0 20px 45px rgba(34, 197, 94, 0.55);
+  color: #022c22;
+}
+
+body[data-theme="light"].page-index .index-card .card-desc {
+  color: #64748b;
+}
+
+body[data-theme="light"].page-index .index-card-primary .card-desc {
+  color: #064e3b;
+}
+
+/* Tags con colores más fuertes en light */
+
+body[data-theme="light"].page-index .tag-blue {
+  color: #0ea5e9;
+}
+body[data-theme="light"].page-index .tag-green {
+  color: #22c55e;
+}
+body[data-theme="light"].page-index .tag-orange {
+  color: #fb923c;
+}
+body[data-theme="light"].page-index .tag-purple {
+  color: #a855f7;
+}
+body[data-theme="light"].page-index .tag-pink {
+  color: #ec4899;
+}

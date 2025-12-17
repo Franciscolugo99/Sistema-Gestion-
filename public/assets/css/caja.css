@@ -1,0 +1,1012 @@
+/* =====================
+   CAJA – ESTILOS PROPIOS
+   ===================== */
+
+/* Título principal de la página Caja */
+h1 {
+  text-align: center;
+  margin: 0 0 12px;
+  font-size: 1.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* -------- Fila ESCANEAR / CANTIDAD -------- */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px; /* separación horizontal */
+  row-gap: 10px; /* por si rompe a otra línea */
+  margin-bottom: 14px;
+  align-items: flex-end;
+}
+
+.field {
+  flex: 1 1 260px;
+  min-width: 220px;
+  margin-bottom: 4px;
+}
+
+.field-narrow {
+  flex: 0 0 140px;
+  max-width: 160px;
+  margin-bottom: 4px;
+}
+
+/* un poquito más de aire entre los 2 grupos en escritorio */
+@media (min-width: 769px) {
+  .row .field + .field-narrow {
+    margin-left: 10px;
+  }
+}
+
+/* Labels e inputs solo dentro de CAJA (para no romper otras pantallas) */
+.panel label {
+  font-size: 0.78rem;
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.panel input,
+.panel select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #020617;
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+  margin-top: 2px;
+}
+
+.panel input:focus,
+.panel select:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.6);
+  background: #020617;
+}
+
+/* Botón “Agregar al ticket” */
+.btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: transform 0.08s, box-shadow 0.12s, filter 0.12s;
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn-add {
+  width: 100%;
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+  color: #022c22;
+  box-shadow: 0 18px 45px rgba(34, 197, 94, 0.7);
+}
+
+.btn-add:hover {
+  filter: brightness(1.03);
+}
+
+/* =====================
+   TABLA DEL TICKET
+   ===================== */
+
+.ticket-wrapper {
+  margin: 12px auto 0;
+  border-radius: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #020617;
+  max-width: 1100px;
+  max-height: 260px;   /* ~7-8 filas visibles */
+}
+
+/* Que la tabla ocupe todo el ancho */
+.ticket-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+#tabla th,
+#tabla td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #020617;
+}
+
+#tabla thead {
+  background: #020617; /* header oscuro en ambos temas por defecto */
+}
+
+#tabla th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #e5e7eb;
+  text-align: left;
+}
+
+#tabla tbody tr:nth-child(even),
+#tabla tbody tr:nth-child(odd) {
+  background: #020617;
+}
+
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+
+/* Columna de cantidad bien centrada y angosta */
+#tabla th:nth-child(4),
+#tabla td.cant-cell {
+  text-align: center;
+  width: 120px;
+  white-space: nowrap;
+}
+
+/* Encabezado pegado cuando se scrollea */
+.ticket-wrapper thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #020617;
+}
+
+/* ============= SCROLL PERSONALIZADO ============= */
+
+/* Firefox */
+.ticket-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: #10b981 #020617; /* thumb / track */
+}
+
+/* Chrome, Edge, Safari */
+.ticket-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ticket-wrapper::-webkit-scrollbar-track {
+  background: #020617; /* fondo oscuro */
+  border-radius: 999px;
+}
+
+.ticket-wrapper::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #10b981, #22c55e); /* verde flúor */
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+}
+
+.ticket-wrapper::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #22c55e, #4ade80);
+}
+
+/* Botones Editar / Quitar */
+.acciones {
+  white-space: nowrap;
+}
+
+.btn-accion {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.btn-accion:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* EDITAR */
+.btn-editar {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.btn-editar:hover {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+}
+
+/* QUITAR */
+.btn-quitar {
+  background: rgba(248, 113, 113, 0.1);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.7);
+}
+.btn-quitar:hover {
+  background: rgba(248, 113, 113, 0.18);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Botón de descuento por ítem (Desc.) */
+.btn-accion.btn-desc {
+  background: #f97316;          /* naranja */
+  border-color: #fb923c;
+  color: #0f172a;
+}
+.btn-accion.btn-desc:hover {
+  background: #fdba74;
+  border-color: #fed7aa;
+}
+
+/* =====================
+   BLOQUE TOTAL (VERSIÓN VIEJA .total-box)
+   ===================== */
+
+.total-box {
+  margin-top: 14px;
+  padding: 12px 14px 16px;
+  background: radial-gradient(circle at top, #020617 0, #020617 65%);
+  border-radius: 14px;
+  border: 1px solid #020617;
+}
+
+.total-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.total-title {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.total-amount {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* fila medio / paga / vuelto dentro de .total-box (legacy) */
+.total-box .total-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 20px;
+  row-gap: 10px;
+  margin-top: 8px;
+  align-items: flex-end;
+}
+
+.field-small {
+  flex: 1 1 0;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Label chiquito arriba del select/input */
+.total-label-inline {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Caja del vuelto con look de input */
+.total-vuelto {
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #020617;
+  border: 1px solid #1f2937;
+  display: flex;
+  align-items: center;
+}
+
+/* =====================
+   PANEL DE TOTALES NUEVO (.total-panel)
+   ===================== */
+
+.total-panel {
+  margin-top: 14px;
+  margin-bottom: 16px;
+}
+
+/* Cada fila de totales (bruto, desc, total a cobrar) + medio/paga/vuelto */
+.total-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.1fr);
+  column-gap: 26px;
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+/* Sólo usan la primera columna cuando la fila tiene 2 elementos (bruto / desc) */
+.total-label {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.total-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Línea fuerte: total a cobrar */
+.total-row-strong {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.total-row-strong .total-label,
+.total-row-strong .total-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+}
+
+.total-row-strong .total-value {
+  color: #22c55e; /* verde bien visible */
+}
+
+/* Link para “Cambiar” descuento total */
+.btn-link-total {
+  background: transparent;
+  border: none;
+  color: var(--accent-cyan, #38bdf8);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+}
+
+.btn-link-total:hover {
+  color: #7dd3fc;
+}
+
+.hidden {
+  display: none;
+}
+
+/* =====================
+   MENSAJES
+   ===================== */
+
+.msg {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e5e7eb;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.msg-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.msg-ok {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #022c22;
+  border-color: rgba(74, 222, 128, 0.7);
+  box-shadow: 0 14px 35px rgba(34, 197, 94, 0.7);
+}
+
+.msg-error {
+  background: linear-gradient(135deg, #f97373, #ef4444);
+  color: #fef2f2;
+  border-color: rgba(248, 113, 113, 0.8);
+  box-shadow: 0 14px 35px rgba(248, 113, 113, 0.55);
+}
+
+.msg-info {
+  background: radial-gradient(circle at top, #0f172a, #020617);
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, 0.5);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.8);
+}
+
+/* =====================
+   BOTONES GRANDES
+   ===================== */
+
+.buttons-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* BOTÓN CANCELAR VENTA */
+.btn-cancelar {
+  background: #2b2b3a;
+  color: #fff;
+  border: 2px solid #ff5c5c;
+  padding: 14px 22px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.25s ease;
+  box-shadow: 0 0 8px rgba(255, 80, 80, 0.15);
+}
+
+.btn-cancelar:hover {
+  background: #ff3b3b;
+  border-color: #ff3b3b;
+  box-shadow: 0 0 15px rgba(255, 70, 70, 0.55);
+}
+
+.btn-cancelar:active {
+  background: #d62828;
+  border-color: #d62828;
+  box-shadow: 0 0 10px rgba(255, 50, 50, 0.8);
+  transform: scale(0.97);
+}
+
+/* BOTÓN COBRAR */
+.btn-cobrar {
+  width: auto;
+  min-width: 320px;
+  margin: 0 auto;
+  background: #111827;
+  color: #ffffff;
+  padding: 17px 22px;
+  font-size: 20px;
+  font-weight: 700;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: 0.25s ease;
+  letter-spacing: 1px;
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+}
+
+.btn-cobrar:hover {
+  background: #08e600;
+  box-shadow: 0 0 25px rgba(0, 200, 255, 0.55);
+  transform: translateY(-2px);
+}
+
+.btn-cobrar:active {
+  background: #00aac7;
+  box-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
+  transform: scale(0.98);
+}
+
+/* =====================
+   MODAL EDICIÓN CAJA
+   ===================== */
+
+/* Overlay */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+}
+
+/* Ocultar tanto el modal completo como cualquier elemento marcado como .hidden */
+.modal.hidden,
+.modal .hidden {
+  display: none !important;
+}
+
+/* Tarjeta base */
+.modal-content {
+  width: 460px;
+  max-width: 92vw;
+  border-radius: 18px;
+  padding: 22px 24px 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(15, 23, 42, 0.7);
+}
+
+/* Títulos y texto */
+.modal-content h3,
+#modal-titulo {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+#modal-texto {
+  margin: 4px 0 12px;
+  font-size: 0.9rem;
+}
+
+/* Área input */
+.input-area {
+  margin-top: 10px;
+}
+
+.input-area label {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+/* Input cantidad */
+#modal-input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.95rem;
+}
+
+#modal-input:focus {
+  outline: none;
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.6);
+}
+
+/* Select del tipo de descuento dentro del modal */
+.modal-desc-tipo {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 0.85rem;
+}
+
+body[data-theme="dark"] .modal-desc-tipo {
+  background: #020617;
+  color: #e5e7eb;
+}
+
+body[data-theme="light"] .modal-desc-tipo {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+/* Botonera inferior */
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.btn-cancel,
+.btn-confirm {
+  min-width: 120px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: 0.2s ease;
+}
+
+/* Cancelar */
+.btn-cancel {
+  background: #111827;
+  color: #e5e7eb;
+}
+
+/* Aceptar */
+.btn-confirm {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #022c22;
+  box-shadow: 0 12px 36px rgba(34, 197, 94, 0.7);
+}
+
+.btn-cancel:hover {
+  filter: brightness(1.05);
+}
+
+.btn-confirm:hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+
+.btn-confirm:active,
+.btn-cancel:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* =====================
+   MODO CLARO – OVERRIDES
+   ===================== */
+
+body[data-theme="light"] .panel {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+body[data-theme="light"] .panel label,
+body[data-theme="light"] .panel .total-label-inline {
+  color: #475569;
+}
+
+body[data-theme="light"] .panel input,
+body[data-theme="light"] .panel select {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+/* tabla */
+body[data-theme="light"] .ticket-wrapper {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+body[data-theme="light"] #tabla thead {
+  background: #0f172a;
+}
+
+body[data-theme="light"] #tabla th {
+  color: #f9fafb;
+  border-bottom: 1px solid #0f172a;
+}
+
+body[data-theme="light"] #tabla tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+body[data-theme="light"] #tabla tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+body[data-theme="light"] #tabla td {
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* acciones en tabla en modo claro */
+body[data-theme="light"] .btn-editar {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+body[data-theme="light"] .btn-quitar {
+  background: rgba(248, 113, 113, 0.08);
+}
+
+/* total */
+body[data-theme="light"] .total-box {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+body[data-theme="light"] .total-amount,
+body[data-theme="light"] .total-vuelto,
+body[data-theme="light"] .total-value {
+  color: #0f172a;
+}
+
+body[data-theme="light"] .total-vuelto {
+  background: #f9fafb;
+  border-color: #cbd5e1;
+}
+
+/* botones grandes modo claro */
+body[data-theme="light"] .btn-cobrar {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #022c22;
+}
+
+body[data-theme="light"] .btn-cancelar {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-color: #fecaca;
+}
+
+/* modal claro */
+body[data-theme="light"] .modal {
+  background: rgba(15, 23, 42, 0.25);
+}
+
+body[data-theme="light"] .modal-content {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2),
+    0 0 0 1px rgba(148, 163, 184, 0.25);
+  border-color: #e2e8f0;
+}
+
+body[data-theme="light"] #modal-texto {
+  color: #4b5563;
+}
+
+body[data-theme="light"] #modal-input {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+body[data-theme="light"] .btn-cancel {
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+
+@media (max-width: 768px) {
+  .field {
+    flex: 1 1 100%;
+  }
+
+  .field-narrow {
+    flex: 1 1 120px;
+  }
+
+  .field-small {
+    flex: 1 1 100%;
+  }
+
+  .btn-cobrar {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .buttons-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .total-row {
+    grid-template-columns: 1fr; /* en pantallas chicas se apilan */
+    row-gap: 8px;
+  }
+}
+
+/* ==========================
+   APERTURA DE CAJA – ESTILOS
+   ========================== */
+
+.caja-title {
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 18px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.apertura-wrapper {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.apertura-text {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  color: var(--muted, #94a3b8);
+}
+
+.apertura-card {
+  background: radial-gradient(
+    circle at top,
+    #020617 0%,
+    #020617 40%,
+    #020617 100%
+  );
+  border-radius: 14px;
+  padding: 16px 18px 18px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+}
+
+.form-apertura {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.form-apertura .form-label {
+  flex: 0 0 220px;
+  font-size: 0.85rem;
+  color: var(--muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.apertura-input {
+  flex: 1 1 240px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-variant-numeric: tabular-nums;
+}
+
+.apertura-input:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45),
+    0 8px 20px rgba(15, 23, 42, 0.9);
+}
+
+/* ==========================
+   BOTONES APERTURA / CIERRE
+   ========================== */
+
+/* Estilo común para Abrir caja / Cerrar caja (modo oscuro) */
+.apertura-btn,
+.btn-cierre {
+  flex: 0 0 auto;
+  padding: 9px 22px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+  color: #022c22;
+  box-shadow: 0 14px 35px rgba(34, 197, 94, 0.7);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.apertura-btn:hover,
+.btn-cierre:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.apertura-btn:active,
+.btn-cierre:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.6);
+}
+
+/* layout de Abrir caja dentro del formulario */
+.apertura-btn {
+  margin-left: auto;
+  margin-top: 4px;
+}
+
+/* =====================
+   BADGE UNIDAD
+   ===================== */
+
+/* Badge unidad / KG al lado de la etiqueta Cantidad */
+.badge-unidad {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+/* Cuando sea pesable, cambiamos a color "peso" */
+.badge-unidad.pesable {
+  background: rgba(190, 242, 100, 0.12);
+  color: #a3e635;
+  border-color: rgba(190, 242, 100, 0.6);
+}
+/* =====================
+   GUIA DE ATAJOS
+   ===================== */
+.shortcuts-box {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end; /* se alinea a la derecha del panel */
+}
+
+.shortcuts-card {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: radial-gradient(circle at top, #020617 0%, #020617 70%);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  font-size: 0.78rem;
+  color: #e5e7eb;
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.9);
+}
+
+.shortcuts-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted, #94a3b8);
+  margin-bottom: 4px;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.shortcuts-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Estilo del <kbd> */
+.shortcuts-list kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  color: #e5e7eb;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* Modo claro */
+body[data-theme="light"] .shortcuts-card {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+}
+
+body[data-theme="light"] .shortcuts-title {
+  color: #64748b;
+}
+
+body[data-theme="light"] .shortcuts-list kbd {
+  background: #f9fafb;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.promo-aplicada {
+  color: #22c55e;
+  font-size: 0.85rem;
+  text-align: right;
+  opacity: 0.9;
+}

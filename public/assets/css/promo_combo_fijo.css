@@ -1,0 +1,481 @@
+/* =========================================
+   PROMO COMBO FIJO – PANEL GENERAL
+========================================= */
+
+.panel-promos-form {
+  max-width: 1180px;
+  margin: 26px auto 40px;
+  padding: 28px 32px 26px;
+  border-radius: 18px;
+  background: var(--panel, #ffffff);
+  color: var(--text, #0f172a);
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.40);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.20));
+}
+
+/* ===== Grillas (como productos) ===== */
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.6fr;
+  gap: 18px;
+}
+
+/* =========================================
+   CAMPOS: labels, inputs, hints
+========================================= */
+
+.combo-form .field {
+  margin-bottom: 14px;
+}
+
+.combo-form .field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+}
+
+.combo-form .field-input,
+.combo-form .field-select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.45));
+  padding: 9px 11px;
+  font-size: 0.95rem;
+  background: rgba(248, 250, 252, 0.95);
+  color: var(--text, #0f172a);
+  outline: none;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background-color 0.16s ease,
+    transform 0.06s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.combo-form .field-input-sm {
+  padding: 7px 9px;
+  font-size: 0.9rem;
+}
+
+.combo-form .field-input:focus,
+.combo-form .field-select:focus {
+  border-color: var(--accent, #22d3ee);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.5),
+    0 16px 35px rgba(15, 23, 42, 0.35);
+  background: #ffffff;
+}
+
+.combo-form .field-hint {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--muted, #6b7280);
+}
+
+/* =========================================
+   Prefijo $ en el precio
+========================================= */
+
+.field-input-with-prefix {
+  display: flex;
+  align-items: stretch;
+}
+
+.field-input-with-prefix .prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 10px 0 0 10px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.45));
+  border-right: none;
+  background: rgba(248, 250, 252, 0.95);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--muted, #64748b);
+}
+
+.field-input-with-prefix .field-input {
+  border-radius: 0 10px 10px 0;
+}
+
+/* =========================================
+   Switch "Promo activa"
+========================================= */
+
+.combo-form .field-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* =========================================
+   Productos del combo – tabla
+   (TODO scopeado para no pelearse con promos.css)
+========================================= */
+
+.combo-items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-promos-form .table-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.panel-promos-form .table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.panel-promos-form .table thead {
+  background: radial-gradient(circle at top,
+    rgba(15, 23, 42, 0.03),
+    rgba(15, 23, 42, 0.06));
+}
+
+.panel-promos-form .table th,
+.panel-promos-form .table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.panel-promos-form .table th {
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--muted, #64748b);
+}
+
+.panel-promos-form .table .right { text-align: right; }
+.panel-promos-form .table .center { text-align: center; }
+
+.panel-promos-form .table-compact tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* =========================================
+   Footer del form
+========================================= */
+
+.combo-form .form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* =========================================
+   DARK MODE
+========================================= */
+
+body[data-theme="dark"] .panel-promos-form {
+  background: radial-gradient(circle at top, #020617 0, #020617 42%, #020617);
+  border-color: rgba(30, 64, 175, 0.6);
+  box-shadow: 0 26px 75px rgba(15, 23, 42, 0.95);
+}
+
+body[data-theme="dark"] .combo-form .field-input,
+body[data-theme="dark"] .combo-form .field-select {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #e5e7eb;
+}
+
+body[data-theme="dark"] .combo-form .field-input:focus,
+body[data-theme="dark"] .combo-form .field-select:focus {
+  background: rgba(15, 23, 42, 1);
+}
+
+body[data-theme="dark"] .field-input-with-prefix .prefix {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #e5e7eb;
+}
+
+body[data-theme="dark"] .panel-promos-form .table-wrapper {
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(30, 64, 175, 0.55);
+}
+
+body[data-theme="dark"] .panel-promos-form .table thead {
+  background: radial-gradient(circle at top, #020617, #020617);
+}
+
+body[data-theme="dark"] .panel-promos-form .table th,
+body[data-theme="dark"] .panel-promos-form .table td {
+  border-color: rgba(30, 64, 175, 0.5);
+}
+
+/* =========================================
+   Responsive
+========================================= */
+
+@media (max-width: 960px) {
+  .panel-promos-form {
+    margin: 18px auto 26px;
+    padding: 20px 16px;
+  }
+
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .combo-items-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* =========================================
+   BOTONES – SOLO DENTRO DEL PANEL DEL COMBO
+========================================= */
+
+.panel-promos-form .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  padding: 9px 20px;
+  border-radius: 999px;
+  border: none;
+
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+
+  cursor: pointer;
+  outline: none;
+  background: transparent;
+  color: var(--text, #0f172a);
+
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.panel-promos-form .btn:hover {
+  transform: translateY(-1px);
+}
+
+.panel-promos-form .btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* --- principal: Guardar combo --- */
+.panel-promos-form .btn-primary {
+  background: radial-gradient(circle at top left, #67e8f9 0, #22d3ee 35%, #0ea5e9 90%);
+  color: #0f172a;
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.75),
+    0 16px 40px rgba(15, 23, 42, 0.9);
+}
+
+.panel-promos-form .btn-primary:hover {
+  box-shadow:
+    0 0 22px rgba(34, 211, 238, 0.9),
+    0 18px 46px rgba(15, 23, 42, 1);
+}
+
+/* --- secundario: Cancelar --- */
+.panel-promos-form .btn-light {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  color: var(--muted, #64748b);
+}
+
+.panel-promos-form .btn-light:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* --- botón superior + Agregar producto --- */
+.panel-promos-form .btn-outline {
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.1), rgba(56, 189, 248, 0.03));
+  border: 1px solid rgba(56, 189, 248, 0.8);
+  color: #0369a1;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+
+/* --- botón chiquito Quitar --- */
+.panel-promos-form .btn-xs {
+  padding: 4px 11px;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.panel-promos-form .btn-danger {
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.9);
+  color: #b91c1c;
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.55);
+}
+
+/* separador entre botones del footer */
+.panel-promos-form .form-footer .btn + .btn {
+  margin-left: 8px;
+}
+
+/* -------- DARK MODE botones -------- */
+
+body[data-theme="dark"] .panel-promos-form .btn {
+  color: #e5e7eb;
+}
+
+body[data-theme="dark"] .panel-promos-form .btn-light {
+  border-color: rgba(148, 163, 184, 0.7);
+  color: #cbd5f5;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+body[data-theme="dark"] .panel-promos-form .btn-light:hover {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+body[data-theme="dark"] .panel-promos-form .btn-outline {
+  background: radial-gradient(circle at top, rgba(56, 189, 248, 0.18), rgba(15, 23, 42, 0.9));
+  color: #e0f2fe;
+  border-color: rgba(56, 189, 248, 0.9);
+}
+
+body[data-theme="dark"] .panel-promos-form .btn-danger {
+  background: rgba(127, 29, 29, 0.7);
+  border-color: rgba(248, 113, 113, 0.9);
+  color: #fee2e2;
+}
+/* =========================================================
+   SWITCH "ESTADO DE LA PROMO" (reutilizable)
+========================================================= */
+
+.field-label-top {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+  margin-bottom: 6px;
+}
+
+.field-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.field-switch-title {
+  font-weight: 600;
+  font-size: 0.96rem;
+}
+
+/* --- Switch base --- */
+
+.edit-switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+}
+
+.edit-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.edit-switch-slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.7);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.edit-switch-slider::before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  top: 2px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.45);
+  transition: transform 0.18s ease;
+}
+
+/* Checked */
+
+.edit-switch input:checked + .edit-switch-slider {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  box-shadow:
+    0 0 0 1px rgba(34, 197, 94, 0.65),
+    0 0 18px rgba(34, 197, 94, 0.6);
+}
+
+.edit-switch input:checked + .edit-switch-slider::before {
+  transform: translateX(16px);
+}
+
+/* Dark mode tweaks */
+
+body[data-theme="dark"] .edit-switch-slider {
+  background: rgba(30, 64, 175, 0.55);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.7);
+}
+
+body[data-theme="dark"] .edit-switch input:checked + .edit-switch-slider {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+/* =========================================
+   LAYOUT PROMOS: header + panel alineados
+   ========================================= */
+
+.page-wrap-promos {
+  max-width: 1180px;
+  margin: 24px auto 40px; /* centra todo el bloque */
+}
+
+/* el header va pegado al panel, sin tanto aire */
+.page-wrap-promos .page-header {
+  margin-bottom: 18px;
+}
+
+/* el panel deja de tener margen auto, se alinea al header */
+.page-wrap-promos .panel-promos-form {
+  margin: 0;
+}

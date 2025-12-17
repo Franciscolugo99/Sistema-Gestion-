@@ -1,0 +1,766 @@
+/* ============================================================================
+   FLUS - CORE CSS (PULIDO FINAL)
+   - Core: componentes globales
+   - Theme: variables de color/tema (light/dark)
+============================================================================ */
+
+/* ============================================================================
+   [01] RESET + BASE
+============================================================================ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  min-height: 100vh;
+
+  /* Fondo global según el theme */
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ============================================================================
+   [02] CONTENEDOR PRINCIPAL
+============================================================================ */
+.root.container-global {
+  width: 80%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 24px 14px 40px;
+}
+
+@media (max-width: 1200px) {
+  .root.container-global {
+    width: 100%;
+  }
+}
+
+/* ============================================================================
+   [02.1] UTILIDADES GLOBALES
+============================================================================ */
+.u-flex {
+  display: flex;
+}
+.u-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+.u-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.u-between {
+  display: flex;
+  justify-content: space-between;
+}
+.u-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.u-gap-6 {
+  gap: 6px;
+}
+.u-gap-10 {
+  gap: 10px;
+}
+.u-gap-14 {
+  gap: 14px;
+}
+.u-gap-20 {
+  gap: 20px;
+}
+
+.u-mt-10 {
+  margin-top: 10px;
+}
+.u-mt-20 {
+  margin-top: 20px;
+}
+.u-mt-30 {
+  margin-top: 30px;
+}
+.u-mb-10 {
+  margin-bottom: 10px;
+}
+.u-mb-20 {
+  margin-bottom: 20px;
+}
+.u-mb-30 {
+  margin-bottom: 30px;
+}
+
+/* ============================================================================
+   [03] PANEL UNIVERSAL
+============================================================================ */
+.panel {
+  background: var(--panel);
+  border-radius: 18px;
+  padding: 24px 30px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  margin-bottom: 28px;
+}
+
+/* ============================================================================
+   [04] TITULOS Y SUBTITULOS
+============================================================================ */
+.page-title {
+  font-size: 2.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+}
+
+.page-sub {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.sub-title {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+/* ============================================================================
+   [05] NAVBAR (NAV GLOBAL)
+============================================================================ */
+.nav-container {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  box-shadow: var(--nav-shadow);
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Links tipo píldora */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  text-decoration: none;
+
+  border: 1px solid var(--nav-pill-border);
+  background: var(--nav-pill-bg);
+  color: var(--nav-pill-text);
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.nav-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.9);
+}
+
+.nav-pill:hover {
+  background: var(--nav-pill-hover-bg);
+}
+
+.nav-pill.active {
+  background: var(--nav-pill-active-bg);
+  color: var(--nav-pill-active-text);
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(56, 189, 248, 0.35);
+}
+/* ===========================
+   NAV ICON + MENU (THEME SAFE)
+=========================== */
+
+.nav-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:34px;
+  width:42px;
+  border-radius:12px;
+
+  border:1px solid var(--nav-icon-border);
+  background: var(--nav-icon-bg);
+  color: var(--nav-icon-text, inherit);
+
+  cursor:pointer;
+  text-decoration:none;
+  user-select:none;
+
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.nav-icon:hover{
+  background: var(--nav-icon-hover-bg);
+}
+
+.nav-icon.active{
+  border-color: var(--nav-icon-active-border);
+  box-shadow: var(--nav-icon-active-shadow);
+}
+
+.nav-menu{ position:relative; }
+
+.nav-menu-pop{
+  position:absolute;
+  right:0;
+  top:44px;
+  min-width:190px;
+
+  background: var(--nav-menu-bg);
+  border: 1px solid var(--nav-menu-border);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: var(--nav-menu-shadow);
+
+  display:none;
+  z-index:2000;
+}
+
+.nav-menu-pop a{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 10px;
+  border-radius:12px;
+  text-decoration:none;
+  color: var(--nav-menu-item-text, inherit);
+  opacity:.92;
+  white-space:nowrap;
+
+  transition: background .15s ease, opacity .15s ease;
+}
+
+.nav-menu-pop a:hover{
+  opacity:1;
+  background: var(--nav-menu-item-hover-bg);
+}
+
+.nav-menu.open .nav-menu-pop{ display:block; }
+
+/* ========= Menú tuerca ========= */
+.nav-menu{ position:relative; }
+
+.nav-menu-pop{
+  position:absolute;
+  right:0;
+  top:44px;
+  min-width:190px;
+
+  /* ✅ respeta tema */
+  background: var(--panel-bg);
+  color: var(--text, var(--nav-pill-text));
+  border: 1px solid var(--panel-border, rgba(148,163,184,.25));
+  border-radius: 14px;
+
+  padding: 6px;
+  box-shadow: var(--panel-shadow, 0 18px 50px rgba(0,0,0,.35));
+
+  display:none;
+  z-index:2000;
+}
+
+.nav-menu-pop a{
+  display:flex;
+  align-items:center;
+  gap:10px;
+
+  padding:10px 10px;
+  border-radius:12px;
+
+  text-decoration:none;
+
+  /* ✅ evita “texto invisible” */
+  color: var(--text, var(--nav-pill-text));
+  opacity: .92;
+  white-space:nowrap;
+
+  transition: background .12s ease, opacity .12s ease;
+}
+
+.nav-menu-pop a:hover{
+  opacity:1;
+  background: var(--row-hover, rgba(148,163,184,.12));
+}
+
+.nav-menu.open .nav-menu-pop{ display:block; }
+
+
+/* ============================================================================
+   Toggle de tema (USA VARIABLES DEL THEME)
+============================================================================ */
+.theme-switch {
+  position: relative;
+}
+
+.theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.theme-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggle-track {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 48px;
+  padding: 2px 6px;
+  border-radius: 999px;
+
+  background: var(--toggle-track-bg);
+  border: 1px solid var(--toggle-track-border);
+  font-size: 0.72rem;
+  color: var(--toggle-track-text);
+}
+
+.toggle-icon {
+  opacity: 0.6;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  transform: translateX(0);
+  transition: transform 0.18s ease;
+}
+
+.theme-switch input:checked + .theme-toggle .toggle-thumb {
+  transform: translateX(22px);
+}
+
+/* ============================================================================
+   Badge "Modo caja online" (USA VARIABLES DEL THEME)
+============================================================================ */
+.badge-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+
+  border: 1px solid var(--badge-mode-border);
+  background: var(--badge-mode-bg);
+  font-size: 0.78rem;
+  color: var(--badge-mode-text);
+}
+
+.badge-mode .badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: var(--badge-dot-shadow);
+}
+
+/* ============================================================================
+   Usuario / logo
+============================================================================ */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--nav-pill-text);
+}
+
+.nav-username {
+  opacity: 0.85;
+  font-size: 0.95rem;
+}
+
+.nav-logo {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================================
+   Logout (USA VARIABLES DEL THEME)
+============================================================================ */
+.logout-link {
+  font-size: 0.82rem;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+
+  border: 1px solid var(--logout-border);
+  color: var(--logout-text);
+  background: transparent;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.logout-link:hover {
+  background: var(--logout-hover-bg);
+  border-color: var(--logout-hover-border);
+  color: var(--logout-hover-text);
+}
+
+/* ============================================================================
+   [06] BOTONES GLOBALES
+============================================================================ */
+.btn,
+.v-btn,
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+
+/* PRIMARIO */
+.v-btn--primary,
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: transparent;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.55);
+}
+
+.v-btn--primary:hover,
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.8);
+}
+
+/* SECUNDARIO */
+.btn-secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+}
+
+.btn-secondary:hover {
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--btn-secondary-hover-border);
+  color: var(--btn-secondary-hover-text);
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.35);
+}
+
+/* PELIGRO */
+.btn-danger {
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-text);
+  border-color: var(--btn-danger-border);
+}
+
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(185, 28, 28, 0.6);
+}
+
+/* VARIANTES EXTRA */
+.v-btn--outline {
+  background: transparent;
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.v-btn--outline:hover {
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.v-btn--ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+.v-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.v-btn--icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+/* ============================================================================
+   [07] INPUTS / SELECTS / FORMULARIOS
+============================================================================ */
+input,
+select,
+textarea {
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  transition: 0.18s border ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+
+/* Filtros globales */
+.filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+/* ============================================================================
+   [08] TABLAS GLOBALES
+============================================================================ */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 14px;
+  font-size: 0.78rem;
+}
+
+tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--table-row-border);
+}
+
+tbody tr:nth-child(odd) {
+  background: var(--table-row-odd);
+}
+tbody tr:nth-child(even) {
+  background: var(--table-row-even);
+}
+
+tbody tr:hover {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+.empty-cell {
+  opacity: 0.7;
+  text-align: center;
+  padding: 18px;
+}
+
+/* ============================================================================
+   [09] PAGINACIÓN GLOBAL
+============================================================================ */
+.pager {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  align-items: center;
+}
+
+.pager-btn {
+  padding: 8px 14px;
+  background: var(--panel);
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  cursor: pointer;
+  transition: 0.18s;
+}
+
+.pager-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pager-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.pager-mid {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+/* ============================================================================
+   [10] TAGS / BADGES
+============================================================================ */
+.tag {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: inline-block;
+  color: #fff;
+}
+
+.tag-ok { background: #3cc878; }
+.tag-bajo { background: #e9b83f; }
+.tag-sin { background: #e05d5d; }
+.tag-inactivo { background: #6f6f6f; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+}
+
+.badge-mode.is-open {
+  opacity: 1;
+}
+
+.badge-mode.is-closed {
+  opacity: 0.8;
+  filter: grayscale(0.4);
+}
+
+/* ============================================================================
+   [11] TARJETAS DE ESTADÍSTICAS
+============================================================================ */
+.stats-row,
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  transition: 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.4);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+/* ============================================================================
+   [12] TOAST
+============================================================================ */
+.toast{
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%) translateY(14px);
+  opacity: 0;
+  pointer-events: none;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(15,23,42,.92);
+  border: 1px solid rgba(148,163,184,.28);
+  color: #fff;
+  z-index: 9999;
+  transition: .2s ease;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+.toast.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+body[data-theme="light"] .toast{
+  background: rgba(255,255,255,.95);
+  color: #0f172a;
+}
+
+
+/* ============================================================================
+   FIN DEL CORE CSS
+============================================================================ */

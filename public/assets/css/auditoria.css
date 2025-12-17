@@ -1,0 +1,10 @@
+/* public/assets/css/auditoria.css */
+.auditoria-panel{padding:24px}
+.auditoria-filters .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.auditoria-filters .field{display:flex;flex-direction:column}
+.auditoria-filters label{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.auditoria-filters input,.auditoria-filters select{padding:10px 12px;border-radius:12px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text)}
+.auditoria-filters .actions{margin-top:12px;display:flex;gap:10px}
+.table-wrap{margin-top:16px}
+.table .meta{max-width:460px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pager{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}

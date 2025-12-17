@@ -1,0 +1,140 @@
+/* ==========================================================
+   CLIENTES – ESTILOS ESPECÍFICOS
+========================================================== */
+
+.cli-panel {
+  padding: 24px 26px 20px;
+}
+
+.cli-list-panel {
+  margin-top: 22px;
+}
+
+/* ----------------------------------------------------------
+   FORM: bloque colapsable
+---------------------------------------------------------- */
+
+.cli-form-block{
+  margin-top: 12px;
+  border-top: 1px solid rgba(148,163,184,.18);
+  padding-top: 14px;
+
+  /* animación simple */
+  max-height: 2200px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height .28s ease, opacity .22s ease;
+}
+
+/* estado colapsado */
+.cli-form-block.is-collapsed{
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  border-top-color: transparent;
+  pointer-events: none;
+}
+
+/* Formulario */
+.clientes-form {
+  margin-top: 0;
+}
+
+.cli-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+}
+
+.cli-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.cli-field-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .cli-field-wide {
+    grid-column: span 1;
+  }
+}
+
+.cli-field label {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Inputs/selects: ✅ legibles en dark/light */
+.clientes-form input,
+.clientes-form select {
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--input-bg, rgba(2,6,23,.14));
+
+  /* IMPORTANTE: fallback por si tu theme no tiene --text */
+  color: var(--text-main, var(--text, #e5e7eb));
+
+  font-size: 0.95rem;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.clientes-form input::placeholder{
+  color: rgba(148,163,184,.75);
+}
+
+.clientes-form input:focus,
+.clientes-form select:focus {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+/* Fix icono calendario en dark */
+body[data-theme="dark"] .clientes-form input[type="date"]::-webkit-calendar-picker-indicator{
+  filter: invert(1);
+  opacity: .8;
+}
+
+/* Estado */
+.cli-field-status {
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cli-status-label {
+  margin-bottom: 6px;
+}
+
+/* Acciones */
+.cli-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Tabla */
+.clientes-table .t-right { text-align: right; }
+.clientes-table .center  { text-align: center; }
+
+/* Que el texto no “desaparezca” en dark */
+.clientes-table td,
+.clientes-table th{
+  color: var(--text-main, var(--text, #e5e7eb));
+}
+
+.clientes-table .muted{
+  color: var(--muted);
+}

@@ -1,0 +1,138 @@
+/* ============================================================================
+   FLUS PRO – MOVIMIENTOS.CSS
+   Solo estilos ESPECÍFICOS del módulo.
+   Todo lo global está en core.css y theme.css
+============================================================================ */
+
+/* ============================
+   CONTENEDOR DEL PANEL
+============================ */
+.mov-panel {
+  /* No redefinimos panel: ya viene estilizado desde core.css */
+}
+
+/* ============================
+   TITULOS
+============================ */
+.mov-title {
+  margin: 0;
+  font-size: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.mov-sub {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+/* ============================
+   STATS (usa las cards del core)
+============================ */
+.mov-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* Colores opcionales para resaltar valores */
+.mov-card-ok .stat-value {
+  color: var(--accent-green);
+}
+
+/* ============================
+   FILTROS
+============================ */
+#movFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+#movFilters select,
+#movFilters input[type="date"] {
+  min-width: 150px;
+}
+
+/* Filtros rápidos */
+.filters-quick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  transition: 0.18s;
+}
+
+.chip:hover {
+  background: var(--bg-soft);
+}
+
+/* ============================
+   TABLA (aplicar solo detalles propios)
+============================ */
+.mov-table td .muted {
+  color: var(--muted);
+  opacity: 0.8;
+  font-size: 0.8rem;
+}
+
+/* Pequeñas ayudas de estructura */
+.row-venta {
+  border-left: 3px solid var(--accent-green);
+}
+.row-compra {
+  border-left: 3px solid #38bdf8;
+}
+.row-ajuste-positivo {
+  border-left: 3px solid #facc15;
+}
+.row-ajuste-negativo {
+  border-left: 3px solid #ef4444;
+}
+.row-devolucion {
+  border-left: 3px solid #6366f1;
+}
+
+/* Badge minimal */
+.mov-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+/* ============================
+   RESPONSIVE
+============================ */
+@media (max-width: 900px) {
+  #movFilters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 700px) {
+  .filters-quick {
+    flex-wrap: wrap;
+  }
+}
+.qty { font-variant-numeric: tabular-nums; font-weight: 800; }
+.qty-neg { color: #ff6b6b; }
+.qty-pos { color: #2ee59d; }

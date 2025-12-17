@@ -1,0 +1,390 @@
+/* ============================================================================
+   VENTAS – FLUS PRO (Estilo unificado con Stock / Movimientos / Usuarios)
+   ============================================================================
+   → SIN transparencias, SIN blur, SIN sombras pesadas.
+   → Usa solo variables del theme + componentes globales del core.
+   → Diseño limpio, minimalista y consistente.
+============================================================================ */
+
+/* -----------------------------------------
+   PANEL PRINCIPAL
+----------------------------------------- */
+.ventas-panel {
+  padding: 24px 30px;
+}
+
+/* -----------------------------------------
+   TOOLS / HELPERS
+----------------------------------------- */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.t-right {
+  text-align: right;
+}
+.t-center {
+  text-align: center;
+}
+.dot {
+  opacity: 0.55;
+  padding: 0 6px;
+}
+
+/* -----------------------------------------
+   HEADER SUPERIOR
+----------------------------------------- */
+.ventas-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.ventas-title {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ventas-sub {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* -----------------------------------------
+   PANEL DERECHA (Papel, export, scroll)
+----------------------------------------- */
+.ventas-top-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* caja simple para "Papel" */
+.paper-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.paper-box select {
+  height: 34px;
+  border-radius: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+}
+
+/* -----------------------------------------
+   KPIs
+----------------------------------------- */
+.ventas-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.kpi {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 14px 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.kpi-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.kpi-value {
+  margin-top: 4px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* responsive KPIs */
+@media (max-width: 900px) {
+  .ventas-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -----------------------------------------
+   FILTROS (panel minimalista)
+----------------------------------------- */
+.ventas-filters {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  margin-bottom: 20px;
+}
+
+.ventas-filters .filters-grid {
+  display: grid;
+  gap: 16px 28px;
+  grid-template-columns:
+    minmax(240px, 1.2fr)
+    minmax(160px, 1fr)
+    minmax(160px, 1fr)
+    minmax(140px, 0.6fr)
+    auto;
+  align-items: end;
+}
+
+@media (max-width: 1100px) {
+  .ventas-filters .filters-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ventas-filters input,
+.ventas-filters select {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+}
+
+/* -----------------------------------------
+   FILTROS RÁPIDOS
+----------------------------------------- */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.chip:hover {
+  background: var(--accent-cyan);
+  color: #fff;
+}
+
+/* -----------------------------------------
+   TABLA
+----------------------------------------- */
+.table-wrapper {
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.ventas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+
+.ventas-table th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ventas-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--table-row-border);
+}
+
+.ventas-table tbody tr:hover {
+  background: var(--table-row-even);
+}
+
+/* Badge medios */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+}
+
+.badge-efectivo {
+  background: #d1fae5;
+  color: #065f46;
+}
+.badge-mp {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+.badge-debito {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge-credito {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.badge-sin_especificar {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* -----------------------------------------
+   ACCIONES POR FILA
+----------------------------------------- */
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-mini {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  font-size: 0.82rem;
+}
+
+.btn-mini-ok {
+  border-color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--accent-green);
+}
+
+.btn-mini-ghost {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+}
+
+/* -----------------------------------------
+   PAGINADOR
+----------------------------------------- */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+.pager-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.pager-btn.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* -----------------------------------------
+   MODAL (Ticket Preview)
+----------------------------------------- */
+.vt-modal.hidden {
+  display: none;
+}
+
+.vt-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.vt-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.vt-dialog {
+  position: relative;
+  width: min(900px, 95vw);
+  height: min(90vh, 820px);
+  margin: 5vh auto 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.vt-head,
+.vt-foot {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.vt-body {
+  flex: 1;
+  background: #fff;
+}
+
+#vtFrame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.badge-estado{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:.78rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  border:1px solid rgba(148,163,184,.28);
+  background: rgba(2,6,23,.45);
+}
+
+.badge-estado::before{
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: currentColor;
+  opacity:.9;
+}
+
+.badge-emitida{
+  color: rgba(34,197,94,.95);
+}
+
+.badge-anulada{
+  color: rgba(239,68,68,.95);
+}

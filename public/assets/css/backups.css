@@ -1,0 +1,98 @@
+/* ==========================================================
+   BACKUPS
+========================================================== */
+
+.backups-panel {
+  padding: 22px 24px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.panel-head h1 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.bk-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.bk-note {
+  margin: 12px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.bk-note code {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.table-wrap {
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.bk-table {
+  width: 100%;
+}
+
+.t-right { text-align: right; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+.inline { display: inline-block; margin-left: 6px; }
+
+.alert {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.25);
+}
+
+.alert-ok {
+  background: rgba(16, 185, 129, 0.10);
+}
+
+.alert-err {
+  background: rgba(239, 68, 68, 0.10);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Botones (si no existen, caen en estilos base) */
+.btn {
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.25);
+  background: rgba(148,163,184,0.08);
+  color: inherit;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, rgba(14,165,233,0.35), rgba(139,92,246,0.35));
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.btn-ghost {
+  background: transparent;
+}

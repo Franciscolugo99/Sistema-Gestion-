@@ -1,0 +1,81 @@
+# =========================================================
+# FLUS / Kiosco - .gitignore (XAMPP + PHP)
+# =========================================================
+
+# -------------------------
+# Sistema / editor
+# -------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# -------------------------
+# Logs / temporales
+# -------------------------
+*.log
+*.tmp
+tmp/
+cache/
+logs/
+
+# -------------------------
+# Dependencias
+# -------------------------
+/vendor/          # Composer
+/node_modules/    # Node
+
+# -------------------------
+# Variables de entorno / secretos
+# -------------------------
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+
+# Si tenés un config local con credenciales, descomentá:
+# /src/config.php
+
+# -------------------------
+# Backups / dumps / exports
+# -------------------------
+*.sql
+*.sqlite
+*.sqlite3
+*.zip
+*.rar
+*.7z
+*.bak
+
+# -------------------------
+# Storage del sistema (NO subir datos)
+# -------------------------
+/storage/logs/
+/storage/backups/
+
+# Mantener carpeta storage en repo (creá storage/.gitkeep)
+/storage/.gitkeep
+
+# Permitir el .htaccess dentro de storage
+!/storage/.htaccess
+
+# -------------------------
+# Uploads (si son archivos subidos por usuarios)
+# -------------------------
+/public/uploads/
+/uploads/
+
+# Si querés versionar un .gitkeep dentro de uploads (opcional):
+# !/public/uploads/.gitkeep
+# !/uploads/.gitkeep
+
+# -------------------------
+# Archivos locales / notas
+# -------------------------
+*.local
+*.local.*
+

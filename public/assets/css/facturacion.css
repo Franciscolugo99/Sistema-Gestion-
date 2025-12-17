@@ -1,0 +1,87 @@
+/* ==========================================================
+   FACTURACIÓN – ESTILOS ESPECÍFICOS
+========================================================== */
+
+.fact-panel {
+  padding: 24px 26px 22px;
+}
+
+/* Reutilizamos la grilla de filtros core (como movimientos/promos) */
+.fact-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 18px;
+  align-items: center;
+}
+
+/* Que el título tenga mismo estilo que otros módulos grandes */
+.facturacion-page .page-header {
+  margin-bottom: 18px;
+}
+
+.fact-table .t-right {
+  text-align: right;
+}
+
+/* ==========================================================
+    Resumen venta en factura_nueva 
+========================================================== */
+.fact-venta-resumen {
+  margin-top: 8px;
+}
+
+.fact-venta-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 18px;
+  font-size: 0.9rem;
+}
+
+.fact-venta-grid .muted {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Form */
+
+.fact-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 18px;
+}
+
+.ff-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.ff-field-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .ff-field-wide {
+    grid-column: span 1;
+  }
+}
+
+.fact-form label {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.fact-form select {
+  padding: 8px 11px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}

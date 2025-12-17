@@ -1,0 +1,117 @@
+/* ==============================
+   FACTURA – VER / IMPRIMIR
+   ============================== */
+
+.factura-page {
+  margin-top: 20px;
+}
+
+.factura-panel {
+  padding: 22px 24px 26px;
+}
+
+/* Header */
+.factura-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.factura-title {
+  margin: 4px 0 8px;
+  font-size: 1.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.factura-meta {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.factura-meta .label {
+  font-weight: 600;
+}
+
+/* Bloques datos */
+.factura-datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.factura-block h2 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.factura-block .label {
+  font-weight: 600;
+}
+
+/* Detalle items */
+.factura-items h2 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.factura-table th,
+.factura-table td {
+  font-size: 0.9rem;
+}
+
+.factura-table .t-right {
+  text-align: right;
+}
+
+/* Footer */
+.factura-footer {
+  margin-top: 18px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ==============================
+   PRINT
+   ============================== */
+@media print {
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .nav-container,
+  .btn-no-print,
+  .badge-mode,
+  .theme-switch {
+    display: none !important;
+  }
+
+  .container-global {
+    max-width: 100% !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .panel {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .only-print {
+    display: block;
+  }
+}
+
+.only-print {
+  display: none;
+}
