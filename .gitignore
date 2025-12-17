@@ -79,3 +79,4 @@ logs/
 *.local
 *.local.*
 
+/src/config.php
