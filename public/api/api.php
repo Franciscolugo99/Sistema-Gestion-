@@ -88,6 +88,16 @@ try {
       "combos"  => $promos["combos"]
     ]);
   }
+/* =========================================================
+   REGISTRAR VENTA (OBSOLETO)
+   - Se maneja en /public/api/index.php (CSRF)
+========================================================= */
+if ($action === "registrar_venta") {
+  json_response([
+    "ok"    => false,
+    "error" => "Endpoint obsoleto. Usar /kiosco/public/api/index.php?action=registrar_venta"
+  ], 410);
+}
 
 
   /* =========================================================
