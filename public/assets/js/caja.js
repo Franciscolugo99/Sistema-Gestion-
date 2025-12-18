@@ -1,6 +1,8 @@
 // public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
-  const apiBase = "/kiosco/public/api/index.php";
+  const API_BASE = "/kiosco/public/api/api.php"; // promos + buscar producto
+  const API_VENTA = "/kiosco/public/api/index.php"; // registrar_venta (CSRF)
+
   const STORAGE_KEY = "kiosco-caja-estado-v1";
   const API_TIMEOUT_MS = 8000;
 
@@ -247,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   async function cargarPromos() {
     try {
-      const data = await fetchJson(`${apiBase}?action=listar_promos_activas`);
+      const data = await fetchJson(`${API_BASE}?action=listar_promos_activas`);
       if (!data.ok) return;
 
       promosPorProducto = {};
@@ -465,7 +467,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const data = await fetchJson(
-        `${apiBase}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`
+        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(
+          codigo
+        )}`
       );
 
       if (!data.ok) return mostrarMensaje("error", data.error);
@@ -660,7 +664,7 @@ document.addEventListener("DOMContentLoaded", () => {
         monto_pagado: pagado,
       };
 
-      const data = await fetchJson(`${apiBase}?action=registrar_venta`, {
+      const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {
         method: "POST",
         body: JSON.stringify(payload),
       });

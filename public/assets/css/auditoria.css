@@ -1,10 +1,165 @@
 /* public/assets/css/auditoria.css */
-.auditoria-panel{padding:24px}
-.auditoria-filters .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.auditoria-filters .field{display:flex;flex-direction:column}
-.auditoria-filters label{font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.auditoria-filters input,.auditoria-filters select{padding:10px 12px;border-radius:12px;border:1px solid var(--panel-border);background:var(--panel);color:var(--text)}
-.auditoria-filters .actions{margin-top:12px;display:flex;gap:10px}
-.table-wrap{margin-top:16px}
-.table .meta{max-width:460px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pager{margin-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+
+.auditoria-panel {
+  padding: 24px;
+}
+
+/* -------------------------
+   Filtros
+------------------------- */
+.auditoria-filters .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.auditoria-filters .field {
+  display: flex;
+  flex-direction: column;
+}
+
+.auditoria-filters label {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.auditoria-filters input,
+.auditoria-filters select {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.auditoria-filters .actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* -------------------------
+   Tabla
+------------------------- */
+.table-wrap {
+  margin-top: 16px;
+}
+
+/* Esto ayuda a que el “Detalle” no rompa el layout */
+.table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table th,
+.table td {
+  vertical-align: top;
+}
+
+/* Si querés fijar anchos aproximados:
+   (ajustá según tu UI / responsive) */
+.table th:nth-child(1),
+.table td:nth-child(1) {
+  width: 140px;
+} /* Fecha */
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  width: 90px;
+} /* Usuario */
+.table th:nth-child(3),
+.table td:nth-child(3) {
+  width: 90px;
+} /* Módulo */
+.table th:nth-child(4),
+.table td:nth-child(4) {
+  width: 120px;
+} /* Acción */
+.table th:nth-child(5),
+.table td:nth-child(5) {
+  width: 90px;
+} /* Entidad */
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  width: 60px;
+} /* ID */
+
+/* OJO: antes tenías white-space:nowrap acá y te rompía el detalle */
+td.meta {
+  max-width: 100%;
+}
+
+/* -------------------------
+   Detalle (details/summary)
+------------------------- */
+.meta-details summary {
+  display: block;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  opacity: 0.92;
+
+  /* resumen “en una línea” con … */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* cuando se abre, que pueda bajar líneas si hace falta */
+.meta-details[open] summary {
+  white-space: normal;
+}
+
+/* bloques internos */
+.meta-kv {
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.9;
+  display: grid;
+  gap: 6px;
+}
+
+.meta-block {
+  margin-top: 12px;
+}
+
+.meta-title {
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.8;
+  letter-spacing: 0.06em;
+}
+
+/* JSON */
+.meta-pre {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* -------------------------
+   Paginador
+------------------------- */
+.pager {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn.is-disabled {
+  pointer-events: none;
+  opacity: 0.45;
+}
