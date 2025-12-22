@@ -12,7 +12,7 @@ require_once __DIR__ . '/../src/backup_lib.php';
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
-function h($s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+
 
 $pageTitle = 'Backups - FLUS';
 $currentSection = 'configuracion';

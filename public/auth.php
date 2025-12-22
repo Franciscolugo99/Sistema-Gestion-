@@ -90,3 +90,15 @@ function require_permission(string $slug): void {
     exit;
   }
 }
+
+/**
+ * Para APIs: NO redirige, responde 401 JSON
+ */
+function require_login_json(): void {
+  if (!is_logged_in()) {
+    http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'No autenticado'], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+}

@@ -28,6 +28,18 @@ $inlineCss = $inlineCss ?? '';
 
 // Clase opcional para el <body> (por página, ej: "page-index")
 $bodyClass = $bodyClass ?? '';
+
+// Soporte para extra head (por si lo usás en algunas páginas)
+$extraHead = $extraHead ?? '';
+
+// ------------------------------
+// CSRF para APIs/JS
+// ------------------------------
+if (session_status() !== PHP_SESSION_ACTIVE) {
+  session_start();
+}
+require_once __DIR__ . '/../lib/csrf.php';
+$csrfToken = function_exists('csrf_token') ? (string)csrf_token() : '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -35,6 +47,9 @@ $bodyClass = $bodyClass ?? '';
   <meta charset="UTF-8">
   <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- CSRF token para llamadas fetch -->
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
@@ -51,7 +66,7 @@ $bodyClass = $bodyClass ?? '';
     rel="stylesheet"
     href="assets/css/app.css?v=<?= $ver ?>"
   >
-<link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/components.css?v=<?= $ver ?>">
 
   <!-- CSS específico de página -->
   <?php foreach ($extraCss as $href): ?>
@@ -64,7 +79,9 @@ $bodyClass = $bodyClass ?? '';
   <?php if ($inlineCss): ?>
     <style><?= $inlineCss ?></style>
   <?php endif; ?>
-  <?= $extraHead ?? '' ?>
+
+  <?= $metaExtra ?>
+  <?= $extraHead ?>
 </head>
 
 <body

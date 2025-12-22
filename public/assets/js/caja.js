@@ -219,26 +219,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Headers merge
     const headers = new Headers(opt.headers || {});
-    if (!headers.has("Content-Type") && opt.body) {
-      headers.set("Content-Type", "application/json");
+    if (!headers.has("Accept")) headers.set("Accept", "application/json");
+
+    // Solo setear Content-Type si vamos a mandar body (JSON)
+    if (opt.body && !headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json; charset=utf-8");
     }
+
     // Mandar CSRF siempre (si existe)
-    if (csrf) headers.set("X-CSRF-Token", csrf);
+    if (csrf && !headers.has("X-CSRF-Token")) {
+      headers.set("X-CSRF-Token", csrf);
+    }
 
     try {
-      const res = await fetch(url, { ...opt, headers, signal: ctrl.signal });
+      const res = await fetch(url, {
+        ...opt,
+        headers,
+        signal: ctrl.signal,
+        credentials: "same-origin", // 👈 clave para que viaje la sesión
+      });
+
       const text = await res.text();
 
-      let data;
+      // Intentar parsear JSON
+      let data = null;
       try {
-        data = JSON.parse(text);
+        data = text ? JSON.parse(text) : null;
       } catch {
-        console.error("Respuesta no-JSON desde API:", text);
-        throw new Error("La API no devolvió JSON válido");
+        // Si no es JSON, lo logueamos (muy útil cuando PHP devuelve HTML por warnings/redirect)
+        console.error("Respuesta NO JSON desde API:", {
+          url,
+          status: res.status,
+          text: text.slice(0, 500),
+        });
+        throw new Error(`La API no devolvió JSON válido (HTTP ${res.status})`);
       }
 
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      // Errores HTTP
+      if (!res.ok) {
+        const msg = data?.error || data?.message || `HTTP ${res.status}`;
+
+        // Si es 401, normalmente es sesión/cookie o backend no ve login
+        if (res.status === 401) {
+          throw new Error(`No autenticado (401). ${msg}`);
+        }
+
+        // 403: permisos o CSRF
+        if (res.status === 403) {
+          throw new Error(`No autorizado (403). ${msg}`);
+        }
+
+        throw new Error(msg);
+      }
+
       return data;
+    } catch (err) {
+      // Timeout
+      if (err?.name === "AbortError") {
+        throw new Error("Tiempo de espera agotado al llamar a la API");
+      }
+      throw err;
     } finally {
       clearTimeout(t);
     }
@@ -632,36 +672,54 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // COBRAR
   // =========================
+  let cobrando = false;
+
   async function cobrar() {
     limpiarMensaje();
 
-    if (carrito.length === 0) return mostrarMensaje("error", "Ticket vacío");
+    if (cobrando) return;
+    if (!carrito || carrito.length === 0) {
+      return mostrarMensaje("error", "Ticket vacío");
+    }
 
-    const total = Number(totalNetoActual) || 0;
+    const totalUI = Number(totalNetoActual) || 0;
 
-    // si no es efectivo, forzamos pagado = total
-    let pagado = parseFloat(inputPagado?.value || "0");
+    // Si no es efectivo, forzamos pagado = total
+    let pagado = parseFloat(
+      String(inputPagado?.value || "0").replace(",", ".")
+    );
     if (!medioEsEfectivo()) {
-      pagado = total;
+      pagado = totalUI;
     } else {
-      if (pagado + 0.0001 < total) {
+      if (!Number.isFinite(pagado) || pagado <= 0) pagado = 0;
+      if (pagado + 0.0001 < totalUI) {
         return mostrarMensaje("error", "El pago no alcanza.");
       }
     }
+
+    // Caja id (si existe en el botón cerrar)
+    const CAJA_ID = Number(
+      document.getElementById("btnCerrarCaja")?.dataset?.cajaId || 0
+    );
+
+    // Lock + UX
+    cobrando = true;
+    const btn = document.getElementById("btnCobrar");
+    if (btn) btn.disabled = true;
 
     try {
       const itemsLimpios = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
-        // La API usa "precio"
-        precio: Number(i.precio),
+        precio: Number(i.precio), // precio final (manual si aplicaste)
       }));
 
       const payload = {
         csrf: getCsrf(),
+        caja_id: CAJA_ID, // 👈 importante para ventas y caja_sesiones
         items: itemsLimpios,
-        medio_pago: selMedio?.value || "EFECTIVO",
-        monto_pagado: pagado,
+        medio_pago: (selMedio?.value || "EFECTIVO").toUpperCase(),
+        monto_pagado: Number(pagado),
       };
 
       const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {
@@ -669,10 +727,11 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(payload),
       });
 
-      if (!data?.ok)
+      if (!data?.ok) {
         return mostrarMensaje("error", data?.error || "Error en la API");
+      }
 
-      const ventaId = data.venta_id || data.ventaId;
+      const ventaId = data.venta_id ?? data.ventaId;
       if (!ventaId) {
         console.warn("Respuesta API sin venta_id:", data);
         return mostrarMensaje(
@@ -681,13 +740,14 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
-      // OK
+      // Limpieza estado
       carrito = [];
       localStorage.removeItem(STORAGE_KEY);
       if (inputPagado) inputPagado.value = "";
       actualizarVista();
+      inputCodigo?.focus?.();
 
-      // imprimir ticket
+      // Imprimir ticket
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
       iframe.src = `ticket.php?venta_id=${encodeURIComponent(
@@ -697,6 +757,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error("Error registrar venta:", e);
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
+    } finally {
+      cobrando = false;
+      if (btn) btn.disabled = false;
     }
   }
 

@@ -2,29 +2,67 @@
 // public/api/api.php
 declare(strict_types=1);
 
+// Blindaje: si algún include imprime warnings/HTML, no rompe el JSON
+ob_start();
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+
 require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../promos_logic.php';
+require_once __DIR__ . '/../lib/csrf.php';
 require_once __DIR__ . '/../../src/audit_lib.php';
-
-header('Content-Type: application/json; charset=utf-8');
 
 $pdo = getPDO();
 
-function json_response(array $data, int $status = 200): void {
+function api_json(array $data, int $status = 200): void {
+  // Si hubo “basura” antes del JSON, loguearla y descartarla
+  $junk = ob_get_contents();
+  if (is_string($junk) && trim($junk) !== '') {
+    error_log('[API] Output inesperado antes del JSON: ' . substr($junk, 0, 800));
+  }
+  while (ob_get_level() > 0) ob_end_clean();
+
   http_response_code($status);
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store');
   echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
 
-/**
- * Leemos el body UNA SOLA VEZ (evita consumir php://input dos veces)
- * y permite "action" por JSON.
- */
+function api_require_login(): void {
+  if (!function_exists('current_user') || !current_user()) {
+    api_json(['ok' => false, 'error' => 'No autenticado'], 401);
+  }
+}
+
+function api_require_perm(string $slug): void {
+  if (!function_exists('user_has_permission')) {
+    api_json(['ok' => false, 'error' => 'RBAC no disponible'], 500);
+  }
+  if (!user_has_permission($slug)) {
+    api_json(['ok' => false, 'error' => 'No autorizado'], 403);
+  }
+}
+
+function api_require_csrf(array $bodyJson = []): void {
+  $csrf = (string)(
+    $bodyJson['csrf']
+      ?? ($_POST['csrf'] ?? '')
+      ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')
+  );
+  if (!csrf_check($csrf)) {
+    api_json(['ok' => false, 'error' => 'CSRF inválido o ausente'], 403);
+  }
+}
+
+// -------- Leer JSON body una sola vez ----------
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
 $rawInput = '';
 $bodyJson = null;
-
-$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 if ($method === 'POST') {
   $rawInput = file_get_contents('php://input') ?: '';
@@ -32,28 +70,23 @@ if ($method === 'POST') {
   if (is_array($tmp)) $bodyJson = $tmp;
 }
 
-// action puede venir por GET o por JSON body
 $action = (string)($_GET['action'] ?? '');
 if ($action === '' && is_array($bodyJson) && isset($bodyJson['action'])) {
   $action = (string)$bodyJson['action'];
 }
 
-// API: NO redirect HTML, siempre JSON
-if (!isAuthenticated()) {
-  json_response(["ok" => false, "error" => "No autenticado"], 401);
-}
+api_require_login();
 
-// Permisos por acción (mínimo)
+// Permisos por acción
 $permMap = [
   'buscar_producto'       => 'realizar_ventas',
   'listar_promos_activas' => 'realizar_ventas',
-  'anular_venta'          => 'anular_venta',
+  'anular_venta'          => 'anular_venta',  // OJO: este slug debe existir
   'debug_audit'           => 'ver_auditoria',
-  // registrar_venta: obsoleto en este archivo
 ];
 
 if (isset($permMap[$action])) {
-  require_permission($permMap[$action]);
+  api_require_perm($permMap[$action]);
 }
 
 try {
@@ -62,11 +95,10 @@ try {
      DEBUG AUDIT
   ========================================================= */
   if ($action === 'debug_audit') {
-    // En producción, no expongas esto (info leak)
     if (defined('APP_ENV') && APP_ENV === 'production') {
-      json_response(["ok" => false, "error" => "No disponible"], 404);
+      api_json(['ok' => false, 'error' => 'No disponible'], 404);
     }
-    json_response([
+    api_json([
       'ok'         => true,
       'has_audit'  => function_exists('audit_log_event'),
       'audit_file' => file_exists(__DIR__ . '/../../src/audit_lib.php'),
@@ -76,76 +108,70 @@ try {
   /* =========================================================
      BUSCAR PRODUCTO
   ========================================================= */
-  if ($action === "buscar_producto") {
-    if ($method !== 'GET') {
-      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
-    }
+  if ($action === 'buscar_producto') {
+    if ($method !== 'GET') api_json(['ok'=>false, 'error'=>'Método no permitido'], 405);
 
-    $codigo = trim((string)($_GET["codigo"] ?? ""));
-    if ($codigo === "") json_response(["ok"=>false, "error"=>"Código vacío"], 400);
+    $codigo = trim((string)($_GET['codigo'] ?? ''));
+    if ($codigo === '') api_json(['ok'=>false, 'error'=>'Código vacío'], 422);
 
-    $sql = "SELECT id,codigo,nombre,precio,stock,activo,es_pesable,unidad_venta
-            FROM productos
-            WHERE codigo = :cod
-            LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([":cod" => $codigo]);
+    $stmt = $pdo->prepare("
+      SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+      FROM productos
+      WHERE codigo = :cod
+      LIMIT 1
+    ");
+    $stmt->execute([':cod' => $codigo]);
     $p = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$p || (int)$p["activo"] !== 1) {
-      json_response(["ok"=>false, "error"=>"Producto no encontrado o inactivo"], 404);
+    if (!$p || (int)$p['activo'] !== 1) {
+      api_json(['ok'=>false, 'error'=>'Producto no encontrado o inactivo'], 404);
     }
 
-    $p["precio"]       = (float)$p["precio"];
-    $p["stock"]        = (float)$p["stock"];
-    $p["es_pesable"]   = ((int)$p["es_pesable"] === 1);
-    $p["unidad_venta"] = $p["unidad_venta"] ?: "UNIDAD";
+    $p['precio']       = (float)$p['precio'];
+    $p['stock']        = (float)$p['stock'];
+    $p['es_pesable']   = ((int)$p['es_pesable'] === 1);
+    $p['unidad_venta'] = $p['unidad_venta'] ?: 'UNIDAD';
 
-    json_response(["ok"=>true, "producto"=>$p]);
+    api_json(['ok'=>true, 'producto'=>$p]);
   }
 
   /* =========================================================
      LISTAR PROMOS ACTIVAS
   ========================================================= */
-  if ($action === "listar_promos_activas") {
-    if ($method !== 'GET') {
-      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
-    }
+  if ($action === 'listar_promos_activas') {
+    if ($method !== 'GET') api_json(['ok'=>false, 'error'=>'Método no permitido'], 405);
 
     $promos = obtenerPromosActivas($pdo);
-    json_response([
-      "ok"      => true,
-      "simples" => $promos["simples"],
-      "combos"  => $promos["combos"]
+    api_json([
+      'ok'      => true,
+      'simples' => $promos['simples'],
+      'combos'  => $promos['combos'],
     ]);
   }
 
   /* =========================================================
      REGISTRAR VENTA (OBSOLETO)
-     - Se maneja en /public/api/index.php (CSRF)
   ========================================================= */
-  if ($action === "registrar_venta") {
-    json_response([
-      "ok"    => false,
-      "error" => "Endpoint obsoleto. Usar /kiosco/public/api/index.php?action=registrar_venta"
+  if ($action === 'registrar_venta') {
+    api_json([
+      'ok'    => false,
+      'error' => 'Endpoint obsoleto. Usar /kiosco/public/api/index.php?action=registrar_venta'
     ], 410);
   }
 
   /* =========================================================
-     ANULAR VENTA
+     ANULAR VENTA (POST + CSRF)
   ========================================================= */
-  if ($action === "anular_venta") {
-    if ($method !== 'POST') {
-      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
-    }
+  if ($action === 'anular_venta') {
+    if ($method !== 'POST') api_json(['ok'=>false, 'error'=>'Método no permitido'], 405);
+    if (!is_array($bodyJson)) api_json(['ok'=>false, 'error'=>'JSON inválido'], 400);
 
-    $body = $bodyJson;
-    if (!is_array($body)) json_response(["ok"=>false, "error"=>"JSON inválido"], 400);
+    api_require_csrf($bodyJson);
 
-    $ventaId = (int)($body["venta_id"] ?? 0);
-    $motivo  = trim((string)($body["motivo"] ?? ''));
+    $ventaId = (int)($bodyJson['venta_id'] ?? 0);
+    $motivo  = trim((string)($bodyJson['motivo'] ?? ''));
 
-    if ($ventaId <= 0) json_response(["ok"=>false, "error"=>"venta_id inválido"], 400);
+    if ($ventaId <= 0) api_json(['ok'=>false, 'error'=>'venta_id inválido'], 422);
 
     $u = current_user();
     $userId = (int)($u['id'] ?? 0);
@@ -159,13 +185,13 @@ try {
 
     if (!$venta) {
       $pdo->rollBack();
-      json_response(["ok"=>false, "error"=>"Venta no encontrada"], 404);
+      api_json(['ok'=>false, 'error'=>'Venta no encontrada'], 404);
     }
 
-    $estado = (string)($venta['estado'] ?? 'EMITIDA');
-    if (strtoupper($estado) === 'ANULADA') {
+    $estado = strtoupper((string)($venta['estado'] ?? 'EMITIDA'));
+    if ($estado === 'ANULADA') {
       $pdo->rollBack();
-      json_response(["ok"=>false, "error"=>"La venta ya está anulada"], 400);
+      api_json(['ok'=>false, 'error'=>'La venta ya está anulada'], 400);
     }
 
     // Items
@@ -175,7 +201,7 @@ try {
 
     if (!$items) {
       $pdo->rollBack();
-      json_response(["ok"=>false, "error"=>"La venta no tiene items"], 400);
+      api_json(['ok'=>false, 'error'=>'La venta no tiene items'], 400);
     }
 
     $updStock = $pdo->prepare("UPDATE productos SET stock = stock + :c WHERE id = :id");
@@ -190,12 +216,12 @@ try {
       $pid  = (int)$it['producto_id'];
       $cant = (float)$it['cantidad'];
 
-      $updStock->execute([":c" => $cant, ":id" => $pid]);
+      $updStock->execute([':c' => $cant, ':id' => $pid]);
       $insMov->execute([
-        ":vid"  => $ventaId,
-        ":pid"  => $pid,
-        ":cant" => $cant,
-        ":com"  => ($motivo !== '' ? $motivo : null),
+        ':vid'  => $ventaId,
+        ':pid'  => $pid,
+        ':cant' => $cant,
+        ':com'  => ($motivo !== '' ? $motivo : null),
       ]);
 
       $totalProductos += $cant;
@@ -216,7 +242,8 @@ try {
       ':id'  => $ventaId
     ]);
 
-    // Ajustar resumen de caja_sesiones (si aplica)
+    // Ajustar caja_sesiones:
+    // IMPORTANTE: en tu schema total_ventas es MONTO (no “cantidad de ventas”)
     $cajaId  = (int)($venta['caja_id'] ?? 0);
     $medio   = strtoupper((string)($venta['medio_pago'] ?? 'EFECTIVO'));
     $importe = (float)($venta['total'] ?? 0);
@@ -232,9 +259,9 @@ try {
 
       $updCaja = $pdo->prepare("
         UPDATE caja_sesiones
-        SET total_ventas = GREATEST(COALESCE(total_ventas,0) - 1, 0),
-            total_productos = GREATEST(COALESCE(total_productos,0) - :tp, 0),
-            $campoMP = GREATEST(COALESCE($campoMP,0) - :importe, 0),
+        SET total_ventas      = GREATEST(COALESCE(total_ventas,0) - :importe, 0),
+            total_productos   = GREATEST(COALESCE(total_productos,0) - :tp, 0),
+            $campoMP          = GREATEST(COALESCE($campoMP,0) - :importe, 0),
             total_anulaciones = COALESCE(total_anulaciones,0) + 1
         WHERE id = :id
       ");
@@ -245,7 +272,7 @@ try {
       ]);
     }
 
-    // Si hay factura asociada, marcarla anulada (no borrar)
+    // Factura asociada (si existe)
     $pdo->prepare("UPDATE facturas SET estado = 'ANULADA' WHERE venta_id = ?")->execute([$ventaId]);
 
     // Auditoría
@@ -258,26 +285,22 @@ try {
     }
 
     $pdo->commit();
-
-    json_response(["ok"=>true, "venta_id"=>$ventaId]);
+    api_json(['ok'=>true, 'venta_id'=>$ventaId]);
   }
 
-  json_response(["ok"=>false, "error"=>"Acción no válida"], 400);
+  api_json(['ok' => false, 'error' => 'Acción no válida'], 400);
 
 } catch (Throwable $e) {
   if ($pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
 
-  // Log interno (si existe logMessage en tu config)
   if (function_exists('logMessage')) {
     logMessage("API error ({$action}): " . $e->getMessage(), 'error');
   } else {
     error_log("API error ({$action}): " . $e->getMessage());
   }
 
-  // No filtrar detalles en producción
   if (defined('APP_ENV') && APP_ENV === 'production') {
-    json_response(["ok"=>false, "error"=>"Error interno"], 500);
+    api_json(['ok'=>false, 'error'=>'Error interno'], 500);
   }
-
-  json_response(["ok"=>false, "error"=>$e->getMessage()], 500);
+  api_json(['ok'=>false, 'error'=>$e->getMessage()], 500);
 }

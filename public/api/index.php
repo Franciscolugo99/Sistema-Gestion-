@@ -1,4 +1,5 @@
 <?php
+// public/api/index.php
 declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -7,30 +8,25 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
+require_once __DIR__ . '/../promos_logic.php';
 
 function json_ok(array $data = []): void {
-  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE);
+  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
 function json_fail(string $msg, int $code = 400, array $extra = []): void {
   http_response_code($code);
-  echo json_encode(['ok' => false, 'error' => $msg] + $extra, JSON_UNESCAPED_UNICODE);
+  echo json_encode(['ok' => false, 'error' => $msg] + $extra, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
   exit;
 }
 
-/**
- * API: NO redirect HTML, siempre JSON 401
- */
-if (!isAuthenticated()) {
-  json_fail('No autenticado', 401);
+function api_require_login(): void {
+  if (!function_exists('current_user') || !current_user()) {
+    json_fail('No autenticado', 401);
+  }
 }
-
-/**
- * Permiso obligatorio (fail-closed)
- */
-function require_perm(string $perm): void {
+function api_require_perm(string $perm): void {
   if (!function_exists('user_has_permission')) {
-    // Si no existe el helper, es un error de wiring del sistema: mejor cerrar
     json_fail('RBAC no disponible', 500);
   }
   if (!user_has_permission($perm)) {
@@ -38,7 +34,8 @@ function require_perm(string $perm): void {
   }
 }
 
-/** Leer JSON body (si viene) */
+api_require_login();
+
 $raw  = file_get_contents('php://input');
 $body = [];
 if (is_string($raw) && trim($raw) !== '') {
@@ -53,196 +50,265 @@ try {
   $pdo = getPDO();
 
   /* =========================================================
-     1) Buscar producto por código (solo lectura)
-  ========================================================= */
-  if ($action === 'buscar_producto') {
-    require_perm('realizar_ventas');
-
-    if ($method !== 'GET') {
-      json_fail('Método no permitido', 405);
-    }
-
-    $codigo = trim((string)($_GET['codigo'] ?? ''));
-    if ($codigo === '') {
-      json_fail('Código inválido', 422);
-    }
-
-    $stmt = $pdo->prepare("
-      SELECT id, codigo, nombre, precio, stock, es_pesable, unidad_venta
-      FROM productos
-      WHERE codigo = ? AND activo = 1
-      LIMIT 1
-    ");
-    $stmt->execute([$codigo]);
-    $prod = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($prod) json_ok(['producto' => $prod]);
-    json_fail('Producto no encontrado o inactivo', 404);
-  }
-
-  /* =========================================================
-     2) Registrar venta desde CAJA (modifica datos => POST + CSRF)
+     REGISTRAR VENTA (POST + CSRF)
   ========================================================= */
   if ($action === 'registrar_venta') {
-    require_perm('realizar_ventas');
+    api_require_perm('realizar_ventas');
 
-    if ($method !== 'POST') {
-      json_fail('Método no permitido', 405);
-    }
+    if ($method !== 'POST') json_fail('Método no permitido', 405);
 
-    // CSRF: aceptar en header X-CSRF-Token o en JSON/body como "csrf"
+    // CSRF (header X-CSRF-Token o body csrf)
     $csrf = (string)($body['csrf'] ?? ($_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
-    if (!csrf_check($csrf)) {
-      json_fail('CSRF inválido o ausente', 403);
-    }
+    if (!csrf_check($csrf)) json_fail('CSRF inválido o ausente', 403);
 
-    if (!$body) {
-      json_fail('JSON inválido', 400);
-    }
+    if (!$body) json_fail('JSON inválido', 400);
 
     $items        = $body['items'] ?? [];
-    $medio_pago   = (string)($body['medio_pago'] ?? 'SIN_ESPECIFICAR');
+    $medio_pago   = strtoupper((string)($body['medio_pago'] ?? 'EFECTIVO'));
     $monto_pagado = (float)($body['monto_pagado'] ?? 0);
+    $cajaId       = (int)($body['caja_id'] ?? 0);
 
-    if (!is_array($items) || empty($items)) {
-      json_fail('No hay ítems en la venta', 422);
-    }
+    if (!is_array($items) || empty($items)) json_fail('No hay ítems en la venta', 422);
 
-    $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
+    $u = current_user();
+    $userId = (int)($u['id'] ?? 0);
 
-    // Validación mínima por ítem (NO calculamos total aún con precio cliente)
+    // Permiso para modificar precio (fallback razonable)
+    $puedeCambiarPrecio =
+      function_exists('user_has_permission') && (
+        user_has_permission('caja_modificar_precio')
+        || user_has_permission('administrar_config')
+        || user_has_permission('editar_productos')
+      );
+
+    // Validación mínima
     foreach ($items as $i => $item) {
       if (!is_array($item)) json_fail("Ítem inválido (#$i)", 422);
-
       $productoId = (int)($item['id'] ?? 0);
-
-      // cantidad puede ser float (pesables)
-      $cantidad = (float)($item['cantidad'] ?? 0);
-
-      if ($productoId <= 0 || $cantidad <= 0) {
-        json_fail("Datos inválidos en ítem (#$i)", 422);
-      }
+      $cantidad   = (float)($item['cantidad'] ?? 0);
+      if ($productoId <= 0 || $cantidad <= 0) json_fail("Datos inválidos en ítem (#$i)", 422);
     }
 
-    // --------- Transacción ----------
     $pdo->beginTransaction();
 
-    // Insertar venta (lo mínimo). Ideal: guardar user_id/caja_id si tu schema lo tiene
-    $stmtVenta = $pdo->prepare("
-      INSERT INTO ventas (total, medio_pago, monto_pagado, vuelto)
-      VALUES (?, ?, ?, ?)
-    ");
-    // temporales hasta calcular total real:
-    $stmtVenta->execute([0, $medio_pago, 0, 0]);
-    $ventaId = (int)$pdo->lastInsertId();
+    // Validar caja_id (si viene) -> debe existir y estar abierta (fecha_cierre NULL)
+    if ($cajaId > 0) {
+      $stCaja = $pdo->prepare("SELECT id FROM caja_sesiones WHERE id = ? AND fecha_cierre IS NULL LIMIT 1");
+      $stCaja->execute([$cajaId]);
+      if (!$stCaja->fetchColumn()) {
+        throw new Exception("Caja inválida o cerrada (caja_id=$cajaId)");
+      }
+    } else {
+      $cajaId = 0;
+    }
 
-    $stmtItem = $pdo->prepare("
-      INSERT INTO venta_items (venta_id, producto_id, cantidad, precio, subtotal)
-      VALUES (?, ?, ?, ?, ?)
-    ");
+    // 1) Traer productos con lock + armar carrito base (precio lista)
+    $carrito = []; // para promos_logic
+    $manualPriceByPid = []; // precio manual pedido por front (si permitido)
+    $sumCantidad = 0.0;
 
-    $stmtStock = $pdo->prepare("
-      UPDATE productos
-      SET stock = stock - ?
-      WHERE id = ? AND stock >= ?
+    $stProd = $pdo->prepare("
+      SELECT id, nombre, precio, stock, es_pesable, activo
+      FROM productos
+      WHERE id = ? FOR UPDATE
     ");
-
-    $stmtMov = $pdo->prepare("
-      INSERT INTO movimientos_stock (producto_id, tipo, cantidad, referencia_venta_id, comentario)
-      VALUES (?, 'VENTA', ?, ?, NULL)
-    ");
-
-    $total = 0.0;
 
     foreach ($items as $i => $item) {
-      $productoId   = (int)$item['id'];
-      $cantidad     = (float)$item['cantidad'];
+      $pid  = (int)$item['id'];
+      $cant = (float)$item['cantidad'];
 
-      // Lock para evitar carreras y para traer el precio real
-      $check = $pdo->prepare("
-        SELECT stock, nombre, precio, es_pesable, activo
-        FROM productos
-        WHERE id = ? FOR UPDATE
-      ");
-      $check->execute([$productoId]);
-      $row = $check->fetch(PDO::FETCH_ASSOC);
+      $stProd->execute([$pid]);
+      $p = $stProd->fetch(PDO::FETCH_ASSOC);
 
-      if (!$row) {
-        throw new Exception("Producto ID $productoId no existe");
-      }
-      if ((int)$row['activo'] !== 1) {
-        throw new Exception("Producto inactivo: {$row['nombre']}");
-      }
+      if (!$p) throw new Exception("Producto ID $pid no existe");
+      if ((int)$p['activo'] !== 1) throw new Exception("Producto inactivo: {$p['nombre']}");
 
-      // Pesable => permitir decimales; no pesable => forzar entero
-      $esPesable = ((int)($row['es_pesable'] ?? 0) === 1);
+      $esPesable = ((int)$p['es_pesable'] === 1);
       if (!$esPesable) {
-        // evita vender 0.5 unidades de algo que no es pesable
-        if (abs($cantidad - round($cantidad)) > 0.00001) {
-          throw new Exception("Cantidad inválida para {$row['nombre']} (no es pesable)");
+        if (abs($cant - round($cant)) > 0.00001) {
+          throw new Exception("Cantidad inválida para {$p['nombre']} (no es pesable)");
         }
-        $cantidad = (float)(int)round($cantidad);
+        $cant = (float)(int)round($cant);
       }
 
-      $stock = (float)$row['stock'];
-      if ($stock < $cantidad) {
-        throw new Exception("Stock insuficiente para {$row['nombre']} (stock: {$stock}, solicitado: {$cantidad})");
+      $stock = (float)$p['stock'];
+      if ($stock < $cant) {
+        throw new Exception("Stock insuficiente para {$p['nombre']} (stock: {$stock}, solicitado: {$cant})");
       }
 
-      // Precio: por defecto el de DB
-      $precioDb = (float)$row['precio'];
+      $precioLista = (float)$p['precio'];
 
-      // Si viene precio del cliente, solo aceptarlo si tiene permiso
-      $precioCliente = isset($item['precio']) ? (float)$item['precio'] : $precioDb;
-      $precioFinal = $precioDb;
-
-      if ($puedeCambiarPrecio) {
-        // Si tiene permiso, se permite precio cliente (con límites si querés)
-        $precioFinal = $precioCliente;
-        if ($precioFinal < 0) throw new Exception("Precio inválido para {$row['nombre']}");
-      } else {
-        // Sin permiso, ignoramos el precio del cliente
-        $precioFinal = $precioDb;
+      // precio manual (solo si tiene permiso) - NO lo aplicamos todavía, lo “apilamos” después de promos
+      if ($puedeCambiarPrecio && isset($item['precio'])) {
+        $pm = (float)$item['precio'];
+        if ($pm > 0) {
+          $manualPriceByPid[$pid] = $pm;
+        }
       }
 
-      $subtotal = round($cantidad * $precioFinal, 2);
+      $carrito[] = [
+        'producto_id'   => $pid,
+        'cantidad'      => $cant,
+        'precio_unitario' => $precioLista, // promos y combos sobre lista (consistente con ticket/DB)
+      ];
 
-      $stmtItem->execute([$ventaId, $productoId, $cantidad, $precioFinal, $subtotal]);
-
-      // bajar stock
-      $stmtStock->execute([$cantidad, $productoId, $cantidad]);
-      if ($stmtStock->rowCount() !== 1) {
-        throw new Exception("No se pudo actualizar stock (Producto ID $productoId)");
-      }
-
-      $stmtMov->execute([$productoId, $cantidad, $ventaId]);
-
-      $total += $subtotal;
+      $sumCantidad += $cant;
     }
 
-    $total = round($total, 2);
+    // 2) Aplicar promos/combos (engine backend ya hecho)
+    $promos = obtenerPromosActivas($pdo);
+    $calc   = aplicarPromosACarrito($carrito, $promos);
 
-    if ($monto_pagado < $total) {
+    // 3) Aplicar “precio manual” como descuento adicional (solo si baja el final)
+    foreach ($calc['items'] as &$it) {
+      $pid = (int)$it['producto_id'];
+      if (!isset($manualPriceByPid[$pid])) continue;
+
+      $manual = (float)$manualPriceByPid[$pid];
+      $orig   = (float)$it['precio_unit_original'];
+      $final  = (float)$it['precio_unit_final'];
+      $cant   = (float)$it['cantidad'];
+
+      // Solo permitir bajar más (si querés permitir subir, lo hacemos con recargo_total y UI)
+      if ($manual > 0 && $manual < ($final - 0.00001)) {
+        $nuevoSubtotal = round($manual * $cant, 2);
+        $nuevoDesc     = max(0.0, round(($orig * $cant) - $nuevoSubtotal, 2));
+
+        $it['precio_unit_final'] = $manual;
+        $it['subtotal']          = $nuevoSubtotal;
+        $it['descuento']         = max(0.0, ($orig * $cant) - $nuevoSubtotal);
+        $it['descuento_monto']   = $nuevoDesc;
+      }
+    }
+    unset($it);
+
+    // 4) Totales
+    $totalBruto = 0.0;
+    $descTotal  = 0.0;
+    $totalNeto  = 0.0;
+
+    foreach ($calc['items'] as $it) {
+      $cant = (float)$it['cantidad'];
+      $orig = (float)$it['precio_unit_original'];
+      $sub  = (float)$it['subtotal'];
+      $desc = (float)$it['descuento_monto'];
+
+      $totalBruto += ($orig * $cant);
+      $descTotal  += $desc;
+      $totalNeto  += $sub;
+    }
+
+    $totalBruto = round($totalBruto, 2);
+    $descTotal  = round($descTotal, 2);
+    $totalNeto  = round($totalNeto, 2);
+
+    $recargoTotal = 0.0;
+    if ($totalNeto > $totalBruto) {
+      $recargoTotal = round($totalNeto - $totalBruto, 2);
+    }
+
+    // 5) Pago / vuelto
+    if ($monto_pagado + 0.0001 < $totalNeto) {
       throw new Exception('Pago insuficiente');
     }
+    $vuelto = round(max($monto_pagado - $totalNeto, 0), 2);
 
-    $vuelto = round($monto_pagado - $total, 2);
-
-    // Actualizar venta con total real
-    $updVenta = $pdo->prepare("
-      UPDATE ventas
-      SET total = ?, monto_pagado = ?, vuelto = ?
-      WHERE id = ?
+    // 6) Insert venta
+    $stVenta = $pdo->prepare("
+      INSERT INTO ventas (caja_id, total, descuento_total, recargo_total, medio_pago, monto_pagado, vuelto)
+      VALUES (:caja_id, :total, :desc, :rec, :mp, :pagado, :vuelto)
     ");
-    $updVenta->execute([$total, $monto_pagado, $vuelto, $ventaId]);
+    $stVenta->execute([
+      ':caja_id' => ($cajaId > 0 ? $cajaId : null),
+      ':total'   => $totalNeto,
+      ':desc'    => $descTotal,
+      ':rec'     => $recargoTotal,
+      ':mp'      => $medio_pago,
+      ':pagado'  => $monto_pagado,
+      ':vuelto'  => $vuelto,
+    ]);
+    $ventaId = (int)$pdo->lastInsertId();
+
+    // 7) Insert items + stock + movimientos
+    $stItem = $pdo->prepare("
+      INSERT INTO venta_items
+        (venta_id, producto_id, cantidad, precio, precio_unit_original, descuento_monto, precio_unit_final, subtotal)
+      VALUES
+        (:vid, :pid, :cant, :precio, :orig, :desc, :final, :sub)
+    ");
+
+    $stStock = $pdo->prepare("
+      UPDATE productos
+      SET stock = stock - :cant
+      WHERE id = :pid AND stock >= :cant
+    ");
+
+    $stMov = $pdo->prepare("
+      INSERT INTO movimientos_stock (venta_id, producto_id, tipo, cantidad, comentario)
+      VALUES (:vid, :pid, 'VENTA', :cant, NULL)
+    ");
+
+    foreach ($calc['items'] as $it) {
+      $pid   = (int)$it['producto_id'];
+      $cant  = (float)$it['cantidad'];
+      $orig  = (float)$it['precio_unit_original'];
+      $final = (float)$it['precio_unit_final'];
+      $desc  = (float)$it['descuento_monto'];
+      $sub   = (float)$it['subtotal'];
+
+      $stItem->execute([
+        ':vid'   => $ventaId,
+        ':pid'   => $pid,
+        ':cant'  => $cant,
+        ':precio'=> $final,   // en tu DB, "precio" suele ser el unitario final
+        ':orig'  => $orig,
+        ':desc'  => $desc,
+        ':final' => $final,
+        ':sub'   => $sub,
+      ]);
+
+      $stStock->execute([':cant' => $cant, ':pid' => $pid]);
+      if ($stStock->rowCount() !== 1) {
+        throw new Exception("No se pudo actualizar stock (Producto ID $pid)");
+      }
+
+      $stMov->execute([':vid' => $ventaId, ':pid' => $pid, ':cant' => $cant]);
+    }
+
+    // 8) Actualizar caja_sesiones (si hay caja abierta)
+    if ($cajaId > 0) {
+      $campoMP = match ($medio_pago) {
+        'EFECTIVO' => 'total_efectivo',
+        'MP'       => 'total_mp',
+        'DEBITO'   => 'total_debito',
+        'CREDITO'  => 'total_credito',
+        default    => 'total_efectivo'
+      };
+
+      $stCajaUpd = $pdo->prepare("
+        UPDATE caja_sesiones
+        SET total_ventas    = COALESCE(total_ventas,0) + :importe,
+            total_productos = COALESCE(total_productos,0) + :tp,
+            $campoMP        = COALESCE($campoMP,0) + :importe
+        WHERE id = :id
+      ");
+      $stCajaUpd->execute([
+        ':importe' => $totalNeto,
+        ':tp'      => $sumCantidad,
+        ':id'      => $cajaId,
+      ]);
+    }
 
     $pdo->commit();
 
     json_ok([
-      'venta_id'     => $ventaId,
-      'total'        => $total,
-      'monto_pagado' => $monto_pagado,
-      'vuelto'       => $vuelto
+      'venta_id'       => $ventaId,
+      'total'          => $totalNeto,
+      'bruto'          => $totalBruto,
+      'descuento_total'=> $descTotal,
+      'recargo_total'  => $recargoTotal,
+      'monto_pagado'   => $monto_pagado,
+      'vuelto'         => $vuelto,
     ]);
   }
 
@@ -253,7 +319,6 @@ try {
     $pdo->rollBack();
   }
 
-  // Log interno (no filtrar detalles en prod)
   if (function_exists('logMessage')) {
     logMessage("API index error ({$action}): " . $e->getMessage(), 'error');
   } else {

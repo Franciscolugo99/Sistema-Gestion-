@@ -1,20 +1,33 @@
 <?php
 // src/backup_lib.php
 declare(strict_types=1);
+
 require_once __DIR__ . '/logger.php';
+require_once __DIR__ . '/config.php';
+
+// Si existe audit_lib, lo cargamos
+if (file_exists(__DIR__ . '/audit_lib.php')) {
+  require_once __DIR__ . '/audit_lib.php';
+}
 
 /**
- * Wrapper para compatibilidad: backup_lib usa app_log()
- * pero el sistema usa flus_log().
+ * Wrapper compat: algunos módulos llaman app_log("mensaje") o app_log("level","mensaje",[])
+ * - Si existe flus_log() (logger.php) lo usa
+ * - Si no, fallback a /storage/logs/app.log
  */
 if (!function_exists('app_log')) {
-  function app_log(string $level, string $message, array $context = []): void {
+  function app_log(string $level, string $message = '', array $context = []): void {
+    // Compat: si llamaron app_log("mensaje") -> lo tratamos como info
+    if ($message === '') {
+      $message = $level;
+      $level = 'info';
+    }
+
     if (function_exists('flus_log')) {
       flus_log($level, $message, $context);
       return;
     }
 
-    // Fallback ultra simple a archivo (por si no está logger.php)
     $dir = __DIR__ . '/../storage/logs';
     if (!is_dir($dir)) @mkdir($dir, 0775, true);
 
@@ -28,21 +41,12 @@ if (!function_exists('app_log')) {
   }
 }
 
-require_once __DIR__ . '/config.php';
-
-// Si existe audit_lib, lo cargamos (puede traer app_log)
-if (file_exists(__DIR__ . '/audit_lib.php')) {
-  require_once __DIR__ . '/audit_lib.php';
-}
-
 /**
- * Logger interno SIEMPRE disponible.
- * - Si existe app_log() => lo usa
- * - Si no => escribe en /storage/logs/app.log
+ * Logger interno consistente
  */
-function bk_log(string $msg): void {
+function bk_log(string $msg, string $level = 'info', array $context = []): void {
   if (function_exists('app_log')) {
-    app_log($msg);
+    app_log($level, $msg, $context);
     return;
   }
 
@@ -50,7 +54,12 @@ function bk_log(string $msg): void {
   if (!is_dir($dir)) @mkdir($dir, 0775, true);
 
   $file = $dir . '/app.log';
-  $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL;
+  $line = '[' . date('Y-m-d H:i:s') . "] [$level] " . $msg;
+  if ($context) {
+    $line .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  }
+  $line .= PHP_EOL;
+
   @file_put_contents($file, $line, FILE_APPEND);
 }
 
@@ -66,8 +75,8 @@ function backup_cfg(): array {
   $extDir   = getenv('KIOSCO_BACKUP_EXTERNAL_DIR');
 
   return [
-    'compress' => ($compress === false) ? true : ((string)$compress !== '0'),
-    'keep'     => ($keep === false) ? 30 : max(1, (int)$keep),
+    'compress'     => ($compress === false) ? true : ((string)$compress !== '0'),
+    'keep'         => ($keep === false) ? 30 : max(1, (int)$keep),
     'external_dir' => ($extDir === false) ? '' : trim((string)$extDir),
   ];
 }
@@ -121,7 +130,7 @@ function backup_delete(string $file, ?string &$err = null): bool {
     return false;
   }
 
-  bk_log("Backup borrado: {$file}");
+  bk_log("Backup borrado: {$file}", 'info');
   return true;
 }
 
@@ -157,47 +166,86 @@ function backup_copy_external(string $localPath, string $externalDir, ?string &$
   return true;
 }
 
+/**
+ * Crea backup SQL (y opcional .gz)
+ * Devuelve el nombre final del archivo o null en error.
+ */
 function backup_create(?string &$err = null): ?string {
   $cfg = backup_cfg();
   $dir = backups_dir();
+
+  // exec habilitado?
+  $disabled = (string)ini_get('disable_functions');
+  if ($disabled !== '' && stripos($disabled, 'exec') !== false) {
+    $err = 'La función exec() está deshabilitada en PHP (disable_functions).';
+    bk_log($err, 'error');
+    return null;
+  }
+  if (!function_exists('exec')) {
+    $err = 'La función exec() no está disponible.';
+    bk_log($err, 'error');
+    return null;
+  }
 
   $nameBase = 'kiosco_' . date('Ymd_His');
   $sqlFile  = $nameBase . '.sql';
   $sqlPath  = $dir . DIRECTORY_SEPARATOR . $sqlFile;
 
-  // Validar conexión temprano
+  // Validar conexión PDO temprano
   try {
     getPDO();
   } catch (Throwable $e) {
     $err = 'No se pudo conectar a la base: ' . $e->getMessage();
+    bk_log($err, 'error');
     return null;
   }
 
-  $dbHost = defined('DB_HOST') ? (string)DB_HOST : 'localhost';
+  $dbHost = defined('DB_HOST') ? (string)DB_HOST : '127.0.0.1';
+  $dbPort = defined('DB_PORT') ? (int)DB_PORT : 3306;
   $dbName = defined('DB_NAME') ? (string)DB_NAME : '';
   $dbUser = defined('DB_USER') ? (string)DB_USER : 'root';
   $dbPass = defined('DB_PASS') ? (string)DB_PASS : '';
 
   if ($dbName === '') {
     $err = 'DB_NAME no está configurado.';
+    bk_log($err, 'error');
     return null;
   }
 
-  $mysqldump = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
-  if (!is_file($mysqldump)) $mysqldump = 'mysqldump';
-
-  // Mejor en Windows: --result-file (evita problemas con > redirección)
-  $cmd = '"' . $mysqldump . '"'
-    . ' --host=' . escapeshellarg($dbHost)
-    . ' --user=' . escapeshellarg($dbUser);
-
-  if ($dbPass !== '') {
-    $cmd .= ' --password=' . escapeshellarg($dbPass);
+  // mysqldump
+  $mysqldump = defined('MYSQLDUMP_BIN') ? (string)MYSQLDUMP_BIN : 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
+  if (PHP_OS_FAMILY === 'Windows') {
+    if (!is_file($mysqldump)) $mysqldump = 'mysqldump';
   }
 
-  $cmd .= ' --routines --triggers --single-transaction --quick --default-character-set=utf8mb4'
-    . ' --result-file=' . escapeshellarg($sqlPath)
-    . ' ' . escapeshellarg($dbName)
+  // Quote seguro por OS (NO usar escapeshellarg en Windows cmd.exe)
+  $q = function(string $s): string {
+    if (PHP_OS_FAMILY === 'Windows') {
+      return '"' . str_replace('"', '\"', $s) . '"';
+    }
+    return escapeshellarg($s);
+  };
+
+  // Password: mejor por env (evita líos de quoting)
+  $prefix = '';
+  if ($dbPass !== '') {
+    if (PHP_OS_FAMILY === 'Windows') {
+      $safe = str_replace('"', '\"', $dbPass);
+      $prefix = 'set "MYSQL_PWD=' . $safe . '" && ';
+    } else {
+      $prefix = 'MYSQL_PWD=' . escapeshellarg($dbPass) . ' ';
+    }
+  }
+
+  // Comando (Windows friendly)
+  $cmd = $prefix
+    . $q($mysqldump)
+    . ' --host=' . $q($dbHost)
+    . ' --port=' . (int)$dbPort
+    . ' --user=' . $q($dbUser)
+    . ' --routines --triggers --single-transaction --quick --skip-lock-tables --default-character-set=utf8mb4'
+    . ' --result-file=' . $q($sqlPath)
+    . ' ' . $q($dbName)
     . ' 2>&1';
 
   $out = [];
@@ -206,15 +254,20 @@ function backup_create(?string &$err = null): ?string {
 
   if ($exitCode !== 0 || !is_file($sqlPath) || filesize($sqlPath) === 0) {
     @unlink($sqlPath);
-    $tail = trim(implode("\n", array_slice($out, -6)));
-    $err = 'Fallo mysqldump. ' . ($tail ? "Detalle: {$tail}" : 'Revisar ruta/credenciales.');
-    bk_log("Backup ERROR mysqldump exit={$exitCode} cmd={$cmd}");
+    $tail = trim(implode("\n", array_slice($out, -10)));
+    $err = 'Fallo mysqldump. ' . ($tail ? "Detalle: {$tail}" : 'Revisar ruta/credenciales/puerto.');
+    bk_log("Backup ERROR mysqldump", 'error', [
+      'exit' => $exitCode,
+      'cmd'  => $cmd,
+      'tail' => $tail,
+    ]);
     return null;
   }
 
   $finalPath = $sqlPath;
   $finalFile = $sqlFile;
 
+  // Compresión opcional
   if ($cfg['compress'] === true) {
     $gzFile = $sqlFile . '.gz';
     $gzPath = $dir . DIRECTORY_SEPARATOR . $gzFile;
@@ -226,7 +279,9 @@ function backup_create(?string &$err = null): ?string {
       if ($in) fclose($in);
       if ($gz) gzclose($gz);
       @unlink($gzPath);
+
       $err = 'No se pudo comprimir el backup.';
+      bk_log($err, 'error');
       return null;
     }
 
@@ -244,15 +299,17 @@ function backup_create(?string &$err = null): ?string {
     $finalFile = $gzFile;
   }
 
+  // Copia externa opcional
   $copyErr = null;
   if ($cfg['external_dir'] !== '') {
     if (!backup_copy_external($finalPath, $cfg['external_dir'], $copyErr)) {
-      bk_log("Backup WARN copy external: {$copyErr}");
+      bk_log("Backup WARN copy external: {$copyErr}", 'warning');
     }
   }
 
+  // Prune
   backup_prune_keep_last((int)$cfg['keep']);
 
-  bk_log("Backup creado: {$finalFile}");
+  bk_log("Backup creado: {$finalFile}", 'info');
   return $finalFile;
 }
