@@ -7,6 +7,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/lib/helpers.php';
 
 require_login();
+require_permission('editar_productos');
 $pdo  = getPDO();
 $user = current_user();
 

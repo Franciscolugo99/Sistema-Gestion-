@@ -8,7 +8,7 @@ require_once __DIR__ . '/caja_lib.php';
 require_once __DIR__ . '/lib/helpers.php';
 
 require_login();
-
+require_permission('realizar_ventas');
 $pdo  = getPDO();
 $user = current_user();
 

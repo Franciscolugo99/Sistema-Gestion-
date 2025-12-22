@@ -61,7 +61,7 @@ $modules = [
     'tag'        => 'Control de inventario',
     'tag_class'  => 'tag-orange',
     'card_class' => 'index-card',
-    // 'perm'    => 'ver_stock', // (si en tu DB existe, lo activás)
+    'perm'        => 'ver_stock', // (si en tu DB existe, lo activás)
   ],
   [
     'href'       => 'movimientos.php',

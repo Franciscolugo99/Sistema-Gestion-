@@ -10,7 +10,6 @@ require_once __DIR__ . '/../../src/audit_lib.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $pdo = getPDO();
-require_login();
 
 function json_response(array $data, int $status = 200): void {
   http_response_code($status);
@@ -25,7 +24,9 @@ function json_response(array $data, int $status = 200): void {
 $rawInput = '';
 $bodyJson = null;
 
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+if ($method === 'POST') {
   $rawInput = file_get_contents('php://input') ?: '';
   $tmp = json_decode($rawInput, true);
   if (is_array($tmp)) $bodyJson = $tmp;
@@ -37,12 +38,34 @@ if ($action === '' && is_array($bodyJson) && isset($bodyJson['action'])) {
   $action = (string)$bodyJson['action'];
 }
 
+// API: NO redirect HTML, siempre JSON
+if (!isAuthenticated()) {
+  json_response(["ok" => false, "error" => "No autenticado"], 401);
+}
+
+// Permisos por acción (mínimo)
+$permMap = [
+  'buscar_producto'       => 'realizar_ventas',
+  'listar_promos_activas' => 'realizar_ventas',
+  'anular_venta'          => 'anular_venta',
+  'debug_audit'           => 'ver_auditoria',
+  // registrar_venta: obsoleto en este archivo
+];
+
+if (isset($permMap[$action])) {
+  require_permission($permMap[$action]);
+}
+
 try {
 
   /* =========================================================
      DEBUG AUDIT
   ========================================================= */
   if ($action === 'debug_audit') {
+    // En producción, no expongas esto (info leak)
+    if (defined('APP_ENV') && APP_ENV === 'production') {
+      json_response(["ok" => false, "error" => "No disponible"], 404);
+    }
     json_response([
       'ok'         => true,
       'has_audit'  => function_exists('audit_log_event'),
@@ -54,6 +77,10 @@ try {
      BUSCAR PRODUCTO
   ========================================================= */
   if ($action === "buscar_producto") {
+    if ($method !== 'GET') {
+      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
+    }
+
     $codigo = trim((string)($_GET["codigo"] ?? ""));
     if ($codigo === "") json_response(["ok"=>false, "error"=>"Código vacío"], 400);
 
@@ -62,7 +89,7 @@ try {
             WHERE codigo = :cod
             LIMIT 1";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([":cod"=>$codigo]);
+    $stmt->execute([":cod" => $codigo]);
     $p = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$p || (int)$p["activo"] !== 1) {
@@ -81,6 +108,10 @@ try {
      LISTAR PROMOS ACTIVAS
   ========================================================= */
   if ($action === "listar_promos_activas") {
+    if ($method !== 'GET') {
+      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
+    }
+
     $promos = obtenerPromosActivas($pdo);
     json_response([
       "ok"      => true,
@@ -88,24 +119,25 @@ try {
       "combos"  => $promos["combos"]
     ]);
   }
-/* =========================================================
-   REGISTRAR VENTA (OBSOLETO)
-   - Se maneja en /public/api/index.php (CSRF)
-========================================================= */
-if ($action === "registrar_venta") {
-  json_response([
-    "ok"    => false,
-    "error" => "Endpoint obsoleto. Usar /kiosco/public/api/index.php?action=registrar_venta"
-  ], 410);
-}
 
+  /* =========================================================
+     REGISTRAR VENTA (OBSOLETO)
+     - Se maneja en /public/api/index.php (CSRF)
+  ========================================================= */
+  if ($action === "registrar_venta") {
+    json_response([
+      "ok"    => false,
+      "error" => "Endpoint obsoleto. Usar /kiosco/public/api/index.php?action=registrar_venta"
+    ], 410);
+  }
 
   /* =========================================================
      ANULAR VENTA
   ========================================================= */
   if ($action === "anular_venta") {
-
-    require_permission('anular_venta');
+    if ($method !== 'POST') {
+      json_response(["ok"=>false, "error"=>"Method not allowed"], 405);
+    }
 
     $body = $bodyJson;
     if (!is_array($body)) json_response(["ok"=>false, "error"=>"JSON inválido"], 400);
@@ -179,7 +211,7 @@ if ($action === "registrar_venta") {
       WHERE id = :id
     ");
     $upV->execute([
-      ':uid' => $userId ?: null,
+      ':uid' => ($userId > 0 ? $userId : null),
       ':mot' => ($motivo !== '' ? $motivo : null),
       ':id'  => $ventaId
     ]);
@@ -218,7 +250,7 @@ if ($action === "registrar_venta") {
 
     // Auditoría
     if (function_exists('audit_log_event')) {
-      audit_log_event($pdo, $userId ?: null, 'venta_anulada', 'ventas', $ventaId, [
+      audit_log_event($pdo, ($userId > 0 ? $userId : null), 'venta_anulada', 'ventas', $ventaId, [
         'motivo'     => $motivo,
         'importe'    => $importe,
         'medio_pago' => $medio,
@@ -233,6 +265,19 @@ if ($action === "registrar_venta") {
   json_response(["ok"=>false, "error"=>"Acción no válida"], 400);
 
 } catch (Throwable $e) {
-  if ($pdo->inTransaction()) $pdo->rollBack();
+  if ($pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
+
+  // Log interno (si existe logMessage en tu config)
+  if (function_exists('logMessage')) {
+    logMessage("API error ({$action}): " . $e->getMessage(), 'error');
+  } else {
+    error_log("API error ({$action}): " . $e->getMessage());
+  }
+
+  // No filtrar detalles en producción
+  if (defined('APP_ENV') && APP_ENV === 'production') {
+    json_response(["ok"=>false, "error"=>"Error interno"], 500);
+  }
+
   json_response(["ok"=>false, "error"=>$e->getMessage()], 500);
 }
