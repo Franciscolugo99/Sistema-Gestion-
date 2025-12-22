@@ -116,7 +116,8 @@
   color: var(--text);
   font-size: 0.9rem;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
 }
 
 .productos-form input:focus,
@@ -157,54 +158,6 @@ body[data-theme="light"] .productos-form select {
   margin-top: 4px;
   font-size: 0.8rem;
   opacity: 0.8;
-}
-
-/* Switch estilo (compartido form principal + panel lateral) */
-.edit-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.edit-switch input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.edit-switch-slider {
-  width: 42px;
-  height: 22px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.4);
-  position: relative;
-  transition: background 0.18s ease;
-}
-
-.edit-switch-slider::before {
-  content: "";
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: #f9fafb;
-  left: 2px;
-  top: 2px;
-  transition: transform 0.18s ease;
-}
-
-.edit-switch input:checked + .edit-switch-slider {
-  background: rgba(34, 197, 94, 0.7);
-}
-
-.edit-switch input:checked + .edit-switch-slider::before {
-  transform: translateX(20px);
-}
-
-.edit-switch-text {
-  font-size: 0.82rem;
 }
 
 /* File input imagen (form principal) */
@@ -374,10 +327,19 @@ body[data-theme="light"] .productos-table thead th {
 }
 
 /* Alineaciones rápidas */
-.center { text-align: center; }
-.right  { text-align: right; }
-.t-right { text-align: right; }
-.dot { opacity: 0.6; padding: 0 4px; }
+.center {
+  text-align: center;
+}
+.right {
+  text-align: right;
+}
+.t-right {
+  text-align: right;
+}
+.dot {
+  opacity: 0.6;
+  padding: 0 4px;
+}
 
 /* Th clickeables para ordenar */
 .productos-table th[data-sort] {
