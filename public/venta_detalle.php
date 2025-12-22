@@ -130,7 +130,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="venta-header">
       <div class="venta-header-left">
-        <h1 class="venta-title">VENTA #<?= h($id) ?></h1>
+        <h1 class="venta-title">VENTA #<?= h((string)$id) ?></h1>
         <a href="ventas.php" class="link-back">← Volver a ventas</a>
       </div>
 
