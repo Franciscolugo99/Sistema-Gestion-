@@ -27,11 +27,12 @@ function obtenerPromosActivas(PDO $pdo): array {
     FROM promos p
     JOIN promo_productos pp ON pp.promo_id = p.id
     WHERE p.activo = 1
-      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy)
-      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy)
+      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
+      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
+
   ";
   $st1 = $pdo->prepare($sqlSimples);
-  $st1->execute([':hoy' => $hoy]);
+  $st1->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
   $simples = $st1->fetchAll(PDO::FETCH_ASSOC);
 
   // COMBO FIJO
@@ -47,11 +48,12 @@ function obtenerPromosActivas(PDO $pdo): array {
     JOIN promo_combo_items pci ON pci.promo_id = p.id
     WHERE p.activo = 1
       AND p.tipo = 'COMBO_FIJO'
-      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy)
-      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy)
+      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
+      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
+
   ";
   $st2 = $pdo->prepare($sqlCombos);
-  $st2->execute([':hoy' => $hoy]);
+  $st2->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
   $combosRaw = $st2->fetchAll(PDO::FETCH_ASSOC);
 
   // AGRUPAR COMBOS
