@@ -2,31 +2,33 @@
 // public/partials/nav.php
 declare(strict_types=1);
 
+// ✅ Cargar config primero (timezone, sesiones, helpers, PDO, etc.)
+require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../caja_lib.php';
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
+// ✅ Asegurar sesión segura (si la tenés en config.php)
+if (function_exists('startSecureSession')) {
+  startSecureSession();
+} elseif (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
 
+// Usuario actual
 $user = current_user();
 
-// Asegurar PDO (ruta correcta desde /public/partials -> /src/config.php)
-if (!isset($pdo) || !($pdo instanceof PDO)) {
-  require_once __DIR__ . '/../../src/config.php';
-  $pdo = getPDO();
-}
+// PDO siempre disponible
+$pdo = getPDO();
 
-// ✅ Si auth.php no expone user_has_permission, mejor fallar explícito
-if (!function_exists('user_has_permission')) {
-  http_response_code(500);
-  die('Falta la función user_has_permission() (revisá auth.php).');
+// Helper seguro: si no existe user_has_permission, fallamos cerrado (ocultamos links)
+function can(string $perm): bool {
+  return function_exists('user_has_permission') && user_has_permission($perm);
 }
 
 // Sección actual (si la página no setea $currentSection)
 $currentSection = $currentSection ?? '';
 if ($currentSection === '') {
-  $file = basename($_SERVER['PHP_SELF']);
+  $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
   $map = [
     'index.php'            => 'inicio',
     'dashboard.php'        => 'dashboard',
@@ -35,7 +37,7 @@ if ($currentSection === '') {
     'stock.php'            => 'stock',
     'movimientos.php'      => 'movimientos',
     'ventas.php'           => 'ventas',
-    'compras.php'          => 'compras',          // ✅ NUEVO
+    'compras.php'          => 'compras',
     'usuarios.php'         => 'usuarios',
     'usuario_nuevo.php'    => 'usuarios',
     'usuario_editar.php'   => 'usuarios',
@@ -46,30 +48,54 @@ if ($currentSection === '') {
     'clientes.php'         => 'clientes',
     'facturacion.php'      => 'facturacion',
     'configuracion.php'    => 'configuracion',
-
     'venta_detalle.php'    => 'ventas',
     'factura_nueva.php'    => 'facturacion',
     'factura_ver.php'      => 'facturacion',
+    'factura_emitir.php'   => 'facturacion',
     'auditoria.php'        => 'auditoria',
     'backups.php'          => 'backups',
+
+    // ✅ nuevos (si los agregás)
+    'roles.php'            => 'roles',
+    'rol_permisos.php'     => 'roles',
   ];
   if (isset($map[$file])) $currentSection = $map[$file];
 }
 
-// Caja abierta desde DB
-$cajaRow     = caja_get_abierta($pdo);
-$cajaAbierta = ($cajaRow !== null);
+// Caja abierta desde DB (si falla DB, no rompas el nav)
+try {
+  $cajaRow     = caja_get_abierta($pdo);
+  $cajaAbierta = ($cajaRow !== null);
+} catch (Throwable $e) {
+  $cajaAbierta = false;
+}
 
-// Menú Admin (tuerca)
-$showAdminMenu = user_has_permission('administrar_config')
-  || user_has_permission('administrar_usuarios')
-  || user_has_permission('ver_auditoria')
-  || user_has_permission('gestionar_backups');
+// Permisos (centralizados)
+$canDashboard   = can('ver_reportes');
+$canCaja        = can('realizar_ventas');
+$canProductos   = can('editar_productos') || can('ver_productos'); // si creás ver_productos
+$canStock       = can('editar_stock') || can('ver_stock');         // si creás ver_stock
+$canMovimientos = can('ver_movimientos');
+$canVentas      = can('ver_reportes');
+$canCompras     = can('ver_compras') || can('editar_productos');    // fallback actual
+$canHistCaja    = can('ver_historial_caja');
 
-$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups'], true);
+// Promos: ideal tener editar_promos. Si no existe, fallback a editar_productos
+$canPromos = can('editar_promos') || can('editar_productos');
 
-// Permiso para Compras (si todavía no lo creaste, fallback a editar_productos)
-$canCompras = user_has_permission('ver_compras') || user_has_permission('editar_productos');
+// Clientes / Facturación: si aún no definiste permisos, no los oculto del todo,
+// pero recomiendo crear permisos (ver_clientes/editar_clientes, facturacion).
+$canClientes    = can('ver_clientes') || can('editar_clientes') || can('administrar_config');
+$canFacturacion = can('facturacion') || can('administrar_config') || can('ver_reportes');
+
+// Admin menu (tuerca)
+$showAdminMenu =
+  can('administrar_config') ||
+  can('administrar_usuarios') ||
+  can('ver_auditoria') ||
+  can('gestionar_backups');
+
+$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles'], true);
 ?>
 
 <nav class="nav-container">
@@ -82,35 +108,37 @@ $canCompras = user_has_permission('ver_compras') || user_has_permission('editar_
       Inicio
     </a>
 
-    <?php if (user_has_permission('ver_reportes')): ?>
+    <?php if ($canDashboard): ?>
       <a href="dashboard.php" class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>">
         Dashboard
       </a>
     <?php endif; ?>
 
-    <?php if (user_has_permission('realizar_ventas')): ?>
+    <?php if ($canCaja): ?>
       <a href="caja.php" class="nav-pill <?= $currentSection === 'caja' ? 'active' : '' ?>">
         Caja
       </a>
     <?php endif; ?>
 
-    <?php if (user_has_permission('editar_productos')): ?>
+    <?php if ($canProductos): ?>
       <a href="productos.php" class="nav-pill <?= $currentSection === 'productos' ? 'active' : '' ?>">
         Productos
       </a>
     <?php endif; ?>
 
-    <a href="stock.php" class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>">
-      Stock
-    </a>
+    <?php if ($canStock): ?>
+      <a href="stock.php" class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>">
+        Stock
+      </a>
+    <?php endif; ?>
 
-    <?php if (user_has_permission('ver_movimientos')): ?>
+    <?php if ($canMovimientos): ?>
       <a href="movimientos.php" class="nav-pill <?= $currentSection === 'movimientos' ? 'active' : '' ?>">
         Movimientos
       </a>
     <?php endif; ?>
 
-    <?php if (user_has_permission('ver_reportes')): ?>
+    <?php if ($canVentas): ?>
       <a href="ventas.php" class="nav-pill <?= $currentSection === 'ventas' ? 'active' : '' ?>">
         Ventas
       </a>
@@ -122,23 +150,29 @@ $canCompras = user_has_permission('ver_compras') || user_has_permission('editar_
       </a>
     <?php endif; ?>
 
-    <?php if (user_has_permission('ver_historial_caja')): ?>
+    <?php if ($canHistCaja): ?>
       <a href="caja_historial.php" class="nav-pill <?= $currentSection === 'historial_caja' ? 'active' : '' ?>">
         Historial caja
       </a>
     <?php endif; ?>
 
-    <a href="promos.php" class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>">
-      Promociones
-    </a>
+    <?php if ($canPromos): ?>
+      <a href="promos.php" class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>">
+        Promociones
+      </a>
+    <?php endif; ?>
 
-    <a href="clientes.php" class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>">
-      Clientes
-    </a>
+    <?php if ($canClientes): ?>
+      <a href="clientes.php" class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>">
+        Clientes
+      </a>
+    <?php endif; ?>
 
-    <a href="facturacion.php" class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>">
-      Facturación
-    </a>
+    <?php if ($canFacturacion): ?>
+      <a href="facturacion.php" class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>">
+        Facturación
+      </a>
+    <?php endif; ?>
   </div>
 
   <div class="nav-right">
@@ -154,19 +188,20 @@ $canCompras = user_has_permission('ver_compras') || user_has_permission('editar_
         >⚙️</button>
 
         <div class="nav-menu-pop" role="menu" aria-label="Ajustes">
-          <?php if (user_has_permission('administrar_usuarios')): ?>
+          <?php if (can('administrar_usuarios')): ?>
             <a role="menuitem" href="usuarios.php">👤 Usuarios</a>
+            <a role="menuitem" href="roles.php">🧩 Roles y permisos</a>
           <?php endif; ?>
 
-          <?php if (user_has_permission('administrar_config')): ?>
+          <?php if (can('administrar_config')): ?>
             <a role="menuitem" href="configuracion.php">🛠 Configuración</a>
           <?php endif; ?>
 
-          <?php if (user_has_permission('ver_auditoria')): ?>
+          <?php if (can('ver_auditoria')): ?>
             <a role="menuitem" href="auditoria.php">🕵️ Auditoría</a>
           <?php endif; ?>
 
-          <?php if (user_has_permission('gestionar_backups')): ?>
+          <?php if (can('gestionar_backups')): ?>
             <a role="menuitem" href="backups.php">💾 Backups</a>
           <?php endif; ?>
         </div>
@@ -190,7 +225,7 @@ $canCompras = user_has_permission('ver_compras') || user_has_permission('editar_
     </div>
 
     <div class="nav-user">
-      <?= htmlspecialchars($user['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+      <?= h((string)($user['username'] ?? '')) ?>
       <a href="logout.php" class="logout-link">Salir</a>
     </div>
   </div>

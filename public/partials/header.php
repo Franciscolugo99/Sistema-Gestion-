@@ -51,6 +51,7 @@ $bodyClass = $bodyClass ?? '';
     rel="stylesheet"
     href="assets/css/app.css?v=<?= $ver ?>"
   >
+<link rel="stylesheet" href="assets/css/components.css">
 
   <!-- CSS específico de página -->
   <?php foreach ($extraCss as $href): ?>
