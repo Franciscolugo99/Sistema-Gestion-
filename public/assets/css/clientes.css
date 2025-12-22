@@ -14,20 +14,20 @@
    FORM: bloque colapsable
 ---------------------------------------------------------- */
 
-.cli-form-block{
+.cli-form-block {
   margin-top: 12px;
-  border-top: 1px solid rgba(148,163,184,.18);
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
   padding-top: 14px;
 
   /* animación simple */
   max-height: 2200px;
   opacity: 1;
   overflow: hidden;
-  transition: max-height .28s ease, opacity .22s ease;
+  transition: max-height 0.28s ease, opacity 0.22s ease;
 }
 
 /* estado colapsado */
-.cli-form-block.is-collapsed{
+.cli-form-block.is-collapsed {
   max-height: 0;
   opacity: 0;
   padding-top: 0;
@@ -77,21 +77,19 @@
   padding: 0 11px;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
-  background: var(--input-bg, rgba(2,6,23,.14));
+  background: var(--input-bg, rgba(2, 6, 23, 0.14));
 
   /* IMPORTANTE: fallback por si tu theme no tiene --text */
   color: var(--text-main, var(--text, #e5e7eb));
 
   font-size: 0.95rem;
   outline: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
     background 0.15s ease;
 }
 
-.clientes-form input::placeholder{
-  color: rgba(148,163,184,.75);
+.clientes-form input::placeholder {
+  color: rgba(148, 163, 184, 0.75);
 }
 
 .clientes-form input:focus,
@@ -101,9 +99,11 @@
 }
 
 /* Fix icono calendario en dark */
-body[data-theme="dark"] .clientes-form input[type="date"]::-webkit-calendar-picker-indicator{
+body[data-theme="dark"]
+  .clientes-form
+  input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
-  opacity: .8;
+  opacity: 0.8;
 }
 
 /* Estado */
@@ -126,15 +126,90 @@ body[data-theme="dark"] .clientes-form input[type="date"]::-webkit-calendar-pick
 }
 
 /* Tabla */
-.clientes-table .t-right { text-align: right; }
-.clientes-table .center  { text-align: center; }
+.clientes-table .t-right {
+  text-align: right;
+}
+.clientes-table .center {
+  text-align: center;
+}
 
 /* Que el texto no “desaparezca” en dark */
 .clientes-table td,
-.clientes-table th{
+.clientes-table th {
   color: var(--text-main, var(--text, #e5e7eb));
 }
 
-.clientes-table .muted{
+.clientes-table .muted {
   color: var(--muted);
+}
+/* ===== Drawer (panel derecho) ===== */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.45);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+  z-index: 2000;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(480px, 96vw);
+  background: var(--panel);
+  border-left: 1px solid var(--panel-border);
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.35);
+  transform: translateX(102%);
+  transition: transform 0.22s ease;
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer.is-open {
+  transform: translateX(0);
+}
+.drawer-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.drawer-title {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.drawer-close {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.drawer-body {
+  padding: 14px 16px 18px;
+  overflow: auto;
+}
+
+/* Evitar scroll del body cuando está abierto */
+body.no-scroll {
+  overflow: hidden;
 }
