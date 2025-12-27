@@ -11,6 +11,14 @@ require_once __DIR__ . '/lib/helpers.php';
 $pdo = getPDO();
 
 /* =========================================================
+   LIMPIAR (borra query en server; el localStorage lo borra JS)
+========================================================= */
+if (isset($_GET['clear'])) {
+  header('Location: ventas.php');
+  exit;
+}
+
+/* =========================================================
    FILTROS
 ========================================================= */
 $allowedMedios   = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO', 'SIN_ESPECIFICAR'];
@@ -24,7 +32,6 @@ $desde     = validDateYmd($_GET['desde'] ?? null);
 $hasta     = validDateYmd($_GET['hasta'] ?? null);
 
 $venta_id  = trim((string)($_GET['venta_id'] ?? ''));
-
 
 // min/max total: aceptar formato AR ($ 1.234,56) o 1234.56
 $min_total_raw = (string)($_GET['min_total'] ?? '');
@@ -50,10 +57,6 @@ $export = ((string)($_GET['export'] ?? '') === 'csv');
 $whereParts = ['1=1'];
 $params = [];
 
-if ($medio && in_array($medio, $allowedMedios, true)) {
-  $whereParts[] = 'v.medio_pago = :medio';
-  $params[':medio'] = $medio;
-}
 if ($medio && in_array($medio, $allowedMedios, true)) {
   $whereParts[] = 'v.medio_pago = :medio';
   $params[':medio'] = $medio;
@@ -141,9 +144,7 @@ $sqlStats = "
   {$whereSql}
 ";
 $stS = $pdo->prepare($sqlStats);
-foreach ($params as $k => $v) {
-  $stS->bindValue($k, $v);
-}
+foreach ($params as $k => $v) $stS->bindValue($k, $v);
 $stS->execute();
 $stats = $stS->fetch(PDO::FETCH_ASSOC) ?: [
   'cnt'        => 0,
@@ -173,12 +174,8 @@ $sqlList = "
   ORDER BY v.fecha DESC, v.id DESC
   LIMIT :limit OFFSET :offset
 ";
-
-
 $st = $pdo->prepare($sqlList);
-foreach ($params as $k => $v) {
-  $st->bindValue($k, $v);
-}
+foreach ($params as $k => $v) $st->bindValue($k, $v);
 $st->bindValue(':limit',  $perPage, PDO::PARAM_INT);
 $st->bindValue(':offset', $offset,  PDO::PARAM_INT);
 $st->execute();
@@ -258,103 +255,102 @@ require __DIR__ . '/partials/header.php';
 
   <?php include __DIR__ . '/partials/ventas_filtros.php'; ?>
 
-<div class="table-wrapper">
-  <table class="ventas-table">
-    <thead>
-      <tr>
-        <th>Fecha</th>
-        <th class="t-center">ID</th>
-        <th class="t-center">Medio</th>
-        <th class="t-center">Estado</th>
-        <th class="t-right">Total</th>
-        <th class="t-right">Pagado</th>
-        <th class="t-right">Vuelto</th>
-        <th class="t-center">Ítems</th>
-        <th class="t-center">Factura</th>
-        <th class="t-right">Acciones</th>
-      </tr>
-    </thead>
-
-    <tbody>
-    <?php if (!$ventas): ?>
-      <tr>
-        <td colspan="10" class="empty-cell">No se encontraron ventas.</td>
-      </tr>
-    <?php else: ?>
-      <?php foreach ($ventas as $v): ?>
-        <?php
-          $mp = strtoupper((string)($v['medio_pago'] ?? 'SIN_ESPECIFICAR'));
-          $medioClass = strtolower(preg_replace('/[^a-z0-9\-_]/i', '', $mp) ?: 'sin_especificar');
-
-          $st = strtoupper((string)($v['estado'] ?? 'EMITIDA'));
-          $estadoClass = ($st === 'ANULADA') ? 'anulada' : 'emitida';
-
-          $fe = strtoupper((string)($v['factura_estado'] ?? ''));
-          if ($fe === '') {
-            $factLabel = 'PENDIENTE';
-            $factClass = 'pendiente';
-          } elseif ($fe === 'ANULADA') {
-            $factLabel = 'FACT. ANULADA';
-            $factClass = 'anulada';
-          } else {
-            $factLabel = 'FACTURADA';
-            $factClass = 'facturada';
-          }
-        ?>
+  <div class="table-wrapper">
+    <table class="ventas-table">
+      <thead>
         <tr>
-          <td class="mono"><?= h((string)$v['fecha']) ?></td>
-          <td class="t-center mono">#<?= (int)$v['id'] ?></td>
-
-          <td class="t-center">
-            <span class="badge badge-<?= h($medioClass) ?>">
-              <?= h($mp) ?>
-            </span>
-          </td>
-
-          <td class="t-center">
-            <span class="badge badge-estado badge-<?= h($estadoClass) ?>">
-              <?= h($st) ?>
-            </span>
-          </td>
-
-          <td class="t-right"><?= money_ar((float)$v['total']) ?></td>
-          <td class="t-right"><?= money_ar((float)$v['monto_pagado']) ?></td>
-          <td class="t-right"><?= money_ar((float)$v['vuelto']) ?></td>
-          <td class="t-center"><?= (int)$v['items_count'] ?></td>
-
-          <td class="t-center">
-            <span class="badge badge-fact badge-<?= h($factClass) ?>">
-              <?= h($factLabel) ?>
-            </span>
-          </td>
-
-          <td class="t-right">
-            <div class="row-actions">
-              <a class="btn-mini act-view"
-                 href="ticket.php?venta_id=<?= (int)$v['id'] ?>&paper=80&preview=1">
-                Ticket
-              </a>
-
-              <a class="btn-mini btn-mini-ok act-print"
-                 href="ticket.php?venta_id=<?= (int)$v['id'] ?>&paper=80&autoprint=1"
-                 target="_blank" rel="noopener">
-                Imprimir
-              </a>
-
-              <a class="btn-mini btn-mini-ghost"
-                 href="venta_detalle.php?id=<?= (int)$v['id'] ?>">
-                Detalle
-              </a>
-            </div>
-          </td>
+          <th>Fecha</th>
+          <th class="t-center">ID</th>
+          <th class="t-center">Medio</th>
+          <th class="t-center">Estado</th>
+          <th class="t-right">Total</th>
+          <th class="t-right">Pagado</th>
+          <th class="t-right">Vuelto</th>
+          <th class="t-center">Ítems</th>
+          <th class="t-center">Factura</th>
+          <th class="t-right">Acciones</th>
         </tr>
-      <?php endforeach; ?>
-    <?php endif; ?>
-    </tbody>
+      </thead>
 
-  </table>
-</div>
+      <tbody>
+      <?php if (!$ventas): ?>
+        <tr>
+          <td colspan="10" class="empty-cell">No se encontraron ventas.</td>
+        </tr>
+      <?php else: ?>
+        <?php foreach ($ventas as $v): ?>
+          <?php
+            $mp = strtoupper((string)($v['medio_pago'] ?? 'SIN_ESPECIFICAR'));
+            $medioClass = strtolower(preg_replace('/[^a-z0-9\-_]/i', '', $mp) ?: 'sin_especificar');
 
+            $stt = strtoupper((string)($v['estado'] ?? 'EMITIDA'));
+            $estadoClass = ($stt === 'ANULADA') ? 'anulada' : 'emitida';
+
+            $fe = strtoupper((string)($v['factura_estado'] ?? ''));
+            if ($fe === '') {
+              $factLabel = 'PENDIENTE';
+              $factClass = 'pendiente';
+            } elseif ($fe === 'ANULADA') {
+              $factLabel = 'FACT. ANULADA';
+              $factClass = 'anulada';
+            } else {
+              $factLabel = 'FACTURADA';
+              $factClass = 'facturada';
+            }
+          ?>
+          <tr>
+            <td class="mono"><?= h((string)$v['fecha']) ?></td>
+            <td class="t-center mono">#<?= (int)$v['id'] ?></td>
+
+            <td class="t-center">
+              <span class="badge badge-<?= h($medioClass) ?>">
+                <?= h($mp) ?>
+              </span>
+            </td>
+
+            <td class="t-center">
+              <span class="badge badge-estado badge-<?= h($estadoClass) ?>">
+                <?= h($stt) ?>
+              </span>
+            </td>
+
+            <td class="t-right"><?= money_ar((float)$v['total']) ?></td>
+            <td class="t-right"><?= money_ar((float)$v['monto_pagado']) ?></td>
+            <td class="t-right"><?= money_ar((float)$v['vuelto']) ?></td>
+            <td class="t-center"><?= (int)$v['items_count'] ?></td>
+
+            <td class="t-center">
+              <span class="badge badge-fact badge-<?= h($factClass) ?>">
+                <?= h($factLabel) ?>
+              </span>
+            </td>
+
+            <td class="t-right">
+              <div class="row-actions">
+                <a class="btn-mini act-view"
+                   href="ticket.php?venta_id=<?= (int)$v['id'] ?>&paper=80&preview=1">
+                  Ticket
+                </a>
+
+                <a class="btn-mini btn-mini-ok act-print"
+                   href="ticket.php?venta_id=<?= (int)$v['id'] ?>&paper=80&autoprint=1"
+                   target="_blank" rel="noopener">
+                  Imprimir
+                </a>
+
+                <a class="btn-mini btn-mini-ghost"
+                   href="venta_detalle.php?id=<?= (int)$v['id'] ?>">
+                  Detalle
+                </a>
+              </div>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      <?php endif; ?>
+      </tbody>
+
+    </table>
+  </div>
 
   <?php if ($totalPages > 1): ?>
     <div class="pager">
@@ -376,6 +372,6 @@ require __DIR__ . '/partials/header.php';
 
 </div>
 
-<script src="assets/js/ventas.js?v=1"></script>
+<script src="assets/js/ventas.js?v=2"></script>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

@@ -40,6 +40,33 @@ if (!function_exists('fmt_qty_ticket')) {
 }
 
 // ------------------------------
+// Helpers DB schema (no romper si falta algo)
+// ------------------------------
+function has_table(PDO $pdo, string $table): bool {
+  $st = $pdo->prepare("
+    SELECT 1
+    FROM INFORMATION_SCHEMA.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+    LIMIT 1
+  ");
+  $st->execute([$table]);
+  return (bool)$st->fetchColumn();
+}
+function has_col(PDO $pdo, string $table, string $col): bool {
+  $st = $pdo->prepare("
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+      AND COLUMN_NAME = ?
+    LIMIT 1
+  ");
+  $st->execute([$table, $col]);
+  return (bool)$st->fetchColumn();
+}
+
+// ------------------------------
 // Config negocio (desde DB)
 // ------------------------------
 $bizName = config_get($pdo, 'business_name', 'KIOSCO');
@@ -76,7 +103,6 @@ function norm_unit(string $u, bool $pesable): string {
   if (in_array($u, ['UNIDAD','UNIDADES','UNID','UN'], true)) return 'UN';
   if (in_array($u, ['KG','KILO','KILOS','KGS'], true)) return 'KG';
 
-  // si es muy largo, recortamos
   if (mb_strlen($u, 'UTF-8') > 4) $u = mb_strimwidth($u, 0, 4, '', 'UTF-8');
   return $u;
 }
@@ -85,13 +111,11 @@ function print_wrapped(string $s, int $lineWidth): void {
   $s = rtrim($s);
   if ($s === '') { echo "\n"; return; }
 
-  // si entra, listo
   if (mb_strlen($s, 'UTF-8') <= $lineWidth) {
     echo $s . "\n";
     return;
   }
 
-  // partir en pedazos para que nunca "pise" el ancho
   $rest = $s;
   while ($rest !== '') {
     $chunk = mb_strimwidth($rest, 0, $lineWidth, '', 'UTF-8');
@@ -103,13 +127,17 @@ function print_wrapped(string $s, int $lineWidth): void {
 // ==============================
 // 1) CABECERA DE LA VENTA
 // ==============================
+$selectUser = (has_col($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
+
 $sqlVenta = "
   SELECT
     v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.nota,
     v.caja_id,
     c.fecha_apertura
+    " . ($selectUser ? ", u.username AS cajero" : "") . "
   FROM ventas v
   LEFT JOIN caja_sesiones c ON v.caja_id = c.id
+  " . ($selectUser ? "LEFT JOIN users u ON u.id = v.user_id" : "") . "
   WHERE v.id = :id
   LIMIT 1
 ";
@@ -144,17 +172,38 @@ $sqlItems = "
 ";
 $stmtIt = $pdo->prepare($sqlItems);
 $stmtIt->execute([':id' => $ventaId]);
-$items = $stmtIt->fetchAll(PDO::FETCH_ASSOC);
+$items = $stmtIt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // ==============================
-// 3) TOTALES (desde items)
+// 3) PROMOS APLICADAS (venta_promos) - si existe
+// ==============================
+$promos = [];
+$descPromos = 0.0;
+
+if (has_table($pdo, 'venta_promos')) {
+  $stP = $pdo->prepare("
+    SELECT promo_tipo, promo_nombre, descripcion, descuento_monto
+    FROM venta_promos
+    WHERE venta_id = :id
+    ORDER BY id ASC
+  ");
+  $stP->execute([':id' => $ventaId]);
+  $promos = $stP->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+  foreach ($promos as $pr) {
+    $descPromos += (float)($pr['descuento_monto'] ?? 0);
+  }
+  $descPromos = round($descPromos, 2);
+}
+
+// ==============================
+// 4) TOTALES (desde items)
 // ==============================
 $brutoTotal = 0.0;
-$descTotal  = 0.0;
+$descItems  = 0.0;
 
 foreach ($items as $it) {
   $cantidad = (float)($it['cantidad'] ?? 0);
-  $subtotal = (float)($it['subtotal'] ?? 0);
 
   $puOriginal = ($it['precio_unit_original'] !== null)
     ? (float)$it['precio_unit_original']
@@ -163,14 +212,19 @@ foreach ($items as $it) {
   $descLinea = (float)($it['descuento_monto'] ?? 0);
 
   $brutoTotal += $puOriginal * $cantidad;
-  $descTotal  += $descLinea;
+  $descItems  += $descLinea;
 }
 
 $brutoTotal = round($brutoTotal, 2);
-$descTotal  = round($descTotal, 2);
+$descItems  = round($descItems, 2);
 
-// Autoridad: ventas.total (por si mañana hay recargos/ajustes)
-$totalNeto  = round((float)$venta['total'], 2);
+// Autoridad: ventas.total
+$totalNeto = round((float)$venta['total'], 2);
+
+// Descuento a mostrar:
+// - si existe venta_promos, usamos eso (auditoría real)
+// - si no, fallback a descuento por items
+$descMostrar = ($descPromos > 0.00001) ? $descPromos : $descItems;
 
 ?>
 <!DOCTYPE html>
@@ -216,19 +270,23 @@ if ($addr)  echo trim((string)$addr) . "\n";
 if ($phone) echo "Tel: " . trim((string)$phone) . "\n";
 echo "\n";
 
-echo "Ticket #".(int)$venta['id']."\n";
+echo "TICKET #".(int)$venta['id']."\n";
 echo date('Y-m-d H:i:s', strtotime((string)$venta['fecha']))."\n";
 
+if (!empty($venta['cajero'])) {
+  print_wrapped("Cajero: " . (string)$venta['cajero'], $lineWidth);
+}
+
 if (!empty($venta['caja_id'])) {
-  echo "Caja: #".(int)$venta['caja_id'];
+  $line = "Caja: #".(int)$venta['caja_id'];
   if (!empty($venta['fecha_apertura'])) {
-    echo " (apertura ".date('Y-m-d H:i', strtotime((string)$venta['fecha_apertura'])).")";
+    $line .= " (apertura ".date('Y-m-d H:i', strtotime((string)$venta['fecha_apertura'])).")";
   }
-  echo "\n";
+  print_wrapped($line, $lineWidth);
 }
 
 echo $hr."\n";
-echo str_pad("Prod", $nameWidth)." ".str_pad("Cant", $qtyWidth, ' ', STR_PAD_LEFT)." ".str_pad("Subt", $subWidth, ' ', STR_PAD_LEFT)."\n";
+echo str_pad("Prod", $nameWidth)." ".str_pad("Cant", $qtyWidth, ' ', STR_PAD_LEFT)." ".str_pad("Importe", $subWidth, ' ', STR_PAD_LEFT)."\n";
 echo $hr."\n";
 
 // Items
@@ -263,49 +321,69 @@ foreach ($items as $it) {
        str_pad($cantTxt, $qtyWidth, ' ', STR_PAD_LEFT)." ".
        str_pad($subTxt, $subWidth, ' ', STR_PAD_LEFT)."\n";
 
-  // Detalle por código (en 2 líneas para que NUNCA se corte)
+  // línea detalle: "codigo  x precio"
   $codigo = (string)($it['codigo'] ?? '');
   if ($codigo !== '') {
-
     $plShow = fmt_money_ticket($puOriginal);
     $pfShow = fmt_money_ticket($puFinal);
-    $dlShow = fmt_money_ticket($descLinea);
 
-    // Línea 1: código + lista
-    print_wrapped("  {$codigo}  L {$plShow}/{$unidad}", $lineWidth);
+    // Ej: "  779....  2 x $ 1.200,00"
+    $line1 = "  {$codigo}  " . fmt_qty_ticket($cantidad, $isPesable ? 3 : 0) . " x {$pfShow}";
+    print_wrapped($line1, $lineWidth);
 
-    // Línea 2: final + desc (solo si aplica)
-    if ($descLinea > 0.009 || abs($puFinal - $puOriginal) > 0.009) {
-      // si no hay desc pero hay final distinto, igual mostramos F
-      $line2 = "           F {$pfShow}/{$unidad}";
-      if ($descLinea > 0.009) $line2 .= "  D {$dlShow}";
-      print_wrapped($line2, $lineWidth);
+    // Si hay diferencia contra lista, lo mostramos tipo súper
+    if (abs($puFinal - $puOriginal) > 0.009) {
+      print_wrapped("           Lista: {$plShow}  Final: {$pfShow}", $lineWidth);
+    }
+
+    // Si hay descuento en la línea
+    if ($descLinea > 0.009) {
+      print_wrapped("           Descuento item: -".fmt_money_ticket($descLinea), $lineWidth);
     }
   }
 }
 
 echo $hr."\n";
 
-// Totales
-if ($descTotal > 0.009) {
-  echo "Bruto          ".str_pad(fmt_money_ticket($brutoTotal), $subWidth, ' ', STR_PAD_LEFT)."\n";
-  echo "Descuento      ".str_pad('- '.fmt_money_ticket($descTotal), $subWidth, ' ', STR_PAD_LEFT)."\n";
+// Promos (resumen pro)
+if (is_array($promos) && count($promos) > 0) {
+  print_wrapped("DESCUENTOS / PROMOS:", $lineWidth);
+  foreach ($promos as $pr) {
+    $nom = trim((string)($pr['promo_nombre'] ?? 'Promo'));
+    $tip = trim((string)($pr['promo_tipo'] ?? ''));
+    $des = trim((string)($pr['descripcion'] ?? ''));
+    $mon = (float)($pr['descuento_monto'] ?? 0);
+
+    $label = $nom;
+    if ($tip !== '') $label = "{$nom} ({$tip})";
+    if ($des !== '') $label .= " - {$des}";
+
+    print_wrapped(" - {$label}", $lineWidth);
+    print_wrapped("   Ahorro: -".fmt_money_ticket($mon), $lineWidth);
+  }
+  echo $hr."\n";
 }
-echo "TOTAL A COBRAR ".str_pad(fmt_money_ticket($totalNeto), $subWidth, ' ', STR_PAD_LEFT)."\n";
+
+// Totales (formato típico)
+print_wrapped("SUBTOTAL: ".fmt_money_ticket($brutoTotal), $lineWidth);
+if ($descMostrar > 0.009) {
+  print_wrapped("DESCUENTOS: -".fmt_money_ticket($descMostrar), $lineWidth);
+}
+print_wrapped("TOTAL: ".fmt_money_ticket($totalNeto), $lineWidth);
 echo $hr."\n";
 
 $medio = strtoupper((string)($venta['medio_pago'] ?? ''));
-echo "Medio          {$medio}\n";
-echo "Pago           ".fmt_money_ticket($venta['monto_pagado'] ?? 0)."\n";
-echo "Vuelto         ".fmt_money_ticket($venta['vuelto'] ?? 0)."\n";
+print_wrapped("Medio: {$medio}", $lineWidth);
+print_wrapped("Pago: ".fmt_money_ticket($venta['monto_pagado'] ?? 0), $lineWidth);
+print_wrapped("Vuelto: ".fmt_money_ticket($venta['vuelto'] ?? 0), $lineWidth);
 
 if (!empty($venta['nota'])) {
   echo $hr."\n";
-  echo "Nota: ".trim((string)$venta['nota'])."\n";
+  print_wrapped("Nota: ".trim((string)$venta['nota']), $lineWidth);
 }
 
 echo $hr."\n";
-echo trim((string)($footer ?: "Gracias por su compra")) . "\n";
+print_wrapped(trim((string)($footer ?: "Gracias por su compra")), $lineWidth);
 ?></pre>
 </body>
 </html>

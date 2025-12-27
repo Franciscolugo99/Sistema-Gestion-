@@ -48,10 +48,10 @@ document.addEventListener("DOMContentLoaded", () => {
       u.searchParams.set(key, value);
       return u.pathname + "?" + u.searchParams.toString();
     } catch {
-      // fallback simple
       const hasQ = href.includes("?");
       const re = new RegExp("([?&])" + key + "=([^&]*)");
-      if (re.test(href)) return href.replace(re, `$1${key}=${encodeURIComponent(value)}`);
+      if (re.test(href))
+        return href.replace(re, `$1${key}=${encodeURIComponent(value)}`);
       return href + (hasQ ? "&" : "?") + `${key}=${encodeURIComponent(value)}`;
     }
   }
@@ -64,13 +64,142 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Init papel: si hay localStorage, manda eso (no el default del select)
   const initPaper = getPaper();
   if (paperSel) paperSel.value = initPaper;
   applyPaperToLinks(initPaper);
 
   if (paperSel) {
     paperSel.addEventListener("change", () => setPaper(paperSel.value));
+  }
+
+  // ---------------------------------------------
+  // PERSISTENCIA FILTROS VENTAS (localStorage)
+  // + FIX botón "Limpiar"
+  // ---------------------------------------------
+  const FILTERS_KEY = "flus-ventas-filters-v1";
+
+  function clearFiltersStorage() {
+    try {
+      localStorage.removeItem(FILTERS_KEY);
+    } catch {}
+  }
+
+  // Botón limpiar (tu HTML: <a id="ventasClear" href="ventas.php" ...>Limpiar</a>)
+  const clearLink = document.getElementById("ventasClear");
+  if (clearLink) {
+    clearLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      clearFiltersStorage();
+
+      // navega a ventas.php?clear=1 (robusto si estás en subcarpetas)
+      const u = new URL(
+        clearLink.getAttribute("href") || "ventas.php",
+        window.location.href
+      );
+      u.searchParams.set("clear", "1");
+      window.location.href = u.pathname + "?" + u.searchParams.toString();
+    });
+  }
+
+  function qsHasMeaningfulFilters(url) {
+    const u = new URL(url, window.location.href);
+    const keys = [
+      "medio",
+      "estado",
+      "desde",
+      "hasta",
+      "venta_id",
+      "min_total",
+      "max_total",
+      "per_page",
+      "page",
+    ];
+    return keys.some((k) => (u.searchParams.get(k) || "").trim() !== "");
+  }
+
+  function readFiltersFromForm() {
+    if (!form) return null;
+    const get = (id) => (document.getElementById(id)?.value || "").trim();
+
+    return {
+      medio: get("medio"),
+      estado: get("estado"),
+      desde: get("desde"),
+      hasta: get("hasta"),
+      per_page: get("per_page"),
+      venta_id: get("venta_id"),
+      min_total: get("min_total"),
+      max_total: get("max_total"),
+      page: get("page") || "1",
+    };
+  }
+
+  function saveFilters(obj) {
+    try {
+      localStorage.setItem(FILTERS_KEY, JSON.stringify(obj));
+    } catch {}
+  }
+
+  function loadFilters() {
+    try {
+      const raw = localStorage.getItem(FILTERS_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return obj && typeof obj === "object" ? obj : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function buildUrlFromFilters(obj) {
+    const u = new URL(window.location.href);
+    u.search = "";
+    Object.entries(obj || {}).forEach(([k, v]) => {
+      const val = (v ?? "").toString().trim();
+      if (val !== "") u.searchParams.set(k, val);
+    });
+    return (
+      u.pathname +
+      (u.searchParams.toString() ? "?" + u.searchParams.toString() : "")
+    );
+  }
+
+  // Si viene ?clear=1 => ya borramos storage en el click, pero por si entran directo:
+  const urlNow = new URL(window.location.href);
+  if (urlNow.searchParams.has("clear")) {
+    clearFiltersStorage();
+    urlNow.searchParams.delete("clear");
+    window.location.replace(
+      urlNow.pathname +
+        (urlNow.searchParams.toString()
+          ? "?" + urlNow.searchParams.toString()
+          : "")
+    );
+    return;
+  }
+
+  // Caso A: entré a ventas.php SIN filtros en la URL => restaurar desde localStorage
+  if (!qsHasMeaningfulFilters(window.location.href)) {
+    const saved = loadFilters();
+    if (saved) {
+      const target = buildUrlFromFilters(saved);
+      if (target !== window.location.pathname + window.location.search) {
+        window.location.replace(target);
+        return;
+      }
+    }
+  } else {
+    // Caso B: URL ya tiene filtros => guardarlos como “último estado”
+    const fromForm = readFiltersFromForm();
+    if (fromForm) saveFilters(fromForm);
+  }
+
+  // Guardar al submit
+  if (form) {
+    form.addEventListener("submit", () => {
+      const obj = readFiltersFromForm();
+      if (obj) saveFilters(obj);
+    });
   }
 
   // ---------------------------------------------

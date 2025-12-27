@@ -32,14 +32,11 @@ if (!function_exists('parse_money_ar')) {
     if ($s === '') return 0.0;
 
     // deja dígitos, coma, punto y signo
-    $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '0';
+    $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '';
     if ($s === '' || $s === '-' || $s === '.' || $s === ',') return 0.0;
 
-    // str_contains compatible
-    $hasComma = (strpos($s, ',') !== false);
-
-    // Si trae coma, asumimos formato AR: 1.234,56
-    if ($hasComma) {
+    // si tiene coma, asumimos formato AR 1.234,56
+    if (strpos($s, ',') !== false) {
       $s = str_replace('.', '', $s);
       $s = str_replace(',', '.', $s);
     }
@@ -162,8 +159,10 @@ if (!isset($GLOBALS['__app_config_cache']) || !is_array($GLOBALS['__app_config_c
 
 if (!function_exists('config_get')) {
   function config_get(PDO $pdo, string $k, ?string $default = null): ?string {
-    $cache =& $GLOBALS['__app_config_cache'];
+    $k = trim($k);
+    if ($k === '') return $default;
 
+    $cache =& $GLOBALS['__app_config_cache'];
     if (array_key_exists($k, $cache)) {
       return $cache[$k];
     }
@@ -179,6 +178,11 @@ if (!function_exists('config_get')) {
 
 if (!function_exists('config_set')) {
   function config_set(PDO $pdo, string $k, ?string $v): void {
+    $k = trim($k);
+    if ($k === '') return;
+
+    $v = ($v === null) ? null : trim($v);
+
     $st = $pdo->prepare("
       INSERT INTO app_config (k, v)
       VALUES (:k, :v)
@@ -186,7 +190,7 @@ if (!function_exists('config_set')) {
     ");
     $st->execute([':k' => $k, ':v' => $v]);
 
-    // ✅ invalida/actualiza cache local
+    // ✅ actualiza cache local
     $GLOBALS['__app_config_cache'][$k] = $v;
   }
 }
@@ -207,6 +211,7 @@ if (!function_exists('num_is_int_like')) {
     return abs($n - floor($n)) < $eps;
   }
 }
+
 /* ============================
    ALIASES COMPAT (money / format_qty)
    Para no romper pantallas viejas
@@ -221,26 +226,5 @@ if (!function_exists('format_qty')) {
   // Alias simple: si no pasás "pesable", asume unidad (0 decimales)
   function format_qty($valor, bool $pesable = false, int $decPesable = 3): string {
     return format_qty_ar((float)$valor, $pesable, $decPesable);
-  }
-}
-if (!function_exists('config_set')) {
-  function config_set(PDO $pdo, string $k, ?string $v): void {
-    $k = trim($k);
-    if ($k === '') return;
-
-    $v = $v === null ? null : trim($v);
-
-    $st = $pdo->prepare("
-      INSERT INTO app_config (k, v)
-      VALUES (:k, :v)
-      ON DUPLICATE KEY UPDATE v = VALUES(v)
-    ");
-    $st->execute([':k' => $k, ':v' => $v]);
-
-    // si usás cache en config_get, lo invalidamos:
-    if (function_exists('config_get')) {
-      // la cache de config_get es static interna; no la podemos tocar desde acá
-      // (no pasa nada, refresca con F5 o en otra request ya está ok)
-    }
   }
 }

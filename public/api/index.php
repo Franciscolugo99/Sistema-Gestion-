@@ -137,8 +137,37 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
  * - Si hay promo simple, ignora descuento manual del precio (como tu front hoy)
  * - Combos: descuenta (suma_lista - precio_combo) y se distribuye proporcionalmente en los items del combo
  */
+
 function calcular_totales_con_promos(array $items, array $promos): array {
-  // map promos simples por producto_id
+
+  $promosAplicadas = [];
+
+  $addPromo = function(array $row) use (&$promosAplicadas) {
+    $promoId = (int)($row['promo_id'] ?? 0);
+    $tipo    = (string)($row['promo_tipo'] ?? '');
+    $key     = $promoId . '|' . $tipo;
+
+    $monto = (float)($row['descuento_monto'] ?? 0);
+    if ($monto <= 0) return;
+
+    if (!isset($promosAplicadas[$key])) {
+      $row['descuento_monto'] = round($monto, 2);
+      $promosAplicadas[$key] = $row;
+      return;
+    }
+
+    $promosAplicadas[$key]['descuento_monto'] =
+      round(((float)$promosAplicadas[$key]['descuento_monto'] + $monto), 2);
+
+    if (isset($row['meta']) && is_array($row['meta'])) {
+      $promosAplicadas[$key]['meta'] = $promosAplicadas[$key]['meta'] ?? [];
+      if (is_array($promosAplicadas[$key]['meta'])) {
+        $promosAplicadas[$key]['meta'] = array_merge($promosAplicadas[$key]['meta'], $row['meta']);
+      }
+    }
+  };
+
+  // simples por producto
   $simplesByPid = [];
   foreach (($promos['simples'] ?? []) as $p) {
     if (!is_array($p)) continue;
@@ -147,39 +176,68 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     $simplesByPid[$pid] = $p;
   }
 
-  // map combos
+  // combos
   $combos = [];
   foreach (($promos['combos'] ?? []) as $c) {
     if (!is_array($c)) continue;
     $combos[] = $c;
   }
 
-  // 1) neto por item (aplicando promo simple)
+  // 1) aplicar promo simple por item
   foreach ($items as &$it) {
-    $pid = (int)$it['producto_id'];
-    $cant = (float)$it['cantidad'];
+    $pid   = (int)$it['producto_id'];
+    $cant  = (float)$it['cantidad'];
     $lista = (float)$it['precio_lista'];
     $precioActual = (float)$it['precio_actual'];
 
     $bruto = $cant * $lista;
-    $neto = $cant * $precioActual;
+    $neto  = $cant * $precioActual;
 
     $promo = $simplesByPid[$pid] ?? null;
+
     if ($promo) {
       $tipo = (string)($promo['tipo'] ?? '');
-      $n = (int)($promo['n'] ?? 0);
-      $m = isset($promo['m']) ? (int)$promo['m'] : 0;
-      $pct = isset($promo['porcentaje']) ? (float)$promo['porcentaje'] : 0.0;
+      $n    = (int)($promo['n'] ?? 0);
+      $m    = isset($promo['m']) ? (int)$promo['m'] : 0;
+      $pct  = isset($promo['porcentaje']) ? (float)$promo['porcentaje'] : 0.0;
 
       if ($n > 0) {
+
         if ($tipo === 'N_PAGA_M' && $m > 0 && $cant >= $n) {
           $packs = (int)floor($cant / $n);
-          $pagar = ($packs * $m) + fmod($cant, $n);
-          $neto = $pagar * $lista; // sobre lista (igual que tu front)
+          $resto = $cant - ($packs * $n);
+          $pagar = ($packs * $m) + $resto;
+
+          $neto = $pagar * $lista;
+          $descuentoPromo = $bruto - $neto;
+
+          if ($descuentoPromo > 0.00001) {
+            $addPromo([
+              'promo_id'        => (int)($promo['id'] ?? 0),
+              'promo_tipo'      => 'N_PAGA_M',
+              'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
+              'descripcion'     => "Promo {$n}x{$m}",
+              'descuento_monto' => round($descuentoPromo, 2),
+              'meta' => ['producto_id'=>$pid,'n'=>$n,'m'=>$m,'packs'=>$packs,'resto'=>$resto],
+            ]);
+          }
+
         } elseif ($tipo === 'NTH_PCT' && $pct > 0 && $cant >= $n) {
           $uDesc = (int)floor($cant / $n);
-          $desc = ($uDesc * $lista * $pct) / 100.0;
-          $neto = ($cant * $lista) - $desc; // sobre lista
+          $desc  = ($uDesc * $lista * $pct) / 100.0;
+
+          $neto = ($cant * $lista) - $desc;
+
+          if ($desc > 0.00001) {
+            $addPromo([
+              'promo_id'        => (int)($promo['id'] ?? 0),
+              'promo_tipo'      => 'NTH_PCT',
+              'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
+              'descripcion'     => "{$pct}% a la N°{$n}",
+              'descuento_monto' => round($desc, 2),
+              'meta' => ['producto_id'=>$pid,'n'=>$n,'porcentaje'=>$pct,'u_desc'=>$uDesc],
+            ]);
+          }
         }
       }
     }
@@ -190,13 +248,12 @@ function calcular_totales_con_promos(array $items, array $promos): array {
   }
   unset($it);
 
-  // 2) combos: distribuir descuento proporcionalmente en items del combo
+  // 2) combos: descuento proporcional
   foreach ($combos as $combo) {
     $precioCombo = (float)($combo['precio_combo'] ?? 0);
-    $itemsReq = $combo['items'] ?? [];
+    $itemsReq    = $combo['items'] ?? [];
     if ($precioCombo <= 0 || !is_array($itemsReq) || !$itemsReq) continue;
 
-    // calcular max combos posibles
     $maxCombos = PHP_INT_MAX;
     $sumaLista = 0.0;
 
@@ -206,8 +263,8 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       if ($pid <= 0 || $q <= 0) { $maxCombos = 0; break; }
 
       $itKey = null;
-      foreach ($items as $k => $it) {
-        if ((int)$it['producto_id'] === $pid) { $itKey = $k; break; }
+      foreach ($items as $k => $it2) {
+        if ((int)$it2['producto_id'] === $pid) { $itKey = $k; break; }
       }
       if ($itKey === null) { $maxCombos = 0; break; }
 
@@ -223,23 +280,30 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     $descUnit = $sumaLista - $precioCombo;
     if ($descUnit <= 0) continue;
 
-    $descTotal = $descUnit * $maxCombos;
+    $descTotalCombo = $descUnit * $maxCombos;
 
-    // distribuir proporcional a lista*q
+    $addPromo([
+      'promo_id'        => (int)($combo['id'] ?? 0),
+      'promo_tipo'      => 'COMBO_FIJO',
+      'promo_nombre'    => (string)($combo['nombre'] ?? 'Combo'),
+      'descripcion'     => "Combo fijo x{$maxCombos}",
+      'descuento_monto' => round($descTotalCombo, 2),
+      'meta' => ['combos'=>$maxCombos,'precio_combo'=>$precioCombo,'items'=>$itemsReq],
+    ]);
+
     foreach ($itemsReq as $req) {
       $pid = (int)$req['producto_id'];
       $q   = (float)$req['cantidad'];
 
       $itKey = null;
-      foreach ($items as $k => $it) {
-        if ((int)$it['producto_id'] === $pid) { $itKey = $k; break; }
+      foreach ($items as $k => $it2) {
+        if ((int)$it2['producto_id'] === $pid) { $itKey = $k; break; }
       }
       if ($itKey === null) continue;
 
-      $base = ((float)$items[$itKey]['precio_lista']) * $q;
+      $base  = ((float)$items[$itKey]['precio_lista']) * $q;
       $share = $base / $sumaLista;
-
-      $alloc = $descTotal * $share;
+      $alloc = $descTotalCombo * $share;
 
       $items[$itKey]['neto'] = round(((float)$items[$itKey]['neto']) - $alloc, 2);
       $items[$itKey]['descuento'] = round(((float)$items[$itKey]['descuento']) + $alloc, 2);
@@ -248,12 +312,10 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
   $totalBruto = 0.0;
   $totalNeto  = 0.0;
-  $descTotal  = 0.0;
 
-  foreach ($items as $it) {
-    $totalBruto += (float)$it['bruto'];
-    $totalNeto  += (float)$it['neto'];
-    $descTotal  += max(0.0, (float)$it['descuento']);
+  foreach ($items as $it3) {
+    $totalBruto += (float)$it3['bruto'];
+    $totalNeto  += (float)$it3['neto'];
   }
 
   $totalBruto = round($totalBruto, 2);
@@ -265,6 +327,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     'total_bruto' => $totalBruto,
     'total_neto'  => $totalNeto,
     'descuento_total' => $descTotal,
+    'promos_aplicadas' => array_values($promosAplicadas),
   ];
 }
 
@@ -447,6 +510,43 @@ try {
       'fecha'               => date('Y-m-d H:i:s'),
     ]);
   }
+// -----------------------------------------
+// Guardar promos aplicadas (auditoría/ticket pro)
+// -----------------------------------------
+$promosAplicadas = $calc['promos_aplicadas'] ?? [];
+if (is_array($promosAplicadas) && count($promosAplicadas) > 0) {
+
+  $sumVP = 0.0;
+
+  foreach ($promosAplicadas as $p) {
+    if (!is_array($p)) continue;
+
+    $promoId  = isset($p['promo_id']) ? (int)$p['promo_id'] : null;
+    $tipo     = trim((string)($p['promo_tipo'] ?? ''));
+    $nombre   = trim((string)($p['promo_nombre'] ?? ''));
+    $desc     = trim((string)($p['descripcion'] ?? ''));
+    $monto    = (float)($p['descuento_monto'] ?? 0);
+    $meta     = $p['meta'] ?? null;
+
+    if ($tipo === '' || $nombre === '' || $monto <= 0) continue;
+
+    $monto = round($monto, 2);
+    $sumVP += $monto;
+
+    insert_dynamic($pdo, 'venta_promos', [
+      'venta_id'        => $ventaId,
+      'promo_id'        => ($promoId && $promoId > 0) ? $promoId : null,
+      'promo_tipo'      => mb_substr($tipo, 0, 20),
+      'promo_nombre'    => mb_substr($nombre, 0, 120),
+      'descripcion'     => ($desc !== '') ? mb_substr($desc, 0, 255) : null,
+      'descuento_monto' => $monto,
+      'meta'            => ($meta === null) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE),
+    ]);
+  }
+
+  // (Opcional) sanity check: no rompe la venta, solo deja listo si querés auditar
+  // if (abs(round($descTotal,2) - round($sumVP,2)) > 0.01) { ... log audit ... }
+}
 
   // actualizar caja_sesiones (contador + importes)
   update_caja_sum($pdo, $cajaId, $medio, $totalNeto, $totalProductos);

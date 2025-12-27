@@ -57,7 +57,7 @@ $estado = $estado ?? '';
     <!-- ACCIONES -->
     <div class="field field-actions">
       <button type="submit" class="v-btn v-btn--primary">Filtrar</button>
-      <a href="ventas.php" class="v-btn v-btn--ghost">Limpiar</a>
+      <a href="ventas.php" id="ventasClear" class="v-btn v-btn--ghost">Limpiar</a>
     </div>
 
     <!-- RÁPIDOS -->
