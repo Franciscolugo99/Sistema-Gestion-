@@ -23,6 +23,7 @@ if (!function_exists('money_ar')) {
 if (!function_exists('parse_money_ar')) {
   /**
    * Convierte "$ 1.234,56" / "1.234,56" / "1234.56" a float
+   * ✅ Validación mejorada contra valores maliciosos
    */
   function parse_money_ar($v): float {
     if ($v === null) return 0.0;
@@ -31,11 +32,17 @@ if (!function_exists('parse_money_ar')) {
     $s = trim((string)$v);
     if ($s === '') return 0.0;
 
-    // deja dígitos, coma, punto y signo
+    // Limpia caracteres no numéricos
     $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '';
     if ($s === '' || $s === '-' || $s === '.' || $s === ',') return 0.0;
 
-    // si tiene coma, asumimos formato AR 1.234,56
+    // ✅ Validar que el signo - solo esté al principio
+    $minusCount = substr_count($s, '-');
+    if ($minusCount > 1 || ($minusCount === 1 && strpos($s, '-') !== 0)) {
+      return 0.0;
+    }
+
+    // Si tiene coma, asumimos formato AR 1.234,56
     if (strpos($s, ',') !== false) {
       $s = str_replace('.', '', $s);
       $s = str_replace(',', '.', $s);
@@ -119,10 +126,13 @@ if (!function_exists('format_cantidad')) {
 
 /* ============================
    CSRF (formularios POST)
+   ✅ Mejorado con regeneración de token
 ============================ */
 if (!function_exists('csrf_init')) {
   function csrf_init(): void {
-    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+      session_start();
+    }
     if (empty($_SESSION['csrf_token'])) {
       $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
@@ -143,15 +153,31 @@ if (!function_exists('csrf_field')) {
 }
 
 if (!function_exists('csrf_verify')) {
-  function csrf_verify(?string $token): bool {
+  /**
+   * ✅ Verifica y regenera el token para mayor seguridad
+   * @param bool $regenerate Si regenerar el token tras validación exitosa
+   */
+  function csrf_verify(?string $token, bool $regenerate = false): bool {
     csrf_init();
-    if (!$token) return false;
-    return hash_equals((string)($_SESSION['csrf_token'] ?? ''), (string)$token);
+    
+    if (!$token || empty($_SESSION['csrf_token'])) {
+      return false;
+    }
+    
+    $valid = hash_equals($_SESSION['csrf_token'], $token);
+    
+    // Opción de regenerar token después de uso (one-time token)
+    if ($valid && $regenerate) {
+      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    
+    return $valid;
   }
 }
 
 /* ============================
    APP CONFIG (DB) + CACHE
+   ✅ Con manejo de errores PDO
 ============================ */
 if (!isset($GLOBALS['__app_config_cache']) || !is_array($GLOBALS['__app_config_cache'])) {
   $GLOBALS['__app_config_cache'] = [];
@@ -167,12 +193,17 @@ if (!function_exists('config_get')) {
       return $cache[$k];
     }
 
-    $st = $pdo->prepare("SELECT v FROM app_config WHERE k = :k LIMIT 1");
-    $st->execute([':k' => $k]);
-    $v = $st->fetchColumn();
+    try {
+      $st = $pdo->prepare("SELECT v FROM app_config WHERE k = :k LIMIT 1");
+      $st->execute([':k' => $k]);
+      $v = $st->fetchColumn();
 
-    $cache[$k] = ($v !== false) ? (string)$v : $default;
-    return $cache[$k];
+      $cache[$k] = ($v !== false) ? (string)$v : $default;
+      return $cache[$k];
+    } catch (PDOException $e) {
+      error_log("config_get error [{$k}]: " . $e->getMessage());
+      return $default;
+    }
   }
 }
 
@@ -183,15 +214,29 @@ if (!function_exists('config_set')) {
 
     $v = ($v === null) ? null : trim($v);
 
-    $st = $pdo->prepare("
-      INSERT INTO app_config (k, v)
-      VALUES (:k, :v)
-      ON DUPLICATE KEY UPDATE v = VALUES(v)
-    ");
-    $st->execute([':k' => $k, ':v' => $v]);
+    try {
+      $st = $pdo->prepare("
+        INSERT INTO app_config (k, v)
+        VALUES (:k, :v)
+        ON DUPLICATE KEY UPDATE v = VALUES(v)
+      ");
+      $st->execute([':k' => $k, ':v' => $v]);
 
-    // ✅ actualiza cache local
-    $GLOBALS['__app_config_cache'][$k] = $v;
+      // ✅ actualiza cache local
+      $GLOBALS['__app_config_cache'][$k] = $v;
+    } catch (PDOException $e) {
+      error_log("config_set error [{$k}]: " . $e->getMessage());
+      throw $e; // Re-lanzar para que el código llamador sepa que falló
+    }
+  }
+}
+
+if (!function_exists('config_clear_cache')) {
+  /**
+   * ✅ Nueva función para limpiar la caché manualmente
+   */
+  function config_clear_cache(): void {
+    $GLOBALS['__app_config_cache'] = [];
   }
 }
 
@@ -199,11 +244,24 @@ if (!function_exists('config_set')) {
    NUM (redondeos, clamp, int-like)
 ============================ */
 if (!function_exists('num_round2')) {
-  function num_round2(float $n): float { return round($n, 2); }
+  function num_round2(float $n): float { 
+    return round($n, 2); 
+  }
 }
 
 if (!function_exists('num_clamp0')) {
-  function num_clamp0(float $n): float { return ($n < 0) ? 0.0 : $n; }
+  function num_clamp0(float $n): float { 
+    return ($n < 0) ? 0.0 : $n; 
+  }
+}
+
+if (!function_exists('num_clamp')) {
+  /**
+   * ✅ Nueva: Clamp general entre min y max
+   */
+  function num_clamp(float $n, float $min, float $max): float {
+    return max($min, min($max, $n));
+  }
 }
 
 if (!function_exists('num_is_int_like')) {
@@ -226,5 +284,49 @@ if (!function_exists('format_qty')) {
   // Alias simple: si no pasás "pesable", asume unidad (0 decimales)
   function format_qty($valor, bool $pesable = false, int $decPesable = 3): string {
     return format_qty_ar((float)$valor, $pesable, $decPesable);
+  }
+}
+
+/* ============================
+   ✅ NUEVAS UTILIDADES
+============================ */
+if (!function_exists('sanitize_int')) {
+  /**
+   * Sanitiza y valida un entero de forma segura
+   */
+  function sanitize_int($value, int $default = 0): int {
+    if ($value === null || $value === '') return $default;
+    $clean = filter_var($value, FILTER_VALIDATE_INT);
+    return ($clean !== false) ? $clean : $default;
+  }
+}
+
+if (!function_exists('sanitize_float')) {
+  /**
+   * Sanitiza y valida un float de forma segura
+   */
+  function sanitize_float($value, float $default = 0.0): float {
+    if ($value === null || $value === '') return $default;
+    $clean = filter_var($value, FILTER_VALIDATE_FLOAT);
+    return ($clean !== false) ? $clean : $default;
+  }
+}
+
+if (!function_exists('is_post_request')) {
+  /**
+   * Verifica si es una petición POST
+   */
+  function is_post_request(): bool {
+    return $_SERVER['REQUEST_METHOD'] === 'POST';
+  }
+}
+
+if (!function_exists('redirect')) {
+  /**
+   * Redirección con exit automático
+   */
+  function redirect(string $url, int $code = 302): void {
+    header("Location: {$url}", true, $code);
+    exit;
   }
 }

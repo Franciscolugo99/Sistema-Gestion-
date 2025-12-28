@@ -1,0 +1,465 @@
+/* public/assets/css/caja_sesion_detalle.css */
+/* FLUS theme: usa tokens (var--) y conserva animaciones */
+
+.detalle-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ========== HEADER ========== */
+.detalle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.detalle-title {
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin: 0;
+}
+
+.detalle-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ========== INFO CARDS ========== */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.info-card {
+  /* “FLUS-like gradient” pero sin hardcode */
+  background: linear-gradient(
+    135deg,
+    rgba(0, 190, 255, .22) 0%,
+    rgba(120, 80, 255, .18) 100%
+  );
+  border: 1px solid rgba(255,255,255,.12);
+  color: var(--text);
+  padding: 18px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+  border-color: rgba(255,255,255,.18);
+}
+
+.info-card h3 {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px 0;
+}
+
+.info-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.info-sub {
+  font-size: .9rem;
+  opacity: 0.85;
+  margin: 6px 0 0 0;
+}
+
+/* ========== RESUMEN FINANCIERO ========== */
+.resumen-financiero {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.resumen-financiero h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  margin: 0 0 14px 0;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding-bottom: 10px;
+}
+
+.resumen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.resumen-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  border-left: 4px solid rgba(0, 190, 255, .55); /* acento */
+}
+
+.resumen-label {
+  font-size: .88rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.resumen-value {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+/* estos 3 los usás como “clase” en el span de diferencia */
+.resumen-value.pill-pos { color: rgba(46, 204, 113, 1); }
+.resumen-value.pill-neg { color: rgba(231, 76, 60, 1); }
+.resumen-value.pill-zero { color: rgba(255,255,255,.72); }
+
+.resumen-metodos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  margin-bottom: 12px;
+}
+
+.metodo-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 10px;
+  background: rgba(0,0,0,.12);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.metodo-item span:first-child {
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.metodo-item strong {
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 800;
+}
+
+/* stats: mantenemos tu gradiente, pero “suave flus” */
+.resumen-stats {
+  display: flex;
+  justify-content: space-around;
+  padding: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 190, 255, .22) 0%,
+    rgba(120, 80, 255, .18) 100%
+  );
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  color: var(--text);
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-item span {
+  display: block;
+  font-size: .8rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.stat-item strong {
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+
+/* ========== SECCIONES (contenedor) ========== */
+.movimientos-section,
+.ventas-section {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.movimientos-section h2,
+.ventas-section h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  margin: 0 0 12px 0;
+  color: var(--text);
+}
+
+/* resumen */
+.movimientos-resumen,
+.ventas-resumen {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+}
+
+.movimientos-resumen span,
+.ventas-resumen span {
+  font-size: .9rem;
+  color: var(--muted);
+}
+
+.movimientos-resumen strong,
+.ventas-resumen strong {
+  color: var(--text);
+  font-size: 1rem;
+  margin-left: 6px;
+  font-weight: 900;
+}
+
+.text-danger {
+  color: rgba(231, 76, 60, 1);
+}
+
+.empty-message {
+  text-align: center;
+  padding: 26px 10px;
+  color: var(--muted);
+  font-size: .95rem;
+}
+
+/* ========== TABLAS (FLUS) ========== */
+/* wrapper: evita que “Acciones” se corte en pantallas chicas */
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+/* Si no querés tocar el HTML, igual funciona sin wrapper */
+.tabla-movimientos,
+.tabla-ventas {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px; /* evita colapsar acciones */
+}
+
+/* Header */
+.tabla-movimientos thead,
+.tabla-ventas thead {
+  background: rgba(255,255,255,.04);
+  backdrop-filter: blur(6px);
+}
+
+.tabla-movimientos th,
+.tabla-ventas th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 800;
+  color: var(--muted);
+  border-bottom: 1px solid rgba(255,255,255,.10);
+  font-size: .78rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Body */
+.tabla-movimientos td,
+.tabla-ventas td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: .92rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tabla-movimientos tbody tr:hover,
+.tabla-ventas tbody tr:hover {
+  background: rgba(255,255,255,.03);
+}
+
+.tabla-ventas .venta-anulada {
+  background: rgba(255, 193, 7, .08);
+  opacity: 0.80;
+}
+
+.tabla-ventas .venta-anulada:hover {
+  background: rgba(255, 193, 7, .14);
+}
+
+/* FIX: la columna Acciones siempre visible */
+.tabla-ventas th:last-child,
+.tabla-ventas td:last-child {
+  width: 120px;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* ========== PILLS & BADGES ========== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+}
+
+.pill-open {
+  background: rgba(255, 193, 7, .14);
+  border-color: rgba(255, 193, 7, .28);
+  color: rgba(255,255,255,.95);
+}
+
+.pill-success {
+  background: rgba(46, 204, 113, .14);
+  border-color: rgba(46, 204, 113, .28);
+  color: rgba(46, 204, 113, 1);
+}
+
+.pill-danger {
+  background: rgba(231, 76, 60, .14);
+  border-color: rgba(231, 76, 60, .28);
+  color: rgba(231, 76, 60, 1);
+}
+
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 800;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+}
+
+.badge-info {
+  background: rgba(0, 190, 255, .12);
+  border-color: rgba(0, 190, 255, .22);
+  color: rgba(0, 190, 255, 1);
+}
+
+/* ========== BOTONES ICONO (con tu animación) ========== */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  text-decoration: none;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.btn-icon:hover {
+  transform: scale(1.10);
+  background: rgba(255,255,255,.10);
+  border-color: rgba(255,255,255,.18);
+}
+
+/* ========== UTILIDADES ========== */
+.t-right { text-align: right; }
+.t-center { text-align: center; }
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* ========== ALERT ========== */
+.alert {
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+  font-size: .92rem;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+}
+
+.alert-error {
+  border-color: rgba(231, 76, 60, .28);
+  background: rgba(231, 76, 60, .10);
+  color: rgba(255,255,255,.92);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  .detalle-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .detalle-actions {
+    width: 100%;
+  }
+
+  .detalle-actions .btn {
+    flex: 1;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resumen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resumen-metodos {
+    grid-template-columns: 1fr;
+  }
+
+  .resumen-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* tablas: que no rompan el layout */
+  .tabla-ventas,
+  .tabla-movimientos {
+    min-width: 900px;
+  }
+}

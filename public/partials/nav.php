@@ -29,36 +29,47 @@ function can(string $perm): bool {
 $currentSection = $currentSection ?? '';
 if ($currentSection === '') {
   $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
-  $map = [
-    'index.php'            => 'inicio',
-    'dashboard.php'        => 'dashboard',
-    'caja.php'             => 'caja',
-    'productos.php'        => 'productos',
-    'stock.php'            => 'stock',
-    'movimientos.php'      => 'movimientos',
-    'ventas.php'           => 'ventas',
-    'compras.php'          => 'compras',
-    'usuarios.php'         => 'usuarios',
-    'usuario_nuevo.php'    => 'usuarios',
-    'usuario_editar.php'   => 'usuarios',
-    'caja_historial.php'   => 'historial_caja',
-    'promos.php'           => 'promos',
-    'promo_form.php'       => 'promos',
-    'promo_combo_form.php' => 'promos',
-    'clientes.php'         => 'clientes',
-    'facturacion.php'      => 'facturacion',
-    'configuracion.php'    => 'configuracion',
-    'venta_detalle.php'    => 'ventas',
-    'factura_nueva.php'    => 'facturacion',
-    'factura_ver.php'      => 'facturacion',
-    'factura_emitir.php'   => 'facturacion',
-    'auditoria.php'        => 'auditoria',
-    'backups.php'          => 'backups',
 
-    // ✅ nuevos (si los agregás)
-    'roles.php'            => 'roles',
-    'rol_permisos.php'     => 'roles',
+  $map = [
+    'index.php'              => 'inicio',
+    'dashboard.php'          => 'dashboard',
+    'caja.php'               => 'caja',
+    'productos.php'          => 'productos',
+    'stock.php'              => 'stock',
+    'movimientos.php'        => 'movimientos',
+    'ventas.php'             => 'ventas',
+    'venta_detalle.php'      => 'ventas',
+
+    'compras.php'            => 'compras',
+
+    // ✅ Unificado: caja_historial (en vez de historial_caja)
+    'caja_historial.php'     => 'caja_historial',
+    'caja_sesion_detalle.php'=> 'caja_historial',
+    'caja_sesion_print.php'  => 'caja_historial',
+
+    'promos.php'             => 'promos',
+    'promo_form.php'         => 'promos',
+    'promo_combo_form.php'   => 'promos',
+
+    'clientes.php'           => 'clientes',
+
+    'facturacion.php'        => 'facturacion',
+    'factura_nueva.php'      => 'facturacion',
+    'factura_ver.php'        => 'facturacion',
+    'factura_emitir.php'     => 'facturacion',
+
+    'configuracion.php'      => 'configuracion',
+    'usuarios.php'           => 'usuarios',
+    'usuario_nuevo.php'      => 'usuarios',
+    'usuario_editar.php'     => 'usuarios',
+
+    'auditoria.php'          => 'auditoria',
+    'backups.php'            => 'backups',
+
+    'roles.php'              => 'roles',
+    'rol_permisos.php'       => 'roles',
   ];
+
   if (isset($map[$file])) $currentSection = $map[$file];
 }
 
@@ -73,27 +84,35 @@ try {
 // Permisos (centralizados)
 $canDashboard   = can('ver_reportes');
 $canCaja        = can('realizar_ventas');
+
 $canProductos   = can('editar_productos') || can('ver_productos'); // si creás ver_productos
 $canStock       = can('editar_stock') || can('ver_stock');         // si creás ver_stock
 $canMovimientos = can('ver_movimientos');
-$canVentas      = can('ver_reportes');
+
+// ✅ Ventas: reportes o ventas operativas
+$canVentas      = can('ver_reportes') || can('realizar_ventas');
+
 $canCompras     = can('ver_compras') || can('editar_productos');    // fallback actual
+
+// ✅ Historial caja: permiso real
 $canHistCaja    = can('ver_historial_caja');
 
 // Promos: ideal tener editar_promos. Si no existe, fallback a editar_productos
-$canPromos = can('editar_promos') || can('editar_productos');
+$canPromos      = can('editar_promos') || can('editar_productos');
 
-// Clientes / Facturación: si aún no definiste permisos, no los oculto del todo,
-// pero recomiendo crear permisos (ver_clientes/editar_clientes, facturacion).
-$canClientes    = can('ver_clientes') || can('editar_clientes') || can('administrar_config');
-$canFacturacion = can('facturacion') || can('administrar_config') || can('ver_reportes');
+// ✅ Clientes (no mezclar con admin_config por defecto)
+$canClientes    = can('ver_clientes') || can('editar_clientes');
+
+// ✅ Facturación (no mezclar con ver_reportes)
+$canFacturacion = can('facturacion') || can('administrar_config');
 
 // Admin menu (tuerca)
 $showAdminMenu =
   can('administrar_config') ||
   can('administrar_usuarios') ||
   can('ver_auditoria') ||
-  can('gestionar_backups');
+  can('gestionar_backups') ||
+  can('administrar_roles');
 
 $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles'], true);
 ?>
@@ -151,7 +170,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
     <?php endif; ?>
 
     <?php if ($canHistCaja): ?>
-      <a href="caja_historial.php" class="nav-pill <?= $currentSection === 'historial_caja' ? 'active' : '' ?>">
+      <a href="caja_historial.php" class="nav-pill <?= $currentSection === 'caja_historial' ? 'active' : '' ?>">
         Historial caja
       </a>
     <?php endif; ?>
@@ -190,6 +209,9 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
         <div class="nav-menu-pop" role="menu" aria-label="Ajustes">
           <?php if (can('administrar_usuarios')): ?>
             <a role="menuitem" href="usuarios.php">👤 Usuarios</a>
+          <?php endif; ?>
+
+          <?php if (can('administrar_roles') || can('administrar_usuarios')): ?>
             <a role="menuitem" href="roles.php">🧩 Roles y permisos</a>
           <?php endif; ?>
 
