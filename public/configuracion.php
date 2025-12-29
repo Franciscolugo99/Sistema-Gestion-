@@ -2,15 +2,10 @@
 // public/configuracion.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_config');
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
-
-$pdo = getPDO();
-$user = current_user();
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();

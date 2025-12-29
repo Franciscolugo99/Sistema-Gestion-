@@ -2,7 +2,8 @@
 // public/caja_lib.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/bootstrap.php';
+
 
 /**
  * Devuelve la sesión de caja abierta (o null si no hay).

@@ -2,7 +2,7 @@
 // public/backup_download.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('gestionar_backups');
 

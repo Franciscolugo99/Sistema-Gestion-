@@ -2,11 +2,10 @@
 // public/productos.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('editar_productos');
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
+
 
 $pdo       = getPDO();
 $msg       = "";
@@ -25,25 +24,6 @@ if (!is_dir($uploadDirFs)) {
 /* ================================
    Helpers numéricos (soporta coma decimal)
 ================================ */
-function parse_decimal(?string $s, ?float $default = null): ?float {
-    if ($s === null) return $default;
-    $s = trim($s);
-    if ($s === '') return $default;
-
-    $s = str_replace(' ', '', $s);
-
-    // Si trae coma, asumimos formato AR: 1.234,56
-    if (strpos($s, ',') !== false) {
-        $s = str_replace('.', '', $s);   // miles
-        $s = str_replace(',', '.', $s);  // decimal
-    } else {
-        // Si NO trae coma, asumimos punto decimal: 1234.56
-        $s = str_replace(',', '', $s);   // por las dudas
-    }
-
-    if (!is_numeric($s)) return $default;
-    return (float)$s;
-}
 
 /* ================================
    CSRF token para links GET (activar/desactivar)

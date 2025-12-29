@@ -2,16 +2,12 @@
 // public/caja.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
-require_once __DIR__ . '/lib/helpers.php';
-
 require_pos();
 require_permission('realizar_ventas');
 
-$pdo  = getPDO();
-$user = current_user();
+
 
 // Terminal actual (UX2)
 $terminalId   = (int)($_SESSION['terminal_id'] ?? 0);

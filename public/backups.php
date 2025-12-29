@@ -2,11 +2,12 @@
 // public/backups.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
+
 require_login();
 require_permission('gestionar_backups');
 
-require_once __DIR__ . '/lib/helpers.php';
+
 require_once __DIR__ . '/../src/backup_lib.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();

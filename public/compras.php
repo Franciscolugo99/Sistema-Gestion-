@@ -2,13 +2,9 @@
 // public/compras.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
-
-$pdo = getPDO();
 
 $msg = '';
 $savedFlag = (string)($_GET['saved'] ?? '');
@@ -16,32 +12,7 @@ $savedFlag = (string)($_GET['saved'] ?? '');
 /* -----------------------------
    Helpers
 ------------------------------ */
-function parse_decimal(?string $s, float $default = 0.0): float {
-  if ($s === null) return $default;
-  $s = trim($s);
-  if ($s === '') return $default;
 
-  $s = str_replace(' ', '', $s);
-
-  // Formato AR: 1.234,56
-  if (strpos($s, ',') !== false) {
-    $s = str_replace('.', '', $s);
-    $s = str_replace(',', '.', $s);
-  } else {
-    $s = str_replace(',', '', $s);
-  }
-
-  return is_numeric($s) ? (float)$s : $default;
-}
-
-function urlWith(array $overrides = []): string {
-  $q = $_GET;
-  foreach ($overrides as $k => $v) {
-    if ($v === null) unset($q[$k]);
-    else $q[$k] = $v;
-  }
-  return 'compras.php' . (empty($q) ? '' : '?' . http_build_query($q));
-}
 
 /* -----------------------------
    POST actions

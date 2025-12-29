@@ -2,33 +2,15 @@
 // public/dashboard.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';;
 require_login();
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
 
-$pdo = getPDO();
 
 /* =========================
-   Helpers locales (por si no existen)
+   HELPERS
 ========================= */
-if (!function_exists('h')) {
-  function h($s): string {
-    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
-  }
-}
-if (!function_exists('money_ar')) {
-  function money_ar($n): string {
-    return '$' . number_format((float)$n, 2, ',', '.');
-  }
-}
-function validDateYmd(?string $s): ?string {
-  if (!$s) return null;
-  $d = DateTime::createFromFormat('Y-m-d', $s);
-  return ($d && $d->format('Y-m-d') === $s) ? $s : null;
-}
-function format_qty(float $n): string {
+function format_qty_trim(float $n): string {
   // hasta 3 decimales, sin ceros molestos
   $s = number_format($n, 3, ',', '.');
   $s = rtrim($s, '0');
@@ -413,7 +395,7 @@ require __DIR__ . '/partials/header.php';
           <button type="button" class="kpi-help" aria-label="Ayuda"
             data-help="Suma de cantidades vendidas (venta_items) dentro del rango. Puede incluir decimales (pesables).">?</button>
         </div>
-        <div class="stat-value"><?= h(format_qty($unidadesVendidasRango)) ?></div>
+        <div class="stat-value"><?= h(format_qty_trim($unidadesVendidasRango)) ?></div>
       </div>
 
       <div class="stat-card">

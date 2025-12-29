@@ -2,8 +2,8 @@
 // public/login.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/bootstrap.php';
+
 
 if (is_logged_in()) {
   header('Location: index.php');

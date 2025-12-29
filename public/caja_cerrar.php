@@ -2,8 +2,8 @@
 // public/caja_cerrar.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/bootstrap.php';
+
 require_once __DIR__ . '/lib/csrf.php';
 require_once __DIR__ . '/caja_lib.php';
 
@@ -13,15 +13,8 @@ require_pos();
 // permiso
 require_permission('cerrar_caja');
 
-$pdo  = getPDO();
-$user = current_user();
 
 $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
-
-// CSRF (si no usás csrf_token() del helper)
-if (empty($_SESSION['csrf_token'])) {
-  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
 
 
 /* ----------------------------------------------------
@@ -121,9 +114,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // CSRF
     $token = (string)($_POST['csrf_token'] ?? '');
-    if (!csrf_verify((string)($_POST['csrf_token'] ?? ''))) {
-        $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
-      } else
+    if (!csrf_verify($token)) {
+      $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
+    } else {
 
       $rawSaldo = (string)($_POST['saldo_declarado'] ?? '');
       $saldoDeclarado = parse_money_ar($rawSaldo);
@@ -134,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       } elseif ($saldoDeclarado < 0) {
         $errores[] = 'El saldo declarado no puede ser negativo.';
       } else {
+
         $diferencia = $saldoDeclarado - $saldoSistema;
 
         // ✅ Cierre atómico (evita doble cierre por doble click)
@@ -196,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 }
+
 
 /* ----------------------------------------------------
    5) SI YA ESTÁ CERRADA, USAR DATOS GUARDADOS

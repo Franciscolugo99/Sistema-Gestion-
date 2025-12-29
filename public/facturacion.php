@@ -2,22 +2,8 @@
 // public/facturacion.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
-
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
-
-$pdo = getPDO();
-
-/* =========================================================
-   FALLBACK HELPERS (si helpers.php no los trae)
-========================================================= */
-if (!function_exists('h')) {
-  function h($s): string {
-    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
-  }
-}
 
 /** Fecha Y-m-d válida o '' */
 function validDateYmdStr(string $s): string {

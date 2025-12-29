@@ -6,7 +6,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
-require_once __DIR__ . '/../src/config.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/terminal.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {

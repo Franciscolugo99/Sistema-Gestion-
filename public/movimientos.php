@@ -2,25 +2,16 @@
 // public/movimientos.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_movimientos');
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
+
 
 $pdo = getPDO();
 
 /* =========================================================
    HELPERS
 ========================================================= */
-function urlWith(array $overrides = []): string {
-  $q = $_GET;
-  foreach ($overrides as $k => $v) {
-    if ($v === null) unset($q[$k]);
-    else $q[$k] = $v;
-  }
-  return 'movimientos.php' . (empty($q) ? '' : '?' . http_build_query($q));
-}
 
 function tipoNorm(string $s): string {
   $s = strtoupper(trim($s));

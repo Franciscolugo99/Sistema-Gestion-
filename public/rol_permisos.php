@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
+
 
 require_login();
 require_permission('administrar_usuarios');
 
-$pdo = getPDO();
+
 
 // Asegurar sesión (para CSRF + flash)
 if (function_exists('startSecureSession')) {
@@ -19,23 +19,7 @@ if (function_exists('startSecureSession')) {
 /* ==========================
    CSRF (sin redeclare)
 ========================== */
-if (!function_exists('csrf_token')) {
-  function csrf_token(): string {
-    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-    if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
-      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
-  }
-}
 
-if (!function_exists('csrf_check')) {
-  function csrf_check(string $token): bool {
-    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-    $sess = (string)($_SESSION['csrf_token'] ?? '');
-    return $token !== '' && $sess !== '' && hash_equals($sess, $token);
-  }
-}
 
 /* ==========================
    Page vars
@@ -73,8 +57,8 @@ unset($_SESSION['flash_info'], $_SESSION['flash_error']);
    Save
 ========================== */
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-  $csrf = (string)($_POST['csrf'] ?? '');
-  if (!csrf_check($csrf)) {
+  $csrf = (string)($_POST['csrf_token'] ?? null);
+  if (!csrf_verify($csrf)) {
     $_SESSION['flash_error'] = 'CSRF inválido. Recargá la página e intentá de nuevo.';
     header('Location: rol_permisos.php?id=' . $roleId);
     exit;
@@ -158,7 +142,7 @@ require __DIR__ . '/partials/header.php';
   <?php endif; ?>
 
   <form method="post" style="margin-top:18px;">
-    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px;">
       <?php foreach ($perms as $p): ?>

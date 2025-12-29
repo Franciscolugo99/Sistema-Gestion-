@@ -1,14 +1,8 @@
 <?php
 // public/ticket.php
 declare(strict_types=1);
-
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
-
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
-
-$pdo = getPDO();
 
 // ------------------------------
 // Params

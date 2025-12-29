@@ -1,16 +1,10 @@
 <?php
 // public/terminales.php
 declare(strict_types=1);
-
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/auth.php';
-require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/terminal.php';
-
 require_login();
 require_permission('administrar_config');
-
-$pdo = getPDO();
 
 // CSRF
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();

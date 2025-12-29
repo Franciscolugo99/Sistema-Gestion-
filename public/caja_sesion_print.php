@@ -1,25 +1,16 @@
 <?php
 // public/caja_sesion_print.php
 declare(strict_types=1);
+require_once __DIR__ . '/bootstrap.php';
 
-require_once __DIR__ . '/auth.php';
 require_login();
 require_permission('ver_historial_caja');
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
 
-$pdo  = getPDO();
-$user = current_user();
 
 /* --------------------------------------------------------
    FUNCIÓN AUXILIAR
 -------------------------------------------------------- */
-function format_datetime_ar(?string $dt): string {
-  if (!$dt || $dt === '0000-00-00 00:00:00' || $dt === '') return '—';
-  $d = DateTime::createFromFormat('Y-m-d H:i:s', $dt);
-  return $d ? $d->format('d/m/Y H:i') : (string)$dt;
-}
 
 /* --------------------------------------------------------
    OBTENER ID DE SESIÓN
@@ -202,7 +193,7 @@ $difClass = $dif > 0.00001 ? 'positivo' : ($dif < -0.00001 ? 'negativo' : 'neutr
 
     <div class="resumen-item">
       <span class="resumen-label">Total Ventas</span>
-      <span class="resumen-value"><?= (int)($sesion['total_ventas'] ?? 0) ?></span>
+      <span class="resumen-value"><?= money_ar($sesion['total_ventas'] ?? 0) ?></span>
     </div>
 
     <div class="resumen-item">

@@ -52,6 +52,44 @@ if (!function_exists('parse_money_ar')) {
   }
 }
 
+
+if (!function_exists('parse_decimal')) {
+  /**
+   * Convierte "1.234,56" / "1234.56" / "$ 1.234,56" a float (o devuelve $default).
+   * - Acepta formato AR con coma como decimal.
+   * - Limpia caracteres no numéricos (mantiene - , .)
+   */
+  function parse_decimal(?string $s, ?float $default = null): ?float {
+    if ($s === null) return $default;
+
+    $s = trim($s);
+    if ($s === '') return $default;
+
+    $s = str_replace(' ', '', $s);
+
+    // Limpia caracteres no numéricos (por si viene "$", etc.)
+    $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '';
+    if ($s === '' || $s === '-' || $s === '.' || $s === ',') return $default;
+
+    // Signo "-" solo al inicio
+    if (substr_count($s, '-') > 1 || (strpos($s, '-') !== false && strpos($s, '-') > 0)) {
+      return $default;
+    }
+
+    // Si trae coma, asumimos formato AR: 1.234,56
+    if (strpos($s, ',') !== false) {
+      $s = str_replace('.', '', $s);   // miles
+      $s = str_replace(',', '.', $s);  // decimal
+    } else {
+      // Si NO trae coma, asumimos punto decimal: 1234.56
+      $s = str_replace(',', '', $s);
+    }
+
+    return is_numeric($s) ? (float)$s : $default;
+  }
+}
+
+
 /* ============================
    FECHAS
 ============================ */
@@ -62,6 +100,19 @@ if (!function_exists('validDateYmd')) {
     return ($d && $d->format('Y-m-d') === $s) ? $s : null;
   }
 }
+
+
+if (!function_exists('format_datetime_ar')) {
+  /**
+   * Formatea "Y-m-d H:i:s" a "d/m/Y H:i" (AR). Si es inválido → "—".
+   */
+  function format_datetime_ar(?string $dt): string {
+    if (!$dt || $dt === '0000-00-00 00:00:00' || $dt === '') return '—';
+    $d = DateTime::createFromFormat('Y-m-d H:i:s', $dt);
+    return $d ? $d->format('d/m/Y H:i') : $dt;
+  }
+}
+
 
 /* ============================
    URL CON FILTROS (paginación)

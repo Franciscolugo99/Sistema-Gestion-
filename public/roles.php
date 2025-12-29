@@ -1,18 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
-
-require_once __DIR__ . '/lib/helpers.php';
 
 $pageTitle      = 'Roles - Sistema Kiosco (FLUS)';
 $currentSection = 'roles';
 $bodyClass      = 'page-roles';
-
-$pdo = getPDO();
 
 $roles = $pdo->query("
   SELECT

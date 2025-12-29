@@ -1,18 +1,11 @@
 <?php
 // dashboard_export.php
-require_once __DIR__ . '/auth.php';  // arranca sesión + trae $pdo
+require_once __DIR__ . '/bootstrap.php';
 require_login();
-require_once __DIR__ . '/../src/config.php';
-$pdo = getPDO();
 
 /* =========================
    HELPERS
 ========================= */
-function validDateYmd(?string $s): ?string {
-  if (!$s) return null;
-  $d = DateTime::createFromFormat('Y-m-d', $s);
-  return ($d && $d->format('Y-m-d') === $s) ? $s : null;
-}
 function tableExists(PDO $pdo, string $table): bool {
   try {
     $stmt = $pdo->prepare("

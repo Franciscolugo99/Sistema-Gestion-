@@ -2,12 +2,9 @@
 // public/usuario_guardar.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
-
-require_once __DIR__ . '/../src/config.php';
-$pdo = getPDO();
 
 if (session_status() === PHP_SESSION_NONE) {
   session_start();

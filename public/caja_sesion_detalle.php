@@ -2,21 +2,11 @@
 // public/caja_sesion_detalle.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_historial_caja');
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
 
-$pdo  = getPDO();
-$user = current_user();
-
-function format_datetime_ar(?string $dt): string {
-  if (!$dt || $dt === '0000-00-00 00:00:00' || $dt === '') return '—';
-  $d = DateTime::createFromFormat('Y-m-d H:i:s', $dt);
-  return $d ? $d->format('d/m/Y H:i') : (string)$dt;
-}
 
 $sesion_id = sanitize_int($_GET['id'] ?? 0);
 if ($sesion_id <= 0) redirect('caja_historial.php');

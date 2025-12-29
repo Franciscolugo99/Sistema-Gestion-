@@ -99,29 +99,37 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
   if ($cajaId <= 0) return;
   if (!has_col($pdo, 'caja_sesiones', 'id')) return;
 
-  // Campos opcionales
-  $sets = [];
+  $sets   = [];
   $params = [':id' => $cajaId];
 
+  // total_ventas = MONTO
   if (has_col($pdo, 'caja_sesiones', 'total_ventas')) {
-    // total_ventas es CONTADOR (ver tu anular_venta que resta 1)
-    $sets[] = "total_ventas = COALESCE(total_ventas,0) + 1";
+    $sets[] = "total_ventas = COALESCE(total_ventas,0) + :imp";
+    $params[':imp'] = $importe;
   }
+
+  // contador opcional (si lo agregás en DB)
+  if (has_col($pdo, 'caja_sesiones', 'cant_ventas')) {
+    $sets[] = "cant_ventas = COALESCE(cant_ventas,0) + 1";
+  } elseif (has_col($pdo, 'caja_sesiones', 'cantidad_ventas')) {
+    $sets[] = "cantidad_ventas = COALESCE(cantidad_ventas,0) + 1";
+  }
+
   if (has_col($pdo, 'caja_sesiones', 'total_productos')) {
     $sets[] = "total_productos = COALESCE(total_productos,0) + :tp";
     $params[':tp'] = $productos;
   }
 
-  $campoMP = null;
-  $medio = strtoupper($medio);
-  if ($medio === 'MP') $campoMP = 'total_mp';
-  elseif ($medio === 'DEBITO') $campoMP = 'total_debito';
-  elseif ($medio === 'CREDITO') $campoMP = 'total_credito';
-  else $campoMP = 'total_efectivo';
+  // Totales por medio de pago (montos)
+  $campoMP = 'total_efectivo';
+  $m = strtoupper($medio);
+  if ($m === 'MP') $campoMP = 'total_mp';
+  elseif ($m === 'DEBITO') $campoMP = 'total_debito';
+  elseif ($m === 'CREDITO') $campoMP = 'total_credito';
 
   if ($campoMP && has_col($pdo, 'caja_sesiones', $campoMP)) {
-    $sets[] = "{$campoMP} = COALESCE({$campoMP},0) + :imp";
-    $params[':imp'] = $importe;
+    $sets[] = "{$campoMP} = COALESCE({$campoMP},0) + :imp_mp";
+    $params[':imp_mp'] = $importe;
   }
 
   if (!$sets) return;
@@ -130,6 +138,7 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
   $st = $pdo->prepare($sql);
   $st->execute($params);
 }
+
 
 /**
  * Promos servidor (mismo criterio que tu caja.js):

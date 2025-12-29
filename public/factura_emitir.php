@@ -2,14 +2,11 @@
 // public/factura_emitir.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 
-$pdo = getPDO();
 
 $ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
 if ($ventaId <= 0) {

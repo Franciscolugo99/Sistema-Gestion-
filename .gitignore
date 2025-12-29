@@ -67,6 +67,12 @@ logs/
 # Uploads (si son archivos subidos por usuarios)
 # -------------------------
 /public/uploads/
+
+# -------------------------
+# Imágenes de productos (subidas por usuario)
+# -------------------------
+/public/img/productos/
+!/public/img/productos/.gitkeep
 /uploads/
 
 # Si querés versionar un .gitkeep dentro de uploads (opcional):
