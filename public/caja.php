@@ -7,10 +7,16 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/caja_lib.php';
 require_once __DIR__ . '/lib/helpers.php';
 
-require_login();
+require_pos();
 require_permission('realizar_ventas');
+
 $pdo  = getPDO();
 $user = current_user();
+
+// Terminal actual (UX2)
+$terminalId   = (int)($_SESSION['terminal_id'] ?? 0);
+$terminal     = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
+$terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $terminalId)) : 'Sin terminal';
 
 // Asegurar sesión (auth.php ya la abre, pero no molesta)
 if (session_status() === PHP_SESSION_NONE) {
@@ -23,6 +29,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 $aperturaError = null;
+
 
 /* --------------------------------------------------------
    APERTURA DE CAJA (POST)
@@ -41,9 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === '
     } else {
       // Si tu caja_abrir ya bloquea y valida "no hay abierta" mejor.
       // Si no, acá evitamos doble apertura por chequeo simple.
-      $tmp = caja_get_abierta($pdo);
+      $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+      $tmp = caja_get_abierta($pdo, $terminalId);
       if (!$tmp || !is_array($tmp) || empty($tmp['id'])) {
-        caja_abrir($pdo, (int)$user['id'], $saldoIni);
+        caja_abrir($pdo, $terminalId, (int)$user['id'], $saldoIni);
         header('Location: caja.php');
         exit;
       } else {
@@ -60,14 +68,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === '
 -------------------------------------------------------- */
 $pageTitle      = 'Caja';
 $currentSection = 'caja';
-$extraCss       = [
+$extraCss = [
   'assets/css/caja.css',
   'assets/css/caja_cerrar.css',
+  'assets/css/caja_terminal_modal.css',
 ];
-$extraJs  = [
+
+$extraJs = [
   'assets/js/caja_ui.js',
   'assets/js/caja.js',
+  'assets/js/caja_terminal_modal.js',
 ];
+
 $extraHead = '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">';
 
 require __DIR__ . '/partials/header.php';
@@ -77,7 +89,10 @@ require __DIR__ . '/partials/header.php';
    Re-consultamos DESPUÉS del header/nav para que ninguna
    inclusión pueda “pisar” la variable que usamos para render.
 -------------------------------------------------------- */
-$cajaSesion = caja_get_abierta($pdo);
+$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+$cajaSesion = caja_get_abierta($pdo, $terminalId);
+$terminal = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
+$terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $terminalId)) : 'Sin terminal';
 if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
   $cajaSesion = null;
 }
@@ -91,6 +106,14 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
          CAJA CERRADA – PANEL DE APERTURA
     ===================================================== -->
     <h1 class="caja-title">CAJA</h1>
+    <div class="pos-terminal-bar">
+      <div class="pos-terminal-left">
+        <span class="pos-terminal-label">Terminal:</span>
+        <b class="pos-terminal-name"><?= h($terminalName) ?></b>
+      </div>
+      <button type="button" class="btn-line" id="btnCambiarTerminal">Cambiar</button>
+
+    </div>
 
     <div class="apertura-wrapper">
       <p class="apertura-text">
@@ -132,21 +155,30 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
     <!-- ====================================================
          CAJA ABIERTA – PANTALLA PRINCIPAL
     ===================================================== -->
-    <div class="caja-status-header">
-      <span class="mono">
-        Caja abierta · Apertura #<?= (int)$cajaSesion['id'] ?> ·
-        <?= h($cajaSesion['username'] ?? '') ?> ·
-        <?= h($cajaSesion['fecha_apertura'] ?? '') ?>
-      </span>
+      <div class="caja-status-header">
+        <div class="pos-terminal-bar pos-terminal-bar--inline">
+          <div class="pos-terminal-left">
+            <span class="pos-terminal-label">Terminal:</span>
+            <b class="pos-terminal-name"><?= h($terminalName) ?></b>
+          </div>
+          <button type="button" class="btn-line" id="btnCambiarTerminal">Cambiar</button>
+        </div>
 
-      <button
-        type="button"
-        id="btnCerrarCaja"
-        class="btn btn-danger"
-        data-caja-id="<?= (int)$cajaSesion['id'] ?>">
-        Cerrar caja
-      </button>
-    </div>
+        <span class="mono">
+          Caja abierta · Apertura #<?= (int)$cajaSesion['id'] ?> ·
+          <?= h($cajaSesion['username'] ?? '') ?> ·
+          <?= h($cajaSesion['fecha_apertura'] ?? '') ?>
+        </span>
+
+        <button
+          type="button"
+          id="btnCerrarCaja"
+          class="btn btn-danger"
+          data-caja-id="<?= (int)$cajaSesion['id'] ?>">
+          Cerrar caja
+        </button>
+      </div>
+
 
     <h1 class="caja-title">CAJA</h1>
 
@@ -286,5 +318,37 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
   <?php endif; ?>
 
 </div><!-- /.panel -->
+<?php
+$autoShowTerminalModal = 0;
+// si no hay terminal seleccionada, o querés forzar cuando detectes ocupada
+if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
+?>
+
+<!-- Modal: Cambiar Terminal -->
+<div id="terminalModal" class="terminal-modal" aria-hidden="true">
+  <div class="terminal-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="terminalModalTitle">
+    <div class="terminal-modal__head">
+      <div>
+        <h2 id="terminalModalTitle" class="terminal-modal__title">Elegir caja / terminal</h2>
+        <p class="terminal-modal__sub">La selección queda guardada en esta PC.</p>
+      </div>
+
+      <button type="button" class="terminal-modal__close" data-close>Cerrar</button>
+    </div>
+
+    <form id="terminalModalForm">
+      <div id="terminalModalList" class="terminal-modal__list"></div>
+
+      <div id="terminalModalError" class="terminal-modal__error is-hidden" role="alert"></div>
+
+      <div class="terminal-modal__actions">
+        <button type="button" class="btn terminal-modal__btn-cancel" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar y continuar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

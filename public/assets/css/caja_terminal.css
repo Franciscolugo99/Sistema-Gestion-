@@ -1,0 +1,45 @@
+/* public/assets/css/caja_terminal.css */
+
+.pos-terminal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+
+  border-radius: 14px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+}
+
+.pos-terminal-bar--inline {
+  margin: 0;
+  padding: 8px 10px;
+}
+
+.pos-terminal-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pos-terminal-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pos-terminal-name {
+  font-size: 0.98rem;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 520px) {
+  .pos-terminal-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -7,8 +7,10 @@ require_once __DIR__ . '/lib/helpers.php';
 /**
  * Devuelve la sesión de caja abierta (o null si no hay).
  */
-function caja_get_abierta(PDO $pdo): ?array {
-  $sql = "SELECT cs.id, cs.user_id, cs.fecha_apertura, cs.fecha_cierre,
+function caja_get_abierta(PDO $pdo, int $terminalId): ?array {
+  if ($terminalId <= 0) return null;
+
+  $sql = "SELECT cs.id, cs.user_id, cs.terminal_id, cs.fecha_apertura, cs.fecha_cierre,
                  cs.saldo_inicial, cs.saldo_sistema, cs.saldo_declarado, cs.diferencia,
                  cs.total_ventas, cs.total_efectivo, cs.total_mp, cs.total_debito, cs.total_credito,
                  cs.total_productos, cs.total_anulaciones, cs.notas,
@@ -16,11 +18,12 @@ function caja_get_abierta(PDO $pdo): ?array {
           FROM caja_sesiones cs
           JOIN users u ON u.id = cs.user_id
           WHERE cs.fecha_cierre IS NULL
+            AND cs.terminal_id = :tid
           ORDER BY cs.id DESC
           LIMIT 1";
 
-  $st = $pdo->query($sql);
-  if (!$st) return null;
+  $st = $pdo->prepare($sql);
+  $st->execute([':tid' => $terminalId]);
 
   $row = $st->fetch(PDO::FETCH_ASSOC);
   return $row ?: null;
@@ -29,7 +32,11 @@ function caja_get_abierta(PDO $pdo): ?array {
 /**
  * Abre una nueva sesión de caja.
  */
-function caja_abrir(PDO $pdo, int $userId, $saldoInicial = 0.0): int {
+function caja_abrir(PDO $pdo, int $terminalId, int $userId, $saldoInicial = 0.0): int {
+  if ($terminalId <= 0) {
+    throw new RuntimeException('Terminal inválida.');
+  }
+
   $saldoInicial = parse_money_ar($saldoInicial);
   if ($saldoInicial < 0) {
     throw new RuntimeException('Saldo inicial inválido.');
@@ -37,24 +44,28 @@ function caja_abrir(PDO $pdo, int $userId, $saldoInicial = 0.0): int {
 
   $pdo->beginTransaction();
   try {
-    // Evitar doble apertura
-    $st = $pdo->query("
+    // Evitar doble apertura (por terminal)
+    $st = $pdo->prepare("
       SELECT id
       FROM caja_sesiones
       WHERE fecha_cierre IS NULL
+        AND terminal_id = :tid
       ORDER BY id DESC
       LIMIT 1
       FOR UPDATE
     ");
-    $abierta = $st ? $st->fetch(PDO::FETCH_ASSOC) : null;
+    $st->execute([':tid' => $terminalId]);
+    $abierta = $st->fetch(PDO::FETCH_ASSOC);
+
     if ($abierta) {
-      throw new RuntimeException('Ya hay una caja abierta.');
+      throw new RuntimeException('Ya hay una caja abierta en este terminal.');
     }
 
-    $sql = "INSERT INTO caja_sesiones (user_id, fecha_apertura, saldo_inicial)
-            VALUES (:uid, NOW(), :saldo)";
+    $sql = "INSERT INTO caja_sesiones (terminal_id, user_id, fecha_apertura, saldo_inicial)
+            VALUES (:tid, :uid, NOW(), :saldo)";
     $st2 = $pdo->prepare($sql);
     $st2->execute([
+      ':tid'   => $terminalId,
       ':uid'   => $userId,
       ':saldo' => $saldoInicial,
     ]);

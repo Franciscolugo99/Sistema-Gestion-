@@ -6,17 +6,13 @@ require_once __DIR__ . '/../src/config.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/lib/helpers.php';
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-  session_start();
-}
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-// Solo POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   header('Location: login.php');
   exit;
 }
 
-// CSRF (viene del login.php con csrf_field())
 if (!csrf_verify($_POST['csrf_token'] ?? null)) {
   header('Location: login.php?error=csrf');
   exit;
@@ -31,8 +27,6 @@ if ($username === '' || $password === '') {
   header('Location: login.php?error=empty');
   exit;
 }
-
-// (Opcional pero sano) límite de tamaño
 if (mb_strlen($username) > 60 || mb_strlen($password) > 120) {
   header('Location: login.php?error=empty');
   exit;
@@ -61,10 +55,7 @@ if ($hash === '' || !password_verify($password, $hash)) {
   exit;
 }
 
-// Evitar session fixation
 session_regenerate_id(true);
-
-// Rotar CSRF después de login
 unset($_SESSION['csrf_token']);
 
 $_SESSION['user'] = [
@@ -75,5 +66,6 @@ $_SESSION['user'] = [
   'role_slug' => (string)($user['role_slug'] ?? ''),
 ];
 
-header('Location: caja.php');
+// Ya logueado: mandalo al dashboard
+header('Location: index.php');
 exit;

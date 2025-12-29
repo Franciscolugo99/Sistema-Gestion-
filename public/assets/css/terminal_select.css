@@ -1,0 +1,131 @@
+/* public/assets/css/terminal_select.css */
+/* Pantalla: Elegir caja / terminal */
+
+.terminal-card {
+  width: min(520px, 92vw);
+}
+
+.terminal-sub {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+/* Grid tarjetas */
+.terminal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+/* Tarjeta clickeable */
+.terminal-option {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 12px;
+
+  padding: 14px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  cursor: pointer;
+  transition: transform 0.08s ease, border-color 0.12s ease;
+  user-select: none;
+}
+
+.terminal-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(120, 220, 255, 0.35);
+}
+
+.terminal-option:active {
+  transform: translateY(0);
+}
+
+.terminal-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #21d07a;
+}
+
+.terminal-name {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.terminal-code {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+/* Badge libre/ocupada */
+.terminal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+
+.terminal-badge.ok {
+  background: rgba(33, 208, 122, 0.12);
+  border-color: rgba(33, 208, 122, 0.35);
+  color: #7dffc0;
+}
+
+.terminal-badge.locked {
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 80, 80, 0.35);
+  color: #ffb0b0;
+}
+
+/* Acciones */
+.terminal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Botones estilo FLUS (sin tocar tu app.css) */
+.btn-flus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.btn-flus.primary {
+  background: linear-gradient(
+    90deg,
+    rgba(33, 208, 122, 0.95),
+    rgba(33, 208, 122, 0.75)
+  );
+  border-color: rgba(33, 208, 122, 0.35);
+  color: #04140c;
+}
+
+.btn-flus:hover {
+  filter: brightness(1.05);
+}
+
+@media (max-width: 420px) {
+  .terminal-actions {
+    grid-template-columns: 1fr;
+  }
+}

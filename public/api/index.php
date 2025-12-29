@@ -336,6 +336,7 @@ $action = (string)($_GET['action'] ?? '');
 if ($action !== 'registrar_venta') json_fail('Acción inválida', 404);
 
 require_login_json();
+require_terminal_lock_json();
 
 $body = read_json_body();
 
@@ -379,7 +380,8 @@ $items = array_values($agg);
 if (!$items) json_fail('Items inválidos', 422);
 
 // caja abierta
-$caja = caja_get_abierta($pdo);
+$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+$caja = caja_get_abierta($pdo, $terminalId);
 $cajaId = (int)($caja['id'] ?? 0);
 if ($cajaId <= 0) json_fail('No hay caja abierta', 409);
 

@@ -12,21 +12,17 @@ if (is_logged_in()) {
 
 // Whitelist de códigos de error
 $errorCode = isset($_GET['error']) ? (string)$_GET['error'] : '';
-if (!in_array($errorCode, ['user', 'pass', 'empty'], true)) {
+if (!in_array($errorCode, ['user', 'pass', 'empty', 'locked', 'csrf'], true)) {
   $errorCode = '';
 }
 
 $errorMsg = null;
 switch ($errorCode) {
-  case 'user':
-    $errorMsg = 'El usuario no existe o está inactivo.';
-    break;
-  case 'pass':
-    $errorMsg = 'La contraseña es incorrecta.';
-    break;
-  case 'empty':
-    $errorMsg = 'Completá usuario y contraseña.';
-    break;
+  case 'user':   $errorMsg = 'El usuario no existe o está inactivo.'; break;
+  case 'pass':   $errorMsg = 'La contraseña es incorrecta.'; break;
+  case 'empty':  $errorMsg = 'Completá usuario y contraseña.'; break;
+  case 'locked': $errorMsg = 'La terminal/caja está ocupada. Elegí otra en Caja.'; break;
+  case 'csrf':   $errorMsg = 'Token inválido. Recargá e intentá de nuevo.'; break;
 }
 ?>
 <!DOCTYPE html>
@@ -36,10 +32,8 @@ switch ($errorCode) {
   <title>FLUS · Iniciar sesión</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Estilos core -->
   <link rel="stylesheet" href="assets/css/theme.css?v=1">
   <link rel="stylesheet" href="assets/css/app.css?v=1">
-  <!-- Estilos específicos de login -->
   <link rel="stylesheet" href="assets/css/login.css?v=1">
 </head>
 
@@ -88,9 +82,7 @@ switch ($errorCode) {
           Bloq Mayús está activado.
         </p>
 
-        <button type="submit" class="btn-primary login-btn">
-          Entrar
-        </button>
+        <button type="submit" class="btn-primary login-btn">Entrar</button>
       </form>
 
     </div>
@@ -103,7 +95,6 @@ switch ($errorCode) {
       const errorBox  = document.getElementById('loginError');
       const userInput = document.getElementById('login-username');
 
-      // Aviso de Bloq Mayús
       if (pwd && warning) {
         const checkCaps = (e) => {
           const capsOn = e.getModifierState && e.getModifierState('CapsLock');
@@ -113,7 +104,6 @@ switch ($errorCode) {
         pwd.addEventListener('keyup', checkCaps);
       }
 
-      // Error: fade-out + se oculta al tipear
       if (errorBox) {
         setTimeout(() => errorBox.classList.add('fade-out'), 4000);
         const hideError = () => errorBox.classList.add('fade-out');

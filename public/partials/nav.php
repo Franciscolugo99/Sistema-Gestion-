@@ -5,6 +5,7 @@ declare(strict_types=1);
 // ✅ Cargar config primero (timezone, sesiones, helpers, PDO, etc.)
 require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
 
 // ✅ Asegurar sesión segura (si la tenés en config.php)
@@ -75,7 +76,8 @@ if ($currentSection === '') {
 
 // Caja abierta desde DB (si falla DB, no rompas el nav)
 try {
-  $cajaRow     = caja_get_abierta($pdo);
+  $terminalId  = current_terminal_id();
+  $cajaRow     = ($terminalId > 0) ? caja_get_abierta($pdo, $terminalId) : null;
   $cajaAbierta = ($cajaRow !== null);
 } catch (Throwable $e) {
   $cajaAbierta = false;
@@ -217,6 +219,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
 
           <?php if (can('administrar_config')): ?>
             <a role="menuitem" href="configuracion.php">🛠 Configuración</a>
+            <a role="menuitem" href="terminales.php">🧾 Terminales / Cajas</a>
           <?php endif; ?>
 
           <?php if (can('ver_auditoria')): ?>

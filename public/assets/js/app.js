@@ -34,9 +34,99 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ============================================
-// PANEL LATERAL EDICIÓN + BLUR
+// TERMINAL LOCK HEARTBEAT (multi-caja / multi-PC)
+// Mantiene el lock vivo y detecta si se perdió.
 // ============================================
 
+document.addEventListener("DOMContentLoaded", () => {
+  // Guard duro: nunca correr en login/selector de terminal
+  const p = (window.location.pathname || "").toLowerCase();
+  if (
+    p.endsWith("/login.php") ||
+    p.endsWith("/terminal_select.php") ||
+    p.includes("/login")
+  )
+    return;
+
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  if (!csrfMeta) return;
+
+  const CSRF = csrfMeta.getAttribute("content") || "";
+  if (!CSRF) return;
+
+  let stopped = false;
+
+  const ping = async () => {
+    if (stopped) return;
+    try {
+      const r = await fetch("api/terminal_heartbeat.php", {
+        method: "POST",
+        headers: {
+          "X-CSRF-Token": CSRF,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+
+      if (r.status === 401) {
+        stopped = true;
+        return;
+      }
+      if (r.status === 403) {
+        stopped = true;
+        // CSRF inválido suele pasar cuando cambió la sesión/CSRF.
+        // Recargamos para que se regenere meta token y siga.
+        window.location.reload();
+        return;
+      }
+
+      if (r.status === 409) {
+        stopped = true;
+
+        // Intentar leer causa real
+        let j = null;
+        try {
+          j = await r.json();
+        } catch (_) {}
+
+        // Si no hay terminal elegida -> mandalo a selector
+        if (j && j.error === "NO_TERMINAL") {
+          window.location.href = "terminal_select.php?next=caja.php";
+          return;
+        }
+
+        // Si está bloqueada por otro usuario -> logout
+        if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
+          window.location.href = "logout.php?reason=locked";
+          return;
+        }
+
+        // Cualquier otro 409 raro -> NO logout inmediato (evita bucles)
+        // Podés mostrar un toast si querés:
+        // showToast("Se perdió la conexión con la caja. Reintentá.");
+        return;
+      }
+
+      if (r.ok) {
+        try {
+          await r.json();
+        } catch (_) {}
+      }
+    } catch (_) {
+      // silencioso
+    }
+  };
+
+  ping();
+  setInterval(ping, 25000);
+  if (window.__pauseTerminalHeartbeat) return;
+});
+
+// ============================================
+// PANEL LATERAL EDICIÓN + BLUR
+// ============================================
 
 /* ==========================
    RELLENAR FORM EDIT
@@ -67,8 +157,8 @@ function fillEditForm(data) {
   if (form.elements["stock"]) {
     const stockVal = Number(data.stock ?? 0);
     form.elements["stock"].value = isPes
-      ? stockVal.toFixed(3)   // pesable: 3 decimales (1.250 → "1.250")
-      : stockVal.toFixed(0);  // unidad: sin decimales (40 → "40")
+      ? stockVal.toFixed(3) // pesable: 3 decimales (1.250 → "1.250")
+      : stockVal.toFixed(0); // unidad: sin decimales (40 → "40")
   }
 
   if (form.elements["stock_minimo"]) {
@@ -549,7 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setState(isCollapsed); // si estaba colapsado, abrimos; si no, cerramos
   });
 });
- // dropdown de ajustes 
+// dropdown de ajustes
 document.addEventListener("click", (e) => {
   const menu = document.getElementById("adminMenu");
   if (!menu) return;

@@ -3,38 +3,36 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/auth.php';
-require_login();
-
-// ✅ Permiso recomendado para cierre (cambiá el slug si querés)
-require_permission('cerrar_caja');
-
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/helpers.php';   // ✅ NECESARIO: h(), money_ar(), parse_money_ar()
+require_once __DIR__ . '/lib/helpers.php';
+require_once __DIR__ . '/lib/csrf.php';
 require_once __DIR__ . '/caja_lib.php';
 
-$pdo = getPDO();
+// POS: login + terminal elegido + lock OK
+require_pos();
 
-if (session_status() === PHP_SESSION_NONE) {
-  session_start();
-}
+// permiso
+require_permission('cerrar_caja');
+
+$pdo  = getPDO();
+$user = current_user();
+
+$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+
+// CSRF (si no usás csrf_token() del helper)
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+
 
 /* ----------------------------------------------------
    1) OBTENER ID DE CAJA (GET o última abierta)
 ---------------------------------------------------- */
 $cajaId = (int)($_GET['id'] ?? 0);
+$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
 
 if ($cajaId <= 0) {
-  $stmt = $pdo->query("
-    SELECT id
-    FROM caja_sesiones
-    WHERE fecha_cierre IS NULL
-    ORDER BY id DESC
-    LIMIT 1
-  ");
-  $cajaId = (int)($stmt->fetchColumn() ?: 0);
+  $ab = caja_get_abierta($pdo, $terminalId);
+  $cajaId = (int)($ab['id'] ?? 0);
 }
 
 if ($cajaId <= 0) {
@@ -123,9 +121,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // CSRF
     $token = (string)($_POST['csrf_token'] ?? '');
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
-      $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
-    } else {
+    if (!csrf_verify((string)($_POST['csrf_token'] ?? ''))) {
+        $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
+      } else
 
       $rawSaldo = (string)($_POST['saldo_declarado'] ?? '');
       $saldoDeclarado = parse_money_ar($rawSaldo);
@@ -213,7 +211,7 @@ if (!$abierta) {
 ---------------------------------------------------- */
 $pageTitle      = 'Cierre de caja - Apertura #' . $cajaId;
 $currentSection = 'caja';
-$extraCss       = ['assets/css/caja_cerrar.css?v=1'];
+$extraCss       = ['assets/css/caja_cerrar.css'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -312,8 +310,7 @@ require __DIR__ . '/partials/header.php';
 
     <?php if ($abierta): ?>
       <form method="post" class="cierre-form">
-        <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-
+        <?= csrf_field() ?>
         <label for="saldo_declarado" class="cierre-label">
           Saldo contado por el cajero
         </label>
