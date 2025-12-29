@@ -2,7 +2,7 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios chicos: **Caja/ventas**, **productos + stock**, **promociones**, **clientes**, **compras**, **facturación (base)**, **auditoría**, **usuarios/roles** y **backups**.
 
-> Nota: este README reemplaza al `README.txt` viejo.
+
 
 ---
 
