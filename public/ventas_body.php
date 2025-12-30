@@ -7,6 +7,11 @@ declare(strict_types=1);
 /* =========================================================
    LIMPIAR (borra query en server; el localStorage lo borra JS)
 ========================================================= */
+if (!defined('APP_BOOTSTRAPPED')) {
+  http_response_code(403);
+  exit('Forbidden');
+}
+
 if (isset($_GET['clear'])) {
   header('Location: ventas.php');
   exit;
