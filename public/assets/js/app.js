@@ -5,33 +5,71 @@
 let currentEditId = null;
 
 // ============================================
-// TEMA OSCURO / CLARO
+// TEMA OSCURO / CLARO (ROBUSTO)
+// - corre aunque el script cargue tarde
+// - setea html + body
+// - persiste en localStorage + cookie
 // ============================================
 
-document.addEventListener("DOMContentLoaded", () => {
-  const body = document.body;
-  const toggle = document.getElementById("toggleTheme");
+(() => {
+  const getCookie = (name) => {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = document.cookie.match(
+      new RegExp("(?:^|;\\s*)" + esc + "=([^;]*)")
+    );
+    return m ? decodeURIComponent(m[1]) : "";
+  };
 
-  if (!toggle) return;
+  const setCookie = (name, value) => {
+    document.cookie =
+      name +
+      "=" +
+      encodeURIComponent(value) +
+      "; path=/; max-age=31536000; samesite=lax";
+  };
 
-  // Leer preferencia guardada o del sistema
-  const saved = localStorage.getItem("kiosco-theme");
-  const prefersDark =
-    window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const applyTheme = (theme) => {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.body.setAttribute("data-theme", theme);
 
-  const initialTheme = saved || (prefersDark ? "dark" : "light");
+    localStorage.setItem("kiosco-theme", theme);
+    localStorage.setItem("theme", theme);
+    setCookie("theme", theme);
+  };
 
-  body.setAttribute("data-theme", initialTheme);
-  toggle.checked = initialTheme === "light"; // checked = modo claro
+  const initTheme = () => {
+    const toggle = document.getElementById("toggleTheme");
+    if (!toggle) return;
 
-  // Cambiar tema
-  toggle.addEventListener("change", () => {
-    const newTheme = toggle.checked ? "light" : "dark";
-    body.setAttribute("data-theme", newTheme);
-    localStorage.setItem("kiosco-theme", newTheme);
-  });
-});
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+    const saved =
+      localStorage.getItem("kiosco-theme") ||
+      localStorage.getItem("theme") ||
+      getCookie("theme") ||
+      "";
+
+    const initialTheme = saved || (prefersDark ? "dark" : "light");
+
+    applyTheme(initialTheme);
+
+    // ✅ tu UI: checked = modo claro
+    toggle.checked = initialTheme === "light";
+
+    toggle.addEventListener("change", () => {
+      const newTheme = toggle.checked ? "light" : "dark";
+      applyTheme(newTheme);
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTheme);
+  } else {
+    initTheme();
+  }
+})();
 
 // ============================================
 // TERMINAL LOCK HEARTBEAT (multi-caja / multi-PC)

@@ -2,7 +2,7 @@
 // public/auth.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/config.php';
 require_once __DIR__ . '/lib/terminal.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -121,10 +121,6 @@ function require_terminal(bool $withNext = true): void {
   exit;
 }
 
-/**
- * POS (Caja): exige login + terminal + lock (ACQUIRE).
- * Si falla: manda a selector con msg=locked.
- */
 function require_pos(bool $withNext = true): void {
   require_login($withNext);
   require_terminal($withNext);
@@ -182,15 +178,7 @@ function require_pos_json(): void {
     exit;
   }
 }
-/* ==========================================================
-   COMPAT: funciones viejas usadas en páginas existentes
-   (para no romper caja_cerrar.php / otros)
-========================================================== */
 
-function require_terminal_lock(bool $withNext = true): void {
-  require_pos($withNext);
-}
-
-function require_terminal_lock_json(): void {
-  require_pos_json();
-}
+// compat
+function require_terminal_lock(bool $withNext = true): void { require_pos($withNext); }
+function require_terminal_lock_json(): void { require_pos_json(); }

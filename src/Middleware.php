@@ -2,7 +2,7 @@
 // src/Middleware.php
 declare(strict_types=1);
 
-class Middleware {
+final class Middleware {
   private array $checks = [];
 
   public static function create(): self {
@@ -31,9 +31,40 @@ class Middleware {
     die($message);
   }
 
-  public function requireAuth(?string $redirectTo = '/login.php'): self {
+  /**
+   * Normaliza sesión vieja -> nueva
+   * Acepta:
+   * - $_SESSION['user_id']
+   * - $_SESSION['user']['id'] / ['user_id'] / ['usuario_id']
+   */
+  private static function normalizeSession(): void {
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+    // user_id directo
+    if (!empty($_SESSION['user_id'])) return;
+
+    // formatos legacy
+    $u = $_SESSION['user'] ?? null;
+    if (is_array($u)) {
+      $id = $u['id'] ?? $u['user_id'] ?? $u['usuario_id'] ?? null;
+      if ($id !== null && $id !== '') {
+        $_SESSION['user_id'] = (int)$id;
+      }
+
+      // permisos legacy si vienen adentro de user
+      if (empty($_SESSION['permissions'])) {
+        $perms = $u['permissions'] ?? $u['permisos'] ?? [];
+        if (is_array($perms)) $_SESSION['permissions'] = $perms;
+      }
+    }
+  }
+
+  /**
+   * IMPORTANTE: login.php SIN "/" adelante (relativo a /kiosco/public/)
+   */
+  public function requireAuth(?string $redirectTo = 'login.php'): self {
     $this->checks[] = function() use ($redirectTo) {
-      if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+      self::normalizeSession();
 
       if (empty($_SESSION['user_id'])) {
         if ($redirectTo && !self::wants_json()) {
@@ -48,8 +79,17 @@ class Middleware {
 
   public function permission(string $permission): self {
     $this->checks[] = function() use ($permission) {
-      if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+      self::normalizeSession();
 
+      // Si existe tu función oficial, usala
+      if (function_exists('user_has_permission')) {
+        if (!user_has_permission($permission)) {
+          self::abort(403, 'Acceso denegado: no tenés permiso.');
+        }
+        return;
+      }
+
+      // Fallback: session permissions
       $userPerms = $_SESSION['permissions'] ?? [];
       if (!is_array($userPerms)) $userPerms = [];
 
