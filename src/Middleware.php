@@ -62,43 +62,61 @@ final class Middleware {
   /**
    * IMPORTANTE: login.php SIN "/" adelante (relativo a /kiosco/public/)
    */
-  public function requireAuth(?string $redirectTo = 'login.php'): self {
-    $this->checks[] = function() use ($redirectTo) {
-      self::normalizeSession();
-
-      if (empty($_SESSION['user_id'])) {
-        if ($redirectTo && !self::wants_json()) {
-          header("Location: {$redirectTo}");
-          exit;
-        }
-        self::abort(401, 'No autenticado');
-      }
-    };
-    return $this;
-  }
-
-  public function permission(string $permission): self {
-    $this->checks[] = function() use ($permission) {
-      self::normalizeSession();
-
-      // Si existe tu función oficial, usala
-      if (function_exists('user_has_permission')) {
-        if (!user_has_permission($permission)) {
-          self::abort(403, 'Acceso denegado: no tenés permiso.');
-        }
+public function requireAuth(?string $redirectTo = 'login.php'): self {
+  $this->checks[] = function() use ($redirectTo) {
+    // Si existe tu auth.php, usalo como fuente de verdad
+    if (self::wants_json()) {
+      if (function_exists('require_login_json')) {
+        require_login_json(); // devuelve 401 JSON y corta
         return;
       }
+    } else {
+      if (function_exists('require_login')) {
+        require_login(true); // redirige a login.php?next=...
+        return;
+      }
+    }
 
-      // Fallback: session permissions
-      $userPerms = $_SESSION['permissions'] ?? [];
-      if (!is_array($userPerms)) $userPerms = [];
+    // Fallback si por algún motivo no existe auth.php
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-      if (!in_array($permission, $userPerms, true)) {
+    $logged =
+      (!empty($_SESSION['user']) && is_array($_SESSION['user'])) ||
+      (!empty($_SESSION['user_id'])); // compat vieja
+
+    if (!$logged) {
+      if ($redirectTo && !self::wants_json()) {
+        header("Location: {$redirectTo}");
+        exit;
+      }
+      self::abort(401, 'No autenticado');
+    }
+  };
+
+  return $this;
+}
+  public function permission(string $permission): self {
+  $this->checks[] = function() use ($permission) {
+    // 1) Preferir DB (tu user_has_permission de auth.php)
+    if (function_exists('user_has_permission')) {
+      if (!user_has_permission($permission)) {
         self::abort(403, 'Acceso denegado: no tenés permiso.');
       }
-    };
-    return $this;
-  }
+      return;
+    }
+
+    // 2) Fallback: permisos en sesión (si existieran)
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+    $userPerms = $_SESSION['permissions'] ?? [];
+    if (!is_array($userPerms)) $userPerms = [];
+
+    if (!in_array($permission, $userPerms, true)) {
+      self::abort(403, 'Acceso denegado: no tenés permiso.');
+    }
+  };
+
+  return $this;
+}
 
   public function csrf(): self {
     $this->checks[] = function() {

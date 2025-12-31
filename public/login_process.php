@@ -56,14 +56,42 @@ if ($hash === '' || !password_verify($password, $hash)) {
 session_regenerate_id(true);
 unset($_SESSION['csrf_token']);
 
+/* =========================================================
+   ✅ Permisos a sesión (rápido + consistente)
+========================================================= */
+$roleId = (int)($user['role_id'] ?? 0);
+$perms = [];
+
+if ($roleId > 0) {
+  $stPerms = $pdo->prepare("
+    SELECT p.slug
+    FROM role_permission rp
+    JOIN permissions p ON rp.permission_id = p.id
+    WHERE rp.role_id = :rid
+  ");
+  $stPerms->execute([':rid' => $roleId]);
+  $perms = $stPerms->fetchAll(PDO::FETCH_COLUMN) ?: [];
+}
+
+/* =========================================================
+   ✅ Sesión unificada (compat vieja + middleware/controller)
+========================================================= */
 $_SESSION['user'] = [
   'id'        => (int)$user['id'],
   'nombre'    => (string)($user['nombre'] ?? ''),
   'username'  => (string)$user['username'],
-  'role_id'   => (int)$user['role_id'],
+  'email'     => (string)($user['email'] ?? ''),
+  'role_id'   => $roleId,
   'role_slug' => (string)($user['role_slug'] ?? ''),
 ];
 
-// Ya logueado: mandalo al dashboard
+// Compatibilidad para Middleware/BaseController/etc
+$_SESSION['user_id']    = (int)$user['id'];
+$_SESSION['user_name']  = (string)($user['nombre'] ?? $user['username'] ?? '');
+$_SESSION['user_email'] = (string)($user['email'] ?? '');
+$_SESSION['user_role']  = (string)($user['role_slug'] ?? '');
+$_SESSION['permissions'] = $perms;
+
+// Ya logueado: mandalo al inicio / dashboard
 header('Location: index.php');
 exit;

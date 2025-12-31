@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
-
-require_once __DIR__ . '/lib/csrf.php';
 require_once __DIR__ . '/caja_lib.php';
 
 // POS: login + terminal elegido + lock OK
@@ -13,21 +11,22 @@ require_pos();
 // permiso
 require_permission('cerrar_caja');
 
+function caja_is_open($fechaCierre): bool {
+  $fc = (string)($fechaCierre ?? '');
+  return ($fc === '' || $fc === '0000-00-00 00:00:00');
+}
 
 $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
-
 
 /* ----------------------------------------------------
    1) OBTENER ID DE CAJA (GET o última abierta)
 ---------------------------------------------------- */
 $cajaId = (int)($_GET['id'] ?? 0);
-$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
 
 if ($cajaId <= 0) {
   $ab = caja_get_abierta($pdo, $terminalId);
   $cajaId = (int)($ab['id'] ?? 0);
 }
-
 if ($cajaId <= 0) {
   header('Location: caja.php');
   exit;
@@ -52,18 +51,19 @@ if (!$caja) {
   exit;
 }
 
-$abierta       = empty($caja['fecha_cierre']);
-$saldoInicial  = (float)$caja['saldo_inicial'];
-$usernameCaja  = (string)$caja['username'];
-$fechaApertura = (string)$caja['fecha_apertura'];
+$abierta       = caja_is_open($caja['fecha_cierre'] ?? null);
+$saldoInicial  = (float)($caja['saldo_inicial'] ?? 0);
+$usernameCaja  = (string)($caja['username'] ?? '—');
+$fechaApertura = (string)($caja['fecha_apertura'] ?? '');
 
 /* ----------------------------------------------------
-   3) RESUMEN DE VENTAS DEL TURNO
+   3) RESUMEN DE VENTAS DEL TURNO (solo EMITIDA/NULL)
 ---------------------------------------------------- */
 $stmt = $pdo->prepare("
   SELECT medio_pago, SUM(total) AS total
   FROM ventas
-  WHERE caja_id = ? AND (estado IS NULL OR estado = 'EMITIDA')
+  WHERE caja_id = ?
+    AND (estado IS NULL OR estado = 'EMITIDA')
   GROUP BY medio_pago
 ");
 $stmt->execute([$cajaId]);
@@ -77,8 +77,8 @@ $porMedio = [
 
 $totalVentas = 0.0;
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-  $medio = strtoupper((string)$row['medio_pago']);
-  $total = (float)$row['total'];
+  $medio = strtoupper((string)($row['medio_pago'] ?? ''));
+  $total = (float)($row['total'] ?? 0);
 
   $totalVentas += $total;
   if (isset($porMedio[$medio])) {
@@ -86,18 +86,46 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
   }
 }
 
-// Ítems vendidos del turno
+// Ítems (cantidad total) vendidos del turno (solo EMITIDA/NULL)
+// OJO: si tenés pesables, esto puede ser decimal.
 $stmt = $pdo->prepare("
-  SELECT SUM(vi.cantidad) AS cant
+  SELECT COALESCE(SUM(vi.cantidad),0) AS cant
   FROM ventas v
   JOIN venta_items vi ON vi.venta_id = v.id
   WHERE v.caja_id = ?
+    AND (v.estado IS NULL OR v.estado = 'EMITIDA')
 ");
 $stmt->execute([$cajaId]);
-$itemsVendidos = (int)($stmt->fetchColumn() ?: 0);
+$itemsVendidos = (float)($stmt->fetchColumn() ?: 0);
 
-// Saldo que debería haber en caja física (sólo efectivo)
-$saldoSistema = $saldoInicial + $porMedio['EFECTIVO'];
+// Anulaciones (conteo)
+$stmt = $pdo->prepare("
+  SELECT COUNT(*) 
+  FROM ventas
+  WHERE caja_id = ?
+    AND estado IS NOT NULL
+    AND UPPER(estado) LIKE '%ANUL%'
+");
+$stmt->execute([$cajaId]);
+$totalAnulaciones = (int)($stmt->fetchColumn() ?: 0);
+
+/* ----------------------------------------------------
+   3.1) MOVIMIENTOS DE CAJA (asumimos efectivo)
+---------------------------------------------------- */
+$stmt = $pdo->prepare("
+  SELECT
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
+  FROM caja_movimientos
+  WHERE caja_id = ?
+");
+$stmt->execute([$cajaId]);
+$rowMov = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$movIngresos = (float)($rowMov['ingresos'] ?? 0);
+$movEgresos  = (float)($rowMov['egresos']  ?? 0);
+
+// ✅ Efectivo esperado (antes estaba mal)
+$saldoSistema = $saldoInicial + $porMedio['EFECTIVO'] + $movIngresos - $movEgresos;
 
 /* ----------------------------------------------------
    4) PROCESAR CIERRE (POST)
@@ -112,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errores[] = 'La caja ya estaba cerrada.';
   } else {
 
-    // CSRF
+    // CSRF (usa helpers.php)
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_verify($token)) {
       $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
@@ -130,18 +158,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $diferencia = $saldoDeclarado - $saldoSistema;
 
-        // ✅ Cierre atómico (evita doble cierre por doble click)
+        // ✅ Cierre atómico
         $pdo->beginTransaction();
         try {
-          // Lock de la caja
           $stLock = $pdo->prepare("SELECT fecha_cierre FROM caja_sesiones WHERE id = ? FOR UPDATE");
           $stLock->execute([$cajaId]);
           $fechaCierreActual = $stLock->fetchColumn();
 
-          if (!empty($fechaCierreActual)) {
+          if (!caja_is_open($fechaCierreActual)) {
             $pdo->rollBack();
             $errores[] = 'No se pudo cerrar la caja: ya estaba cerrada.';
           } else {
+
             $stUpd = $pdo->prepare("
               UPDATE caja_sesiones
               SET
@@ -155,7 +183,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 total_mp        = ?,
                 total_debito    = ?,
                 total_credito   = ?,
-                total_productos = ?
+                total_productos = ?,
+                total_anulaciones = ?
               WHERE id = ? AND fecha_cierre IS NULL
             ");
 
@@ -170,6 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $porMedio['DEBITO'],
               $porMedio['CREDITO'],
               $itemsVendidos,
+              $totalAnulaciones,
               $cajaId,
             ]);
 
@@ -190,7 +220,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 }
-
 
 /* ----------------------------------------------------
    5) SI YA ESTÁ CERRADA, USAR DATOS GUARDADOS
@@ -239,16 +268,27 @@ require __DIR__ . '/partials/header.php';
   <div class="cierre-grid">
 
     <section class="cierre-card cierre-resumen">
-      <h2 class="cierre-section-title">Resumen del día</h2>
+      <h2 class="cierre-section-title">Resumen del turno</h2>
       <ul class="cierre-list">
         <li class="cierre-row">
           <span>Saldo inicial</span>
           <span class="mono"><?= money_ar($saldoInicial) ?></span>
         </li>
+
         <li class="cierre-row">
-          <span>Total Efectivo</span>
+          <span>Ventas en efectivo</span>
           <span class="mono"><?= money_ar($porMedio['EFECTIVO']) ?></span>
         </li>
+
+        <li class="cierre-row">
+          <span>Movimientos ingreso</span>
+          <span class="mono"><?= money_ar($movIngresos) ?></span>
+        </li>
+        <li class="cierre-row">
+          <span>Movimientos egreso</span>
+          <span class="mono"><?= money_ar($movEgresos) ?></span>
+        </li>
+
         <li class="cierre-row">
           <span>Total Mercado Pago</span>
           <span class="mono"><?= money_ar($porMedio['MP']) ?></span>
@@ -261,18 +301,24 @@ require __DIR__ . '/partials/header.php';
           <span>Total Crédito</span>
           <span class="mono"><?= money_ar($porMedio['CREDITO']) ?></span>
         </li>
+
         <li class="cierre-row cierre-row-simple">
-          <span>Ítems vendidos</span>
-          <span class="mono"><?= (int)$itemsVendidos ?></span>
+          <span>Ítems vendidos (cantidad)</span>
+          <span class="mono"><?= h((string)$itemsVendidos) ?></span>
+        </li>
+
+        <li class="cierre-row cierre-row-simple">
+          <span>Anulaciones</span>
+          <span class="mono"><?= (int)$totalAnulaciones ?></span>
         </li>
       </ul>
     </section>
 
     <section class="cierre-card cierre-total">
-      <div class="cierre-total-label">Total sistema</div>
+      <div class="cierre-total-label">Efectivo esperado (sistema)</div>
       <div class="cierre-total-amount"><?= money_ar($saldoSistema) ?></div>
       <div class="cierre-total-sub">
-        Saldo inicial + ventas en efectivo
+        Saldo inicial + ventas efectivo + ingresos - egresos
       </div>
 
       <?php if (!$abierta): ?>
@@ -306,6 +352,7 @@ require __DIR__ . '/partials/header.php';
     <?php if ($abierta): ?>
       <form method="post" class="cierre-form">
         <?= csrf_field() ?>
+
         <label for="saldo_declarado" class="cierre-label">
           Saldo contado por el cajero
         </label>
