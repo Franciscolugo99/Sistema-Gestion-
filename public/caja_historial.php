@@ -6,15 +6,27 @@ require_once __DIR__ . '/bootstrap.php';
 
 require_login();
 require_permission('ver_historial_caja');
+
 /* --------------------------------------------------------
-   FUNCIONES AUXILIARES
+   Helpers locales (chicos y seguros)
 -------------------------------------------------------- */
+function is_open_dt($dt): bool {
+  // $dt puede venir null/string
+  if ($dt === null) return true;
+  $s = trim((string)$dt);
+  return ($s === '' || $s === '0000-00-00 00:00:00');
+}
+
+function normalize_estado(?string $v): string {
+  $v = trim((string)$v);
+  return in_array($v, ['abierta', 'cerrada'], true) ? $v : '';
+}
 
 /* --------------------------------------------------------
    FILTROS Y PAGINACIÓN
 -------------------------------------------------------- */
 $filtro_usuario = sanitize_int($_GET['usuario'] ?? 0);
-$filtro_estado  = trim((string)($_GET['estado'] ?? ''));
+$filtro_estado  = normalize_estado($_GET['estado'] ?? '');
 $filtro_desde   = validDateYmd($_GET['desde'] ?? null);
 $filtro_hasta   = validDateYmd($_GET['hasta'] ?? null);
 
@@ -75,7 +87,7 @@ try {
 $total_pages = $total_sesiones > 0 ? (int)ceil($total_sesiones / $per_page) : 1;
 $total_pages = max(1, $total_pages);
 
-$page = min($page, $total_pages);
+$page   = min($page, $total_pages);
 $offset = ($page - 1) * $per_page;
 
 /* --------------------------------------------------------
@@ -134,7 +146,6 @@ try {
 } catch (PDOException $e) {
   error_log("Error listando usuarios: " . $e->getMessage());
 }
-
 
 /* --------------------------------------------------------
    Header global
@@ -234,51 +245,49 @@ require __DIR__ . '/partials/header.php';
       <tbody>
         <?php if (!$filas): ?>
           <tr>
-            <td colspan="15" class="t-center hist-empty">
-              No hay sesiones para mostrar.
-            </td>
+            <td colspan="15" class="t-center hist-empty">No hay sesiones para mostrar.</td>
           </tr>
         <?php else: ?>
           <?php foreach ($filas as $r): ?>
             <?php
-              $id        = (int)($r['id'] ?? 0);
-              $username  = (string)($r['username'] ?? '—');
+              $id       = (int)($r['id'] ?? 0);
+              $username = (string)($r['username'] ?? '—');
 
-              $apertura  = (string)($r['fecha_apertura'] ?? '');
-              $cierre    = (string)($r['fecha_cierre'] ?? '');
+              $apertura_raw = $r['fecha_apertura'] ?? '';
+              $cierre_raw   = $r['fecha_cierre'] ?? null;
 
-              $dif       = (float)($r['diferencia'] ?? 0);
-              $difClass  = $dif > 0.00001 ? 'pill pill-pos' : ($dif < -0.00001 ? 'pill pill-neg' : 'pill pill-zero');
+              $isOpen   = is_open_dt($cierre_raw);
 
-              $isOpen    = ($cierre === '' || $cierre === '0000-00-00 00:00:00' || $cierre === null);
+              $dif      = (float)($r['diferencia'] ?? 0);
+              $difClass = $dif > 0.00001 ? 'pill pill-pos' : ($dif < -0.00001 ? 'pill pill-neg' : 'pill pill-zero');
             ?>
 
             <tr class="<?= $isOpen ? 'row-open' : '' ?>">
               <td class="mono"><?= $id ?></td>
               <td><?= h($username) ?></td>
 
-              <td class="mono nowrap"><?= h(format_datetime_ar($apertura)) ?></td>
+              <td class="mono nowrap"><?= h(format_datetime_ar((string)$apertura_raw)) ?></td>
 
               <td class="mono nowrap">
                 <?php if ($isOpen): ?>
                   <span class="pill pill-open">Abierta</span>
                 <?php else: ?>
-                  <?= h(format_datetime_ar($cierre)) ?>
+                  <?= h(format_datetime_ar((string)$cierre_raw)) ?>
                 <?php endif; ?>
               </td>
 
-              <td class="t-right"><?= money_ar($r['saldo_inicial'] ?? 0) ?></td>
-              <td class="t-right"><?= money_ar($r['saldo_sistema'] ?? 0) ?></td>
-              <td class="t-right"><?= money_ar($r['saldo_declarado'] ?? 0) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['saldo_inicial'] ?? 0)) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['saldo_sistema'] ?? 0)) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['saldo_declarado'] ?? 0)) ?></td>
 
               <td class="t-right">
                 <span class="<?= h($difClass) ?>"><?= money_ar($dif) ?></span>
               </td>
 
-              <td class="t-right"><?= money_ar($r['total_efectivo'] ?? 0) ?></td>
-              <td class="t-right"><?= money_ar($r['total_mp'] ?? 0) ?></td>
-              <td class="t-right"><?= money_ar($r['total_debito'] ?? 0) ?></td>
-              <td class="t-right"><?= money_ar($r['total_credito'] ?? 0) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['total_efectivo'] ?? 0)) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['total_mp'] ?? 0)) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['total_debito'] ?? 0)) ?></td>
+              <td class="t-right"><?= money_ar((float)($r['total_credito'] ?? 0)) ?></td>
 
               <td class="t-right"><?= (int)($r['total_productos'] ?? 0) ?></td>
               <td class="t-right"><?= (int)($r['total_anulaciones'] ?? 0) ?></td>
@@ -303,9 +312,7 @@ require __DIR__ . '/partials/header.php';
         <a href="<?= h(url_with(['page' => $page - 1])) ?>" class="btn btn-sm">← Anterior</a>
       <?php endif; ?>
 
-      <span class="page-info">
-        Página <?= (int)$page ?> de <?= (int)$total_pages ?>
-      </span>
+      <span class="page-info">Página <?= (int)$page ?> de <?= (int)$total_pages ?></span>
 
       <?php if ($page < $total_pages): ?>
         <a href="<?= h(url_with(['page' => $page + 1])) ?>" class="btn btn-sm">Siguiente →</a>

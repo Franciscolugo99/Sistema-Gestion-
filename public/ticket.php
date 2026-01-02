@@ -66,10 +66,15 @@ $footer  = config_get($pdo, 'ticket_footer', 'Gracias por su compra');
 // Query venta
 // ------------------------------
 $selectUser = (has_col($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
+$selectBruto = has_col($pdo, 'ventas', 'total_bruto');
+$selectDescT = has_col($pdo, 'ventas', 'descuento_total');
 
 $sqlVenta = "
-  SELECT v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.nota, v.caja_id, c.fecha_apertura
-  " . ($selectUser ? ", u.username AS cajero" : "") . "
+  SELECT
+    v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.nota, v.caja_id, c.fecha_apertura
+    " . ($selectBruto ? ", v.total_bruto" : "") . "
+    " . ($selectDescT ? ", v.descuento_total" : "") . "
+    " . ($selectUser ? ", u.username AS cajero" : "") . "
   FROM ventas v
   LEFT JOIN caja_sesiones c ON v.caja_id = c.id
   " . ($selectUser ? "LEFT JOIN users u ON u.id = v.user_id" : "") . "
@@ -110,7 +115,7 @@ if (has_table($pdo, 'venta_promos')) {
   $stP = $pdo->prepare("SELECT promo_tipo, promo_nombre, descripcion, descuento_monto FROM venta_promos WHERE venta_id = :id ORDER BY id ASC");
   $stP->execute([':id' => $ventaId]);
   $promos = $stP->fetchAll(PDO::FETCH_ASSOC) ?: [];
-  
+
   foreach ($promos as $pr) {
     $descPromos += (float)($pr['descuento_monto'] ?? 0);
   }
@@ -118,24 +123,36 @@ if (has_table($pdo, 'venta_promos')) {
 }
 
 // ------------------------------
-// Totales
+// Totales (fallback si no hay columnas en ventas)
 // ------------------------------
-$brutoTotal = 0.0;
-$descItems  = 0.0;
+$brutoCalc = 0.0;
+$descItems = 0.0;
 
 foreach ($items as $it) {
   $cantidad = (float)($it['cantidad'] ?? 0);
-  $puOriginal = ($it['precio_unit_original'] !== null) ? (float)$it['precio_unit_original'] : (float)($it['precio'] ?? 0);
+  $puOriginal = ($it['precio_unit_original'] !== null)
+    ? (float)$it['precio_unit_original']
+    : (float)($it['precio'] ?? 0);
+
   $descLinea = (float)($it['descuento_monto'] ?? 0);
-  
-  $brutoTotal += $puOriginal * $cantidad;
-  $descItems  += $descLinea;
+
+  $brutoCalc += $puOriginal * $cantidad;
+  $descItems += $descLinea;
 }
 
-$brutoTotal = round($brutoTotal, 2);
-$descItems  = round($descItems, 2);
-$totalNeto  = round((float)$venta['total'], 2);
+$brutoCalc = round($brutoCalc, 2);
+$descItems = round($descItems, 2);
+
+$totalNeto = round((float)($venta['total'] ?? 0), 2);
+
+// Preferir columnas de ventas si existen
+$brutoTotal = ($selectBruto && $venta['total_bruto'] !== null) ? round((float)$venta['total_bruto'], 2) : $brutoCalc;
+
+// Descuento total: si hay venta_promos, usamos ese; sino usamos suma de items; si existe ventas.descuento_total, lo usamos como fallback real
 $descMostrar = ($descPromos > 0.00001) ? $descPromos : $descItems;
+if ($selectDescT && $venta['descuento_total'] !== null && $descMostrar < 0.00001) {
+  $descMostrar = round((float)$venta['descuento_total'], 2);
+}
 
 ?>
 <!DOCTYPE html>
@@ -161,7 +178,7 @@ window.addEventListener('load', () => {
 <body data-paper="<?= htmlspecialchars($paper) ?>" data-autoprint="<?= $autoPrint ? '1' : '0' ?>">
 
 <div class="ticket">
-  
+
   <!-- ENCABEZADO -->
   <div class="t-center">
     <div class="brand"><?= htmlspecialchars($bizName) ?></div>
@@ -200,38 +217,51 @@ window.addEventListener('load', () => {
     <div class="t-right">Importe</div>
   </div>
 
-  <?php foreach ($items as $it): 
+  <?php foreach ($items as $it):
     $cantidad = (float)($it['cantidad'] ?? 0);
     $subtotal = (float)($it['subtotal'] ?? 0);
+
     $puOriginal = ($it['precio_unit_original'] !== null) ? (float)$it['precio_unit_original'] : (float)($it['precio'] ?? 0);
-    $puFinal = ($it['precio_unit_final'] !== null) ? (float)$it['precio_unit_final'] : (float)($it['precio'] ?? 0);
-    $descLinea = (float)($it['descuento_monto'] ?? 0);
-    
+    $puFinal    = ($it['precio_unit_final'] !== null) ? (float)$it['precio_unit_final'] : (float)($it['precio'] ?? 0);
+
+    $descLinea  = (float)($it['descuento_monto'] ?? 0);
+
     $nombreFull = (string)($it['nombre'] ?? '');
-    $codigo = (string)($it['codigo'] ?? '');
-    
-    $isPesable = ((int)($it['es_pesable'] ?? 0) === 1);
-    $unidad = norm_unit((string)($it['unidad_venta'] ?? ''), $isPesable);
-    
+    $codigo     = (string)($it['codigo'] ?? '');
+
+    $isPesable  = ((int)($it['es_pesable'] ?? 0) === 1);
+    $unidad     = norm_unit((string)($it['unidad_venta'] ?? ''), $isPesable);
+
+    // ✅ 3 decimales para pesables
     if ($isPesable) {
-      $cantTxt = fmt_qty_ticket($cantidad, 2) . ' ' . $unidad;
+      $cantTxt   = fmt_qty_ticket($cantidad, 3) . ' ' . $unidad;
       $precioTxt = fmt_money_ticket($puFinal) . '/' . $unidad;
+      $precioListaTxt = fmt_money_ticket($puOriginal) . '/' . $unidad;
     } else {
-      $cantInt = (int)round($cantidad);
-      $cantTxt = $cantInt . ' ' . $unidad;
+      $cantInt   = (int)round($cantidad);
+      $cantTxt   = $cantInt . ' ' . $unidad;
       $precioTxt = fmt_money_ticket($puFinal);
+      $precioListaTxt = fmt_money_ticket($puOriginal);
     }
+
+    $hayRebajaPrecio = (abs($puFinal - $puOriginal) > 0.009);
+    $hayDescLinea    = ($descLinea > 0.009);
   ?>
-  
+
   <div class="row">
     <div class="prod">
       <div class="name"><?= htmlspecialchars($nombreFull) ?></div>
       <div class="meta">
         <?php if ($codigo): ?>[<?= htmlspecialchars($codigo) ?>] <?php endif; ?>
         <?= htmlspecialchars($cantTxt) ?> × <?= htmlspecialchars($precioTxt) ?>
-        
-        <?php if (abs($puFinal - $puOriginal) > 0.009): ?>
-          <br><small style="opacity:0.8">Desc. manual: -<?= fmt_money_ticket(($cantidad * $puOriginal) - ($cantidad * $puFinal)) ?></small>
+
+        <?php if ($hayRebajaPrecio): ?>
+          <br><small style="opacity:0.82">Lista: <?= htmlspecialchars($precioListaTxt) ?></small>
+        <?php endif; ?>
+
+        <?php if ($hayDescLinea): ?>
+          <!-- ✅ Texto pedido -->
+          <br><small style="opacity:0.85">Descuento: -<?= fmt_money_ticket($descLinea) ?></small>
         <?php endif; ?>
       </div>
     </div>
@@ -251,12 +281,11 @@ window.addEventListener('load', () => {
     </div>
 
     <?php if ($descMostrar > 0.009): ?>
-      
-      <!-- Descuentos detallados -->
+
       <?php if (count($promos) > 0): ?>
         <div style="margin:10px 0; padding:8px 0; border-top:1px dashed rgba(0,0,0,0.2); font-size:12px;">
           <div style="margin-bottom:6px; opacity:0.9;"><strong>Descuentos aplicados:</strong></div>
-          <?php foreach ($promos as $pr): 
+          <?php foreach ($promos as $pr):
             $nom = trim((string)($pr['promo_nombre'] ?? 'Promo'));
             $des = trim((string)($pr['descripcion'] ?? ''));
             $mon = (float)($pr['descuento_monto'] ?? 0);
@@ -269,7 +298,7 @@ window.addEventListener('load', () => {
             <span>-<?= fmt_money_ticket($mon) ?></span>
           </div>
           <?php endforeach; ?>
-          
+
           <div class="line" style="border-top:1px solid rgba(0,0,0,0.15); margin-top:6px; padding-top:6px;">
             <strong style="padding-left:8px;">Total desc:</strong>
             <strong>-<?= fmt_money_ticket($descMostrar) ?></strong>
@@ -281,7 +310,7 @@ window.addEventListener('load', () => {
           <strong>-<?= fmt_money_ticket($descMostrar) ?></strong>
         </div>
       <?php endif; ?>
-      
+
     <?php endif; ?>
   </div>
 
@@ -299,7 +328,7 @@ window.addEventListener('load', () => {
 
   <!-- PAGO -->
   <div style="font-size:13px; line-height:1.6;">
-    <?php 
+    <?php
       $medio = strtoupper((string)($venta['medio_pago'] ?? ''));
       $medioNombre = $medio;
       if ($medio === 'MP') $medioNombre = 'Mercado Pago';
@@ -344,7 +373,7 @@ window.addEventListener('load', () => {
 document.getElementById('paperSelect')?.addEventListener('change', (e) => {
   const p = e.target.value;
   document.body.dataset.paper = p;
-  
+
   const url = new URL(window.location.href);
   url.searchParams.set('paper', p);
   window.history.replaceState({}, '', url);

@@ -5,8 +5,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 
+require_login();
 require_pos();
 require_permission('realizar_ventas');
+require_terminal_lock();
+
 
 // Asegurar sesión (por si algo raro)
 if (session_status() === PHP_SESSION_NONE) {
@@ -70,8 +73,17 @@ $extraJs = [
   'assets/js/caja_terminal_modal.js',
 ];
 
+// Permisos para frontend (evita “me dejó descontar pero el backend lo ignoró”)
+$canModPrecio = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio')) ? 'true' : 'false';
+
 // 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
-$extraHead = '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">';
+// + inyectamos permisos en window.FLUS_PERMS
+$extraHead =
+  '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">' .
+  '<script>' .
+    'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
+    'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
+  '</script>';
 
 require __DIR__ . '/partials/header.php';
 
@@ -144,7 +156,13 @@ if ($cajaSesion) {
         <span class="pos-terminal-label">Terminal:</span>
         <b class="pos-terminal-name"><?= h($terminalName) ?></b>
       </div>
-      <button type="button" class="btn-line" id="btnCambiarTerminal">Cambiar</button>
+     <?php $canDescGlobal = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio')); ?>
+        <button type="button"
+                id="btnDescGlobal"
+                class="btn-link-total"
+                <?= $canDescGlobal ? '' : 'disabled title="Sin permiso"' ?>>
+          Cambiar
+        </button>
     </div>
 
     <div class="apertura-wrapper">

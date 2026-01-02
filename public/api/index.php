@@ -368,6 +368,17 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       $items[$itKey]['descuento'] = round(((float)$items[$itKey]['descuento']) + $alloc, 2);
     }
   }
+// ✅ Evitar netos negativos por distribución de combos (casos extremos)
+foreach ($items as &$itFix) {
+  if ((float)($itFix['neto'] ?? 0) < 0) $itFix['neto'] = 0.0;
+
+  $itFix['neto'] = round((float)($itFix['neto'] ?? 0), 2);
+  $itFix['bruto'] = round((float)($itFix['bruto'] ?? 0), 2);
+
+  // Recalcular descuento consistente
+  $itFix['descuento'] = round(max(0.0, (float)$itFix['bruto'] - (float)$itFix['neto']), 2);
+}
+unset($itFix);
 
   $totalBruto = 0.0;
   $totalNeto  = 0.0;
@@ -396,11 +407,15 @@ if ($action !== 'registrar_venta') json_fail('Acción inválida', 404);
 
 require_login_json();
 require_terminal_lock_json();
+if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+  json_fail('No autorizado', 403);
+}
 
 $body = read_json_body();
 
 // CSRF: header o body
-$csrf = (string)($body['csrf'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+$csrf = (string)($body['csrf'] ?? ($body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
+
 if (!csrf_check($csrf)) json_fail('CSRF inválido o ausente', 403);
 
 $pdo = getPDO();
@@ -413,11 +428,15 @@ if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
 $medio = norm_medio_pago((string)($body['medio_pago'] ?? 'EFECTIVO'));
 $montoPagado = parse_num($body['monto_pagado'] ?? 0);
 
-// desc global (opcional)
 $descGlobalReq = parse_desc_global($body['desc_global'] ?? null);
 
-// permiso para cambiar precio
 $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
+
+// ✅ si no tiene permiso, no se permite desc_global aunque lo manden
+if (!$puedeCambiarPrecio) {
+  $descGlobalReq = null;
+}
+
 
 // agrupar items por producto
 $agg = [];
@@ -482,20 +501,27 @@ try {
       $cant = (float)(int)round($cant);
     }
 
-    $stock = (float)$p['stock'];
-    if ($stock > 0 && $cant > $stock + 1e-9) {
-      throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
-    }
+$stock = (float)($p['stock'] ?? 0);
+$eps = $esPesable ? 0.0005 : 0.0; // ~ 3 decimales
+if ($cant > $stock + $eps) {
+  throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
+}
+
+
 
     $precioLista = (float)$p['precio'];
     $precioActual = $precioLista;
 
     // permitir precio manual si tiene permiso
-    if ($puedeCambiarPrecio) {
-      $pr = (float)$it['precio_req'];
-      if ($pr > 0) $precioActual = $pr;
-      if ($precioActual < 0) throw new RuntimeException("Precio inválido para {$p['nombre']}");
-    }
+  if ($puedeCambiarPrecio) {
+  $pr = (float)$it['precio_req'];
+  if ($pr > 0) $precioActual = $pr;
+
+  if ($precioActual <= 0) {
+    throw new RuntimeException("Precio inválido para {$p['nombre']}");
+  }
+}
+
 
     $totalProductos += $cant;
 
