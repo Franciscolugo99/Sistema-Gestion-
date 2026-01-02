@@ -57,38 +57,44 @@ function norm_medio_pago(string $m): string {
   return 'EFECTIVO';
 }
 
-function has_col(PDO $pdo, string $table, string $col): bool {
+// ✅ MEJORADO: Cargar todas las columnas de una tabla en una query
+function get_table_columns(PDO $pdo, string $table): array {
   static $cache = [];
-  $k = $table . '.' . $col;
-  if (array_key_exists($k, $cache)) return (bool)$cache[$k];
+  if (isset($cache[$table])) return $cache[$table];
 
   $st = $pdo->prepare("
-    SELECT 1
+    SELECT COLUMN_NAME 
     FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = ?
-      AND COLUMN_NAME = ?
-    LIMIT 1
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
   ");
-  $st->execute([$table, $col]);
-  $ok = (bool)$st->fetchColumn();
-  $cache[$k] = $ok;
-  return $ok;
+  $st->execute([$table]);
+  $cache[$table] = $st->fetchAll(PDO::FETCH_COLUMN);
+  return $cache[$table];
+}
+
+function has_col(PDO $pdo, string $table, string $col): bool {
+  $cols = get_table_columns($pdo, $table);
+  return in_array($col, $cols, true);
 }
 
 function insert_dynamic(PDO $pdo, string $table, array $data): int {
+  $availableCols = get_table_columns($pdo, $table);
+  
   $cols = [];
   $ph   = [];
   $params = [];
+  
   foreach ($data as $col => $val) {
-    if (!has_col($pdo, $table, $col)) continue;
+    if (!in_array($col, $availableCols, true)) continue;
     $cols[] = $col;
     $ph[] = ':' . $col;
     $params[':' . $col] = $val;
   }
+  
   if (!$cols) {
     throw new RuntimeException("No hay columnas compatibles para insertar en {$table}");
   }
+  
   $sql = "INSERT INTO {$table} (" . implode(',', $cols) . ") VALUES (" . implode(',', $ph) . ")";
   $st = $pdo->prepare($sql);
   $st->execute($params);
@@ -102,13 +108,11 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
   $sets   = [];
   $params = [':id' => $cajaId];
 
-  // total_ventas = MONTO
   if (has_col($pdo, 'caja_sesiones', 'total_ventas')) {
     $sets[] = "total_ventas = COALESCE(total_ventas,0) + :imp";
     $params[':imp'] = $importe;
   }
 
-  // contador opcional (si lo agregás en DB)
   if (has_col($pdo, 'caja_sesiones', 'cant_ventas')) {
     $sets[] = "cant_ventas = COALESCE(cant_ventas,0) + 1";
   } elseif (has_col($pdo, 'caja_sesiones', 'cantidad_ventas')) {
@@ -120,7 +124,6 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
     $params[':tp'] = $productos;
   }
 
-  // Totales por medio de pago (montos)
   $campoMP = 'total_efectivo';
   $m = strtoupper($medio);
   if ($m === 'MP') $campoMP = 'total_mp';
@@ -139,16 +142,47 @@ function update_caja_sum(PDO $pdo, int $cajaId, string $medio, float $importe, f
   $st->execute($params);
 }
 
+// ------------------ DESCUENTO GLOBAL ------------------
+function parse_desc_global($raw): ?array {
+  if (!is_array($raw)) return null;
+
+  $tipo = strtolower(trim((string)($raw['tipo'] ?? '')));
+  $valor = parse_num($raw['valor'] ?? 0);
+
+  if ($valor <= 0) return null;
+
+  if ($tipo === 'porcentaje') {
+    if ($valor > 100) $valor = 100;
+    return ['tipo' => 'porcentaje', 'valor' => round($valor, 2)];
+  }
+
+  // default a monto
+  return ['tipo' => 'monto', 'valor' => round($valor, 2)];
+}
+
+function calc_desc_global(float $netoAntes, ?array $desc): float {
+  if (!$desc) return 0.0;
+  $tipo = $desc['tipo'] ?? '';
+  $valor = (float)($desc['valor'] ?? 0);
+
+  if ($valor <= 0 || $netoAntes <= 0) return 0.0;
+
+  if ($tipo === 'porcentaje') {
+    $m = ($netoAntes * $valor) / 100.0;
+    return round(min($netoAntes, $m), 2);
+  }
+
+  // monto
+  return round(min($netoAntes, $valor), 2);
+}
 
 /**
- * Promos servidor (mismo criterio que tu caja.js):
+ * Promos servidor:
  * - Simples por producto: N_PAGA_M / NTH_PCT calculados sobre PRECIO LISTA (DB)
- * - Si hay promo simple, ignora descuento manual del precio (como tu front hoy)
+ * - Si hay promo simple, ignora precio manual (se pisa por promo) => consistente con tu front actual
  * - Combos: descuenta (suma_lista - precio_combo) y se distribuye proporcionalmente en los items del combo
  */
-
 function calcular_totales_con_promos(array $items, array $promos): array {
-
   $promosAplicadas = [];
 
   $addPromo = function(array $row) use (&$promosAplicadas) {
@@ -176,7 +210,6 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     }
   };
 
-  // simples por producto
   $simplesByPid = [];
   foreach (($promos['simples'] ?? []) as $p) {
     if (!is_array($p)) continue;
@@ -185,14 +218,13 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     $simplesByPid[$pid] = $p;
   }
 
-  // combos
   $combos = [];
   foreach (($promos['combos'] ?? []) as $c) {
     if (!is_array($c)) continue;
     $combos[] = $c;
   }
 
-  // 1) aplicar promo simple por item
+// 1) promo simple por item
   foreach ($items as &$it) {
     $pid   = (int)$it['producto_id'];
     $cant  = (float)$it['cantidad'];
@@ -204,6 +236,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
     $promo = $simplesByPid[$pid] ?? null;
 
+    // ✅ AHORA SÍ aplica promos a pesables (eliminamos la restricción)
     if ($promo) {
       $tipo = (string)($promo['tipo'] ?? '');
       $n    = (int)($promo['n'] ?? 0);
@@ -211,7 +244,6 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       $pct  = isset($promo['porcentaje']) ? (float)$promo['porcentaje'] : 0.0;
 
       if ($n > 0) {
-
         if ($tipo === 'N_PAGA_M' && $m > 0 && $cant >= $n) {
           $packs = (int)floor($cant / $n);
           $resto = $cant - ($packs * $n);
@@ -227,11 +259,19 @@ function calcular_totales_con_promos(array $items, array $promos): array {
               'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
               'descripcion'     => "Promo {$n}x{$m}",
               'descuento_monto' => round($descuentoPromo, 2),
-              'meta' => ['producto_id'=>$pid,'n'=>$n,'m'=>$m,'packs'=>$packs,'resto'=>$resto],
+              'meta' => [
+                'producto_id' => $pid,
+                'n' => $n,
+                'm' => $m,
+                'packs' => $packs,
+                'resto' => $resto,
+                'es_pesable' => !empty($it['es_pesable'])
+              ],
             ]);
           }
-
         } elseif ($tipo === 'NTH_PCT' && $pct > 0 && $cant >= $n) {
+          // ✅ FUNCIONA CON PESABLES: 25% a la 3° unidad
+          // Ejemplo: 3 KG con N=3, pct=25 → descuento del 25% sobre 1 KG
           $uDesc = (int)floor($cant / $n);
           $desc  = ($uDesc * $lista * $pct) / 100.0;
 
@@ -244,7 +284,13 @@ function calcular_totales_con_promos(array $items, array $promos): array {
               'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
               'descripcion'     => "{$pct}% a la N°{$n}",
               'descuento_monto' => round($desc, 2),
-              'meta' => ['producto_id'=>$pid,'n'=>$n,'porcentaje'=>$pct,'u_desc'=>$uDesc],
+              'meta' => [
+                'producto_id' => $pid,
+                'n' => $n,
+                'porcentaje' => $pct,
+                'u_desc' => $uDesc,
+                'es_pesable' => !empty($it['es_pesable'])
+              ],
             ]);
           }
         }
@@ -257,7 +303,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
   }
   unset($it);
 
-  // 2) combos: descuento proporcional
+  // 2) combos: descuento proporcional (✅ con tolerancia para pesables)
   foreach ($combos as $combo) {
     $precioCombo = (float)($combo['precio_combo'] ?? 0);
     $itemsReq    = $combo['items'] ?? [];
@@ -278,7 +324,11 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       if ($itKey === null) { $maxCombos = 0; break; }
 
       $tiene = (float)$items[$itKey]['cantidad'];
-      $maxCombos = min($maxCombos, (int)floor($tiene / $q));
+      
+      // ✅ Tolerancia de 0.01 para pesables (evita errores con 0.999 kg)
+      $esPesable = !empty($items[$itKey]['es_pesable']);
+      $tolerance = $esPesable ? 0.01 : 0;
+      $maxCombos = min($maxCombos, (int)floor(($tiene + $tolerance) / $q));
 
       $sumaLista += ((float)$items[$itKey]['precio_lista']) * $q;
     }
@@ -334,8 +384,8 @@ function calcular_totales_con_promos(array $items, array $promos): array {
   return [
     'items' => $items,
     'total_bruto' => $totalBruto,
-    'total_neto'  => $totalNeto,
-    'descuento_total' => $descTotal,
+    'total_neto'  => $totalNeto,              // neto después promos+combos (sin desc_global)
+    'descuento_total' => $descTotal,          // descuento promos+combos (sin desc_global)
     'promos_aplicadas' => array_values($promosAplicadas),
   ];
 }
@@ -362,6 +412,9 @@ if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
 
 $medio = norm_medio_pago((string)($body['medio_pago'] ?? 'EFECTIVO'));
 $montoPagado = parse_num($body['monto_pagado'] ?? 0);
+
+// desc global (opcional)
+$descGlobalReq = parse_desc_global($body['desc_global'] ?? null);
 
 // permiso para cambiar precio
 $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
@@ -431,7 +484,7 @@ try {
 
     $stock = (float)$p['stock'];
     if ($stock > 0 && $cant > $stock + 1e-9) {
-      throw new RuntimeException("Stock insuficiente para {$p['nombre']} (stock: {$stock}, solicitado: {$cant})");
+      throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
     }
 
     $precioLista = (float)$p['precio'];
@@ -452,44 +505,66 @@ try {
       'precio_lista'  => $precioLista,
       'precio_actual' => $precioActual,
       'nombre'        => (string)$p['nombre'],
+      'es_pesable'    => $esPesable ? 1 : 0,
     ];
   }
 
-  // calcular total con promos/combos (NETO)
+  // calcular total con promos/combos (NETO sin desc_global)
   $calc = calcular_totales_con_promos($srvItems, $promos);
   $srvItems = $calc['items'];
-  $totalBruto = (float)$calc['total_bruto'];
-  $totalNeto  = (float)$calc['total_neto'];
-  $descTotal  = (float)$calc['descuento_total'];
 
-  // pago: si no es efectivo, forzar pagado = total
+  $totalBruto = (float)$calc['total_bruto'];
+  $totalNetoSinGlobal  = (float)$calc['total_neto'];
+  $descTotalSinGlobal  = (float)$calc['descuento_total'];
+
+  // ✅ aplicar descuento global al final
+  $descGlobalMonto = calc_desc_global($totalNetoSinGlobal, $descGlobalReq);
+  $totalNetoFinal  = round(max(0.0, $totalNetoSinGlobal - $descGlobalMonto), 2);
+  $descTotalFinal  = round($descTotalSinGlobal + $descGlobalMonto, 2);
+
+  // meter DESC_GLOBAL en venta_promos para ticket/auditoría
+  if ($descGlobalMonto > 0.00001) {
+    $tipo = $descGlobalReq['tipo'] ?? 'monto';
+    $val  = (float)($descGlobalReq['valor'] ?? 0);
+
+    $calc['promos_aplicadas'][] = [
+      'promo_id'        => 0,
+      'promo_tipo'      => 'DESC_GLOBAL',
+      'promo_nombre'    => 'Descuento total',
+      'descripcion'     => ($tipo === 'porcentaje') ? ($val . '%') : ('-$' . number_format($val, 2, ',', '.')),
+      'descuento_monto' => round($descGlobalMonto, 2),
+      'meta'            => ['tipo' => $tipo, 'valor' => $val, 'aplicado_por_user_id' => $userId],
+    ];
+  }
+
+  // pago: si no es efectivo, forzar pagado = total FINAL
   if ($medio !== 'EFECTIVO') {
-    $montoPagado = $totalNeto;
+    $montoPagado = $totalNetoFinal;
   } else {
-    if ($montoPagado + 1e-6 < $totalNeto) {
+    if ($montoPagado + 1e-6 < $totalNetoFinal) {
       throw new RuntimeException('Pago insuficiente');
     }
   }
-  $vuelto = ($medio === 'EFECTIVO') ? round(max(0.0, $montoPagado - $totalNeto), 2) : 0.0;
+  $vuelto = ($medio === 'EFECTIVO') ? round(max(0.0, $montoPagado - $totalNetoFinal), 2) : 0.0;
 
-  // INSERT ventas (adaptativo: si no existe user_id, no lo usa)
+  // INSERT ventas
   $ventaId = insert_dynamic($pdo, 'ventas', [
-    'user_id'         => ($userId > 0 ? $userId : null), // si tu tabla no lo tiene, se ignora
+    'user_id'         => ($userId > 0 ? $userId : null),
     'caja_id'         => $cajaId,
-    'total'           => $totalNeto,
-    'total_bruto'     => $totalBruto,    // si existe
-    'descuento_total' => $descTotal,     // si existe
+    'total'           => $totalNetoFinal,      // ✅ total final (con desc_global)
+    'total_bruto'     => $totalBruto,
+    'descuento_total' => $descTotalFinal,      // ✅ promos/combos + desc_global
     'medio_pago'      => $medio,
     'monto_pagado'    => $montoPagado,
     'vuelto'          => $vuelto,
-    'estado'          => 'EMITIDA',      // si existe
+    'estado'          => 'EMITIDA',
   ]);
 
-  // INSERT items + stock + movimientos (todo adaptativo)
+  // INSERT items + stock + movimientos
   foreach ($srvItems as $it) {
     $pid  = (int)$it['producto_id'];
     $cant = (float)$it['cantidad'];
-    $neto = (float)$it['neto'];
+    $neto = (float)$it['neto'];          // neto item con promos/combos (sin desc_global)
     $lista = (float)$it['precio_lista'];
     $desc  = (float)$it['descuento'];
 
@@ -506,11 +581,9 @@ try {
       'precio_unit_final'   => $precioUnitFinal,
     ]);
 
-    // bajar stock (si tu sistema permite stock negativo, ajustalo)
     $st = $pdo->prepare("UPDATE productos SET stock = stock - :c WHERE id = :id");
     $st->execute([':c' => $cant, ':id' => $pid]);
 
-    // movimiento stock
     insert_dynamic($pdo, 'movimientos_stock', [
       'producto_id'         => $pid,
       'tipo'                => 'VENTA',
@@ -521,60 +594,57 @@ try {
       'fecha'               => date('Y-m-d H:i:s'),
     ]);
   }
-// -----------------------------------------
-// Guardar promos aplicadas (auditoría/ticket pro)
-// -----------------------------------------
-$promosAplicadas = $calc['promos_aplicadas'] ?? [];
-if (is_array($promosAplicadas) && count($promosAplicadas) > 0) {
 
-  $sumVP = 0.0;
+  // Guardar promos aplicadas (incluye DESC_GLOBAL)
+  $promosAplicadas = $calc['promos_aplicadas'] ?? [];
+  if (is_array($promosAplicadas) && count($promosAplicadas) > 0) {
+    foreach ($promosAplicadas as $p) {
+      if (!is_array($p)) continue;
 
-  foreach ($promosAplicadas as $p) {
-    if (!is_array($p)) continue;
+      $promoId  = isset($p['promo_id']) ? (int)$p['promo_id'] : null;
+      $tipo     = trim((string)($p['promo_tipo'] ?? ''));
+      $nombre   = trim((string)($p['promo_nombre'] ?? ''));
+      $descTxt  = trim((string)($p['descripcion'] ?? ''));
+      $monto    = (float)($p['descuento_monto'] ?? 0);
+      $meta     = $p['meta'] ?? null;
 
-    $promoId  = isset($p['promo_id']) ? (int)$p['promo_id'] : null;
-    $tipo     = trim((string)($p['promo_tipo'] ?? ''));
-    $nombre   = trim((string)($p['promo_nombre'] ?? ''));
-    $desc     = trim((string)($p['descripcion'] ?? ''));
-    $monto    = (float)($p['descuento_monto'] ?? 0);
-    $meta     = $p['meta'] ?? null;
+      if ($tipo === '' || $nombre === '' || $monto <= 0) continue;
 
-    if ($tipo === '' || $nombre === '' || $monto <= 0) continue;
+      $monto = round($monto, 2);
 
-    $monto = round($monto, 2);
-    $sumVP += $monto;
-
-    insert_dynamic($pdo, 'venta_promos', [
-      'venta_id'        => $ventaId,
-      'promo_id'        => ($promoId && $promoId > 0) ? $promoId : null,
-      'promo_tipo'      => mb_substr($tipo, 0, 20),
-      'promo_nombre'    => mb_substr($nombre, 0, 120),
-      'descripcion'     => ($desc !== '') ? mb_substr($desc, 0, 255) : null,
-      'descuento_monto' => $monto,
-      'meta'            => ($meta === null) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE),
-    ]);
+      insert_dynamic($pdo, 'venta_promos', [
+        'venta_id'        => $ventaId,
+        'promo_id'        => ($promoId && $promoId > 0) ? $promoId : null,
+        'promo_tipo'      => mb_substr($tipo, 0, 20),
+        'promo_nombre'    => mb_substr($nombre, 0, 120),
+        'descripcion'     => ($descTxt !== '') ? mb_substr($descTxt, 0, 255) : null,
+        'descuento_monto' => $monto,
+        'meta'            => ($meta === null) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE),
+      ]);
+    }
   }
 
-  // (Opcional) sanity check: no rompe la venta, solo deja listo si querés auditar
-  // if (abs(round($descTotal,2) - round($sumVP,2)) > 0.01) { ... log audit ... }
-}
-
-  // actualizar caja_sesiones (contador + importes)
-  update_caja_sum($pdo, $cajaId, $medio, $totalNeto, $totalProductos);
+  // actualizar caja_sesiones (con total FINAL)
+  update_caja_sum($pdo, $cajaId, $medio, $totalNetoFinal, $totalProductos);
 
   $pdo->commit();
 
   json_ok([
     'venta_id'        => $ventaId,
-    'total'           => $totalNeto,
+    'total'           => $totalNetoFinal,
     'total_bruto'     => $totalBruto,
-    'descuento_total' => $descTotal,
+    'descuento_total' => $descTotalFinal,
     'medio_pago'      => $medio,
     'monto_pagado'    => $montoPagado,
     'vuelto'          => $vuelto,
+    'desc_global_monto' => $descGlobalMonto,
   ]);
 
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) $pdo->rollBack();
+  
+  // ✅ Log mejorado para debugging
+  error_log("Error en registrar_venta: " . $e->getMessage() . " | User: {$userId} | Caja: {$cajaId}");
+  
   json_fail($e->getMessage(), 500);
 }

@@ -4,37 +4,33 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
+
 require_pos();
 require_permission('realizar_ventas');
 
-
-
-// Terminal actual (UX2)
-$terminalId   = (int)($_SESSION['terminal_id'] ?? 0);
-$terminal     = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
-$terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $terminalId)) : 'Sin terminal';
-
-// Asegurar sesión (auth.php ya la abre, pero no molesta)
+// Asegurar sesión (por si algo raro)
 if (session_status() === PHP_SESSION_NONE) {
   session_start();
 }
 
-// CSRF
+// CSRF (para meta + forms)
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-$aperturaError = null;
+// Terminal actual (UX)
+$terminalId   = (int)($_SESSION['terminal_id'] ?? 0);
+$terminal     = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
+$terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $terminalId)) : 'Sin terminal';
 
+$aperturaError = null;
 
 /* --------------------------------------------------------
    APERTURA DE CAJA (POST)
-   - Lo hacemos ANTES de imprimir HTML
 -------------------------------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === 'abrir') {
-  $token = (string)($_POST['csrf_token'] ?? '');
 
-  if (!hash_equals($_SESSION['csrf_token'], $token)) {
+  if (!csrf_verify($_POST['csrf_token'] ?? null)) {
     $aperturaError = 'Token inválido. Recargá la página e intentá de nuevo.';
   } else {
     $saldoIni = parse_money_ar($_POST['saldo_inicial'] ?? '0');
@@ -42,32 +38,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === '
     if ($saldoIni < 0) {
       $aperturaError = 'El saldo inicial no puede ser negativo.';
     } else {
-      // Si tu caja_abrir ya bloquea y valida "no hay abierta" mejor.
-      // Si no, acá evitamos doble apertura por chequeo simple.
       $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
       $tmp = caja_get_abierta($pdo, $terminalId);
+
       if (!$tmp || !is_array($tmp) || empty($tmp['id'])) {
-        caja_abrir($pdo, $terminalId, (int)$user['id'], $saldoIni);
-        header('Location: caja.php');
-        exit;
-      } else {
-        // Ya hay una abierta
-        header('Location: caja.php');
-        exit;
+        caja_abrir($pdo, $terminalId, (int)($user['id'] ?? 0), $saldoIni);
       }
+
+      header('Location: caja.php');
+      exit;
     }
   }
 }
 
 /* --------------------------------------------------------
-   METADATOS PARA HEADER GLOBAL
+   HEADER GLOBAL
 -------------------------------------------------------- */
 $pageTitle      = 'Caja';
 $currentSection = 'caja';
+
 $extraCss = [
   'assets/css/caja.css',
   'assets/css/caja_cerrar.css',
   'assets/css/caja_terminal_modal.css',
+  'assets/css/caja_mejorada.css', // ✅ mejoras sin romper estilo FLUS
 ];
 
 $extraJs = [
@@ -76,39 +70,81 @@ $extraJs = [
   'assets/js/caja_terminal_modal.js',
 ];
 
+// 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
 $extraHead = '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">';
 
 require __DIR__ . '/partials/header.php';
 
 /* --------------------------------------------------------
-   IMPORTANTE:
-   Re-consultamos DESPUÉS del header/nav para que ninguna
-   inclusión pueda “pisar” la variable que usamos para render.
+   RE-CONSULTA DE CAJA ABIERTA
 -------------------------------------------------------- */
-$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
-$cajaSesion = caja_get_abierta($pdo, $terminalId);
-$terminal = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
+$terminalId   = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+$cajaSesion   = caja_get_abierta($pdo, $terminalId);
+$terminal     = $terminalId > 0 ? terminal_get($pdo, $terminalId) : null;
 $terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $terminalId)) : 'Sin terminal';
+
 if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
   $cajaSesion = null;
+}
+
+/* --------------------------------------------------------
+   MOVIMIENTOS DE CAJA (efectivo)
+-------------------------------------------------------- */
+$movCaja = [];
+$movIngresos = 0.0;
+$movEgresos  = 0.0;
+
+$flashOk  = trim((string)($_GET['ok']  ?? ''));
+$flashErr = trim((string)($_GET['err'] ?? ''));
+
+if ($cajaSesion) {
+  $cajaIdTmp = (int)$cajaSesion['id'];
+
+  // últimos movimientos
+  $stM = $pdo->prepare("
+    SELECT id, tipo, concepto, monto, fecha, usuario_registro
+    FROM caja_movimientos
+    WHERE caja_id = ?
+    ORDER BY fecha DESC, id DESC
+    LIMIT 15
+  ");
+  $stM->execute([$cajaIdTmp]);
+  $movCaja = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+  // totales (case-insensitive)
+  $stS = $pdo->prepare("
+    SELECT
+      COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
+      COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
+    FROM caja_movimientos
+    WHERE caja_id = ?
+  ");
+  $stS->execute([$cajaIdTmp]);
+  $rowS = $stS->fetch(PDO::FETCH_ASSOC) ?: [];
+  $movIngresos = (float)($rowS['ingresos'] ?? 0);
+  $movEgresos  = (float)($rowS['egresos']  ?? 0);
 }
 ?>
 
 <div class="panel caja-panel">
 
+  <?php if ($flashOk !== ''): ?>
+    <div class="alert alert-success" style="margin-bottom:12px;"><?= h($flashOk) ?></div>
+  <?php endif; ?>
+  <?php if ($flashErr !== ''): ?>
+    <div class="alert alert-error" style="margin-bottom:12px;"><?= h($flashErr) ?></div>
+  <?php endif; ?>
+
   <?php if ($cajaSesion === null): ?>
 
-    <!-- ====================================================
-         CAJA CERRADA – PANEL DE APERTURA
-    ===================================================== -->
     <h1 class="caja-title">CAJA</h1>
+
     <div class="pos-terminal-bar">
       <div class="pos-terminal-left">
         <span class="pos-terminal-label">Terminal:</span>
         <b class="pos-terminal-name"><?= h($terminalName) ?></b>
       </div>
       <button type="button" class="btn-line" id="btnCambiarTerminal">Cambiar</button>
-
     </div>
 
     <div class="apertura-wrapper">
@@ -119,7 +155,7 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
       <div class="apertura-card">
         <form method="post" class="form-apertura" id="formAperturaCaja">
           <input type="hidden" name="accion_caja" value="abrir">
-          <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+          <?= csrf_field() ?>
 
           <label class="form-label" for="saldo_inicial">Saldo inicial en caja</label>
           <input
@@ -148,52 +184,127 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
 
   <?php else: ?>
 
-    <!-- ====================================================
-         CAJA ABIERTA – PANTALLA PRINCIPAL
-    ===================================================== -->
-      <div class="caja-status-header">
-        <div class="pos-terminal-bar pos-terminal-bar--inline">
-          <div class="pos-terminal-left">
-            <span class="pos-terminal-label">Terminal:</span>
-            <b class="pos-terminal-name"><?= h($terminalName) ?></b>
-          </div>
-          <button type="button" class="btn-line" id="btnCambiarTerminal">Cambiar</button>
+<div class="caja-topbar">
+  <div class="caja-topbar__left">
+    <div class="caja-topbar__badge">Caja abierta</div>
+
+    <div class="caja-topbar__meta">
+      <div class="caja-topbar__item">
+        <div class="caja-topbar__label">Terminal</div>
+        <div class="caja-topbar__value">
+          <span class="caja-topbar__strong"><?= h($terminalName) ?></span>
+          <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal">Cambiar</button>
         </div>
-
-        <span class="mono">
-          Caja abierta · Apertura #<?= (int)$cajaSesion['id'] ?> ·
-          <?= h($cajaSesion['username'] ?? '') ?> ·
-          <?= h($cajaSesion['fecha_apertura'] ?? '') ?>
-        </span>
-
-        <button
-          type="button"
-          id="btnCerrarCaja"
-          class="btn btn-danger"
-          data-caja-id="<?= (int)$cajaSesion['id'] ?>">
-          Cerrar caja
-        </button>
       </div>
+
+      <div class="caja-topbar__item">
+        <div class="caja-topbar__label">Apertura</div>
+        <div class="caja-topbar__value mono">
+          #<?= (int)$cajaSesion['id'] ?> ·
+          <?= h($cajaSesion['username'] ?? '') ?> ·
+          <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caja-topbar__actions">
+    <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
+
+    <button
+      type="button"
+      id="btnCerrarCaja"
+      class="btn btn-danger btn-sm"
+      data-caja-id="<?= (int)$cajaSesion['id'] ?>">
+      Cerrar caja
+    </button>
+  </div>
+</div>
 
 
     <h1 class="caja-title">CAJA</h1>
 
-    <!-- Fila código + cantidad + agregar -->
-    <div class="row caja-row-inputs">
-      <div class="field">
-        <label for="codigo">Escanear código</label>
-        <input type="text" id="codigo" autocomplete="off" autofocus>
-      </div>
+    <!-- =========================
+         MOVIMIENTOS COLAPSABLES (nativo, sin look “pegote”)
+    ========================== -->
+    <details class="caja-mov" id="cajaMov" open>
+      <summary class="caja-mov__sum">
+        <span class="caja-mov__toggle" aria-hidden="true"></span>
 
-      <div class="field field-narrow">
-        <label for="cantidad">Cant.</label>
-        <input type="text" id="cantidad" value="1" autocomplete="off">
-      </div>
+        <div class="caja-mov__left">
+          <div class="caja-mov__title">Movimientos de caja</div>
+          <div class="caja-mov__sub">Ingresos y egresos de efectivo en esta apertura</div>
+        </div>
 
-      <div class="field field-narrow field-add-btn">
-        <button class="btn btn-add" id="btnAgregar" type="button">
-          Agregar al ticket
-        </button>
+        <div class="caja-mov__right">
+          <span class="pill pill-success">+ <?= money_ar($movIngresos) ?></span>
+          <span class="pill pill-danger">− <?= money_ar($movEgresos) ?></span>
+
+          <a class="btn btn-primary btn-sm"
+             href="caja_movimientos.php"
+             onclick="event.preventDefault(); event.stopPropagation(); window.location='caja_movimientos.php';">
+            Registrar
+          </a>
+        </div>
+      </summary>
+
+      <div class="caja-mov__body">
+        <?php if (!$movCaja): ?>
+          <div class="muted">Todavía no hay movimientos en esta apertura.</div>
+        <?php else: ?>
+          <div class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Concepto</th>
+                  <th class="t-right">Monto</th>
+                  <th>Usuario</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($movCaja as $m): ?>
+                  <?php
+                    $t = strtoupper((string)($m['tipo'] ?? 'INGRESO'));
+                    $pill = ($t === 'EGRESO') ? 'pill-danger' : 'pill-success';
+                    $lbl  = ($t === 'EGRESO') ? '− Egreso' : '+ Ingreso';
+                  ?>
+                  <tr>
+                    <td class="mono"><?= h(format_datetime_ar($m['fecha'] ?? null)) ?></td>
+                    <td><span class="pill <?= $pill ?>"><?= h($lbl) ?></span></td>
+                    <td><?= h((string)($m['concepto'] ?? '—')) ?></td>
+                    <td class="t-right"><?= money_ar($m['monto'] ?? 0) ?></td>
+                    <td><?= h((string)($m['usuario_registro'] ?? '—')) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif; ?>
+      </div>
+    </details>
+
+    <!-- =========================
+         SCAN / INPUTS (mismo layout FLUS, pero más “POS”)
+    ========================== -->
+    <div class="caja-scan-card">
+      <div class="row caja-row-inputs">
+        <div class="field">
+          <label for="codigo">Escanear código</label>
+          <input type="text" id="codigo" autocomplete="off" autofocus placeholder="Escaneá o escribí el código…">
+        </div>
+
+        <div class="field field-narrow">
+          <label for="cantidad">Cant.</label>
+          <input type="text" id="cantidad" value="1" autocomplete="off">
+        </div>
+
+        <div class="field field-narrow field-add-btn">
+          <button class="btn btn-add" id="btnAgregar" type="button">
+            Agregar al ticket
+          </button>
+        </div>
       </div>
     </div>
 
@@ -314,9 +425,9 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
   <?php endif; ?>
 
 </div><!-- /.panel -->
+
 <?php
 $autoShowTerminalModal = 0;
-// si no hay terminal seleccionada, o querés forzar cuando detectes ocupada
 if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
 ?>
 
@@ -344,7 +455,5 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
     </form>
   </div>
 </div>
-
-
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

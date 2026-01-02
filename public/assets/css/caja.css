@@ -1,410 +1,360 @@
-/* =====================
-   CAJA – ESTILOS PROPIOS
-   ===================== */
+/* assets/css/caja.css
+   CAJA (FLUS) – estilos propios, pero integrados al theme (light/dark)
+   - Arregla: totales (alineación), tabla (ancho), consistencia de inputs/botones
+   - Evita: hardcode masivo de colores (usa variables)
+*/
 
-/* Título principal de la página Caja */
-h1 {
+/* =====================
+   TITULO
+===================== */
+.caja-panel .caja-title {
   text-align: center;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 1.8rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
-/* -------- Fila ESCANEAR / CANTIDAD -------- */
-.row {
+/* =====================
+   FILA SCAN / CANT / BOTON
+===================== */
+.caja-panel .row {
   display: flex;
   flex-wrap: wrap;
-  column-gap: 18px; /* separación horizontal */
-  row-gap: 10px; /* por si rompe a otra línea */
+  gap: 12px 16px;
   margin-bottom: 14px;
   align-items: flex-end;
 }
 
-.field {
-  flex: 1 1 260px;
-  min-width: 220px;
-  margin-bottom: 4px;
+.caja-panel .field {
+  flex: 1 1 320px;
+  min-width: 240px;
+  margin: 0;
 }
 
-.field-narrow {
-  flex: 0 0 140px;
-  max-width: 160px;
-  margin-bottom: 4px;
+.caja-panel .field-narrow {
+  flex: 0 0 160px;
+  min-width: 140px;
+  margin: 0;
 }
 
-/* un poquito más de aire entre los 2 grupos en escritorio */
-@media (min-width: 769px) {
-  .row .field + .field-narrow {
-    margin-left: 10px;
-  }
-}
-
-/* Labels e inputs solo dentro de CAJA (para no romper otras pantallas) */
-.panel label {
+.caja-panel label {
   font-size: 0.78rem;
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
-.panel input,
-.panel select {
+/* Inputs SOLO en Caja (usa theme vars) */
+.caja-panel input,
+.caja-panel select {
   width: 100%;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid #1f2937;
-  background: #020617;
-  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
   font-size: 0.95rem;
   transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
-  margin-top: 2px;
 }
 
-.panel input:focus,
-.panel select:focus {
+.caja-panel input:focus,
+.caja-panel select:focus {
   outline: none;
   border-color: var(--accent-cyan);
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.6);
-  background: #020617;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
 }
 
-/* Botón “Agregar al ticket” */
-.btn {
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  text-transform: uppercase;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  transition: transform 0.08s, box-shadow 0.12s, filter 0.12s;
-}
-
-.btn:active {
-  transform: translateY(1px);
-  box-shadow: none;
-}
-
-.btn-add {
+/* Botón agregar al ticket (usa .btn de core, acá solo “skin”) */
+.caja-panel .btn-add {
   width: 100%;
-  background: linear-gradient(135deg, #22c55e, #4ade80);
+  height: 46px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, var(--accent-green), #4ade80);
   color: #022c22;
-  box-shadow: 0 18px 45px rgba(34, 197, 94, 0.7);
+  box-shadow: 0 14px 40px rgba(34, 197, 94, 0.28);
 }
 
-.btn-add:hover {
+.caja-panel .btn-add:hover {
   filter: brightness(1.03);
+  transform: translateY(-1px);
 }
 
 /* =====================
    TABLA DEL TICKET
-   ===================== */
-
-.ticket-wrapper {
-  margin: 12px auto 0;
-  border-radius: 12px;
+===================== */
+.caja-panel .ticket-wrapper {
+  margin-top: 12px;
+  border-radius: 14px;
+  overflow-x: auto;
   overflow-y: auto;
-  overflow-x: hidden;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid #020617;
-  max-width: 1100px;
-  max-height: 260px;   /* ~7-8 filas visibles */
+
+  /* ✅ ocupa todo el panel */
+  max-width: 100%;
+  max-height: 320px;
+
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.1);
 }
 
-/* Que la tabla ocupe todo el ancho */
-.ticket-wrapper table {
+/* tabla */
+.caja-panel #tabla {
   width: 100%;
   border-collapse: collapse;
+  font-size: 0.92rem;
 }
 
-#tabla {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+.caja-panel #tabla th,
+.caja-panel #tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--table-row-border);
 }
 
-#tabla th,
-#tabla td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #020617;
-}
-
-#tabla thead {
-  background: #020617; /* header oscuro en ambos temas por defecto */
-}
-
-#tabla th {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #e5e7eb;
-  text-align: left;
-}
-
-#tabla tbody tr:nth-child(even),
-#tabla tbody tr:nth-child(odd) {
-  background: #020617;
-}
-
-.right {
-  text-align: right;
-}
-.center {
-  text-align: center;
-}
-
-/* Columna de cantidad bien centrada y angosta */
-#tabla th:nth-child(4),
-#tabla td.cant-cell {
-  text-align: center;
-  width: 120px;
-  white-space: nowrap;
-}
-
-/* Encabezado pegado cuando se scrollea */
-.ticket-wrapper thead th {
+.caja-panel #tabla thead th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #020617;
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: left;
 }
 
-/* ============= SCROLL PERSONALIZADO ============= */
-
-/* Firefox */
-.ticket-wrapper {
-  scrollbar-width: thin;
-  scrollbar-color: #10b981 #020617; /* thumb / track */
+.caja-panel #tabla tbody tr:nth-child(odd) {
+  background: var(--table-row-odd);
+}
+.caja-panel #tabla tbody tr:nth-child(even) {
+  background: var(--table-row-even);
 }
 
-/* Chrome, Edge, Safari */
-.ticket-wrapper::-webkit-scrollbar {
-  width: 8px;
+.caja-panel #tabla tbody tr:hover {
+  background: rgba(34, 211, 238, 0.06);
 }
 
-.ticket-wrapper::-webkit-scrollbar-track {
-  background: #020617; /* fondo oscuro */
-  border-radius: 999px;
+.caja-panel .right {
+  text-align: right;
+}
+.caja-panel .center {
+  text-align: center;
 }
 
-.ticket-wrapper::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #10b981, #22c55e); /* verde flúor */
-  border-radius: 999px;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
-}
-
-.ticket-wrapper::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #22c55e, #4ade80);
-}
-
-/* Botones Editar / Quitar */
-.acciones {
+.caja-panel #tabla th.col-cant,
+.caja-panel #tabla td.cant-cell {
+  text-align: center;
+  width: 110px;
   white-space: nowrap;
 }
 
-.btn-accion {
-  padding: 4px 12px;
+/* Acciones */
+.caja-panel .acciones {
+  white-space: nowrap;
+}
+
+.caja-panel .btn-accion {
+  padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-size: 0.78rem;
   cursor: pointer;
   background: transparent;
   transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
-  margin-left: 4px;
+  margin-left: 6px;
   white-space: nowrap;
 }
 
-.btn-accion:active {
+.caja-panel .btn-accion:active {
   transform: translateY(1px);
-  box-shadow: none;
 }
 
-/* EDITAR */
-.btn-editar {
+.caja-panel .btn-editar {
   background: rgba(59, 130, 246, 0.1);
-  color: #1d4ed8;
-  border-color: rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.35);
 }
-.btn-editar:hover {
+.caja-panel .btn-editar:hover {
   background: rgba(59, 130, 246, 0.16);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.18);
   transform: translateY(-1px);
 }
 
-/* QUITAR */
-.btn-quitar {
-  background: rgba(248, 113, 113, 0.1);
-  color: #b91c1c;
-  border-color: rgba(248, 113, 113, 0.7);
+.caja-panel .btn-quitar {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.45);
 }
-.btn-quitar:hover {
-  background: rgba(248, 113, 113, 0.18);
-  box-shadow: 0 0 10px rgba(248, 113, 113, 0.45);
+.caja-panel .btn-quitar:hover {
+  background: rgba(239, 68, 68, 0.18);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
   transform: translateY(-1px);
 }
 
-/* Botón de descuento por ítem (Desc.) */
-.btn-accion.btn-desc {
-  background: #f97316;          /* naranja */
-  border-color: #fb923c;
-  color: #0f172a;
+.caja-panel .btn-accion.btn-desc {
+  background: rgba(249, 115, 22, 0.16);
+  border-color: rgba(249, 115, 22, 0.45);
+  color: #fdba74;
 }
-.btn-accion.btn-desc:hover {
-  background: #fdba74;
-  border-color: #fed7aa;
+.caja-panel .btn-accion.btn-desc:hover {
+  background: rgba(249, 115, 22, 0.22);
 }
 
 /* =====================
-   BLOQUE TOTAL (VERSIÓN VIEJA .total-box)
-   ===================== */
-
-.total-box {
+   TOTALES (✅ ARREGLADO)
+===================== */
+.caja-panel .total-panel {
   margin-top: 14px;
-  padding: 12px 14px 16px;
-  background: radial-gradient(circle at top, #020617 0, #020617 65%);
-  border-radius: 14px;
-  border: 1px solid #020617;
+  margin-bottom: 14px;
 }
 
-.total-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.total-title {
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-}
-
-.total-amount {
-  font-size: 1.4rem;
-  font-weight: 700;
-}
-
-/* fila medio / paga / vuelto dentro de .total-box (legacy) */
-.total-box .total-row {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 20px;
-  row-gap: 10px;
-  margin-top: 8px;
-  align-items: flex-end;
-}
-
-.field-small {
-  flex: 1 1 0;
-  min-width: 190px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Label chiquito arriba del select/input */
-.total-label-inline {
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* Caja del vuelto con look de input */
-.total-vuelto {
-  font-size: 1.2rem;
-  font-weight: 700;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: #020617;
-  border: 1px solid #1f2937;
-  display: flex;
-  align-items: center;
-}
-
-/* =====================
-   PANEL DE TOTALES NUEVO (.total-panel)
-   ===================== */
-
-.total-panel {
-  margin-top: 14px;
-  margin-bottom: 16px;
-}
-
-/* Cada fila de totales (bruto, desc, total a cobrar) + medio/paga/vuelto */
-.total-row {
+/* ✅ 2 columnas reales: label / value */
+.caja-panel .total-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.1fr);
-  column-gap: 26px;
-  align-items: flex-end;
-  margin-bottom: 4px;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: baseline;
+  margin-bottom: 6px;
 }
 
-/* Sólo usan la primera columna cuando la fila tiene 2 elementos (bruto / desc) */
-.total-label {
-  font-size: 0.95rem;
+.caja-panel .total-label {
+  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   color: var(--muted);
 }
 
-.total-value {
-  font-size: 1.2rem;
-  font-weight: 600;
+.caja-panel .total-value {
+  font-size: 1.1rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-/* Línea fuerte: total a cobrar */
-.total-row-strong {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(148, 163, 184, 0.45);
+/* Total fuerte */
+.caja-panel .total-row-strong {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
 }
 
-.total-row-strong .total-label,
-.total-row-strong .total-value {
-  font-size: 2.25rem;
-  font-weight: 800;
+.caja-panel .total-row-strong .total-label {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
 }
 
-.total-row-strong .total-value {
-  color: #22c55e; /* verde bien visible */
+.caja-panel .total-row-strong .total-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent-green);
 }
 
-/* Link para “Cambiar” descuento total */
-.btn-link-total {
+/* Link “Cambiar” */
+.caja-panel .btn-link-total {
   background: transparent;
   border: none;
-  color: var(--accent-cyan, #38bdf8);
+  color: var(--accent-cyan);
   font-size: 0.85rem;
   text-decoration: underline;
   cursor: pointer;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 6px;
+}
+.caja-panel .btn-link-total:hover {
+  filter: brightness(1.05);
 }
 
-.btn-link-total:hover {
-  color: #7dd3fc;
+/* Medio / paga / vuelto: grilla propia */
+.caja-panel .total-row-bottom {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 14px;
+  margin-top: 12px;
+  align-items: end;
 }
 
-.hidden {
-  display: none;
+.caja-panel .field-small {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.caja-panel .total-label-inline {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.caja-panel .total-vuelto {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 /* =====================
-   MENSAJES
-   ===================== */
+   BOTONES GRANDES
+===================== */
+.caja-panel .buttons-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  align-items: center;
+}
 
-.msg {
+/* Cancelar */
+.caja-panel .btn-cancelar {
+  background: transparent;
+  color: var(--text);
+  border: 2px solid rgba(239, 68, 68, 0.65);
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.caja-panel .btn-cancelar:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.9);
+  transform: translateY(-1px);
+}
+
+/* Cobrar */
+.caja-panel .btn-cobrar {
+  min-width: 320px;
+  padding: 16px 22px;
+  border-radius: 14px;
+  border: 0;
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+
+  background: linear-gradient(135deg, var(--accent-green), #4ade80);
+  color: #022c22;
+
+  box-shadow: 0 18px 50px rgba(34, 197, 94, 0.25);
+  transition: 0.2s ease;
+}
+
+.caja-panel .btn-cobrar:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+/* =====================
+   MENSAJES (toast inline)
+===================== */
+.caja-panel .msg {
   margin-top: 10px;
   font-size: 0.85rem;
   padding: 8px 16px;
@@ -414,599 +364,185 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #e5e7eb;
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-
-.msg-visible {
+.caja-panel .msg-visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-.msg-ok {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: #022c22;
-  border-color: rgba(74, 222, 128, 0.7);
-  box-shadow: 0 14px 35px rgba(34, 197, 94, 0.7);
+.caja-panel .msg-ok {
+  background: rgba(34, 197, 94, 0.18);
+  color: var(--text);
+  border-color: rgba(34, 197, 94, 0.35);
 }
-
-.msg-error {
-  background: linear-gradient(135deg, #f97373, #ef4444);
-  color: #fef2f2;
-  border-color: rgba(248, 113, 113, 0.8);
-  box-shadow: 0 14px 35px rgba(248, 113, 113, 0.55);
-}
-
-.msg-info {
-  background: radial-gradient(circle at top, #0f172a, #020617);
-  color: #e5e7eb;
-  border-color: rgba(148, 163, 184, 0.5);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.8);
+.caja-panel .msg-error {
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--text);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 /* =====================
-   BOTONES GRANDES
-   ===================== */
-
-.buttons-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-/* BOTÓN CANCELAR VENTA */
-.btn-cancelar {
-  background: #2b2b3a;
-  color: #fff;
-  border: 2px solid #ff5c5c;
-  padding: 14px 22px;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.25s ease;
-  box-shadow: 0 0 8px rgba(255, 80, 80, 0.15);
-}
-
-.btn-cancelar:hover {
-  background: #ff3b3b;
-  border-color: #ff3b3b;
-  box-shadow: 0 0 15px rgba(255, 70, 70, 0.55);
-}
-
-.btn-cancelar:active {
-  background: #d62828;
-  border-color: #d62828;
-  box-shadow: 0 0 10px rgba(255, 50, 50, 0.8);
-  transform: scale(0.97);
-}
-
-/* BOTÓN COBRAR */
-.btn-cobrar {
-  width: auto;
-  min-width: 320px;
-  margin: 0 auto;
-  background: #111827;
-  color: #ffffff;
-  padding: 17px 22px;
-  font-size: 20px;
-  font-weight: 700;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: 0.25s ease;
-  letter-spacing: 1px;
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
-}
-
-.btn-cobrar:hover {
-  background: #08e600;
-  box-shadow: 0 0 25px rgba(0, 200, 255, 0.55);
-  transform: translateY(-2px);
-}
-
-.btn-cobrar:active {
-  background: #00aac7;
-  box-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
-  transform: scale(0.98);
-}
-
-/* =====================
-   MODAL EDICIÓN CAJA
-   ===================== */
-
-/* Overlay */
-.modal {
+   MODAL (solo Caja)
+===================== */
+.caja-panel .modal {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(6px);
   z-index: 9999;
 }
 
-/* Ocultar tanto el modal completo como cualquier elemento marcado como .hidden */
-.modal.hidden,
-.modal .hidden {
+.caja-panel .modal.hidden,
+.caja-panel .modal .hidden {
   display: none !important;
 }
 
-/* Tarjeta base */
-.modal-content {
+.caja-panel .modal-content {
   width: 460px;
   max-width: 92vw;
   border-radius: 18px;
   padding: 22px 24px 20px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(15, 23, 42, 0.7);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
-/* Títulos y texto */
-.modal-content h3,
-#modal-titulo {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-}
-
-#modal-texto {
-  margin: 4px 0 12px;
-  font-size: 0.9rem;
-}
-
-/* Área input */
-.input-area {
-  margin-top: 10px;
-}
-
-.input-area label {
-  display: block;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 4px;
-}
-
-/* Input cantidad */
-#modal-input {
-  width: 100%;
-  padding: 9px 10px;
-  border-radius: 10px;
-  border: 1px solid #1f2937;
-  background: #020617;
-  color: #e5e7eb;
-  font-size: 0.95rem;
-}
-
-#modal-input:focus {
-  outline: none;
-  border-color: #22d3ee;
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.6);
-}
-
-/* Select del tipo de descuento dentro del modal */
-.modal-desc-tipo {
-  margin-top: 6px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  font-size: 0.85rem;
-}
-
-body[data-theme="dark"] .modal-desc-tipo {
-  background: #020617;
-  color: #e5e7eb;
-}
-
-body[data-theme="light"] .modal-desc-tipo {
-  background: #ffffff;
-  color: #0f172a;
-}
-
-/* Botonera inferior */
-.modal-buttons {
+.caja-panel .modal-buttons {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 18px;
 }
 
-.btn-cancel,
-.btn-confirm {
+.caja-panel .btn-cancel,
+.caja-panel .btn-confirm {
   min-width: 120px;
   padding: 9px 16px;
   border-radius: 999px;
   font-size: 0.86rem;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
   border: none;
-  transition: 0.2s ease;
+  transition: 0.18s ease;
 }
 
-/* Cancelar */
-.btn-cancel {
-  background: #111827;
-  color: #e5e7eb;
+.caja-panel .btn-cancel {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--text);
 }
 
-/* Aceptar */
-.btn-confirm {
-  background: linear-gradient(135deg, #16a34a, #22c55e);
-  color: #022c22;
-  box-shadow: 0 12px 36px rgba(34, 197, 94, 0.7);
-}
-
-.btn-cancel:hover {
-  filter: brightness(1.05);
-}
-
-.btn-confirm:hover {
-  filter: brightness(1.03);
-  transform: translateY(-1px);
-}
-
-.btn-confirm:active,
-.btn-cancel:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-/* =====================
-   MODO CLARO – OVERRIDES
-   ===================== */
-
-body[data-theme="light"] .panel {
-  background: #ffffff;
-  border-color: #e2e8f0;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
-  color: #0f172a;
-}
-
-body[data-theme="light"] .panel label,
-body[data-theme="light"] .panel .total-label-inline {
-  color: #475569;
-}
-
-body[data-theme="light"] .panel input,
-body[data-theme="light"] .panel select {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-/* tabla */
-body[data-theme="light"] .ticket-wrapper {
-  background: #ffffff;
-  border-color: #e2e8f0;
-}
-
-body[data-theme="light"] #tabla thead {
-  background: #0f172a;
-}
-
-body[data-theme="light"] #tabla th {
-  color: #f9fafb;
-  border-bottom: 1px solid #0f172a;
-}
-
-body[data-theme="light"] #tabla tbody tr:nth-child(odd) {
-  background: #ffffff;
-}
-body[data-theme="light"] #tabla tbody tr:nth-child(even) {
-  background: #f8fafc;
-}
-body[data-theme="light"] #tabla td {
-  color: #0f172a;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-/* acciones en tabla en modo claro */
-body[data-theme="light"] .btn-editar {
-  background: rgba(59, 130, 246, 0.08);
-}
-
-body[data-theme="light"] .btn-quitar {
-  background: rgba(248, 113, 113, 0.08);
-}
-
-/* total */
-body[data-theme="light"] .total-box {
-  background: #ffffff;
-  border-color: #e2e8f0;
-}
-
-body[data-theme="light"] .total-amount,
-body[data-theme="light"] .total-vuelto,
-body[data-theme="light"] .total-value {
-  color: #0f172a;
-}
-
-body[data-theme="light"] .total-vuelto {
-  background: #f9fafb;
-  border-color: #cbd5e1;
-}
-
-/* botones grandes modo claro */
-body[data-theme="light"] .btn-cobrar {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+.caja-panel .btn-confirm {
+  background: linear-gradient(135deg, var(--accent-green), #4ade80);
   color: #022c22;
 }
 
-body[data-theme="light"] .btn-cancelar {
-  background: #fee2e2;
-  color: #7f1d1d;
-  border-color: #fecaca;
-}
-
-/* modal claro */
-body[data-theme="light"] .modal {
-  background: rgba(15, 23, 42, 0.25);
-}
-
-body[data-theme="light"] .modal-content {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.2),
-    0 0 0 1px rgba(148, 163, 184, 0.25);
-  border-color: #e2e8f0;
-}
-
-body[data-theme="light"] #modal-texto {
-  color: #4b5563;
-}
-
-body[data-theme="light"] #modal-input {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-body[data-theme="light"] .btn-cancel {
-  background: #f9fafb;
-  color: #374151;
-  border: 1px solid #e5e7eb;
-}
-
 /* =====================
-   RESPONSIVE
-   ===================== */
-
-@media (max-width: 768px) {
-  .field {
-    flex: 1 1 100%;
-  }
-
-  .field-narrow {
-    flex: 1 1 120px;
-  }
-
-  .field-small {
-    flex: 1 1 100%;
-  }
-
-  .btn-cobrar {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .buttons-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .total-row {
-    grid-template-columns: 1fr; /* en pantallas chicas se apilan */
-    row-gap: 8px;
-  }
-}
-
-/* ==========================
-   APERTURA DE CAJA – ESTILOS
-   ========================== */
-
-.caja-title {
-  text-align: center;
-  margin-top: 4px;
-  margin-bottom: 18px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.apertura-wrapper {
+   APERTURA DE CAJA
+===================== */
+.caja-panel .apertura-wrapper {
   max-width: 720px;
   margin: 0 auto;
 }
 
-.apertura-text {
-  margin: 0 0 10px;
-  font-size: 0.9rem;
-  color: var(--muted, #94a3b8);
+.caja-panel .apertura-text {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  color: var(--muted);
 }
 
-.apertura-card {
-  background: radial-gradient(
-    circle at top,
-    #020617 0%,
-    #020617 40%,
-    #020617 100%
-  );
-  border-radius: 14px;
+.caja-panel .apertura-card {
+  background: var(--panel);
+  border-radius: 16px;
   padding: 16px 18px 18px;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
 }
 
-.form-apertura {
+.caja-panel .form-apertura {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
 
-.form-apertura .form-label {
+.caja-panel .form-apertura .form-label {
   flex: 0 0 220px;
-  font-size: 0.85rem;
-  color: var(--muted, #94a3b8);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
 }
 
-.apertura-input {
+.caja-panel .apertura-input {
   flex: 1 1 240px;
-  padding: 8px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(15, 23, 42, 0.9);
-  color: #e5e7eb;
   font-variant-numeric: tabular-nums;
 }
 
-.apertura-input:focus {
-  outline: none;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.45),
-    0 8px 20px rgba(15, 23, 42, 0.9);
-}
-
-/* ==========================
-   BOTONES APERTURA / CIERRE
-   ========================== */
-
-/* Estilo común para Abrir caja / Cerrar caja (modo oscuro) */
-.apertura-btn,
-.btn-cierre {
-  flex: 0 0 auto;
-  padding: 9px 22px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: none;
-  background: linear-gradient(135deg, #22c55e, #4ade80);
-  color: #022c22;
-  box-shadow: 0 14px 35px rgba(34, 197, 94, 0.7);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
-}
-
-.apertura-btn:hover,
-.btn-cierre:hover {
-  filter: brightness(1.04);
-  transform: translateY(-1px);
-}
-
-.apertura-btn:active,
-.btn-cierre:active {
-  transform: translateY(0);
-  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.6);
-}
-
-/* layout de Abrir caja dentro del formulario */
-.apertura-btn {
+.caja-panel .apertura-btn {
   margin-left: auto;
   margin-top: 4px;
 }
 
 /* =====================
-   BADGE UNIDAD
-   ===================== */
-
-/* Badge unidad / KG al lado de la etiqueta Cantidad */
-.badge-unidad {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.5);
-}
-
-/* Cuando sea pesable, cambiamos a color "peso" */
-.badge-unidad.pesable {
-  background: rgba(190, 242, 100, 0.12);
-  color: #a3e635;
-  border-color: rgba(190, 242, 100, 0.6);
-}
-/* =====================
-   GUIA DE ATAJOS
-   ===================== */
-.shortcuts-box {
+   ATAJOS
+===================== */
+.caja-panel .shortcuts-box {
   margin-top: 10px;
   display: flex;
-  justify-content: flex-end; /* se alinea a la derecha del panel */
+  justify-content: flex-end;
 }
 
-.shortcuts-card {
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: radial-gradient(circle at top, #020617 0%, #020617 70%);
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  font-size: 0.78rem;
-  color: #e5e7eb;
-  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.9);
+.caja-panel .shortcuts-card {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
 }
 
-.shortcuts-title {
+.caja-panel .shortcuts-title {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--muted, #94a3b8);
-  margin-bottom: 4px;
+  color: var(--muted);
+  margin-bottom: 6px;
 }
 
-.shortcuts-list {
+.caja-panel .shortcuts-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 8px 14px;
+  font-size: 0.82rem;
 }
 
-.shortcuts-list span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Estilo del <kbd> */
-.shortcuts-list kbd {
+.caja-panel .shortcuts-list kbd {
   display: inline-block;
   padding: 2px 7px;
-  border-radius: 6px;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  background: rgba(15, 23, 42, 0.9);
+  border-radius: 7px;
+  border: 1px solid var(--panel-border);
+  background: rgba(15, 23, 42, 0.06);
   font-size: 0.72rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", monospace;
-  color: #e5e7eb;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
 }
 
-/* Modo claro */
-body[data-theme="light"] .shortcuts-card {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #e2e8f0;
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
-}
-
-body[data-theme="light"] .shortcuts-title {
-  color: #64748b;
-}
-
-body[data-theme="light"] .shortcuts-list kbd {
-  background: #f9fafb;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-.promo-aplicada {
-  color: #22c55e;
-  font-size: 0.85rem;
-  text-align: right;
-  opacity: 0.9;
+/* =====================
+   RESPONSIVE
+===================== */
+@media (max-width: 900px) {
+  .caja-panel .total-row-bottom {
+    grid-template-columns: 1fr;
+  }
+  .caja-panel .btn-cobrar {
+    min-width: 0;
+    width: 100%;
+  }
+  .caja-panel .buttons-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

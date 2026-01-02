@@ -785,3 +785,7 @@ body[data-theme="light"] .edit-form input[type="file"] {
   transform: translateY(-6px);
   pointer-events: none;
 }
+/* Para que scrollIntoView no quede debajo del navbar sticky */
+#productFormBlock {
+  scroll-margin-top: 200px; /* ajustá 90/110/130 según tu nav */
+}

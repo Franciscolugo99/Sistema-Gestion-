@@ -38,11 +38,15 @@ $extraHead = $extraHead ?? '';
 if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
-require_once __DIR__ . '/../lib/csrf.php';
+if (!function_exists('csrf_token')) {
+  require_once __DIR__ . '/../lib/csrf.php';
+}
 $csrfToken = function_exists('csrf_token') ? (string)csrf_token() : '';
+
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="<?= htmlspecialchars($theme, ENT_QUOTES, 'UTF-8') ?>">
+
 <head>
   <meta charset="UTF-8">
   <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
@@ -69,12 +73,14 @@ $csrfToken = function_exists('csrf_token') ? (string)csrf_token() : '';
   <link rel="stylesheet" href="assets/css/components.css?v=<?= $ver ?>">
 
   <!-- CSS específico de página -->
-  <?php foreach ($extraCss as $href): ?>
-    <link
-      rel="stylesheet"
-      href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>?v=<?= $ver ?>"
-    >
-  <?php endforeach; ?>
+<?php foreach ($extraCss as $href): ?>
+  <?php $sep = (strpos($href, '?') !== false) ? '&' : '?'; ?>
+  <link
+    rel="stylesheet"
+    href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?><?= $sep ?>v=<?= $ver ?>"
+  >
+<?php endforeach; ?>
+
 
   <?php if ($inlineCss): ?>
     <style><?= $inlineCss ?></style>
@@ -89,7 +95,7 @@ $csrfToken = function_exists('csrf_token') ? (string)csrf_token() : '';
   class="<?= htmlspecialchars($bodyClass, ENT_QUOTES, 'UTF-8') ?>"
 >
 
-  <?php require __DIR__ . '/nav.php'; ?>
+ <?php require_once __DIR__ . '/nav.php'; ?>
 
   <!-- Contenedor global de TODO el contenido de la app -->
   <div class="root container-global">
