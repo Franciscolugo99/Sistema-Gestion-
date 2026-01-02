@@ -1,9 +1,7 @@
 // public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE = "/kiosco/public/api/api.php"; // promos + buscar producto
-  const API_VENTA = "/kiosco/public/api/index.php"; // registrar_venta (CSRF)
-
-  const STORAGE_KEY = "kiosco-caja-estado-v1";
+  const API_BASE = "/kiosco/public/api/api.php";     // promos + buscar producto
+  const API_VENTA = "/kiosco/public/api/index.php";  // registrar_venta (CSRF)
   const API_TIMEOUT_MS = 8000;
 
   // Papel del ticket
@@ -12,6 +10,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const v = (localStorage.getItem(PAPER_KEY) || "80").trim();
     return v === "58" ? "58" : "80";
   }
+
+  // =========================
+  // HELPERS GLOBALES
+  // =========================
+  
+  // ✅ Debounce para optimizar renders
+  const debounce = (fn, ms) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), ms);
+    };
+  };
 
   // =========================
   // (A) BOTÓN CERRAR CAJA
@@ -61,11 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     formApertura.addEventListener("submit", (e) => {
       const valor = parseSaldo(inputSaldo.value);
-      if (
-        !window.confirm(
-          `¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`
-        )
-      ) {
+      if (!window.confirm(`¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`)) {
         e.preventDefault();
       }
     });
@@ -75,12 +82,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // (C) CAJA ABIERTA (si existe tabla)
   // =========================
   const tabla = document.getElementById("tabla");
-  if (!tabla) return; // si no hay ticket, no seguimos
+  if (!tabla) return;
+
+  // Caja id (si existe en el botón cerrar)
+  const CAJA_ID = Number(btnCerrar?.dataset?.cajaId || 0);
+
+  // Storage por caja (evita mezclar tickets entre aperturas)
+  const STORAGE_PREFIX = "kiosco-caja-estado-v1";
+  const STORAGE_KEY = `${STORAGE_PREFIX}:${CAJA_ID || "0"}`;
 
   let promosPorProducto = {};
   let promosCombos = [];
   let carrito = [];
   let totalNetoActual = 0;
+
+  // Descuento global (aplica al total final)
+  // { tipo: "porcentaje"|"monto", valor: number }
+  let descGlobal = null;
 
   const msgBox = document.getElementById("msg");
   const tbodyTicket = document.querySelector("#tabla tbody");
@@ -92,18 +110,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const selMedio = document.getElementById("medioPago");
   const lblTotalBruto = document.getElementById("lblTotalBruto");
   const lblDescGlobal = document.getElementById("lblDescGlobal");
+  const btnDescGlobal = document.getElementById("btnDescGlobal");
 
+  // Modal
   const modal = document.getElementById("modal");
   const modalTitulo = document.getElementById("modal-titulo");
   const modalTexto = document.getElementById("modal-texto");
   const modalInputArea = document.getElementById("modal-input-container");
   const modalLabel = document.getElementById("modal-label");
   const modalInput = document.getElementById("modal-input");
+  const modalDescTipo = document.getElementById("modal-desc-tipo");
   const btnConfirm = document.getElementById("modal-confirm");
   const btnCancel = document.getElementById("modal-cancel");
 
   let modalResolver = null;
   let modalIsInput = false;
+
+  const optPrecio = modalDescTipo?.querySelector('option[value="precio"]');
 
   // =========================
   // HELPERS
@@ -121,9 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getCsrf() {
     return (
-      document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute("content") || ""
+      document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
     );
   }
 
@@ -146,9 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
 
     if (item.esPesable) {
-      return esEntero
-        ? `${entero} ${unidad}`
-        : `${fmtQty3.format(cant)} ${unidad}`;
+      return esEntero ? `${entero} ${unidad}` : `${fmtQty3.format(cant)} ${unidad}`;
     }
     return `${entero} ${unidad}`;
   }
@@ -164,7 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
       inputPagado.disabled = true;
     } else {
       inputPagado.disabled = false;
-      // no pisamos lo que el user escribió
     }
   }
 
@@ -176,8 +194,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const pagado = parseFloat(inputPagado?.value || "0");
-    const vuelto = Math.max(pagado - total, 0);
+    const pagado = parseFloat(String(inputPagado?.value || "0").replace(",", "."));
+    const vuelto = Math.max((Number.isFinite(pagado) ? pagado : 0) - total, 0);
     lblVuelto.textContent = formatearMoneda(vuelto);
   }
 
@@ -191,6 +209,8 @@ document.addEventListener("DOMContentLoaded", () => {
         carrito,
         medio: selMedio?.value || "EFECTIVO",
         pagado: inputPagado?.value || "",
+        descGlobal,
+        caja_id: CAJA_ID || 0,
       })
     );
   }
@@ -201,6 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const data = JSON.parse(raw);
       carrito = data.carrito || [];
+      descGlobal = data.descGlobal || null;
       if (selMedio && data.medio) selMedio.value = data.medio;
       if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
     } catch (e) {
@@ -217,16 +238,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const csrf = getCsrf();
 
-    // Headers merge
     const headers = new Headers(opt.headers || {});
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
-
-    // Solo setear Content-Type si vamos a mandar body (JSON)
     if (opt.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json; charset=utf-8");
     }
-
-    // Mandar CSRF siempre (si existe)
     if (csrf && !headers.has("X-CSRF-Token")) {
       headers.set("X-CSRF-Token", csrf);
     }
@@ -236,17 +252,15 @@ document.addEventListener("DOMContentLoaded", () => {
         ...opt,
         headers,
         signal: ctrl.signal,
-        credentials: "same-origin", // 👈 clave para que viaje la sesión
+        credentials: "same-origin",
       });
 
       const text = await res.text();
 
-      // Intentar parsear JSON
       let data = null;
       try {
         data = text ? JSON.parse(text) : null;
       } catch {
-        // Si no es JSON, lo logueamos (muy útil cuando PHP devuelve HTML por warnings/redirect)
         console.error("Respuesta NO JSON desde API:", {
           url,
           status: res.status,
@@ -255,29 +269,16 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(`La API no devolvió JSON válido (HTTP ${res.status})`);
       }
 
-      // Errores HTTP
       if (!res.ok) {
         const msg = data?.error || data?.message || `HTTP ${res.status}`;
-
-        // Si es 401, normalmente es sesión/cookie o backend no ve login
-        if (res.status === 401) {
-          throw new Error(`No autenticado (401). ${msg}`);
-        }
-
-        // 403: permisos o CSRF
-        if (res.status === 403) {
-          throw new Error(`No autorizado (403). ${msg}`);
-        }
-
+        if (res.status === 401) throw new Error(`No autenticado (401). ${msg}`);
+        if (res.status === 403) throw new Error(`No autorizado (403). ${msg}`);
         throw new Error(msg);
       }
 
       return data;
     } catch (err) {
-      // Timeout
-      if (err?.name === "AbortError") {
-        throw new Error("Tiempo de espera agotado al llamar a la API");
-      }
+      if (err?.name === "AbortError") throw new Error("Tiempo de espera agotado al llamar a la API");
       throw err;
     } finally {
       clearTimeout(t);
@@ -334,7 +335,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const packs = Math.floor(cant / promo.n);
     const pagar = packs * promo.m + (cant % promo.n);
 
-    const precio = item.precioLista;
+    // promo SIEMPRE sobre lista (como backend)
+    const precio = Number(item.precioLista) || 0;
+
     const subtotalPromo = pagar * precio;
     const subtotalNormal = cant * precio;
 
@@ -349,7 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cant = Number(item.cantidad);
     if (cant < promo.n) return null;
 
-    const precio = item.precioLista;
+    const precio = Number(item.precioLista) || 0;
     const unidadesDesc = Math.floor(cant / promo.n);
     const descuento = (unidadesDesc * precio * promo.porcentaje) / 100;
 
@@ -360,14 +363,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  function aplicarPromosItem(item) {
-    const promo = promosPorProducto[String(item.id)];
-    if (!promo) return null;
+function aplicarPromosItem(item) {
+  const promo = promosPorProducto[String(item.id)];
+  if (!promo) return null;
 
-    if (promo.tipo === "N_PAGA_M") return aplicarPromoNPagaM(item, promo);
-    if (promo.tipo === "NTH_PCT") return aplicarPromoNthPct(item, promo);
-    return null;
-  }
+  // ✅ Ya no rechazamos pesables
+  if (promo.tipo === "N_PAGA_M") return aplicarPromoNPagaM(item, promo);
+  if (promo.tipo === "NTH_PCT") return aplicarPromoNthPct(item, promo);
+  return null;
+}
 
   function aplicarCombos(carrito) {
     const combosAplicados = [];
@@ -381,7 +385,10 @@ document.addEventListener("DOMContentLoaded", () => {
           maxCombos = 0;
           return;
         }
-        maxCombos = Math.min(maxCombos, Math.floor(it.cantidad / req.cantidad));
+        
+        // ✅ Tolerancia para pesables
+        const tolerance = it.esPesable ? 0.01 : 0;
+        maxCombos = Math.min(maxCombos, Math.floor((it.cantidad + tolerance) / req.cantidad));
       });
 
       if (maxCombos > 0 && maxCombos !== Infinity) {
@@ -393,9 +400,27 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =========================
-  // RENDER
+  // DESCUENTO GLOBAL
   // =========================
-  function actualizarVista() {
+  function calcDescGlobal(totalNetoAntes) {
+    if (!descGlobal) return 0;
+    const tipo = descGlobal.tipo;
+    const valor = Number(descGlobal.valor) || 0;
+    if (valor <= 0) return 0;
+
+    if (tipo === "porcentaje") {
+      return Math.min(totalNetoAntes, (totalNetoAntes * valor) / 100);
+    }
+    if (tipo === "monto") {
+      return Math.min(totalNetoAntes, valor);
+    }
+    return 0;
+  }
+
+  // =========================
+  // RENDER (con debounce)
+  // =========================
+  function _actualizarVista() {
     if (!tbodyTicket) return;
     tbodyTicket.innerHTML = "";
 
@@ -405,11 +430,12 @@ document.addEventListener("DOMContentLoaded", () => {
     let totalNeto = 0;
     let totalDescCombos = 0;
 
+    // descuento combos (como antes): sumaLista - precio_combo
     combos.forEach((cb) => {
       const sumaLista = cb.combo.items.reduce((acc, it) => {
         const prod = carrito.find((p) => Number(p.id) === it.producto_id);
         if (!prod) return acc;
-        return acc + prod.precioLista * it.cantidad;
+        return acc + (Number(prod.precioLista) || 0) * it.cantidad;
       }, 0);
 
       const descuentoUnit = sumaLista - cb.combo.precio_combo;
@@ -419,8 +445,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     carrito.forEach((item, idx) => {
       const cant = Number(item.cantidad);
-      const lista = Number(item.precioLista);
-      const base = Number(item.precio);
+      const lista = Number(item.precioLista) || 0;
+      const base = Number(item.precio) || 0;
 
       const subtotalOriginal = cant * lista;
       let subtotalConPromo = cant * base;
@@ -429,6 +455,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let descuentoPromo = 0;
       let descNombre = null;
 
+      // si hay promo: ignora descuento manual (como backend)
       if (promo) {
         subtotalConPromo = promo.subtotalFinal;
         descuentoPromo = promo.descuento;
@@ -438,12 +465,12 @@ document.addEventListener("DOMContentLoaded", () => {
       totalBruto += subtotalOriginal;
       totalNeto += subtotalConPromo;
 
-      const tieneDescManual = Math.abs(base - lista) > 0.009;
+      const tieneDescManual = !promo && Math.abs(base - lista) > 0.009;
 
       const precioHtml = tieneDescManual
         ? `<div>${formatearMoneda(base)}</div>
            <div class="precio-lista">Lista: ${formatearMoneda(lista)}</div>`
-        : formatearMoneda(base);
+        : formatearMoneda(promo ? lista : base);
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -484,18 +511,39 @@ document.addEventListener("DOMContentLoaded", () => {
       totalNeto -= totalDescCombos;
     }
 
-    // normalizar y redondear
+    // normalizar
     totalNeto = Math.max(0, Number(totalNeto.toFixed(2)));
 
+    // descuento global al final
+    const descG = Number(calcDescGlobal(totalNeto).toFixed(2));
+    if (descG > 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td colspan="7" class="promo-aplicada">
+          Descuento global → -${formatearMoneda(descG)}
+        </td>`;
+      tbodyTicket.appendChild(tr);
+
+      totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
+    }
+
     lblTotalBruto.textContent = formatearMoneda(totalBruto);
-    lblDescGlobal.textContent = formatearMoneda(totalBruto - totalNeto);
     lblTotal.textContent = formatearMoneda(totalNeto);
+    lblDescGlobal.textContent = formatearMoneda(Math.max(0, totalBruto - totalNeto));
 
     totalNetoActual = totalNeto;
 
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
+  }
+
+  // ✅ Debounced version para inputs rápidos
+  const actualizarVista = debounce(_actualizarVista, 150);
+  
+  // Para cambios que necesitan render inmediato (agregar/quitar)
+  function actualizarVistaInmediata() {
+    _actualizarVista();
   }
 
   // =========================
@@ -507,9 +555,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const data = await fetchJson(
-        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(
-          codigo
-        )}`
+        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`
       );
 
       if (!data.ok) return mostrarMensaje("error", data.error);
@@ -518,8 +564,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const precioLista = Number(p.precio) || 0;
       const stock = Number(p.stock) || 0;
-      const esPesable =
-        p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
+      const esPesable = p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
       const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
 
       let cantidad = esPesable
@@ -531,11 +576,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const existente = carrito.find((i) => Number(i.id) === Number(p.id));
       const enCarrito = existente ? Number(existente.cantidad) : 0;
 
+      // ✅ MEJORADO: Sugerir cantidad disponible
       if (stock > 0 && enCarrito + cantidad > stock) {
-        return mostrarMensaje(
-          "error",
-          `Stock insuficiente. Disponible: ${stock}`
-        );
+        const disponible = stock - enCarrito;
+        if (disponible > 0) {
+          const agregar = window.confirm(
+            `Stock insuficiente. Disponible: ${disponible} ${unidadVenta}.\n¿Agregar ${disponible} en su lugar?`
+          );
+          if (agregar) {
+            cantidad = disponible;
+          } else {
+            return;
+          }
+        } else {
+          return mostrarMensaje("error", `Ya no hay stock disponible de "${p.nombre}"`);
+        }
       }
 
       if (existente) {
@@ -546,26 +601,30 @@ document.addEventListener("DOMContentLoaded", () => {
           codigo: String(p.codigo),
           nombre: String(p.nombre),
           cantidad: Number(cantidad),
-          precio: Number(precioLista), // precio “actual”
-          precioLista: Number(precioLista), // precio lista
+          precio: Number(precioLista),       // precio actual (modificable)
+          precioLista: Number(precioLista),  // lista
           esPesable,
           unidadVenta,
         });
       }
 
       inputCodigo.value = "";
-      inputCant.value = esPesable ? "0.100" : "1";
+
+      // ✅ FIX: no dejar clavado 0.100
+      if (inputCant) inputCant.value = "1";
 
       limpiarMensaje();
-      actualizarVista();
+      actualizarVistaInmediata();
+      inputCodigo?.focus?.();
     } catch (e) {
       console.error("ERROR agregarItem():", e);
-      mostrarMensaje("error", "Error al buscar producto.");
+      // ✅ MEJORADO: Mostrar mensaje real de error
+      mostrarMensaje("error", e?.message || "Error al buscar producto");
     }
   }
 
   // =========================
-  // MODAL
+  // MODAL (genérico)
   // =========================
   function mostrarModal(opt) {
     return new Promise((resolve) => {
@@ -575,9 +634,26 @@ document.addEventListener("DOMContentLoaded", () => {
       modalTitulo.textContent = opt.titulo || "";
       modalTexto.textContent = opt.texto || "";
 
+      if (modalDescTipo) {
+        if (opt.showTipo) modalDescTipo.classList.remove("hidden");
+        else modalDescTipo.classList.add("hidden");
+
+        if (typeof opt.tipoDefault === "string") modalDescTipo.value = opt.tipoDefault;
+
+        if (optPrecio) {
+          optPrecio.hidden = !!opt.hidePrecioOption;
+          optPrecio.textContent = opt.precioLabel || "Nuevo precio unitario";
+        }
+      }
+
       if (modalIsInput) {
         modalInputArea.classList.remove("hidden");
         modalLabel.textContent = opt.label || "";
+
+        modalInput.type = opt.inputType || "number";
+        if (opt.min != null) modalInput.min = String(opt.min);
+        if (opt.step != null) modalInput.step = String(opt.step);
+
         modalInput.value = opt.valorDefault ?? "";
         setTimeout(() => modalInput.focus(), 20);
       } else {
@@ -602,12 +678,11 @@ document.addEventListener("DOMContentLoaded", () => {
   btnCancel?.addEventListener("click", () => cerrarModal(false));
 
   document.addEventListener("keydown", (e) => {
-    if (!modal.classList.contains("hidden") && e.key === "Escape")
-      cerrarModal(false);
+    if (!modal.classList.contains("hidden") && e.key === "Escape") cerrarModal(false);
   });
 
   // =========================
-  // EDITAR / QUITAR / DESCUENTO
+  // EDITAR / QUITAR / DESCUENTO ITEM
   // =========================
   tbodyTicket?.addEventListener("click", (e) => {
     const btnEditar = e.target.closest(".btn-editar");
@@ -619,12 +694,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = carrito[idx];
       if (!item) return;
 
+      const step = item.esPesable ? "0.001" : "1";
+      const min = item.esPesable ? "0.001" : "1";
+
       mostrarModal({
         titulo: "Editar cantidad",
         texto: item.nombre,
         input: true,
         valorDefault: item.cantidad,
         label: "Cantidad",
+        showTipo: false,
+        inputType: "number",
+        min,
+        step,
       }).then((val) => {
         if (val === false) return;
 
@@ -633,7 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!Number.isFinite(num) || num <= 0) num = item.esPesable ? 0.1 : 1;
 
         item.cantidad = num;
-        actualizarVista();
+        actualizarVistaInmediata();
       });
       return;
     }
@@ -643,20 +725,62 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = carrito[idx];
       if (!item) return;
 
+      // ✅ MEJORADO: Advertir si hay promo activa
+      if (promosPorProducto[String(item.id)]) {
+        mostrarMensaje("warning", 
+          `⚠️ Este producto tiene promoción activa. El descuento manual no aplicará.`
+        );
+      }
+
+      // Item: permitir precio / % / monto
+      if (modalDescTipo) {
+        modalDescTipo.onchange = () => {
+          const t = modalDescTipo.value;
+          if (t === "porcentaje") modalLabel.textContent = "% de descuento";
+          else if (t === "monto") modalLabel.textContent = "Descuento en $";
+          else modalLabel.textContent = "Nuevo precio unitario";
+        };
+      }
+
       mostrarModal({
         titulo: "Descuento manual",
         texto: item.nombre,
         input: true,
         valorDefault: item.precio,
         label: "Nuevo precio unitario",
+        showTipo: true,
+        tipoDefault: "precio",
+        hidePrecioOption: false,
+        precioLabel: "Nuevo precio unitario",
+        inputType: "number",
+        min: 0,
+        step: 0.01,
       }).then((val) => {
         if (val === false) return;
+
+        const tipo = modalDescTipo?.value || "precio";
         let num = parseFloat(String(val).replace(",", "."));
-        if (!Number.isFinite(num) || num <= 0) {
-          return mostrarMensaje("error", "Precio inválido.");
+        if (!Number.isFinite(num)) return mostrarMensaje("error", "Valor inválido.");
+
+        const lista = Number(item.precioLista) || 0;
+        let nuevo = Number(item.precio) || lista;
+
+        if (tipo === "precio") {
+          nuevo = num;
+        } else if (tipo === "porcentaje") {
+          if (num < 0 || num > 100) return mostrarMensaje("error", "Porcentaje inválido (0-100).");
+          nuevo = lista * (1 - num / 100);
+        } else if (tipo === "monto") {
+          if (num < 0) return mostrarMensaje("error", "Monto inválido.");
+          nuevo = lista - num;
         }
-        item.precio = num;
-        actualizarVista();
+
+        if (!Number.isFinite(nuevo) || nuevo <= 0) {
+          return mostrarMensaje("error", "El precio final queda inválido o negativo.");
+        }
+
+        item.precio = Number(nuevo.toFixed(2));
+        actualizarVistaInmediata();
       });
       return;
     }
@@ -665,8 +789,64 @@ document.addEventListener("DOMContentLoaded", () => {
       const idx = Number(btnQuitar.dataset.idx);
       if (!Number.isFinite(idx)) return;
       carrito.splice(idx, 1);
-      actualizarVista();
+      actualizarVistaInmediata();
     }
+  });
+
+  // =========================
+  // DESCUENTO GLOBAL (botón "Cambiar")
+  // =========================
+  btnDescGlobal?.addEventListener("click", () => {
+    // Global: solo porcentaje / monto (ocultamos "precio")
+    if (modalDescTipo) {
+      modalDescTipo.onchange = () => {
+        const t = modalDescTipo.value;
+        if (t === "porcentaje") modalLabel.textContent = "% de descuento";
+        else modalLabel.textContent = "Descuento en $";
+      };
+    }
+
+    const tipoInit = descGlobal?.tipo || "monto";
+    const valorInit = descGlobal?.valor || "";
+
+    mostrarModal({
+      titulo: "Descuento total",
+      texto: "Aplicar descuento al total final (después de promos/combos).",
+      input: true,
+      valorDefault: valorInit,
+      label: tipoInit === "porcentaje" ? "% de descuento" : "Descuento en $",
+      showTipo: true,
+      tipoDefault: tipoInit,
+      hidePrecioOption: true,
+      inputType: "number",
+      min: 0,
+      step: 0.01,
+    }).then((val) => {
+      if (val === false) return;
+
+      const tipo = (modalDescTipo?.value === "porcentaje") ? "porcentaje" : "monto";
+      let num = parseFloat(String(val).replace(",", "."));
+      if (!Number.isFinite(num) || num < 0) num = 0;
+
+      if (tipo === "porcentaje" && num > 100) {
+        return mostrarMensaje("error", "Máximo 100%.");
+      }
+
+      // ✅ MEJORADO: Validar monto vs total
+      if (tipo === "monto" && num > totalNetoActual) {
+        return mostrarMensaje("error", 
+          `El descuento no puede superar el total (${formatearMoneda(totalNetoActual)})`
+        );
+      }
+
+      if (num <= 0.0001) {
+        descGlobal = null; // limpiar
+      } else {
+        descGlobal = { tipo, valor: Number(num.toFixed(2)) };
+      }
+
+      actualizarVistaInmediata();
+    });
   });
 
   // =========================
@@ -678,31 +858,18 @@ document.addEventListener("DOMContentLoaded", () => {
     limpiarMensaje();
 
     if (cobrando) return;
-    if (!carrito || carrito.length === 0) {
-      return mostrarMensaje("error", "Ticket vacío");
-    }
+    if (!carrito || carrito.length === 0) return mostrarMensaje("error", "Ticket vacío");
 
     const totalUI = Number(totalNetoActual) || 0;
 
-    // Si no es efectivo, forzamos pagado = total
-    let pagado = parseFloat(
-      String(inputPagado?.value || "0").replace(",", ".")
-    );
+    let pagado = parseFloat(String(inputPagado?.value || "0").replace(",", "."));
     if (!medioEsEfectivo()) {
       pagado = totalUI;
     } else {
       if (!Number.isFinite(pagado) || pagado <= 0) pagado = 0;
-      if (pagado + 0.0001 < totalUI) {
-        return mostrarMensaje("error", "El pago no alcanza.");
-      }
+      if (pagado + 0.0001 < totalUI) return mostrarMensaje("error", "El pago no alcanza.");
     }
 
-    // Caja id (si existe en el botón cerrar)
-    const CAJA_ID = Number(
-      document.getElementById("btnCerrarCaja")?.dataset?.cajaId || 0
-    );
-
-    // Lock + UX
     cobrando = true;
     const btn = document.getElementById("btnCobrar");
     if (btn) btn.disabled = true;
@@ -711,15 +878,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const itemsLimpios = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
-        precio: Number(i.precio), // precio final (manual si aplicaste)
+        precio: Number(i.precio), // precio unitario actual (manual si aplicaste)
       }));
 
       const payload = {
         csrf: getCsrf(),
-        caja_id: CAJA_ID, // 👈 importante para ventas y caja_sesiones
+        caja_id: CAJA_ID,
         items: itemsLimpios,
         medio_pago: (selMedio?.value || "EFECTIVO").toUpperCase(),
         monto_pagado: Number(pagado),
+        desc_global: descGlobal || null, // ✅ backend lo aplica
       };
 
       const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {
@@ -727,35 +895,30 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(payload),
       });
 
-      if (!data?.ok) {
-        return mostrarMensaje("error", data?.error || "Error en la API");
-      }
+      if (!data?.ok) return mostrarMensaje("error", data?.error || "Error en la API");
 
       const ventaId = data.venta_id ?? data.ventaId;
-      if (!ventaId) {
-        console.warn("Respuesta API sin venta_id:", data);
-        return mostrarMensaje(
-          "error",
-          "Venta registrada, pero no llegó el ID."
-        );
-      }
+      if (!ventaId) return mostrarMensaje("error", "Venta registrada, pero no llegó el ID.");
 
-      // Limpieza estado
+      // Limpieza
       carrito = [];
+      descGlobal = null;
       localStorage.removeItem(STORAGE_KEY);
       if (inputPagado) inputPagado.value = "";
-      actualizarVista();
+      actualizarVistaInmediata();
       inputCodigo?.focus?.();
 
       // Imprimir ticket
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
-      iframe.src = `ticket.php?venta_id=${encodeURIComponent(
-        ventaId
-      )}&paper=${getPaper()}&autoprint=1`;
+      iframe.src = `ticket.php?venta_id=${encodeURIComponent(ventaId)}&paper=${getPaper()}&autoprint=1`;
       document.body.appendChild(iframe);
+      
+      mostrarMensaje("success", `✓ Venta #${ventaId} registrada correctamente`);
+      
     } catch (e) {
       console.error("Error registrar venta:", e);
+      // ✅ MEJORADO: Mostrar mensaje real de error
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
     } finally {
       cobrando = false;
@@ -767,10 +930,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // CANCELAR
   // =========================
   function cancelarVenta() {
+    if (carrito.length > 0) {
+      const ok = window.confirm("¿Cancelar la venta y vaciar el ticket?");
+      if (!ok) return;
+    }
     carrito = [];
+    descGlobal = null;
     localStorage.removeItem(STORAGE_KEY);
-    inputPagado.value = "";
-    actualizarVista();
+    if (inputPagado) inputPagado.value = "";
+    actualizarVistaInmediata();
+    inputCodigo?.focus?.();
   }
 
   // =========================
@@ -778,16 +947,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   document.getElementById("btnAgregar")?.addEventListener("click", agregarItem);
   document.getElementById("btnCobrar")?.addEventListener("click", cobrar);
-  document
-    .getElementById("btnCancelar")
-    ?.addEventListener("click", cancelarVenta);
+  document.getElementById("btnCancelar")?.addEventListener("click", cancelarVenta);
 
   inputCodigo?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       agregarItem();
     } else {
-      // cuando escanean y hay basura, limpiamos error rápido
       limpiarMensaje();
     }
   });
@@ -803,7 +969,7 @@ document.addEventListener("DOMContentLoaded", () => {
     guardarEstado();
   });
 
-  // Atajos (ya que los mostrás en UI)
+  // Atajos
   document.addEventListener("keydown", (e) => {
     if (e.key === "F2") {
       e.preventDefault();
@@ -825,7 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
   (async () => {
     cargarEstado();
     await cargarPromos();
-    actualizarVista();
+    actualizarVistaInmediata();
     ajustarPagoSegunMedio();
   })();
 });

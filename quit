@@ -1,0 +1,24 @@
+[35mpublic/auditoria.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_auditoria');
+[35mpublic/auth.php[m[36m:[m[32m86[m[36m:[mfunction [1;31mrequire_permission([mstring $slug): void {
+[35mpublic/backup_download.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'gestionar_backups');
+[35mpublic/backups.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'gestionar_backups');
+[35mpublic/caja.php[m[36m:[m[32m11[m[36m:[m[1;31mrequire_permission([m'realizar_ventas');
+[35mpublic/caja_cerrar.php[m[36m:[m[32m9[m[36m:[m[1;31mrequire_permission([m'cerrar_caja');
+[35mpublic/caja_historial.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_historial_caja');
+[35mpublic/clientes.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_clientes'); // Ver listado
+[35mpublic/configuracion.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'administrar_config');
+[35mpublic/index-old.php[m[36m:[m[32m4[m[36m:[m// [1;31mrequire_permission([m'realizar_ventas'); // cuando quieras activar permisos
+[35mpublic/movimientos.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_movimientos');
+[35mpublic/productos.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'editar_productos');
+[35mpublic/promo_combo_form.php[m[36m:[m[32m10[m[36m:[m[1;31mrequire_permission([m'editar_productos');
+[35mpublic/promo_delete.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'editar_productos');
+[35mpublic/promo_form.php[m[36m:[m[32m10[m[36m:[m[1;31mrequire_permission([m'editar_productos');
+[35mpublic/promos.php[m[36m:[m[32m11[m[36m:[m[1;31mrequire_permission([m'editar_productos');
+[35mpublic/rol_permisos.php[m[36m:[m[32m8[m[36m:[m[1;31mrequire_permission([m'administrar_usuarios');
+[35mpublic/roles.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'administrar_usuarios');
+[35mpublic/stock.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'editar_stock');
+[35mpublic/usuario_guardar.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'administrar_usuarios');
+[35mpublic/usuario_nuevo.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'administrar_usuarios');
+[35mpublic/usuarios.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'administrar_usuarios');
+[35mpublic/venta_detalle.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_reportes');
+[35mpublic/ventas.php[m[36m:[m[32m7[m[36m:[m[1;31mrequire_permission([m'ver_reportes');

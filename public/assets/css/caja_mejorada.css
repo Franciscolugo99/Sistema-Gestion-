@@ -301,3 +301,18 @@ body[data-theme="light"] .caja-panel .caja-topbar {
     grid-template-columns: 1fr;
   }
 }
+/* Cobrar: que siempre sea “primary” visible */
+.btn-cobrar{
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+  color: #022c22;
+  box-shadow: 0 16px 40px rgba(34, 197, 94, 0.35);
+  border-radius: 14px;
+}
+.btn-cobrar:hover{
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 48px rgba(34, 197, 94, 0.45);
+}
+.btn-cobrar:active{
+  transform: translateY(0);
+}

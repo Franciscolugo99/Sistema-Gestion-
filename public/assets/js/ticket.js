@@ -1,18 +1,28 @@
+// public/assets/js/ticket-print.js
+// Script opcional para manejo de impresión de tickets
 document.addEventListener("DOMContentLoaded", () => {
   const auto = document.body?.dataset?.autoprint === "1";
 
   const btn = document.getElementById("btnPrint");
-  btn?.addEventListener("click", () => {
-    window.focus();
-    window.print();
-  });
-
-  if (!auto) return;
-
-  window.addEventListener("load", () => {
-    setTimeout(() => {
+  if (btn) {
+    btn.addEventListener("click", () => {
       window.focus();
       window.print();
-    }, 250);
-  });
+    });
+  }
+
+  // Auto-print si se solicitó
+  if (auto) {
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        window.focus();
+        window.print();
+        
+        // Cerrar después de imprimir (opcional)
+        setTimeout(() => {
+          window.close();
+        }, 300);
+      }, 250);
+    });
+  }
 });
