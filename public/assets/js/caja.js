@@ -1,7 +1,7 @@
 // public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE = "/kiosco/public/api/api.php";     // promos + buscar producto
-  const API_VENTA = "/kiosco/public/api/index.php";  // registrar_venta (CSRF)
+  const API_BASE = "api/api.php";
+  const API_VENTA = "api/index.php";
   const API_TIMEOUT_MS = 8000;
 
   // Papel del ticket
@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // HELPERS GLOBALES
   // =========================
-  
+
   // ✅ Debounce para optimizar renders
   const debounce = (fn, ms) => {
     let timer;
@@ -72,7 +72,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     formApertura.addEventListener("submit", (e) => {
       const valor = parseSaldo(inputSaldo.value);
-      if (!window.confirm(`¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`)) {
+      if (
+        !window.confirm(
+          `¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`
+        )
+      ) {
         e.preventDefault();
       }
     });
@@ -112,6 +116,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const lblDescGlobal = document.getElementById("lblDescGlobal");
   const btnDescGlobal = document.getElementById("btnDescGlobal");
 
+  // ✅ Permiso frontend (inyectado por caja.php)
+  const CAN_MOD_PRECIO = !!(
+    window.FLUS_PERMS && window.FLUS_PERMS.caja_modificar_precio
+  );
+
+  // Si no tiene permiso, deshabilitar UI de descuento global para evitar confusión
+  if (btnDescGlobal && !CAN_MOD_PRECIO) {
+    btnDescGlobal.style.opacity = "0.5";
+    btnDescGlobal.style.pointerEvents = "none";
+    btnDescGlobal.title = "Sin permisos para descuento / cambio de precio";
+  }
+
   // Modal
   const modal = document.getElementById("modal");
   const modalTitulo = document.getElementById("modal-titulo");
@@ -142,12 +158,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
 
-function getCsrf() {
-  return (window.getCsrfToken && window.getCsrfToken())
-    || document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
-    || "";
-}
-
+  function getCsrf() {
+    return (
+      (window.getCsrfToken && window.getCsrfToken()) ||
+      document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content") ||
+      ""
+    );
+  }
 
   function mostrarMensaje(tipo, texto) {
     if (!msgBox) return;
@@ -168,7 +187,9 @@ function getCsrf() {
     const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
 
     if (item.esPesable) {
-      return esEntero ? `${entero} ${unidad}` : `${fmtQty3.format(cant)} ${unidad}`;
+      return esEntero
+        ? `${entero} ${unidad}`
+        : `${fmtQty3.format(cant)} ${unidad}`;
     }
     return `${entero} ${unidad}`;
   }
@@ -195,7 +216,9 @@ function getCsrf() {
       return;
     }
 
-    const pagado = parseFloat(String(inputPagado?.value || "0").replace(",", "."));
+    const pagado = parseFloat(
+      String(inputPagado?.value || "0").replace(",", ".")
+    );
     const vuelto = Math.max((Number.isFinite(pagado) ? pagado : 0) - total, 0);
     lblVuelto.textContent = formatearMoneda(vuelto);
   }
@@ -225,6 +248,15 @@ function getCsrf() {
       descGlobal = data.descGlobal || null;
       if (selMedio && data.medio) selMedio.value = data.medio;
       if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
+
+      // ✅ Si no tiene permiso, limpiar cualquier descuento/precio “guardado”
+      if (!CAN_MOD_PRECIO) {
+        descGlobal = null;
+        carrito = (carrito || []).map((it) => {
+          const lista = Number(it?.precioLista ?? it?.precio ?? 0);
+          return { ...it, precioLista: lista, precio: lista };
+        });
+      }
     } catch (e) {
       console.error("Error parseando estado de caja:", e);
     }
@@ -279,7 +311,8 @@ function getCsrf() {
 
       return data;
     } catch (err) {
-      if (err?.name === "AbortError") throw new Error("Tiempo de espera agotado al llamar a la API");
+      if (err?.name === "AbortError")
+        throw new Error("Tiempo de espera agotado al llamar a la API");
       throw err;
     } finally {
       clearTimeout(t);
@@ -334,9 +367,9 @@ function getCsrf() {
     if (cant < promo.n) return null;
 
     const packs = Math.floor(cant / promo.n);
-    const pagar = packs * promo.m + (cant % promo.n);
+    const resto = cant - packs * promo.n; // ✅ igual al backend
+    const pagar = packs * promo.m + resto;
 
-    // promo SIEMPRE sobre lista (como backend)
     const precio = Number(item.precioLista) || 0;
 
     const subtotalPromo = pagar * precio;
@@ -364,15 +397,15 @@ function getCsrf() {
     };
   }
 
-function aplicarPromosItem(item) {
-  const promo = promosPorProducto[String(item.id)];
-  if (!promo) return null;
+  function aplicarPromosItem(item) {
+    const promo = promosPorProducto[String(item.id)];
+    if (!promo) return null;
 
-  // ✅ Ya no rechazamos pesables
-  if (promo.tipo === "N_PAGA_M") return aplicarPromoNPagaM(item, promo);
-  if (promo.tipo === "NTH_PCT") return aplicarPromoNthPct(item, promo);
-  return null;
-}
+    // ✅ Ya no rechazamos pesables
+    if (promo.tipo === "N_PAGA_M") return aplicarPromoNPagaM(item, promo);
+    if (promo.tipo === "NTH_PCT") return aplicarPromoNthPct(item, promo);
+    return null;
+  }
 
   function aplicarCombos(carrito) {
     const combosAplicados = [];
@@ -386,10 +419,13 @@ function aplicarPromosItem(item) {
           maxCombos = 0;
           return;
         }
-        
+
         // ✅ Tolerancia para pesables
         const tolerance = it.esPesable ? 0.01 : 0;
-        maxCombos = Math.min(maxCombos, Math.floor((it.cantidad + tolerance) / req.cantidad));
+        maxCombos = Math.min(
+          maxCombos,
+          Math.floor((it.cantidad + tolerance) / req.cantidad)
+        );
       });
 
       if (maxCombos > 0 && maxCombos !== Infinity) {
@@ -473,6 +509,11 @@ function aplicarPromosItem(item) {
            <div class="precio-lista">Lista: ${formatearMoneda(lista)}</div>`
         : formatearMoneda(promo ? lista : base);
 
+      // ✅ Si no tiene permiso, no mostrar botón Desc.
+      const btnDescHtml = CAN_MOD_PRECIO
+        ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
+        : "";
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${idx + 1}</td>
@@ -483,7 +524,7 @@ function aplicarPromosItem(item) {
         <td class="right">${formatearMoneda(subtotalConPromo)}</td>
         <td class="acciones">
           <button class="btn-accion btn-editar" data-idx="${idx}">Editar</button>
-          <button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>
+          ${btnDescHtml}
           <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
         </td>
       `;
@@ -530,7 +571,9 @@ function aplicarPromosItem(item) {
 
     lblTotalBruto.textContent = formatearMoneda(totalBruto);
     lblTotal.textContent = formatearMoneda(totalNeto);
-    lblDescGlobal.textContent = formatearMoneda(Math.max(0, totalBruto - totalNeto));
+    lblDescGlobal.textContent = formatearMoneda(
+      Math.max(0, totalBruto - totalNeto)
+    );
 
     totalNetoActual = totalNeto;
 
@@ -541,7 +584,7 @@ function aplicarPromosItem(item) {
 
   // ✅ Debounced version para inputs rápidos
   const actualizarVista = debounce(_actualizarVista, 150);
-  
+
   // Para cambios que necesitan render inmediato (agregar/quitar)
   function actualizarVistaInmediata() {
     _actualizarVista();
@@ -556,7 +599,9 @@ function aplicarPromosItem(item) {
 
     try {
       const data = await fetchJson(
-        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`
+        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(
+          codigo
+        )}`
       );
 
       if (!data.ok) return mostrarMensaje("error", data.error);
@@ -565,7 +610,8 @@ function aplicarPromosItem(item) {
 
       const precioLista = Number(p.precio) || 0;
       const stock = Number(p.stock) || 0;
-      const esPesable = p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
+      const esPesable =
+        p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
       const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
 
       let cantidad = esPesable
@@ -577,8 +623,10 @@ function aplicarPromosItem(item) {
       const existente = carrito.find((i) => Number(i.id) === Number(p.id));
       const enCarrito = existente ? Number(existente.cantidad) : 0;
 
-      // ✅ MEJORADO: Sugerir cantidad disponible
-      if (stock > 0 && enCarrito + cantidad > stock) {
+      // ✅ FIX STOCK: ya no dependemos de "stock > 0"
+      // (si stock=0, no deja agregar)
+      const tolStock = esPesable ? 0.01 : 0;
+      if (enCarrito + cantidad > stock + tolStock) {
         const disponible = stock - enCarrito;
         if (disponible > 0) {
           const agregar = window.confirm(
@@ -590,22 +638,31 @@ function aplicarPromosItem(item) {
             return;
           }
         } else {
-          return mostrarMensaje("error", `Ya no hay stock disponible de "${p.nombre}"`);
+          return mostrarMensaje(
+            "error",
+            `No hay stock disponible de "${p.nombre}"`
+          );
         }
       }
 
       if (existente) {
         existente.cantidad = Number(existente.cantidad) + cantidad;
+
+        // ✅ refrescar stock por si cambió o por si antes no estaba
+        existente.stock = Number(stock);
       } else {
         carrito.push({
           id: Number(p.id),
           codigo: String(p.codigo),
           nombre: String(p.nombre),
           cantidad: Number(cantidad),
-          precio: Number(precioLista),       // precio actual (modificable)
-          precioLista: Number(precioLista),  // lista
+          precio: Number(precioLista),
+          precioLista: Number(precioLista),
           esPesable,
           unidadVenta,
+
+          // ✅ CLAVE para validar al editar
+          stock: Number(stock),
         });
       }
 
@@ -619,7 +676,6 @@ function aplicarPromosItem(item) {
       inputCodigo?.focus?.();
     } catch (e) {
       console.error("ERROR agregarItem():", e);
-      // ✅ MEJORADO: Mostrar mensaje real de error
       mostrarMensaje("error", e?.message || "Error al buscar producto");
     }
   }
@@ -639,7 +695,8 @@ function aplicarPromosItem(item) {
         if (opt.showTipo) modalDescTipo.classList.remove("hidden");
         else modalDescTipo.classList.add("hidden");
 
-        if (typeof opt.tipoDefault === "string") modalDescTipo.value = opt.tipoDefault;
+        if (typeof opt.tipoDefault === "string")
+          modalDescTipo.value = opt.tipoDefault;
 
         if (optPrecio) {
           optPrecio.hidden = !!opt.hidePrecioOption;
@@ -679,9 +736,9 @@ function aplicarPromosItem(item) {
   btnCancel?.addEventListener("click", () => cerrarModal(false));
 
   document.addEventListener("keydown", (e) => {
-    if (!modal.classList.contains("hidden") && e.key === "Escape") cerrarModal(false);
+    if (!modal.classList.contains("hidden") && e.key === "Escape")
+      cerrarModal(false);
   });
-
   // =========================
   // EDITAR / QUITAR / DESCUENTO ITEM
   // =========================
@@ -690,6 +747,9 @@ function aplicarPromosItem(item) {
     const btnQuitar = e.target.closest(".btn-quitar");
     const btnDesc = e.target.closest(".btn-desc");
 
+    // -------------------------
+    // EDITAR CANTIDAD
+    // -------------------------
     if (btnEditar) {
       const idx = Number(btnEditar.dataset.idx);
       const item = carrito[idx];
@@ -712,28 +772,75 @@ function aplicarPromosItem(item) {
         if (val === false) return;
 
         let num = parseFloat(String(val).replace(",", "."));
-        if (!item.esPesable) num = Math.round(num);
-        if (!Number.isFinite(num) || num <= 0) num = item.esPesable ? 0.1 : 1;
+        if (!Number.isFinite(num)) return;
 
+        if (!item.esPesable) num = Math.round(num);
+
+        // ✅ 0 o menor => eliminar item
+        if (num <= 0) {
+          carrito.splice(idx, 1);
+          actualizarVistaInmediata();
+          return;
+        }
+
+        // ✅ Stock (solo si existe en el item; evita borrar por estados viejos sin stock)
+        const hasStock = item.stock != null && item.stock !== "";
+        if (hasStock) {
+          const stock = Number(item.stock) || 0;
+          const tol = item.esPesable ? 0.01 : 0;
+
+          if (num > stock + tol) {
+            const maxTxt = item.esPesable
+              ? fmtQty3.format(stock)
+              : String(Math.round(stock));
+
+            mostrarMensaje(
+              "error",
+              `Stock insuficiente. Máximo: ${maxTxt} ${item.unidadVenta || ""}`
+            );
+            num = stock;
+          }
+
+          // si el stock es 0 (o quedó 0 tras ajustar), se elimina
+          if (num <= 0) {
+            carrito.splice(idx, 1);
+            actualizarVistaInmediata();
+            return;
+          }
+        }
+
+        // si NO hay stock guardado, igual permitimos el cambio (sin validar contra stock)
         item.cantidad = num;
         actualizarVistaInmediata();
       });
+
       return;
     }
 
+    // -------------------------
+    // DESCUENTO / CAMBIAR PRECIO
+    // -------------------------
     if (btnDesc) {
+      if (!CAN_MOD_PRECIO) {
+        mostrarMensaje(
+          "error",
+          "No tenés permisos para aplicar descuento manual / cambiar precio."
+        );
+        return;
+      }
+
       const idx = Number(btnDesc.dataset.idx);
       const item = carrito[idx];
       if (!item) return;
 
-      // ✅ MEJORADO: Advertir si hay promo activa
+      // Aviso si hay promo activa (igual el backend pisa el precio manual)
       if (promosPorProducto[String(item.id)]) {
-        mostrarMensaje("warning", 
-          `⚠️ Este producto tiene promoción activa. El descuento manual no aplicará.`
+        mostrarMensaje(
+          "warning",
+          "⚠️ Este producto tiene promoción activa. El descuento manual no aplicará."
         );
       }
 
-      // Item: permitir precio / % / monto
       if (modalDescTipo) {
         modalDescTipo.onchange = () => {
           const t = modalDescTipo.value;
@@ -761,7 +868,10 @@ function aplicarPromosItem(item) {
 
         const tipo = modalDescTipo?.value || "precio";
         let num = parseFloat(String(val).replace(",", "."));
-        if (!Number.isFinite(num)) return mostrarMensaje("error", "Valor inválido.");
+        if (!Number.isFinite(num)) {
+          mostrarMensaje("error", "Valor inválido.");
+          return;
+        }
 
         const lista = Number(item.precioLista) || 0;
         let nuevo = Number(item.precio) || lista;
@@ -769,28 +879,40 @@ function aplicarPromosItem(item) {
         if (tipo === "precio") {
           nuevo = num;
         } else if (tipo === "porcentaje") {
-          if (num < 0 || num > 100) return mostrarMensaje("error", "Porcentaje inválido (0-100).");
+          if (num < 0 || num > 100) {
+            mostrarMensaje("error", "Porcentaje inválido (0-100).");
+            return;
+          }
           nuevo = lista * (1 - num / 100);
         } else if (tipo === "monto") {
-          if (num < 0) return mostrarMensaje("error", "Monto inválido.");
+          if (num < 0) {
+            mostrarMensaje("error", "Monto inválido.");
+            return;
+          }
           nuevo = lista - num;
         }
 
         if (!Number.isFinite(nuevo) || nuevo <= 0) {
-          return mostrarMensaje("error", "El precio final queda inválido o negativo.");
+          mostrarMensaje("error", "El precio final queda inválido o negativo.");
+          return;
         }
 
         item.precio = Number(nuevo.toFixed(2));
         actualizarVistaInmediata();
       });
+
       return;
     }
 
+    // -------------------------
+    // QUITAR ITEM
+    // -------------------------
     if (btnQuitar) {
       const idx = Number(btnQuitar.dataset.idx);
       if (!Number.isFinite(idx)) return;
       carrito.splice(idx, 1);
       actualizarVistaInmediata();
+      return;
     }
   });
 
@@ -798,6 +920,15 @@ function aplicarPromosItem(item) {
   // DESCUENTO GLOBAL (botón "Cambiar")
   // =========================
   btnDescGlobal?.addEventListener("click", () => {
+    // ✅ Permiso: bloquear
+    if (!CAN_MOD_PRECIO) {
+      mostrarMensaje(
+        "error",
+        "No tenés permisos para aplicar descuento global."
+      );
+      return;
+    }
+
     // Global: solo porcentaje / monto (ocultamos "precio")
     if (modalDescTipo) {
       modalDescTipo.onchange = () => {
@@ -825,7 +956,8 @@ function aplicarPromosItem(item) {
     }).then((val) => {
       if (val === false) return;
 
-      const tipo = (modalDescTipo?.value === "porcentaje") ? "porcentaje" : "monto";
+      const tipo =
+        modalDescTipo?.value === "porcentaje" ? "porcentaje" : "monto";
       let num = parseFloat(String(val).replace(",", "."));
       if (!Number.isFinite(num) || num < 0) num = 0;
 
@@ -833,10 +965,12 @@ function aplicarPromosItem(item) {
         return mostrarMensaje("error", "Máximo 100%.");
       }
 
-      // ✅ MEJORADO: Validar monto vs total
       if (tipo === "monto" && num > totalNetoActual) {
-        return mostrarMensaje("error", 
-          `El descuento no puede superar el total (${formatearMoneda(totalNetoActual)})`
+        return mostrarMensaje(
+          "error",
+          `El descuento no puede superar el total (${formatearMoneda(
+            totalNetoActual
+          )})`
         );
       }
 
@@ -859,16 +993,20 @@ function aplicarPromosItem(item) {
     limpiarMensaje();
 
     if (cobrando) return;
-    if (!carrito || carrito.length === 0) return mostrarMensaje("error", "Ticket vacío");
+    if (!carrito || carrito.length === 0)
+      return mostrarMensaje("error", "Ticket vacío");
 
     const totalUI = Number(totalNetoActual) || 0;
 
-    let pagado = parseFloat(String(inputPagado?.value || "0").replace(",", "."));
+    let pagado = parseFloat(
+      String(inputPagado?.value || "0").replace(",", ".")
+    );
     if (!medioEsEfectivo()) {
       pagado = totalUI;
     } else {
       if (!Number.isFinite(pagado) || pagado <= 0) pagado = 0;
-      if (pagado + 0.0001 < totalUI) return mostrarMensaje("error", "El pago no alcanza.");
+      if (pagado + 0.0001 < totalUI)
+        return mostrarMensaje("error", "El pago no alcanza.");
     }
 
     cobrando = true;
@@ -883,8 +1021,8 @@ function aplicarPromosItem(item) {
       }));
       const token = getCsrf();
       const payload = {
-        csrf_token: token,   // ✅ estándar
-        csrf: token,         // ✅ compat si algún endpoint viejo lee "csrf"
+        csrf_token: token, // ✅ estándar
+        csrf: token, // ✅ compat si algún endpoint viejo lee "csrf"
         caja_id: CAJA_ID,
         items: itemsLimpios,
         medio_pago: (selMedio?.value || "EFECTIVO").toUpperCase(),
@@ -897,10 +1035,15 @@ function aplicarPromosItem(item) {
         body: JSON.stringify(payload),
       });
 
-      if (!data?.ok) return mostrarMensaje("error", data?.error || "Error en la API");
+      if (!data?.ok)
+        return mostrarMensaje("error", data?.error || "Error en la API");
 
       const ventaId = data.venta_id ?? data.ventaId;
-      if (!ventaId) return mostrarMensaje("error", "Venta registrada, pero no llegó el ID.");
+      if (!ventaId)
+        return mostrarMensaje(
+          "error",
+          "Venta registrada, pero no llegó el ID."
+        );
 
       // Limpieza
       carrito = [];
@@ -913,14 +1056,14 @@ function aplicarPromosItem(item) {
       // Imprimir ticket
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
-      iframe.src = `ticket.php?venta_id=${encodeURIComponent(ventaId)}&paper=${getPaper()}&autoprint=1`;
+      iframe.src = `ticket.php?venta_id=${encodeURIComponent(
+        ventaId
+      )}&paper=${getPaper()}&autoprint=1`;
       document.body.appendChild(iframe);
-      
+
       mostrarMensaje("success", `✓ Venta #${ventaId} registrada correctamente`);
-      
     } catch (e) {
       console.error("Error registrar venta:", e);
-      // ✅ MEJORADO: Mostrar mensaje real de error
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
     } finally {
       cobrando = false;
@@ -949,7 +1092,9 @@ function aplicarPromosItem(item) {
   // =========================
   document.getElementById("btnAgregar")?.addEventListener("click", agregarItem);
   document.getElementById("btnCobrar")?.addEventListener("click", cobrar);
-  document.getElementById("btnCancelar")?.addEventListener("click", cancelarVenta);
+  document
+    .getElementById("btnCancelar")
+    ?.addEventListener("click", cancelarVenta);
 
   inputCodigo?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {

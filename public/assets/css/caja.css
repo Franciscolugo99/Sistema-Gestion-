@@ -145,7 +145,7 @@
 }
 
 .caja-panel #tabla th.col-cant,
-.caja-panel #tabla td.cant-cell {
+.caja-panel #tabla td.col-cant {
   text-align: center;
   width: 110px;
   white-space: nowrap;
@@ -382,6 +382,17 @@
   background: rgba(239, 68, 68, 0.16);
   color: var(--text);
   border-color: rgba(239, 68, 68, 0.35);
+}
+.caja-panel .msg-success {
+  background: rgba(34, 197, 94, 0.18);
+  color: var(--text);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.caja-panel .msg-warning {
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--text);
+  border-color: rgba(249, 115, 22, 0.35);
 }
 
 /* =====================
