@@ -1,5 +1,7 @@
 <?php
-// dashboard_export.php
+// public/dashboard_export.php
+declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
@@ -27,6 +29,10 @@ function columnExists(PDO $pdo, string $table, string $column): bool {
     return false;
   }
 }
+function firstExistingColumn(PDO $pdo, string $table, array $candidates): ?string {
+  foreach ($candidates as $c) if (columnExists($pdo, $table, $c)) return $c;
+  return null;
+}
 function csvOut(array $row, $out, string $delimiter=';'): void {
   fputcsv($out, $row, $delimiter);
 }
@@ -34,9 +40,9 @@ function csvOut(array $row, $out, string $delimiter=';'): void {
 /* =========================
    INPUTS
 ========================= */
-$type = strtolower(trim($_GET['type'] ?? 'movimientos'));
-$allowed = ['movimientos', 'kpis', 'top_productos'];
-if (!in_array($type, $allowed, true)) $type = 'movimientos';
+$type = strtolower(trim($_GET['type'] ?? 'kpis'));
+$allowed = ['movimientos','kpis','top_productos','metodos_pago','categorias','rentables'];
+if (!in_array($type, $allowed, true)) $type = 'kpis';
 
 $today = (new DateTime('today'))->format('Y-m-d');
 $defaultFrom = (new DateTime('today'))->modify('-29 days')->format('Y-m-d');
@@ -52,7 +58,7 @@ $maxDays = 365;
 $fromDT = new DateTime($from);
 $toDT   = new DateTime($to);
 $diffDays = (int)$fromDT->diff($toDT)->format('%a');
-if ($diffDays > $maxDays) {
+if ($diffDays > ($maxDays - 1)) {
   $fromDT = (clone $toDT)->modify("-" . ($maxDays - 1) . " days");
   $from = $fromDT->format('Y-m-d');
 }
@@ -64,36 +70,40 @@ $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00
 /* =========================
    DETECCIONES
 ========================= */
-$hasVentas = tableExists($pdo, 'ventas');
+$hasVentas     = tableExists($pdo, 'ventas');
 $hasVentaItems = tableExists($pdo, 'venta_items');
-$hasProductos = tableExists($pdo, 'productos');
+$hasProductos  = tableExists($pdo, 'productos');
+$hasMovs       = tableExists($pdo, 'movimientos_stock');
 
-$movPriceCol = null;
-if (tableExists($pdo, 'movimientos_stock')) {
-  if (columnExists($pdo, 'movimientos_stock', 'precio_unitario')) $movPriceCol = 'precio_unitario';
-  else if (columnExists($pdo, 'movimientos_stock', 'precio')) $movPriceCol = 'precio';
-}
+$ventasFechaCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
+$ventasTotalCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
+$ventasEstadoCol = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['estado','status']) : null;
+$ventasMedioCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
 
-// columna para “id de venta” dentro de movimientos_stock (si existe)
-$saleIdCol = null;
-if (tableExists($pdo, 'movimientos_stock')) {
-  if (columnExists($pdo, 'movimientos_stock', 'venta_id')) $saleIdCol = 'venta_id';
-  else if (columnExists($pdo, 'movimientos_stock', 'referencia_venta_id')) $saleIdCol = 'referencia_venta_id';
-}
+$viVentaIdCol = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['venta_id']) : null;
+$viProdIdCol  = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['producto_id']) : null;
+$viQtyCol     = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['cantidad','qty']) : null;
+$viLineCol    = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['subtotal','total','importe']) : null;
+$viPriceCol   = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['precio_unitario','precio','unit_price']) : null;
 
-// columnas en ventas / venta_items
-$ventasHasTotal = $hasVentas && columnExists($pdo, 'ventas', 'total');
-$ventasHasFecha = $hasVentas && columnExists($pdo, 'ventas', 'fecha');
+$prodNombreCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['nombre','descripcion']) : null;
+$prodCostoCol  = $hasProductos ? firstExistingColumn($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
+$prodCatCol    = $hasProductos ? firstExistingColumn($pdo, 'productos', ['categoria','rubro','familia']) : null;
 
-$viPriceCol = null;
-$viSubtotalCol = null;
-if ($hasVentaItems) {
-  if (columnExists($pdo, 'venta_items', 'subtotal')) $viSubtotalCol = 'subtotal';
-  else if (columnExists($pdo, 'venta_items', 'total')) $viSubtotalCol = 'total';
+$msFechaCol = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
+$msTipoCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['tipo']) : null;
+$msCantCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['cantidad']) : null;
+$msProdCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['producto_id']) : null;
 
-  if (columnExists($pdo, 'venta_items', 'precio_unitario')) $viPriceCol = 'precio_unitario';
-  else if (columnExists($pdo, 'venta_items', 'precio')) $viPriceCol = 'precio';
-}
+$lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPriceCol): ?string {
+  if ($viLineCol) return "{$alias}.`{$viLineCol}`";
+  if ($viQtyCol && $viPriceCol) return "({$alias}.`{$viQtyCol}` * {$alias}.`{$viPriceCol}`)";
+  return null;
+};
+
+$ventasDateSQL = ($ventasFechaCol) ? "`{$ventasFechaCol}`" : "fecha";
+$ventasTotalSQL = ($ventasTotalCol) ? "`{$ventasTotalCol}`" : "total";
+$emitidaCond = ($ventasEstadoCol) ? " AND `{$ventasEstadoCol}`='EMITIDA' " : "";
 
 /* =========================
    RESPONSE HEADERS
@@ -101,236 +111,268 @@ if ($hasVentaItems) {
 $filename = "dashboard_{$type}_{$from}_al_{$to}.csv";
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="'.$filename.'"');
-
-// BOM para Excel (acentos OK)
-echo "\xEF\xBB\xBF";
+echo "\xEF\xBB\xBF"; // BOM Excel
 
 $out = fopen('php://output', 'w');
 $D = ';';
 
-// fila info (sirve para auditoría)
 csvOut(['INFO', 'Rango', $from, $to, 'maxDays', (string)$maxDays], $out, $D);
 
-/* =========================
-   EXPORTS
-========================= */
 try {
 
+  /* =========================
+     MOVIMIENTOS
+  ========================= */
   if ($type === 'movimientos') {
-    csvOut(['fecha', 'tipo', 'producto', 'cantidad', 'precio_unitario'], $out, $D);
+    csvOut(['fecha', 'tipo', 'producto_id', 'cantidad'], $out, $D);
 
-    $sql = "
-      SELECT m.fecha, m.tipo,
-             " . ($hasProductos ? "p.nombre" : "NULL") . " AS producto,
-             m.cantidad
-             " . ($movPriceCol ? ", m.$movPriceCol AS precio_unitario" : ", NULL AS precio_unitario") . "
-      FROM movimientos_stock m
-      " . ($hasProductos ? "LEFT JOIN productos p ON p.id = m.producto_id" : "") . "
-      WHERE m.fecha >= :fromStart AND m.fecha < :toEnd
-      ORDER BY m.fecha ASC
-    ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':fromStart' => $fromStart, ':toEnd' => $toEnd]);
-
-    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-      csvOut([
-        $r['fecha'],
-        $r['tipo'],
-        $r['producto'],
-        $r['cantidad'],
-        $r['precio_unitario'],
-      ], $out, $D);
+    if (!$hasMovs || !$msFechaCol) {
+      csvOut(['ERROR', 'No existe movimientos_stock o columna fecha'], $out, $D);
+    } else {
+      $sql = "SELECT `{$msFechaCol}` AS fecha, `{$msTipoCol}` AS tipo, `{$msProdCol}` AS producto_id, `{$msCantCol}` AS cantidad
+              FROM movimientos_stock
+              WHERE `{$msFechaCol}` >= ? AND `{$msFechaCol}` < ?
+              ORDER BY `{$msFechaCol}` ASC";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$fromStart, $toEnd]);
+      while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        csvOut([$r['fecha'], $r['tipo'], $r['producto_id'], $r['cantidad']], $out, $D);
+      }
     }
   }
 
+  /* =========================
+     KPIS
+  ========================= */
   if ($type === 'kpis') {
-    // --- KPIs de Stock ---
-    $totalProductos = 0; $stockOk = 0; $stockBajo = 0; $sinStock = 0; $inactivos = 0;
-
-    if ($hasProductos) {
-      $totalProductos = (int)$pdo->query("SELECT COUNT(*) FROM productos")->fetchColumn();
-
-      $stockOk = (int)$pdo->query("
-        SELECT COUNT(*) FROM productos
-        WHERE stock > stock_minimo AND stock > 0 AND activo = 1
-      ")->fetchColumn();
-
-      $stockBajo = (int)$pdo->query("
-        SELECT COUNT(*) FROM productos
-        WHERE stock > 0 AND stock <= stock_minimo AND activo = 1
-      ")->fetchColumn();
-
-      $sinStock = (int)$pdo->query("
-        SELECT COUNT(*) FROM productos
-        WHERE stock <= 0 AND activo = 1
-      ")->fetchColumn();
-
-      $inactivos = (int)$pdo->query("SELECT COUNT(*) FROM productos WHERE activo = 0")->fetchColumn();
+    $movRango = 0;
+    if ($hasMovs && $msFechaCol) {
+      $stmt = $pdo->prepare("SELECT COUNT(*) FROM movimientos_stock WHERE `{$msFechaCol}` >= ? AND `{$msFechaCol}` < ?");
+      $stmt->execute([$fromStart, $toEnd]);
+      $movRango = (int)$stmt->fetchColumn();
     }
 
-    // --- KPIs de Rango ---
-    // movimientos rango
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM movimientos_stock WHERE fecha >= :fromStart AND fecha < :toEnd");
-    $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-    $movRango = (int)$stmt->fetchColumn();
-
-    // ventas rango (mejor fuente: tabla ventas si existe y tiene fecha)
     $ventasRango = 0;
-    if ($ventasHasFecha) {
-      $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE fecha >= :fromStart AND fecha < :toEnd");
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
+    $facturacion = null;
+    if ($hasVentas && $ventasFechaCol) {
+      $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
+      $stmt->execute([$fromStart, $toEnd]);
       $ventasRango = (int)$stmt->fetchColumn();
-    } else if ($saleIdCol) {
-      $sql = "
-        SELECT COUNT(DISTINCT $saleIdCol)
-        FROM movimientos_stock
-        WHERE tipo='VENTA'
-          AND $saleIdCol IS NOT NULL
-          AND fecha >= :fromStart AND fecha < :toEnd
-      ";
-      $stmt = $pdo->prepare($sql);
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $ventasRango = (int)$stmt->fetchColumn();
-    } else {
-      $stmt = $pdo->prepare("SELECT COUNT(*) FROM movimientos_stock WHERE tipo='VENTA' AND fecha >= :fromStart AND fecha < :toEnd");
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $ventasRango = (int)$stmt->fetchColumn();
-    }
 
-    // unidades vendidas
-    $unidades = 0;
-    if ($hasVentas && $hasVentaItems && $ventasHasFecha && columnExists($pdo, 'venta_items', 'cantidad') && columnExists($pdo, 'venta_items', 'venta_id')) {
-      $sql = "
-        SELECT COALESCE(SUM(vi.cantidad),0)
-        FROM venta_items vi
-        JOIN ventas v ON v.id = vi.venta_id
-        WHERE v.fecha >= :fromStart AND v.fecha < :toEnd
-      ";
-      $stmt = $pdo->prepare($sql);
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $unidades = (int)$stmt->fetchColumn();
-    } else {
-      $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(cantidad),0)
-        FROM movimientos_stock
-        WHERE tipo='VENTA' AND fecha >= :fromStart AND fecha < :toEnd
-      ");
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $unidades = (int)$stmt->fetchColumn();
-    }
-
-    // facturación
-    $facturacion = null; // numeric
-    if ($ventasHasTotal && $ventasHasFecha) {
-      $stmt = $pdo->prepare("SELECT COALESCE(SUM(total),0) FROM ventas WHERE fecha >= :fromStart AND fecha < :toEnd");
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $facturacion = (float)$stmt->fetchColumn();
-    } else if ($hasVentas && $hasVentaItems && $ventasHasFecha && columnExists($pdo, 'venta_items', 'venta_id') && columnExists($pdo, 'venta_items', 'cantidad') && ($viSubtotalCol || $viPriceCol)) {
-      if ($viSubtotalCol) {
-        $sql = "
-          SELECT COALESCE(SUM(vi.$viSubtotalCol),0)
-          FROM venta_items vi
-          JOIN ventas v ON v.id = vi.venta_id
-          WHERE v.fecha >= :fromStart AND v.fecha < :toEnd
-        ";
-      } else {
-        $sql = "
-          SELECT COALESCE(SUM(vi.cantidad * vi.$viPriceCol),0)
-          FROM venta_items vi
-          JOIN ventas v ON v.id = vi.venta_id
-          WHERE v.fecha >= :fromStart AND v.fecha < :toEnd
-        ";
+      if ($ventasTotalCol) {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
+        $stmt->execute([$fromStart, $toEnd]);
+        $facturacion = (float)$stmt->fetchColumn();
       }
-      $stmt = $pdo->prepare($sql);
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $facturacion = (float)$stmt->fetchColumn();
-    } else if ($movPriceCol) {
+    }
+
+    $unidades = 0;
+    if ($hasVentas && $hasVentaItems && $viVentaIdCol && $viQtyCol && $ventasFechaCol) {
       $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(cantidad * $movPriceCol),0)
-        FROM movimientos_stock
-        WHERE tipo='VENTA' AND fecha >= :fromStart AND fecha < :toEnd
+        SELECT COALESCE(SUM(vi.`{$viQtyCol}`),0)
+        FROM venta_items vi
+        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
       ");
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-      $facturacion = (float)$stmt->fetchColumn();
+      $stmt->execute([$fromStart, $toEnd]);
+      $unidades = (int)$stmt->fetchColumn();
+    } elseif ($hasMovs && $msFechaCol && $msTipoCol && $msCantCol) {
+      $stmt = $pdo->prepare("SELECT COALESCE(SUM(`{$msCantCol}`),0) FROM movimientos_stock WHERE `{$msTipoCol}`='VENTA' AND `{$msFechaCol}` >= ? AND `{$msFechaCol}` < ?");
+      $stmt->execute([$fromStart, $toEnd]);
+      $unidades = (int)$stmt->fetchColumn();
     }
 
     $ticket = null;
     if ($facturacion !== null && $ventasRango > 0) $ticket = $facturacion / $ventasRango;
 
-    // salida
     csvOut(['kpi', 'valor'], $out, $D);
-
-    // stock
-    csvOut(['total_productos', $totalProductos], $out, $D);
-    csvOut(['stock_ok', $stockOk], $out, $D);
-    csvOut(['stock_bajo', $stockBajo], $out, $D);
-    csvOut(['sin_stock', $sinStock], $out, $D);
-    csvOut(['inactivos', $inactivos], $out, $D);
-
-    // rango
     csvOut(['movimientos_rango', $movRango], $out, $D);
     csvOut(['ventas_rango', $ventasRango], $out, $D);
     csvOut(['unidades_vendidas', $unidades], $out, $D);
-
-    // facturación/ticket: si no pudieron calcularse, lo dejamos vacío (no mentimos)
     csvOut(['facturacion_rango', $facturacion === null ? '' : number_format($facturacion, 2, '.', '')], $out, $D);
     csvOut(['ticket_promedio', $ticket === null ? '' : number_format($ticket, 2, '.', '')], $out, $D);
-
-    // nota para futuro
-    csvOut(['nota', 'Si facturacion/ticket están vacíos: falta total en ventas o precio en items/movimientos'], $out, $D);
   }
 
+  /* =========================
+     TOP PRODUCTOS
+  ========================= */
   if ($type === 'top_productos') {
     csvOut(['producto', 'unidades'], $out, $D);
 
-    // Mejor fuente: venta_items + ventas (si existe)
-    if ($hasVentas && $hasVentaItems && $ventasHasFecha
-        && $hasProductos
-        && columnExists($pdo, 'venta_items', 'venta_id')
-        && columnExists($pdo, 'venta_items', 'producto_id')
-        && columnExists($pdo, 'venta_items', 'cantidad')) {
-
+    if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
       $sql = "
-        SELECT p.nombre AS producto, COALESCE(SUM(vi.cantidad),0) AS unidades
+        SELECT p.`{$prodNombreCol}` AS producto, COALESCE(SUM(vi.`{$viQtyCol}`),0) AS unidades
         FROM venta_items vi
-        JOIN ventas v ON v.id = vi.venta_id
-        JOIN productos p ON p.id = vi.producto_id
-        WHERE v.fecha >= :fromStart AND v.fecha < :toEnd
+        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
         GROUP BY p.id
         ORDER BY unidades DESC
         LIMIT 10
       ";
       $stmt = $pdo->prepare($sql);
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
-
+      $stmt->execute([$fromStart, $toEnd]);
       while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
         csvOut([$r['producto'], (int)$r['unidades']], $out, $D);
       }
-
     } else {
-      // Fallback: movimientos_stock
+      csvOut(['ERROR', 'Faltan tablas/columnas para top_productos'], $out, $D);
+    }
+  }
+
+  /* =========================
+     METODOS DE PAGO
+  ========================= */
+  if ($type === 'metodos_pago') {
+    csvOut(['medio_pago', 'cantidad', 'monto', 'ticket_promedio'], $out, $D);
+
+    if ($hasVentas && $ventasFechaCol && $ventasTotalCol && $ventasMedioCol) {
       $sql = "
-        SELECT " . ($hasProductos ? "p.nombre" : "m.producto_id") . " AS producto,
-               COALESCE(SUM(m.cantidad),0) AS unidades
-        FROM movimientos_stock m
-        " . ($hasProductos ? "LEFT JOIN productos p ON p.id = m.producto_id" : "") . "
-        WHERE m.tipo='VENTA'
-          AND m.fecha >= :fromStart AND m.fecha < :toEnd
-        GROUP BY m.producto_id
-        ORDER BY unidades DESC
-        LIMIT 10
+        SELECT `{$ventasMedioCol}` AS medio_pago,
+               COUNT(*) AS cantidad,
+               COALESCE(SUM({$ventasTotalSQL}),0) AS monto,
+               COALESCE(AVG({$ventasTotalSQL}),0) AS ticket_promedio
+        FROM ventas
+        WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}
+        GROUP BY `{$ventasMedioCol}`
+        ORDER BY monto DESC
       ";
       $stmt = $pdo->prepare($sql);
-      $stmt->execute([':fromStart'=>$fromStart, ':toEnd'=>$toEnd]);
+      $stmt->execute([$fromStart, $toEnd]);
+      while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        csvOut([$r['medio_pago'], $r['cantidad'], $r['monto'], $r['ticket_promedio']], $out, $D);
+      }
+    } else {
+      csvOut(['ERROR', 'Faltan columnas medio_pago/total/fecha en ventas'], $out, $D);
+    }
+  }
+
+  /* =========================
+     CATEGORIAS
+  ========================= */
+  if ($type === 'categorias') {
+    csvOut(['categoria', 'unidades', 'ventas', 'num_ventas'], $out, $D);
+
+    if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasTotalCol && $viVentaIdCol && $viProdIdCol && $viQtyCol) {
+      $catSelect = $prodCatCol ? "COALESCE(p.`{$prodCatCol}`,'Sin Categoría')" : "'Sin Categoría'";
+      $lineVi  = $lineExprForAlias('vi');
+      $lineVi2 = $lineExprForAlias('vi2');
+
+      if ($lineVi && $lineVi2) {
+        $sql = "
+          SELECT
+            {$catSelect} AS categoria,
+            SUM(vi.`{$viQtyCol}`) AS unidades,
+            COALESCE(SUM(v.{$ventasTotalSQL} * ({$lineVi} / NULLIF(vt.subtotal_total,0))), 0) AS ventas,
+            COUNT(DISTINCT vi.`{$viVentaIdCol}`) AS num_ventas
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          JOIN (
+            SELECT vi2.`{$viVentaIdCol}` AS venta_id, SUM({$lineVi2}) AS subtotal_total
+            FROM venta_items vi2
+            JOIN ventas v2 ON v2.id = vi2.`{$viVentaIdCol}`
+            WHERE v2.{$ventasDateSQL} >= ? AND v2.{$ventasDateSQL} < ? {$emitidaCond}
+            GROUP BY vi2.`{$viVentaIdCol}`
+          ) vt ON vt.venta_id = vi.`{$viVentaIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+            AND vt.subtotal_total > 0
+          GROUP BY categoria
+          ORDER BY ventas DESC
+          LIMIT 20
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
+      } else {
+        $fallbackLine = $viLineCol ? "vi.`{$viLineCol}`" : (($viQtyCol && $viPriceCol) ? "(vi.`{$viQtyCol}` * vi.`{$viPriceCol}`)" : "0");
+        $sql = "
+          SELECT
+            {$catSelect} AS categoria,
+            SUM(vi.`{$viQtyCol}`) AS unidades,
+            COALESCE(SUM({$fallbackLine}),0) AS ventas,
+            COUNT(DISTINCT vi.`{$viVentaIdCol}`) AS num_ventas
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+          GROUP BY categoria
+          ORDER BY ventas DESC
+          LIMIT 20
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$fromStart, $toEnd]);
+      }
 
       while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        csvOut([$r['producto'], (int)$r['unidades']], $out, $D);
+        csvOut([$r['categoria'], $r['unidades'], $r['ventas'], $r['num_ventas']], $out, $D);
       }
+    } else {
+      csvOut(['ERROR', 'Faltan tablas/columnas para categorias'], $out, $D);
+    }
+  }
+
+  /* =========================
+     RENTABLES
+  ========================= */
+  if ($type === 'rentables') {
+    csvOut(['producto', 'unidades', 'ventas', 'costos', 'ganancia', 'margen_pct'], $out, $D);
+
+    $can = $hasVentas && $hasVentaItems && $hasProductos
+      && $ventasFechaCol && $ventasTotalCol
+      && $viVentaIdCol && $viProdIdCol && $viQtyCol
+      && $prodNombreCol && $prodCostoCol;
+
+    $lineVi  = $lineExprForAlias('vi');
+    $lineVi2 = $lineExprForAlias('vi2');
+
+    if ($can && $lineVi && $lineVi2) {
+      $sql = "
+        SELECT
+          p.`{$prodNombreCol}` AS producto,
+          SUM(vi.`{$viQtyCol}`) AS unidades,
+          COALESCE(SUM(v.{$ventasTotalSQL} * ({$lineVi} / NULLIF(vt.subtotal_total,0))), 0) AS ventas,
+          COALESCE(SUM(vi.`{$viQtyCol}` * p.`{$prodCostoCol}`), 0) AS costos,
+          COALESCE(SUM((v.{$ventasTotalSQL} * ({$lineVi} / NULLIF(vt.subtotal_total,0))) - (vi.`{$viQtyCol}` * p.`{$prodCostoCol}`)), 0) AS ganancia
+        FROM venta_items vi
+        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        JOIN (
+          SELECT vi2.`{$viVentaIdCol}` AS venta_id, SUM({$lineVi2}) AS subtotal_total
+          FROM venta_items vi2
+          JOIN ventas v2 ON v2.id = vi2.`{$viVentaIdCol}`
+          WHERE v2.{$ventasDateSQL} >= ? AND v2.{$ventasDateSQL} < ? {$emitidaCond}
+          GROUP BY vi2.`{$viVentaIdCol}`
+        ) vt ON vt.venta_id = vi.`{$viVentaIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+          AND vt.subtotal_total > 0
+          AND p.`{$prodCostoCol}` IS NOT NULL
+        GROUP BY p.id
+        ORDER BY ganancia DESC
+        LIMIT 50
+      ";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
+
+      while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $ventas = (float)$r['ventas'];
+        $gan = (float)$r['ganancia'];
+        $margen = ($ventas > 0) ? (($gan / $ventas) * 100) : 0.0;
+
+        csvOut([
+          $r['producto'],
+          $r['unidades'],
+          number_format($ventas, 2, '.', ''),
+          number_format((float)$r['costos'], 2, '.', ''),
+          number_format($gan, 2, '.', ''),
+          number_format($margen, 2, '.', '')
+        ], $out, $D);
+      }
+    } else {
+      csvOut(['ERROR', 'Faltan columnas (subtotal/total/precio*cant) o costo para rentables'], $out, $D);
     }
   }
 
 } catch (Throwable $e) {
-  // si hay error, lo dejamos en CSV (mejor que pantalla blanca)
   csvOut(['ERROR', $e->getMessage()], $out, $D);
 }
 

@@ -4,122 +4,133 @@
 ========================================================= */
 
 /* ---------- Wrapper / Header ---------- */
-.dashboard-panel{
+.dashboard-panel {
   max-width: 1200px;
   margin: 30px auto;
 }
 
-.dash-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  gap:16px;
-  margin-bottom:18px;
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
-.dash-header-meta{
-  font-size:.85rem;
+.dash-header-meta {
+  font-size: 0.85rem;
   color: var(--muted);
   white-space: nowrap;
 }
 
 /* ---------- KPIs ---------- */
-.dash-kpi-row{
-  display:grid;
+.dash-kpi-row {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap:16px;
-  margin-bottom:18px;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
-.stat-card{
+.stat-card {
   padding: 14px 18px;
   border-radius: 16px;
   background: var(--panel);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 18px 40px rgba(15,23,42,.12);
-  transition: transform .18s ease, box-shadow .2s ease;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  transition: transform 0.18s ease, box-shadow 0.2s ease;
 }
-.stat-card:hover{
+.stat-card:hover {
   transform: translateY(-1px);
-  box-shadow: 0 22px 45px rgba(15,23,42,.18);
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.18);
 }
 
-.stat-label{
-  font-size: .82rem;
+.stat-label {
+  font-size: 0.82rem;
   text-transform: uppercase;
-  letter-spacing: .07em;
+  letter-spacing: 0.07em;
   color: var(--muted);
   margin-bottom: 6px;
 }
 
-.stat-value{
+.stat-value {
   font-size: 1.6rem;
   font-weight: 700;
 }
 
-.hide-on-small{ display:block; }
-
-/* ---------- Grid de charts ---------- */
-.dash-grid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap:18px;
-  margin-top:10px;
+.hide-on-small {
+  display: block;
 }
 
-.dash-card{
+/* ---------- Grid de charts ---------- */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.dash-card {
   background: var(--panel);
   border-radius: 18px;
   border: 1px solid var(--panel-border);
   box-shadow: var(--panel-shadow);
   padding: 16px 18px 18px;
 }
-.dash-card-wide{ grid-column: 1 / -1; }
+.dash-card-wide {
+  grid-column: 1 / -1;
+}
 
-.dash-card-header h2{
+.dash-card-header h2 {
   margin: 0 0 4px;
   font-size: 1rem;
 }
-.dash-card-sub{
-  font-size: .8rem;
+.dash-card-sub {
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
 /* Contenedores de Chart.js */
-.chart-wrap{ position: relative; height: 260px; }
-
-.chart-wrap-wide{
-  height: 300px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.chart-wrap {
+  position: relative;
+  height: 260px;
 }
-.chart-wrap-wide canvas{
-  display:block;
+
+.chart-wrap-wide {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-wrap-wide canvas {
+  display: block;
   margin: 0 auto;
   max-width: 560px;
   width: 100% !important;
 }
 
-.chart-empty{
-  position:absolute;
-  inset:0;
-  display:grid;
-  place-items:center;
-  text-align:center;
-  opacity:.75;
-  padding:18px;
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  opacity: 0.75;
+  padding: 18px;
 }
 
-@media (max-width: 900px){
-  .dash-grid{ grid-template-columns: 1fr; }
-  .hide-on-small{ display:none; }
+@media (max-width: 900px) {
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+  .hide-on-small {
+    display: none;
+  }
 }
 
 /* =========================================================
    FILTROS (presets + rango)
 ========================================================= */
-.dash-filters{
+.dash-filters {
   margin: 14px 0 18px;
   padding: 14px 16px;
   border-radius: 18px;
@@ -129,120 +140,126 @@
 }
 
 /* Chips */
-.dash-presets{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
+.dash-presets {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
   margin-bottom: 12px;
 }
 
-.dash-chip{
+.dash-chip {
   height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.22);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   background: transparent;
   color: var(--text-main);
-  cursor:pointer;
-  user-select:none;
-  transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.2s ease;
 }
-body[data-theme="dark"] .dash-chip{ background: rgba(2,6,23,.14); }
+body[data-theme="dark"] .dash-chip {
+  background: rgba(2, 6, 23, 0.14);
+}
 
-.dash-chip:hover{
+.dash-chip:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(0,0,0,.12);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
 }
 
-.dash-chip.is-active{
-  border-color: rgba(56,189,248,.60);
-  background: rgba(56,189,248,.14);
-  box-shadow: 0 0 0 3px rgba(56,189,248,.12), 0 10px 26px rgba(56,189,248,.10);
+.dash-chip.is-active {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.14);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12),
+    0 10px 26px rgba(56, 189, 248, 0.1);
 }
 
 /* Rango: controles + hint */
-.dash-range{
-  display:grid;
+.dash-range {
+  display: grid;
   grid-template-columns: 1fr auto; /* controles | hint */
   gap: 18px;
-  align-items:end;
+  align-items: end;
 }
 
 /* 👇 CONTROLES en grid: Desde | Hasta | Aplicar */
-.dash-range-controls{
-  display:grid;
+.dash-range-controls {
+  display: grid;
   grid-template-columns: minmax(210px, 260px) minmax(210px, 260px) auto;
   column-gap: 36px;
-  row-gap: 12px;              /* importante (para la fila de export) */
-  align-items:end;
+  row-gap: 12px; /* importante (para la fila de export) */
+  align-items: end;
   min-width: 0;
 }
 
-.dash-range-controls label{
-  display:grid;
+.dash-range-controls label {
+  display: grid;
   gap: 6px;
   min-width: 0;
 }
 
-.dash-range-controls label span{
-  font-size: .72rem;
+.dash-range-controls label span {
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   color: var(--muted);
 }
 
-.dash-range-controls input[type="date"]{
+.dash-range-controls input[type="date"] {
   height: 36px;
   width: 100%;
   min-width: 0;
   padding: 0 11px;
   border-radius: 12px;
-  border: 1px solid rgba(148,163,184,.20);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   background: transparent;
   color: var(--text-main);
-  outline:none;
+  outline: none;
 }
 
-body[data-theme="dark"] .dash-range-controls input[type="date"]{
-  background: rgba(2,6,23,.14);
+body[data-theme="dark"] .dash-range-controls input[type="date"] {
+  background: rgba(2, 6, 23, 0.14);
 }
 
-.dash-range-controls input[type="date"]:focus{
-  border-color: rgba(56,189,248,.55);
-  box-shadow: 0 0 0 3px rgba(56,189,248,.12);
+.dash-range-controls input[type="date"]:focus {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
 }
 
-body[data-theme="dark"] .dash-range-controls input[type="date"]::-webkit-calendar-picker-indicator{
+body[data-theme="dark"]
+  .dash-range-controls
+  input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
-  opacity: .75;
+  opacity: 0.75;
 }
 
 /* Botón aplicar */
-.dash-apply{
+.dash-apply {
   height: 36px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid rgba(56,189,248,.40);
-  background: rgba(56,189,248,.18);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.18);
   color: var(--text-main);
-  cursor:pointer;
+  cursor: pointer;
   white-space: nowrap;
   align-self: end;
   justify-self: start;
-  transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
-.dash-apply:hover{
+.dash-apply:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(0,0,0,.16);
-  background: rgba(56,189,248,.24);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.16);
+  background: rgba(56, 189, 248, 0.24);
 }
 
 /* Hint */
-.dash-range-hint{
+.dash-range-hint {
   margin: 0;
   padding-bottom: 2px;
-  font-size: .86rem;
+  font-size: 0.86rem;
   color: var(--muted);
   white-space: nowrap;
   justify-self: end;
@@ -251,78 +268,85 @@ body[data-theme="dark"] .dash-range-controls input[type="date"]::-webkit-calenda
 /* =========================================================
    EXPORT (FIX REAL)
 ========================================================= */
-.dash-export-group{
+.dash-export-group {
   /* ✅ clave: que spanee las 3 columnas del grid de controles */
   grid-column: 1 / -1;
 
-  display:flex;
+  display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 12px;
 
   margin-top: 8px;
-  align-items:center;
+  align-items: center;
 }
 
-.dash-export{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+.dash-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 38px;
   padding: 0 14px;
   border-radius: 12px;
-  text-decoration:none;
-  white-space:nowrap;
+  text-decoration: none;
+  white-space: nowrap;
 
-  border: 1px solid rgba(148,163,184,.28);
-  background: rgba(148,163,184,.10);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.1);
   color: var(--text-main);
 
-  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease,
+    border-color 0.2s ease;
 }
-.dash-export:hover{
+.dash-export:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(0,0,0,.14);
-  background: rgba(148,163,184,.16);
-  border-color: rgba(56,189,248,.45);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 /* =========================================================
    Responsive filtros
 ========================================================= */
-@media (max-width: 980px){
-  .dash-range{ grid-template-columns: 1fr; }
-  .dash-range-hint{
+@media (max-width: 980px) {
+  .dash-range {
+    grid-template-columns: 1fr;
+  }
+  .dash-range-hint {
     justify-self: start;
     white-space: normal;
     margin-top: 6px;
   }
 }
 
-@media (max-width: 780px){
-  .dash-range-controls{
+@media (max-width: 780px) {
+  .dash-range-controls {
     grid-template-columns: 1fr 1fr;
     column-gap: 16px;
   }
-  .dash-apply{
+  .dash-apply {
     grid-column: 1 / -1;
     width: 100%;
     justify-self: stretch;
   }
-  .dash-export-group{
+  .dash-export-group {
     grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 520px){
-  .dash-range-controls{ grid-template-columns: 1fr; }
-  .dash-export{ width: 100%; }
+@media (max-width: 520px) {
+  .dash-range-controls {
+    grid-template-columns: 1fr;
+  }
+  .dash-export {
+    width: 100%;
+  }
 }
 
 /* =========================================================
    Toast (tu HTML usa class="flus-toast")
 ========================================================= */
-.flus-toast{
+.flus-toast {
   position: fixed;
   top: 16px;
   right: 18px;
@@ -330,100 +354,113 @@ body[data-theme="dark"] .dash-range-controls input[type="date"]::-webkit-calenda
 
   padding: 10px 14px;
   border-radius: 999px;
-  font-size: .92rem;
+  font-size: 0.92rem;
   line-height: 1.2;
   backdrop-filter: blur(10px);
 
-  border: 1px solid rgba(234,179,8,.55);
-  box-shadow: 0 18px 60px rgba(0,0,0,.25);
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
 
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity .28s ease, transform .28s ease;
+  transition: opacity 0.28s ease, transform 0.28s ease;
 }
 
-.flus-toast.is-show{ opacity: 1; transform: translateY(0); }
-.flus-toast.is-hide{ opacity: 0; transform: translateY(-8px); }
+.flus-toast.is-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.flus-toast.is-hide {
+  opacity: 0;
+  transform: translateY(-8px);
+}
 
 /* Dark */
-body[data-theme="dark"] .flus-toast{
-  color: rgba(255,255,255,.92);
-  background: rgba(2, 6, 23, .55);
+body[data-theme="dark"] .flus-toast {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(2, 6, 23, 0.55);
 }
 
 /* Light */
-body[data-theme="light"] .flus-toast{
-  color: rgba(15,23,42,.92);
-  background: rgba(255,255,255,.78);
-  border-color: rgba(234,179,8,.45);
-  box-shadow: 0 18px 45px rgba(15,23,42,.14);
+body[data-theme="light"] .flus-toast {
+  color: rgba(15, 23, 42, 0.92);
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
 }
 
 /* =========================================================
    KPI help + tooltip
 ========================================================= */
-.kpi-label{
-  display:flex;
-  align-items:center;
-  gap:8px;
+.kpi-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.kpi-help{
-  width:18px;
-  height:18px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.35);
-  background: rgba(2,6,23,.08);
+.kpi-help {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.08);
   color: var(--text-main);
-  font-size:12px;
-  line-height:16px;
-  display:inline-grid;
-  place-items:center;
-  cursor:pointer;
-  padding:0;
-  opacity:.85;
+  font-size: 12px;
+  line-height: 16px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.85;
 }
-.kpi-help:hover{ opacity:1; }
-body[data-theme="dark"] .kpi-help{ background: rgba(2,6,23,.25); }
+.kpi-help:hover {
+  opacity: 1;
+}
+body[data-theme="dark"] .kpi-help {
+  background: rgba(2, 6, 23, 0.25);
+}
 
-.kpi-tooltip{
-  position:fixed;
-  z-index:9999;
+.kpi-tooltip {
+  position: fixed;
+  z-index: 9999;
   max-width: 280px;
-  padding:10px 12px;
+  padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(148,163,184,.25);
-  background: rgba(15,23,42,.92);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.92);
   color: #fff;
-  box-shadow: 0 18px 45px rgba(0,0,0,.35);
-  font-size: .85rem;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
   line-height: 1.25rem;
-  display:none;
+  display: none;
 }
-body[data-theme="light"] .kpi-tooltip{
-  background: rgba(255,255,255,.92);
+body[data-theme="light"] .kpi-tooltip {
+  background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
-  border-color: rgba(15,23,42,.14);
-  box-shadow: 0 18px 45px rgba(15,23,42,.18);
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
 }
-.kpi-tooltip.is-show{ display:block; }
+.kpi-tooltip.is-show {
+  display: block;
+}
 
 /* =========================================================
    Modo claro: contorno/sombra más presentes
 ========================================================= */
 body[data-theme="light"] .dash-filters,
 body[data-theme="light"] .dash-card,
-body[data-theme="light"] .stat-card{
-  border-color: rgba(15, 23, 42, .18);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, .10);
+body[data-theme="light"] .stat-card {
+  border-color: rgba(15, 23, 42, 0.18);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
 }
-body[data-theme="light"] .dash-chip{
-  border-color: rgba(15, 23, 42, .14);
-  background: rgba(255,255,255,.85);
+body[data-theme="light"] .dash-chip {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.85);
 }
-body[data-theme="light"] .dash-chip.is-active{
-  border-color: rgba(56,189,248,.55);
-  box-shadow: 0 0 0 3px rgba(56,189,248,.14), 0 12px 26px rgba(56,189,248,.10);
+body[data-theme="light"] .dash-chip.is-active {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14),
+    0 12px 26px rgba(56, 189, 248, 0.1);
 }
 /* Fuerza controles nativos a respetar tema */
 body[data-theme="dark"] {
@@ -437,47 +474,47 @@ body[data-theme="light"] {
 body[data-theme="dark"] input,
 body[data-theme="dark"] select,
 body[data-theme="dark"] textarea,
-body[data-theme="dark"] button{
+body[data-theme="dark"] button {
   color-scheme: dark;
 }
-.kpi-delta{
+.kpi-delta {
   margin-top: 8px;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size: .82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(148,163,184,.08);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
   color: var(--text-main);
   width: fit-content;
-  opacity: .95;
+  opacity: 0.95;
 }
 
-.kpi-up{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.12);
+.kpi-up {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
 }
 
-.kpi-down{
-  border-color: rgba(239,68,68,.35);
-  background: rgba(239,68,68,.12);
+.kpi-down {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
 }
 
-.kpi-flat{
-  border-color: rgba(148,163,184,.22);
-  background: rgba(148,163,184,.08);
+.kpi-flat {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
 }
 
-.kpi-new{
-  border-color: rgba(56,189,248,.35);
-  background: rgba(56,189,248,.12);
+.kpi-new {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.12);
 }
 
-body[data-theme="light"] .kpi-delta{
-  border-color: rgba(15,23,42,.14);
-  background: rgba(255,255,255,.75);
+body[data-theme="light"] .kpi-delta {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.75);
 }
 /* =========================================================
    FIXES chicos (tooltip / charts)
@@ -486,29 +523,48 @@ body[data-theme="light"] .kpi-delta{
 
 /* 1) Chart.js: asegurar que el canvas use TODO el alto del contenedor */
 .chart-wrap canvas,
-.chart-wrap-wide canvas{
+.chart-wrap-wide canvas {
   width: 100% !important;
   height: 100% !important;
 }
 
 /* 2) Empty state: que no bloquee interacción (y quede más prolijo) */
-.chart-empty{
+.chart-empty {
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    rgba(0,0,0,0.00),
-    rgba(0,0,0,0.04)
-  );
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.04));
   border-radius: 14px;
 }
 
 /* 3) Tooltip KPI: mejor en mobile + evita que se "pase" de alto */
-.kpi-tooltip{
+.kpi-tooltip {
   max-width: min(320px, calc(100vw - 24px));
   max-height: min(240px, calc(100vh - 24px));
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
+/* =========================================================
+   FIXES chicos (tooltip / charts)
+   Pegarlos AL FINAL del dashboard.css
+========================================================= */
 
-/* Opcional: si querés que el tooltip NO capture clicks (yo lo prefiero así) */
-/* .kpi-tooltip{ pointer-events:none; } */
+/* 1) Chart.js: asegurar que el canvas use TODO el alto del contenedor */
+.chart-wrap canvas,
+.chart-wrap-wide canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 2) Empty state: que no bloquee interacción (y quede más prolijo) */
+.chart-empty {
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.04));
+  border-radius: 14px;
+}
+
+/* 3) Tooltip KPI: mejor en mobile + evita que se "pase" de alto */
+.kpi-tooltip {
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: min(240px, calc(100vh - 24px));
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}

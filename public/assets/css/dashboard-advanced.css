@@ -1,0 +1,356 @@
+/* assets/css/dashboard-advanced.css */
+/* Features extra / modo avanzado (sin pisar layout base) */
+
+/* =========================
+   INSIGHTS
+========================= */
+.insights-container {
+  margin: 2rem 0;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--text-primary, #e5e7eb);
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.insight-item {
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(8, 145, 178, 0.1) 0%,
+    rgba(124, 58, 237, 0.08) 100%
+  );
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+}
+
+.insight-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.insight-item strong {
+  color: var(--accent-color, #22d3ee);
+  font-weight: 600;
+}
+
+/* Theme Light */
+[data-theme="light"] .insight-item {
+  background: linear-gradient(
+    135deg,
+    rgba(8, 145, 178, 0.08) 0%,
+    rgba(124, 58, 237, 0.06) 100%
+  );
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .insight-item strong {
+  color: #0891b2;
+}
+
+/* =========================
+   SPARKLINES + KPI CARDS
+========================= */
+.mini-sparkline {
+  width: 100%;
+  height: 30px;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+
+/* overrides al base */
+.stat-card {
+  position: relative;
+  overflow: visible;
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.kpi-delta {
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+/* =========================
+   TABLA STOCK CRÍTICO
+========================= */
+.stock-table-wrap {
+  margin: 1rem 0 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.stock-table thead {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.stock-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary, #94a3b8);
+  border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+}
+
+.stock-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.stock-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.stock-table tbody tr:hover {
+  background: rgba(34, 211, 238, 0.05);
+}
+
+/* Alertas de stock */
+.stock-table tbody tr.urgente {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+}
+
+.stock-table tbody tr.advertencia {
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+}
+
+.stock-table tbody tr.urgente:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.stock-table tbody tr.advertencia:hover {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+/* =========================
+   MEJORAS VISUALES / EMPTY
+   (no tocar display, lo maneja JS)
+========================= */
+.chart-empty {
+  place-items: center;
+  min-height: 200px;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+/* Tooltips más bonitos */
+.kpi-help {
+  transition: all 0.2s ease;
+}
+
+.kpi-help:hover {
+  transform: scale(1.1);
+  background: rgba(34, 211, 238, 0.2);
+}
+
+/* Gradientes KPI */
+.stat-card.stat-ok {
+  background: linear-gradient(
+    135deg,
+    rgba(22, 163, 74, 0.1) 0%,
+    rgba(34, 197, 94, 0.05) 100%
+  );
+}
+
+.stat-card.stat-bajo {
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.1) 0%,
+    rgba(251, 191, 36, 0.05) 100%
+  );
+}
+
+.stat-card.stat-sin {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.1) 0%,
+    rgba(248, 113, 113, 0.05) 100%
+  );
+}
+
+/* =========================
+   ANIMACIONES
+========================= */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.insights-grid,
+.dash-kpi-row,
+.dash-grid {
+  animation: slideInUp 0.4s ease-out;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+@media (max-width: 768px) {
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  .insight-item {
+    font-size: 0.9rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .stock-table {
+    font-size: 0.85rem;
+  }
+
+  .stock-table th,
+  .stock-table td {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* =========================
+   DARK / LIGHT ajustes
+========================= */
+[data-theme="dark"] .section-title {
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .stock-table th {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme="dark"] .stock-table tbody tr:hover {
+  background: rgba(34, 211, 238, 0.08);
+}
+
+[data-theme="light"] .section-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .stock-table {
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+[data-theme="light"] .stock-table th {
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+}
+
+[data-theme="light"] .stock-table tbody tr:hover {
+  background: rgba(8, 145, 178, 0.08);
+}
+
+/* =========================
+   LOADING STATE
+========================= */
+.chart-wrap.loading {
+  position: relative;
+}
+
+.chart-wrap.loading::after {
+  content: "Cargando...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.9rem;
+}
+
+/* =========================
+   PRINT STYLES
+========================= */
+@media print {
+  .dash-filters,
+  .dash-header-meta,
+  .mini-sparkline {
+    display: none !important;
+  }
+
+  .dash-card,
+  .stat-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .section-title {
+    page-break-after: avoid;
+  }
+
+  .insights-grid,
+  .dash-kpi-row {
+    page-break-inside: avoid;
+  }
+}
+.dash-export-dd {
+  position: relative;
+  display: inline-block;
+  margin-left: 10px;
+}
+.dash-export-dd summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: var(--panel, #0b1220);
+}
+.dash-export-dd summary::-webkit-details-marker {
+  display: none;
+}
+
+.dash-export-dd-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--panel, #0b1220);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  z-index: 50;
+  display: grid;
+  gap: 6px;
+}
+.dash-export-dd-menu a {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.dash-export-dd-menu a:hover {
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.08);
+}
