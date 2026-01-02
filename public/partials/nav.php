@@ -58,6 +58,7 @@ if ($currentSection === '') {
     'backups.php'             => 'backups',
     'roles.php'               => 'roles',
     'rol_permisos.php'        => 'roles',
+    'terminales.php'          => 'configuracion',
   ];
 
   if (isset($map[$file])) $currentSection = $map[$file];
@@ -65,11 +66,13 @@ if ($currentSection === '') {
 
 // Caja abierta
 $cajaAbierta = false;
+$cajaId = 0;
 try {
   if ($pdo instanceof PDO) {
     $terminalId  = current_terminal_id();
     $cajaRow     = ($terminalId > 0) ? caja_get_abierta($pdo, $terminalId) : null;
     $cajaAbierta = ($cajaRow !== null);
+    $cajaId = (int)($cajaRow['id'] ?? 0);
   }
 } catch (Throwable $e) {
   $cajaAbierta = false;
@@ -96,111 +99,294 @@ $showAdminMenu =
   $can('administrar_roles');
 
 $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles'], true);
+
 ?>
 
-<nav class="nav-container">
-  <div class="nav-left">
-    <a href="index.php" class="nav-pill <?= $currentSection === 'inicio' ? 'active' : '' ?>">
-      <span class="dot"></span> Inicio
-    </a>
+<nav class="nav-container" role="navigation" aria-label="Navegación principal">
+  
+  <!-- Logo / Marca (opcional) -->
+  <a href="index.php" class="nav-brand" aria-label="Inicio">
+    <span class="nav-logo">FLUS</span>
+  </a>
 
-    <?php if ($canDashboard): ?>
-      <a href="dashboard.php" class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>">Dashboard</a>
-    <?php endif; ?>
+  <!-- Botón hamburguesa (mobile) -->
+  <button type="button" 
+          class="nav-hamburger" 
+          id="navHamburger" 
+          aria-label="Menú de navegación" 
+          aria-expanded="false"
+          aria-controls="navMenu">
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+  </button>
 
-    <?php if ($canCaja): ?>
-      <a href="caja.php" class="nav-pill <?= $currentSection === 'caja' ? 'active' : '' ?>">Caja</a>
-    <?php endif; ?>
+  <!-- Menú principal -->
+  <div class="nav-menu-wrapper" id="navMenu">
+    <div class="nav-left">
+      
+      <?php if ($canDashboard): ?>
+        <a href="dashboard.php" 
+           class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'dashboard' ? 'page' : 'false' ?>">
+          📊 Dashboard
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canProductos): ?>
-      <a href="productos.php" class="nav-pill <?= $currentSection === 'productos' ? 'active' : '' ?>">Productos</a>
-    <?php endif; ?>
+      <?php if ($canCaja): ?>
+        <a href="caja.php" 
+           class="nav-pill <?= $currentSection === 'caja' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'caja' ? 'page' : 'false' ?>">
+          🛒 Caja
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canStock): ?>
-      <a href="stock.php" class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>">Stock</a>
-    <?php endif; ?>
+      <?php if ($canProductos): ?>
+        <a href="productos.php" 
+           class="nav-pill <?= $currentSection === 'productos' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'productos' ? 'page' : 'false' ?>">
+          📦 Productos
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canMovimientos): ?>
-      <a href="movimientos.php" class="nav-pill <?= $currentSection === 'movimientos' ? 'active' : '' ?>">Movimientos</a>
-    <?php endif; ?>
+      <?php if ($canStock): ?>
+        <a href="stock.php" 
+           class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'stock' ? 'page' : 'false' ?>">
+          📋 Stock
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canVentas): ?>
-      <a href="ventas.php" class="nav-pill <?= $currentSection === 'ventas' ? 'active' : '' ?>">Ventas</a>
-    <?php endif; ?>
+      <?php if ($canMovimientos): ?>
+        <a href="movimientos.php" 
+           class="nav-pill <?= $currentSection === 'movimientos' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'movimientos' ? 'page' : 'false' ?>">
+          🔄 Movimientos
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canCompras): ?>
-      <a href="compras.php" class="nav-pill <?= $currentSection === 'compras' ? 'active' : '' ?>">Compras</a>
-    <?php endif; ?>
+      <?php if ($canVentas): ?>
+        <a href="ventas.php" 
+           class="nav-pill <?= $currentSection === 'ventas' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'ventas' ? 'page' : 'false' ?>">
+          💰 Ventas
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canHistCaja): ?>
-      <a href="caja_historial.php" class="nav-pill <?= $currentSection === 'caja_historial' ? 'active' : '' ?>">Historial caja</a>
-    <?php endif; ?>
+      <?php if ($canCompras): ?>
+        <a href="compras.php" 
+           class="nav-pill <?= $currentSection === 'compras' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'compras' ? 'page' : 'false' ?>">
+          🛍️ Compras
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canPromos): ?>
-      <a href="promos.php" class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>">Promociones</a>
-    <?php endif; ?>
+      <?php if ($canHistCaja): ?>
+        <a href="caja_historial.php" 
+           class="nav-pill <?= $currentSection === 'caja_historial' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'caja_historial' ? 'page' : 'false' ?>">
+          📜 Historial
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canClientes): ?>
-      <a href="clientes.php" class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>">Clientes</a>
-    <?php endif; ?>
+      <?php if ($canPromos): ?>
+        <a href="promos.php" 
+           class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'promos' ? 'page' : 'false' ?>">
+          🎁 Promos
+        </a>
+      <?php endif; ?>
 
-    <?php if ($canFacturacion): ?>
-      <a href="facturacion.php" class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>">Facturación</a>
-    <?php endif; ?>
-  </div>
+      <?php if ($canClientes): ?>
+        <a href="clientes.php" 
+           class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'clientes' ? 'page' : 'false' ?>">
+          👥 Clientes
+        </a>
+      <?php endif; ?>
 
-  <div class="nav-right">
-    <?php if ($showAdminMenu): ?>
-      <div class="nav-menu" id="adminMenu">
-        <button type="button"
-          class="nav-icon nav-menu-btn <?= $adminActive ? 'active' : '' ?>"
-          aria-haspopup="menu" aria-expanded="false" title="Ajustes"
-        >⚙️</button>
+      <?php if ($canFacturacion): ?>
+        <a href="facturacion.php" 
+           class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'facturacion' ? 'page' : 'false' ?>">
+          🧾 Facturación
+        </a>
+      <?php endif; ?>
+    </div>
 
-        <div class="nav-menu-pop" role="menu" aria-label="Ajustes">
-          <?php if ($can('administrar_usuarios')): ?>
-            <a role="menuitem" href="usuarios.php">👤 Usuarios</a>
-          <?php endif; ?>
-
-          <?php if ($can('administrar_roles') || $can('administrar_usuarios')): ?>
-            <a role="menuitem" href="roles.php">🧩 Roles y permisos</a>
-          <?php endif; ?>
-
-          <?php if ($can('administrar_config')): ?>
-            <a role="menuitem" href="configuracion.php">🛠 Configuración</a>
-            <a role="menuitem" href="terminales.php">🧾 Terminales / Cajas</a>
-          <?php endif; ?>
-
-          <?php if ($can('ver_auditoria')): ?>
-            <a role="menuitem" href="auditoria.php">🕵️ Auditoría</a>
-          <?php endif; ?>
-
-          <?php if ($can('gestionar_backups')): ?>
-            <a role="menuitem" href="backups.php">💾 Backups</a>
-          <?php endif; ?>
+    <div class="nav-right">
+      
+      <!-- Badge caja -->
+      <?php if ($canCaja): ?>
+        <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>" 
+             title="<?= $cajaAbierta ? "Caja #{$cajaId} abierta" : 'Caja cerrada' ?>">
+          <span class="badge-dot"></span>
+          <span class="badge-text">
+            <?= $cajaAbierta ? 'Caja abierta' : 'Caja cerrada' ?>
+          </span>
         </div>
+      <?php endif; ?>
+
+      <!-- Theme toggle -->
+      <div class="theme-switch">
+        <input type="checkbox" id="toggleTheme" aria-label="Alternar tema oscuro/claro">
+        <label for="toggleTheme" class="theme-toggle">
+          <span class="toggle-track">
+            <span class="toggle-icon toggle-icon--sun" aria-hidden="true">☀</span>
+            <span class="toggle-icon toggle-icon--moon" aria-hidden="true">🌙</span>
+          </span>
+          <span class="toggle-thumb"></span>
+        </label>
       </div>
-    <?php endif; ?>
 
-    <div class="theme-switch">
-      <input type="checkbox" id="toggleTheme">
-      <label for="toggleTheme" class="theme-toggle">
-        <span class="toggle-track">
-          <span class="toggle-icon toggle-icon--sun">☀</span>
-          <span class="toggle-icon toggle-icon--moon">🌙</span>
+      <!-- Menú admin -->
+      <?php if ($showAdminMenu): ?>
+        <div class="nav-dropdown" id="adminMenu">
+          <button type="button"
+                  class="nav-icon nav-dropdown-btn <?= $adminActive ? 'active' : '' ?>"
+                  aria-haspopup="true" 
+                  aria-expanded="false" 
+                  aria-label="Menú de administración"
+                  title="Ajustes">
+            ⚙️
+          </button>
+
+          <div class="nav-dropdown-menu" role="menu" aria-label="Administración">
+            <?php if ($can('administrar_usuarios')): ?>
+              <a role="menuitem" href="usuarios.php" tabindex="0">
+                <span class="menu-icon">👤</span> Usuarios
+              </a>
+            <?php endif; ?>
+
+            <?php if ($can('administrar_roles') || $can('administrar_usuarios')): ?>
+              <a role="menuitem" href="roles.php" tabindex="0">
+                <span class="menu-icon">🔐</span> Roles y permisos
+              </a>
+            <?php endif; ?>
+
+            <?php if ($can('administrar_config')): ?>
+              <a role="menuitem" href="configuracion.php" tabindex="0">
+                <span class="menu-icon">🛠</span> Configuración
+              </a>
+              <a role="menuitem" href="terminales.php" tabindex="0">
+                <span class="menu-icon">🧾</span> Terminales
+              </a>
+            <?php endif; ?>
+
+            <?php if ($can('ver_auditoria')): ?>
+              <a role="menuitem" href="auditoria.php" tabindex="0">
+                <span class="menu-icon">🕵️</span> Auditoría
+              </a>
+            <?php endif; ?>
+
+            <?php if ($can('gestionar_backups')): ?>
+              <a role="menuitem" href="backups.php" tabindex="0">
+                <span class="menu-icon">💾</span> Backups
+              </a>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <!-- Usuario -->
+      <div class="nav-user">
+        <span class="nav-username" title="Usuario actual">
+          <?= h($user['username'] ?? 'Usuario') ?>
         </span>
-        <span class="toggle-thumb"></span>
-      </label>
-    </div>
-
-    <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>">
-      <span class="badge-dot"></span>
-      <?= $cajaAbierta ? 'Caja abierta' : 'Caja cerrada' ?>
-    </div>
-
-    <div class="nav-user">
-      <?= isset($user['username']) ? h((string)$user['username']) : '' ?>
-      <a href="logout.php" class="logout-link">Salir</a>
+        <a href="logout.php" class="logout-btn" aria-label="Cerrar sesión">
+          <span class="logout-icon">🚪</span>
+          <span class="logout-text">Salir</span>
+        </a>
+      </div>
     </div>
   </div>
 </nav>
+
+<script>
+// ============================================================================
+// NAVBAR INTERACTIVA
+// ============================================================================
+
+// Menú hamburguesa (mobile)
+const hamburger = document.getElementById('navHamburger');
+const navMenu = document.getElementById('navMenu');
+
+if (hamburger && navMenu) {
+  hamburger.addEventListener('click', () => {
+    const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
+    hamburger.setAttribute('aria-expanded', !isOpen);
+    navMenu.classList.toggle('open');
+    hamburger.classList.toggle('active');
+  });
+
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', (e) => {
+    if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+      hamburger.setAttribute('aria-expanded', 'false');
+      navMenu.classList.remove('open');
+      hamburger.classList.remove('active');
+    }
+  });
+}
+
+// Menú dropdown admin
+const adminMenuBtn = document.querySelector('#adminMenu .nav-dropdown-btn');
+const adminMenuPop = document.querySelector('#adminMenu .nav-dropdown-menu');
+
+if (adminMenuBtn && adminMenuPop) {
+  adminMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = adminMenuBtn.getAttribute('aria-expanded') === 'true';
+    adminMenuBtn.setAttribute('aria-expanded', !isOpen);
+    adminMenuPop.classList.toggle('open');
+  });
+
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', (e) => {
+    if (!adminMenuBtn.contains(e.target) && !adminMenuPop.contains(e.target)) {
+      adminMenuBtn.setAttribute('aria-expanded', 'false');
+      adminMenuPop.classList.remove('open');
+    }
+  });
+
+  // Cerrar con ESC
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && adminMenuPop.classList.contains('open')) {
+      adminMenuBtn.setAttribute('aria-expanded', 'false');
+      adminMenuPop.classList.remove('open');
+      adminMenuBtn.focus();
+    }
+  });
+}
+
+// Theme toggle
+const themeToggle = document.getElementById('toggleTheme');
+const THEME_KEY = 'kiosco-theme';
+
+function applyTheme(isDark) {
+  document.documentElement.classList.toggle('dark', isDark);
+  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+}
+
+// Cargar tema guardado
+const savedTheme = localStorage.getItem(THEME_KEY);
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const isDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+
+if (themeToggle) {
+  themeToggle.checked = isDark;
+  applyTheme(isDark);
+
+  themeToggle.addEventListener('change', (e) => {
+    applyTheme(e.target.checked);
+  });
+}
+
+// Listener para cambios del sistema
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (!localStorage.getItem(THEME_KEY)) {
+    applyTheme(e.matches);
+    if (themeToggle) themeToggle.checked = e.matches;
+  }
+});
+</script>

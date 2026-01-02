@@ -705,3 +705,9 @@ document.addEventListener("keydown", (e) => {
   menu.classList.remove("open");
   if (btn) btn.setAttribute("aria-expanded", "false");
 });
+// CSRF token global para fetch (una sola vez)
+if (!window.getCsrfToken) {
+  window.getCsrfToken = function () {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+  };
+}

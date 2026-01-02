@@ -30,17 +30,46 @@ if (!function_exists('clean_string')) {
 // =============================================================================
 
 if (!function_exists('money_ar')) {
-  function money_ar(float $amount, bool $symbol = true): string {
-    $formatted = number_format($amount, 2, ',', '.');
-    return $symbol ? '$ ' . $formatted : $formatted;
+  /**
+   * Formato AR para moneda.
+   * Acepta string/float/int (para no romper pantallas viejas).
+   */
+  function money_ar($n, bool $symbol = true): string {
+    $formatted = number_format((float)$n, 2, ',', '.');
+    return $symbol ? '$' . $formatted : $formatted;
   }
 }
 
 if (!function_exists('parse_money_ar')) {
-  function parse_money_ar(string $money): float {
-    $clean = preg_replace('/[^\d,.-]/', '', $money);
-    $clean = str_replace(['.', ','], ['', '.'], $clean);
-    return (float)$clean;
+  /**
+   * Convierte "$ 1.234,56" / "1.234,56" / "1234.56" a float.
+   * - Tolera null/int/float/string
+   * - Valida que '-' sólo esté al principio
+   */
+  function parse_money_ar($v): float {
+    if ($v === null) return 0.0;
+    if (is_int($v) || is_float($v)) return (float)$v;
+
+    $s = trim((string)$v);
+    if ($s === '') return 0.0;
+
+    // Limpia caracteres no numéricos
+    $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '';
+    if ($s === '' || $s === '-' || $s === '.' || $s === ',') return 0.0;
+
+    // Validar que el signo - solo esté al principio
+    $minusCount = substr_count($s, '-');
+    if ($minusCount > 1 || ($minusCount === 1 && strpos($s, '-') !== 0)) {
+      return 0.0;
+    }
+
+    // Si tiene coma, asumimos formato AR 1.234,56
+    if (strpos($s, ',') !== false) {
+      $s = str_replace('.', '', $s);
+      $s = str_replace(',', '.', $s);
+    }
+
+    return is_numeric($s) ? (float)$s : 0.0;
   }
 }
 
@@ -55,16 +84,20 @@ if (!function_exists('is_pesable_row')) {
 }
 
 if (!function_exists('format_qty')) {
-  function format_qty(float $qty, bool $isPesable = false): string {
-    $decimals = $isPesable ? 3 : 0;
-    return number_format($qty, $decimals, ',', '.');
+  /**
+   * Formatea cantidad (unidad vs pesable).
+   * - Compat: acepta 3er parámetro $decPesable.
+   */
+  function format_qty($qty, bool $isPesable = false, int $decPesable = 3): string {
+    $decimals = $isPesable ? $decPesable : 0;
+    return number_format((float)$qty, $decimals, ',', '.');
   }
 }
 
 if (!function_exists('format_qty_field')) {
-  function format_qty_field(array $row, string $field): string {
+  function format_qty_field(array $row, string $field, int $decPesable = 3): string {
     $value = (float)($row[$field] ?? 0);
-    return format_qty($value, is_pesable_row($row));
+    return format_qty($value, is_pesable_row($row), $decPesable);
   }
 }
 
@@ -122,28 +155,63 @@ if (!function_exists('urlWith')) {
 // CSRF
 // =============================================================================
 
-if (!function_exists('csrf_token')) {
-  function csrf_token(): string {
+if (!function_exists('csrf_init')) {
+  function csrf_init(): void {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-
-    if (empty($_SESSION['csrf_token'])) {
+    if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
       $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
+  }
+}
 
-    return $_SESSION['csrf_token'];
+if (!function_exists('csrf_token')) {
+  function csrf_token(): string {
+    csrf_init();
+    return (string)($_SESSION['csrf_token'] ?? '');
   }
 }
 
 if (!function_exists('csrf_verify')) {
-  function csrf_verify(?string $token): bool {
+  /**
+   * Verifica CSRF contra el token de sesión.
+   * Si $regenerate=true, rota el token si fue válido (one-time token).
+   */
+  function csrf_verify(?string $token, bool $regenerate = false): bool {
+    csrf_init();
     if (!$token) return false;
-    return hash_equals(csrf_token(), $token);
+
+    $sess = (string)($_SESSION['csrf_token'] ?? '');
+    if ($sess === '') return false;
+
+    $valid = hash_equals($sess, (string)$token);
+
+    if ($valid && $regenerate) {
+      $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    return $valid;
+  }
+}
+
+// Compat API vieja: csrf_check()
+if (!function_exists('csrf_check')) {
+  function csrf_check(?string $token, bool $regenerate = false): bool {
+    return csrf_verify($token, $regenerate);
   }
 }
 
 if (!function_exists('csrf_field')) {
-  function csrf_field(): string {
-    return '<input type="hidden" name="csrf_token" value="' . h(csrf_token()) . '">';
+  function csrf_field(string $name = 'csrf_token'): string {
+    $t = h(csrf_token());
+    $n = h($name);
+    return '<input type="hidden" name="' . $n . '" value="' . $t . '">';
+  }
+}
+
+// Compat: csrf_input()
+if (!function_exists('csrf_input')) {
+  function csrf_input(string $name = 'csrf_token'): string {
+    return csrf_field($name);
   }
 }
 
@@ -270,5 +338,201 @@ if (!function_exists('json_error')) {
 
     echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+  }
+}
+
+// =============================================================================
+// COMPAT / LEGACY (helpers usados por pantallas viejas)
+// =============================================================================
+
+if (!function_exists('sanitize_int')) {
+  /** Sanitiza y valida un entero de forma segura. */
+  function sanitize_int($value, int $default = 0): int {
+    if ($value === null || $value === '') return $default;
+    $clean = filter_var($value, FILTER_VALIDATE_INT);
+    return ($clean !== false) ? (int)$clean : $default;
+  }
+}
+
+if (!function_exists('sanitize_float')) {
+  /** Sanitiza y valida un float de forma segura. */
+  function sanitize_float($value, float $default = 0.0): float {
+    if ($value === null || $value === '') return $default;
+    $clean = filter_var($value, FILTER_VALIDATE_FLOAT);
+    return ($clean !== false) ? (float)$clean : $default;
+  }
+}
+
+if (!function_exists('is_post_request')) {
+  function is_post_request(): bool {
+    return (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
+  }
+}
+
+if (!function_exists('redirect')) {
+  /** Redirección con exit automático. */
+  function redirect(string $url, int $code = 302): never {
+    header("Location: {$url}", true, $code);
+    exit;
+  }
+}
+
+if (!function_exists('parse_decimal')) {
+  /**
+   * Convierte "1.234,56" / "1234.56" / "$ 1.234,56" a float (o devuelve $default).
+   * - Acepta formato AR con coma como decimal.
+   * - Limpia caracteres no numéricos (mantiene - , .)
+   */
+  function parse_decimal(?string $s, ?float $default = null): ?float {
+    if ($s === null) return $default;
+
+    $s = trim($s);
+    if ($s === '') return $default;
+
+    $s = str_replace(' ', '', $s);
+
+    $s = preg_replace('/[^0-9,\.\-]/', '', $s) ?? '';
+    if ($s === '' || $s === '-' || $s === '.' || $s === ',') return $default;
+
+    // Signo "-" solo al inicio
+    if (substr_count($s, '-') > 1 || (strpos($s, '-') !== false && strpos($s, '-') > 0)) {
+      return $default;
+    }
+
+    // Si trae coma, asumimos formato AR: 1.234,56
+    if (strpos($s, ',') !== false) {
+      $s = str_replace('.', '', $s);
+      $s = str_replace(',', '.', $s);
+    }
+
+    return is_numeric($s) ? (float)$s : $default;
+  }
+}
+
+if (!function_exists('format_datetime_ar')) {
+  /** Formatea "Y-m-d H:i:s" a "d/m/Y H:i" (AR). Si es inválido → "—". */
+  function format_datetime_ar(?string $dt): string {
+    if (!$dt || $dt === '0000-00-00 00:00:00' || $dt === '') return '—';
+    $d = DateTime::createFromFormat('Y-m-d H:i:s', $dt);
+    return $d ? $d->format('d/m/Y H:i') : $dt;
+  }
+}
+
+if (!function_exists('format_qty_ar')) {
+  function format_qty_ar(float $valor, bool $pesable, int $decPesable = 3): string {
+    $dec = $pesable ? $decPesable : 0;
+    return number_format($valor, $dec, ',', '.');
+  }
+}
+
+if (!function_exists('format_cantidad')) {
+  /** Alias usado en algunas pantallas viejas (stock). */
+  function format_cantidad(array $row, string $field, int $decPesable = 3): string {
+    $valor = isset($row[$field]) ? (float)$row[$field] : 0.0;
+    return format_qty_ar($valor, is_pesable_row($row), $decPesable);
+  }
+}
+
+if (!function_exists('url_with')) {
+  /** Alias snake_case de urlWith() */
+  function url_with(array $overrides = [], ?string $base = null): string {
+    return urlWith($overrides, $base ?? '');
+  }
+}
+
+/* ----------------------------
+   NUM helpers
+---------------------------- */
+if (!function_exists('num_round2')) {
+  function num_round2(float $n): float {
+    return round($n, 2);
+  }
+}
+
+if (!function_exists('num_clamp0')) {
+  function num_clamp0(float $n): float {
+    return ($n < 0) ? 0.0 : $n;
+  }
+}
+
+if (!function_exists('num_clamp')) {
+  function num_clamp(float $n, float $min, float $max): float {
+    return max($min, min($max, $n));
+  }
+}
+
+if (!function_exists('num_is_int_like')) {
+  function num_is_int_like(float $n, float $eps = 0.00001): bool {
+    return abs($n - floor($n)) < $eps;
+  }
+}
+
+/* ----------------------------
+   Config en DB + cache
+---------------------------- */
+if (!isset($GLOBALS['__app_config_cache']) || !is_array($GLOBALS['__app_config_cache'])) {
+  $GLOBALS['__app_config_cache'] = [];
+}
+
+if (!function_exists('config_get')) {
+  function config_get(PDO $pdo, string $k, ?string $default = null): ?string {
+    $k = trim($k);
+    if ($k === '') return $default;
+
+    $cache =& $GLOBALS['__app_config_cache'];
+    if (array_key_exists($k, $cache)) {
+      return $cache[$k];
+    }
+
+    try {
+      $st = $pdo->prepare("SELECT valor FROM app_config WHERE clave = ? LIMIT 1");
+      $st->execute([$k]);
+      $val = $st->fetchColumn();
+      $val = ($val === false) ? $default : (string)$val;
+      $cache[$k] = $val;
+      return $val;
+    } catch (Throwable $e) {
+      // en caso de error, no romper: devolver default
+      return $default;
+    }
+  }
+}
+
+if (!function_exists('config_set')) {
+  function config_set(PDO $pdo, string $k, string $v): bool {
+    $k = trim($k);
+    if ($k === '') return false;
+
+    try {
+      $st = $pdo->prepare("
+        INSERT INTO app_config (clave, valor)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE valor = VALUES(valor)
+      ");
+      $ok = $st->execute([$k, $v]);
+
+      if ($ok) {
+        $GLOBALS['__app_config_cache'][$k] = $v;
+      }
+
+      return (bool)$ok;
+    } catch (Throwable $e) {
+      return false;
+    }
+  }
+}
+
+if (!function_exists('config_clear_cache')) {
+  function config_clear_cache(): void {
+    $GLOBALS['__app_config_cache'] = [];
+  }
+}
+
+/* ----------------------------
+   Alias compat
+---------------------------- */
+if (!function_exists('money')) {
+  function money($n): string {
+    return money_ar($n);
   }
 }

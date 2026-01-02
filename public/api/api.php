@@ -47,16 +47,29 @@ function api_require_perm(string $slug): void {
   }
 }
 
-function api_require_csrf(array $bodyJson = []): void {
-  $csrf = (string)(
-    $bodyJson['csrf']
-      ?? ($_POST['csrf'] ?? '')
-      ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')
-  );
+function api_require_csrf(?array $bodyJson = null): void {
+  $csrf = '';
+
+  // 1) JSON body (lo normal en este api.php)
+  if (is_array($bodyJson)) {
+    $csrf = (string)($bodyJson['csrf_token'] ?? $bodyJson['csrf'] ?? '');
+  }
+
+  // 2) Header (por si tu fetch manda X-CSRF-TOKEN)
+  if ($csrf === '') {
+    $csrf = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_SERVER['HTTP_X_CSRF'] ?? '');
+  }
+
+  // 3) POST tradicional (compat)
+  if ($csrf === '') {
+    $csrf = (string)($_POST['csrf_token'] ?? $_POST['csrf'] ?? '');
+  }
+
   if (!csrf_check($csrf)) {
     api_json(['ok' => false, 'error' => 'CSRF inválido o ausente'], 403);
   }
 }
+
 
 // -------- Leer JSON body una sola vez ----------
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
