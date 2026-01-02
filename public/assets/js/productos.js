@@ -1,362 +1,302 @@
 // public/assets/js/productos.js
 (() => {
-  /* ==========================
-     HELPERS
-  =========================== */
-  const qs  = (sel, el = document) => el.querySelector(sel);
-  const qsa = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const state = (window.__kioscoProductosState ||= {
-    inited: false,
-    toggleFormBound: false,
-    toggleModalBound: false,
+  /* =========================
+     TOAST (fallback)
+  ========================= */
+  if (!window.showToast) {
+    window.showToast = (msg, type = "info", ms = 2800) => {
+      const t = document.createElement("div");
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      document.body.appendChild(t);
+
+      requestAnimationFrame(() => t.classList.add("show"));
+      setTimeout(() => t.classList.remove("show"), ms);
+      setTimeout(() => t.remove(), ms + 350);
+    };
+  }
+
+  /* =========================
+   FORM PLEGABLE (Agregar producto) ✅ FIX DEFINITIVO
+========================= */
+  (() => {
+    const init = () => {
+      const toggleBtn = document.getElementById("toggleFormBtn");
+      const formBlock = document.getElementById("productFormBlock");
+      if (!toggleBtn || !formBlock) return;
+
+      // Asegurar render (por si algún CSS viejo lo escondía)
+      formBlock.style.display = "block";
+
+      const syncBtn = () => {
+        const open = !formBlock.classList.contains("is-collapsed");
+        toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        toggleBtn.textContent = open
+          ? "OCULTAR FORMULARIO"
+          : "AGREGAR PRODUCTO";
+      };
+
+      const openForm = () => {
+        formBlock.classList.remove("is-collapsed");
+        formBlock.style.display = "block";
+
+        // Estado inicial para animar
+        formBlock.style.maxHeight = "0px";
+        formBlock.style.opacity = "0";
+        formBlock.style.transform = "translateY(-6px)";
+
+        // forzar reflow
+        formBlock.offsetHeight;
+
+        const h = Math.max(formBlock.scrollHeight || 0, 1);
+        formBlock.style.maxHeight = h + "px";
+        formBlock.style.opacity = "1";
+        formBlock.style.transform = "translateY(0)";
+
+        const done = (e) => {
+          if (e && e.target !== formBlock) return;
+          formBlock.style.maxHeight = "none";
+          formBlock.removeEventListener("transitionend", done);
+        };
+        formBlock.addEventListener("transitionend", done);
+        setTimeout(() => done(), 550); // fallback
+
+        syncBtn();
+        formBlock.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+
+      const closeForm = () => {
+        const h = Math.max(formBlock.scrollHeight || 0, 1);
+        formBlock.style.maxHeight = h + "px";
+
+        // forzar reflow
+        formBlock.offsetHeight;
+
+        formBlock.style.maxHeight = "0px";
+        formBlock.style.opacity = "0";
+        formBlock.style.transform = "translateY(-6px)";
+
+        const done = (e) => {
+          if (e && e.target !== formBlock) return;
+          formBlock.classList.add("is-collapsed");
+          formBlock.removeEventListener("transitionend", done);
+          syncBtn();
+        };
+        formBlock.addEventListener("transitionend", done);
+        setTimeout(() => done(), 550); // fallback
+      };
+
+      syncBtn();
+
+      // Capture + stopImmediatePropagation: evita que otro JS te lo pise
+      toggleBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+
+          const collapsed = formBlock.classList.contains("is-collapsed");
+          collapsed ? openForm() : closeForm();
+        },
+        true
+      );
+    };
+
+    // funciona si el script cargó tarde o temprano
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+
+  /* =========================
+     SORT TH CLICK
+  ========================= */
+  const table = $(".productos-table");
+  const filtersForm = $(".filters");
+  if (table && filtersForm) {
+    $$(".productos-table thead th[data-sort]").forEach((th) => {
+      th.addEventListener("click", () => {
+        const col = th.getAttribute("data-sort");
+        const sortInp = $('input[name="sort"]', filtersForm);
+        const dirInp = $('input[name="dir"]', filtersForm);
+
+        const currentSort = sortInp?.value || "nombre";
+        const currentDir = (dirInp?.value || "ASC").toLowerCase();
+
+        let nextDir = "ASC";
+        if (currentSort === col)
+          nextDir = currentDir === "asc" ? "DESC" : "ASC";
+
+        if (sortInp) sortInp.value = col;
+        if (dirInp) dirInp.value = nextDir;
+
+        const pageInp = $('input[name="page"]', filtersForm);
+        if (pageInp) pageInp.value = "1";
+
+        filtersForm.submit();
+      });
+    });
+  }
+
+  /* =========================
+     EDIT PANEL (overlay lateral)
+  ========================= */
+  const overlay = $("#editOverlay");
+  const panel = $("#editPanel");
+  const editForm = $("#editForm");
+  const pageWrap = $(".page-wrap");
+
+  function setBlur(on) {
+    if (pageWrap) pageWrap.classList.toggle("blurred", !!on);
+    // NO tocar .root porque contiene overlays
+  }
+
+  function openOverlay() {
+    if (!overlay) return;
+    overlay.classList.add("open");
+    overlay.classList.add("active"); // compat
+    setBlur(true);
+  }
+
+  function closeOverlay() {
+    if (!overlay) return;
+    overlay.classList.remove("open");
+    overlay.classList.remove("active");
+    setBlur(false);
+  }
+
+  if (overlay && panel) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeOverlay();
+      closeConfirm();
+    }
   });
 
-  const toNum = (v, fallback = 0) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : fallback;
-  };
+  window.openEditPanel = async (id) => {
+    id = Number(id || 0);
+    if (!id || !editForm) return;
 
-  const setStockInputsByPesable = (form, isPesable) => {
-    const stock = form?.elements?.["stock"];
-    const min   = form?.elements?.["stock_minimo"];
-    if (stock) stock.step = isPesable ? "0.001" : "1";
-    if (min)   min.step   = isPesable ? "0.001" : "1";
-  };
-
-  const formatStock = (value, isPesable) => {
-    const n = toNum(value, 0);
-    return isPesable ? n.toFixed(3) : String(Math.round(n));
-  };
-
-  /* ==========================
-   TOGGLE FORM (ROBUSTO / CAPTURE)
-=========================== */
-function syncToggleLabel() {
-  const btn = document.getElementById("toggleFormBtn");
-  const block = document.getElementById("productFormBlock");
-  if (!btn || !block) return;
-
-  const collapsed = block.classList.contains("is-collapsed");
-  btn.textContent = collapsed ? "Agregar producto" : "Cerrar formulario";
-}
-
-function toggleFormBlock() {
-  const block = document.getElementById("productFormBlock");
-  if (!block) return;
-
-  block.classList.toggle("is-collapsed");
-  syncToggleLabel();
-
-  if (!block.classList.contains("is-collapsed")) {
-    block.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}
-
-(function bindToggleOnceCapture() {
-  // usa state del módulo, sin globales genéricos
-  if (state.toggleFormBound) {
-    // por si ya estaba bindeado
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", syncToggleLabel);
-    } else {
-      syncToggleLabel();
-    }
-    return;
-  }
-  state.toggleFormBound = true;
-
-  // CAPTURE: se ejecuta aunque otro script frene el click en bubble
-  document.addEventListener(
-    "click",
-    (e) => {
-      const btn = e.target.closest("#toggleFormBtn");
-      if (!btn) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      toggleFormBlock();
-    },
-    true
-  );
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", syncToggleLabel);
-  } else {
-    syncToggleLabel();
-  }
-})();
-
-  /* ==========================
-     PANEL LATERAL – EDICIÓN
-  =========================== */
-  let lastEditRequestId = 0;
-
-  function fillEditForm(data) {
-    const form = document.getElementById("editForm");
-    if (!form || !data || !data.id) return false;
-
-    const setVal = (name, value) => {
-      const el = form.elements[name];
-      if (!el) return;
-      el.value = value != null ? value : "";
-    };
-
-    setVal("id", data.id);
-    setVal("codigo", data.codigo);
-    setVal("nombre", data.nombre);
-    setVal("categoria", data.categoria);
-    setVal("marca", data.marca);
-    setVal("proveedor", data.proveedor);
-    setVal("precio", data.precio);
-    setVal("costo", data.costo);
-
-    if (form.elements["iva"]) {
-      form.elements["iva"].value = data.iva != null ? String(data.iva) : "";
-    }
-
-    if (form.elements["unidad_venta"]) {
-      form.elements["unidad_venta"].value = data.unidad_venta || "UNIDAD";
-    }
-
-    const isPes = !!toNum(data.es_pesable, 0);
-    setStockInputsByPesable(form, isPes);
-
-    if (form.elements["stock"]) {
-      form.elements["stock"].value = formatStock(data.stock, isPes);
-    }
-    if (form.elements["stock_minimo"]) {
-      form.elements["stock_minimo"].value = formatStock(data.stock_minimo, isPes);
-    }
-
-    if (form.elements["es_pesable"]) form.elements["es_pesable"].checked = isPes;
-    if (form.elements["activo"])     form.elements["activo"].checked = toNum(data.activo, 0) === 1;
-
-    const file = form.querySelector('input[type="file"][name="imagen"]');
-    if (file) file.value = "";
-
-    return true;
-  }
-
-  function openEditPanel(id) {
-    const overlay = document.getElementById("editOverlay");
-    const root = document.querySelector(".page-wrap") || document.querySelector(".root");
-
-    overlay?.classList.add("open");
-    root?.classList.add("blurred");
-
-    const reqId = ++lastEditRequestId;
-
-    fetch(`productos.php?editar=${encodeURIComponent(id)}&ajax=1`, {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" },
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("No se pudo cargar el producto"))))
-      .then((data) => {
-        if (reqId !== lastEditRequestId) return;
-
-        const ok = fillEditForm(data);
-        if (!ok) {
-          closeEditPanel();
-          alert("Producto no encontrado o no se pudo cargar.");
-          return;
+    try {
+      const res = await fetch(
+        `productos.php?editar=${encodeURIComponent(id)}&ajax=1`,
+        {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
         }
+      );
 
-        const form = document.getElementById("editForm");
-        (form?.elements?.["codigo"] || form?.querySelector("input,select,textarea"))?.focus?.();
-      })
-      .catch((err) => {
-        if (reqId !== lastEditRequestId) return;
-        console.error(err);
-        closeEditPanel();
-        alert("No se pudo cargar el producto para editar.");
-      });
+      const data = await res.json();
+
+      editForm.querySelector('input[name="id"]').value = data.id ?? "";
+
+      const setVal = (name, val) => {
+        const el = editForm.querySelector(`[name="${name}"]`);
+        if (!el) return;
+        el.value = val ?? "";
+      };
+
+      setVal("codigo", data.codigo);
+      setVal("nombre", data.nombre);
+      setVal("categoria", data.categoria);
+      setVal("marca", data.marca);
+      setVal("proveedor", data.proveedor);
+      setVal("iva", data.iva ?? "");
+      setVal("precio", data.precio ?? "");
+      setVal("costo", data.costo ?? "");
+      setVal("stock", data.stock ?? "");
+      setVal("stock_minimo", data.stock_minimo ?? "");
+      setVal("unidad_venta", data.unidad_venta ?? "UNIDAD");
+
+      const chkPesable = editForm.querySelector('input[name="es_pesable"]');
+      if (chkPesable) chkPesable.checked = Number(data.es_pesable || 0) === 1;
+
+      const chkActivo = editForm.querySelector('input[name="activo"]');
+      if (chkActivo) chkActivo.checked = Number(data.activo ?? 1) === 1;
+
+      const file = editForm.querySelector('input[type="file"][name="imagen"]');
+      if (file) file.value = "";
+
+      openOverlay();
+    } catch (err) {
+      console.error(err);
+      window.showToast("No se pudo cargar el producto para editar.", "error");
+    }
+  };
+
+  window.closeEditPanel = closeOverlay;
+
+  /* =========================
+     CONFIRM MODAL (activar/desactivar)
+  ========================= */
+  const confirmOv = $("#confirmToggle");
+  const confirmTitle = $("#confirmTitle");
+  const confirmText = $("#confirmText");
+  const btnCancel = $("#confirmCancel");
+  const btnAccept = $("#confirmAccept");
+
+  let pendingHref = null;
+
+  function openConfirm({ action, href }) {
+    pendingHref = href;
+
+    const isDesactivar = action === "desactivar";
+    if (confirmTitle)
+      confirmTitle.textContent = isDesactivar
+        ? "Desactivar producto"
+        : "Activar producto";
+    if (confirmText)
+      confirmText.textContent = isDesactivar
+        ? "¿Desactivar producto? No aparecerá en Caja ni en búsquedas de ventas."
+        : "¿Activar producto? Volverá a aparecer en Caja y búsquedas.";
+
+    if (!confirmOv) return;
+    confirmOv.classList.add("open");
+    confirmOv.classList.add("active");
+    setBlur(true);
   }
 
-  function closeEditPanel() {
-    const overlay = document.getElementById("editOverlay");
-    const root = document.querySelector(".page-wrap") || document.querySelector(".root");
-    overlay?.classList.remove("open");
-    root?.classList.remove("blurred");
-    lastEditRequestId++;
+  function closeConfirm() {
+    if (!confirmOv) return;
+    confirmOv.classList.remove("open");
+    confirmOv.classList.remove("active");
+    setBlur(false);
+    pendingHref = null;
   }
 
-  window.openEditPanel = openEditPanel;
-  window.closeEditPanel = closeEditPanel;
+  if (btnCancel) btnCancel.addEventListener("click", closeConfirm);
 
-  /* ==========================
-     MODAL ACTIVAR/DESACTIVAR (DELEGADO)
-  =========================== */
-  function bindToggleModalOnce() {
-    if (state.toggleModalBound) return;
-    state.toggleModalBound = true;
-
-    const confirmOverlay = document.getElementById("confirmToggle");
-    const confirmTitle = document.getElementById("confirmTitle");
-    const confirmText = document.getElementById("confirmText");
-    const confirmCancel = document.getElementById("confirmCancel");
-    const confirmAccept = document.getElementById("confirmAccept");
-
-    let pendingHref = null;
-
-    const closeConfirm = () => {
-      confirmOverlay?.classList.remove("open");
-      pendingHref = null;
-    };
-
-    confirmOverlay?.addEventListener("click", (e) => {
-      if (e.target === confirmOverlay) closeConfirm();
+  if (confirmOv) {
+    confirmOv.addEventListener("click", (e) => {
+      if (e.target === confirmOv) closeConfirm();
     });
+  }
 
-    confirmCancel?.addEventListener("click", (e) => {
-      e.preventDefault();
-      closeConfirm();
-    });
-
-    confirmAccept?.addEventListener("click", (e) => {
-      e.preventDefault();
+  if (btnAccept) {
+    btnAccept.addEventListener("click", () => {
       if (pendingHref) window.location.href = pendingHref;
     });
+  }
 
-    document.addEventListener("click", (e) => {
-      const link = e.target.closest(".js-product-toggle");
-      if (!link) return;
-
+  $$(".js-product-toggle").forEach((a) => {
+    a.addEventListener("click", (e) => {
       e.preventDefault();
-      pendingHref = link.getAttribute("href");
-
-      const action = (link.dataset.action || "").toLowerCase();
-
-      if (!confirmOverlay || !confirmTitle || !confirmText) {
-        if (pendingHref) window.location.href = pendingHref;
-        return;
-      }
-
-      if (action === "desactivar") {
-        confirmTitle.textContent = "Desactivar producto";
-        confirmText.textContent =
-          "¿Desactivar este producto? No aparecerá en Caja ni en búsquedas de ventas.";
-      } else {
-        confirmTitle.textContent = "Activar producto";
-        confirmText.textContent =
-          "¿Activar este producto? Volverá a estar disponible para ventas.";
-      }
-
-      confirmOverlay.classList.add("open");
+      const action = a.dataset.action || "";
+      const href = a.getAttribute("href");
+      if (!href) return;
+      openConfirm({ action, href });
     });
-  }
+  });
 
-  /* ==========================
-     INIT
-  =========================== */
-  function init() {
-    if (state.inited) return;
-    state.inited = true;
-
-    bindToggleFormOnce();
-    bindToggleModalOnce();
-
-    // Nombre archivo (form principal)
-    const fileInput = document.getElementById("imagen");
-    const fileNameSpan = document.getElementById("fileName");
-
-    if (fileInput && fileNameSpan) {
-      fileInput.addEventListener("change", () => {
-        fileNameSpan.textContent =
-          fileInput.files && fileInput.files.length > 0
-            ? fileInput.files[0].name
-            : "Ningún archivo seleccionado";
-      });
-    }
-
-    // Overlay: nombre archivo + pesable step
-    const editForm = document.getElementById("editForm");
-    if (editForm) {
-      const editFile = editForm.querySelector('input[type="file"][name="imagen"]');
-
-      let editFileName = editForm.querySelector(".edit-file-name");
-      if (!editFileName && editFile) {
-        editFileName = document.createElement("div");
-        editFileName.className = "edit-file-name";
-        editFileName.textContent = "Ningún archivo seleccionado";
-        editFile.insertAdjacentElement("afterend", editFileName);
-      }
-
-      if (editFile && editFileName) {
-        editFile.addEventListener("change", () => {
-          editFileName.textContent =
-            editFile.files && editFile.files.length > 0
-              ? editFile.files[0].name
-              : "Ningún archivo seleccionado";
-        });
-      }
-
-      const chkPes = editForm.elements["es_pesable"];
-      if (chkPes) {
-        chkPes.addEventListener("change", () => {
-          const isPes = !!chkPes.checked;
-          setStockInputsByPesable(editForm, isPes);
-
-          const s = editForm.elements["stock"];
-          const m = editForm.elements["stock_minimo"];
-          if (s && String(s.value).trim() !== "") s.value = formatStock(s.value, isPes);
-          if (m && String(m.value).trim() !== "") m.value = formatStock(m.value, isPes);
-        });
-      }
-    }
-
-    // Ordenar por columnas (ASC/DESC)
-    const table = document.querySelector(".productos-table");
-    const filtersForm = document.querySelector("form.filters");
-
-    if (table && filtersForm) {
-      const inputSort = qs('input[name="sort"]', filtersForm);
-      const inputDir  = qs('input[name="dir"]',  filtersForm);
-      const inputPage = qs('input[name="page"]', filtersForm);
-
-      table.querySelectorAll("thead th[data-sort]").forEach((th) => {
-        th.addEventListener("click", () => {
-          const sortField = th.dataset.sort;
-          if (!sortField || !inputSort || !inputDir) return;
-
-          const currentSort = (table.dataset.sort || "").trim();
-          const currentDir  = (table.dataset.dir || "ASC").toUpperCase().trim();
-
-          let newDir = "ASC";
-          if (sortField === currentSort) newDir = currentDir === "ASC" ? "DESC" : "ASC";
-
-          inputSort.value = sortField;
-          inputDir.value  = newDir;
-          if (inputPage) inputPage.value = "1";
-
-          filtersForm.submit();
-        });
-      });
-    }
-
-    // ESC closes + click afuera (edit)
-    document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-
-      const confirmOverlay = document.getElementById("confirmToggle");
-      if (confirmOverlay?.classList.contains("open")) confirmOverlay.classList.remove("open");
-
-      const editOverlay = document.getElementById("editOverlay");
-      if (editOverlay?.classList.contains("open")) closeEditPanel();
-    });
-
-    const editOverlay = document.getElementById("editOverlay");
-    editOverlay?.addEventListener("click", (e) => {
-      if (e.target === editOverlay) closeEditPanel();
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  window.closeConfirm = closeConfirm;
 })();

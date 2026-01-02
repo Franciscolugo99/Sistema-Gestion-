@@ -1,299 +1,664 @@
 /* ============================================================================
-   COMPRAS - compras.css
-   Estilos del módulo Compras (dark pro)
+   COMPRAS - FLUS (Light/Dark + ancho grande + sin pisar global)
 ============================================================================ */
 
-.page-wrap{
-  max-width:1200px;
-  margin:30px auto;
+/* -------------------------
+   Wrapper + Variables (DEFAULT: DARK)
+-------------------------- */
+.compras-page {
+  /* ancho del módulo */
+  width: 100%;
+  max-width: 1440px; /* <-- más grande (subí a 1500/1600 si querés) */
+  margin: 26px auto;
+  padding: 0 16px;
+
+  /* palette dark (default) */
+  --c-primary: #38bdf8;
+  --c-primary-dark: #0ea5e9;
+  --c-success: #22c55e;
+  --c-warning: #f59e0b;
+  --c-danger: #ef4444;
+
+  --c-surface: rgba(2, 6, 23, 0.55); /* panel interno */
+  --c-surface-2: rgba(2, 6, 23, 0.72); /* headers */
+  --c-input: rgba(2, 6, 23, 0.45); /* inputs */
+  --c-border: rgba(148, 163, 184, 0.22);
+
+  --c-text: #e5e7eb;
+  --c-muted: rgba(226, 232, 240, 0.75);
+
+  --c-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  --c-overlay: rgba(0, 0, 0, 0.7);
+
+  --c-dropdown-bg: rgba(15, 23, 42, 0.98);
+  --c-dropdown-hover: rgba(56, 189, 248, 0.12);
+
+  color: var(--c-text);
 }
 
-.page-wrap .panel + .panel{
-  margin-top:22px;
-}
+/* -------------------------
+   Light mode overrides (cubriendo varios estilos posibles)
+-------------------------- */
+html[data-theme="light"] .compras-page,
+body[data-theme="light"] .compras-page,
+html.light .compras-page,
+body.light .compras-page,
+html.theme-light .compras-page,
+body.theme-light .compras-page {
+  --c-primary: #0ea5e9;
+  --c-primary-dark: #0284c7;
 
-/* Títulos */
-.sub-title-page{
-  margin:0 0 14px;
-  font-size:1.05rem;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  opacity:.92;
+  --c-surface: #ffffff;
+  --c-surface-2: #f1f5f9;
+  --c-input: #ffffff;
+
+  --c-border: rgba(15, 23, 42, 0.14);
+  --c-text: #0f172a;
+  --c-muted: rgba(15, 23, 42, 0.6);
+
+  --c-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  --c-overlay: rgba(15, 23, 42, 0.35);
+
+  --c-dropdown-bg: #ffffff;
+  --c-dropdown-hover: rgba(2, 132, 199, 0.08);
 }
 
 /* ============================================================================
-   FORM CABECERA
+   HEADERS / TITULOS
 ============================================================================ */
-
-.compras-form{
-  margin-top:10px;
+.compras-page .page-header {
+  margin-bottom: 24px;
 }
 
-.form-grid{
-  display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:12px;
+.compras-page .page-title {
+  font-size: 1.75rem;
+  margin: 0 0 8px;
+  background: linear-gradient(135deg, var(--c-primary) 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.field{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+.compras-page .page-sub {
+  opacity: 0.8;
+  margin: 0;
+  color: var(--c-muted);
 }
 
-.field label{
-  font-size:.85rem;
-  opacity:.85;
-}
-
-.field-wide{
-  grid-column:1 / -1;
-}
-
-.help{
-  font-size:.82rem;
-  opacity:.75;
-  margin-top:4px;
-}
-
-/* Inputs / selects (form + filtros) */
-.compras-form input,
-.compras-form select,
-.filters input,
-.filters select{
-  height:38px;
-  padding:0 12px;
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.45);
-  color:var(--text,#e5e7eb);
-  outline:none;
-  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
-}
-
-.compras-form input::placeholder,
-.filters input::placeholder{
-  color:rgba(148,163,184,.7);
-}
-
-.compras-form input:focus,
-.compras-form select:focus,
-.filters input:focus,
-.filters select:focus{
-  border-color:rgba(56,189,248,.55);
-  box-shadow:0 0 0 3px rgba(56,189,248,.12);
-  background:rgba(2,6,23,.6);
-}
-
-/* Separador */
-.hr{
-  height:1px;
-  background:rgba(148,163,184,.16);
-  margin:14px 0;
+.compras-page .sub-title-page {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.92;
 }
 
 /* ============================================================================
-   FORM ITEMS
+   FORM
 ============================================================================ */
-
-.items-grid{
-  display:grid;
-  grid-template-columns:2fr 1fr 1fr auto;
-  gap:12px;
-  align-items:end;
+.compras-page .compras-form {
+  margin-top: 16px;
 }
 
-.actions{
-  margin-top:12px;
-  display:flex;
-  gap:10px;
-  align-items:center;
+.compras-page .form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
-/* Mensajes */
-.msg{
-  border-radius:14px;
-  padding:10px 12px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.55);
+.compras-page .field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.msg-info{ border-color:rgba(56,189,248,.25); }
+.compras-page .field label {
+  font-size: 0.88rem;
+  opacity: 0.85;
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+.compras-page .field-wide {
+  grid-column: 1 / -1;
+}
+
+.compras-page .help {
+  font-size: 0.82rem;
+  opacity: 0.75;
+  margin-top: 4px;
+  color: var(--c-muted);
+}
+
+.compras-page .compras-form input,
+.compras-page .compras-form select,
+.compras-page .filters input,
+.compras-page .filters select {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-input);
+  color: var(--c-text);
+  outline: none;
+  font-size: 0.95rem;
+  transition: all 0.18s ease;
+}
+
+.compras-page .compras-form input::placeholder,
+.compras-page .filters input::placeholder {
+  color: var(--c-muted);
+}
+
+.compras-page .compras-form input:focus,
+.compras-page .compras-form select:focus,
+.compras-page .filters input:focus,
+.compras-page .filters select:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+  transform: translateY(-1px);
+}
+
+.compras-page .hr {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-border), transparent);
+  margin: 20px 0;
+}
+
+/* ============================================================================
+   AUTOCOMPLETE
+============================================================================ */
+.compras-page .search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.compras-page .search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.55;
+  pointer-events: none;
+  color: var(--c-muted);
+}
+
+.compras-page #itemBuscar {
+  padding-left: 40px;
+}
+
+.compras-page .suggestions-box {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--c-dropdown-bg); /* <-- YA NO OSCURO EN MODO CLARO */
+  border: 1.5px solid var(--c-border);
+  border-radius: 14px;
+  box-shadow: var(--c-shadow);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: all 0.18s ease;
+  color: var(--c-text);
+}
+
+.compras-page .suggestions-box.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.compras-page .suggestion-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.compras-page .suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.compras-page .suggestion-item:hover,
+.compras-page .suggestion-item.keyboard-active {
+  background: var(--c-dropdown-hover);
+}
+
+.compras-page .suggestion-item.empty {
+  cursor: default;
+  opacity: 0.7;
+  text-align: center;
+}
+
+.compras-page .sug-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.compras-page .sug-code {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  padding: 2px 8px;
+  background: rgba(148, 163, 184, 0.14);
+  border-radius: 6px;
+}
+
+.compras-page .sug-price {
+  font-size: 0.82rem;
+  color: var(--c-success);
+  opacity: 0.95;
+}
+
+.compras-page mark {
+  background: rgba(2, 132, 199, 0.14);
+  color: var(--c-primary-dark);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+/* ============================================================================
+   ITEMS GRID
+============================================================================ */
+.compras-page .items-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+  background: rgba(56, 189, 248, 0.05);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(56, 189, 248, 0.25);
+  margin: 20px 0;
+}
 
 /* ============================================================================
    TABLAS
 ============================================================================ */
-
-.table-wrapper{
-  width:100%;
-  overflow:auto;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.35);
+.compras-page .table-wrapper {
+  width: 100%;
+  overflow: auto;
+  border-radius: 16px;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-surface); /* <-- CLARO en modo claro */
+  box-shadow: var(--c-shadow);
 }
 
-.compras-table,
-.compras-list{
-  width:100%;
-  border-collapse:collapse;
+.compras-page .compras-table,
+.compras-page .compras-list {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.compras-table thead th,
-.compras-list thead th{
-  font-size:.78rem;
-  letter-spacing:.10em;
-  text-transform:uppercase;
-  padding:12px 14px;
-  color:rgba(226,232,240,.9);
-  background:rgba(2,6,23,.55);
-  border-bottom:1px solid rgba(148,163,184,.16);
-  white-space:nowrap;
+.compras-page .compras-table thead th,
+.compras-page .compras-list thead th {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 14px 16px;
+  color: var(--c-text);
+  background: var(--c-surface-2); /* <-- CLARO en modo claro */
+  border-bottom: 2px solid rgba(56, 189, 248, 0.18);
+  white-space: nowrap;
+  font-weight: 800;
 }
 
-.compras-table tbody td,
-.compras-table tfoot td,
-.compras-list tbody td{
-  padding:12px 14px;
-  border-bottom:1px solid rgba(148,163,184,.10);
-  vertical-align:middle;
+.compras-page .compras-table tbody td,
+.compras-page .compras-table tfoot td,
+.compras-page .compras-list tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  vertical-align: middle;
+  color: var(--c-text);
 }
 
-.compras-table tbody tr:hover td,
-.compras-list tbody tr:hover td{
-  background:rgba(56,189,248,.06);
+.compras-page .compras-table tbody tr,
+.compras-page .compras-list tbody tr {
+  transition: all 0.18s ease;
 }
 
-.empty-cell{
-  text-align:center;
-  padding:18px 14px;
-  opacity:.75;
+.compras-page .compras-table tbody tr:hover,
+.compras-page .compras-list tbody tr:hover {
+  background: rgba(56, 189, 248, 0.06);
 }
 
-/* Alineaciones */
-.right{ text-align:right; }
-.center{ text-align:center; }
-
-.muted{
-  opacity:.65;
-  font-size:.86rem;
+.compras-page .compras-table tfoot {
+  background: var(--c-surface-2); /* <-- CLARO en modo claro */
+  border-top: 2px solid rgba(56, 189, 248, 0.22);
 }
 
-/* Botón tipo link */
-.btn-line{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 10px;
-  border-radius:10px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.45);
-  color:rgba(226,232,240,.95);
-  text-decoration:none;
-  font-weight:700;
-  font-size:.82rem;
-  letter-spacing:.02em;
-  cursor:pointer;
-  transition:border-color .15s ease, background .15s ease, transform .08s ease;
+.compras-page .compras-table tfoot td {
+  padding: 16px;
+  font-size: 1.05rem;
+  border: none;
 }
 
-.btn-line:hover{
-  border-color:rgba(56,189,248,.45);
-  background:rgba(2,6,23,.6);
+/* Inline edit */
+.compras-page .editable-cell {
+  position: relative;
+  cursor: pointer;
+}
+.compras-page .editable-cell:hover {
+  background: rgba(56, 189, 248, 0.05);
 }
 
-.btn-line:active{ transform:translateY(1px); }
+.compras-page .cell-edit {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--c-primary);
+  background: var(--c-input); /* <-- CLARO en modo claro */
+  color: var(--c-text);
+  font-size: 0.9rem;
+}
+
+.compras-page .empty-cell {
+  text-align: center;
+  padding: 24px 16px;
+  opacity: 0.65;
+  font-style: italic;
+  color: var(--c-muted);
+}
+
+.compras-page .item-name {
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.compras-page .item-code {
+  font-size: 0.78rem;
+  opacity: 0.65;
+  color: var(--c-muted);
+}
+
+.compras-page .right {
+  text-align: right;
+}
+.compras-page .center {
+  text-align: center;
+}
 
 /* ============================================================================
-   FILTROS LISTADO
+   BOTONES (solo dentro de compras)
 ============================================================================ */
-
-.filters{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-  margin:12px 0 14px;
+.compras-page .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  outline: none;
 }
 
-.filters-left{
-  flex:1 1 260px;
-  min-width:240px;
+.compras-page .btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--c-primary) 0%,
+    var(--c-primary-dark) 100%
+  );
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
 }
 
-.filters-left input{ width:100%; }
-
-.filters-right{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
+.compras-page .btn-primary:hover {
+  transform: translateY(-1px);
 }
 
-/* Paginación (si la usás en compras.php) */
-.pagination{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-top:14px;
-  flex-wrap:wrap;
+.compras-page .btn-secondary {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--c-text);
+  border: 1.5px solid var(--c-border);
 }
 
-.pagination-info{
-  opacity:.8;
+.compras-page .btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.22);
 }
 
-.pagination-pages{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+.compras-page .btn-filter {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--c-primary-dark);
+  border: 1.5px solid rgba(56, 189, 248, 0.25);
 }
 
-.page-btn{
-  padding:8px 12px;
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.45);
-  color:rgba(226,232,240,.95);
-  text-decoration:none;
-  font-weight:700;
+/* icon buttons */
+.compras-page .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--c-border);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--c-text);
+  cursor: pointer;
+  transition: all 0.18s ease;
 }
 
-.page-btn.active{
-  border-color:rgba(56,189,248,.55);
-  box-shadow:0 0 0 3px rgba(56,189,248,.10);
+.compras-page .btn-icon:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  transform: scale(1.06);
+}
+
+.compras-page .btn-icon-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: var(--c-danger);
+}
+
+/* ============================================================================
+   FILTROS / PAGINACIÓN
+============================================================================ */
+.compras-page .filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(56, 189, 248, 0.04);
+  border-radius: 14px;
+  border: 1.5px solid rgba(56, 189, 248, 0.15);
+}
+
+.compras-page .filters-left {
+  flex: 1 1 260px;
+  min-width: 240px;
+}
+.compras-page .filters-left input {
+  width: 100%;
+}
+
+.compras-page .filters-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compras-page .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.compras-page .pagination-info {
+  opacity: 0.85;
+  font-size: 0.9rem;
+  color: var(--c-muted);
+}
+.compras-page .pagination-pages {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.compras-page .page-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-input);
+  color: var(--c-text);
+  text-decoration: none;
+  font-weight: 700;
+  transition: all 0.18s ease;
+}
+
+.compras-page .page-btn:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.compras-page .page-btn.active {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.14);
+}
+
+/* ============================================================================
+   MENSAJES
+============================================================================ */
+.compras-page .msg {
+  border-radius: 14px;
+  padding: 12px 16px;
+  border: 1.5px solid;
+  margin-top: 14px;
+  animation: slideIn 0.3s ease;
+}
+
+.compras-page .msg-info {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--c-primary-dark);
+}
+
+/* ============================================================================
+   ANIMACIONES
+============================================================================ */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   ESTADOS
+============================================================================ */
+.compras-page .estado-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compras-page .estado-BORRADOR {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--c-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.compras-page .estado-CONFIRMADA {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--c-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.compras-page .estado-ANULADA {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--c-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================================================
+   ACCIONES
+============================================================================ */
+.compras-page .actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 /* ============================================================================
    RESPONSIVE
 ============================================================================ */
-
-@media (max-width:980px){
-  .form-grid{
-    grid-template-columns:repeat(2, minmax(0, 1fr));
+@media (max-width: 980px) {
+  .compras-page .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .items-grid{
-    grid-template-columns:1fr 1fr;
-    align-items:stretch;
+  .compras-page .items-grid {
+    grid-template-columns: 1fr 1fr;
   }
-
-  .items-grid .field-wide{ grid-column:1 / -1; }
+  .compras-page .items-grid .field-wide {
+    grid-column: 1 / -1;
+  }
 }
 
-@media (max-width:560px){
-  .form-grid{ grid-template-columns:1fr; }
-
-  .items-grid{
-    grid-template-columns:1fr;
+@media (max-width: 560px) {
+  .compras-page {
+    margin: 16px auto;
+  }
+  .compras-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .compras-page .items-grid {
+    grid-template-columns: 1fr;
   }
 
-  .filters-right{
-    width:100%;
+  .compras-page .filters {
+    flex-direction: column;
+    align-items: stretch;
   }
+  .compras-page .filters-left,
+  .compras-page .filters-right {
+    width: 100%;
+  }
+  .compras-page .filters-right {
+    flex-direction: column;
+  }
+}
 
-  .filters-right > *{
-    flex:1 1 140px;
-  }
+/* ============================================================================
+   SCROLLBAR (solo modulo)
+============================================================================ */
+.compras-page .table-wrapper::-webkit-scrollbar,
+.compras-page .suggestions-box::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.compras-page .table-wrapper::-webkit-scrollbar-track,
+.compras-page .suggestions-box::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.1);
+  border-radius: 10px;
+}
+
+.compras-page .table-wrapper::-webkit-scrollbar-thumb,
+.compras-page .suggestions-box::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
 }

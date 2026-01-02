@@ -1,12 +1,27 @@
 <?php
 // public/auditoria.php
 declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_auditoria');
 
+$pdo = getPDO();
 
+if (!function_exists('h2')) {
+  function h2($s): string {
+    return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  }
+}
 
+if (!function_exists('validDateYmd')) {
+  function validDateYmd(string $s): ?string {
+    $s = trim($s);
+    if ($s === '') return null;
+    $d = DateTime::createFromFormat('Y-m-d', $s);
+    return ($d && $d->format('Y-m-d') === $s) ? $s : null;
+  }
+}
 
 function fmt_dt(?string $s): string {
   if (!$s) return '';
@@ -28,7 +43,6 @@ function pretty_json(string $s): string {
   return $s;
 }
 
-/** Devuelve array (si es JSON válido) o null */
 function meta_decode($meta): ?array {
   if ($meta === null || $meta === '') return null;
   if (!is_string($meta)) return null;
@@ -36,7 +50,6 @@ function meta_decode($meta): ?array {
   return (json_last_error() === JSON_ERROR_NONE && is_array($j)) ? $j : null;
 }
 
-/** Resumen corto tipo "importe: 1200 | medio_pago: EFECTIVO ..." */
 function meta_summary(?array $m, int $maxLen = 120): string {
   if (!$m) return '';
   $keysPriority = ['msg','motivo','importe','total','medio_pago','descuento','caja_id','venta_id','producto_id','stock','cantidad'];
@@ -55,8 +68,7 @@ function meta_summary(?array $m, int $maxLen = 120): string {
     foreach ($m as $k => $v) {
       if (is_array($v) || is_object($v)) continue;
       $pairs[] = $k . ': ' . (string)$v;
-      $i++;
-      if ($i >= 3) break;
+      if (++$i >= 3) break;
     }
   }
 
@@ -291,7 +303,7 @@ require __DIR__ . '/partials/header.php';
     $base['per_page'] = $perPage;
   ?>
   <div class="pager">
-    <span class="muted">Página <?= $page ?> / <?= $totalPages ?> — <?= $totalRows ?> eventos</span>
+    <span class="muted">Página <?= (int)$page ?> / <?= (int)$totalPages ?> — <?= (int)$totalRows ?> eventos</span>
     <div class="pager-links">
       <?php
         $prev = max(1, $page - 1);
@@ -312,7 +324,7 @@ require __DIR__ . '/partials/header.php';
           $base['page'] = $p;
           $url = 'auditoria.php?' . http_build_query($base);
       ?>
-        <a class="btn btn-sm <?= $p===$page?'btn-primary':'btn-secondary' ?>" href="<?= h2($url) ?>"><?= $p ?></a>
+        <a class="btn btn-sm <?= $p===$page?'btn-primary':'btn-secondary' ?>" href="<?= h2($url) ?>"><?= (int)$p ?></a>
       <?php endfor; ?>
 
       <a class="btn btn-sm btn-secondary <?= $page>=$totalPages?'is-disabled':'' ?>" href="<?= h2($nextUrl) ?>">»</a>

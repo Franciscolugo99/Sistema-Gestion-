@@ -234,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Productos (select items)
 $prodStmt = $pdo->query("
-  SELECT id, codigo, nombre, es_pesable, unidad_venta
+  SELECT id, codigo, nombre, es_pesable, unidad_venta, costo
   FROM productos
   WHERE activo = 1
   ORDER BY nombre
@@ -318,213 +318,289 @@ $extraJs  = ["assets/js/compras.js"];
 require __DIR__ . "/partials/header.php";
 ?>
 
-<div class="page-wrap">
+<!-- FORMULARIO MEJORADO -->
+ <div class="compras-page">
+<div class="panel">
+  <header class="page-header">
+    <div>
+      <h1 class="page-title">✨ Compras</h1>
+      <p class="page-sub">Buscá productos con autocomplete, editá items en línea y confirmá para impactar stock.</p>
+    </div>
+  </header>
 
-  <div class="panel">
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">Compras</h1>
-        <p class="page-sub">Cargá compras en <b>BORRADOR</b> y luego confirmalas para impactar stock.</p>
-      </div>
-    </header>
+  <form method="post" id="compraForm" class="compras-form">
+    <?= csrf_field() ?>
+    <input type="hidden" name="accion" value="guardar_borrador">
 
-    <form method="post" id="compraForm" class="compras-form">
-      <?= csrf_field() ?>
-      <input type="hidden" name="accion" value="guardar_borrador">
+    <!-- Select oculto con data para JS -->
+    <select id="productosData" style="display:none;">
+      <option value="">--</option>
+      <?php foreach ($productos as $p): ?>
+        <option
+          value="<?= (int)$p['id'] ?>"
+          data-codigo="<?= h((string)$p['codigo']) ?>"
+          data-es-pesable="<?= (int)($p['es_pesable'] ?? 0) ?>"
+          data-unidad="<?= h((string)($p['unidad_venta'] ?? 'UNIDAD')) ?>"
+          data-ultimo-costo="<?= (float)($p['costo'] ?? 0) ?>"
+        >
+          <?= h((string)$p['nombre']) ?> (<?= h((string)$p['codigo']) ?>)
+        </option>
+      <?php endforeach; ?>
+    </select>
 
-      <div class="form-grid">
-        <div class="field">
-          <label>Proveedor</label>
-          <input name="proveedor" placeholder="Ej: Mayorista X" required>
-        </div>
-
-        <div class="field">
-          <label>Comprobante tipo</label>
-          <input name="tipo_comp" placeholder="Ej: Factura A">
-        </div>
-
-        <div class="field">
-          <label>Comprobante nro</label>
-          <input name="nro_comp" placeholder="Ej: 0001-00001234">
-        </div>
-
-        <div class="field field-wide">
-          <label>Observación</label>
-          <input name="observacion" placeholder="Notas internas (opcional)">
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="items-grid">
-        <div class="field field-wide">
-          <label>Producto</label>
-          <select id="itemProducto">
-            <option value="">Seleccionar…</option>
-            <?php foreach ($productos as $p): ?>
-              <option
-                value="<?= (int)$p['id'] ?>"
-                data-es-pesable="<?= (int)($p['es_pesable'] ?? 0) ?>"
-                data-unidad="<?= h((string)($p['unidad_venta'] ?? 'UNIDAD')) ?>"
-              >
-                <?= h((string)$p['nombre']) ?> (<?= h((string)$p['codigo']) ?>)
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-
-        <div class="field">
-          <label>Cantidad</label>
-          <input id="itemCantidad" type="number" step="1" min="1" value="1">
-          <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
-        </div>
-
-        <div class="field">
-          <label>Costo unitario</label>
-          <input id="itemCosto" type="number" step="0.01" min="0" value="0">
-        </div>
-
-        <div class="field">
-          <label>&nbsp;</label>
-          <button type="button" class="btn btn-secondary" id="btnAddItem">Agregar ítem</button>
-        </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>🏢 Proveedor</label>
+        <input name="proveedor" placeholder="Ej: Mayorista X" required autocomplete="off">
       </div>
 
-      <div class="table-wrapper">
-        <table class="compras-table" id="itemsTable">
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th class="right">Cantidad</th>
-              <th class="right">Costo</th>
-              <th class="right">Subtotal</th>
-              <th class="center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="empty-row">
-              <td colspan="5" class="empty-cell">Todavía no agregaste ítems.</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="3" class="right"><b>Total</b></td>
-              <td class="right"><b id="totalLbl">$0,00</b></td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+      <div class="field">
+        <label>📄 Tipo comprobante</label>
+        <input name="tipo_comp" placeholder="Ej: Factura A" autocomplete="off">
       </div>
 
-      <div class="actions">
-        <button class="btn btn-primary" type="submit">Guardar borrador</button>
+      <div class="field">
+        <label>🔢 Nro comprobante</label>
+        <input name="nro_comp" placeholder="Ej: 0001-00001234" autocomplete="off">
       </div>
 
-      <?php if ($msg): ?>
-        <div class="msg msg-visible msg-info" style="margin-top:12px;">
-          <?= h($msg) ?>
+      <div class="field field-wide">
+        <label>📝 Observación</label>
+        <input name="observacion" placeholder="Notas internas (opcional)" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="items-grid">
+      <div class="field field-wide">
+        <label>🔍 Buscar producto</label>
+        <div class="search-wrapper">
+          <svg class="search-icon" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+          <input
+            type="text"
+            id="itemBuscar"
+            placeholder="Escribe para buscar productos..."
+            autocomplete="off"
+          >
+          <div class="suggestions-box" id="suggestions"></div>
         </div>
-      <?php endif; ?>
-    </form>
-  </div>
-
-  <div class="panel" style="margin-top:18px;">
-    <h2 class="sub-title-page">Listado</h2>
-
-    <form method="get" class="filters">
-      <div class="filters-left">
-        <input type="text" name="q" placeholder="Buscar por proveedor, comprobante o ID…" value="<?= h($q) ?>">
       </div>
 
-      <div class="filters-right">
-        <select name="estado">
-          <option value="">Todos</option>
-          <?php foreach (['BORRADOR','CONFIRMADA','ANULADA'] as $e): ?>
-            <option value="<?= $e ?>" <?= $estado===$e?'selected':'' ?>><?= $e ?></option>
-          <?php endforeach; ?>
-        </select>
-
-        <input type="date" name="desde" value="<?= h($desde ?? '') ?>">
-        <input type="date" name="hasta" value="<?= h($hasta ?? '') ?>">
-
-        <select name="per_page">
-          <?php foreach ([20,50,100] as $n): ?>
-            <option value="<?= $n ?>" <?= $perPage===$n?'selected':'' ?>><?= $n ?></option>
-          <?php endforeach; ?>
-        </select>
-
-        <input type="hidden" name="page" value="1">
-        <button class="btn btn-filter" type="submit">Filtrar</button>
-        <a class="btn btn-secondary" href="compras.php">Limpiar</a>
+      <div class="field">
+        <label>📦 Cantidad</label>
+        <input id="itemCantidad" type="number" step="0.001" min="0.001" value="1" autocomplete="off">
+        <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
       </div>
-    </form>
+
+      <div class="field">
+        <label>💵 Costo unitario</label>
+        <input id="itemCosto" type="number" step="0.01" min="0" value="0" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="button" class="btn btn-primary" id="btnAddItem">
+          ➕ Agregar
+        </button>
+      </div>
+    </div>
 
     <div class="table-wrapper">
-      <table class="compras-list">
+      <table class="compras-table" id="itemsTable">
         <thead>
           <tr>
-            <th>Fecha</th>
-            <th>Proveedor</th>
-            <th>Comprobante</th>
-            <th>Estado</th>
-            <th class="right">Total</th>
+            <th>Producto</th>
+            <th class="right">Cantidad</th>
+            <th class="right">Costo unitario</th>
+            <th class="right">Subtotal</th>
             <th class="center">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          <?php if (!$compras): ?>
-            <tr><td colspan="6" class="empty-cell">No hay compras con esos filtros.</td></tr>
-          <?php else: foreach ($compras as $c): ?>
-            <tr>
-              <td><?= h((string)$c['fecha']) ?></td>
-              <td><?= h((string)($c['proveedor_nombre'] ?? '')) ?></td>
-              <td><?= h((string)$c['tipo_comp']) ?> <?= h((string)$c['nro_comp']) ?></td>
-              <td><?= h((string)$c['estado']) ?></td>
-              <td class="right"><?= money_ar((float)$c['total']) ?></td>
-              <td class="center">
-                <?php if ((string)$c['estado'] === 'BORRADOR'): ?>
-                  <form method="post" style="display:inline;">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="accion" value="confirmar">
-                    <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
-                    <button class="btn-line" type="submit">Confirmar</button>
-                  </form>
-                <?php endif; ?>
-              </td>
-            </tr>
-          <?php endforeach; endif; ?>
+          <tr class="empty-row">
+            <td colspan="5" class="empty-cell">
+              Todavía no agregaste ítems. Buscá un producto arriba para comenzar.
+            </td>
+          </tr>
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="right"><strong>TOTAL</strong></td>
+            <td class="right"><strong id="totalLbl">$0,00</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
-    <?php if ($totalPages > 1): ?>
-      <div class="pagination">
-        <div class="pagination-info">
-          Mostrando <?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $perPage, $totalRows) ?>
-          de <?= $totalRows ?>
-        </div>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">
+        💾 Guardar borrador
+      </button>
+      <button class="btn btn-secondary" type="button" onclick="location.reload()">
+        🔄 Limpiar todo
+      </button>
+    </div>
 
-        <div class="pagination-pages">
-          <?php for ($i=1; $i<=$totalPages; $i++): ?>
-            <a class="page-btn <?= $i===$page?'active':'' ?>" href="<?= h(urlWith(['page'=>$i])) ?>"><?= $i ?></a>
-          <?php endfor; ?>
-        </div>
+    <?php if ($msg): ?>
+      <div class="msg msg-visible msg-info">
+        <?= h($msg) ?>
       </div>
     <?php endif; ?>
+  </form>
+</div>
+
+<!-- LISTADO MEJORADO -->
+<div class="panel" style="margin-top:22px;">
+  <h2 class="sub-title-page">📋 Listado de Compras</h2>
+
+  <form method="get" class="filters">
+    <div class="filters-left">
+      <input
+        type="text"
+        name="q"
+        placeholder="🔍 Buscar por proveedor, comprobante o ID..."
+        value="<?= h($q) ?>"
+        autocomplete="off"
+      >
+    </div>
+
+    <div class="filters-right">
+      <select name="estado">
+        <option value="">Todos los estados</option>
+        <?php foreach (['BORRADOR','CONFIRMADA','ANULADA'] as $e): ?>
+          <option value="<?= $e ?>" <?= $estado===$e?'selected':'' ?>><?= $e ?></option>
+        <?php endforeach; ?>
+      </select>
+
+      <input type="date" name="desde" value="<?= h($desde ?? '') ?>" title="Desde">
+      <input type="date" name="hasta" value="<?= h($hasta ?? '') ?>" title="Hasta">
+
+      <select name="per_page" title="Items por página">
+        <?php foreach ([20,50,100] as $n): ?>
+          <option value="<?= $n ?>" <?= $perPage===$n?'selected':'' ?>><?= $n ?> / pág</option>
+        <?php endforeach; ?>
+      </select>
+
+      <input type="hidden" name="page" value="1">
+      <button class="btn btn-filter" type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="compras.php">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="table-wrapper">
+    <table class="compras-list">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Proveedor</th>
+          <th>Comprobante</th>
+          <th>Estado</th>
+          <th class="right">Total</th>
+          <th class="center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (!$compras): ?>
+          <tr><td colspan="7" class="empty-cell">No hay compras con esos filtros.</td></tr>
+        <?php else: foreach ($compras as $c): ?>
+          <tr>
+            <td><strong>#<?= (int)$c['id'] ?></strong></td>
+            <td><?= date('d/m/Y', strtotime((string)$c['fecha'])) ?></td>
+            <td><?= h((string)($c['proveedor_nombre'] ?? 'Sin nombre')) ?></td>
+            <td>
+              <div><?= h((string)$c['tipo_comp']) ?></div>
+              <div class="muted"><?= h((string)$c['nro_comp']) ?></div>
+            </td>
+            <td>
+              <span class="estado-badge estado-<?= h((string)$c['estado']) ?>">
+                <?= h((string)$c['estado']) ?>
+              </span>
+            </td>
+            <td class="right"><strong><?= money_ar((float)$c['total']) ?></strong></td>
+            <td class="center">
+              <?php if ((string)$c['estado'] === 'BORRADOR'): ?>
+                <form method="post" style="display:inline;" onsubmit="return confirm('¿Confirmar esta compra? Se actualizará el stock.')">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="accion" value="confirmar">
+                  <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
+                  <button class="btn btn-primary" type="submit" style="font-size:.82rem;padding:6px 12px;">
+                    ✅ Confirmar
+                  </button>
+                </form>
+              <?php elseif ((string)$c['estado'] === 'CONFIRMADA'): ?>
+                <span style="opacity:.6;font-size:.82rem;">✓ Confirmada</span>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; endif; ?>
+      </tbody>
+    </table>
   </div>
 
+  <?php if ($totalPages > 1): ?>
+    <div class="pagination">
+      <div class="pagination-info">
+        Mostrando <strong><?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $perPage, $totalRows) ?></strong>
+        de <strong><?= $totalRows ?></strong> registros
+      </div>
+
+      <div class="pagination-pages">
+        <?php
+        $showPages = 5;
+        $start = max(1, $page - floor($showPages/2));
+        $end = min($totalPages, $start + $showPages - 1);
+        $start = max(1, $end - $showPages + 1);
+
+        if ($start > 1): ?>
+          <a class="page-btn" href="<?= h(urlWith(['page'=>1])) ?>">1</a>
+          <?php if ($start > 2): ?>
+            <span style="opacity:.5;padding:0 4px;">...</span>
+          <?php endif; ?>
+        <?php endif; ?>
+
+        <?php for ($i=$start; $i<=$end; $i++): ?>
+          <a class="page-btn <?= $i===$page?'active':'' ?>" href="<?= h(urlWith(['page'=>$i])) ?>">
+            <?= $i ?>
+          </a>
+        <?php endfor; ?>
+
+        <?php if ($end < $totalPages): ?>
+          <?php if ($end < $totalPages - 1): ?>
+            <span style="opacity:.5;padding:0 4px;">...</span>
+          <?php endif; ?>
+          <a class="page-btn" href="<?= h(urlWith(['page'=>$totalPages])) ?>"><?= $totalPages ?></a>
+        <?php endif; ?>
+      </div>
+    </div>
+  <?php endif; ?>
 </div>
+
+ </div>
+
 
 <?php if ($savedFlag !== ''): ?>
 <script>
-  if (window.showToast) {
-    const msg =
-      <?= json_encode($savedFlag === 'confirmed'
-        ? 'Compra confirmada. Stock actualizado.'
-        : 'Compra guardada en borrador.'
-      ) ?>;
-    window.showToast(msg);
-  }
+  document.addEventListener("DOMContentLoaded", () => {
+    const msg = <?= json_encode($savedFlag === 'confirmed'
+      ? '✅ Compra confirmada. Stock actualizado correctamente.'
+      : '💾 Compra guardada en borrador. Podés confirmarla desde el listado.'
+    ) ?>;
+    
+    if (window.showToast) {
+      window.showToast(msg, 'success');
+    } else {
+      const toast = document.createElement("div");
+      toast.className = "toast toast-success show";
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  });
 </script>
 <?php endif; ?>
 

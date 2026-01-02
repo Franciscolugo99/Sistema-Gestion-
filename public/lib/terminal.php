@@ -216,3 +216,33 @@ function terminal_lock_release(PDO $pdo, int $terminalId, int $userId = 0, strin
   $st = $pdo->prepare("DELETE FROM terminal_locks WHERE terminal_id = :tid");
   $st->execute([':tid' => $terminalId]);
 }
+/* =========================================================
+   COMPAT / API UNIFICADA
+   - Estos helpers evitan fatales por nombres viejos.
+========================================================= */
+
+// Alias usado por la API unificada (index.php)
+if (!function_exists('terminal_list')) {
+  function terminal_list(PDO $pdo): array {
+    return terminal_list_active($pdo);
+  }
+}
+
+// Heartbeat del lock: refresca / reacquire y detecta pérdida
+if (!function_exists('terminal_lock_heartbeat')) {
+  function terminal_lock_heartbeat(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
+    // Reutilizamos la lógica robusta de acquire (maneja refresh/takeover/expired)
+    $res = terminal_lock_acquire($pdo, $terminalId, $userId, $sessionId, $ttlSeconds);
+
+    if (!empty($res['ok'])) {
+      return ['ok' => true] + $res;
+    }
+
+    // Si está ocupado por otro usuario, para el front esto es “perdí el lock”
+    if (($res['error'] ?? '') === 'LOCKED') {
+      return ['ok' => false, 'error' => 'LOCK_LOST', 'by' => ($res['by'] ?? null)];
+    }
+
+    return ['ok' => false, 'error' => (string)($res['error'] ?? 'LOCK_FAIL'), 'detail' => $res];
+  }
+}

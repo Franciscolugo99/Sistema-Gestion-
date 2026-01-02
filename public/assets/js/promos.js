@@ -3,7 +3,7 @@
 // Unificado con CSRF por meta + apiJson (app.js)
 
 (() => {
-  const API_BASE = "/kiosco/public/api/promos_api.php";
+  const API_BASE = "api/index.php";
 
   // ---------------------
   // CSRF (meta / global)

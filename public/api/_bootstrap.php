@@ -11,6 +11,8 @@ header('X-Content-Type-Options: nosniff');
 require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../lib/helpers.php';
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../lib/audit_log.php';
+
 
 $pdo  = getPDO();
 $user = current_user();

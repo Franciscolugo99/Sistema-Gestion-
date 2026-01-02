@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error("apiJson() no está disponible (¿se cargó app.js en esta página?).");
       }
 
-      await window.apiJson("api/api.php", {
+      await window.apiJson("api/index.php", {
         action: "anular_venta",
         venta_id: ventaId,
         motivo: (motivo || "").trim(),

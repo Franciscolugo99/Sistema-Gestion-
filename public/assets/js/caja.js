@@ -1,6 +1,6 @@
 // public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE = "api/api.php";
+  const API_BASE = "api/index.php";
   const API_VENTA = "api/index.php";
   const API_TIMEOUT_MS = 8000;
 

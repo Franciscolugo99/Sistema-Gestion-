@@ -1,24 +1,95 @@
-/* ==========================================================
-   PRODUCTOS – LAYOUT GENERAL
-========================================================== */
+/* =============================================================================
+   PRODUCTOS (FLUS) – CSS FINAL (sin duplicados)
+   - Form plegable (Agregar producto) con animación
+   - Panel lateral editar + confirm activar/desactivar
+   - Toast correcto (no se estira) + light/dark
+============================================================================= */
 
-.productos-page {
-  max-width: 1200px;
-  margin: 30px auto;
+/* -----------------------------
+   Variables del módulo (DARK)
+------------------------------ */
+:where(.page-wrap.productos-page, #editOverlay, #confirmToggle) {
+  --p-primary: #38bdf8;
+  --p-primary-2: #0ea5e9;
+
+  --p-success: #22c55e;
+  --p-warning: #f59e0b;
+  --p-danger: #ef4444;
+
+  --p-surface: rgba(2, 6, 23, 0.55);
+  --p-surface-2: rgba(2, 6, 23, 0.72);
+  --p-input: rgba(2, 6, 23, 0.45);
+
+  --p-border: rgba(148, 163, 184, 0.22);
+
+  --p-text: #e5e7eb;
+  --p-muted: rgba(226, 232, 240, 0.72);
+
+  --p-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  --p-overlay: rgba(0, 0, 0, 0.65);
+
+  color: var(--p-text);
 }
 
-.productos-page .panel + .panel {
+/* -----------------------------
+   Light overrides
+------------------------------ */
+:where(
+    html[data-theme="light"],
+    body[data-theme="light"],
+    html.light,
+    body.light
+  )
+  :where(.page-wrap.productos-page, #editOverlay, #confirmToggle) {
+  --p-primary: #0ea5e9;
+  --p-primary-2: #0284c7;
+
+  --p-surface: #ffffff;
+  --p-surface-2: #f1f5f9;
+  --p-input: #ffffff;
+
+  --p-border: rgba(15, 23, 42, 0.14);
+
+  --p-text: #0f172a;
+  --p-muted: rgba(15, 23, 42, 0.6);
+
+  --p-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  --p-overlay: rgba(15, 23, 42, 0.35);
+}
+
+/* =============================================================================
+   Layout base
+============================================================================= */
+.page-wrap.productos-page {
+  width: 100%;
+  max-width: 1440px;
+  margin: 26px auto;
+  padding: 0 16px;
+}
+
+/* Paneles solo del módulo (para que no dependas del global) */
+.page-wrap.productos-page .panel {
+  background: var(--p-surface);
+  border: 1px solid var(--p-border);
+  border-radius: 18px;
+  box-shadow: var(--p-shadow);
+  padding: 18px 18px;
+}
+
+.page-wrap.productos-page .panel + .panel {
   margin-top: 22px;
 }
 
-/* Header de la página */
+/* =============================================================================
+   Header
+============================================================================= */
 .productos-header {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
-  gap: 18px;
-  margin-bottom: 20px;
+  justify-content: space-between;
+  gap: 14px;
   flex-wrap: wrap;
+  margin-bottom: 14px;
 }
 
 .productos-header-left {
@@ -26,564 +97,598 @@
 }
 
 .productos-header .page-title {
-  margin: 0;
-  font-size: 1.7rem;
+  margin: 0 0 6px;
+  font-size: 1.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  background: linear-gradient(135deg, var(--p-primary) 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .productos-header .page-sub {
-  margin-top: 6px;
-  font-size: 0.9rem;
-  opacity: 0.75;
+  margin: 0;
+  color: var(--p-muted);
 }
 
-/* Botón “Agregar producto” (usa .btn .btn-primary como base) */
-.btn-new-product {
-  white-space: nowrap;
-  height: 38px;
-  border-radius: 14px;
-  padding-inline: 18px;
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+/* =============================================================================
+   Botones (scope módulo)
+============================================================================= */
+.productos-page .btn,
+#editOverlay .btn,
+#confirmToggle .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 850;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
 }
 
-/* FORMULARIO ALTA / EDICIÓN (BLOQUE PLEGABLE) */
-.product-form-block {
-  margin-top: 18px;
-  /* animación se define al final */
+.productos-page .btn-primary,
+#editOverlay .btn-primary,
+#confirmToggle .btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--p-primary) 0%,
+    var(--p-primary-2) 100%
+  );
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+}
+.productos-page .btn-primary:hover,
+#editOverlay .btn-primary:hover,
+#confirmToggle .btn-primary:hover {
+  transform: translateY(-1px);
 }
 
-.productos-form {
-  margin-top: 4px;
+.productos-page .btn-secondary,
+#editOverlay .btn-secondary,
+#confirmToggle .btn-secondary {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--p-text);
+  border: 1px solid var(--p-border);
+}
+.productos-page .btn-secondary:hover,
+#editOverlay .btn-secondary:hover,
+#confirmToggle .btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.18);
 }
 
-/* Grid del formulario */
-.pf-grid {
+.productos-page .btn-filter {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--p-primary-2);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.productos-page .btn-danger,
+#confirmToggle .btn-danger {
+  background: rgba(239, 68, 68, 0.16);
+  color: var(--p-danger);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.productos-page .btn-danger:hover,
+#confirmToggle .btn-danger:hover {
+  background: rgba(239, 68, 68, 0.22);
+}
+
+/* acciones de fila */
+.productos-page .btn-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--p-text);
+  text-decoration: none;
+  font-weight: 850;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.productos-page .btn-line:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+/* FORM PLEGABLE (simple y robusto) */
+#productFormBlock {
+  display: block !important;
+  overflow: hidden;
+
+  /* valor grande fijo para animar (tu form no supera esto) */
+  max-height: 2000px;
+
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+
+  transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
+
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+#productFormBlock.is-collapsed {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  transform: translateY(-6px) !important;
+  pointer-events: none !important;
+
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  border-top: 0 !important;
+}
+
+/* Grid form */
+.productos-page .pf-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px 18px;
+  gap: 14px;
 }
 
-.pf-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+@media (max-width: 980px) {
+  .productos-page .pf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
-
-.pf-field-wide {
-  grid-column: span 2;
-}
-
-@media (max-width: 900px) {
-  .pf-grid {
+@media (max-width: 560px) {
+  .productos-page .pf-grid {
     grid-template-columns: 1fr;
   }
-  .pf-field-wide {
-    grid-column: span 1;
+  .productos-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
-/* Labels y campos */
-.pf-field label,
-.pf-label-top {
+.productos-page .pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.productos-page .pf-field-wide {
+  grid-column: 1 / -1;
+}
+
+.productos-page .pf-field label,
+.productos-page .pf-label-top {
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--p-muted);
 }
 
-.pf-label-top {
-  margin-bottom: 6px;
-}
-
-/* ✅ FIX IMPORTANTE:
-   tus inputs muchas veces NO tienen type="text"
-   (ej <input name="codigo">), así que este selector los incluye */
-.productos-form input:not([type]),
-.productos-form input[type="text"],
-.productos-form input[type="number"],
-.productos-form select {
-  width: 100%;
-  padding: 9px 11px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.9);
-  color: var(--text);
-  font-size: 0.9rem;
+/* Inputs (incluye inputs sin type="text") */
+.productos-page .productos-form input:not([type]),
+.productos-page .productos-form input[type="text"],
+.productos-page .productos-form input[type="number"],
+.productos-page .productos-form select {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--p-border);
+  background: var(--p-input);
+  color: var(--p-text);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background 0.15s ease;
+  transition: all 0.18s ease;
+}
+.productos-page .productos-form input:focus,
+.productos-page .productos-form select:focus {
+  border-color: var(--p-primary);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  transform: translateY(-1px);
 }
 
-.productos-form input:focus,
-.productos-form select:focus {
-  border-color: rgba(34, 197, 94, 0.6);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+/* Pesable */
+.productos-page .pf-field-pesable {
+  grid-column: 1 / -1;
 }
-
-body[data-theme="light"] .productos-form input:not([type]),
-body[data-theme="light"] .productos-form input[type="text"],
-body[data-theme="light"] .productos-form input[type="number"],
-body[data-theme="light"] .productos-form select {
-  background: #ffffff;
-  border-color: rgba(148, 163, 184, 0.45);
-}
-
-/* Producto pesable */
-.pf-field-pesable {
-  grid-column: span 2;
-}
-
-.pf-pesable-row {
+.productos-page .pf-pesable-row {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
-
-.pf-pesable-text {
-  flex: 1 1 auto;
+.productos-page .pf-help-text {
+  margin: 6px 0 0;
+  color: var(--p-muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
 }
 
-.pf-pesable-title {
-  font-weight: 600;
-  font-size: 0.92rem;
+/* Switch */
+.edit-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.edit-switch input {
+  display: none;
+}
+.edit-switch-slider {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  border: 1px solid var(--p-border);
+  position: relative;
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+.edit-switch-slider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  transform: translateY(-50%);
+  transition: all 0.18s ease;
+}
+.edit-switch input:checked + .edit-switch-slider {
+  background: rgba(56, 189, 248, 0.35);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+.edit-switch input:checked + .edit-switch-slider::after {
+  left: 20px;
+  background: #fff;
 }
 
-.pf-help-text {
-  margin-top: 4px;
-  font-size: 0.8rem;
-  opacity: 0.8;
-}
-
-/* File input imagen (form principal) */
-.file-input {
+/* File input */
+.productos-page .file-input {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-
-.file-input-hidden {
+.productos-page .file-input-hidden {
   display: none;
 }
-
-.file-btn {
+.productos-page .file-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--p-border);
+  background: rgba(148, 163, 184, 0.1);
   cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.8);
-  transition: 0.15s ease;
+  font-weight: 850;
+}
+.productos-page .file-name {
+  color: var(--p-muted);
+  font-size: 0.88rem;
 }
 
-.file-btn:hover {
-  background: rgba(15, 23, 42, 1);
-}
-
-.file-name {
-  font-size: 0.84rem;
-  color: var(--muted);
-}
-
-/* Estado del producto */
-.pf-status-row {
-  margin-top: 18px;
+/* Estado producto */
+.productos-page .pf-status-row {
+  margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
 }
-
-.pf-status-info {
-  max-width: 420px;
+.productos-page .pf-status-help {
+  margin: 6px 0 0;
+  color: var(--p-muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
 }
-
-.pf-status-label {
-  display: block;
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-
-.pf-status-help {
-  font-size: 0.86rem;
-  opacity: 0.85;
-}
-
-/* Acciones formulario */
-.pf-actions {
-  margin-top: 20px;
+.productos-page .pf-actions {
+  margin-top: 14px;
   display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* =============================================================================
+   Filtros
+============================================================================= */
+.productos-page .filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 14px 0 16px;
+  padding: 14px;
+  background: rgba(56, 189, 248, 0.04);
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+}
+.productos-page .filters-left {
+  flex: 1 1 260px;
+  min-width: 240px;
+}
+.productos-page .filters-right {
+  display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
-
-/* ==========================================================
-   LISTADO – FILTROS
-========================================================== */
-
-.filters {
-  margin-bottom: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.filters-left {
-  flex: 1 1 260px;
-}
-
-.filters-right {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.filters input[type="text"] {
-  width: 100%;
-  padding: 9px 12px;
+.productos-page .filters input[type="text"],
+.productos-page .filters select {
+  height: 42px;
+  padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.9);
-  color: var(--text);
-  font-size: 0.9rem;
+  border: 1px solid var(--p-border);
+  background: var(--p-input);
+  color: var(--p-text);
 }
 
-.filters select {
-  min-width: 90px;
-  height: 36px;
-  padding-inline: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.95);
-  color: var(--text);
-  font-size: 0.84rem;
-}
-
-body[data-theme="light"] .filters input[type="text"],
-body[data-theme="light"] .filters select {
-  background: #ffffff;
-}
-
-/* ==========================================================
-   LISTADO – TABLA
-========================================================== */
-
-.table-wrapper {
-  overflow-x: auto;
+/* =============================================================================
+   Tabla
+============================================================================= */
+.productos-page .table-wrapper {
+  width: 100%;
+  overflow: auto;
   border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--p-border);
+  background: var(--p-surface);
+  box-shadow: var(--p-shadow);
 }
 
-.productos-table {
+.productos-page .productos-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
 }
 
-.productos-table th,
-.productos-table td {
-  padding: 10px 10px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.productos-table thead th {
-  background: rgba(15, 23, 42, 0.93);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-body[data-theme="light"] .productos-table thead th {
-  background: #0f172a;
-  color: #f9fafb;
-}
-
-.productos-table tbody tr:hover {
-  background: rgba(148, 163, 184, 0.06);
-}
-
-.col-thumb {
-  width: 60px;
-}
-
-/* Alineaciones rápidas */
-.center {
-  text-align: center;
-}
-.right {
-  text-align: right;
-}
-.t-right {
-  text-align: right;
-}
-.dot {
-  opacity: 0.6;
-  padding: 0 4px;
-}
-
-/* Th clickeables para ordenar */
-.productos-table th[data-sort] {
-  cursor: pointer;
-  position: relative;
-}
-
-.productos-table th.sorted-asc::after,
-.productos-table th.sorted-desc::after {
-  content: "▴";
-  position: absolute;
-  right: 8px;
-  font-size: 0.7rem;
-  opacity: 0.8;
-}
-
-.productos-table th.sorted-desc::after {
-  content: "▾";
-}
-
-/* Miniatura producto */
-.prod-thumb {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  object-fit: cover;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-}
-
-.prod-thumb-placeholder {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  border: 1px dashed rgba(148, 163, 184, 0.4);
+.productos-page .productos-table thead th {
   font-size: 0.8rem;
-  color: var(--muted);
-}
-
-/* Mensaje vacío */
-.empty-cell {
-  text-align: center;
-  padding: 18px 12px;
-  color: var(--muted);
-}
-
-/* tags de estado */
-.tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  padding: 14px 16px;
+  color: var(--p-text);
+  background: var(--p-surface-2);
+  border-bottom: 2px solid rgba(56, 189, 248, 0.18);
+  white-space: nowrap;
+  font-weight: 900;
 }
 
-.tag-inactivo {
-  background: rgba(239, 68, 68, 0.16);
-  color: #fecaca;
-  border: 1px solid rgba(248, 113, 113, 0.7);
-}
-
-.tag-sin {
-  background: rgba(239, 68, 68, 0.12);
-  color: #fed7d7;
-  border: 1px solid rgba(248, 113, 113, 0.6);
-}
-
-.tag-bajo {
-  background: rgba(234, 179, 8, 0.16);
-  color: #fef3c7;
-  border: 1px solid rgba(234, 179, 8, 0.7);
-}
-
-.tag-ok {
-  background: rgba(34, 197, 94, 0.16);
-  color: #bbf7d0;
-  border: 1px solid rgba(34, 197, 94, 0.7);
-}
-
-/* Acciones de la fila */
-.btn-line {
-  font-size: 0.82rem;
-  text-decoration: none;
-  border: none;
-  background: none;
-  padding: 0;
+.productos-page .productos-table thead th[data-sort] {
   cursor: pointer;
 }
 
-.btn-edit {
-  margin-right: 8px;
+.productos-page .productos-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  vertical-align: middle;
+  color: var(--p-text);
 }
 
-/* ==========================================================
-   PAGINACIÓN
-========================================================== */
+.productos-page .productos-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
 
-.pagination {
-  margin-top: 14px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+.productos-page .right {
+  text-align: right;
+}
+.productos-page .center {
+  text-align: center;
+}
+
+.productos-page th.sorted-asc::after {
+  content: " ▲";
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+.productos-page th.sorted-desc::after {
+  content: " ▼";
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+.productos-page .col-thumb {
+  width: 70px;
+}
+.productos-page .prod-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.productos-page .prod-thumb-placeholder {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   align-items: center;
-  font-size: 0.86rem;
+  justify-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  color: var(--p-muted);
 }
 
-.pagination-info {
-  opacity: 0.85;
+.productos-page .empty-cell {
+  text-align: center;
+  padding: 22px 16px;
+  color: var(--p-muted);
+  font-style: italic;
 }
 
-.pagination-pages {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.page-btn {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
+/* Tags estado */
+.productos-page .tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.84rem;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.productos-page .tag-ok {
+  background: rgba(34, 197, 94, 0.14);
+  color: var(--p-success);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.productos-page .tag-bajo {
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--p-warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+.productos-page .tag-sin {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--p-danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.productos-page .tag-inactivo {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--p-muted);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+/* =============================================================================
+   Paginación
+============================================================================= */
+.productos-page .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.productos-page .pagination-info {
+  color: var(--p-muted);
+  font-size: 0.9rem;
+}
+.productos-page .pagination-pages {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.productos-page .page-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border);
+  background: var(--p-input);
+  color: var(--p-text);
   text-decoration: none;
-  color: inherit;
-  padding-inline: 10px;
+  font-weight: 900;
+  transition: all 0.16s ease;
+}
+.productos-page .page-btn:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.08);
+}
+.productos-page .page-btn.active {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.14);
 }
 
-.page-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ffffff;
+/* =============================================================================
+   Blur del fondo cuando overlays abiertos
+============================================================================= */
+.page-wrap.blurred {
+  filter: blur(3px);
+  pointer-events: none;
+  user-select: none;
 }
 
-/* ==========================================================
-   PANEL LATERAL – BASE (overlay + panel)
-========================================================== */
-
+/* =============================================================================
+   Overlay edición (panel lateral)
+============================================================================= */
 .edit-overlay {
   position: fixed;
   inset: 0;
   display: flex;
   justify-content: flex-end;
   align-items: stretch;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--p-overlay);
   backdrop-filter: blur(4px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.2s ease;
   z-index: 4000;
-  overscroll-behavior: contain;
 }
 
-.edit-overlay.open {
+.edit-overlay.open,
+.edit-overlay.active {
   opacity: 1;
   pointer-events: auto;
 }
 
 .edit-panel {
-  width: 420px;
-  max-width: 100%;
+  width: 460px;
+  max-width: calc(100vw - 20px);
   height: 100%;
-  background: var(--panel);
-  color: var(--text);
-  border-left: 1px solid var(--panel-border);
-  box-shadow: -22px 0 45px rgba(0, 0, 0, 0.55);
-
+  background: var(--p-surface);
+  border-left: 1px solid var(--p-border);
+  box-shadow: var(--p-shadow);
   transform: translateX(100%);
   transition: transform 0.25s ease;
-  overflow-y: auto;
+  overflow: auto;
 }
 
-.edit-overlay.open .edit-panel {
+.edit-overlay.open .edit-panel,
+.edit-overlay.active .edit-panel {
   transform: translateX(0);
 }
 
 @media (max-width: 520px) {
   .edit-panel {
     width: 100%;
+    max-width: 100vw;
     border-left: none;
   }
 }
 
-/* Blur del contenido de fondo */
-.page-wrap.blurred,
-.root.blurred {
-  filter: blur(3px);
-  pointer-events: none;
-  user-select: none;
-}
-
-/* Head del panel */
 .edit-panel-head {
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--panel-border);
+  position: sticky;
+  top: 0;
+  background: var(--p-surface-2);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  z-index: 5;
 }
 
 .edit-panel-head h2 {
   margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 1.05rem;
+  font-weight: 950;
+  color: var(--p-text);
 }
 
 .close-edit {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid var(--p-border);
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--p-text);
   cursor: pointer;
 }
 
 .edit-form {
-  padding: 16px 20px 22px;
-  font-size: 0.9rem;
+  padding: 16px;
 }
 
 .edit-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-}
-
-.edit-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.edit-field-full {
-  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 @media (max-width: 768px) {
@@ -592,200 +697,182 @@ body[data-theme="light"] .productos-table thead th {
   }
 }
 
-.edit-field label,
-.edit-label-top {
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.edit-field-full {
+  grid-column: 1 / -1;
+}
+
+.edit-field label {
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--p-muted);
 }
 
-/* ✅ FIX: overlay también tiene inputs sin type="text" */
 .edit-form input:not([type]),
 .edit-form input[type="text"],
 .edit-form input[type="number"],
 .edit-form select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(15, 23, 42, 0.9);
-  color: var(--text);
-  font-size: 0.9rem;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--p-border);
+  background: var(--p-input);
+  color: var(--p-text);
 }
 
-body[data-theme="light"] .edit-form input:not([type]),
-body[data-theme="light"] .edit-form input[type="text"],
-body[data-theme="light"] .edit-form input[type="number"],
-body[data-theme="light"] .edit-form select {
-  background: #ffffff;
-}
-
-/* File input en overlay */
 .edit-form input[type="file"] {
   width: 100%;
   padding: 10px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px dashed rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.55);
-  color: var(--text);
+  background: rgba(2, 6, 23, 0.14);
+  color: var(--p-text);
 }
 
-body[data-theme="light"] .edit-form input[type="file"] {
+:where(
+    html[data-theme="light"],
+    body[data-theme="light"],
+    html.light,
+    body.light
+  )
+  .edit-form
+  input[type="file"] {
   background: #ffffff;
 }
 
-/* ✅ lo crea tu JS */
-.edit-file-name {
-  margin-top: 6px;
-  font-size: 0.84rem;
-  color: var(--muted);
-  opacity: 0.9;
-}
-
-/* Pesable dentro del panel lateral */
-.edit-field-pesable {
-  grid-column: 1 / -1;
-}
-
-.edit-pesable-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.edit-pesable-text {
-  flex: 1 1 auto;
-}
-
-.edit-pesable-title {
-  font-weight: 600;
-  font-size: 0.92rem;
-}
-
 .edit-help {
-  margin-top: 4px;
-  font-size: 0.8rem;
-  opacity: 0.8;
+  color: var(--p-muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
 }
 
-/* Estado en panel lateral */
-.edit-status-row {
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.35);
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) auto;
-  gap: 8px 16px;
-  align-items: center;
-}
-
-.edit-status-label {
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.edit-status-help {
-  font-size: 0.8rem;
-  opacity: 0.8;
-  grid-column: 1 / -1;
-}
-
-.edit-status-switch {
-  justify-self: end;
-}
-
-/* Acciones panel lateral */
 .edit-actions {
-  margin-top: 18px;
+  margin-top: 14px;
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* ==========================================================
-   MODAL CONFIRMAR ACTIVAR / DESACTIVAR
-========================================================== */
-
+/* =============================================================================
+   Confirm modal activar/desactivar
+============================================================================= */
 .confirm-overlay {
   position: fixed;
   inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.55);
+  padding: 20px;
+  background: var(--p-overlay);
   backdrop-filter: blur(4px);
   z-index: 5000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.22s ease;
-  overscroll-behavior: contain;
+  transition: opacity 0.2s ease;
 }
 
-.confirm-overlay.open {
+.confirm-overlay.open,
+.confirm-overlay.active {
   opacity: 1;
   pointer-events: auto;
 }
 
 .confirm-dialog {
-  width: 380px;
-  max-width: 90%;
-  background: var(--panel);
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  width: 420px;
+  max-width: 100%;
+  background: var(--p-surface);
+  border: 1px solid var(--p-border);
+  border-radius: 16px;
+  box-shadow: var(--p-shadow);
+  padding: 18px;
 }
 
 .confirm-dialog h3 {
-  margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 1.1rem;
+  margin: 0 0 8px;
+  color: var(--p-text);
 }
-
 .confirm-dialog p {
-  margin: 0 0 18px;
-  font-size: 0.92rem;
-  color: var(--muted);
+  margin: 0 0 14px;
+  color: var(--p-muted);
+  line-height: 1.45;
 }
-
 .confirm-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 10px;
+  justify-content: flex-end;
 }
 
-/* Botón peligro local si no tenés uno global */
-.btn-danger {
-  background: #e11d48;
-  border-color: #e11d48;
-  color: #ffffff;
-}
+/* =============================================================================
+   Toast (no se estira + light/dark)
+============================================================================= */
+.toast {
+  position: fixed;
+  right: 24px;
+  left: auto;
+  bottom: 24px;
 
-.btn-danger:hover {
-  background: #be123c;
-}
+  width: auto;
+  max-width: 420px;
 
-/* ==========================================================
-   BLOQUE DEL FORMULARIO PLEGABLE (ANIMACIÓN)
-========================================================== */
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
 
-.product-form-block {
-  overflow: hidden;
-  max-height: 5000px; /* abierto */
-  opacity: 1;
-  transform: translateY(0);
-  transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
-}
+  background: rgba(15, 23, 42, 0.96);
+  color: #f8fafc;
 
-.product-form-block.is-collapsed {
-  max-height: 0;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  transform: translateY(40px);
   opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 99999;
+
+  white-space: normal;
 }
-/* Para que scrollIntoView no quede debajo del navbar sticky */
-#productFormBlock {
-  scroll-margin-top: 200px; /* ajustá 90/110/130 según tu nav */
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.toast-info {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+.toast-success {
+  border-color: rgba(34, 197, 94, 0.55);
+}
+.toast-warning {
+  border-color: rgba(245, 158, 11, 0.55);
+}
+.toast-error {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+/* Light toast */
+:where(
+    html[data-theme="light"],
+    body[data-theme="light"],
+    html.light,
+    body.light
+  )
+  .toast {
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.12);
+}
+
+/* En móvil conviene ancho completo */
+@media (max-width: 560px) {
+  .toast {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+    bottom: 16px;
+  }
 }

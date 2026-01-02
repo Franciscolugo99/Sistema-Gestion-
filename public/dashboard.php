@@ -597,7 +597,7 @@ if ($hasVentas && $ventasFechaCol) {
 /* =========================
    HEADER
 ========================= */
-$pageTitle = 'Dashboard Avanzado';
+$pageTitle = 'Dashboard';
 $currentSection = 'dashboard';
 $extraCss = ['assets/css/dashboard.css?v=2', 'assets/css/dashboard-advanced.css?v=2'];
 
@@ -614,7 +614,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="dash-header">
       <div>
-        <h1 class="dash-title">📊 Dashboard Avanzado</h1>
+        <h1 class="dash-title">📊 Dashboard</h1>
         <p class="dash-sub">Análisis completo de ventas, rentabilidad y operaciones</p>
       </div>
       <div class="dash-header-meta">

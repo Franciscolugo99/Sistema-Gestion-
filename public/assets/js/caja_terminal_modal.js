@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return { r: { ok: false, status: 403 }, j: { ok: false, error: "CSRF_MISSING" } };
     }
 
-    const r = await fetch("api/terminal_select.php", {
+    const r = await fetch("api/index.php?action=terminal_select", {
       method: "POST",
       headers: {
         "X-CSRF-Token": csrf,

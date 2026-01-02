@@ -14,22 +14,44 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../../src/config.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
+require_once __DIR__ . '/../lib/terminal.php';      // ✅ necesario para terminal_* y current_terminal_id()
 require_once __DIR__ . '/../caja_lib.php';
-require_once __DIR__ . '/../promos_logic.php'; // obtenerPromosActivas()
+require_once __DIR__ . '/../promos_logic.php';      // obtenerPromosActivas()
 
 function json_ok(array $data = [], int $code = 200): void {
   if (ob_get_length()) ob_clean();
   http_response_code($code);
-  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE);
+  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   exit;
 }
 
 function json_fail(string $msg, int $code = 400, array $extra = []): void {
   if (ob_get_length()) ob_clean();
   http_response_code($code);
-  echo json_encode(['ok' => false, 'error' => $msg] + $extra, JSON_UNESCAPED_UNICODE);
+  echo json_encode(['ok' => false, 'error' => $msg] + $extra, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   exit;
 }
+
+// ✅ Si hay fatal/parse, devolvemos JSON (evita "NO JSON" en front)
+register_shutdown_function(function (): void {
+  $e = error_get_last();
+  if (!$e) return;
+
+  $fatal = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+  if (!in_array((int)$e['type'], $fatal, true)) return;
+
+  if (ob_get_length()) ob_clean();
+  if (!headers_sent()) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+  }
+  http_response_code(500);
+  echo json_encode([
+    'ok' => false,
+    'error' => 'FATAL',
+    'detail' => $e['message'] ?? 'Fatal error',
+  ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+});
 
 function read_json_body(): array {
   $raw = file_get_contents('php://input');
@@ -63,7 +85,7 @@ function get_table_columns(PDO $pdo, string $table): array {
   if (isset($cache[$table])) return $cache[$table];
 
   $st = $pdo->prepare("
-    SELECT COLUMN_NAME 
+    SELECT COLUMN_NAME
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
   ");
@@ -79,22 +101,22 @@ function has_col(PDO $pdo, string $table, string $col): bool {
 
 function insert_dynamic(PDO $pdo, string $table, array $data): int {
   $availableCols = get_table_columns($pdo, $table);
-  
+
   $cols = [];
   $ph   = [];
   $params = [];
-  
+
   foreach ($data as $col => $val) {
     if (!in_array($col, $availableCols, true)) continue;
     $cols[] = $col;
     $ph[] = ':' . $col;
     $params[':' . $col] = $val;
   }
-  
+
   if (!$cols) {
     throw new RuntimeException("No hay columnas compatibles para insertar en {$table}");
   }
-  
+
   $sql = "INSERT INTO {$table} (" . implode(',', $cols) . ") VALUES (" . implode(',', $ph) . ")";
   $st = $pdo->prepare($sql);
   $st->execute($params);
@@ -156,7 +178,6 @@ function parse_desc_global($raw): ?array {
     return ['tipo' => 'porcentaje', 'valor' => round($valor, 2)];
   }
 
-  // default a monto
   return ['tipo' => 'monto', 'valor' => round($valor, 2)];
 }
 
@@ -172,7 +193,6 @@ function calc_desc_global(float $netoAntes, ?array $desc): float {
     return round(min($netoAntes, $m), 2);
   }
 
-  // monto
   return round(min($netoAntes, $valor), 2);
 }
 
@@ -224,7 +244,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     $combos[] = $c;
   }
 
-// 1) promo simple por item
+  // 1) promo simple por item
   foreach ($items as &$it) {
     $pid   = (int)$it['producto_id'];
     $cant  = (float)$it['cantidad'];
@@ -236,7 +256,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
     $promo = $simplesByPid[$pid] ?? null;
 
-    // ✅ AHORA SÍ aplica promos a pesables (eliminamos la restricción)
+    // ✅ aplica promos a pesables
     if ($promo) {
       $tipo = (string)($promo['tipo'] ?? '');
       $n    = (int)($promo['n'] ?? 0);
@@ -270,8 +290,6 @@ function calcular_totales_con_promos(array $items, array $promos): array {
             ]);
           }
         } elseif ($tipo === 'NTH_PCT' && $pct > 0 && $cant >= $n) {
-          // ✅ FUNCIONA CON PESABLES: 25% a la 3° unidad
-          // Ejemplo: 3 KG con N=3, pct=25 → descuento del 25% sobre 1 KG
           $uDesc = (int)floor($cant / $n);
           $desc  = ($uDesc * $lista * $pct) / 100.0;
 
@@ -324,8 +342,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       if ($itKey === null) { $maxCombos = 0; break; }
 
       $tiene = (float)$items[$itKey]['cantidad'];
-      
-      // ✅ Tolerancia de 0.01 para pesables (evita errores con 0.999 kg)
+
       $esPesable = !empty($items[$itKey]['es_pesable']);
       $tolerance = $esPesable ? 0.01 : 0;
       $maxCombos = min($maxCombos, (int)floor(($tiene + $tolerance) / $q));
@@ -368,17 +385,15 @@ function calcular_totales_con_promos(array $items, array $promos): array {
       $items[$itKey]['descuento'] = round(((float)$items[$itKey]['descuento']) + $alloc, 2);
     }
   }
-// ✅ Evitar netos negativos por distribución de combos (casos extremos)
-foreach ($items as &$itFix) {
-  if ((float)($itFix['neto'] ?? 0) < 0) $itFix['neto'] = 0.0;
 
-  $itFix['neto'] = round((float)($itFix['neto'] ?? 0), 2);
-  $itFix['bruto'] = round((float)($itFix['bruto'] ?? 0), 2);
-
-  // Recalcular descuento consistente
-  $itFix['descuento'] = round(max(0.0, (float)$itFix['bruto'] - (float)$itFix['neto']), 2);
-}
-unset($itFix);
+  // ✅ Evitar netos negativos
+  foreach ($items as &$itFix) {
+    if ((float)($itFix['neto'] ?? 0) < 0) $itFix['neto'] = 0.0;
+    $itFix['neto'] = round((float)($itFix['neto'] ?? 0), 2);
+    $itFix['bruto'] = round((float)($itFix['bruto'] ?? 0), 2);
+    $itFix['descuento'] = round(max(0.0, (float)$itFix['bruto'] - (float)$itFix['neto']), 2);
+  }
+  unset($itFix);
 
   $totalBruto = 0.0;
   $totalNeto  = 0.0;
@@ -395,282 +410,824 @@ unset($itFix);
   return [
     'items' => $items,
     'total_bruto' => $totalBruto,
-    'total_neto'  => $totalNeto,              // neto después promos+combos (sin desc_global)
-    'descuento_total' => $descTotal,          // descuento promos+combos (sin desc_global)
+    'total_neto'  => $totalNeto,
+    'descuento_total' => $descTotal,
     'promos_aplicadas' => array_values($promosAplicadas),
   ];
 }
 
-// ------------------ ROUTER ------------------
-$action = (string)($_GET['action'] ?? '');
-if ($action !== 'registrar_venta') json_fail('Acción inválida', 404);
+/* --------------------------------------------------------
+   HELPERS API (permisos + CSRF)
+-------------------------------------------------------- */
+function require_perm_json(string $slug): void {
+  if (function_exists('user_has_permission') && !user_has_permission($slug)) {
+    json_fail('No autorizado', 403);
+  }
+}
 
-require_login_json();
-require_terminal_lock_json();
-if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+function require_any_perm_json(array $slugs): void {
+  if (!function_exists('user_has_permission')) return;
+  foreach ($slugs as $s) {
+    if (user_has_permission((string)$s)) return;
+  }
   json_fail('No autorizado', 403);
 }
 
-$body = read_json_body();
-
-// CSRF: header o body
-$csrf = (string)($body['csrf'] ?? ($body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
-
-if (!csrf_check($csrf)) json_fail('CSRF inválido o ausente', 403);
-
-$pdo = getPDO();
-$user = current_user();
-$userId = (int)($user['id'] ?? 0);
-
-$itemsIn = $body['items'] ?? null;
-if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
-
-$medio = norm_medio_pago((string)($body['medio_pago'] ?? 'EFECTIVO'));
-$montoPagado = parse_num($body['monto_pagado'] ?? 0);
-
-$descGlobalReq = parse_desc_global($body['desc_global'] ?? null);
-
-$puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
-
-// ✅ si no tiene permiso, no se permite desc_global aunque lo manden
-if (!$puedeCambiarPrecio) {
-  $descGlobalReq = null;
+function csrf_from_request(array $body): string {
+  $h = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+  if ($h === '' && isset($_SERVER['HTTP_X_CSRF'])) $h = (string)$_SERVER['HTTP_X_CSRF'];
+  return (string)($body['csrf'] ?? ($body['csrf_token'] ?? $h));
 }
 
-
-// agrupar items por producto
-$agg = [];
-foreach ($itemsIn as $it) {
-  if (!is_array($it)) continue;
-  $pid = (int)($it['id'] ?? $it['producto_id'] ?? 0);
-  if ($pid <= 0) continue;
-
-  $cant = parse_num($it['cantidad'] ?? 0);
-  if ($cant <= 0) continue;
-
-  $precioReq = isset($it['precio']) ? parse_num($it['precio']) : 0.0;
-
-  if (!isset($agg[$pid])) {
-    $agg[$pid] = ['producto_id' => $pid, 'cantidad' => 0.0, 'precio_req' => $precioReq];
-  }
-  $agg[$pid]['cantidad'] += $cant;
-  if ($precioReq > 0) $agg[$pid]['precio_req'] = $precioReq;
+function require_csrf_json(array $body): void {
+  $t = csrf_from_request($body);
+  if (!csrf_check($t !== '' ? $t : null)) json_fail('CSRF inválido o ausente', 403);
 }
 
-$items = array_values($agg);
-if (!$items) json_fail('Items inválidos', 422);
+// ------------------ ROUTER ------------------
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$body   = read_json_body();
+$action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
 
-// caja abierta
-$terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
-$caja = caja_get_abierta($pdo, $terminalId);
-$cajaId = (int)($caja['id'] ?? 0);
-if ($cajaId <= 0) json_fail('No hay caja abierta', 409);
+if ($action === '') json_fail('Acción requerida', 404);
 
 try {
-  $pdo->beginTransaction();
 
-  // promos activas
-  $promos = obtenerPromosActivas($pdo);
+  switch ($action) {
 
-  // lock productos + armar items con precio lista / precio actual
-  $stmtP = $pdo->prepare("
-    SELECT id, nombre, precio, stock, activo, es_pesable
-    FROM productos
-    WHERE id = :id
-    FOR UPDATE
-  ");
-
-  $srvItems = [];
-  $totalProductos = 0.0;
-
-  foreach ($items as $it) {
-    $pid = (int)$it['producto_id'];
-    $cant = (float)$it['cantidad'];
-
-    $stmtP->execute([':id' => $pid]);
-    $p = $stmtP->fetch(PDO::FETCH_ASSOC);
-
-    if (!$p) throw new RuntimeException("Producto #{$pid} no existe");
-    if ((int)$p['activo'] !== 1) throw new RuntimeException("Producto inactivo: {$p['nombre']}");
-
-    $esPesable = ((int)($p['es_pesable'] ?? 0) === 1);
-    if (!$esPesable) {
-      if (abs($cant - round($cant)) > 0.00001) {
-        throw new RuntimeException("Cantidad inválida para {$p['nombre']} (no es pesable)");
-      }
-      $cant = (float)(int)round($cant);
-    }
-
-$stock = (float)($p['stock'] ?? 0);
-$eps = $esPesable ? 0.0005 : 0.0; // ~ 3 decimales
-if ($cant > $stock + $eps) {
-  throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
-}
-
-
-
-    $precioLista = (float)$p['precio'];
-    $precioActual = $precioLista;
-
-    // permitir precio manual si tiene permiso
-  if ($puedeCambiarPrecio) {
-  $pr = (float)$it['precio_req'];
-  if ($pr > 0) $precioActual = $pr;
-
-  if ($precioActual <= 0) {
-    throw new RuntimeException("Precio inválido para {$p['nombre']}");
-  }
-}
-
-
-    $totalProductos += $cant;
-
-    $srvItems[] = [
-      'producto_id'   => $pid,
-      'cantidad'      => $cant,
-      'precio_lista'  => $precioLista,
-      'precio_actual' => $precioActual,
-      'nombre'        => (string)$p['nombre'],
-      'es_pesable'    => $esPesable ? 1 : 0,
-    ];
-  }
-
-  // calcular total con promos/combos (NETO sin desc_global)
-  $calc = calcular_totales_con_promos($srvItems, $promos);
-  $srvItems = $calc['items'];
-
-  $totalBruto = (float)$calc['total_bruto'];
-  $totalNetoSinGlobal  = (float)$calc['total_neto'];
-  $descTotalSinGlobal  = (float)$calc['descuento_total'];
-
-  // ✅ aplicar descuento global al final
-  $descGlobalMonto = calc_desc_global($totalNetoSinGlobal, $descGlobalReq);
-  $totalNetoFinal  = round(max(0.0, $totalNetoSinGlobal - $descGlobalMonto), 2);
-  $descTotalFinal  = round($descTotalSinGlobal + $descGlobalMonto, 2);
-
-  // meter DESC_GLOBAL en venta_promos para ticket/auditoría
-  if ($descGlobalMonto > 0.00001) {
-    $tipo = $descGlobalReq['tipo'] ?? 'monto';
-    $val  = (float)($descGlobalReq['valor'] ?? 0);
-
-    $calc['promos_aplicadas'][] = [
-      'promo_id'        => 0,
-      'promo_tipo'      => 'DESC_GLOBAL',
-      'promo_nombre'    => 'Descuento total',
-      'descripcion'     => ($tipo === 'porcentaje') ? ($val . '%') : ('-$' . number_format($val, 2, ',', '.')),
-      'descuento_monto' => round($descGlobalMonto, 2),
-      'meta'            => ['tipo' => $tipo, 'valor' => $val, 'aplicado_por_user_id' => $userId],
-    ];
-  }
-
-  // pago: si no es efectivo, forzar pagado = total FINAL
-  if ($medio !== 'EFECTIVO') {
-    $montoPagado = $totalNetoFinal;
-  } else {
-    if ($montoPagado + 1e-6 < $totalNetoFinal) {
-      throw new RuntimeException('Pago insuficiente');
-    }
-  }
-  $vuelto = ($medio === 'EFECTIVO') ? round(max(0.0, $montoPagado - $totalNetoFinal), 2) : 0.0;
-
-  // INSERT ventas
-  $ventaId = insert_dynamic($pdo, 'ventas', [
-    'user_id'         => ($userId > 0 ? $userId : null),
-    'caja_id'         => $cajaId,
-    'total'           => $totalNetoFinal,      // ✅ total final (con desc_global)
-    'total_bruto'     => $totalBruto,
-    'descuento_total' => $descTotalFinal,      // ✅ promos/combos + desc_global
-    'medio_pago'      => $medio,
-    'monto_pagado'    => $montoPagado,
-    'vuelto'          => $vuelto,
-    'estado'          => 'EMITIDA',
-  ]);
-
-  // INSERT items + stock + movimientos
-  foreach ($srvItems as $it) {
-    $pid  = (int)$it['producto_id'];
-    $cant = (float)$it['cantidad'];
-    $neto = (float)$it['neto'];          // neto item con promos/combos (sin desc_global)
-    $lista = (float)$it['precio_lista'];
-    $desc  = (float)$it['descuento'];
-
-    $precioUnitFinal = ($cant > 0) ? round($neto / $cant, 2) : 0.0;
-
-    insert_dynamic($pdo, 'venta_items', [
-      'venta_id'            => $ventaId,
-      'producto_id'         => $pid,
-      'cantidad'            => $cant,
-      'precio'              => $precioUnitFinal,
-      'subtotal'            => $neto,
-      'precio_unit_original'=> $lista,
-      'descuento_monto'     => $desc,
-      'precio_unit_final'   => $precioUnitFinal,
-    ]);
-
-    $st = $pdo->prepare("UPDATE productos SET stock = stock - :c WHERE id = :id");
-    $st->execute([':c' => $cant, ':id' => $pid]);
-
-    insert_dynamic($pdo, 'movimientos_stock', [
-      'producto_id'         => $pid,
-      'tipo'                => 'VENTA',
-      'cantidad'            => $cant,
-      'venta_id'            => $ventaId,
-      'referencia_venta_id' => $ventaId,
-      'comentario'          => null,
-      'fecha'               => date('Y-m-d H:i:s'),
-    ]);
-  }
-
-  // Guardar promos aplicadas (incluye DESC_GLOBAL)
-  $promosAplicadas = $calc['promos_aplicadas'] ?? [];
-  if (is_array($promosAplicadas) && count($promosAplicadas) > 0) {
-    foreach ($promosAplicadas as $p) {
-      if (!is_array($p)) continue;
-
-      $promoId  = isset($p['promo_id']) ? (int)$p['promo_id'] : null;
-      $tipo     = trim((string)($p['promo_tipo'] ?? ''));
-      $nombre   = trim((string)($p['promo_nombre'] ?? ''));
-      $descTxt  = trim((string)($p['descripcion'] ?? ''));
-      $monto    = (float)($p['descuento_monto'] ?? 0);
-      $meta     = $p['meta'] ?? null;
-
-      if ($tipo === '' || $nombre === '' || $monto <= 0) continue;
-
-      $monto = round($monto, 2);
-
-      insert_dynamic($pdo, 'venta_promos', [
-        'venta_id'        => $ventaId,
-        'promo_id'        => ($promoId && $promoId > 0) ? $promoId : null,
-        'promo_tipo'      => mb_substr($tipo, 0, 20),
-        'promo_nombre'    => mb_substr($nombre, 0, 120),
-        'descripcion'     => ($descTxt !== '') ? mb_substr($descTxt, 0, 255) : null,
-        'descuento_monto' => $monto,
-        'meta'            => ($meta === null) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE),
+    case 'debug_audit': {
+      require_login_json();
+      require_perm_json('ver_auditoria');
+      if (defined('APP_ENV') && APP_ENV === 'production') json_fail('No disponible', 404);
+      json_ok([
+        'has_audit'  => function_exists('audit_log_event'),
+        'audit_file' => file_exists(__DIR__ . '/../../src/audit_lib.php'),
       ]);
     }
+
+    case 'buscar_producto': {
+      require_login_json();
+      require_perm_json('realizar_ventas');
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $codigo = trim((string)($_GET['codigo'] ?? ''));
+      if ($codigo === '') json_fail('Código vacío', 422);
+
+      $pdo = getPDO();
+      $stmt = $pdo->prepare("
+        SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+        FROM productos
+        WHERE codigo = :cod
+        LIMIT 1
+      ");
+      $stmt->execute([':cod' => $codigo]);
+      $p = $stmt->fetch(PDO::FETCH_ASSOC);
+
+      if (!$p || (int)$p['activo'] !== 1) {
+        json_fail('Producto no encontrado o inactivo', 404);
+      }
+
+      $p['precio']       = (float)$p['precio'];
+      $p['stock']        = (float)$p['stock'];
+      $p['es_pesable']   = ((int)$p['es_pesable'] === 1);
+      $p['unidad_venta'] = $p['unidad_venta'] ?: 'UNIDAD';
+
+      json_ok(['producto' => $p]);
+    }
+
+    case 'listar_promos_activas': {
+      require_login_json();
+      require_perm_json('realizar_ventas');
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+
+      try {
+        $promos = obtenerPromosActivas($pdo);
+      } catch (Throwable $e) {
+        error_log("listar_promos_activas fallo: " . $e->getMessage());
+        $promos = ['simples' => [], 'combos' => []];
+      }
+
+      json_ok([
+        'simples' => $promos['simples'] ?? [],
+        'combos'  => $promos['combos']  ?? [],
+      ]);
+    }
+
+    case 'anular_venta': {
+      require_login_json();
+      require_perm_json('anular_venta');
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+
+      require_csrf_json($body);
+
+      $ventaId = (int)($body['venta_id'] ?? 0);
+      $motivo  = trim((string)($body['motivo'] ?? ''));
+      if ($ventaId <= 0) json_fail('ID inválido', 422);
+      if ($motivo === '') $motivo = 'Sin motivo';
+
+      $pdo  = getPDO();
+      $user = current_user();
+      $userId = (int)($user['id'] ?? 0);
+
+      try {
+        $pdo->beginTransaction();
+
+        $stVenta = $pdo->prepare("SELECT * FROM ventas WHERE id = ? FOR UPDATE");
+        $stVenta->execute([$ventaId]);
+        $venta = $stVenta->fetch(PDO::FETCH_ASSOC);
+
+        if (!$venta) throw new RuntimeException('Venta no encontrada');
+        if ((string)($venta['estado'] ?? '') === 'ANULADA') throw new RuntimeException('La venta ya está anulada');
+
+        $cajaId = (int)($venta['caja_id'] ?? 0);
+        $importe = (float)($venta['total'] ?? 0);
+        $medio   = (string)($venta['medio_pago'] ?? '');
+
+        $stItems = $pdo->prepare("SELECT producto_id, cantidad FROM venta_items WHERE venta_id = ?");
+        $stItems->execute([$ventaId]);
+        $items = $stItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        if (!$items) throw new RuntimeException('Venta sin items');
+
+        $updStock = $pdo->prepare("UPDATE productos SET stock = stock + :cant WHERE id = :pid");
+        $insMov   = $pdo->prepare("
+          INSERT INTO movimientos_stock (venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, comentario)
+          VALUES (:venta_id, NOW(), :producto_id, 'ANULACION', :cantidad, :ref_venta_id, :comentario)
+        ");
+
+        foreach ($items as $it) {
+          $pid  = (int)($it['producto_id'] ?? 0);
+          $cant = (float)($it['cantidad'] ?? 0);
+          if ($pid <= 0 || $cant <= 0) continue;
+
+          $updStock->execute([':cant' => $cant, ':pid' => $pid]);
+          $insMov->execute([
+            ':venta_id'     => $ventaId,
+            ':producto_id'  => $pid,
+            ':cantidad'     => $cant,
+            ':ref_venta_id' => $ventaId,
+            ':comentario'   => 'Anulación de venta #' . $ventaId,
+          ]);
+        }
+
+        $pdo->prepare("
+          UPDATE ventas
+          SET estado='ANULADA',
+              anulado_en=NOW(),
+              anulado_por=:uid,
+              anulado_motivo=:mot
+          WHERE id=:id
+        ")->execute([
+          ':uid' => $userId > 0 ? $userId : null,
+          ':mot' => $motivo,
+          ':id'  => $ventaId,
+        ]);
+
+        if ($cajaId > 0) {
+          $stCaja = $pdo->prepare("SELECT * FROM caja_sesiones WHERE id = ? FOR UPDATE");
+          $stCaja->execute([$cajaId]);
+          $caja = $stCaja->fetch(PDO::FETCH_ASSOC);
+
+          if ($caja) {
+            $updCaja = $pdo->prepare("
+              UPDATE caja_sesiones
+              SET total_ventas = GREATEST(total_ventas - :imp, 0),
+                  total_anulaciones = total_anulaciones + 1,
+                  total_efectivo = CASE WHEN :medio = 'EFECTIVO' THEN GREATEST(total_efectivo - :imp, 0) ELSE total_efectivo END,
+                  total_mp       = CASE WHEN :medio = 'MP'       THEN GREATEST(total_mp       - :imp, 0) ELSE total_mp       END,
+                  total_debito   = CASE WHEN :medio = 'DEBITO'   THEN GREATEST(total_debito   - :imp, 0) ELSE total_debito   END,
+                  total_credito  = CASE WHEN :medio = 'CREDITO'  THEN GREATEST(total_credito  - :imp, 0) ELSE total_credito  END
+              WHERE id = :caja_id
+            ");
+            $updCaja->execute([
+              ':imp'    => $importe,
+              ':medio'  => $medio,
+              ':caja_id'=> $cajaId,
+            ]);
+          }
+        }
+
+        $pdo->prepare("UPDATE facturas SET estado='ANULADA' WHERE venta_id=?")->execute([$ventaId]);
+
+        if (function_exists('audit_log_event')) {
+          audit_log_event($pdo, ($userId > 0 ? $userId : null), 'venta_anulada', 'ventas', $ventaId, [
+            'motivo'     => $motivo,
+            'importe'    => $importe,
+            'medio_pago' => $medio,
+          ]);
+        }
+
+        $pdo->commit();
+        json_ok(['venta_id' => $ventaId]);
+
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_fail($e->getMessage(), 500);
+      }
+    }
+
+    /* =========================================================
+       PROMOS (panel)
+    ========================================================= */
+    case 'productos': {
+      require_login_json();
+      require_any_perm_json(['editar_promos','editar_productos']);
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      $prod = $pdo->query("
+        SELECT id, codigo, nombre
+        FROM productos
+        WHERE activo = 1
+        ORDER BY nombre ASC
+      ")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+      json_ok(['productos' => $prod]);
+    }
+
+    case 'obtener': {
+      require_login_json();
+      require_any_perm_json(['editar_promos','editar_productos']);
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $id = (int)($_GET['id'] ?? 0);
+      if ($id <= 0) json_fail('ID inválido', 400);
+
+      $pdo = getPDO();
+      $st = $pdo->prepare("
+        SELECT id, nombre, tipo, activo, fecha_inicio, fecha_fin, precio_combo
+        FROM promos
+        WHERE id = ?
+        LIMIT 1
+      ");
+      $st->execute([$id]);
+      $promo = $st->fetch(PDO::FETCH_ASSOC);
+      if (!$promo) json_fail('Promo no encontrada', 404);
+
+      $tipo = (string)($promo['tipo'] ?? '');
+
+      if ($tipo === 'N_PAGA_M' || $tipo === 'NTH_PCT') {
+        $st2 = $pdo->prepare("SELECT producto_id, n, m, porcentaje FROM promo_productos WHERE promo_id = ? LIMIT 1");
+        $st2->execute([$id]);
+        $pp = $st2->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $promo['producto_id'] = isset($pp['producto_id']) ? (int)$pp['producto_id'] : null;
+        $promo['n']           = isset($pp['n']) ? (int)$pp['n'] : null;
+        $promo['m']           = isset($pp['m']) ? (int)$pp['m'] : null;
+        $promo['porcentaje']  = isset($pp['porcentaje']) ? (float)$pp['porcentaje'] : null;
+
+        json_ok(['promo' => $promo]);
+      }
+
+      $st3 = $pdo->prepare("
+        SELECT producto_id, cantidad_requerida AS cantidad
+        FROM promo_combo_items
+        WHERE promo_id = ?
+        ORDER BY id ASC
+      ");
+      $st3->execute([$id]);
+      $promo['items'] = $st3->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+      json_ok(['promo' => $promo]);
+    }
+
+    case 'actualizar': {
+      require_login_json();
+      require_any_perm_json(['editar_promos','editar_productos']);
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      require_csrf_json($body);
+
+      $pdo = getPDO();
+
+      $id     = (int)($body['id'] ?? 0);
+      $tipoIn = trim((string)($body['tipo'] ?? ''));
+      $nombre = trim((string)($body['nombre'] ?? ''));
+
+      if ($id <= 0) json_fail('ID inválido', 400);
+      if (mb_strlen($nombre) < 2) json_fail('Nombre inválido', 400);
+
+      $allowedTipos = ['N_PAGA_M', 'NTH_PCT', 'COMBO_FIJO'];
+      if (!in_array($tipoIn, $allowedTipos, true)) json_fail('Tipo de promo inválido', 400);
+
+      try {
+        $pdo->beginTransaction();
+
+        $st = $pdo->prepare("SELECT id, tipo FROM promos WHERE id=? FOR UPDATE");
+        $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+          $pdo->rollBack();
+          json_fail('Promo no encontrada', 404);
+        }
+
+        $tipoDb = (string)($row['tipo'] ?? '');
+        if ($tipoDb !== '' && $tipoDb !== $tipoIn) {
+          $pdo->rollBack();
+          json_fail('No se puede cambiar el tipo de promo.', 400);
+        }
+
+        $productExists = function(int $pid) use ($pdo): bool {
+          $stp = $pdo->prepare("SELECT 1 FROM productos WHERE id=? AND activo=1 LIMIT 1");
+          $stp->execute([$pid]);
+          return (bool)$stp->fetchColumn();
+        };
+
+        if ($tipoIn === 'N_PAGA_M' || $tipoIn === 'NTH_PCT') {
+          $productoId = (int)($body['producto_id'] ?? 0);
+          $n          = (int)($body['n'] ?? 0);
+          $m          = isset($body['m']) ? (int)$body['m'] : null;
+          $pct        = isset($body['porcentaje']) ? (float)$body['porcentaje'] : null;
+
+          if ($productoId <= 0 || !$productExists($productoId)) {
+            $pdo->rollBack();
+            json_fail('Producto inválido o inactivo', 400);
+          }
+
+          if ($tipoIn === 'N_PAGA_M') {
+            if ($n < 2) { $pdo->rollBack(); json_fail('En NxM, N debe ser >= 2', 400); }
+            if ($m === null || $m < 1) { $pdo->rollBack(); json_fail('En NxM, M debe ser >= 1', 400); }
+            if ($m >= $n) { $pdo->rollBack(); json_fail('En NxM, M debe ser menor que N (ej: 3x2).', 400); }
+            $pct = null;
+          } else {
+            if ($n < 2) { $pdo->rollBack(); json_fail('En % a la N°, N debe ser >= 2', 400); }
+            if ($pct === null || $pct <= 0 || $pct > 100) { $pdo->rollBack(); json_fail('Porcentaje debe estar entre 1 y 100', 400); }
+            $m = null;
+          }
+
+          $pdo->prepare("UPDATE promos SET nombre=:nom WHERE id=:id")
+              ->execute([':nom'=>$nombre, ':id'=>$id]);
+
+          $pdo->prepare("DELETE FROM promo_productos WHERE promo_id=?")->execute([$id]);
+          $pdo->prepare("
+            INSERT INTO promo_productos (promo_id, producto_id, n, m, porcentaje)
+            VALUES (:pid, :prod, :n, :m, :pct)
+          ")->execute([
+            ':pid'  => $id,
+            ':prod' => $productoId,
+            ':n'    => $n,
+            ':m'    => $m,
+            ':pct'  => $pct,
+          ]);
+
+          $pdo->commit();
+          json_ok();
+        }
+
+        $precioCombo = isset($body['precio_combo']) ? (float)$body['precio_combo'] : 0.0;
+        $items = $body['items'] ?? null;
+        if ($precioCombo <= 0) { $pdo->rollBack(); json_fail('Precio de combo inválido', 400); }
+        if (!is_array($items) || !$items) { $pdo->rollBack(); json_fail('Items inválidos', 400); }
+
+        $cleanItems = [];
+        foreach ($items as $it) {
+          if (!is_array($it)) continue;
+          $pid = (int)($it['producto_id'] ?? 0);
+          $cant = isset($it['cantidad']) ? (float)$it['cantidad'] : 0;
+          if ($pid <= 0 || $cant <= 0) continue;
+          if (!$productExists($pid)) { $pdo->rollBack(); json_fail('Hay productos inválidos/inactivos en el combo', 400); }
+          $cleanItems[] = ['pid'=>$pid, 'cant'=>$cant];
+        }
+        if (!$cleanItems) { $pdo->rollBack(); json_fail('Combo sin items válidos', 400); }
+
+        $pdo->prepare("UPDATE promos SET nombre=:nom, precio_combo=:pc WHERE id=:id")
+            ->execute([':nom'=>$nombre, ':pc'=>$precioCombo, ':id'=>$id]);
+
+        $pdo->prepare("DELETE FROM promo_combo_items WHERE promo_id=?")->execute([$id]);
+
+        $ins = $pdo->prepare("
+          INSERT INTO promo_combo_items (promo_id, producto_id, cantidad_requerida)
+          VALUES (:pid, :prod, :cant)
+        ");
+        foreach ($cleanItems as $ci) {
+          $ins->execute([':pid'=>$id, ':prod'=>$ci['pid'], ':cant'=>$ci['cant']]);
+        }
+
+        $pdo->commit();
+        json_ok();
+
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_fail('Error interno al actualizar.', 500);
+      }
+    }
+
+    case 'eliminar': {
+      require_login_json();
+      require_any_perm_json(['editar_promos','editar_productos']);
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      require_csrf_json($body);
+
+      $id = (int)($_GET['id'] ?? 0);
+      if ($id <= 0) json_fail('ID inválido', 400);
+
+      $pdo = getPDO();
+      try {
+        $pdo->beginTransaction();
+
+        $st = $pdo->prepare("SELECT 1 FROM promos WHERE id=? LIMIT 1");
+        $st->execute([$id]);
+        if (!$st->fetchColumn()) {
+          $pdo->rollBack();
+          json_fail('Promo no encontrada', 404);
+        }
+
+        $pdo->prepare("DELETE FROM promo_productos WHERE promo_id=?")->execute([$id]);
+        $pdo->prepare("DELETE FROM promo_combo_items WHERE promo_id=?")->execute([$id]);
+        $pdo->prepare("DELETE FROM promos WHERE id=?")->execute([$id]);
+
+        $pdo->commit();
+        json_ok();
+
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_fail('Error interno al eliminar.', 500);
+      }
+    }
+
+    /* =========================================================
+       TERMINALES (selección/lock)
+    ========================================================= */
+    case 'terminal_list': {
+      require_login_json();
+      // GET: CSRF por header (ok)
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      $terminales = terminal_list($pdo);
+      $currentTid = terminal_current_id($pdo);
+      if ($currentTid > 0) $_SESSION['terminal_id'] = $currentTid;
+
+      json_ok([
+        'terminales' => $terminales,
+        'current' => $currentTid,
+        // compat front
+        'terminals' => $terminales,
+        'current_terminal_id' => $currentTid
+      ]);
+    }
+
+    case 'terminal_select': {
+      require_login_json();
+      require_csrf_json($body);
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      $ttl = 90;
+
+      terminal_locks_gc($pdo, $ttl);
+
+      $requestedTerminalId = (int)($body['terminal_id'] ?? 0);
+
+      $currentTid = terminal_current_id($pdo);
+      if ($currentTid > 0) $_SESSION['terminal_id'] = $currentTid;
+
+      // ✅ si no mandan terminal_id -> devolvemos lista (SIN BUG)
+      if ($requestedTerminalId <= 0) {
+        $terminales = terminal_list($pdo);
+        json_ok([
+          'terminales' => $terminales,
+          'current' => $currentTid,
+          'terminals' => $terminales,
+          'current_terminal_id' => $currentTid
+        ]);
+      }
+
+      $tNew = terminal_get($pdo, $requestedTerminalId);
+      if (!$tNew || (int)($tNew['activo'] ?? 0) !== 1) json_fail('INVALID_TERMINAL', 400);
+
+      if ($currentTid > 0) {
+        $open = caja_get_abierta($pdo, $currentTid);
+        if (is_array($open) && !empty($open['id'])) {
+          http_response_code(409);
+          echo json_encode(['ok'=>false, 'error'=>'CAJA_ABIERTA'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+          exit;
+        }
+      }
+
+      $user = current_user();
+      $uid  = (int)($user['id'] ?? 0);
+      $sid  = session_id();
+
+      $res = terminal_lock_acquire($pdo, $requestedTerminalId, $uid, $sid, $ttl);
+      if (!($res['ok'] ?? false)) {
+        http_response_code(409);
+        echo json_encode(['ok'=>false, 'error'=>(string)($res['error'] ?? 'LOCK_FAIL'), 'detail'=>$res], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+      }
+
+      terminal_set_cookie($requestedTerminalId);
+      $_SESSION['terminal_id'] = $requestedTerminalId;
+
+      json_ok([
+        'terminal_id' => $requestedTerminalId,
+        'terminal_nombre' => (string)($tNew['nombre'] ?? ('Caja #' . $requestedTerminalId)),
+      ]);
+    }
+
+    case 'terminal_switch': {
+      require_login_json();
+      require_csrf_json($body);
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      $user = current_user();
+      $uid  = (int)($user['id'] ?? 0);
+
+      $newTid = (int)($body['terminal_id'] ?? 0);
+      if ($newTid <= 0) json_fail('INVALID_TERMINAL', 400);
+
+      $oldTid = terminal_current_id($pdo);
+      if ($oldTid > 0) $_SESSION['terminal_id'] = $oldTid;
+
+      if ($oldTid > 0 && $oldTid !== $newTid) {
+        terminal_lock_release($pdo, $oldTid, $uid);
+      }
+
+      terminal_set_cookie($newTid);
+      $_SESSION['terminal_id'] = $newTid;
+
+      json_ok();
+    }
+
+    case 'terminal_heartbeat': {
+      require_login_json();
+      require_csrf_json($body);
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      $user = current_user();
+      $uid  = (int)($user['id'] ?? 0);
+      $sid  = session_id();
+      $ttl  = 90;
+
+      $tid = terminal_current_id($pdo);
+      if ($tid <= 0) {
+        http_response_code(409);
+        echo json_encode(['ok'=>false, 'error'=>'NO_TERMINAL'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+      }
+      $_SESSION['terminal_id'] = $tid;
+
+      terminal_locks_gc($pdo, $ttl);
+
+      $res = terminal_lock_heartbeat($pdo, $tid, $uid, $sid, $ttl);
+      if (!($res['ok'] ?? false)) {
+        http_response_code(409);
+        echo json_encode(['ok'=>false, 'error'=>(string)($res['error'] ?? 'LOCK_FAIL'), 'detail'=>$res], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        exit;
+      }
+
+      json_ok();
+    }
+
+    // ✅ Registrar venta (tu bloque original intacto; solo dejé lo que ya tenías)
+    case 'registrar_venta': {
+      require_login_json();
+      require_terminal_lock_json();
+      if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+        json_fail('No autorizado', 403);
+      }
+
+      $csrf = (string)($body['csrf'] ?? ($body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
+      if (!csrf_check($csrf)) json_fail('CSRF inválido o ausente', 403);
+
+      $pdo = getPDO();
+      $user = current_user();
+      $userId = (int)($user['id'] ?? 0);
+
+      $itemsIn = $body['items'] ?? null;
+      if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
+
+      $medio = norm_medio_pago((string)($body['medio_pago'] ?? 'EFECTIVO'));
+      $montoPagado = parse_num($body['monto_pagado'] ?? 0);
+
+      $descGlobalReq = parse_desc_global($body['desc_global'] ?? null);
+
+      $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
+      if (!$puedeCambiarPrecio) $descGlobalReq = null;
+
+      $agg = [];
+      foreach ($itemsIn as $it) {
+        if (!is_array($it)) continue;
+        $pid = (int)($it['id'] ?? $it['producto_id'] ?? 0);
+        if ($pid <= 0) continue;
+
+        $cant = parse_num($it['cantidad'] ?? 0);
+        if ($cant <= 0) continue;
+
+        $precioReq = isset($it['precio']) ? parse_num($it['precio']) : 0.0;
+
+        if (!isset($agg[$pid])) {
+          $agg[$pid] = ['producto_id' => $pid, 'cantidad' => 0.0, 'precio_req' => $precioReq];
+        }
+        $agg[$pid]['cantidad'] += $cant;
+        if ($precioReq > 0) $agg[$pid]['precio_req'] = $precioReq;
+      }
+
+      $items = array_values($agg);
+      if (!$items) json_fail('Items inválidos', 422);
+
+      $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
+      $caja = caja_get_abierta($pdo, $terminalId);
+      $cajaId = (int)($caja['id'] ?? 0);
+      if ($cajaId <= 0) json_fail('No hay caja abierta', 409);
+
+      try {
+        $pdo->beginTransaction();
+
+        $promos = obtenerPromosActivas($pdo);
+
+        $stmtP = $pdo->prepare("
+          SELECT id, nombre, precio, stock, activo, es_pesable
+          FROM productos
+          WHERE id = :id
+          FOR UPDATE
+        ");
+
+        $srvItems = [];
+        $totalProductos = 0.0;
+
+        foreach ($items as $it) {
+          $pid = (int)$it['producto_id'];
+          $cant = (float)$it['cantidad'];
+
+          $stmtP->execute([':id' => $pid]);
+          $p = $stmtP->fetch(PDO::FETCH_ASSOC);
+
+          if (!$p) throw new RuntimeException("Producto #{$pid} no existe");
+          if ((int)$p['activo'] !== 1) throw new RuntimeException("Producto inactivo: {$p['nombre']}");
+
+          $esPesable = ((int)($p['es_pesable'] ?? 0) === 1);
+          if (!$esPesable) {
+            if (abs($cant - round($cant)) > 0.00001) {
+              throw new RuntimeException("Cantidad inválida para {$p['nombre']} (no es pesable)");
+            }
+            $cant = (float)(int)round($cant);
+          }
+
+          $stock = (float)($p['stock'] ?? 0);
+          $eps = $esPesable ? 0.0005 : 0.0;
+          if ($cant > $stock + $eps) {
+            throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
+          }
+
+          $precioLista = (float)$p['precio'];
+          $precioActual = $precioLista;
+
+          if ($puedeCambiarPrecio) {
+            $pr = (float)$it['precio_req'];
+            if ($pr > 0) $precioActual = $pr;
+            if ($precioActual <= 0) throw new RuntimeException("Precio inválido para {$p['nombre']}");
+          }
+
+          $totalProductos += $cant;
+
+          $srvItems[] = [
+            'producto_id'   => $pid,
+            'cantidad'      => $cant,
+            'precio_lista'  => $precioLista,
+            'precio_actual' => $precioActual,
+            'nombre'        => (string)$p['nombre'],
+            'es_pesable'    => $esPesable ? 1 : 0,
+          ];
+        }
+
+        $calc = calcular_totales_con_promos($srvItems, $promos);
+        $srvItems = $calc['items'];
+
+        $totalBruto = (float)$calc['total_bruto'];
+        $totalNetoSinGlobal  = (float)$calc['total_neto'];
+        $descTotalSinGlobal  = (float)$calc['descuento_total'];
+
+        $descGlobalMonto = calc_desc_global($totalNetoSinGlobal, $descGlobalReq);
+        $totalNetoFinal  = round(max(0.0, $totalNetoSinGlobal - $descGlobalMonto), 2);
+        $descTotalFinal  = round($descTotalSinGlobal + $descGlobalMonto, 2);
+
+        if ($descGlobalMonto > 0.00001) {
+          $tipo = $descGlobalReq['tipo'] ?? 'monto';
+          $val  = (float)($descGlobalReq['valor'] ?? 0);
+
+          $calc['promos_aplicadas'][] = [
+            'promo_id'        => 0,
+            'promo_tipo'      => 'DESC_GLOBAL',
+            'promo_nombre'    => 'Descuento total',
+            'descripcion'     => ($tipo === 'porcentaje') ? ($val . '%') : ('-$' . number_format($val, 2, ',', '.')),
+            'descuento_monto' => round($descGlobalMonto, 2),
+            'meta'            => ['tipo' => $tipo, 'valor' => $val, 'aplicado_por_user_id' => $userId],
+          ];
+        }
+
+        if ($medio !== 'EFECTIVO') {
+          $montoPagado = $totalNetoFinal;
+        } else {
+          if ($montoPagado + 1e-6 < $totalNetoFinal) {
+            throw new RuntimeException('Pago insuficiente');
+          }
+        }
+        $vuelto = ($medio === 'EFECTIVO') ? round(max(0.0, $montoPagado - $totalNetoFinal), 2) : 0.0;
+
+        $ventaId = insert_dynamic($pdo, 'ventas', [
+          'user_id'         => ($userId > 0 ? $userId : null),
+          'caja_id'         => $cajaId,
+          'total'           => $totalNetoFinal,
+          'total_bruto'     => $totalBruto,
+          'descuento_total' => $descTotalFinal,
+          'medio_pago'      => $medio,
+          'monto_pagado'    => $montoPagado,
+          'vuelto'          => $vuelto,
+          'estado'          => 'EMITIDA',
+        ]);
+
+        foreach ($srvItems as $it) {
+          $pid  = (int)$it['producto_id'];
+          $cant = (float)$it['cantidad'];
+          $neto = (float)$it['neto'];
+          $lista = (float)$it['precio_lista'];
+          $desc  = (float)$it['descuento'];
+
+          $precioUnitFinal = ($cant > 0) ? round($neto / $cant, 2) : 0.0;
+
+          insert_dynamic($pdo, 'venta_items', [
+            'venta_id'            => $ventaId,
+            'producto_id'         => $pid,
+            'cantidad'            => $cant,
+            'precio'              => $precioUnitFinal,
+            'subtotal'            => $neto,
+            'precio_unit_original'=> $lista,
+            'descuento_monto'     => $desc,
+            'precio_unit_final'   => $precioUnitFinal,
+          ]);
+
+          $st = $pdo->prepare("UPDATE productos SET stock = stock - :c WHERE id = :id");
+          $st->execute([':c' => $cant, ':id' => $pid]);
+
+          insert_dynamic($pdo, 'movimientos_stock', [
+            'producto_id'         => $pid,
+            'tipo'                => 'VENTA',
+            'cantidad'            => $cant,
+            'venta_id'            => $ventaId,
+            'referencia_venta_id' => $ventaId,
+            'comentario'          => null,
+            'fecha'               => date('Y-m-d H:i:s'),
+          ]);
+        }
+
+        $promosAplicadas = $calc['promos_aplicadas'] ?? [];
+        if (is_array($promosAplicadas) && count($promosAplicadas) > 0) {
+          foreach ($promosAplicadas as $p) {
+            if (!is_array($p)) continue;
+
+            $promoId  = isset($p['promo_id']) ? (int)$p['promo_id'] : null;
+            $tipo     = trim((string)($p['promo_tipo'] ?? ''));
+            $nombre   = trim((string)($p['promo_nombre'] ?? ''));
+            $descTxt  = trim((string)($p['descripcion'] ?? ''));
+            $monto    = (float)($p['descuento_monto'] ?? 0);
+            $meta     = $p['meta'] ?? null;
+
+            if ($tipo === '' || $nombre === '' || $monto <= 0) continue;
+
+            $monto = round($monto, 2);
+
+            insert_dynamic($pdo, 'venta_promos', [
+              'venta_id'        => $ventaId,
+              'promo_id'        => ($promoId && $promoId > 0) ? $promoId : null,
+              'promo_tipo'      => mb_substr($tipo, 0, 20),
+              'promo_nombre'    => mb_substr($nombre, 0, 120),
+              'descripcion'     => ($descTxt !== '') ? mb_substr($descTxt, 0, 255) : null,
+              'descuento_monto' => $monto,
+              'meta'            => ($meta === null) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE),
+            ]);
+          }
+        }
+
+        update_caja_sum($pdo, $cajaId, $medio, $totalNetoFinal, $totalProductos);
+
+        $pdo->commit();
+
+        json_ok([
+          'venta_id'        => $ventaId,
+          'total'           => $totalNetoFinal,
+          'total_bruto'     => $totalBruto,
+          'descuento_total' => $descTotalFinal,
+          'medio_pago'      => $medio,
+          'monto_pagado'    => $montoPagado,
+          'vuelto'          => $vuelto,
+          'desc_global_monto' => $descGlobalMonto,
+        ]);
+
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("Error en registrar_venta: " . $e->getMessage() . " | User: {$userId} | Caja: {$cajaId}");
+        json_fail($e->getMessage(), 500);
+      }
+    }
+
+    default:
+      json_fail('Acción inválida', 404);
   }
 
-  // actualizar caja_sesiones (con total FINAL)
-  update_caja_sum($pdo, $cajaId, $medio, $totalNetoFinal, $totalProductos);
-
-  $pdo->commit();
-
-  json_ok([
-    'venta_id'        => $ventaId,
-    'total'           => $totalNetoFinal,
-    'total_bruto'     => $totalBruto,
-    'descuento_total' => $descTotalFinal,
-    'medio_pago'      => $medio,
-    'monto_pagado'    => $montoPagado,
-    'vuelto'          => $vuelto,
-    'desc_global_monto' => $descGlobalMonto,
-  ]);
-
 } catch (Throwable $e) {
-  if ($pdo->inTransaction()) $pdo->rollBack();
-  
-  // ✅ Log mejorado para debugging
-  error_log("Error en registrar_venta: " . $e->getMessage() . " | User: {$userId} | Caja: {$cajaId}");
-  
   json_fail($e->getMessage(), 500);
 }

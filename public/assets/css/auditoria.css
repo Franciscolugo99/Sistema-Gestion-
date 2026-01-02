@@ -2,6 +2,11 @@
 
 .auditoria-panel {
   padding: 24px;
+
+  /* FIX: si algún .panel global te recorta contenido */
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 /* -------------------------
@@ -47,9 +52,9 @@
 ------------------------- */
 .table-wrap {
   margin-top: 16px;
+  overflow: auto; /* por si hay detalles largos */
 }
 
-/* Esto ayuda a que el “Detalle” no rompa el layout */
 .table {
   table-layout: fixed;
   width: 100%;
@@ -60,40 +65,37 @@
   vertical-align: top;
 }
 
-/* Si querés fijar anchos aproximados:
-   (ajustá según tu UI / responsive) */
 .table th:nth-child(1),
 .table td:nth-child(1) {
   width: 140px;
-} /* Fecha */
+}
 .table th:nth-child(2),
 .table td:nth-child(2) {
   width: 90px;
-} /* Usuario */
+}
 .table th:nth-child(3),
 .table td:nth-child(3) {
   width: 90px;
-} /* Módulo */
+}
 .table th:nth-child(4),
 .table td:nth-child(4) {
   width: 120px;
-} /* Acción */
+}
 .table th:nth-child(5),
 .table td:nth-child(5) {
   width: 90px;
-} /* Entidad */
+}
 .table th:nth-child(6),
 .table td:nth-child(6) {
   width: 60px;
-} /* ID */
+}
 
-/* OJO: antes tenías white-space:nowrap acá y te rompía el detalle */
 td.meta {
   max-width: 100%;
 }
 
 /* -------------------------
-   Detalle (details/summary)
+   Detalle
 ------------------------- */
 .meta-details summary {
   display: block;
@@ -102,19 +104,16 @@ td.meta {
   font-weight: 700;
   opacity: 0.92;
 
-  /* resumen “en una línea” con … */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-/* cuando se abre, que pueda bajar líneas si hace falta */
 .meta-details[open] summary {
   white-space: normal;
 }
 
-/* bloques internos */
 .meta-kv {
   margin-top: 10px;
   font-size: 12px;
@@ -134,7 +133,6 @@ td.meta {
   letter-spacing: 0.06em;
 }
 
-/* JSON */
 .meta-pre {
   margin: 8px 0 0;
   padding: 10px 12px;

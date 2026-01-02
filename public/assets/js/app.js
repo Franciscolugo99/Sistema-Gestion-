@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!CSRF) return;
 
     try {
-      const r = await fetch("api/terminal_heartbeat.php", {
+      const r = await fetch("api/index.php?action=terminal_heartbeat", {
         method: "POST",
         headers: {
           "X-CSRF-Token": CSRF,
