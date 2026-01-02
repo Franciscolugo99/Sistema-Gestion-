@@ -1049,40 +1049,12 @@ require_once __DIR__ . '/partials/header.php';
   </div>
 </div>
 
-<?php if ($savedFlag): ?>
-  <script>
-    if (window.showToast) {
-      window.showToast(
-        <?= json_encode(
-          $savedFlag === 'created'
-            ? 'Producto creado correctamente.'
-            : 'Producto actualizado correctamente.'
-        ) ?>
-      );
-    }
-  </script>
-<?php endif; ?>
 
 <?php
   $toast    = (string)($_GET['toast'] ?? '');
   $toastMsg = (string)($_GET['toast_msg'] ?? '');
 ?>
-<?php if ($toast): ?>
-  <script>
-    if (window.showToast) {
-      const t  = <?= json_encode($toast) ?>;
-      const cm = <?= json_encode($toastMsg) ?>;
 
-      const map = {
-        activated:   "Producto activado.",
-        deactivated: "Producto desactivado.",
-        error:       cm || "Ocurrió un error."
-      };
-
-      window.showToast(map[t] || "Acción realizada.");
-    }
-  </script>
-<?php endif; ?>
 <?php
 $inlineJs = $inlineJs ?? '';
 
@@ -1097,12 +1069,22 @@ if (!empty($_GET['saved'])) {
 // Toast por activar/desactivar (toast=activated/deactivated/error)
 if (!empty($_GET['toast'])) {
   $t = (string)$_GET['toast'];
-  $toastMsg = (string)($_GET['toast_msg'] ?? '');
+  $tm = (string)($_GET['toast_msg'] ?? '');
 
   if ($t === 'activated')   $inlineJs .= "window.showToast && window.showToast('Producto activado.');";
   if ($t === 'deactivated') $inlineJs .= "window.showToast && window.showToast('Producto desactivado.');";
-  if ($t === 'error')       $inlineJs .= "window.showToast && window.showToast(" . json_encode($toastMsg ?: 'Ocurrió un error.') . ");";
+  if ($t === 'error')       $inlineJs .= "window.showToast && window.showToast(" . json_encode($tm ?: 'Ocurrió un error.') . ");";
 }
+
+// ✅ limpiar params para no repetir al refrescar
+$inlineJs .= <<<JS
+(() => {
+  const url = new URL(window.location.href);
+  ['saved','toast','toast_msg'].forEach(k => url.searchParams.delete(k));
+  window.history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? "?" + url.searchParams.toString() : ""));
+})();
+JS;
 ?>
+
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

@@ -142,11 +142,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
 
-  function getCsrf() {
-    return (
-      document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
-    );
-  }
+function getCsrf() {
+  return (window.getCsrfToken && window.getCsrfToken())
+    || document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
+    || "";
+}
+
 
   function mostrarMensaje(tipo, texto) {
     if (!msgBox) return;
@@ -880,14 +881,15 @@ function aplicarPromosItem(item) {
         cantidad: Number(i.cantidad),
         precio: Number(i.precio), // precio unitario actual (manual si aplicaste)
       }));
-
+      const token = getCsrf();
       const payload = {
-        csrf: getCsrf(),
+        csrf_token: token,   // ✅ estándar
+        csrf: token,         // ✅ compat si algún endpoint viejo lee "csrf"
         caja_id: CAJA_ID,
         items: itemsLimpios,
         medio_pago: (selMedio?.value || "EFECTIVO").toUpperCase(),
         monto_pagado: Number(pagado),
-        desc_global: descGlobal || null, // ✅ backend lo aplica
+        desc_global: descGlobal || null,
       };
 
       const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {

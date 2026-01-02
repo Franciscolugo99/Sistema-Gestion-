@@ -77,31 +77,38 @@ let currentEditId = null;
 // ============================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // ✅ Guard real: si querés pausar el heartbeat, esto ahora SÍ funciona
+  if (window.__pauseTerminalHeartbeat) return;
+
   // Guard duro: nunca correr en login/selector de terminal
   const p = (window.location.pathname || "").toLowerCase();
   if (
     p.endsWith("/login.php") ||
     p.endsWith("/terminal_select.php") ||
     p.includes("/login")
-  )
-    return;
-
-  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-  if (!csrfMeta) return;
-
-  const CSRF = csrfMeta.getAttribute("content") || "";
-  if (!CSRF) return;
+  ) return;
 
   let stopped = false;
 
+  const getCsrf = () =>
+    (window.getCsrfToken && window.getCsrfToken()) ||
+    document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
+    "";
+
   const ping = async () => {
     if (stopped) return;
+
+    // ✅ token dinámico (si cambia sesión/token, no queda congelado)
+    const CSRF = getCsrf();
+    if (!CSRF) return;
+
     try {
       const r = await fetch("api/terminal_heartbeat.php", {
         method: "POST",
         headers: {
           "X-CSRF-Token": CSRF,
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
+          "Accept": "application/json",
         },
         body: JSON.stringify({}),
         cache: "no-store",
@@ -112,6 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stopped = true;
         return;
       }
+
       if (r.status === 403) {
         stopped = true;
         // CSRF inválido suele pasar cuando cambió la sesión/CSRF.
@@ -123,34 +131,24 @@ document.addEventListener("DOMContentLoaded", () => {
       if (r.status === 409) {
         stopped = true;
 
-        // Intentar leer causa real
         let j = null;
-        try {
-          j = await r.json();
-        } catch (_) {}
+        try { j = await r.json(); } catch (_) {}
 
-        // Si no hay terminal elegida -> mandalo a selector
         if (j && j.error === "NO_TERMINAL") {
           window.location.href = "terminal_select.php?next=caja.php";
           return;
         }
 
-        // Si está bloqueada por otro usuario -> logout
         if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
           window.location.href = "logout.php?reason=locked";
           return;
         }
 
-        // Cualquier otro 409 raro -> NO logout inmediato (evita bucles)
-        // Podés mostrar un toast si querés:
-        // showToast("Se perdió la conexión con la caja. Reintentá.");
         return;
       }
 
       if (r.ok) {
-        try {
-          await r.json();
-        } catch (_) {}
+        try { await r.json(); } catch (_) {}
       }
     } catch (_) {
       // silencioso
@@ -159,8 +157,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ping();
   setInterval(ping, 25000);
-  if (window.__pauseTerminalHeartbeat) return;
 });
+
 
 // ============================================
 // PANEL LATERAL EDICIÓN + BLUR
@@ -619,31 +617,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
 // ============================================
 // TOGGLE FORMULARIO NUEVO PRODUCTO
-// ============================================
-document.addEventListener("DOMContentLoaded", () => {
-  const block = document.getElementById("productFormBlock");
-  const btn = document.getElementById("toggleFormBtn");
-  const title = document.getElementById("formTitle");
-
-  if (!block || !btn || !title) return;
-
-  btn.addEventListener("click", () => {
-    const collapsed = block.classList.toggle("is-collapsed");
-
-    if (collapsed) {
-      btn.textContent = "Nuevo producto";
-      title.textContent = "Nuevo producto";
-    } else {
-      btn.textContent = "Ocultar formulario";
-      // si no estás editando, el título queda en "Nuevo producto"
-      // si hay edición, PHP ya habrá puesto "Editar producto"
-    }
-  });
-});
-// ============================================
-// TOGGLE FORMULARIO NUEVO PRODUCTO
+// (dejar SOLO 1 versión)
 // ============================================
 document.addEventListener("DOMContentLoaded", () => {
   const block = document.getElementById("productFormBlock");
@@ -652,62 +629,72 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!block || !btn) return;
 
-  // función que abre/cierra y actualiza textos
   function setState(open) {
-    // open = true  -> formulario visible
     block.classList.toggle("is-collapsed", !open);
 
     if (open) {
       btn.textContent = "Ocultar formulario";
     } else {
-      btn.textContent = " Agregar producto";
-      if (title) {
-        title.textContent = "Nuevo producto";
-      }
+      btn.textContent = "Agregar producto";
+      if (title) title.textContent = "Nuevo producto";
     }
   }
 
-  // estado inicial: lo que vino de PHP (.is-collapsed o no)
   const isCollapsedInitial = block.classList.contains("is-collapsed");
   setState(!isCollapsedInitial);
 
-  // click en el botón
   btn.addEventListener("click", () => {
     const isCollapsed = block.classList.contains("is-collapsed");
-    setState(isCollapsed); // si estaba colapsado, abrimos; si no, cerramos
+    setState(isCollapsed);
   });
 });
-// dropdown de ajustes
-document.addEventListener("click", (e) => {
-  const menu = document.getElementById("adminMenu");
-  if (!menu) return;
 
-  const btn = menu.querySelector(".nav-menu-btn");
-  const isBtn = btn && (btn === e.target || btn.contains(e.target));
-
-  if (isBtn) {
-    const open = menu.classList.toggle("open");
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
-    return;
-  }
-
-  if (!menu.contains(e.target)) {
-    menu.classList.remove("open");
-    if (btn) btn.setAttribute("aria-expanded", "false");
-  }
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape") return;
-  const menu = document.getElementById("adminMenu");
-  if (!menu) return;
-  const btn = menu.querySelector(".nav-menu-btn");
-  menu.classList.remove("open");
-  if (btn) btn.setAttribute("aria-expanded", "false");
-});
 // CSRF token global para fetch (una sola vez)
 if (!window.getCsrfToken) {
   window.getCsrfToken = function () {
-    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    return document.querySelector('meta[name="csrf-token"]')?.content || "";
+  };
+}
+
+// Cliente API estándar FLUS
+if (!window.apiJson) {
+  window.apiJson = async function (url, payload = {}, opts = {}) {
+    const headers = Object.assign(
+      {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": getCsrfToken(),
+      },
+      opts.headers || {}
+    );
+
+    const body = Object.assign({}, payload);
+
+    if (!("csrf_token" in body) && !("csrf" in body)) {
+      body.csrf_token = getCsrfToken();
+    }
+
+    const res = await fetch(url, {
+      method: opts.method || "POST",
+      headers,
+      body: JSON.stringify(body),
+      credentials: "same-origin",
+    });
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      throw new Error("Respuesta no es JSON (posible warning/HTML en backend).");
+    }
+
+    if (!res.ok || !data?.ok) {
+      const msg = data?.error || `HTTP ${res.status}`;
+      const err = new Error(msg);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+
+    return data;
   };
 }

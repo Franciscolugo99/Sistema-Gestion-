@@ -8,7 +8,8 @@
 
   const state = (window.__kioscoProductosState ||= {
     inited: false,
-    toggleBound: false,
+    toggleFormBound: false,
+    toggleModalBound: false,
   });
 
   const toNum = (v, fallback = 0) => {
@@ -27,7 +28,10 @@
     const n = toNum(value, 0);
     return isPesable ? n.toFixed(3) : String(Math.round(n));
   };
-// ====== TOGGLE FORM (A PRUEBA DE DOBLE HANDLER) ======
+
+  /* ==========================
+   TOGGLE FORM (ROBUSTO / CAPTURE)
+=========================== */
 function syncToggleLabel() {
   const btn = document.getElementById("toggleFormBtn");
   const block = document.getElementById("productFormBlock");
@@ -49,15 +53,21 @@ function toggleFormBlock() {
   }
 }
 
-// ⚠️ esto evita que OTRO script vuelva a togglear el mismo click
-(function bindToggleOnce() {
-  if (window.__kioscoToggleBound) {
-    syncToggleLabel();
+(function bindToggleOnceCapture() {
+  // usa state del módulo, sin globales genéricos
+  if (state.toggleFormBound) {
+    // por si ya estaba bindeado
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", syncToggleLabel);
+    } else {
+      syncToggleLabel();
+    }
     return;
   }
-  window.__kioscoToggleBound = true;
+  state.toggleFormBound = true;
 
-  window.addEventListener(
+  // CAPTURE: se ejecuta aunque otro script frene el click en bubble
+  document.addEventListener(
     "click",
     (e) => {
       const btn = e.target.closest("#toggleFormBtn");
@@ -69,7 +79,7 @@ function toggleFormBlock() {
 
       toggleFormBlock();
     },
-    true // capture
+    true
   );
 
   if (document.readyState === "loading") {
@@ -79,7 +89,6 @@ function toggleFormBlock() {
   }
 })();
 
-
   /* ==========================
      PANEL LATERAL – EDICIÓN
   =========================== */
@@ -87,8 +96,7 @@ function toggleFormBlock() {
 
   function fillEditForm(data) {
     const form = document.getElementById("editForm");
-    if (!form || !data) return false;
-    if (!data.id) return false;
+    if (!form || !data || !data.id) return false;
 
     const setVal = (name, value) => {
       const el = form.elements[name];
@@ -134,7 +142,7 @@ function toggleFormBlock() {
 
   function openEditPanel(id) {
     const overlay = document.getElementById("editOverlay");
-    const root = document.querySelector(".page-wrap");
+    const root = document.querySelector(".page-wrap") || document.querySelector(".root");
 
     overlay?.classList.add("open");
     root?.classList.add("blurred");
@@ -144,7 +152,7 @@ function toggleFormBlock() {
     fetch(`productos.php?editar=${encodeURIComponent(id)}&ajax=1`, {
       cache: "no-store",
       credentials: "same-origin",
-      headers: { "X-Requested-With": "XMLHttpRequest" },
+      headers: { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" },
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("No se pudo cargar el producto"))))
       .then((data) => {
@@ -170,7 +178,7 @@ function toggleFormBlock() {
 
   function closeEditPanel() {
     const overlay = document.getElementById("editOverlay");
-    const root = document.querySelector(".page-wrap");
+    const root = document.querySelector(".page-wrap") || document.querySelector(".root");
     overlay?.classList.remove("open");
     root?.classList.remove("blurred");
     lastEditRequestId++;
@@ -180,11 +188,76 @@ function toggleFormBlock() {
   window.closeEditPanel = closeEditPanel;
 
   /* ==========================
+     MODAL ACTIVAR/DESACTIVAR (DELEGADO)
+  =========================== */
+  function bindToggleModalOnce() {
+    if (state.toggleModalBound) return;
+    state.toggleModalBound = true;
+
+    const confirmOverlay = document.getElementById("confirmToggle");
+    const confirmTitle = document.getElementById("confirmTitle");
+    const confirmText = document.getElementById("confirmText");
+    const confirmCancel = document.getElementById("confirmCancel");
+    const confirmAccept = document.getElementById("confirmAccept");
+
+    let pendingHref = null;
+
+    const closeConfirm = () => {
+      confirmOverlay?.classList.remove("open");
+      pendingHref = null;
+    };
+
+    confirmOverlay?.addEventListener("click", (e) => {
+      if (e.target === confirmOverlay) closeConfirm();
+    });
+
+    confirmCancel?.addEventListener("click", (e) => {
+      e.preventDefault();
+      closeConfirm();
+    });
+
+    confirmAccept?.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (pendingHref) window.location.href = pendingHref;
+    });
+
+    document.addEventListener("click", (e) => {
+      const link = e.target.closest(".js-product-toggle");
+      if (!link) return;
+
+      e.preventDefault();
+      pendingHref = link.getAttribute("href");
+
+      const action = (link.dataset.action || "").toLowerCase();
+
+      if (!confirmOverlay || !confirmTitle || !confirmText) {
+        if (pendingHref) window.location.href = pendingHref;
+        return;
+      }
+
+      if (action === "desactivar") {
+        confirmTitle.textContent = "Desactivar producto";
+        confirmText.textContent =
+          "¿Desactivar este producto? No aparecerá en Caja ni en búsquedas de ventas.";
+      } else {
+        confirmTitle.textContent = "Activar producto";
+        confirmText.textContent =
+          "¿Activar este producto? Volverá a estar disponible para ventas.";
+      }
+
+      confirmOverlay.classList.add("open");
+    });
+  }
+
+  /* ==========================
      INIT
   =========================== */
   function init() {
     if (state.inited) return;
     state.inited = true;
+
+    bindToggleFormOnce();
+    bindToggleModalOnce();
 
     // Nombre archivo (form principal)
     const fileInput = document.getElementById("imagen");
@@ -199,7 +272,7 @@ function toggleFormBlock() {
       });
     }
 
-    // Overlay: nombre de archivo + pesable step
+    // Overlay: nombre archivo + pesable step
     const editForm = document.getElementById("editForm");
     if (editForm) {
       const editFile = editForm.querySelector('input[type="file"][name="imagen"]');
@@ -229,64 +302,13 @@ function toggleFormBlock() {
 
           const s = editForm.elements["stock"];
           const m = editForm.elements["stock_minimo"];
-          if (s) s.value = formatStock(s.value, isPes);
-          if (m) m.value = formatStock(m.value, isPes);
+          if (s && String(s.value).trim() !== "") s.value = formatStock(s.value, isPes);
+          if (m && String(m.value).trim() !== "") m.value = formatStock(m.value, isPes);
         });
       }
     }
 
-    // Confirm activar/desactivar
-    const confirmOverlay = document.getElementById("confirmToggle");
-    const confirmTitle = document.getElementById("confirmTitle");
-    const confirmText = document.getElementById("confirmText");
-    const confirmCancel = document.getElementById("confirmCancel");
-    const confirmAccept = document.getElementById("confirmAccept");
-
-    let pendingHref = null;
-
-    const closeConfirm = () => {
-      confirmOverlay?.classList.remove("open");
-      pendingHref = null;
-    };
-
-    confirmOverlay?.addEventListener("click", (e) => {
-      if (e.target === confirmOverlay) closeConfirm();
-    });
-
-    confirmCancel?.addEventListener("click", (e) => {
-      e.preventDefault();
-      closeConfirm();
-    });
-
-    confirmAccept?.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (pendingHref) window.location.href = pendingHref;
-    });
-
-    qsa(".js-product-toggle").forEach((link) => {
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        pendingHref = link.getAttribute("href");
-
-        const action = link.dataset.action || "cambiar";
-        if (confirmTitle && confirmText && confirmOverlay) {
-          if (action === "desactivar") {
-            confirmTitle.textContent = "Desactivar producto";
-            confirmText.textContent =
-              "¿Desactivar este producto? No aparecerá en Caja ni en búsquedas de ventas.";
-          } else {
-            confirmTitle.textContent = "Activar producto";
-            confirmText.textContent =
-              "¿Activar este producto? Volverá a estar disponible para ventas.";
-          }
-          confirmOverlay.classList.add("open");
-        } else if (pendingHref) {
-          window.location.href = pendingHref;
-        }
-      });
-    });
-
-    // Ordenar por columnas
+    // Ordenar por columnas (ASC/DESC)
     const table = document.querySelector(".productos-table");
     const filtersForm = document.querySelector("form.filters");
 
@@ -303,8 +325,8 @@ function toggleFormBlock() {
           const currentSort = (table.dataset.sort || "").trim();
           const currentDir  = (table.dataset.dir || "ASC").toUpperCase().trim();
 
-          let newDir = "asc";
-          if (sortField === currentSort) newDir = currentDir === "ASC" ? "desc" : "asc";
+          let newDir = "ASC";
+          if (sortField === currentSort) newDir = currentDir === "ASC" ? "DESC" : "ASC";
 
           inputSort.value = sortField;
           inputDir.value  = newDir;
@@ -315,23 +337,22 @@ function toggleFormBlock() {
       });
     }
 
-    // ESC closes
+    // ESC closes + click afuera (edit)
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
 
-      if (confirmOverlay?.classList.contains("open")) closeConfirm();
+      const confirmOverlay = document.getElementById("confirmToggle");
+      if (confirmOverlay?.classList.contains("open")) confirmOverlay.classList.remove("open");
 
       const editOverlay = document.getElementById("editOverlay");
       if (editOverlay?.classList.contains("open")) closeEditPanel();
     });
 
-    // Click afuera cierra overlay
     const editOverlay = document.getElementById("editOverlay");
     editOverlay?.addEventListener("click", (e) => {
       if (e.target === editOverlay) closeEditPanel();
     });
   }
-
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

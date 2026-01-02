@@ -1,8 +1,20 @@
 // public/assets/js/promos.js
 // Panel lateral de edición + modal eliminar + toast + filtros
+// Unificado con CSRF por meta + apiJson (app.js)
 
 (() => {
   const API_BASE = "/kiosco/public/api/promos_api.php";
+
+  // ---------------------
+  // CSRF (meta / global)
+  // ---------------------
+  function getCsrf() {
+    return (
+      (window.getCsrfToken && window.getCsrfToken()) ||
+      document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
+      ""
+    );
+  }
 
   // ---------------------
   // TOAST
@@ -19,12 +31,14 @@
   }
 
   // ---------------------
-  // FETCH JSON SEGURO
+  // FETCH JSON SEGURO (GET)
   // ---------------------
-  async function fetchJson(url, options = {}) {
+  async function fetchJsonGet(url) {
     const res = await fetch(url, {
+      method: "GET",
       credentials: "same-origin",
-      ...options,
+      cache: "no-store",
+      headers: { Accept: "application/json" },
     });
 
     const text = await res.text();
@@ -41,11 +55,12 @@
       const msg = data?.error || `Error HTTP ${res.status}`;
       throw new Error(msg);
     }
-
     return data;
   }
 
+  // ---------------------
   // Debounce simple
+  // ---------------------
   function debounce(fn, wait = 250) {
     let t = null;
     return (...args) => {
@@ -60,9 +75,6 @@
   document.addEventListener("DOMContentLoaded", () => {
     const page = document.getElementById("promos-page");
     if (!page) return;
-
-    // CSRF (viene del HTML: <div id="promos-page" data-csrf="...">)
-    const csrf = (page.dataset.csrf || "").trim();
 
     // ---------------------
     // FILTROS (tabla)
@@ -171,7 +183,7 @@
     async function cargarProductosSelect(selectEl, productoId = null) {
       if (!selectEl) return;
 
-      const data = await fetchJson(`${API_BASE}?action=productos`);
+      const data = await fetchJsonGet(`${API_BASE}?action=productos`);
       const productos = data.productos || [];
 
       selectEl.innerHTML = "";
@@ -215,7 +227,10 @@
     // =====================================================
     async function cargarPromo(id) {
       try {
-        const data = await fetchJson(`${API_BASE}?action=obtener&id=${encodeURIComponent(id)}`);
+        const data = await fetchJsonGet(
+          `${API_BASE}?action=obtener&id=${encodeURIComponent(id)}`
+        );
+
         if (!data.ok) {
           notify(data.error || "No se pudo cargar la promoción.");
           return;
@@ -307,14 +322,12 @@
         payload.producto_id = Number(selProducto?.value || 0) || null;
         payload.n = Number(inpN?.value || 0) || null;
         payload.m = Number(inpM?.value || 0) || null;
-        // no mandamos porcentaje
       }
 
       if (tipo === "NTH_PCT") {
         payload.producto_id = Number(selProducto?.value || 0) || null;
         payload.n = Number(inpN?.value || 0) || null;
         payload.porcentaje = inpPct?.value !== "" ? Number(inpPct.value) : null;
-        // no mandamos m
       }
 
       if (tipo === "COMBO_FIJO") {
@@ -329,30 +342,19 @@
       }
 
       const errMsg = validarPayload(payload);
-      if (errMsg) {
-        notify(errMsg);
-        return;
-      }
+      if (errMsg) return notify(errMsg);
 
-      if (!csrf) {
-        notify("Falta CSRF en la página. Recargá y probá de nuevo.");
-        return;
+      const csrf = getCsrf();
+      if (!csrf) return notify("Falta CSRF (meta csrf-token). Recargá y probá de nuevo.");
+
+      if (!window.apiJson) {
+        return notify("Falta apiJson (app.js). Asegurate de cargar app.js antes que promos.js.");
       }
 
       try {
-        const data = await fetchJson(`${API_BASE}?action=actualizar`, {
+        await window.apiJson(`${API_BASE}?action=actualizar`, payload, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": csrf,
-          },
-          body: JSON.stringify(payload),
         });
-
-        if (!data.ok) {
-          notify(data.error || "Error guardando cambios.");
-          return;
-        }
 
         notify("Promoción actualizada correctamente.");
         setTimeout(() => window.location.reload(), 450);
@@ -421,26 +423,24 @@
     btnConfirmDel?.addEventListener("click", async () => {
       if (!promoAEliminar?.id) return;
 
-      if (!csrf) {
-        notify("Falta CSRF en la página. Recargá y probá de nuevo.");
-        return;
+      const csrf = getCsrf();
+      if (!csrf) return notify("Falta CSRF (meta csrf-token). Recargá y probá de nuevo.");
+
+      if (!window.apiJson) {
+        return notify("Falta apiJson (app.js). Asegurate de cargar app.js antes que promos.js.");
       }
 
       const id = promoAEliminar.id;
 
       try {
-        const data = await fetchJson(`${API_BASE}?action=eliminar&id=${encodeURIComponent(id)}`, {
-          method: "POST",
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRF-Token": csrf,
-          },
-        });
-
-        if (!data.ok) {
-          notify(data.error || "No se pudo eliminar la promoción.");
-          return;
-        }
+        await window.apiJson(
+          `${API_BASE}?action=eliminar&id=${encodeURIComponent(id)}`,
+          {},
+          {
+            method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+          }
+        );
 
         const row = document.querySelector(`tr.promo-row[data-id="${id}"]`);
         if (row) row.remove();

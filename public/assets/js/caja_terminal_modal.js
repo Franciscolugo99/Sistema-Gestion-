@@ -8,15 +8,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const errEl = document.getElementById("terminalModalError");
   const form = document.getElementById("terminalModalForm");
 
-  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-  const CSRF = csrfMeta ? csrfMeta.getAttribute("content") || "" : "";
-
   const closeEls = modal.querySelectorAll("[data-close]");
+
+  const getCsrf = () =>
+    (window.getCsrfToken && window.getCsrfToken()) ||
+    document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
+    "";
+
   const openModal = () => {
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     loadList();
   };
+
   const closeModal = () => {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
@@ -35,11 +39,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function api(body) {
+    const csrf = getCsrf();
+    if (!csrf) {
+      // Esto evita requests inútiles que van a devolver 403
+      return { r: { ok: false, status: 403 }, j: { ok: false, error: "CSRF_MISSING" } };
+    }
+
     const r = await fetch("api/terminal_select.php", {
       method: "POST",
       headers: {
-        "X-CSRF-Token": CSRF,
-        "Content-Type": "application/json",
+        "X-CSRF-Token": csrf,
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept": "application/json",
       },
       credentials: "same-origin",
       cache: "no-store",
@@ -49,58 +60,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let j = null;
     try {
       j = await r.json();
-    } catch (_) {}
+    } catch (_) {
+      j = null;
+    }
 
     return { r, j };
-  }
-
-  function renderList(terminals, currentId) {
-    if (!listEl) return;
-    listEl.innerHTML = "";
-
-    terminals.forEach((t) => {
-      const isLocked = t.status === "locked";
-      const checked = Number(t.id) === Number(currentId);
-
-      const item = document.createElement("label");
-      item.className = "terminal-item";
-
-      item.innerHTML = `
-        <input class="terminal-radio" type="radio" name="terminal_id" value="${
-          t.id
-        }"
-          ${checked ? "checked" : ""} ${isLocked ? "disabled" : ""}>
-        <div class="terminal-main">
-          <div class="terminal-name">${escapeHtml(
-            t.nombre || "Caja #" + t.id
-          )}</div>
-          ${
-            t.codigo
-              ? `<div class="terminal-code">Código: ${escapeHtml(
-                  t.codigo
-                )}</div>`
-              : ""
-          }
-        </div>
-        <div class="terminal-pill ${isLocked ? "is-locked" : "is-free"}">
-          ${
-            isLocked ? `Ocupada · ${escapeHtml(t.lockedBy || "Otro")}` : "Libre"
-          }
-        </div>
-      `;
-
-      listEl.appendChild(item);
-    });
-  }
-
-  async function loadList() {
-    hideError();
-    const { r, j } = await api({}); // lista
-    if (!r.ok || !j || !j.ok) {
-      showError("No se pudo cargar la lista de terminales. Reintentá.");
-      return;
-    }
-    renderList(j.terminals || [], j.current_terminal_id || 0);
   }
 
   function escapeHtml(s) {
@@ -110,6 +74,53 @@ document.addEventListener("DOMContentLoaded", () => {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function renderList(terminals, currentId) {
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    (terminals || []).forEach((t) => {
+      const isLocked = t.status === "locked";
+      const checked = Number(t.id) === Number(currentId);
+
+      const item = document.createElement("label");
+      item.className = "terminal-item";
+
+      item.innerHTML = `
+        <input class="terminal-radio" type="radio" name="terminal_id" value="${t.id}"
+          ${checked ? "checked" : ""} ${isLocked ? "disabled" : ""}>
+        <div class="terminal-main">
+          <div class="terminal-name">${escapeHtml(t.nombre || "Caja #" + t.id)}</div>
+          ${
+            t.codigo
+              ? `<div class="terminal-code">Código: ${escapeHtml(t.codigo)}</div>`
+              : ""
+          }
+        </div>
+        <div class="terminal-pill ${isLocked ? "is-locked" : "is-free"}">
+          ${isLocked ? `Ocupada · ${escapeHtml(t.lockedBy || "Otro")}` : "Libre"}
+        </div>
+      `;
+
+      listEl.appendChild(item);
+    });
+  }
+
+  async function loadList() {
+    hideError();
+
+    const { r, j } = await api({}); // lista
+    if (!r.ok || !j || !j.ok) {
+      if (j?.error === "CSRF_MISSING") {
+        showError("Falta CSRF token en la página (meta csrf-token).");
+      } else {
+        showError("No se pudo cargar la lista de terminales. Reintentá.");
+      }
+      return;
+    }
+
+    renderList(j.terminals || [], j.current_terminal_id || 0);
   }
 
   // abrir/cerrar
@@ -146,6 +157,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
           showError("Esa terminal está ocupada.");
           await loadList();
+          return;
+        }
+        if (j?.error === "CSRF_MISSING") {
+          showError("Falta CSRF token en la página (meta csrf-token).");
           return;
         }
         showError("No se pudo cambiar la terminal. Reintentá.");
