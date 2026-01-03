@@ -7,7 +7,6 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('editar_promos');
 
-
 /* --------------------------------------------------------
    1) Traer promos (1 fila por promo)
 -------------------------------------------------------- */
@@ -27,8 +26,6 @@ $promosBase = $pdo->query($sqlPromos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 /* --------------------------------------------------------
    2) Traer items asociados
-      - Simples: promo_productos (1 producto)
-      - Combos : promo_combo_items (varios productos)
 -------------------------------------------------------- */
 $promoIds = array_map(fn($r) => (int)($r['id'] ?? 0), $promosBase);
 $promoIds = array_values(array_filter($promoIds, fn($id) => $id > 0));
@@ -85,8 +82,8 @@ if ($promoIds) {
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=1'];
-$extraJs        = ['assets/js/promos.js?v=1'];
+$extraCss       = ['assets/css/promos.css?v=2'];
+$extraJs        = ['assets/js/promos.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -183,7 +180,6 @@ require __DIR__ . '/partials/header.php';
                       $nom  = trim((string)($it['prod_nombre'] ?? ''));
                       $cant = (float)($it['cantidad'] ?? 0);
 
-                      // 1 / 1.5 / 0.250
                       $cantTxt = rtrim(rtrim(number_format($cant, 3, '.', ''), '0'), '.');
 
                       $parts[] = ($cod !== '' ? "[$cod] " : '') . $nom . " x{$cantTxt}";
@@ -274,6 +270,28 @@ require __DIR__ . '/partials/header.php';
       </table>
     </div>
 
+    <!-- ESTADÍSTICAS -->
+    <div class="promo-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total promos</div>
+        <div class="stat-value"><?= count($promosBase) ?></div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-label">Activas</div>
+        <div class="stat-value stat-value--success">
+          <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1)) ?>
+        </div>
+      </div>
+      
+      <div class="stat-card">
+        <div class="stat-label">Inactivas</div>
+        <div class="stat-value stat-value--muted">
+          <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 0)) ?>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -342,27 +360,7 @@ require __DIR__ . '/partials/header.php';
     </div>
   </div>
 </div>
-<!-- ESTADÍSTICAS (opcional) -->
-<div class="promo-stats">
-  <div class="stat-card">
-    <div class="stat-label">Total promos</div>
-    <div class="stat-value"><?= count($promosBase) ?></div>
-  </div>
-  
-  <div class="stat-card">
-    <div class="stat-label">Activas</div>
-    <div class="stat-value stat-value--success">
-      <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1)) ?>
-    </div>
-  </div>
-  
-  <div class="stat-card">
-    <div class="stat-label">Inactivas</div>
-    <div class="stat-value stat-value--muted">
-      <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 0)) ?>
-    </div>
-  </div>
-</div>
+
 <!-- TOAST -->
 <div id="promoToast" class="promo-toast"></div>
 
