@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
+require_any_permission(['ver_facturacion','emitir_factura']);
+
 
 /** Fecha Y-m-d válida o '' */
 function validDateYmdStr(string $s): string {

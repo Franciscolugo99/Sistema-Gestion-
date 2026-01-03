@@ -85,18 +85,17 @@ $canProductos   = $can('editar_productos') || $can('ver_productos');
 $canStock       = $can('editar_stock')     || $can('ver_stock');
 $canMovimientos = $can('ver_movimientos');
 $canVentas      = $can('ver_reportes')     || $can('realizar_ventas');
-$canCompras     = $can('ver_compras')      || $can('editar_productos');
+$canCompras     = $can('editar_stock')     || $can('ver_costos') || $can('editar_productos');
 $canHistCaja    = $can('ver_historial_caja');
-$canPromos      = $can('editar_promos')    || $can('editar_productos');
+$canPromos      = $can('editar_promos');
 $canClientes    = $can('ver_clientes')     || $can('editar_clientes');
-$canFacturacion = $can('facturacion')      || $can('administrar_config');
+$canFacturacion = $can('ver_facturacion')  || $can('emitir_factura') || $can('administrar_config');
 
 $showAdminMenu =
   $can('administrar_config') ||
   $can('administrar_usuarios') ||
   $can('ver_auditoria') ||
-  $can('gestionar_backups') ||
-  $can('administrar_roles');
+  $can('gestionar_backups');
 
 $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles'], true);
 
@@ -258,7 +257,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
               </a>
             <?php endif; ?>
 
-            <?php if ($can('administrar_roles') || $can('administrar_usuarios')): ?>
+            <?php if ($can('administrar_usuarios')): ?>
               <a role="menuitem" href="roles.php" tabindex="0">
                 <span class="menu-icon">🔐</span> Roles y permisos
               </a>

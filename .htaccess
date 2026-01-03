@@ -1,0 +1,20 @@
+# FLUS - Seguridad + DocumentRoot friendly
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Bloqueo directo de carpetas sensibles si el proyecto se expone desde la raíz
+  RewriteRule ^(?:src|storage|scripts|views)/ - [F,L]
+
+  # Si el DocumentRoot apunta a la raíz del repo, enviamos todo a /public
+  RewriteCond %{REQUEST_URI} !^/public/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Bloqueo de archivos sensibles por extensión
+<FilesMatch "(?i)\.(sql|sqlite|sqlite3|bak|zip|rar|7z|env|log|ini)$">
+  Require all denied
+</FilesMatch>

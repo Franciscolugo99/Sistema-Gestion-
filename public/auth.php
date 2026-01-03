@@ -79,6 +79,23 @@ function user_has_permission(string $slug): bool {
   return $ok;
 }
 
+
+function user_has_any_permission(array $slugs): bool {
+  foreach ($slugs as $s) {
+    $s = (string)$s;
+    if ($s !== '' && user_has_permission($s)) return true;
+  }
+  return false;
+}
+
+function require_any_permission(array $slugs): void {
+  if (!user_has_any_permission($slugs)) {
+    http_response_code(403);
+    echo "No tenés permisos para acceder a esta sección.";
+    exit;
+  }
+}
+
 function require_permission(string $slug): void {
   if (!user_has_permission($slug)) {
     http_response_code(403);

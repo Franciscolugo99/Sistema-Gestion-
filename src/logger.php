@@ -44,3 +44,11 @@ if (!function_exists('flus_log_error')) {
     flus_log('ERROR', $message, $context);
   }
 }
+
+// Compatibilidad: algunos módulos viejos llaman app_log()
+if (!function_exists('app_log')) {
+  function app_log(string $level, string $message, array $context = []): void {
+    flus_log($level, $message, $context);
+  }
+}
+

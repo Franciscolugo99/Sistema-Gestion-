@@ -6,7 +6,7 @@ require_once __DIR__ . '/bootstrap.php';
 
 
 require_login();
-require_permission('editar_productos');
+require_permission('editar_promos');
 
 
 // ----------------------
