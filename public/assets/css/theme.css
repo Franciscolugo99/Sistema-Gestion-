@@ -1,23 +1,60 @@
 /* ============================================================================
-   FLUS - THEME.CSS (PRO EDITION 2025) - PULIDO
-   Variables globales:
-   - Paleta FLUS
-   - Fondos, sombras, paneles
-   - Inputs, tablas, navegación, botones
-   Modo claro = base
-   Modo oscuro = overrides
+   FLUS - THEME.CSS (VERSIÓN MEJORADA 2025)
+   Sistema de diseño con variables escalables
+   Light mode = base / Dark mode = overrides
 ============================================================================ */
 
-/* ============================================================================
-   [01] COLORES BASE + SUPERFICIES (LIGHT MODE)
-============================================================================ */
+/* === SISTEMA DE ESPACIADO === */
 :root {
-  /* Fondo principal */
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 30px;
+  --space-7: 40px;
+  --space-8: 50px;
+  --space-9: 64px;
+  --space-10: 80px;
+}
+
+/* === SISTEMA DE BORDER RADIUS === */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+}
+
+/* === SISTEMA DE SOMBRAS === */
+:root {
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 6px var(--shadow-color);
+  --shadow-md: 0 8px 20px var(--shadow-color);
+  --shadow-lg: 0 18px 40px var(--shadow-color);
+  --shadow-xl: 0 24px 60px var(--shadow-color);
+}
+
+/* === Z-INDEX SCALE === */
+:root {
+  --z-base: 1;
+  --z-dropdown: 1000;
+  --z-sticky: 1000;
+  --z-modal-backdrop: 4000;
+  --z-modal: 4001;
+  --z-toast: 9999;
+}
+
+/* === LIGHT MODE (BASE) === */
+:root {
+  /* Fondos */
   --bg: #f5f7fb;
-  --bg-soft: #e5edf7;
+  --bg-alt: #e5edf7;
 
   /* Paneles */
   --panel: #ffffff;
+  --panel-bg: #ffffff;
   --panel-border: #e2e8f0;
   --panel-shadow: 0 18px 40px rgba(0, 0, 0, 0.15);
 
@@ -31,20 +68,12 @@
   --accent-green: #22c55e;
   --accent-blue: #0ea5e9;
 
-  /* Geometry */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-
-  /* Sombras */
-  --shadow-soft: 0 6px 14px rgba(0, 0, 0, 0.08);
-  --shadow-hard: 0 16px 45px rgba(0, 0, 0, 0.22);
-
-  /* Navbar (base light) */
-  --nav-bg: #ffffff;                 /* antes: #f5f7fb (pero tu core lo pone blanco) */
-  --nav-border: rgba(148, 163, 184, 0.22); /* para que core no tenga override */
+  /* === NAVBAR === */
+  --nav-bg: #ffffff;
+  --nav-border: rgba(148, 163, 184, 0.22);
   --nav-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 
+  /* Nav Pills */
   --nav-pill-bg: #e5e9f5;
   --nav-pill-text: #1f2937;
   --nav-pill-border: #cbd5e1;
@@ -52,69 +81,87 @@
   --nav-pill-active-bg: linear-gradient(135deg, #0ea5e9, #22c55e);
   --nav-pill-active-text: #0f172a;
 
-  /* Toggle (light) */
+  /* Nav Icons */
+  --nav-icon-bg: rgba(255, 255, 255, 0.85);
+  --nav-icon-border: rgba(15, 23, 42, 0.18);
+  --nav-icon-text: #1f2937;
+  --nav-icon-hover-bg: rgba(15, 23, 42, 0.06);
+  --nav-icon-active-border: rgba(2, 132, 199, 0.45);
+  --nav-icon-active-shadow: 0 10px 30px rgba(2, 132, 199, 0.18);
+
+  /* Nav Menu (Dropdown) */
+  --nav-menu-bg: #ffffff;
+  --nav-menu-border: rgba(15, 23, 42, 0.14);
+  --nav-menu-shadow: 0 18px 50px rgba(2, 6, 23, 0.12);
+  --nav-menu-item-hover-bg: rgba(15, 23, 42, 0.06);
+
+  /* Toggle */
   --toggle-track-bg: #e5e7eb;
   --toggle-track-border: #cbd5e1;
-  --toggle-track-text: #4b5563;
 
-  /* Badge modo caja (light) */
+  /* Badge Modo Caja */
   --badge-mode-bg: #ecfdf5;
   --badge-mode-border: rgba(16, 185, 129, 0.7);
   --badge-mode-text: #065f46;
-  --badge-dot-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
 
-  /* Logout (light) */
+  /* Logout */
   --logout-text: #4b5563;
   --logout-border: rgba(148, 163, 184, 0.6);
   --logout-hover-bg: #fee2e2;
   --logout-hover-border: #fca5a5;
   --logout-hover-text: #b91c1c;
 
-  /* Inputs */
+  /* === INPUTS === */
   --input-bg: #ffffff;
-  --input-bg-hover: #f1f5f9;
-  --input-border: #cbd5e1;
-  --input-border-focus: var(--accent-cyan);
   --input-text: #0f172a;
+  --input-border: #cbd5e1;
 
-  /* Tablas */
+  /* === TABLAS === */
   --table-header-bg: #0f172a;
   --table-header-text: #f9fafb;
-
   --table-row-odd: #ffffff;
   --table-row-even: #f8fafc;
   --table-row-border: #e2e8f0;
+  --table-row-hover: rgba(34, 211, 238, 0.06);
 
-  /* Botones – primario (guardar / agregar) */
+  /* === BOTONES === */
+  /* Base (secundario) */
+  --btn-bg: transparent;
+  --btn-text: #6b7280;
+  --btn-border: #cbd5e1;
+
+  /* Primario */
   --btn-primary-bg: linear-gradient(135deg, #0ea5e9, #22d3ee);
   --btn-primary-text: #f9fafb;
 
-  /* Botones – peligro (eliminar) */
-  --btn-danger-bg: #fee2e2;
-  --btn-danger-border: #fecaca;
-  --btn-danger-text: #7f1d1d;
-
-  /* Botones – secundario / cancelar */
+  /* Secundario */
   --btn-secondary-bg: transparent;
-  --btn-secondary-border: #cbd5e1;
   --btn-secondary-text: #6b7280;
-
-  /* Hover de secundario (ligero rojo) */
+  --btn-secondary-border: #cbd5e1;
   --btn-secondary-hover-bg: rgba(239, 68, 68, 0.08);
   --btn-secondary-hover-border: rgba(239, 68, 68, 0.8);
   --btn-secondary-hover-text: #7f1d1d;
+
+  /* Peligro */
+  --btn-danger-bg: #fee2e2;
+  --btn-danger-text: #7f1d1d;
+  --btn-danger-border: #fecaca;
+
+  /* === TOAST === */
+  --toast-bg: rgba(255, 255, 255, 0.95);
+  --toast-text: #0f172a;
+  --toast-border: rgba(148, 163, 184, 0.28);
 }
 
-/* ============================================================================
-   [02] DARK MODE — OVERRIDES CON BALANCE VISUAL
-============================================================================ */
+/* === DARK MODE === */
 body[data-theme="dark"] {
-  /* Fondo (pulido: ahora --bg es el tono real de fondo oscuro) */
+  /* Fondos */
   --bg: #020617;
-  --bg-soft: #0b1020;
+  --bg-alt: #0b1020;
 
   /* Paneles */
   --panel: #111827;
+  --panel-bg: #111827;
   --panel-border: rgba(255, 255, 255, 0.05);
   --panel-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
 
@@ -128,11 +175,15 @@ body[data-theme="dark"] {
   --accent-blue: #38bdf8;
   --accent-green: #22c55e;
 
-  /* Navbar (dark) */
+  /* Sombras (más oscuras) */
+  --shadow-color: rgba(0, 0, 0, 0.3);
+
+  /* === NAVBAR === */
   --nav-bg: #020617;
   --nav-border: rgba(148, 163, 184, 0.45);
   --nav-shadow: 0 12px 30px rgba(15, 23, 42, 0.65);
 
+  /* Nav Pills */
   --nav-pill-bg: rgba(15, 23, 42, 0.9);
   --nav-pill-text: #e5e7eb;
   --nav-pill-border: rgba(148, 163, 184, 0.45);
@@ -140,107 +191,120 @@ body[data-theme="dark"] {
   --nav-pill-active-bg: linear-gradient(135deg, #22d3ee, #22c55e);
   --nav-pill-active-text: #020617;
 
-  /* Toggle (dark) */
-  --toggle-track-bg: var(--nav-pill-bg);
-  --toggle-track-border: var(--nav-pill-border);
-  --toggle-track-text: var(--nav-pill-text);
+  /* Nav Icons */
+  --nav-icon-bg: rgba(2, 6, 23, 0.22);
+  --nav-icon-border: rgba(148, 163, 184, 0.25);
+  --nav-icon-text: #e5e7eb;
+  --nav-icon-hover-bg: rgba(148, 163, 184, 0.12);
+  --nav-icon-active-border: rgba(34, 211, 238, 0.45);
+  --nav-icon-active-shadow: 0 10px 30px rgba(34, 211, 238, 0.14);
 
-  /* Badge modo caja (dark) */
+  /* Nav Menu (Dropdown) */
+  --nav-menu-bg: #0b1220;
+  --nav-menu-border: rgba(148, 163, 184, 0.25);
+  --nav-menu-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  --nav-menu-item-hover-bg: rgba(148, 163, 184, 0.12);
+
+  /* Toggle */
+  --toggle-track-bg: rgba(15, 23, 42, 0.9);
+  --toggle-track-border: rgba(148, 163, 184, 0.45);
+
+  /* Badge Modo Caja */
   --badge-mode-bg: rgba(15, 23, 42, 0.9);
   --badge-mode-border: rgba(56, 189, 248, 0.6);
   --badge-mode-text: #e0f2fe;
-  --badge-dot-shadow: 0 0 8px rgba(34, 197, 94, 0.9);
 
-  /* Logout (dark) */
-  --logout-text: var(--nav-pill-text);
-  --logout-border: var(--nav-pill-border);
+  /* Logout */
+  --logout-text: #e5e7eb;
+  --logout-border: rgba(148, 163, 184, 0.55);
   --logout-hover-bg: #ef4444;
   --logout-hover-border: #b91c1c;
   --logout-hover-text: #fef2f2;
 
-  /* Inputs */
+  /* === INPUTS === */
   --input-bg: #0f172a;
-  --input-bg-hover: #1e293b;
-  --input-border: #374151;
-  --input-border-focus: var(--accent-cyan);
   --input-text: #f1f5f9;
+  --input-border: #374151;
 
-  /* Tablas */
+  /* === TABLAS === */
   --table-header-bg: #0f172a;
   --table-header-text: #e5e7eb;
-
   --table-row-odd: #111827;
   --table-row-even: #1e293b;
   --table-row-border: rgba(255, 255, 255, 0.03);
+  --table-row-hover: rgba(34, 211, 238, 0.08);
 
-  /* Botones – primario */
+  /* === BOTONES === */
+  /* Base */
+  --btn-bg: transparent;
+  --btn-text: #e5e7eb;
+  --btn-border: rgba(148, 163, 184, 0.55);
+
+  /* Primario */
   --btn-primary-bg: linear-gradient(135deg, #22c55e, #4ade80);
   --btn-primary-text: #022c22;
 
-  /* Botones – peligro */
-  --btn-danger-bg: #7f1d1d;
-  --btn-danger-border: #b91c1c;
-  --btn-danger-text: #fee2e2;
-
-  /* Botones – secundario / cancelar */
+  /* Secundario */
   --btn-secondary-bg: transparent;
-  --btn-secondary-border: rgba(148, 163, 184, 0.55);
   --btn-secondary-text: #e5e7eb;
-
-  /* Hover de secundario en dark */
+  --btn-secondary-border: rgba(148, 163, 184, 0.55);
   --btn-secondary-hover-bg: rgba(239, 68, 68, 0.16);
   --btn-secondary-hover-border: rgba(239, 68, 68, 0.9);
   --btn-secondary-hover-text: #fecaca;
+
+  /* Peligro */
+  --btn-danger-bg: #7f1d1d;
+  --btn-danger-text: #fee2e2;
+  --btn-danger-border: #b91c1c;
+
+  /* === TOAST === */
+  --toast-bg: rgba(15, 23, 42, 0.92);
+  --toast-text: #ffffff;
+  --toast-border: rgba(148, 163, 184, 0.28);
 }
 
-/* ============================================================================
-   [03] TRANSICIONES GLOBALES
-============================================================================ */
+/* === TRANSICIONES GLOBALES === */
 body,
 .panel,
 input,
 select,
 textarea,
 .nav-pill,
+.btn,
 table tr {
   transition: background 0.25s ease,
               color 0.25s ease,
-              border-color 0.25s ease;
-}
-/* ===========================
-   THEME VARS (según tu app.js)
-=========================== */
-
-body[data-theme="dark"]{
-  --nav-icon-bg: rgba(2,6,23,.22);
-  --nav-icon-border: rgba(148,163,184,.25);
-  --nav-icon-hover-bg: rgba(148,163,184,.12);
-
-  --nav-icon-active-border: rgba(34,211,238,.45);
-  --nav-icon-active-shadow: 0 10px 30px rgba(34,211,238,.14);
-
-  --nav-menu-bg: var(--panel-bg, #0b1220);
-  --nav-menu-border: rgba(148,163,184,.25);
-  --nav-menu-shadow: 0 18px 50px rgba(0,0,0,.35);
-
-  --nav-menu-item-hover-bg: rgba(148,163,184,.12);
+              border-color 0.25s ease,
+              box-shadow 0.25s ease;
 }
 
-body[data-theme="light"]{
-  --nav-icon-bg: rgba(255,255,255,.85);
-  --nav-icon-border: rgba(15,23,42,.18);
-  --nav-icon-hover-bg: rgba(15,23,42,.06);
-
-  --nav-icon-active-border: rgba(2,132,199,.45);
-  --nav-icon-active-shadow: 0 10px 30px rgba(2,132,199,.18);
-
-  --nav-menu-bg: #ffffff;
-  --nav-menu-border: rgba(15,23,42,.14);
-  --nav-menu-shadow: 0 18px 50px rgba(2,6,23,.12);
-
-  --nav-menu-item-hover-bg: rgba(15,23,42,.06);
+/* === TIPOGRAFÍA (OPCIONAL) === */
+:root {
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "Fira Code", "Courier New", monospace;
+  
+  /* Scale de tipografía */
+  --text-xs: 0.75rem;   /* 12px */
+  --text-sm: 0.875rem;  /* 14px */
+  --text-base: 1rem;    /* 16px */
+  --text-lg: 1.125rem;  /* 18px */
+  --text-xl: 1.25rem;   /* 20px */
+  --text-2xl: 1.5rem;   /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem;  /* 36px */
 }
 
-/* ============================================================================
-   FIN DEL THEME.CSS
-============================================================================ */
+/* === UTILIDADES DE ESTADO === */
+:root {
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  --info: #0ea5e9;
+}
+
+body[data-theme="dark"] {
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #38bdf8;
+}

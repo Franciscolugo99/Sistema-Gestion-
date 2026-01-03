@@ -1,428 +1,652 @@
-/* =========================================
-   PROMO COMBO FIJO – PANEL GENERAL
-========================================= */
+/* ============================================
+   PROMOS - Forms (NxM / Nth / Combo fijo)
+   VERSIÓN MEJORADA 2025 - Integrado con sistema FLUS
+   Archivo: public/assets/css/promo_combo_fijo.css
+============================================ */
 
-.panel-promos-form {
-  max-width: 1180px;
-  margin: 26px auto 40px;
-  padding: 28px 32px 26px;
-  border-radius: 18px;
-  background: var(--panel, #ffffff);
-  color: var(--text, #0f172a);
-  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.4);
-  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
+/* === VARIABLES ESPECÍFICAS === */
+/* Solo define lo que es único de este módulo */
+:root {
+  /* Usa las variables globales del sistema:
+     - --space-* para espaciado
+     - --radius-* para border radius
+     - --shadow-* para sombras
+     - --panel, --panel-border, --text, --muted, etc.
+     - --accent-cyan para colores de acento
+  */
+  
+  /* No necesita definir variables propias */
 }
 
-/* ===== Grillas (como productos) ===== */
+/* === LAYOUT PÁGINA === */
+.page-wrap-promos {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.page-header.with-back {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: var(--space-5) 0 var(--space-4);
+}
+
+.link-back {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  text-decoration: none;
+  color: var(--accent-cyan);
+  font-weight: 700;
+  transition: color 0.2s ease;
+}
+
+.link-back:hover {
+  color: var(--accent-blue);
+  text-decoration: underline;
+}
+
+.page-title {
+  margin: var(--space-1) 0 0;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.page-sub {
+  margin: var(--space-1) 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.panel-promos-form {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
+}
+
+/* === FORMULARIO === */
+.promo-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
 
 .form-grid-2 {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
 }
 
 .form-grid-3 {
   display: grid;
-  grid-template-columns: 2fr 2fr 1.6fr;
-  gap: 18px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-4);
 }
 
-/* =========================================
-   CAMPOS: labels, inputs, hints
-========================================= */
-
-.combo-form .field {
-  margin-bottom: 14px;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.combo-form .field-label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted, #64748b);
+.field-label,
+.field-label-top {
+  font-weight: 800;
+  color: var(--text);
+  font-size: 0.92rem;
 }
 
-.combo-form .field-input,
-.combo-form .field-select {
+.field-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.field-input {
   width: 100%;
-  border-radius: 10px;
-  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.45));
-  padding: 9px 11px;
-  font-size: 0.95rem;
-  background: rgba(248, 250, 252, 0.95);
-  color: var(--text, #0f172a);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field-input:focus {
   outline: none;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease,
-    background-color 0.16s ease, transform 0.06s ease;
-  font-family: inherit;
-  box-sizing: border-box;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
 }
 
-.combo-form .field-input-sm {
-  padding: 7px 9px;
-  font-size: 0.9rem;
+.field-input-sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.95rem;
 }
 
-.combo-form .field-input:focus,
-.combo-form .field-select:focus {
-  border-color: var(--accent, #22d3ee);
-  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.5),
-    0 16px 35px rgba(15, 23, 42, 0.35);
-  background: #ffffff;
+.field-select {
+  cursor: pointer;
 }
 
-.combo-form .field-hint {
-  margin-top: 6px;
-  font-size: 0.82rem;
-  color: var(--muted, #6b7280);
+.divider {
+  border: none;
+  border-top: 1px solid var(--panel-border);
+  margin: var(--space-4) 0;
 }
 
-/* =========================================
-   Prefijo $ en el precio
-========================================= */
+/* Utilidades de margen (usa las del core cuando sea posible) */
+.mt-1 { margin-top: var(--space-2); }
+.mt-2 { margin-top: var(--space-4); }
+.mt-3 { margin-top: var(--space-5); }
+.mb-3 { margin-bottom: var(--space-5); }
 
+/* === INPUT CON PREFIJO $ === */
 .field-input-with-prefix {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--input-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field-input-with-prefix:focus-within {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
 }
 
 .field-input-with-prefix .prefix {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  border-radius: 10px 0 0 10px;
-  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.45));
-  border-right: none;
-  background: rgba(248, 250, 252, 0.95);
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--muted, #64748b);
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted);
+  font-weight: 900;
+  border-right: 1px solid var(--input-border);
+  background: var(--bg-alt);
+  flex-shrink: 0;
 }
 
-.field-input-with-prefix .field-input {
-  border-radius: 0 10px 10px 0;
+.field-input-with-prefix input {
+  border: none;
+  outline: none;
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--input-text);
+  font-size: 1rem;
 }
 
-/* =========================================
-   Switch "Promo activa"
-========================================= */
-
-.combo-form .field-switch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+/* === BLOQUES DE PARÁMETROS === */
+.promo-param-block {
+  background: var(--bg-alt);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
-/* =========================================
-   Productos del combo – tabla
-   (TODO scopeado para no pelearse con promos.css)
-========================================= */
-
-.combo-items-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 12px;
+.promo-param-block + .promo-param-block {
+  margin-top: var(--space-3);
 }
 
-.panel-promos-form .table-wrapper {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(248, 250, 252, 0.85);
-}
-
-.panel-promos-form .table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.panel-promos-form .table thead {
-  background: radial-gradient(
-    circle at top,
-    rgba(15, 23, 42, 0.03),
-    rgba(15, 23, 42, 0.06)
-  );
-}
-
-.panel-promos-form .table th,
-.panel-promos-form .table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-.panel-promos-form .table th {
-  text-align: left;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  color: var(--muted, #64748b);
-}
-
-.panel-promos-form .table .right {
-  text-align: right;
-}
-.panel-promos-form .table .center {
-  text-align: center;
-}
-
-.panel-promos-form .table-compact tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* =========================================
-   Footer del form
-========================================= */
-
-.combo-form .form-footer {
+/* === FOOTER === */
+.form-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--panel-border);
 }
 
-/* =========================================
-   DARK MODE
-========================================= */
-
-body[data-theme="dark"] .panel-promos-form {
-  background: radial-gradient(circle at top, #020617 0, #020617 42%, #020617);
-  border-color: rgba(30, 64, 175, 0.6);
-  box-shadow: 0 26px 75px rgba(15, 23, 42, 0.95);
-}
-
-body[data-theme="dark"] .combo-form .field-input,
-body[data-theme="dark"] .combo-form .field-select {
-  background: rgba(15, 23, 42, 0.95);
-  border-color: rgba(148, 163, 184, 0.55);
-  color: #e5e7eb;
-}
-
-body[data-theme="dark"] .combo-form .field-input:focus,
-body[data-theme="dark"] .combo-form .field-select:focus {
-  background: rgba(15, 23, 42, 1);
-}
-
-body[data-theme="dark"] .field-input-with-prefix .prefix {
-  background: rgba(15, 23, 42, 0.95);
-  border-color: rgba(148, 163, 184, 0.55);
-  color: #e5e7eb;
-}
-
-body[data-theme="dark"] .panel-promos-form .table-wrapper {
-  background: rgba(15, 23, 42, 0.96);
-  border-color: rgba(30, 64, 175, 0.55);
-}
-
-body[data-theme="dark"] .panel-promos-form .table thead {
-  background: radial-gradient(circle at top, #020617, #020617);
-}
-
-body[data-theme="dark"] .panel-promos-form .table th,
-body[data-theme="dark"] .panel-promos-form .table td {
-  border-color: rgba(30, 64, 175, 0.5);
-}
-
-/* =========================================
-   Responsive
-========================================= */
-
-@media (max-width: 960px) {
-  .panel-promos-form {
-    margin: 18px auto 26px;
-    padding: 20px 16px;
-  }
-
-  .form-grid-2,
-  .form-grid-3 {
-    grid-template-columns: 1fr;
-  }
-
-  .combo-items-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-/* =========================================
-   BOTONES – SOLO DENTRO DEL PANEL DEL COMBO
-========================================= */
-
-.panel-promos-form .btn {
+/* === BOTONES FALLBACK === */
+/* Solo si no vienen del core.css */
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-
-  padding: 9px 20px;
-  border-radius: 999px;
-  border: none;
-
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  font-weight: 600;
-  font-family: inherit;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 800;
   text-decoration: none;
-
   cursor: pointer;
-  outline: none;
-  background: transparent;
-  color: var(--text, #0f172a);
-
-  transition: transform 0.08s ease, box-shadow 0.14s ease,
-    background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
-.panel-promos-form .btn:hover {
+.btn-light {
+  background: var(--bg-alt);
+  border-color: var(--panel-border);
+  color: var(--text);
+}
+
+.btn-light:hover {
+  background: var(--panel-border);
+}
+
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.btn-primary:hover {
   transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
-.panel-promos-form .btn:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-
-/* --- principal: Guardar combo --- */
-.panel-promos-form .btn-primary {
-  background: radial-gradient(
-    circle at top left,
-    #67e8f9 0,
-    #22d3ee 35%,
-    #0ea5e9 90%
-  );
-  color: #0f172a;
-  box-shadow: 0 0 18px rgba(34, 211, 238, 0.75),
-    0 16px 40px rgba(15, 23, 42, 0.9);
-}
-
-.panel-promos-form .btn-primary:hover {
-  box-shadow: 0 0 22px rgba(34, 211, 238, 0.9), 0 18px 46px rgba(15, 23, 42, 1);
-}
-
-/* --- secundario: Cancelar --- */
-.panel-promos-form .btn-light {
+.btn-outline {
   background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.55);
-  color: var(--muted, #64748b);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }
 
-.panel-promos-form .btn-light:hover {
-  background: rgba(148, 163, 184, 0.1);
+.btn-outline:hover {
+  background: rgba(34, 211, 238, 0.1);
 }
 
-/* --- botón superior + Agregar producto --- */
-.panel-promos-form .btn-outline {
-  background: radial-gradient(
-    circle at top,
-    rgba(56, 189, 248, 0.1),
-    rgba(56, 189, 248, 0.03)
-  );
-  border: 1px solid rgba(56, 189, 248, 0.8);
-  color: #0369a1;
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: var(--danger);
 }
 
-/* --- botón chiquito Quitar --- */
-.panel-promos-form .btn-xs {
-  padding: 4px 11px;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
 }
 
-.panel-promos-form .btn-danger {
-  background: rgba(248, 113, 113, 0.06);
-  border: 1px solid rgba(248, 113, 113, 0.9);
-  color: #b91c1c;
-  box-shadow: 0 0 12px rgba(248, 113, 113, 0.55);
+.btn-xs {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.85rem;
 }
 
-/* separador entre botones del footer */
-.panel-promos-form .form-footer .btn + .btn {
-  margin-left: 8px;
-}
-
-/* -------- DARK MODE botones -------- */
-
-body[data-theme="dark"] .panel-promos-form .btn {
-  color: #e5e7eb;
-}
-
-body[data-theme="dark"] .panel-promos-form .btn-light {
-  border-color: rgba(148, 163, 184, 0.7);
-  color: #cbd5f5;
-  background: rgba(15, 23, 42, 0.7);
-}
-
-body[data-theme="dark"] .panel-promos-form .btn-light:hover {
-  background: rgba(15, 23, 42, 0.95);
-}
-
-body[data-theme="dark"] .panel-promos-form .btn-outline {
-  background: radial-gradient(
-    circle at top,
-    rgba(56, 189, 248, 0.18),
-    rgba(15, 23, 42, 0.9)
-  );
-  color: #e0f2fe;
-  border-color: rgba(56, 189, 248, 0.9);
-}
-
-body[data-theme="dark"] .panel-promos-form .btn-danger {
-  background: rgba(127, 29, 29, 0.7);
-  border-color: rgba(248, 113, 113, 0.9);
-  color: #fee2e2;
-}
-/* =========================================================
-   SWITCH "ESTADO DE LA PROMO" (reutilizable)
-========================================================= */
-
-.field-label-top {
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
+/* === SWITCH "PROMO ACTIVA" === */
+.field-switch .field-label-top {
+  margin-bottom: var(--space-1);
   text-transform: uppercase;
-  color: var(--muted, #64748b);
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .field-switch-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-alt);
 }
 
 .field-switch-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
+  flex: 1;
 }
 
 .field-switch-title {
-  font-weight: 600;
-  font-size: 0.96rem;
-}
-
-/* =========================================
-   LAYOUT PROMOS: header + panel alineados
-   ========================================= */
-
-.page-wrap-promos {
-  max-width: 1180px;
-  margin: 24px auto 40px; /* centra todo el bloque */
-}
-
-/* el header va pegado al panel, sin tanto aire */
-.page-wrap-promos .page-header {
-  margin-bottom: 18px;
-}
-
-/* el panel deja de tener margen auto, se alinea al header */
-.page-wrap-promos .panel-promos-form {
+  font-weight: 900;
+  color: var(--text);
   margin: 0;
+}
+
+.field-switch-text .field-hint {
+  margin: 0;
+}
+
+/* Switch Toggle */
+.edit-switch {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 30px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* IMPORTANTE: Input accesible pero invisible */
+.edit-switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.edit-switch-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--input-border);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Perilla */
+.edit-switch-slider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.25s ease;
+}
+
+/* Estado Checked */
+.edit-switch input:checked + .edit-switch-slider {
+  background: var(--success);
+  box-shadow: 0 10px 22px rgba(34, 197, 94, 0.25),
+              inset 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+.edit-switch input:checked + .edit-switch-slider::after {
+  transform: translateX(22px);
+}
+
+/* Focus Visible (Accesibilidad) */
+.edit-switch input:focus-visible + .edit-switch-slider {
+  outline: 3px solid rgba(34, 211, 238, 0.25);
+  outline-offset: 3px;
+}
+
+/* Hover */
+.edit-switch:hover .edit-switch-slider {
+  background: var(--panel-border);
+}
+
+.edit-switch input:checked:hover + .edit-switch-slider {
+  background: #16a34a;
+}
+
+/* === COMBO: HEADER + TABLA === */
+.combo-items-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.sub-title-page {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 950;
+  color: var(--text);
+}
+
+/* === TABLA ITEMS COMBO === */
+#tabla-items-combo {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-2);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#tabla-items-combo thead {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+}
+
+#tabla-items-combo thead th {
+  padding: var(--space-3) var(--space-4);
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+#tabla-items-combo tbody tr {
+  background: var(--table-row-odd);
+  border-bottom: 1px solid var(--table-row-border);
+  transition: background 0.15s ease;
+}
+
+#tabla-items-combo tbody tr:nth-child(even) {
+  background: var(--table-row-even);
+}
+
+#tabla-items-combo tbody tr:hover {
+  background: var(--table-row-hover);
+}
+
+#tabla-items-combo tbody td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: middle;
+  color: var(--text);
+}
+
+/* Selects y inputs en la tabla */
+#tabla-items-combo select,
+#tabla-items-combo input[type="number"] {
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#tabla-items-combo select:focus,
+#tabla-items-combo input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+}
+
+#tabla-items-combo select:hover,
+#tabla-items-combo input[type="number"]:hover {
+  border-color: var(--info);
+}
+
+/* Alineación */
+.right { text-align: right; }
+.center { text-align: center; }
+
+/* === BOTÓN AGREGAR ITEM === */
+#btn-add-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-md);
+}
+
+#btn-add-item:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+#btn-add-item:active {
+  transform: translateY(0);
+}
+
+/* === BOTÓN REMOVER ITEM === */
+.btn-remove-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-remove-item:hover {
+  transform: scale(1.05);
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.20);
+}
+
+.btn-remove-item:active {
+  transform: scale(0.95);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 900px) {
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .combo-items-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-wrap-promos {
+    padding: var(--space-3);
+  }
+
+  .panel-promos-form {
+    padding: var(--space-4);
+  }
+
+  .page-header.with-back {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 520px) {
+  .panel-promos-form {
+    padding: var(--space-3);
+  }
+
+  .page-title {
+    font-size: 1.6rem;
+  }
+
+  .field-switch-row {
+    padding: var(--space-3);
+  }
+
+  #tabla-items-combo thead th,
+  #tabla-items-combo tbody td {
+    padding: var(--space-2) var(--space-2);
+    font-size: 0.85rem;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* === ACCESIBILIDAD === */
+@media (prefers-reduced-motion: reduce) {
+  .edit-switch-slider,
+  .edit-switch-slider::after,
+  .btn,
+  #btn-add-item {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* === ESTADOS ESPECIALES === */
+/* Input con error */
+.field-input.error,
+.field-input-with-prefix.error {
+  border-color: var(--danger);
+}
+
+.field-input.error:focus,
+.field-input-with-prefix.error:focus-within {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+/* Input deshabilitado */
+.field-input:disabled,
+#tabla-items-combo select:disabled,
+#tabla-items-combo input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-alt);
+}
+
+/* === DARK MODE === */
+/* Las variables globales ya se encargan del dark mode,
+   pero si necesitas overrides específicos: */
+
+body[data-theme="dark"] .field-input-with-prefix .prefix {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme="dark"] #tabla-items-combo thead {
+  background: var(--table-header-bg);
+}
+
+/* === ANIMACIONES === */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* === PRINT === */
+@media print {
+  .btn,
+  .btn-remove-item,
+  #btn-add-item,
+  .link-back {
+    display: none !important;
+  }
+
+  .panel-promos-form {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  #tabla-items-combo {
+    page-break-inside: avoid;
+  }
 }

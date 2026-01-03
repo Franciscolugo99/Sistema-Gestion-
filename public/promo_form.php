@@ -225,6 +225,7 @@ $pageTitle      = ($editing ? 'Editar promo' : 'Nueva promo') . ' - Promociones'
 $currentSection = 'promos';
 
 $extraCss = [
+  'assets/css/promos.css',
   'assets/css/promo_combo_fijo.css',
 ];
 

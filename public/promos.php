@@ -27,8 +27,7 @@ $promosBase = $pdo->query($sqlPromos)->fetchAll(PDO::FETCH_ASSOC) ?: [];
 /* --------------------------------------------------------
    2) Traer items asociados
 -------------------------------------------------------- */
-$promoIds = array_map(fn($r) => (int)($r['id'] ?? 0), $promosBase);
-$promoIds = array_values(array_filter($promoIds, fn($id) => $id > 0));
+$promoIds = array_values(array_filter(array_map(fn($r) => (int)($r['id'] ?? 0), $promosBase), fn($id) => $id > 0));
 
 $itemsSimpleByPromo = [];
 $itemsComboByPromo  = [];
@@ -36,7 +35,7 @@ $itemsComboByPromo  = [];
 if ($promoIds) {
   $ph = implode(',', array_fill(0, count($promoIds), '?'));
 
-  // --- Simples (NxM / NTH%) ---
+  // Simples (NxM / NTH%)
   $sqlItemsSimples = "
     SELECT
       pp.promo_id,
@@ -57,7 +56,7 @@ if ($promoIds) {
     if ($pid > 0) $itemsSimpleByPromo[$pid][] = $row;
   }
 
-  // --- Combos (COMBO_FIJO) ---
+  // Combos (COMBO_FIJO)
   $sqlItemsCombos = "
     SELECT
       pci.promo_id,
@@ -78,20 +77,20 @@ if ($promoIds) {
 }
 
 /* --------------------------------------------------------
-   METADATOS PARA HEADER GLOBAL
+   Header
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=2'];
-$extraJs        = ['assets/js/promos.js?v=2'];
+$extraCss       = ['assets/css/promos.css?v=3'];
+$extraJs        = ['assets/js/promos.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
-
+<div class="promos-page">
+  
 <div class="root container-global" id="promos-page" data-csrf="<?= h(csrf_token()) ?>">
   <div class="panel panel-promos">
 
-    <!-- HEADER -->
     <div class="panel-header">
       <div>
         <h1 class="panel-title">Promociones</h1>
@@ -104,7 +103,6 @@ require __DIR__ . '/partials/header.php';
       </div>
     </div>
 
-    <!-- FILTROS -->
     <div class="promo-filters">
       <div class="filters-grid">
         <div class="field">
@@ -133,7 +131,6 @@ require __DIR__ . '/partials/header.php';
       </div>
     </div>
 
-    <!-- TABLA -->
     <div class="table-wrapper">
       <table class="promo-table">
         <thead>
@@ -179,9 +176,7 @@ require __DIR__ . '/partials/header.php';
                       $cod  = trim((string)($it['prod_codigo'] ?? ''));
                       $nom  = trim((string)($it['prod_nombre'] ?? ''));
                       $cant = (float)($it['cantidad'] ?? 0);
-
                       $cantTxt = rtrim(rtrim(number_format($cant, 3, '.', ''), '0'), '.');
-
                       $parts[] = ($cod !== '' ? "[$cod] " : '') . $nom . " x{$cantTxt}";
                     }
                     $extra = $cnt > 2 ? " +".($cnt - 2) : "";
@@ -249,18 +244,8 @@ require __DIR__ . '/partials/header.php';
                 </td>
 
                 <td class="t-right">
-                  <button
-                    type="button"
-                    class="btn-mini btn-mini-ok btn-edit-promo"
-                    data-id="<?= (int)$id ?>"
-                  >Editar</button>
-
-                  <button
-                    type="button"
-                    class="btn-mini btn-mini-ghost js-delete-promo"
-                    data-id="<?= (int)$id ?>"
-                    data-nombre="<?= h($p['nombre'] ?? '') ?>"
-                  >Eliminar</button>
+                  <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
+                  <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
                 </td>
               </tr>
 
@@ -270,20 +255,19 @@ require __DIR__ . '/partials/header.php';
       </table>
     </div>
 
-    <!-- ESTADÍSTICAS -->
     <div class="promo-stats">
       <div class="stat-card">
         <div class="stat-label">Total promos</div>
         <div class="stat-value"><?= count($promosBase) ?></div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-label">Activas</div>
         <div class="stat-value stat-value--success">
           <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1)) ?>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-label">Inactivas</div>
         <div class="stat-value stat-value--muted">
@@ -298,7 +282,6 @@ require __DIR__ . '/partials/header.php';
 <!-- PANEL LATERAL EDITAR PROMO -->
 <div id="promoEditOverlay" class="promo-overlay">
   <div class="promo-panel">
-
     <div class="promo-panel-header">
       <h2 id="promoEditTitle">Editar promoción</h2>
       <button id="promoCloseBtn" class="panel-close-btn" type="button">×</button>
@@ -336,23 +319,23 @@ require __DIR__ . '/partials/header.php';
 
           <div id="comboItemsContainer"></div>
 
-          <button type="button" id="btnAddComboItem" class="btn-small">
-            Agregar producto
-          </button>
+          <button type="button" id="btnAddComboItem" class="btn-small">Agregar producto</button>
         </div>
 
         <button type="submit" class="btn-save">Guardar cambios</button>
       </form>
     </div>
-
   </div>
 </div>
 
-<!-- MODAL ELIMINAR PROMO -->
+<!-- MODAL ELIMINAR PROMO (seguro: nombre por textContent) -->
 <div id="modalEliminarPromo" class="modal-overlay">
   <div class="modal-box">
     <h2 class="modal-title">ELIMINAR PROMOCIÓN</h2>
-    <p class="modal-text">¿Seguro que querés eliminar esta promo?</p>
+    <p class="modal-text">
+      ¿Eliminar la promoción <strong id="delPromoName"></strong>?<br>
+      <small>Esta acción no se puede deshacer.</small>
+    </p>
 
     <div class="modal-actions">
       <button id="btnCancelarEliminarPromo" class="modal-btn-cancel" type="button">Cancelar</button>
@@ -361,7 +344,9 @@ require __DIR__ . '/partials/header.php';
   </div>
 </div>
 
-<!-- TOAST -->
 <div id="promoToast" class="promo-toast"></div>
+
+</div>
+
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

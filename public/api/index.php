@@ -274,7 +274,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
           if ($descuentoPromo > 0.00001) {
             $addPromo([
-              'promo_id'        => (int)($promo['id'] ?? 0),
+              'promo_id' => (int)($promo['promo_id'] ?? $promo['id'] ?? 0),
               'promo_tipo'      => 'N_PAGA_M',
               'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
               'descripcion'     => "Promo {$n}x{$m}",
@@ -297,7 +297,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
           if ($desc > 0.00001) {
             $addPromo([
-              'promo_id'        => (int)($promo['id'] ?? 0),
+              'promo_id' => (int)($promo['promo_id'] ?? $promo['id'] ?? 0),
               'promo_tipo'      => 'NTH_PCT',
               'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
               'descripcion'     => "{$pct}% a la N°{$n}",
@@ -359,7 +359,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     $descTotalCombo = $descUnit * $maxCombos;
 
     $addPromo([
-      'promo_id'        => (int)($combo['id'] ?? 0),
+      'promo_id' => (int)($combo['promo_id'] ?? $combo['id'] ?? 0),
       'promo_tipo'      => 'COMBO_FIJO',
       'promo_nombre'    => (string)($combo['nombre'] ?? 'Combo'),
       'descripcion'     => "Combo fijo x{$maxCombos}",
@@ -442,6 +442,14 @@ function csrf_from_request(array $body): string {
 function require_csrf_json(array $body): void {
   $t = csrf_from_request($body);
   if (!csrf_check($t !== '' ? $t : null)) json_fail('CSRF inválido o ausente', 403);
+}
+function invalidate_promos_cache(PDO $pdo): void {
+  // promos_logic.php usa global $pdo; se lo pasamos para no abrir otra conexión
+  $GLOBALS['pdo'] = $pdo;
+
+  if (function_exists('invalidarCachePromos')) {
+    invalidarCachePromos();
+  }
 }
 
 // ------------------ ROUTER ------------------
@@ -652,7 +660,7 @@ try {
       require_any_perm_json(['editar_promos','editar_productos']);
       if ($method !== 'GET') json_fail('Método no permitido', 405);
 
-      $id = (int)($_GET['id'] ?? 0);
+      $id = (int)($body['id'] ?? ($_GET['id'] ?? 0));
       if ($id <= 0) json_fail('ID inválido', 400);
 
       $pdo = getPDO();
@@ -771,8 +779,11 @@ try {
             ':pct'  => $pct,
           ]);
 
-          $pdo->commit();
-          json_ok();
+        $pdo->commit();
+        try { invalidate_promos_cache($pdo); }
+        catch (Throwable $e) { error_log("invalidate_promos_cache: " . $e->getMessage()); }
+        json_ok();
+
         }
 
         $precioCombo = isset($body['precio_combo']) ? (float)$body['precio_combo'] : 0.0;
@@ -805,7 +816,10 @@ try {
         }
 
         $pdo->commit();
+        try { invalidate_promos_cache($pdo); }
+        catch (Throwable $e) { error_log("invalidate_promos_cache: " . $e->getMessage()); }
         json_ok();
+
 
       } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -819,7 +833,7 @@ try {
       if ($method !== 'POST') json_fail('Método no permitido', 405);
       require_csrf_json($body);
 
-      $id = (int)($_GET['id'] ?? 0);
+      $id = (int)($body['id'] ?? ($_GET['id'] ?? 0));
       if ($id <= 0) json_fail('ID inválido', 400);
 
       $pdo = getPDO();
@@ -837,8 +851,11 @@ try {
         $pdo->prepare("DELETE FROM promo_combo_items WHERE promo_id=?")->execute([$id]);
         $pdo->prepare("DELETE FROM promos WHERE id=?")->execute([$id]);
 
-        $pdo->commit();
+       $pdo->commit();
+        try { invalidate_promos_cache($pdo); }
+        catch (Throwable $e) { error_log("invalidate_promos_cache: " . $e->getMessage()); }
         json_ok();
+
 
       } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

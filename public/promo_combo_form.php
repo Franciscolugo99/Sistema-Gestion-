@@ -231,7 +231,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // -------------------- VIEW --------------------
 $pageTitle      = ($id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo') . ' - Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promo_combo_fijo.css'];
+$extraCss = [
+  'assets/css/promos.css',
+  'assets/css/promo_combo_fijo.css',
+];
+
 $extraJs        = ['assets/js/promo_combo_form.js'];
 
 require __DIR__ . '/partials/header.php';

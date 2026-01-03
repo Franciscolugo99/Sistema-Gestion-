@@ -1,243 +1,280 @@
-// public/assets/js/promo_combo_form.js
-document.addEventListener("DOMContentLoaded", () => {
-  const btnAdd = document.querySelector("#btn-add-item");
-  const tbody = document.querySelector("#tabla-items-combo tbody");
-  const form = document.querySelector("form.promo-form");
-  const comboPrecio = document.querySelector('input[name="precio_combo"]');
+/**
+ * public/assets/js/promo_combo_form.js v2.1 (conservado + ordenado)
+ * - Duplicados: marca + fusiona al guardar
+ * - Preview ahorro
+ * - Validaciones
+ */
+(function () {
+  "use strict";
 
-  if (!btnAdd || !tbody) return;
+  const CONFIG = {
+    minCantidad: 0.001,
+    maxCantidad: 9999.999,
+    decimalesCantidad: 3,
+  };
 
-  function qs(row, sel) {
-    return row ? row.querySelector(sel) : null;
+  let el = {};
+
+  function qs(parent, selector) {
+    return parent ? parent.querySelector(selector) : null;
+  }
+
+  function initElements() {
+    el = {
+      btnAdd: document.querySelector("#btn-add-item"),
+      tbody: document.querySelector("#tabla-items-combo tbody"),
+      form: document.querySelector("form.promo-form"),
+      comboPrecio: document.querySelector('input[name="precio_combo"]'),
+      fechaInicio: document.querySelector('input[name="fecha_inicio"]'),
+      fechaFin: document.querySelector('input[name="fecha_fin"]'),
+      nombrePromo: document.querySelector('input[name="nombre"]'),
+    };
+    return Object.values(el).every((x) => x);
   }
 
   function getRows() {
-    return Array.from(tbody.querySelectorAll("tr"));
+    return Array.from(el.tbody.querySelectorAll("tr"));
   }
 
   function normalizeMoneyAr(str) {
-    const s = String(str || "")
-      .trim()
-      .replace(/[^0-9,.\-]/g, "");
+    const s = String(str || "").trim().replace(/[^0-9,.\-]/g, "");
     if (!s) return 0;
-
-    if (s.includes(",")) {
-      const t = s.replace(/\./g, "").replace(",", ".");
-      const n = Number(t);
-      return Number.isFinite(n) ? n : 0;
-    }
-
-    const n = Number(s);
-    return Number.isFinite(n) ? n : 0;
+    if (s.includes(",")) return Number(s.replace(/\./g, "").replace(",", ".")) || 0;
+    return Number(s) || 0;
   }
 
-  function isValidYmd(s) {
-    if (!s) return true;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-    const d = new Date(s + "T00:00:00");
+  function isValidYmd(dateStr) {
+    if (!dateStr) return true;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+    const d = new Date(dateStr + "T00:00:00");
     return !Number.isNaN(d.getTime());
   }
 
-  function showError(msg) {
+  // Toast simple (si querés lo migramos a tu toast global después)
+  function flash(msg) {
+    // eslint-disable-next-line no-alert
     alert(msg);
   }
 
-  function refreshDuplicateHints() {
+  function fusionarDuplicados() {
     const rows = getRows();
-    const seen = new Map();
+    const map = new Map();
 
-    rows.forEach((r) => {
-      const sel = qs(r, 'select[name="item_producto_id[]"]');
-      if (!sel) return;
+    rows.forEach((row) => {
+      const sel = qs(row, 'select[name="item_producto_id[]"]');
+      const inp = qs(row, 'input[name="item_cantidad[]"]');
+      if (!sel || !inp) return;
+
       const pid = Number(sel.value || 0);
-      if (pid > 0) seen.set(pid, (seen.get(pid) || 0) + 1);
+      const cant = Number(inp.value || 0);
+
+      if (pid > 0) {
+        if (map.has(pid)) {
+          const data = map.get(pid);
+          data.cantidad += cant;
+          data.filasAEliminar.push(row);
+        } else {
+          map.set(pid, { cantidad: cant, input: inp, filasAEliminar: [] });
+        }
+      }
     });
 
-    rows.forEach((r) => {
-      const sel = qs(r, 'select[name="item_producto_id[]"]');
+    let fusionados = 0;
+    map.forEach((data) => {
+      if (data.filasAEliminar.length > 0) {
+        data.input.value = data.cantidad.toFixed(CONFIG.decimalesCantidad);
+        data.filasAEliminar.forEach((r) => r.remove());
+        fusionados++;
+      }
+    });
+
+    return fusionados;
+  }
+
+  function marcarDuplicados() {
+    const rows = getRows();
+    const count = new Map();
+
+    rows.forEach((row) => {
+      const sel = qs(row, 'select[name="item_producto_id[]"]');
       if (!sel) return;
       const pid = Number(sel.value || 0);
-      if (pid > 0 && (seen.get(pid) || 0) > 1) {
-        sel.title = "Producto repetido (se sumará en el backend).";
-        sel.style.outline = "2px solid rgba(239,68,68,.6)";
+      if (pid > 0) count.set(pid, (count.get(pid) || 0) + 1);
+    });
+
+    rows.forEach((row) => {
+      const sel = qs(row, 'select[name="item_producto_id[]"]');
+      if (!sel) return;
+      const pid = Number(sel.value || 0);
+      const c = count.get(pid) || 0;
+
+      if (pid > 0 && c > 1) {
+        sel.style.outline = "2px solid var(--accent-cyan)";
+        sel.style.outlineOffset = "2px";
+        sel.title = `Producto repetido (${c} veces). Se fusionará al guardar.`;
       } else {
-        sel.title = "";
         sel.style.outline = "";
+        sel.style.outlineOffset = "";
+        sel.title = "";
       }
     });
   }
 
   function calcularAhorroCombo() {
-    const precioCombo = normalizeMoneyAr(comboPrecio?.value || "0");
+    const precioCombo = normalizeMoneyAr(el.comboPrecio?.value || "0");
     const rows = getRows();
 
     let precioNormal = 0;
+    let itemsCount = 0;
 
     for (const row of rows) {
       const sel = qs(row, 'select[name="item_producto_id[]"]');
       const inp = qs(row, 'input[name="item_cantidad[]"]');
+      const opt = sel?.selectedOptions?.[0];
 
-      const option = sel?.selectedOptions[0];
-      const precio = Number(option?.dataset.precio || 0);
+      const precio = Number(opt?.dataset?.precio || 0);
       const cant = Number(inp?.value || 0);
 
-      precioNormal += precio * cant;
+      if (precio > 0 && cant > 0) {
+        precioNormal += precio * cant;
+        itemsCount++;
+      }
+    }
+
+    const previewEl = document.getElementById("combo-preview");
+    if (!previewEl) return;
+
+    if (itemsCount === 0) {
+      previewEl.textContent = "Agregá productos para ver el ahorro estimado.";
+      return;
     }
 
     const ahorro = precioNormal - precioCombo;
-    const ahorroPct = precioNormal > 0 ? (ahorro / precioNormal) * 100 : 0;
-
-    let previewEl = document.getElementById("combo-preview");
-
-    if (!previewEl) {
-      const container = comboPrecio?.closest(".field");
-      if (container) {
-        previewEl = document.createElement("div");
-        previewEl.id = "combo-preview";
-        previewEl.className = "combo-preview";
-        container.appendChild(previewEl);
-      }
-    }
-
-    if (previewEl && ahorro > 0) {
-      previewEl.innerHTML = `
-        <div class="alert alert-success">
-          <div>
-            <strong>Ahorro del combo:</strong> $${ahorro.toFixed(2)} (${ahorroPct.toFixed(1)}%)
-            <br><small>Precio normal: $${precioNormal.toFixed(2)} - Precio combo: $${precioCombo.toFixed(2)}</small>
-          </div>
-        </div>
-      `;
-    } else if (previewEl && precioCombo > 0 && precioNormal > 0) {
-      previewEl.innerHTML = `
-        <div class="alert alert-warning">
-          <div>
-            <strong>Atención:</strong> El precio del combo es mayor o igual al precio normal.
-            <br><small>No hay ahorro para el cliente.</small>
-          </div>
-        </div>
-      `;
-    } else if (previewEl) {
-      previewEl.innerHTML = "";
+    if (ahorro > 0.01) {
+      previewEl.textContent = `Ahorro: $${ahorro.toFixed(2)} (Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)})`;
+    } else {
+      previewEl.textContent = `Atención: no hay ahorro (Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)})`;
     }
   }
 
-  btnAdd.addEventListener("click", () => {
-    const firstRow = tbody.querySelector("tr");
-    if (!firstRow) return;
+  function validarFormulario() {
+    const errores = [];
+    const rows = getRows();
+
+    const nombre = el.nombrePromo?.value.trim();
+    if (!nombre) errores.push("Debe ingresar un nombre para la promoción");
+
+    const precio = normalizeMoneyAr(el.comboPrecio?.value || "0");
+    if (precio <= 0) errores.push("El precio del combo debe ser mayor a 0");
+
+    let itemsValidos = 0;
+    rows.forEach((row, i) => {
+      const sel = qs(row, 'select[name="item_producto_id[]"]');
+      const inp = qs(row, 'input[name="item_cantidad[]"]');
+      if (!sel || !inp) return;
+
+      const pid = Number(sel.value || 0);
+      const cant = Number(inp.value || 0);
+
+      if (pid > 0 && cant > 0) {
+        itemsValidos++;
+        if (cant < CONFIG.minCantidad) errores.push(`Fila ${i + 1}: La cantidad debe ser al menos ${CONFIG.minCantidad}`);
+        if (cant > CONFIG.maxCantidad) errores.push(`Fila ${i + 1}: La cantidad no puede superar ${CONFIG.maxCantidad}`);
+      } else if (pid > 0 || cant > 0) {
+        errores.push(`Fila ${i + 1}: Debe completar producto y cantidad`);
+      }
+    });
+
+    if (itemsValidos < 2) errores.push("Un combo debe tener al menos 2 productos");
+
+    const fi = el.fechaInicio?.value;
+    const ff = el.fechaFin?.value;
+
+    if (fi && !isValidYmd(fi)) errores.push("Fecha de inicio inválida");
+    if (ff && !isValidYmd(ff)) errores.push("Fecha de fin inválida");
+    if (fi && ff && fi > ff) errores.push("La fecha de inicio no puede ser posterior a la fecha de fin");
+
+    return errores;
+  }
+
+  function agregarFila() {
+    const firstRow = el.tbody.querySelector("tr");
+    if (!firstRow) return flash("No se puede agregar una nueva fila");
 
     const clone = firstRow.cloneNode(true);
+    const sel = qs(clone, 'select[name="item_producto_id[]"]');
+    const inp = qs(clone, 'input[name="item_cantidad[]"]');
 
-    const select = qs(clone, 'select[name="item_producto_id[]"]');
-    const input = qs(clone, 'input[name="item_cantidad[]"]');
+    if (sel) sel.value = "";
+    if (inp) inp.value = "1.000";
 
-    if (select) select.value = "";
-    if (input) input.value = "1";
-
-    tbody.appendChild(clone);
-    refreshDuplicateHints();
+    el.tbody.appendChild(clone);
+    marcarDuplicados();
     calcularAhorroCombo();
-  });
+  }
 
-  tbody.addEventListener("click", (event) => {
-    const btn = event.target.closest(".btn-remove-item");
-    if (!btn) return;
-
+  function eliminarFila(btn) {
     const rows = getRows();
     if (rows.length <= 1) {
-      const r0 = rows[0];
-      const sel = qs(r0, 'select[name="item_producto_id[]"]');
-      const inp = qs(r0, 'input[name="item_cantidad[]"]');
+      const row = rows[0];
+      const sel = qs(row, 'select[name="item_producto_id[]"]');
+      const inp = qs(row, 'input[name="item_cantidad[]"]');
       if (sel) sel.value = "";
-      if (inp) inp.value = "1";
-      refreshDuplicateHints();
-      calcularAhorroCombo();
+      if (inp) inp.value = "1.000";
       return;
     }
-
-    const tr = btn.closest("tr");
-    if (tr) tr.remove();
-    refreshDuplicateHints();
+    const row = btn.closest("tr");
+    if (row) row.remove();
+    marcarDuplicados();
     calcularAhorroCombo();
-  });
+  }
 
-  tbody.addEventListener("change", (event) => {
-    const sel = event.target.closest('select[name="item_producto_id[]"]');
-    if (sel) refreshDuplicateHints();
+  function attach() {
+    el.btnAdd.addEventListener("click", agregarFila);
+
+    el.tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".btn-remove-item");
+      if (!btn) return;
+      e.preventDefault();
+      eliminarFila(btn);
+    });
+
+    el.tbody.addEventListener("change", (e) => {
+      if (
+        e.target.matches('select[name="item_producto_id[]"]') ||
+        e.target.matches('input[name="item_cantidad[]"]')
+      ) {
+        marcarDuplicados();
+        calcularAhorroCombo();
+      }
+    });
+
+    el.comboPrecio.addEventListener("input", calcularAhorroCombo);
+
+    el.form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const fusionados = fusionarDuplicados();
+      if (fusionados > 0) flash(`Se fusionaron ${fusionados} producto(s) duplicado(s)`);
+
+      const errores = validarFormulario();
+      if (errores.length > 0) return flash(errores.join("\n"));
+
+      e.target.submit();
+    });
+  }
+
+  function init() {
+    if (!initElements()) return;
+
+    attach();
+    marcarDuplicados();
     calcularAhorroCombo();
-  });
+  }
 
-  tbody.addEventListener("input", (event) => {
-    const inp = event.target.closest('input[name="item_cantidad[]"]');
-    if (inp) calcularAhorroCombo();
-  });
-
-  comboPrecio?.addEventListener("input", calcularAhorroCombo);
-
-  form?.addEventListener("submit", (e) => {
-    const nombre = document.querySelector('input[name="nombre"]')?.value?.trim() || "";
-    if (nombre.length < 1) {
-      e.preventDefault();
-      showError("El nombre del combo es obligatorio.");
-      return;
-    }
-
-    const precioStr = document.querySelector('input[name="precio_combo"]')?.value || "";
-    const precio = normalizeMoneyAr(precioStr);
-    if (!(precio > 0)) {
-      e.preventDefault();
-      showError("El precio del combo debe ser mayor que 0.");
-      return;
-    }
-
-    const fi = document.querySelector('input[name="fecha_inicio"]')?.value || "";
-    const ff = document.querySelector('input[name="fecha_fin"]')?.value || "";
-    if (!isValidYmd(fi)) {
-      e.preventDefault();
-      showError("Fecha inicio inválida.");
-      return;
-    }
-    if (!isValidYmd(ff)) {
-      e.preventDefault();
-      showError("Fecha fin inválida.");
-      return;
-    }
-    if (fi && ff && fi > ff) {
-      e.preventDefault();
-      showError('La fecha "Desde" no puede ser mayor que "Hasta".');
-      return;
-    }
-
-    const rows = getRows();
-    let okItems = 0;
-
-    for (const r of rows) {
-      const sel = qs(r, 'select[name="item_producto_id[]"]');
-      const inp = qs(r, 'input[name="item_cantidad[]"]');
-      const pid = Number(sel?.value || 0);
-      const cant = Number(inp?.value || 0);
-
-      if (pid <= 0) {
-        e.preventDefault();
-        showError("Hay una fila sin producto. Elegí un producto o quitá la fila.");
-        return;
-      }
-      if (!(cant > 0)) {
-        e.preventDefault();
-        showError("Hay una fila con cantidad inválida. Debe ser mayor a 0.");
-        return;
-      }
-
-      okItems++;
-    }
-
-    if (okItems <= 0) {
-      e.preventDefault();
-      showError("El combo debe tener al menos 1 producto.");
-      return;
-    }
-  });
-
-  refreshDuplicateHints();
-  calcularAhorroCombo();
-});
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
