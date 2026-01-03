@@ -342,7 +342,27 @@ require __DIR__ . '/partials/header.php';
     </div>
   </div>
 </div>
-
+<!-- ESTADÍSTICAS (opcional) -->
+<div class="promo-stats">
+  <div class="stat-card">
+    <div class="stat-label">Total promos</div>
+    <div class="stat-value"><?= count($promosBase) ?></div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-label">Activas</div>
+    <div class="stat-value stat-value--success">
+      <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1)) ?>
+    </div>
+  </div>
+  
+  <div class="stat-card">
+    <div class="stat-label">Inactivas</div>
+    <div class="stat-value stat-value--muted">
+      <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 0)) ?>
+    </div>
+  </div>
+</div>
 <!-- TOAST -->
 <div id="promoToast" class="promo-toast"></div>
 

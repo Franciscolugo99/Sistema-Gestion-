@@ -1,432 +1,504 @@
 <?php
-// public/promos_logic.php
+// public/promos_logic.php v2.0
 declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 
-
 /* ==========================================================
-   CONFIG / CONSTANTES
+   CONSTANTS
 ========================================================== */
 const PROMO_EPS = 0.00001;
+const PROMO_CACHE_TTL = 300; // 5 minutos
 
 /* ==========================================================
-   OBTENER PROMOS ACTIVAS
+   CLASE PRINCIPAL: PromoEngine
+========================================================== */
+class PromoEngine {
+    private PDO $pdo;
+    private ?array $promosCache = null;
+    private ?int $cacheTTL = null;
+
+    public function __construct(PDO $pdo) {
+        $this->pdo = $pdo;
+    }
+
+    /**
+     * Obtiene promos activas con caché (mejora performance)
+     */
+    public function obtenerPromosActivas(bool $forceRefresh = false): array {
+        if (!$forceRefresh && $this->promosCache !== null) {
+            return $this->promosCache;
+        }
+
+        $hoy = date('Y-m-d');
+
+        // PROMOS SIMPLES (optimizado con un solo JOIN)
+        $sqlSimples = "
+            SELECT 
+                p.id AS promo_id,
+                p.nombre,
+                p.tipo,
+                pp.producto_id,
+                pp.n,
+                pp.m,
+                pp.porcentaje,
+                pr.es_pesable
+            FROM promos p
+            JOIN promo_productos pp ON pp.promo_id = p.id
+            JOIN productos pr ON pr.id = pp.producto_id
+            WHERE p.activo = 1
+              AND pr.activo = 1  -- ✅ No aplicar promos a productos inactivos
+              AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
+              AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
+        ";
+        
+        $st1 = $this->pdo->prepare($sqlSimples);
+        $st1->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
+        $simples = $st1->fetchAll(PDO::FETCH_ASSOC);
+
+        // COMBOS (optimizado)
+        $sqlCombos = "
+            SELECT 
+                p.id AS promo_id,
+                p.nombre,
+                p.tipo,
+                p.precio_combo,
+                pci.producto_id,
+                pci.cantidad AS cantidad_requerida,  -- ✅ Usar la columna correcta
+                pr.es_pesable,
+                pr.activo AS producto_activo
+            FROM promos p
+            JOIN promo_combo_items pci ON pci.promo_id = p.id
+            JOIN productos pr ON pr.id = pci.producto_id
+            WHERE p.activo = 1
+              AND p.tipo = 'COMBO_FIJO'
+              AND pr.activo = 1  -- ✅ Filtrar productos inactivos
+              AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
+              AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
+        ";
+        
+        $st2 = $this->pdo->prepare($sqlCombos);
+        $st2->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
+        $combosRaw = $st2->fetchAll(PDO::FETCH_ASSOC);
+
+        // AGRUPAR COMBOS
+        $combos = [];
+        foreach ($combosRaw as $c) {
+            $id = (int)$c['promo_id'];
+
+            if (!isset($combos[$id])) {
+                $combos[$id] = [
+                    'promo_id'     => $id,
+                    'id'           => $id,
+                    'nombre'       => $c['nombre'],
+                    'tipo'         => 'COMBO_FIJO',
+                    'precio_combo' => (float)$c['precio_combo'],
+                    'items'        => []
+                ];
+            }
+
+            $combos[$id]['items'][] = [
+                'producto_id' => (int)$c['producto_id'],
+                'cantidad'    => (float)$c['cantidad_requerida'],
+                'es_pesable'  => (bool)$c['es_pesable'],
+            ];
+        }
+
+        $result = [
+            'simples' => $simples,
+            'combos'  => array_values($combos),
+        ];
+
+        // Cache por 5 minutos
+        $this->promosCache = $result;
+        $this->cacheTTL = time() + PROMO_CACHE_TTL;
+
+        return $result;
+    }
+
+    /**
+     * Aplica promos al carrito completo
+     */
+    public function aplicarPromosACarrito(array $items, ?array $promos = null): array {
+        if ($promos === null) {
+            $promos = $this->obtenerPromosActivas();
+        }
+
+        $simples = $promos['simples'] ?? [];
+        $combos  = $promos['combos']  ?? [];
+
+        // Indexar promos simples por producto_id
+        $promosPorProducto = [];
+        foreach ($simples as $p) {
+            $pid = (int)($p['producto_id'] ?? 0);
+            if ($pid > 0) {
+                $promosPorProducto[$pid][] = $p;
+            }
+        }
+
+        // 1) Init + aplicar mejor promo simple por item
+        foreach ($items as &$item) {
+            $this->initItem($item);
+
+            $pid = $this->getItemProductId($item);
+            if ($pid > 0 && isset($promosPorProducto[$pid])) {
+                $this->aplicarMejorPromoSimple($item, $promosPorProducto[$pid]);
+            }
+
+            $this->finalizeItem($item);
+        }
+        unset($item);
+
+        // 2) Combos fijos (se apilan)
+        if (!empty($combos)) {
+            $items = $this->aplicarCombosFijos($items, $combos);
+
+            // Re-finalizar
+            foreach ($items as &$it) {
+                $this->finalizeItem($it);
+            }
+            unset($it);
+        }
+
+        return $items;
+    }
+
+    /* ==========================================================
+       HELPERS PRIVADOS
+    ========================================================== */
+
+    private function initItem(array &$item): void {
+        $cant = (float)($item['cantidad'] ?? 0);
+        $pu   = (float)($item['precio_unitario'] ?? 0);
+        $base = $pu * $cant;
+
+        $item['base_subtotal']        = $base;
+        $item['descuento']            = 0.0;
+        $item['subtotal']             = $base;
+        $item['promo']                = null;
+        $item['promos_aplicadas']     = [];
+        $item['precio_unit_original'] = $pu;
+        $item['precio_unit_final']    = $pu;
+        $item['descuento_monto']      = 0.0;
+    }
+
+    private function finalizeItem(array &$item): void {
+        $base = (float)($item['base_subtotal'] ?? 0);
+        $desc = (float)($item['descuento'] ?? 0);
+        $cant = (float)($item['cantidad'] ?? 0);
+
+        $desc = $this->round2($this->clamp0($desc));
+        $sub  = $this->round2($this->clamp0($base - $desc));
+
+        $item['descuento']       = $desc;
+        $item['subtotal']        = $sub;
+        $item['descuento_monto'] = $desc;
+
+        $puFinal = ($cant > PROMO_EPS) ? ($sub / $cant) : 0.0;
+        $item['precio_unit_final'] = $this->round2($this->clamp0($puFinal));
+    }
+
+    private function getItemProductId(array $item): int {
+        return (int)($item['id'] ?? $item['producto_id'] ?? 0);
+    }
+
+    private function round2(float $n): float {
+        return round($n, 2);
+    }
+
+    private function clamp0(float $n): float {
+        return ($n < 0) ? 0.0 : $n;
+    }
+
+    private function isIntLike(float $n): bool {
+        return abs($n - floor($n)) < PROMO_EPS;
+    }
+
+    /**
+     * Aplica la MEJOR promo simple (puede ser NxM o NTH_PCT)
+     */
+    private function aplicarMejorPromoSimple(array &$item, array $promosDeProducto): void {
+        $cant = (float)($item['cantidad'] ?? 0);
+        $pu   = (float)($item['precio_unitario'] ?? 0);
+        $esPesable = (bool)($item['es_pesable'] ?? false);
+
+        $best = [
+            'desc'  => 0.0,
+            'tipo'  => '',
+            'promo' => null,
+            'extra' => [],
+        ];
+
+        foreach ($promosDeProducto as $p) {
+            $tipo = $p['tipo'] ?? '';
+            $promoId = (int)($p['promo_id'] ?? 0);
+            $nombre = $p['nombre'] ?? '';
+
+            if ($tipo === 'N_PAGA_M') {
+                $n = (int)($p['n'] ?? 0);
+                $m = (int)($p['m'] ?? 0);
+
+                // ✅ Si es pesable, no aplica NxM (solo unidades enteras)
+                if ($esPesable) continue;
+
+                [, $desc] = $this->calcNxM($cant, $pu, $n, $m);
+
+                if ($desc > $best['desc'] + PROMO_EPS) {
+                    $best = [
+                        'desc'  => $desc,
+                        'tipo'  => 'N_PAGA_M',
+                        'promo' => $p,
+                        'extra' => [
+                            'n'        => $n,
+                            'm'        => $m,
+                            'nombre'   => $nombre,
+                            'promo_id' => $promoId
+                        ],
+                    ];
+                }
+            }
+
+            if ($tipo === 'NTH_PCT') {
+                $n = (int)($p['n'] ?? 0);
+                $pct = (float)($p['porcentaje'] ?? 0);
+
+                // ✅ NTH_PCT puede aplicar a pesables (ej: cada 3kg, 20% desc)
+                [, $desc] = $this->calcNthPct($cant, $pu, $n, $pct, $esPesable);
+
+                if ($desc > $best['desc'] + PROMO_EPS) {
+                    $best = [
+                        'desc'  => $desc,
+                        'tipo'  => 'NTH_PCT',
+                        'promo' => $p,
+                        'extra' => [
+                            'n'          => $n,
+                            'porcentaje' => $pct,
+                            'nombre'     => $nombre,
+                            'promo_id'   => $promoId
+                        ],
+                    ];
+                }
+            }
+        }
+
+        if ($best['desc'] <= PROMO_EPS) return;
+
+        $item['descuento'] += $best['desc'];
+
+        $label = ($best['tipo'] === 'N_PAGA_M') ? 'NxM' : '% N°';
+        
+        $item['promo'] = ($item['promo'] ?? '') !== '' 
+            ? $item['promo'] . ' | ' . $label
+            : $label;
+
+        $item['promos_aplicadas'][] = array_merge(
+            ['label' => $label, 'tipo' => $best['tipo'], 'descuento' => $best['desc']],
+            $best['extra']
+        );
+    }
+
+    /**
+     * NxM: Llevás N, pagás M (solo unidades enteras)
+     */
+    private function calcNxM(float $cantidad, float $precioUnit, int $n, int $m): array {
+        if ($cantidad < $n || $n <= 0 || $m <= 0 || $m >= $n) {
+            return [0.0, 0.0];
+        }
+
+        if (!$this->isIntLike($cantidad)) {
+            return [0.0, 0.0];
+        }
+
+        $cant = (int)round($cantidad);
+        $packs = intdiv($cant, $n);
+        $resto = $cant % $n;
+        $unidadesPagas = ($packs * $m) + $resto;
+
+        $normal = $cant * $precioUnit;
+        $promo  = $unidadesPagas * $precioUnit;
+        $desc   = $this->clamp0($normal - $promo);
+
+        return [$promo, $desc];
+    }
+
+    /**
+     * NTH_PCT: X% de descuento en la N° unidad/kg
+     */
+    private function calcNthPct(float $cantidad, float $precioUnit, int $n, float $pct, bool $esPesable): array {
+        if ($cantidad < $n || $n <= 0 || $pct <= 0 || $pct > 100) {
+            return [0.0, 0.0];
+        }
+
+        if ($esPesable) {
+            // Para pesables: cada N kg, descuento de pct%
+            $descUnidades = floor($cantidad / $n);
+        } else {
+            // Para unidades: debe ser cantidad entera
+            if (!$this->isIntLike($cantidad)) {
+                return [0.0, 0.0];
+            }
+            $cant = (int)round($cantidad);
+            $descUnidades = intdiv($cant, $n);
+        }
+
+        $desc = $descUnidades * ($precioUnit * ($pct / 100.0));
+        $desc = $this->clamp0($desc);
+
+        $normal = $cantidad * $precioUnit;
+        $promo  = $this->clamp0($normal - $desc);
+
+        return [$promo, $desc];
+    }
+
+    /**
+     * Aplica combos fijos (puede aplicarse múltiples veces)
+     */
+    private function aplicarCombosFijos(array $items, array $combos): array {
+        if (empty($combos) || empty($items)) return $items;
+
+        // Index por producto + resto disponible
+        $indexPorProducto = [];
+        foreach ($items as $idx => $it) {
+            $pid = $this->getItemProductId($it);
+            if ($pid <= 0) continue;
+
+            $indexPorProducto[$pid] = $idx;
+            $items[$idx]['_resto_combo'] = (float)($it['cantidad'] ?? 0);
+
+            if (!isset($items[$idx]['promos_aplicadas'])) {
+                $items[$idx]['promos_aplicadas'] = [];
+            }
+            if (!isset($items[$idx]['promo'])) {
+                $items[$idx]['promo'] = null;
+            }
+            if (!isset($items[$idx]['descuento'])) {
+                $items[$idx]['descuento'] = 0.0;
+            }
+        }
+
+        foreach ($combos as $combo) {
+            if (($combo['tipo'] ?? '') !== 'COMBO_FIJO') continue;
+
+            $comboItems  = $combo['items'] ?? [];
+            $precioCombo = (float)($combo['precio_combo'] ?? 0);
+
+            if (empty($comboItems) || $precioCombo <= 0) continue;
+
+            $comboId     = (int)($combo['promo_id'] ?? $combo['id'] ?? 0);
+            $comboNombre = $combo['nombre'] ?? 'Combo';
+
+            // Verificar si hay productos pesables en el combo
+            $tienePesables = false;
+            foreach ($comboItems as $ci) {
+                if (!empty($ci['es_pesable'])) {
+                    $tienePesables = true;
+                    break;
+                }
+            }
+
+            // ✅ Si hay pesables, solo permitir 1 combo (no múltiples)
+            $maxCombos = $tienePesables ? 1 : PHP_INT_MAX;
+
+            // Calcular cuántos combos se pueden armar
+            foreach ($comboItems as $ci) {
+                $pidReq  = (int)($ci['producto_id'] ?? 0);
+                $cantReq = (float)($ci['cantidad'] ?? 0);
+
+                if ($pidReq <= 0 || $cantReq <= 0) {
+                    $maxCombos = 0;
+                    break;
+                }
+
+                if (!isset($indexPorProducto[$pidReq])) {
+                    $maxCombos = 0;
+                    break;
+                }
+
+                $idxCarrito = $indexPorProducto[$pidReq];
+                $cantDisp   = (float)($items[$idxCarrito]['_resto_combo'] ?? 0);
+
+                $posibles = (int)floor($cantDisp / $cantReq);
+                $maxCombos = min($maxCombos, $posibles);
+            }
+
+            if ($maxCombos <= 0) continue;
+
+            // Aplicar combos
+            for ($k = 0; $k < $maxCombos; $k++) {
+                // Calcular precio normal de 1 combo
+                $precioNormal = 0.0;
+                foreach ($comboItems as $ci) {
+                    $pidReq  = (int)$ci['producto_id'];
+                    $cantReq = (float)$ci['cantidad'];
+                    $idxCart = $indexPorProducto[$pidReq];
+                    $precioU = (float)$items[$idxCart]['precio_unitario'];
+
+                    $precioNormal += $precioU * $cantReq;
+                }
+
+                if ($precioNormal <= 0 || $precioCombo >= $precioNormal) break;
+
+                $descuentoCombo = $precioNormal - $precioCombo;
+
+                // Repartir descuento proporcionalmente
+                foreach ($comboItems as $ci) {
+                    $pidReq  = (int)$ci['producto_id'];
+                    $cantReq = (float)$ci['cantidad'];
+                    $idxCart = $indexPorProducto[$pidReq];
+                    $precioU = (float)$items[$idxCart]['precio_unitario'];
+
+                    $parteNormal = $precioU * $cantReq;
+                    $prop = ($precioNormal > 0) ? ($parteNormal / $precioNormal) : 0.0;
+                    $descItem = $this->clamp0($descuentoCombo * $prop);
+
+                    $items[$idxCart]['descuento'] += $descItem;
+
+                    $label = "Combo: {$comboNombre}";
+                    $prevPromo = $items[$idxCart]['promo'] ?? '';
+                    $items[$idxCart]['promo'] = ($prevPromo !== '') 
+                        ? ($prevPromo . ' | ' . $label)
+                        : $label;
+
+                    $items[$idxCart]['promos_aplicadas'][] = [
+                        'label'     => $label,
+                        'tipo'      => 'COMBO_FIJO',
+                        'promo_id'  => $comboId,
+                        'nombre'    => $comboNombre,
+                        'descuento' => $descItem,
+                    ];
+
+                    // Consumir cantidad
+                    $items[$idxCart]['_resto_combo'] -= $cantReq;
+                }
+            }
+        }
+
+        // Limpiar interno
+        foreach ($items as &$it) {
+            unset($it['_resto_combo']);
+        }
+        unset($it);
+
+        return $items;
+    }
+}
+
+/* ==========================================================
+   FUNCIÓN LEGACY (para compatibilidad con código existente)
 ========================================================== */
 function obtenerPromosActivas(PDO $pdo): array {
-  $hoy = date('Y-m-d');
-
-  // PROMOS SIMPLES
-  $sqlSimples = "
-    SELECT 
-      p.id AS promo_id,
-      p.nombre,
-      p.tipo,
-      pp.producto_id,
-      pp.n,
-      pp.m,
-      pp.porcentaje
-    FROM promos p
-    JOIN promo_productos pp ON pp.promo_id = p.id
-    WHERE p.activo = 1
-      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
-      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
-
-  ";
-  $st1 = $pdo->prepare($sqlSimples);
-  $st1->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
-  $simples = $st1->fetchAll(PDO::FETCH_ASSOC);
-
-  // COMBO FIJO
-  $sqlCombos = "
-    SELECT 
-      p.id AS promo_id,
-      p.nombre,
-      p.tipo,
-      p.precio_combo,
-      pci.producto_id,
-      pci.cantidad_requerida
-    FROM promos p
-    JOIN promo_combo_items pci ON pci.promo_id = p.id
-    WHERE p.activo = 1
-      AND p.tipo = 'COMBO_FIJO'
-      AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= :hoy1)
-      AND (p.fecha_fin     IS NULL OR p.fecha_fin     >= :hoy2)
-
-  ";
-  $st2 = $pdo->prepare($sqlCombos);
-  $st2->execute([':hoy1' => $hoy, ':hoy2' => $hoy]);
-  $combosRaw = $st2->fetchAll(PDO::FETCH_ASSOC);
-
-  // AGRUPAR COMBOS
-  $combos = [];
-  foreach ($combosRaw as $c) {
-    $id = (int)$c['promo_id'];
-
-    if (!isset($combos[$id])) {
-      $combos[$id] = [
-        'promo_id'     => $id,
-        'id'           => $id, // alias compat
-        'nombre'       => (string)$c['nombre'],
-        'tipo'         => 'COMBO_FIJO',
-        'precio_combo' => (float)$c['precio_combo'],
-        'items'        => []
-      ];
+    static $engine = null;
+    if ($engine === null) {
+        $engine = new PromoEngine($pdo);
     }
-
-    $combos[$id]['items'][] = [
-      'producto_id' => (int)$c['producto_id'],
-      'cantidad'    => (float)$c['cantidad_requerida'],
-    ];
-  }
-
-  return [
-    'simples' => $simples,
-    'combos'  => array_values($combos),
-  ];
+    return $engine->obtenerPromosActivas();
 }
 
-/* ==========================================================
-   HELPERS NUM
-========================================================== */
-function _round2(float $n): float { return round($n, 2); }
-function _clamp0(float $n): float { return ($n < 0) ? 0.0 : $n; }
-function _is_int_like(float $n): bool { return abs($n - floor($n)) < PROMO_EPS; }
-
-/**
- * Normaliza id de producto del item (te soporta id o producto_id)
- */
-function _item_pid(array $item): int {
-  if (isset($item['id'])) return (int)$item['id'];
-  if (isset($item['producto_id'])) return (int)$item['producto_id'];
-  return 0;
-}
-
-/**
- * Inicializa campos del item para promo.
- * Deja listo para grabar en DB después:
- * - precio_unit_original, precio_unit_final, descuento_monto, subtotal
- */
-function _promo_init_item(array &$item): void {
-  $cant = (float)($item['cantidad'] ?? 0);
-  $pu   = (float)($item['precio_unitario'] ?? 0);
-
-  $base = $pu * $cant;
-
-  $item['base_subtotal'] = $base;     // base sin promos
-  $item['descuento']     = 0.0;       // acumulado
-  $item['subtotal']      = $base;     // se recalcula al final
-
-  if (!array_key_exists('promo', $item)) {
-    $item['promo'] = null;            // string para UI
-  }
-
-  if (!isset($item['promos_aplicadas']) || !is_array($item['promos_aplicadas'])) {
-    $item['promos_aplicadas'] = [];
-  }
-
-  // para DB / ticket
-  $item['precio_unit_original'] = $pu;
-  $item['precio_unit_final']    = $pu;
-  $item['descuento_monto']      = 0.0;
-}
-
-/**
- * Agrega etiqueta al string promo + detalle estructurado
- */
-function _promo_add_label(array &$item, string $label, array $detalle = []): void {
-  $prev = trim((string)($item['promo'] ?? ''));
-  $item['promo'] = ($prev === '') ? $label : ($prev . ' | ' . $label);
-
-  $item['promos_aplicadas'][] = array_merge(['label' => $label], $detalle);
-}
-
-/**
- * Finaliza el item: redondeos + campos para DB
- */
-function _promo_finalize_item(array &$item): void {
-  $base = (float)($item['base_subtotal'] ?? 0);
-  $desc = (float)($item['descuento'] ?? 0);
-  $cant = (float)($item['cantidad'] ?? 0);
-
-  $desc = _round2(_clamp0($desc));
-  $sub  = _round2(_clamp0($base - $desc));
-
-  $item['descuento'] = $desc;
-  $item['subtotal']  = $sub;
-
-  $item['descuento_monto'] = $desc;
-
-  $puFinal = 0.0;
-  if ($cant > PROMO_EPS) {
-    $puFinal = $sub / $cant;
-  }
-  $item['precio_unit_final'] = _round2(_clamp0($puFinal));
-}
-
-/* ==========================================================
-   PROMO NxM (N paga M)
-========================================================== */
-function _calc_nxm(float $cantidad, float $precioUnit, int $n, int $m): array {
-  if ($cantidad < $n || $n <= 0 || $m <= 0) return [0.0, 0.0];
-
-  // solo unidades enteras
-  if (!_is_int_like($cantidad)) return [0.0, 0.0];
-
-  $cant = (int)round($cantidad);
-  $packs = intdiv($cant, $n);
-  $unidadesPagas = ($packs * $m) + ($cant % $n);
-
-  $normal = $cant * $precioUnit;
-  $promo  = $unidadesPagas * $precioUnit;
-
-  $desc = _clamp0($normal - $promo);
-  return [$promo, $desc];
-}
-
-/* ==========================================================
-   PROMO NTH %  (ej: 20% en la 3ra)
-========================================================== */
-function _calc_nth_pct(float $cantidad, float $precioUnit, int $n, float $pct): array {
-  if ($cantidad < $n || $n <= 0 || $pct <= 0) return [0.0, 0.0];
-
-  // solo unidades enteras
-  if (!_is_int_like($cantidad)) return [0.0, 0.0];
-
-  $cant = (int)round($cantidad);
-  $descUnidades = intdiv($cant, $n);
-
-  $normal = $cant * $precioUnit;
-  $desc   = $descUnidades * ($precioUnit * ($pct / 100.0));
-  $desc   = _clamp0($desc);
-
-  $promo = _clamp0($normal - $desc);
-  return [$promo, $desc];
-}
-
-/**
- * Aplica la MEJOR promo simple para el producto (si hubiera más de una)
- */
-function aplicarMejorPromoSimple(array &$item, array $promosDeProducto): void {
-  $cant = (float)($item['cantidad'] ?? 0);
-  $pu   = (float)($item['precio_unitario'] ?? 0);
-
-  $best = [
-    'desc' => 0.0,
-    'tipo' => '',
-    'promo'=> null,
-    'extra'=> [],
-  ];
-
-  foreach ($promosDeProducto as $p) {
-    $tipo = (string)($p['tipo'] ?? '');
-    $nombre = (string)($p['nombre'] ?? '');
-    $promoId = (int)($p['promo_id'] ?? 0);
-
-    if ($tipo === 'N_PAGA_M') {
-      $n = (int)($p['n'] ?? 0);
-      $m = (int)($p['m'] ?? 0);
-      [, $desc] = _calc_nxm($cant, $pu, $n, $m);
-
-      if ($desc > $best['desc'] + PROMO_EPS) {
-        $best = [
-          'desc' => $desc,
-          'tipo' => 'N_PAGA_M',
-          'promo'=> $p,
-          'extra'=> ['n'=>$n,'m'=>$m,'nombre'=>$nombre,'promo_id'=>$promoId],
-        ];
-      }
-    }
-
-    if ($tipo === 'NTH_PCT') {
-      $n = (int)($p['n'] ?? 0);
-      $pct = (float)($p['porcentaje'] ?? 0);
-      [, $desc] = _calc_nth_pct($cant, $pu, $n, $pct);
-
-      if ($desc > $best['desc'] + PROMO_EPS) {
-        $best = [
-          'desc' => $desc,
-          'tipo' => 'NTH_PCT',
-          'promo'=> $p,
-          'extra'=> ['n'=>$n,'porcentaje'=>$pct,'nombre'=>$nombre,'promo_id'=>$promoId],
-        ];
-      }
-    }
-  }
-
-  if ($best['desc'] <= PROMO_EPS) return;
-
-  $item['descuento'] += $best['desc'];
-
-  if ($best['tipo'] === 'N_PAGA_M') {
-    _promo_add_label($item, 'NxM', [
-      'tipo'      => 'N_PAGA_M',
-      'promo_id'  => $best['extra']['promo_id'] ?? null,
-      'nombre'    => $best['extra']['nombre'] ?? '',
-      'n'         => $best['extra']['n'] ?? null,
-      'm'         => $best['extra']['m'] ?? null,
-      'descuento' => $best['desc'],
-    ]);
-  } else {
-    _promo_add_label($item, '% N°', [
-      'tipo'       => 'NTH_PCT',
-      'promo_id'   => $best['extra']['promo_id'] ?? null,
-      'nombre'     => $best['extra']['nombre'] ?? '',
-      'n'          => $best['extra']['n'] ?? null,
-      'porcentaje' => $best['extra']['porcentaje'] ?? null,
-      'descuento'  => $best['desc'],
-    ]);
-  }
-}
-
-/* ==========================================================
-   CÁLCULO PRINCIPAL
-========================================================== */
 function aplicarPromosACarrito(array $items, array $promos): array {
-  $simples = $promos['simples'] ?? [];
-  $combos  = $promos['combos']  ?? [];
-
-  // indexar promos simples por producto_id (pueden ser varias)
-  $promosPorProducto = [];
-  foreach ($simples as $p) {
-    if (!isset($p['producto_id'])) continue;
-    $pid = (int)$p['producto_id'];
-    if ($pid <= 0) continue;
-    $promosPorProducto[$pid][] = $p;
-  }
-
-  // 1) init + aplicar mejor promo simple por item
-  foreach ($items as &$item) {
-    _promo_init_item($item);
-
-    $pid = _item_pid($item);
-    if ($pid > 0 && isset($promosPorProducto[$pid])) {
-      aplicarMejorPromoSimple($item, $promosPorProducto[$pid]);
+    global $pdo;
+    static $engine = null;
+    if ($engine === null) {
+        $engine = new PromoEngine($pdo);
     }
-
-    _promo_finalize_item($item);
-  }
-  unset($item);
-
-  // 2) combos fijos (se apilan como descuento adicional)
-  if (!empty($combos)) {
-    $items = aplicarCombosFijosACarrito($items, $combos);
-
-    // volver a finalizar (porque combos suman descuento)
-    foreach ($items as &$it) {
-      _promo_finalize_item($it);
-    }
-    unset($it);
-  }
-
-  return $items;
-}
-
-/* ==========================================================
-   COMBOS FIJOS (COMBO_FIJO)
-========================================================== */
-function aplicarCombosFijosACarrito(array $items, array $combos): array {
-  if (empty($combos) || empty($items)) return $items;
-
-  // index por producto + resto
-  $indexPorProducto = [];
-  foreach ($items as $idx => $it) {
-    $pid = _item_pid($it);
-    if ($pid <= 0) continue;
-    $indexPorProducto[$pid] = $idx;
-    $items[$idx]['_resto_combo'] = (float)($it['cantidad'] ?? 0);
-
-    if (!isset($items[$idx]['promos_aplicadas']) || !is_array($items[$idx]['promos_aplicadas'])) {
-      $items[$idx]['promos_aplicadas'] = [];
-    }
-    if (!array_key_exists('promo', $items[$idx])) $items[$idx]['promo'] = null;
-    if (!isset($items[$idx]['descuento'])) $items[$idx]['descuento'] = 0.0;
-    if (!isset($items[$idx]['base_subtotal'])) {
-      // por las dudas si entrara “crudo”
-      $items[$idx]['base_subtotal'] = (float)($items[$idx]['precio_unitario'] ?? 0) * (float)($items[$idx]['cantidad'] ?? 0);
-    }
-  }
-
-  foreach ($combos as $combo) {
-    if (($combo['tipo'] ?? '') !== 'COMBO_FIJO') continue;
-
-    $comboItems  = $combo['items'] ?? [];
-    $precioCombo = (float)($combo['precio_combo'] ?? 0);
-
-    if (empty($comboItems) || $precioCombo <= 0) continue;
-
-    $comboId = (int)($combo['promo_id'] ?? ($combo['id'] ?? 0));
-    $comboNombre = (string)($combo['nombre'] ?? 'Combo');
-
-    // max combos armables
-    $maxCombos = PHP_INT_MAX;
-
-    foreach ($comboItems as $ci) {
-      $pidReq  = (int)($ci['producto_id'] ?? 0);
-      $cantReq = (float)($ci['cantidad'] ?? 0);
-
-      if ($pidReq <= 0 || $cantReq <= 0 || !isset($indexPorProducto[$pidReq])) {
-        $maxCombos = 0;
-        break;
-      }
-
-      $idxCarrito = $indexPorProducto[$pidReq];
-      $cantDisp   = (float)($items[$idxCarrito]['_resto_combo'] ?? 0);
-
-      $maxCombos = min($maxCombos, (int)floor($cantDisp / $cantReq));
-    }
-
-    if ($maxCombos <= 0) continue;
-
-    for ($k = 0; $k < $maxCombos; $k++) {
-
-      // precio normal de 1 combo
-      $precioNormal = 0.0;
-      foreach ($comboItems as $ci) {
-        $pidReq  = (int)$ci['producto_id'];
-        $cantReq = (float)$ci['cantidad'];
-        $idxCart = $indexPorProducto[$pidReq];
-        $precioU = (float)$items[$idxCart]['precio_unitario'];
-        $precioNormal += $precioU * $cantReq;
-      }
-
-      if ($precioNormal <= 0) break;
-      if ($precioCombo >= $precioNormal) break;
-
-      $descuentoCombo = $precioNormal - $precioCombo;
-
-      // repartir proporcionalmente
-      foreach ($comboItems as $ci) {
-        $pidReq  = (int)$ci['producto_id'];
-        $cantReq = (float)$ci['cantidad'];
-        $idxCart = $indexPorProducto[$pidReq];
-        $precioU = (float)$items[$idxCart]['precio_unitario'];
-
-        $parteNormal = $precioU * $cantReq;
-        $prop = ($precioNormal > 0) ? ($parteNormal / $precioNormal) : 0.0;
-
-        $descItem = $descuentoCombo * $prop;
-        $descItem = _clamp0($descItem);
-
-        $items[$idxCart]['descuento'] += $descItem;
-
-        _promo_add_label($items[$idxCart], "Combo fijo: {$comboNombre}", [
-          'tipo'      => 'COMBO_FIJO',
-          'promo_id'  => $comboId,
-          'nombre'    => $comboNombre,
-          'descuento' => $descItem,
-        ]);
-
-        // consumir
-        $items[$idxCart]['_resto_combo'] -= $cantReq;
-      }
-    }
-  }
-
-  // limpiar interno
-  foreach ($items as &$it) {
-    unset($it['_resto_combo']);
-  }
-  unset($it);
-
-  return $items;
+    return $engine->aplicarPromosACarrito($items, $promos);
 }

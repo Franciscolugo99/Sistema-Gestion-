@@ -155,3 +155,47 @@ document.addEventListener("DOMContentLoaded", () => {
   // init
   toggleBlocks();
 });
+// En promo_form.js - agregar preview dinámico
+
+function updatePreview() {
+  const tipo = tipoSel.value;
+  const previewEl = document.getElementById("preview-promo");
+  
+  if (!previewEl) return;
+  
+  if (tipo === "N_PAGA_M") {
+    const n = asInt(inpN);
+    const m = asInt(inpM);
+    
+    if (Number.isFinite(n) && Number.isFinite(m) && m < n) {
+      previewEl.innerHTML = `
+        <div class="preview-box">
+          <strong>Ejemplo:</strong> Si el cliente lleva ${n} unidades, paga solo ${m}.
+          <br>Descuento: ${Math.round((1 - m/n) * 100)}%
+        </div>
+      `;
+    } else {
+      previewEl.innerHTML = "";
+    }
+  }
+  
+  if (tipo === "NTH_PCT") {
+    const n = asInt(inpNthN);
+    const pct = asFloat(inpPct);
+    
+    if (Number.isFinite(n) && Number.isFinite(pct)) {
+      previewEl.innerHTML = `
+        <div class="preview-box">
+          <strong>Ejemplo:</strong> Cada ${n} unidades, la N°${n} tiene ${pct}% de descuento.
+        </div>
+      `;
+    } else {
+      previewEl.innerHTML = "";
+    }
+  }
+}
+
+// Llamar en cada input change
+[inpN, inpM, inpNthN, inpPct].forEach(el => {
+  el?.addEventListener("input", updatePreview);
+});

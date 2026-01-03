@@ -1,13 +1,20 @@
-// public/assets/js/promos.js
-// Panel lateral de edición + modal eliminar + toast + filtros
-// Unificado con CSRF por meta + apiJson (app.js)
-
+// public/assets/js/promos.js v2.0
+// Sistema de gestión de promociones
 (() => {
+  "use strict";
+
+  // =============================================================================
+  // CONFIGURACIÓN
+  // =============================================================================
   const API_BASE = "api/index.php";
 
-  // ---------------------
-  // CSRF (meta / global)
-  // ---------------------
+  // =============================================================================
+  // UTILIDADES
+  // =============================================================================
+
+  /**
+   * Obtener token CSRF para protección contra ataques
+   */
   function getCsrf() {
     return (
       (window.getCsrfToken && window.getCsrfToken()) ||
@@ -16,23 +23,31 @@
     );
   }
 
-  // ---------------------
-  // TOAST
-  // ---------------------
-  function notify(message) {
+  /**
+   * Mostrar notificación toast al usuario
+   * @param {string} message - Mensaje a mostrar
+   * @param {string} type - Tipo: 'info', 'success', 'error', 'warning'
+   */
+  function notify(message, type = "info") {
     const toast = document.getElementById("promoToast");
     if (!toast) {
       alert(message);
       return;
     }
+    
     toast.textContent = message;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
+    toast.className = `promo-toast show promo-toast--${type}`;
+    
+    setTimeout(() => {
+      toast.classList.remove("show");
+    }, 3000);
   }
 
-  // ---------------------
-  // FETCH JSON SEGURO (GET)
-  // ---------------------
+  /**
+   * Realizar petición GET y parsear JSON
+   * @param {string} url - URL del endpoint
+   * @returns {Promise<Object>} Datos parseados
+   */
   async function fetchJsonGet(url) {
     const res = await fetch(url, {
       method: "GET",
@@ -42,8 +57,8 @@
     });
 
     const text = await res.text();
-
     let data;
+    
     try {
       data = text ? JSON.parse(text) : {};
     } catch (e) {
@@ -55,43 +70,52 @@
       const msg = data?.error || `Error HTTP ${res.status}`;
       throw new Error(msg);
     }
+    
     return data;
   }
 
-  // ---------------------
-  // Debounce simple
-  // ---------------------
+  /**
+   * Debounce para optimizar eventos de input
+   * @param {Function} fn - Función a ejecutar
+   * @param {number} wait - Milisegundos de espera
+   * @returns {Function} Función debounced
+   */
   function debounce(fn, wait = 250) {
-    let t = null;
+    let timeout = null;
     return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), wait);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), wait);
     };
   }
 
-  // =====================================================
-  // DOMContentLoaded
-  // =====================================================
+  // =============================================================================
+  // INICIALIZACIÓN
+  // =============================================================================
   document.addEventListener("DOMContentLoaded", () => {
     const page = document.getElementById("promos-page");
     if (!page) return;
 
-    // ---------------------
-    // FILTROS (tabla)
-    // ---------------------
+    // -------------------------------------------------------------------------
+    // SISTEMA DE FILTROS
+    // -------------------------------------------------------------------------
     const filtroTexto = document.getElementById("filtroTexto");
     const filtroTipo = document.getElementById("filtroTipo");
     const filtroEstado = document.getElementById("filtroEstado");
 
+    /**
+     * Aplicar filtros de búsqueda a la tabla
+     */
     function aplicarFiltros() {
       const q = (filtroTexto?.value || "").trim().toLowerCase();
       const tipo = (filtroTipo?.value || "").trim();
       const estado = (filtroEstado?.value || "").trim();
 
       const rows = document.querySelectorAll("tr.promo-row");
+      
       rows.forEach((tr) => {
         const rowTipo = tr.dataset.tipo || "";
         const rowEstado = tr.dataset.estado || "";
+        
         const hayTipo = !tipo || rowTipo === tipo;
         const hayEstado = !estado || rowEstado === estado;
 
@@ -101,7 +125,7 @@
           hayTexto = txt.includes(q);
         }
 
-        tr.style.display = hayTipo && hayEstado && hayTexto ? "" : "none";
+        tr.style.display = (hayTipo && hayEstado && hayTexto) ? "" : "none";
       });
     }
 
@@ -110,76 +134,98 @@
     filtroTipo?.addEventListener("change", aplicarFiltros);
     filtroEstado?.addEventListener("change", aplicarFiltros);
 
-    // ---------------------
-    // ELEMENTOS DOM (panel)
-    // ---------------------
+    // -------------------------------------------------------------------------
+    // ELEMENTOS DEL DOM - PANEL DE EDICIÓN
+    // -------------------------------------------------------------------------
     const overlay = document.getElementById("promoEditOverlay");
     const form = document.getElementById("promoEditForm");
     const title = document.getElementById("promoEditTitle");
+    const btnClose = document.getElementById("promoCloseBtn");
 
+    // Campos del formulario
     const inpNombre = document.getElementById("promoNombre");
     const selTipo = document.getElementById("promoTipo");
     const selProducto = document.getElementById("promoProducto");
     const inpN = document.getElementById("promoN");
     const inpM = document.getElementById("promoM");
     const inpPct = document.getElementById("promoPct");
-
     const comboPrecio = document.getElementById("comboPrecio");
     const comboItems = document.getElementById("comboItemsContainer");
     const btnAddItem = document.getElementById("btnAddComboItem");
-
     const boxSimples = document.getElementById("promoSimplesFields");
     const boxCombo = document.getElementById("promoComboFields");
-    const btnClose = document.getElementById("promoCloseBtn");
 
-    // ---------------------
-    // MODAL ELIMINAR
-    // ---------------------
+    // Modal de eliminación
     const modalEliminar = document.getElementById("modalEliminarPromo");
     const btnCancelarDel = document.getElementById("btnCancelarEliminarPromo");
     const btnConfirmDel = document.getElementById("btnConfirmarEliminarPromo");
 
+    // Estado
     let currentPromoId = null;
     let promoAEliminar = null;
 
-    // =====================================================
-    // HELPERS UI
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // FUNCIONES DE UI
+    // -------------------------------------------------------------------------
+
+    /**
+     * Abrir panel de edición
+     */
     function openPanel() {
       overlay?.classList.add("open");
     }
 
+    /**
+     * Cerrar panel de edición y resetear formulario
+     */
     function closePanel() {
       overlay?.classList.remove("open");
-
       form?.reset();
       if (comboItems) comboItems.innerHTML = "";
       if (boxSimples) boxSimples.style.display = "block";
       if (boxCombo) boxCombo.style.display = "none";
-
       currentPromoId = null;
     }
 
+    /**
+     * Mostrar/ocultar campos según tipo de promoción
+     * @param {string} tipo - Tipo de promoción
+     */
     function toggleCampos(tipo) {
       const isCombo = tipo === "COMBO_FIJO";
       if (boxSimples) boxSimples.style.display = isCombo ? "none" : "block";
       if (boxCombo) boxCombo.style.display = isCombo ? "block" : "none";
     }
 
-    // Cerrar con ESC
+    // -------------------------------------------------------------------------
+    // GESTIÓN DE TECLADO
+    // -------------------------------------------------------------------------
+
+    /**
+     * Cerrar modales con tecla ESC
+     */
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
 
-      if (overlay?.classList.contains("open")) closePanel();
+      if (overlay?.classList.contains("open")) {
+        closePanel();
+      }
+      
       if (modalEliminar?.classList.contains("show")) {
         modalEliminar.classList.remove("show");
         promoAEliminar = null;
       }
     });
 
-    // =====================================================
-    // CARGAR PRODUCTOS EN <SELECT>
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // GESTIÓN DE PRODUCTOS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Cargar productos en un select
+     * @param {HTMLSelectElement} selectEl - Elemento select a poblar
+     * @param {number|null} productoId - ID del producto a preseleccionar
+     */
     async function cargarProductosSelect(selectEl, productoId = null) {
       if (!selectEl) return;
 
@@ -187,18 +233,31 @@
       const productos = data.productos || [];
 
       selectEl.innerHTML = "";
+      
       productos.forEach((p) => {
         const opt = document.createElement("option");
         opt.value = p.id;
         opt.textContent = `[${p.codigo}] ${p.nombre}`;
-        if (productoId && Number(productoId) === Number(p.id)) opt.selected = true;
+        opt.dataset.precio = p.precio || 0;
+        
+        if (productoId && Number(productoId) === Number(p.id)) {
+          opt.selected = true;
+        }
+        
         selectEl.appendChild(opt);
       });
     }
 
-    // =====================================================
-    // UI: FILAS DE ITEMS PARA COMBO
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // GESTIÓN DE COMBOS
+    // -------------------------------------------------------------------------
+
+    /**
+     * Agregar fila de item de combo en el UI
+     * @param {number|null} prodId - ID del producto
+     * @param {number} cant - Cantidad del producto
+     * @returns {HTMLElement|null} Elemento creado
+     */
     function agregarItemComboUI(prodId = null, cant = 1) {
       if (!comboItems) return null;
 
@@ -217,14 +276,20 @@
       cargarProductosSelect(sel, prodId);
 
       row.querySelector(".combo-del").addEventListener("click", () => row.remove());
+      
       return row;
     }
 
     btnAddItem?.addEventListener("click", () => agregarItemComboUI());
 
-    // =====================================================
-    // CARGAR PROMO PARA EDITAR
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // CARGAR PROMOCIÓN PARA EDITAR
+    // -------------------------------------------------------------------------
+
+    /**
+     * Cargar datos de una promoción en el formulario
+     * @param {number} id - ID de la promoción
+     */
     async function cargarPromo(id) {
       try {
         const data = await fetchJsonGet(
@@ -232,7 +297,7 @@
         );
 
         if (!data.ok) {
-          notify(data.error || "No se pudo cargar la promoción.");
+          notify(data.error || "No se pudo cargar la promoción.", "error");
           return;
         }
 
@@ -254,20 +319,31 @@
           if (comboPrecio) comboPrecio.value = p.precio_combo ?? "";
           if (comboItems) comboItems.innerHTML = "";
 
-          (p.items || []).forEach((it) => agregarItemComboUI(it.producto_id, it.cantidad));
-          if ((p.items || []).length === 0) agregarItemComboUI();
+          (p.items || []).forEach((it) => 
+            agregarItemComboUI(it.producto_id, it.cantidad)
+          );
+          
+          if ((p.items || []).length === 0) {
+            agregarItemComboUI();
+          }
         }
 
         openPanel();
       } catch (err) {
         console.error(err);
-        notify(err.message || "Error al cargar la promoción.");
+        notify(err.message || "Error al cargar la promoción.", "error");
       }
     }
 
-    // =====================================================
-    // VALIDACIONES (alineadas con backend)
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // VALIDACIONES
+    // -------------------------------------------------------------------------
+
+    /**
+     * Validar payload antes de enviar
+     * @param {Object} payload - Datos a validar
+     * @returns {string|null} Mensaje de error o null si es válido
+     */
     function validarPayload(payload) {
       if (!payload.nombre || payload.nombre.trim().length < 2) {
         return "El nombre es obligatorio (mínimo 2 caracteres).";
@@ -283,8 +359,12 @@
       if (payload.tipo === "NTH_PCT") {
         if (!payload.producto_id) return "Seleccioná un producto.";
         if (!payload.n || payload.n < 2) return 'En "% a la N°", N debe ser >= 2.';
-        if (payload.porcentaje == null || Number.isNaN(payload.porcentaje)) return "Ingresá el porcentaje.";
-        if (payload.porcentaje <= 0 || payload.porcentaje > 100) return "El porcentaje debe estar entre 1 y 100.";
+        if (payload.porcentaje == null || Number.isNaN(payload.porcentaje)) {
+          return "Ingresá el porcentaje.";
+        }
+        if (payload.porcentaje <= 0 || payload.porcentaje > 100) {
+          return "El porcentaje debe estar entre 1 y 100.";
+        }
       }
 
       if (payload.tipo === "COMBO_FIJO") {
@@ -303,9 +383,10 @@
       return null;
     }
 
-    // =====================================================
-    // GUARDAR PROMO
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // GUARDAR PROMOCIÓN
+    // -------------------------------------------------------------------------
+
     form?.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!currentPromoId) return;
@@ -318,6 +399,7 @@
         tipo,
       };
 
+      // Agregar campos según tipo de promoción
       if (tipo === "N_PAGA_M") {
         payload.producto_id = Number(selProducto?.value || 0) || null;
         payload.n = Number(inpN?.value || 0) || null;
@@ -337,18 +419,28 @@
         comboItems?.querySelectorAll(".combo-item-row").forEach((row) => {
           const prod = Number(row.querySelector(".combo-prod")?.value || 0) || 0;
           const cant = Number(row.querySelector(".combo-cant")?.value || 0) || 0;
-          if (prod && cant > 0) payload.items.push({ producto_id: prod, cantidad: cant });
+          if (prod && cant > 0) {
+            payload.items.push({ producto_id: prod, cantidad: cant });
+          }
         });
       }
 
+      // Validar antes de enviar
       const errMsg = validarPayload(payload);
-      if (errMsg) return notify(errMsg);
+      if (errMsg) {
+        notify(errMsg, "error");
+        return;
+      }
 
       const csrf = getCsrf();
-      if (!csrf) return notify("Falta CSRF (meta csrf-token). Recargá y probá de nuevo.");
+      if (!csrf) {
+        notify("Falta CSRF. Recargá y probá de nuevo.", "error");
+        return;
+      }
 
       if (!window.apiJson) {
-        return notify("Falta apiJson (app.js). Asegurate de cargar app.js antes que promos.js.");
+        notify("Falta apiJson (app.js). Asegurate de cargar app.js antes.", "error");
+        return;
       }
 
       try {
@@ -356,17 +448,18 @@
           method: "POST",
         });
 
-        notify("Promoción actualizada correctamente.");
-        setTimeout(() => window.location.reload(), 450);
+        notify("Promoción actualizada correctamente.", "success");
+        setTimeout(() => window.location.reload(), 600);
       } catch (err) {
         console.error(err);
-        notify(err.message || "Error al guardar la promoción.");
+        notify(err.message || "Error al guardar la promoción.", "error");
       }
     });
 
-    // =====================================================
-    // CLIC EN BOTÓN EDITAR (DELEGADO)
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // EDITAR PROMOCIÓN (delegación de eventos)
+    // -------------------------------------------------------------------------
+
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".btn-edit-promo");
       if (!btn) return;
@@ -375,18 +468,57 @@
       if (id) cargarPromo(id);
     });
 
-    // =====================================================
-    // CERRAR PANEL LATERAL
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // DUPLICAR PROMOCIÓN
+    // -------------------------------------------------------------------------
+
+    document.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".btn-duplicate-promo");
+      if (!btn) return;
+
+      const id = btn.dataset.id;
+
+      if (!confirm("¿Duplicar esta promoción?")) return;
+
+      try {
+        const data = await fetchJsonGet(`${API_BASE}?action=obtener&id=${id}`);
+
+        if (!data.ok) {
+          notify(data.error || "No se pudo cargar la promoción.", "error");
+          return;
+        }
+
+        const promo = data.promo;
+
+        // Preparar para duplicar
+        delete promo.id;
+        promo.nombre = promo.nombre + " (copia)";
+        promo.activo = 0;
+
+        await window.apiJson(`${API_BASE}?action=crear`, promo, { method: "POST" });
+
+        notify("Promoción duplicada correctamente.", "success");
+        setTimeout(() => window.location.reload(), 600);
+      } catch (err) {
+        console.error(err);
+        notify(err.message || "Error al duplicar la promoción.", "error");
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // CERRAR PANEL DE EDICIÓN
+    // -------------------------------------------------------------------------
+
     btnClose?.addEventListener("click", closePanel);
 
     overlay?.addEventListener("click", (e) => {
       if (e.target === overlay) closePanel();
     });
 
-    // =====================================================
-    // MODAL ELIMINAR PROMO
-    // =====================================================
+    // -------------------------------------------------------------------------
+    // ELIMINAR PROMOCIÓN
+    // -------------------------------------------------------------------------
+
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".js-delete-promo");
       if (!btn) return;
@@ -424,10 +556,14 @@
       if (!promoAEliminar?.id) return;
 
       const csrf = getCsrf();
-      if (!csrf) return notify("Falta CSRF (meta csrf-token). Recargá y probá de nuevo.");
+      if (!csrf) {
+        notify("Falta CSRF. Recargá y probá de nuevo.", "error");
+        return;
+      }
 
       if (!window.apiJson) {
-        return notify("Falta apiJson (app.js). Asegurate de cargar app.js antes que promos.js.");
+        notify("Falta apiJson (app.js).", "error");
+        return;
       }
 
       const id = promoAEliminar.id;
@@ -436,19 +572,19 @@
         await window.apiJson(
           `${API_BASE}?action=eliminar&id=${encodeURIComponent(id)}`,
           {},
-          {
-            method: "POST",
-            headers: { "X-Requested-With": "XMLHttpRequest" },
-          }
+          { method: "POST" }
         );
 
         const row = document.querySelector(`tr.promo-row[data-id="${id}"]`);
-        if (row) row.remove();
+        if (row) {
+          row.classList.add("fade-out");
+          setTimeout(() => row.remove(), 300);
+        }
 
-        notify("Promoción eliminada correctamente.");
+        notify("Promoción eliminada correctamente.", "success");
       } catch (err) {
         console.error(err);
-        notify(err.message || "Error al eliminar la promoción.");
+        notify(err.message || "Error al eliminar la promoción.", "error");
       }
 
       modalEliminar?.classList.remove("show");
