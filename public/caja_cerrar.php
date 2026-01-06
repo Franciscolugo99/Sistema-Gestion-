@@ -16,6 +16,12 @@ function caja_is_open($fechaCierre): bool {
   return ($fc === '' || $fc === '0000-00-00 00:00:00');
 }
 
+function table_exists(PDO $pdo, string $table): bool {
+  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
+  $st->execute([$table]);
+  return (bool)$st->fetchColumn();
+}
+
 $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
 
 /* ----------------------------------------------------
@@ -58,16 +64,8 @@ $fechaApertura = (string)($caja['fecha_apertura'] ?? '');
 
 /* ----------------------------------------------------
    3) RESUMEN DE VENTAS DEL TURNO (solo EMITIDA/NULL)
+      ✅ Split payments: usar venta_pagos si existe.
 ---------------------------------------------------- */
-$stmt = $pdo->prepare("
-  SELECT medio_pago, SUM(total) AS total
-  FROM ventas
-  WHERE caja_id = ?
-    AND (estado IS NULL OR estado = 'EMITIDA')
-  GROUP BY medio_pago
-");
-$stmt->execute([$cajaId]);
-
 $porMedio = [
   'EFECTIVO' => 0.0,
   'MP'       => 0.0,
@@ -75,19 +73,81 @@ $porMedio = [
   'CREDITO'  => 0.0,
 ];
 
-$totalVentas = 0.0;
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-  $medio = strtoupper((string)($row['medio_pago'] ?? ''));
-  $total = (float)($row['total'] ?? 0);
+// ✅ Total ventas SIEMPRE desde ventas.total (no desde pagos)
+$stmt = $pdo->prepare("
+  SELECT COALESCE(SUM(total),0)
+  FROM ventas
+  WHERE caja_id = ?
+    AND (estado IS NULL OR estado = 'EMITIDA')
+");
+$stmt->execute([$cajaId]);
+$totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
 
-  $totalVentas += $total;
-  if (isset($porMedio[$medio])) {
-    $porMedio[$medio] = $total;
+// ¿Existe tabla de pagos?
+$hasVentaPagos = table_exists($pdo, 'venta_pagos');
+
+$usoPagos = false;
+$totalVuelto = 0.0;
+
+if ($hasVentaPagos) {
+  // Sumatoria por medio desde venta_pagos (join a ventas del turno)
+  $stP = $pdo->prepare("
+    SELECT vp.medio_pago, COALESCE(SUM(vp.monto),0) AS total
+    FROM ventas v
+    JOIN venta_pagos vp ON vp.venta_id = v.id
+    WHERE v.caja_id = ?
+      AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+    GROUP BY vp.medio_pago
+  ");
+  $stP->execute([$cajaId]);
+  $rows = $stP->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+  if ($rows) {
+    $usoPagos = true;
+    foreach ($rows as $row) {
+      $medio = strtoupper((string)($row['medio_pago'] ?? ''));
+      $total = (float)($row['total'] ?? 0);
+      if (isset($porMedio[$medio])) {
+        $porMedio[$medio] = round($total, 2);
+      }
+    }
+
+    // ✅ Vuelto: restar del EFECTIVO para tener efectivo neto real
+    $stV = $pdo->prepare("
+      SELECT COALESCE(SUM(vuelto),0)
+      FROM ventas
+      WHERE caja_id = ?
+        AND (estado IS NULL OR estado = 'EMITIDA')
+    ");
+    $stV->execute([$cajaId]);
+    $totalVuelto = (float)($stV->fetchColumn() ?: 0.0);
+
+    if ($totalVuelto > 0.00001) {
+      $porMedio['EFECTIVO'] = round(max(0.0, $porMedio['EFECTIVO'] - $totalVuelto), 2);
+    }
   }
 }
 
-// Ítems (cantidad total) vendidos del turno (solo EMITIDA/NULL)
-// OJO: si tenés pesables, esto puede ser decimal.
+if (!$usoPagos) {
+  // Fallback legacy: cuando NO hay venta_pagos o no hay filas cargadas
+  $stL = $pdo->prepare("
+    SELECT medio_pago, COALESCE(SUM(total),0) AS total
+    FROM ventas
+    WHERE caja_id = ?
+      AND (estado IS NULL OR estado = 'EMITIDA')
+    GROUP BY medio_pago
+  ");
+  $stL->execute([$cajaId]);
+  foreach ($stL->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $medio = strtoupper((string)($row['medio_pago'] ?? ''));
+    $total = (float)($row['total'] ?? 0);
+    if (isset($porMedio[$medio])) {
+      $porMedio[$medio] = round($total, 2);
+    }
+  }
+}
+
+// Ítems vendidos del turno (solo EMITIDA/NULL)
 $stmt = $pdo->prepare("
   SELECT COALESCE(SUM(vi.cantidad),0) AS cant
   FROM ventas v
@@ -100,7 +160,7 @@ $itemsVendidos = (float)($stmt->fetchColumn() ?: 0);
 
 // Anulaciones (conteo)
 $stmt = $pdo->prepare("
-  SELECT COUNT(*) 
+  SELECT COUNT(*)
   FROM ventas
   WHERE caja_id = ?
     AND estado IS NOT NULL
@@ -124,7 +184,7 @@ $rowMov = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $movIngresos = (float)($rowMov['ingresos'] ?? 0);
 $movEgresos  = (float)($rowMov['egresos']  ?? 0);
 
-// ✅ Efectivo esperado (antes estaba mal)
+// ✅ Efectivo esperado (neto)
 $saldoSistema = $saldoInicial + $porMedio['EFECTIVO'] + $movIngresos - $movEgresos;
 
 /* ----------------------------------------------------
@@ -140,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errores[] = 'La caja ya estaba cerrada.';
   } else {
 
-    // CSRF (usa helpers.php)
+    // CSRF
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_verify($token)) {
       $errores[] = 'Token inválido. Recargá la página e intentá de nuevo.';
@@ -158,7 +218,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $diferencia = $saldoDeclarado - $saldoSistema;
 
-        // ✅ Cierre atómico
         $pdo->beginTransaction();
         try {
           $stLock = $pdo->prepare("SELECT fecha_cierre FROM caja_sesiones WHERE id = ? FOR UPDATE");
@@ -170,22 +229,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errores[] = 'No se pudo cerrar la caja: ya estaba cerrada.';
           } else {
 
+            // ✅ IMPORTANTE: contemplar NULL y 0000-00-00
             $stUpd = $pdo->prepare("
               UPDATE caja_sesiones
               SET
-                fecha_cierre    = NOW(),
-                saldo_sistema   = ?,
-                saldo_declarado = ?,
-                diferencia      = ?,
-                notas           = ?,
-                total_ventas    = ?,
-                total_efectivo  = ?,
-                total_mp        = ?,
-                total_debito    = ?,
-                total_credito   = ?,
-                total_productos = ?,
+                fecha_cierre      = NOW(),
+                saldo_sistema     = ?,
+                saldo_declarado   = ?,
+                diferencia        = ?,
+                notas             = ?,
+                total_ventas      = ?,
+                total_efectivo    = ?,
+                total_mp          = ?,
+                total_debito      = ?,
+                total_credito     = ?,
+                total_productos   = ?,
                 total_anulaciones = ?
-              WHERE id = ? AND fecha_cierre IS NULL
+              WHERE id = ?
+                AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
             ");
 
             $stUpd->execute([
@@ -318,7 +379,7 @@ require __DIR__ . '/partials/header.php';
       <div class="cierre-total-label">Efectivo esperado (sistema)</div>
       <div class="cierre-total-amount"><?= money_ar($saldoSistema) ?></div>
       <div class="cierre-total-sub">
-        Saldo inicial + ventas efectivo + ingresos - egresos
+        Saldo inicial + efectivo neto + ingresos - egresos
       </div>
 
       <?php if (!$abierta): ?>

@@ -2,247 +2,376 @@
 // public/lib/terminal.php
 declare(strict_types=1);
 
-/*
-  Terminales (puestos/cajas físicas) + Locks
-  -----------------------------------------
-  - terminal_id se guarda en cookie 'terminal_id'
-  - El lock evita 2 cajeros en el mismo terminal a la vez
-*/
-
-function terminal_cookie_id(): int {
-  $v = $_COOKIE['terminal_id'] ?? '';
-  return is_numeric($v) ? (int)$v : 0;
-}
-
-function terminal_set_cookie(int $terminalId): void {
-  // 365 días
-  setcookie('terminal_id', (string)$terminalId, [
-    'expires'  => time() + 365*24*60*60,
-    'path'     => '/',
-    'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-    'httponly' => false, // lo puede leer JS si alguna vez lo necesitás
-    'samesite' => 'Lax',
-  ]);
-  $_COOKIE['terminal_id'] = (string)$terminalId;
-}
-
-function terminal_get(PDO $pdo, int $terminalId): ?array {
-  if ($terminalId <= 0) return null;
-  $st = $pdo->prepare("SELECT id, nombre, codigo, activo FROM terminales WHERE id = :id LIMIT 1");
-  $st->execute([':id' => $terminalId]);
-  $row = $st->fetch(PDO::FETCH_ASSOC);
-  return $row ?: null;
-}
-
-function terminal_list_active(PDO $pdo): array {
-  $st = $pdo->query("SELECT id, nombre, codigo FROM terminales WHERE activo = 1 ORDER BY id ASC");
-  return $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
-}
-
 /**
- * Devuelve terminal_id elegido (cookie), validando que exista y esté activo.
- * Si no hay, devuelve 0.
+ * IMPORTANTE
+ * - Este archivo NO debe incluir auth.php ni bootstrap.php (evita bucles).
+ * - Este archivo SOLO define funciones terminal_*.
+ * - NO definir acá current_terminal_id() ni require_terminal_lock_json().
  */
-function terminal_current_id(PDO $pdo): int {
-  $tid = terminal_cookie_id();
-  if ($tid <= 0) return 0;
-  $t = terminal_get($pdo, $tid);
-  if (!$t || (int)$t['activo'] !== 1) return 0;
-  return (int)$t['id'];
+
+defined('FLUS_TERMINAL_COOKIE') || define('FLUS_TERMINAL_COOKIE', 'flus_terminal_id');
+defined('FLUS_TERMINAL_COOKIE_DAYS') || define('FLUS_TERMINAL_COOKIE_DAYS', 30);
+
+/* =========================================================
+   Helpers internos (schema detection + cache)
+========================================================= */
+if (!function_exists('terminal__table_exists')) {
+  function terminal__table_exists(PDO $pdo, string $table): bool {
+    try {
+      $st = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = :t
+      ");
+      $st->execute([':t' => $table]);
+      return (int)$st->fetchColumn() > 0;
+    } catch (Throwable $e) {
+      return false;
+    }
+  }
 }
 
-/**
- * Limpia locks vencidos (por TTL).
- * Nota: TTL pensado para caídas de navegador/PC.
- */
-function terminal_locks_gc(PDO $pdo, int $ttlSeconds = 90): void {
-  $ttlSeconds = max(30, (int)$ttlSeconds);
-  $sql = "DELETE FROM terminal_locks WHERE last_seen_at < DATE_SUB(NOW(), INTERVAL {$ttlSeconds} SECOND)";
-  $pdo->exec($sql);
+if (!function_exists('terminal__columns')) {
+  function terminal__columns(PDO $pdo, string $table): array {
+    static $cache = [];
+    if (isset($cache[$table])) return $cache[$table];
+
+    if (!terminal__table_exists($pdo, $table)) {
+      $cache[$table] = [];
+      return [];
+    }
+
+    try {
+      $st = $pdo->query("SHOW COLUMNS FROM `{$table}`");
+      $cols = [];
+      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        if (isset($r['Field'])) $cols[] = (string)$r['Field'];
+      }
+      $cache[$table] = $cols;
+      return $cols;
+    } catch (Throwable $e) {
+      $cache[$table] = [];
+      return [];
+    }
+  }
 }
 
-/**
- * Intenta tomar lock del terminal para (user_id, session_id).
- * Si está ocupado por otro, retorna ['ok'=>false,'error'=>'LOCKED','by'=>['username'=>...]]
- */
-function terminal_lock_acquire(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
-  if ($terminalId <= 0) return ['ok' => false, 'error' => 'NO_TERMINAL'];
-  if ($userId <= 0) return ['ok' => false, 'error' => 'NO_USER'];
-  if ($sessionId === '') return ['ok' => false, 'error' => 'NO_SESSION'];
-
-  $ttlSeconds = max(30, (int)$ttlSeconds);
-
-  $pdo->beginTransaction();
-  try {
-    terminal_locks_gc($pdo, $ttlSeconds);
-
-    $st = $pdo->prepare("
-      SELECT tl.terminal_id, tl.user_id, tl.session_id, tl.last_seen_at,
-             u.username
-      FROM terminal_locks tl
-      LEFT JOIN users u ON u.id = tl.user_id
-      WHERE tl.terminal_id = :tid
-      LIMIT 1
-      FOR UPDATE
-    ");
-    $st->execute([':tid' => $terminalId]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-
-    // No hay lock -> lo creamos
-    if (!$row) {
-      $ins = $pdo->prepare("
-        INSERT INTO terminal_locks (terminal_id, user_id, session_id, last_seen_at, created_at)
-        VALUES (:tid, :uid, :sid, NOW(), NOW())
-      ");
-      $ins->execute([':tid' => $terminalId, ':uid' => $userId, ':sid' => $sessionId]);
-      $pdo->commit();
-      return ['ok' => true, 'info' => 'CREATED'];
+if (!function_exists('terminal__first_col')) {
+  function terminal__first_col(array $cols, array $candidates): ?string {
+    foreach ($candidates as $c) {
+      if (in_array($c, $cols, true)) return (string)$c;
     }
+    return null;
+  }
+}
 
-    $lockedUserId    = (int)($row['user_id'] ?? 0);
-    $lockedBySession = (string)($row['session_id'] ?? '');
-    $lastSeen        = (string)($row['last_seen_at'] ?? '');
-    $lastTs          = $lastSeen ? strtotime($lastSeen) : 0;
-    $expired         = (!$lastTs) || (time() - $lastTs > $ttlSeconds);
+if (!function_exists('terminal__schema_terminales')) {
+  function terminal__schema_terminales(PDO $pdo): array {
+    static $schema = null;
+    if (is_array($schema)) return $schema;
 
-    // Misma sesión -> refrescar
-    if ($lockedBySession === $sessionId) {
-      $up = $pdo->prepare("
-        UPDATE terminal_locks
-        SET user_id = :uid, last_seen_at = NOW()
-        WHERE terminal_id = :tid AND session_id = :sid
-      ");
-      $up->execute([':uid' => $userId, ':tid' => $terminalId, ':sid' => $sessionId]);
-      $pdo->commit();
-      return ['ok' => true, 'info' => 'REFRESH'];
-    }
+    $cols = terminal__columns($pdo, 'terminales');
 
-    // Mismo usuario -> takeover permitido
-    if ($lockedUserId === $userId) {
-      $up = $pdo->prepare("
-        UPDATE terminal_locks
-        SET session_id = :sid, last_seen_at = NOW()
-        WHERE terminal_id = :tid AND user_id = :uid
-      ");
-      $up->execute([':sid' => $sessionId, ':tid' => $terminalId, ':uid' => $userId]);
-      $pdo->commit();
-      return ['ok' => true, 'info' => 'TAKEOVER_SAME_USER'];
-    }
-
-    // Expiró -> takeover
-    if ($expired) {
-      $up = $pdo->prepare("
-        UPDATE terminal_locks
-        SET user_id = :uid, session_id = :sid, last_seen_at = NOW()
-        WHERE terminal_id = :tid
-      ");
-      $up->execute([':uid' => $userId, ':sid' => $sessionId, ':tid' => $terminalId]);
-      $pdo->commit();
-      return ['ok' => true, 'info' => 'TAKEOVER_EXPIRED'];
-    }
-
-    // Ocupado por otro usuario
-    $pdo->commit();
-    return [
-      'ok'    => false,
-      'error' => 'LOCKED',
-      'by'    => [
-        'user_id'   => $lockedUserId,
-        'username'  => (string)($row['username'] ?? 'Otro usuario'),
-        'last_seen' => $lastSeen,
-      ],
+    $schema = [
+      'id'     => terminal__first_col($cols, ['id', 'terminal_id']),
+      'nombre' => terminal__first_col($cols, ['nombre', 'name', 'descripcion', 'label']),
+      'activo' => terminal__first_col($cols, ['activo', 'is_active', 'habilitado']),
     ];
 
-  } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    return ['ok' => false, 'error' => 'ERROR', 'detail' => $e->getMessage()];
+    if (!$schema['id'])     $schema['id'] = 'id';
+    if (!$schema['nombre']) $schema['nombre'] = 'nombre';
+    if (!$schema['activo']) $schema['activo'] = 'activo';
+
+    return $schema;
   }
 }
 
-/**
- * Usalo en require_login() para evitar loops.
- */
-function terminal_lock_assert(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): bool {
-  if ($terminalId <= 0 || $userId <= 0 || $sessionId === '') return false;
-  $res = terminal_lock_acquire($pdo, $terminalId, $userId, $sessionId, $ttlSeconds);
-  return (bool)($res['ok'] ?? false);
-}
+if (!function_exists('terminal__schema_locks')) {
+  function terminal__schema_locks(PDO $pdo): array {
+    static $schema = null;
+    if (is_array($schema)) return $schema;
 
-function terminal_lock_touch(PDO $pdo, int $terminalId, int $userId, string $sessionId): bool {
-  $st = $pdo->prepare("
-    UPDATE terminal_locks
-    SET last_seen_at = NOW()
-    WHERE terminal_id = ? AND user_id = ? AND session_id = ?
-  ");
-  $st->execute([$terminalId, $userId, $sessionId]);
-  return $st->rowCount() > 0;
-}
+    $cols = terminal__columns($pdo, 'terminal_locks');
 
-/**
- * Compat (no recomendado). Mejor usar terminal_lock_touch() o terminal_lock_assert().
- */
-function terminal_lock_refresh(PDO $pdo, int $terminalId, string $sessionId): bool {
-  if ($terminalId <= 0 || $sessionId === '') return false;
-  $st = $pdo->prepare("
-    UPDATE terminal_locks
-    SET last_seen_at = NOW()
-    WHERE terminal_id = :tid AND session_id = :sid
-  ");
-  $st->execute([':tid' => $terminalId, ':sid' => $sessionId]);
-  return $st->rowCount() > 0;
-}
+    $schema = [
+      'terminal_id' => terminal__first_col($cols, ['terminal_id', 'terminal', 'caja_id']),
+      'user_id'     => terminal__first_col($cols, ['user_id', 'usuario_id', 'uid']),
+      'session_id'  => terminal__first_col($cols, ['session_id', 'sid', 'session']),
+      'expires_at'  => terminal__first_col($cols, ['expires_at', 'locked_until', 'expira_en', 'hasta']),
+      'updated_at'  => terminal__first_col($cols, ['updated_at', 'last_seen', 'heartbeat_at', 'touched_at']),
+      'created_at'  => terminal__first_col($cols, ['created_at', 'locked_at', 'created']),
+    ];
 
-/**
- * Libera lock:
- * - Preferente por terminal+user (porque session_id puede cambiar por regenerate)
- * - Si pasás session_id, también lo valida (más estricto)
- */
-function terminal_lock_release(PDO $pdo, int $terminalId, int $userId = 0, string $sessionId = ''): void {
-  if ($terminalId <= 0) return;
+    // mínimos requeridos
+    foreach (['terminal_id','user_id','session_id','expires_at'] as $k) {
+      if (!$schema[$k]) {
+        throw new RuntimeException("terminal_locks: falta columna requerida '{$k}' (revisá schema)");
+      }
+    }
 
-  if ($userId > 0 && $sessionId !== '') {
-    $st = $pdo->prepare("DELETE FROM terminal_locks WHERE terminal_id = :tid AND user_id = :uid AND session_id = :sid");
-    $st->execute([':tid' => $terminalId, ':uid' => $userId, ':sid' => $sessionId]);
-    return;
+    return $schema;
   }
-
-  if ($userId > 0) {
-    $st = $pdo->prepare("DELETE FROM terminal_locks WHERE terminal_id = :tid AND user_id = :uid");
-    $st->execute([':tid' => $terminalId, ':uid' => $userId]);
-    return;
-  }
-
-  // fallback
-  $st = $pdo->prepare("DELETE FROM terminal_locks WHERE terminal_id = :tid");
-  $st->execute([':tid' => $terminalId]);
 }
+
 /* =========================================================
-   COMPAT / API UNIFICADA
-   - Estos helpers evitan fatales por nombres viejos.
+   API pública: terminales
 ========================================================= */
-
-// Alias usado por la API unificada (index.php)
 if (!function_exists('terminal_list')) {
   function terminal_list(PDO $pdo): array {
-    return terminal_list_active($pdo);
+    if (!terminal__table_exists($pdo, 'terminales')) return [];
+
+    $s = terminal__schema_terminales($pdo);
+    $sql = "
+      SELECT
+        `{$s['id']}`     AS id,
+        `{$s['nombre']}` AS nombre,
+        `{$s['activo']}` AS activo
+      FROM terminales
+      ORDER BY `{$s['nombre']}` ASC
+    ";
+    try {
+      $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+      foreach ($rows as &$r) {
+        $r['id'] = (int)($r['id'] ?? 0);
+        $r['activo'] = (int)($r['activo'] ?? 0);
+        $r['nombre'] = (string)($r['nombre'] ?? ('Caja #' . $r['id']));
+      }
+      unset($r);
+      return $rows;
+    } catch (Throwable $e) {
+      error_log('terminal_list: ' . $e->getMessage());
+      return [];
+    }
   }
 }
 
-// Heartbeat del lock: refresca / reacquire y detecta pérdida
+if (!function_exists('terminal_get')) {
+  function terminal_get(PDO $pdo, int $terminalId): ?array {
+    if ($terminalId <= 0) return null;
+    if (!terminal__table_exists($pdo, 'terminales')) return null;
+
+    $s = terminal__schema_terminales($pdo);
+    $sql = "
+      SELECT
+        `{$s['id']}`     AS id,
+        `{$s['nombre']}` AS nombre,
+        `{$s['activo']}` AS activo
+      FROM terminales
+      WHERE `{$s['id']}` = :id
+      LIMIT 1
+    ";
+    try {
+      $st = $pdo->prepare($sql);
+      $st->execute([':id' => $terminalId]);
+      $r = $st->fetch(PDO::FETCH_ASSOC);
+      if (!$r) return null;
+      $r['id'] = (int)($r['id'] ?? 0);
+      $r['activo'] = (int)($r['activo'] ?? 0);
+      $r['nombre'] = (string)($r['nombre'] ?? ('Caja #' . $r['id']));
+      return $r;
+    } catch (Throwable $e) {
+      error_log('terminal_get: ' . $e->getMessage());
+      return null;
+    }
+  }
+}
+
+if (!function_exists('terminal_set_cookie')) {
+  function terminal_set_cookie(int $terminalId): void {
+    $days = (int)FLUS_TERMINAL_COOKIE_DAYS;
+    if ($days <= 0) $days = 30;
+
+    $opts = [
+      'expires'  => time() + ($days * 86400),
+      'path'     => '/',
+      'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+      'httponly' => true,
+      'samesite' => 'Lax',
+    ];
+    @setcookie((string)FLUS_TERMINAL_COOKIE, (string)$terminalId, $opts);
+  }
+}
+
+if (!function_exists('terminal_current_id')) {
+  /**
+   * Devuelve terminal actual usando:
+   * 1) $_SESSION['terminal_id']
+   * 2) cookie FLUS_TERMINAL_COOKIE
+   * Valida que exista y esté activo.
+   */
+  function terminal_current_id(PDO $pdo): int {
+    $tid = (int)($_SESSION['terminal_id'] ?? 0);
+    if ($tid > 0) {
+      $t = terminal_get($pdo, $tid);
+      if ($t && (int)($t['activo'] ?? 0) === 1) return $tid;
+    }
+
+    $tid = (int)($_COOKIE[FLUS_TERMINAL_COOKIE] ?? 0);
+    if ($tid > 0) {
+      $t = terminal_get($pdo, $tid);
+      if ($t && (int)($t['activo'] ?? 0) === 1) return $tid;
+    }
+
+    return 0;
+  }
+}
+
+/* =========================================================
+   API pública: locks
+========================================================= */
+if (!function_exists('terminal_locks_gc')) {
+  function terminal_locks_gc(PDO $pdo, int $ttlSeconds = 90): void {
+    if (!terminal__table_exists($pdo, 'terminal_locks')) return;
+
+    try {
+      $s = terminal__schema_locks($pdo);
+      $sql = "DELETE FROM terminal_locks WHERE `{$s['expires_at']}` < NOW()";
+      $pdo->exec($sql);
+    } catch (Throwable $e) {
+      error_log('terminal_locks_gc: ' . $e->getMessage());
+    }
+  }
+}
+
+if (!function_exists('terminal_lock_acquire')) {
+  function terminal_lock_acquire(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
+    if ($terminalId <= 0 || $userId <= 0 || $sessionId === '') {
+      return ['ok' => false, 'error' => 'BAD_ARGS'];
+    }
+    if (!terminal__table_exists($pdo, 'terminal_locks')) {
+      return ['ok' => false, 'error' => 'NO_LOCK_TABLE'];
+    }
+
+    $ttlSeconds = max(15, min(600, (int)$ttlSeconds));
+    $expires = (new DateTimeImmutable('now'))->modify("+{$ttlSeconds} seconds")->format('Y-m-d H:i:s');
+
+    try {
+      $s = terminal__schema_locks($pdo);
+
+      terminal_locks_gc($pdo, $ttlSeconds);
+
+      // Insert/Update condicional (si está expirado o es el mismo usuario+sesión)
+      $sql = "
+        INSERT INTO terminal_locks
+          (`{$s['terminal_id']}`, `{$s['user_id']}`, `{$s['session_id']}`, `{$s['expires_at']}`" .
+          ($s['updated_at'] ? ", `{$s['updated_at']}`" : "") .
+          ($s['created_at'] ? ", `{$s['created_at']}`" : "") .
+        ")
+        VALUES
+          (:tid, :uid, :sid, :exp" .
+          ($s['updated_at'] ? ", NOW()" : "") .
+          ($s['created_at'] ? ", NOW()" : "") .
+        ")
+        ON DUPLICATE KEY UPDATE
+          `{$s['user_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid2 AND `{$s['session_id']}` = :sid2), VALUES(`{$s['user_id']}`), `{$s['user_id']}`),
+          `{$s['session_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid3 AND `{$s['session_id']}` = :sid3), VALUES(`{$s['session_id']}`), `{$s['session_id']}`),
+          `{$s['expires_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid4 AND `{$s['session_id']}` = :sid4), VALUES(`{$s['expires_at']}`), `{$s['expires_at']}`) " .
+          ($s['updated_at'] ? ", `{$s['updated_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid5 AND `{$s['session_id']}` = :sid5), NOW(), `{$s['updated_at']}`)" : "") . "
+      ";
+
+      $st = $pdo->prepare($sql);
+      $st->execute([
+        ':tid' => $terminalId,
+        ':uid' => $userId,
+        ':sid' => $sessionId,
+        ':exp' => $expires,
+        ':uid2'=> $userId, ':sid2'=> $sessionId,
+        ':uid3'=> $userId, ':sid3'=> $sessionId,
+        ':uid4'=> $userId, ':sid4'=> $sessionId,
+        ':uid5'=> $userId, ':sid5'=> $sessionId,
+      ]);
+
+      // Verificamos quién quedó dueño
+      $st2 = $pdo->prepare("
+        SELECT
+          `{$s['user_id']}` AS user_id,
+          `{$s['session_id']}` AS session_id,
+          `{$s['expires_at']}` AS expires_at
+        FROM terminal_locks
+        WHERE `{$s['terminal_id']}` = :tid
+        LIMIT 1
+      ");
+      $st2->execute([':tid' => $terminalId]);
+      $row = $st2->fetch(PDO::FETCH_ASSOC) ?: [];
+
+      $rowUid = (int)($row['user_id'] ?? 0);
+      $rowSid = (string)($row['session_id'] ?? '');
+      $rowExp = (string)($row['expires_at'] ?? '');
+
+      if ($rowUid === $userId && $rowSid === $sessionId) {
+        return ['ok' => true, 'terminal_id' => $terminalId, 'expires_at' => $rowExp];
+      }
+
+      return [
+        'ok' => false,
+        'error' => 'LOCKED',
+        'locked_by_user_id' => $rowUid,
+        'locked_by_session' => $rowSid,
+        'expires_at' => $rowExp,
+      ];
+
+    } catch (Throwable $e) {
+      error_log('terminal_lock_acquire: ' . $e->getMessage());
+      return ['ok' => false, 'error' => 'DB_ERROR'];
+    }
+  }
+}
+
 if (!function_exists('terminal_lock_heartbeat')) {
   function terminal_lock_heartbeat(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
-    // Reutilizamos la lógica robusta de acquire (maneja refresh/takeover/expired)
-    $res = terminal_lock_acquire($pdo, $terminalId, $userId, $sessionId, $ttlSeconds);
-
-    if (!empty($res['ok'])) {
-      return ['ok' => true] + $res;
+    if ($terminalId <= 0 || $userId <= 0 || $sessionId === '') {
+      return ['ok' => false, 'error' => 'BAD_ARGS'];
+    }
+    if (!terminal__table_exists($pdo, 'terminal_locks')) {
+      return ['ok' => false, 'error' => 'NO_LOCK_TABLE'];
     }
 
-    // Si está ocupado por otro usuario, para el front esto es “perdí el lock”
-    if (($res['error'] ?? '') === 'LOCKED') {
-      return ['ok' => false, 'error' => 'LOCK_LOST', 'by' => ($res['by'] ?? null)];
-    }
+    $ttlSeconds = max(15, min(600, (int)$ttlSeconds));
+    $expires = (new DateTimeImmutable('now'))->modify("+{$ttlSeconds} seconds")->format('Y-m-d H:i:s');
 
-    return ['ok' => false, 'error' => (string)($res['error'] ?? 'LOCK_FAIL'), 'detail' => $res];
+    try {
+      $s = terminal__schema_locks($pdo);
+
+      $sql = "
+        UPDATE terminal_locks
+        SET `{$s['expires_at']}` = :exp" .
+        ($s['updated_at'] ? ", `{$s['updated_at']}` = NOW()" : "") . "
+        WHERE `{$s['terminal_id']}` = :tid
+          AND `{$s['user_id']}` = :uid
+          AND `{$s['session_id']}` = :sid
+          AND `{$s['expires_at']}` >= NOW()
+      ";
+      $st = $pdo->prepare($sql);
+      $st->execute([':exp'=>$expires, ':tid'=>$terminalId, ':uid'=>$userId, ':sid'=>$sessionId]);
+
+      if ($st->rowCount() > 0) {
+        return ['ok' => true, 'expires_at' => $expires];
+      }
+      return ['ok' => false, 'error' => 'LOCK_NOT_OWNED'];
+
+    } catch (Throwable $e) {
+      error_log('terminal_lock_heartbeat: ' . $e->getMessage());
+      return ['ok' => false, 'error' => 'DB_ERROR'];
+    }
+  }
+}
+
+if (!function_exists('terminal_lock_release')) {
+  function terminal_lock_release(PDO $pdo, int $terminalId, int $userId): void {
+    if ($terminalId <= 0 || $userId <= 0) return;
+    if (!terminal__table_exists($pdo, 'terminal_locks')) return;
+
+    try {
+      $s = terminal__schema_locks($pdo);
+      $st = $pdo->prepare("
+        DELETE FROM terminal_locks
+        WHERE `{$s['terminal_id']}` = :tid
+          AND `{$s['user_id']}` = :uid
+      ");
+      $st->execute([':tid'=>$terminalId, ':uid'=>$userId]);
+    } catch (Throwable $e) {
+      error_log('terminal_lock_release: ' . $e->getMessage());
+    }
   }
 }

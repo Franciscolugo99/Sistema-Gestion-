@@ -5,12 +5,17 @@ Options -Indexes
   RewriteEngine On
 
   # Bloqueo directo de carpetas sensibles si el proyecto se expone desde la raíz
-  RewriteRule ^(?:src|storage|scripts|views)/ - [F,L]
+  RewriteRule ^(?:src|storage|scripts|views)(?:/|$) - [F,L]
 
-  # Si el DocumentRoot apunta a la raíz del repo, enviamos todo a /public
-  RewriteCond %{REQUEST_URI} !^/public/
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # ✅ Evitar loops: si ya estás pidiendo /public/... NO reescribas
+  RewriteRule ^public(?:/|$) - [L]
+
+  # Si existe archivo/carpeta real en /kiosco, servilo
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Enviar todo lo demás a /public
   RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
 

@@ -128,24 +128,25 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (r.status === 409) {
-        stopped = true;
+        if (r.status === 409) {
+          stopped = true;
 
-        let j = null;
-        try { j = await r.json(); } catch (_) {}
+          let j = null;
+          try { j = await r.json(); } catch (_) {}
 
-        if (j && j.error === "NO_TERMINAL") {
-          window.location.href = "terminal_select.php?next=caja.php";
+          if (j && (j.error === "NO_TERMINAL" || j.error === "LOCK_NOT_OWNED")) {
+            window.location.href = "terminal_select.php?next=caja.php";
+            return;
+          }
+
+          if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
+            window.location.href = "logout.php?reason=locked";
+            return;
+          }
+
           return;
         }
 
-        if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
-          window.location.href = "logout.php?reason=locked";
-          return;
-        }
-
-        return;
-      }
 
       if (r.ok) {
         try { await r.json(); } catch (_) {}

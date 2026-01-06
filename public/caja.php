@@ -11,15 +11,8 @@ require_permission('realizar_ventas');
 require_terminal_lock();
 
 
-// Asegurar sesión (por si algo raro)
-if (session_status() === PHP_SESSION_NONE) {
-  session_start();
-}
 
-// CSRF (para meta + forms)
-if (empty($_SESSION['csrf_token'])) {
-  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+
 
 // Terminal actual (UX)
 $terminalId   = (int)($_SESSION['terminal_id'] ?? 0);
@@ -62,28 +55,29 @@ $currentSection = 'caja';
 
 $extraCss = [
   'assets/css/caja.css',
-  'assets/css/caja_cerrar.css',
-  'assets/css/caja_terminal_modal.css',
-  'assets/css/caja_mejorada.css', // ✅ mejoras sin romper estilo FLUS
 ];
 
 $extraJs = [
-  'assets/js/caja_ui.js',
   'assets/js/caja.js',
   'assets/js/caja_terminal_modal.js',
 ];
 
-// Permisos para frontend (evita “me dejó descontar pero el backend lo ignoró”)
-$canModPrecio = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio')) ? 'true' : 'false';
+// Permisos para frontend (JS espera true/false)
+$canModPrecio = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio'))
+  ? 'true'
+  : 'false';
+$csrf = csrf_token(); // ✅ usa tu helper central
 
 // 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
 // + inyectamos permisos en window.FLUS_PERMS
-$extraHead =
-  '<meta name="csrf-token" content="' . h($_SESSION['csrf_token']) . '">' .
-  '<script>' .
-    'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
-    'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
-  '</script>';
+  $extraHead =
+    '<meta name="csrf-token" content="' . h($csrf) . '">' .
+    '<script>' .
+      'window.getCsrfToken = function(){ return ' . json_encode($csrf) . '; };' .
+      'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
+      'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
+    '</script>';
+
 
 require __DIR__ . '/partials/header.php';
 
@@ -156,14 +150,13 @@ if ($cajaSesion) {
         <span class="pos-terminal-label">Terminal:</span>
         <b class="pos-terminal-name"><?= h($terminalName) ?></b>
       </div>
-     <?php $canDescGlobal = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio')); ?>
-        <button type="button"
-                id="btnDescGlobal"
-                class="btn-link-total"
-                <?= $canDescGlobal ? '' : 'disabled title="Sin permiso"' ?>>
-          Cambiar
-        </button>
+
+      <!--  terminal SIEMPRE permitido -->
+      <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal">
+        Cambiar
+      </button>
     </div>
+
 
     <div class="apertura-wrapper">
       <p class="apertura-text">
@@ -367,28 +360,50 @@ if ($cajaSesion) {
       </div>
     </div>
 
-    <!-- Medio de pago / Pagado / Vuelto -->
-    <div class="total-row total-row-bottom">
+    <!-- Pagos (1 o 2 medios) -->
+    <div class="total-row total-row-bottom pagos-row">
       <div class="field-small">
-        <div class="total-label-inline">Medio de pago</div>
+        <div class="total-label-inline">Pago 1</div>
         <select id="medioPago">
           <option value="EFECTIVO">Efectivo</option>
           <option value="MP">Mercado Pago</option>
           <option value="DEBITO">Débito</option>
           <option value="CREDITO">Crédito</option>
         </select>
+
+        <div class="total-label-inline">Monto</div>
+        <input type="number" id="montoPagado" min="0" step="0.01" placeholder="0,00">
       </div>
 
-      <div class="field-small">
-        <div class="total-label-inline">Cliente paga</div>
-        <input type="number" id="montoPagado" min="0" step="0.01">
+      <div class="field-small is-hidden" id="pago2Wrap">
+        <div class="total-label-inline">Pago 2</div>
+        <select id="medioPago2">
+          <option value="EFECTIVO">Efectivo</option>
+          <option value="MP">Mercado Pago</option>
+          <option value="DEBITO">Débito</option>
+          <option value="CREDITO">Crédito</option>
+        </select>
+
+        <div class="total-label-inline">Monto</div>
+        <div class="pago2-monto-row">
+          <input type="number" id="montoPagado2" min="0" step="0.01" placeholder="0,00">
+          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2º pago">✕</button>
+        </div>
       </div>
 
-      <div class="field-small">
-        <div class="total-label-inline">Vuelto</div>
-        <div class="total-vuelto" id="lblVuelto">$0,00</div>
-      </div>
+      <div class="field-small pagos-resumen">
+        <button type="button" id="btnAgregarPago" class="btn-mini" title="Agregar 2º medio de pago">+ Otro medio</button>
+        <div class="total-label-inline">Total pagado</div>
+            <div class="total-vuelto" id="lblTotalPagado">$0,00</div>
+            <div id="restaWrap" class="is-hidden">
+              <div class="total-label-inline">Resta pagar</div>
+              <div class="total-vuelto" id="lblRestaPagar">$0,00</div>
+            </div>
+            <div class="total-label-inline">Vuelto</div>
+            <div class="total-vuelto" id="lblVuelto">$0,00</div>
+            </div>
     </div>
+
 
     <!-- Botones principales -->
     <div class="buttons-row">

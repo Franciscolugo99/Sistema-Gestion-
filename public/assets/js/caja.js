@@ -103,7 +103,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Descuento global (aplica al total final)
   // { tipo: "porcentaje"|"monto", valor: number }
   let descGlobal = null;
-
   const msgBox = document.getElementById("msg");
   const tbodyTicket = document.querySelector("#tabla tbody");
   const inputCodigo = document.getElementById("codigo");
@@ -112,6 +111,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const lblTotal = document.getElementById("lblTotal");
   const lblVuelto = document.getElementById("lblVuelto");
   const selMedio = document.getElementById("medioPago");
+  // Split payment (Pago con 2 medios)
+  const pago2Wrap = document.getElementById("pago2Wrap");
+  const selMedio2 = document.getElementById("medioPago2");
+  const inputPagado2 = document.getElementById("montoPagado2");
+  const btnAgregarPago = document.getElementById("btnAgregarPago");
+  const btnQuitarPago2 = document.getElementById("btnQuitarPago2");
+  const lblTotalPagado = document.getElementById("lblTotalPagado");
+  const restaWrap = document.getElementById("restaWrap");
+  const lblRestaPagar = document.getElementById("lblRestaPagar");
+
   const lblTotalBruto = document.getElementById("lblTotalBruto");
   const lblDescGlobal = document.getElementById("lblDescGlobal");
   const btnDescGlobal = document.getElementById("btnDescGlobal");
@@ -194,12 +203,73 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${entero} ${unidad}`;
   }
 
-  function medioEsEfectivo() {
+  
+  // =========================
+  // SPLIT PAYMENT (2 medios)
+  // =========================
+  function splitActivo() {
+    return !!pago2Wrap && !pago2Wrap.classList.contains("is-hidden");
+  }
+
+  function setSplitActivo(on) {
+    if (!pago2Wrap) return;
+    if (on) {
+      pago2Wrap.classList.remove("is-hidden");
+      // En split, ambos montos son editables
+      if (inputPagado) inputPagado.disabled = false;
+      if (inputPagado2) inputPagado2.disabled = false;
+    } else {
+      pago2Wrap.classList.add("is-hidden");
+      if (selMedio2) selMedio2.value = "EFECTIVO";
+      if (inputPagado2) inputPagado2.value = "";
+    }
+  }
+
+  function parseMonto(v) {
+    const n = parseFloat(String(v ?? "0").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function pagosDesdeUI() {
+    const pagos = [];
+    const m1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+    const a1 = parseMonto(inputPagado?.value || "0");
+    if (a1 > 0) pagos.push({ medio: m1, monto: a1 });
+
+    if (splitActivo()) {
+      const m2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+      const a2 = parseMonto(inputPagado2?.value || "0");
+      if (a2 > 0) pagos.push({ medio: m2, monto: a2 });
+    }
+    return pagos;
+  }
+
+  function totalPagado(pagos) {
+    return (pagos || []).reduce((sum, p) => sum + (Number(p?.monto) || 0), 0);
+  }
+
+  function efectivoPagado(pagos) {
+    return (pagos || []).reduce((sum, p) => {
+      const medio = String(p?.medio || "").toUpperCase();
+      const monto = Number(p?.monto) || 0;
+      return sum + (medio === "EFECTIVO" ? monto : 0);
+    }, 0);
+  }
+function medioEsEfectivo() {
     return (selMedio?.value || "EFECTIVO") === "EFECTIVO";
   }
 
   function ajustarPagoSegunMedio() {
     if (!inputPagado) return;
+
+    // En split (2 medios) no “forzamos” el monto. El usuario reparte.
+    if (splitActivo()) {
+      inputPagado.disabled = false;
+      if (inputPagado2) inputPagado2.disabled = false;
+      return;
+    }
+
+    // Modo legacy (1 medio)
     if (!medioEsEfectivo()) {
       inputPagado.value = String(Number(totalNetoActual || 0).toFixed(2));
       inputPagado.disabled = true;
@@ -208,31 +278,67 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function recalcularVuelto() {
-    const total = Number(totalNetoActual) || 0;
+ function recalcularVuelto() {
+  const total = Number(totalNetoActual) || 0;
 
-    if (!medioEsEfectivo()) {
-      lblVuelto.textContent = formatearMoneda(0);
-      return;
+  // ✅ Si está activo el 2º pago y NO fue tocado manualmente,
+  // mantener "Monto 2" como lo que falta para completar el total.
+  if (splitActivo() && inputPagado2) {
+    const auto = inputPagado2.dataset.auto !== "0"; // por defecto auto
+    if (auto) {
+      const a1 = parseMonto(inputPagado?.value || "0");
+      const falta2 = Math.max(total - a1, 0);
+      inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
+      inputPagado2.dataset.auto = "1";
     }
-
-    const pagado = parseFloat(
-      String(inputPagado?.value || "0").replace(",", ".")
-    );
-    const vuelto = Math.max((Number.isFinite(pagado) ? pagado : 0) - total, 0);
-    lblVuelto.textContent = formatearMoneda(vuelto);
   }
+
+  const pagos = pagosDesdeUI();
+  const pagadoTotal = totalPagado(pagos);
+  const vuelto = Math.max(pagadoTotal - total, 0);
+  const resta = Math.max(total - pagadoTotal, 0);
+
+  if (lblTotalPagado) lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
+  if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
+
+  // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
+  if (restaWrap && lblRestaPagar) {
+    if (splitActivo() && resta > 0.009) {
+      restaWrap.classList.remove("is-hidden");
+      lblRestaPagar.textContent = formatearMoneda(resta);
+    } else {
+      restaWrap.classList.add("is-hidden");
+      lblRestaPagar.textContent = formatearMoneda(0);
+    }
+  }
+}
+
 
   // =========================
   // STORAGE
   // =========================
   function guardarEstado() {
+    const pagosRaw = [];
+
+    // Guardamos valores “crudos” para no perder lo tipeado (ej: "500,50")
+    pagosRaw.push({
+      medio: String(selMedio?.value || "EFECTIVO").toUpperCase(),
+      monto: String(inputPagado?.value || ""),
+    });
+
+    if (splitActivo()) {
+      pagosRaw.push({
+        medio: String(selMedio2?.value || "EFECTIVO").toUpperCase(),
+        monto: String(inputPagado2?.value || ""),
+      });
+    }
+
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         carrito,
-        medio: selMedio?.value || "EFECTIVO",
-        pagado: inputPagado?.value || "",
+        pagos: pagosRaw,
+        split: splitActivo(),
         descGlobal,
         caja_id: CAJA_ID || 0,
       })
@@ -246,8 +352,28 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = JSON.parse(raw);
       carrito = data.carrito || [];
       descGlobal = data.descGlobal || null;
-      if (selMedio && data.medio) selMedio.value = data.medio;
-      if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
+
+      // Pagos (nuevo)
+      const pagosRaw = Array.isArray(data.pagos) ? data.pagos : null;
+
+      if (pagosRaw && pagosRaw.length) {
+        const p1 = pagosRaw[0] || {};
+        if (selMedio && p1.medio) selMedio.value = String(p1.medio).toUpperCase();
+        if (inputPagado && p1.monto != null) inputPagado.value = String(p1.monto);
+
+        const split = !!data.split || pagosRaw.length > 1;
+        setSplitActivo(split);
+
+        if (split && pagosRaw.length > 1) {
+          const p2 = pagosRaw[1] || {};
+          if (selMedio2 && p2.medio) selMedio2.value = String(p2.medio).toUpperCase();
+          if (inputPagado2 && p2.monto != null) inputPagado2.value = String(p2.monto);
+        }
+      } else {
+        // Legacy (por compat): medio + pagado
+        if (selMedio && data.medio) selMedio.value = data.medio;
+        if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
+      }
 
       // ✅ Si no tiene permiso, limpiar cualquier descuento/precio “guardado”
       if (!CAN_MOD_PRECIO) {
@@ -273,12 +399,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const headers = new Headers(opt.headers || {});
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
-    if (opt.body && !headers.has("Content-Type")) {
+   const isFormData =
+      typeof FormData !== "undefined" && opt.body instanceof FormData;
+
+    if (opt.body && !isFormData && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json; charset=utf-8");
     }
-    if (csrf && !headers.has("X-CSRF-Token")) {
-      headers.set("X-CSRF-Token", csrf);
+
+    if (csrf) {
+      if (!headers.has("X-CSRF-Token")) headers.set("X-CSRF-Token", csrf);
+      if (!headers.has("X-CSRF-TOKEN")) headers.set("X-CSRF-TOKEN", csrf); // compat
+      if (!headers.has("X-CSRF")) headers.set("X-CSRF", csrf);             // compat
     }
+
 
     try {
       const res = await fetch(url, {
@@ -301,6 +434,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         throw new Error(`La API no devolvió JSON válido (HTTP ${res.status})`);
       }
+        // ✅ casos especiales muy comunes en FLUS
+      if (res.status === 409 && data?.error === "LOCK_NOT_OWNED") {
+        throw new Error("LOCK_NOT_OWNED");
+      }
+      if (!res.ok && String(data?.error || "").toUpperCase().includes("CSRF")) {
+        throw new Error("CSRF");
+        }
 
       if (!res.ok) {
         const msg = data?.error || data?.message || `HTTP ${res.status}`;
@@ -311,6 +451,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return data;
     } catch (err) {
+      // ✅ autorecuperación
+      if (err?.message === "CSRF") {
+        window.location.reload();
+        throw err;
+      }
+      if (err?.message === "LOCK_NOT_OWNED") {
+        window.location.href = "terminal_select.php?next=caja.php";
+        throw err;
+      }
+
       if (err?.name === "AbortError")
         throw new Error("Tiempo de espera agotado al llamar a la API");
       throw err;
@@ -998,15 +1148,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const totalUI = Number(totalNetoActual) || 0;
 
-    let pagado = parseFloat(
-      String(inputPagado?.value || "0").replace(",", ".")
-    );
-    if (!medioEsEfectivo()) {
-      pagado = totalUI;
-    } else {
-      if (!Number.isFinite(pagado) || pagado <= 0) pagado = 0;
-      if (pagado + 0.0001 < totalUI)
-        return mostrarMensaje("error", "El pago no alcanza.");
+    // Ayuda UX: si es 1 solo medio y NO es efectivo, el monto debe ser exacto
+    if (!splitActivo() && !medioEsEfectivo() && inputPagado) {
+      inputPagado.value = String(Number(totalUI).toFixed(2));
+    }
+
+    const pagos = pagosDesdeUI();
+    const totalPag = totalPagado(pagos);
+
+    if (!pagos || pagos.length === 0) {
+      return mostrarMensaje("error", "Ingresá el pago");
+    }
+
+    if (totalPag + 0.01 < totalUI) {
+      return mostrarMensaje("error", "El pago no alcanza");
+    }
+
+    const vuelto = Math.max(totalPag - totalUI, 0);
+    const efectivo = efectivoPagado(pagos);
+
+    // Si hay vuelto, tiene que salir de EFECTIVO
+    if (vuelto > 0.009 && efectivo + 0.0001 < vuelto) {
+      return mostrarMensaje(
+        "error",
+        "El vuelto supera el efectivo ingresado (agregá/ajustá EFECTIVO)"
+      );
     }
 
     cobrando = true;
@@ -1019,38 +1185,61 @@ document.addEventListener("DOMContentLoaded", () => {
         cantidad: Number(i.cantidad),
         precio: Number(i.precio), // precio unitario actual (manual si aplicaste)
       }));
+
       const token = getCsrf();
+
+      // Compat legacy: para no romper backend viejo, mandamos como medio_pago el del "Pago 1".
+// (cuando apliques el patch del backend, si llega `pagos[]` esta parte se ignora)
+      const medioCompat = String(selMedio?.value || "EFECTIVO").toUpperCase();
+
       const payload = {
         csrf_token: token, // ✅ estándar
         csrf: token, // ✅ compat si algún endpoint viejo lee "csrf"
         caja_id: CAJA_ID,
         items: itemsLimpios,
-        medio_pago: (selMedio?.value || "EFECTIVO").toUpperCase(),
-        monto_pagado: Number(pagado),
         desc_global: descGlobal || null,
+
+        // ✅ NUEVO: pagos múltiples
+        pagos,
+
+        // ✅ Compat para backend legacy / reportes
+        medio_pago: medioCompat,
+        monto_pagado: Number(totalPag.toFixed(2)),
       };
+
+     const fd = new FormData();
+      fd.append("csrf_token", token);
+      fd.append("csrf", token); // compat
+      fd.append("caja_id", String(CAJA_ID));
+      fd.append("items", JSON.stringify(itemsLimpios));
+      fd.append("desc_global", JSON.stringify(descGlobal || null));
+      fd.append("pagos", JSON.stringify(pagos));
+      fd.append("medio_pago", medioCompat);
+      fd.append("monto_pagado", String(Number(totalPag.toFixed(2))));
 
       const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: fd,
       });
+
 
       if (!data?.ok)
         return mostrarMensaje("error", data?.error || "Error en la API");
 
-      const ventaId = data.venta_id ?? data.ventaId;
-      if (!ventaId)
-        return mostrarMensaje(
-          "error",
-          "Venta registrada, pero no llegó el ID."
-        );
+      const ventaId = data.venta_id || data.id || data.ventaId;
 
-      // Limpieza
+      // Limpiar estado UI
       carrito = [];
       descGlobal = null;
       localStorage.removeItem(STORAGE_KEY);
+
+      if (selMedio) selMedio.value = "EFECTIVO";
       if (inputPagado) inputPagado.value = "";
+      setSplitActivo(false);
+
+      ajustarPagoSegunMedio();
       actualizarVistaInmediata();
+      recalcularVuelto();
       inputCodigo?.focus?.();
 
       // Imprimir ticket
@@ -1110,7 +1299,49 @@ document.addEventListener("DOMContentLoaded", () => {
     guardarEstado();
   });
 
+  inputPagado2?.addEventListener("input", () => {
+  if (inputPagado2) inputPagado2.dataset.auto = "0"; // ✅ ya no autocompletar
+  recalcularVuelto();
+  guardarEstado();
+  });
+
+
   selMedio?.addEventListener("change", () => {
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
+    guardarEstado();
+  });
+
+  selMedio2?.addEventListener("change", () => {
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
+    guardarEstado();
+  });
+
+  btnAgregarPago?.addEventListener("click", () => {
+  setSplitActivo(true);
+
+  // ✅ Si el medio 2 está en EFECTIVO (default), sugerimos MP (opcional pero re útil)
+  if (selMedio2 && selMedio2.value === "EFECTIVO") selMedio2.value = "MP";
+
+  // ✅ Autocompletar lo que falta en el pago 2
+  if (inputPagado2) {
+    const total = Number(totalNetoActual) || 0;
+    const a1 = parseMonto(inputPagado?.value || "0");
+    const falta2 = Math.max(total - a1, 0);
+    inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
+    inputPagado2.dataset.auto = "1";
+  }
+
+  inputPagado2?.focus?.();
+  ajustarPagoSegunMedio();
+  recalcularVuelto();
+  guardarEstado();
+  });
+
+
+  btnQuitarPago2?.addEventListener("click", () => {
+    setSplitActivo(false);
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
@@ -1140,5 +1371,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await cargarPromos();
     actualizarVistaInmediata();
     ajustarPagoSegunMedio();
+    recalcularVuelto();
   })();
 });

@@ -1,39 +1,27 @@
 /* =============================================================================
-   PRODUCTOS (FLUS) – CSS FINAL (sin duplicados)
-   - Form plegable (Agregar producto) con animación
-   - Panel lateral editar + confirm activar/desactivar
-   - Toast correcto (no se estira) + light/dark
+   PRODUCTOS (FLUS) – CSS MEJORADO
+   - Detalles expandibles
+   - Animaciones suaves
+   - Dark/Light mode
 ============================================================================= */
 
-/* -----------------------------
-   Variables del módulo (DARK)
------------------------------- */
 :where(.page-wrap.productos-page, #editOverlay, #confirmToggle) {
   --p-primary: #38bdf8;
   --p-primary-2: #0ea5e9;
-
   --p-success: #22c55e;
   --p-warning: #f59e0b;
   --p-danger: #ef4444;
-
   --p-surface: rgba(2, 6, 23, 0.55);
   --p-surface-2: rgba(2, 6, 23, 0.72);
   --p-input: rgba(2, 6, 23, 0.45);
-
   --p-border: rgba(148, 163, 184, 0.22);
-
   --p-text: #e5e7eb;
   --p-muted: rgba(226, 232, 240, 0.72);
-
   --p-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
   --p-overlay: rgba(0, 0, 0, 0.65);
-
   color: var(--p-text);
 }
 
-/* -----------------------------
-   Light overrides
------------------------------- */
 :where(
     html[data-theme="light"],
     body[data-theme="light"],
@@ -43,23 +31,16 @@
   :where(.page-wrap.productos-page, #editOverlay, #confirmToggle) {
   --p-primary: #0ea5e9;
   --p-primary-2: #0284c7;
-
   --p-surface: #ffffff;
   --p-surface-2: #f1f5f9;
   --p-input: #ffffff;
-
   --p-border: rgba(15, 23, 42, 0.14);
-
   --p-text: #0f172a;
   --p-muted: rgba(15, 23, 42, 0.6);
-
   --p-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   --p-overlay: rgba(15, 23, 42, 0.35);
 }
 
-/* =============================================================================
-   Layout base
-============================================================================= */
 .page-wrap.productos-page {
   width: 100%;
   max-width: 1440px;
@@ -67,7 +48,6 @@
   padding: 0 16px;
 }
 
-/* Paneles solo del módulo (para que no dependas del global) */
 .page-wrap.productos-page .panel {
   background: var(--p-surface);
   border: 1px solid var(--p-border);
@@ -80,9 +60,7 @@
   margin-top: 22px;
 }
 
-/* =============================================================================
-   Header
-============================================================================= */
+/* Header */
 .productos-header {
   display: flex;
   align-items: flex-end;
@@ -112,9 +90,7 @@
   color: var(--p-muted);
 }
 
-/* =============================================================================
-   Botones (scope módulo)
-============================================================================= */
+/* Botones */
 .productos-page .btn,
 #editOverlay .btn,
 #confirmToggle .btn {
@@ -134,11 +110,7 @@
 .productos-page .btn-primary,
 #editOverlay .btn-primary,
 #confirmToggle .btn-primary {
-  background: linear-gradient(
-    135deg,
-    var(--p-primary) 0%,
-    var(--p-primary-2) 100%
-  );
+  background: linear-gradient(135deg, var(--p-primary) 0%, var(--p-primary-2) 100%);
   color: #fff;
   box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
 }
@@ -178,7 +150,6 @@
   background: rgba(239, 68, 68, 0.22);
 }
 
-/* acciones de fila */
 .productos-page .btn-line {
   display: inline-flex;
   align-items: center;
@@ -199,20 +170,15 @@
   background: rgba(56, 189, 248, 0.08);
 }
 
-/* FORM PLEGABLE (simple y robusto) */
+/* FORM PLEGABLE */
 #productFormBlock {
   display: block !important;
   overflow: hidden;
-
-  /* valor grande fijo para animar (tu form no supera esto) */
   max-height: 2000px;
-
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-
   transition: max-height 0.35s ease, opacity 0.25s ease, transform 0.25s ease;
-
   border-top: 1px solid rgba(148, 163, 184, 0.1);
   margin-top: 14px;
   padding-top: 14px;
@@ -223,13 +189,11 @@
   opacity: 0 !important;
   transform: translateY(-6px) !important;
   pointer-events: none !important;
-
   padding-top: 0 !important;
   margin-top: 0 !important;
   border-top: 0 !important;
 }
 
-/* Grid form */
 .productos-page .pf-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -268,7 +232,6 @@
   color: var(--p-muted);
 }
 
-/* Inputs (incluye inputs sin type="text") */
 .productos-page .productos-form input:not([type]),
 .productos-page .productos-form input[type="text"],
 .productos-page .productos-form input[type="number"],
@@ -289,7 +252,6 @@
   transform: translateY(-1px);
 }
 
-/* Pesable */
 .productos-page .pf-field-pesable {
   grid-column: 1 / -1;
 }
@@ -371,7 +333,6 @@
   font-size: 0.88rem;
 }
 
-/* Estado producto */
 .productos-page .pf-status-row {
   margin-top: 14px;
   padding-top: 14px;
@@ -396,9 +357,7 @@
   flex-wrap: wrap;
 }
 
-/* =============================================================================
-   Filtros
-============================================================================= */
+/* Filtros */
 .productos-page .filters {
   display: flex;
   align-items: center;
@@ -431,9 +390,7 @@
   color: var(--p-text);
 }
 
-/* =============================================================================
-   Tabla
-============================================================================= */
+/* Tabla */
 .productos-page .table-wrapper {
   width: 100%;
   overflow: auto;
@@ -471,7 +428,7 @@
   color: var(--p-text);
 }
 
-.productos-page .productos-table tbody tr:hover {
+.productos-page .productos-table tbody tr.producto-row:hover {
   background: rgba(56, 189, 248, 0.06);
 }
 
@@ -522,7 +479,7 @@
   font-style: italic;
 }
 
-/* Tags estado */
+/* Tags */
 .productos-page .tag {
   display: inline-flex;
   align-items: center;
@@ -555,9 +512,70 @@
   border-color: rgba(148, 163, 184, 0.28);
 }
 
-/* =============================================================================
-   Paginación
-============================================================================= */
+/* Detalles expandibles */
+.productos-page .col-expand {
+  width: 50px;
+}
+
+.productos-page .btn-expand,
+.productos-page .btn-expand-all {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--p-border);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--p-text);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.productos-page .btn-expand:hover,
+.productos-page .btn-expand-all:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.productos-page .producto-detail-row {
+  display: none;
+  background: rgba(56, 189, 248, 0.03);
+}
+
+.productos-page .producto-detail-row.expanded {
+  display: table-row;
+}
+
+.productos-page .producto-detail-content {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.productos-page .detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.productos-page .detail-label {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.productos-page .detail-value {
+  font-size: 0.95rem;
+  color: var(--p-text);
+  font-weight: 600;
+}
+
+/* Paginación */
 .productos-page .pagination {
   display: flex;
   align-items: center;
@@ -594,18 +612,14 @@
   background: rgba(56, 189, 248, 0.14);
 }
 
-/* =============================================================================
-   Blur del fondo cuando overlays abiertos
-============================================================================= */
+/* Blur fondo */
 .page-wrap.blurred {
   filter: blur(3px);
   pointer-events: none;
   user-select: none;
 }
 
-/* =============================================================================
-   Overlay edición (panel lateral)
-============================================================================= */
+/* Overlay editar */
 .edit-overlay {
   position: fixed;
   inset: 0;
@@ -734,14 +748,8 @@
   color: var(--p-text);
 }
 
-:where(
-    html[data-theme="light"],
-    body[data-theme="light"],
-    html.light,
-    body.light
-  )
-  .edit-form
-  input[type="file"] {
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
+  .edit-form input[type="file"] {
   background: #ffffff;
 }
 
@@ -758,9 +766,7 @@
   flex-wrap: wrap;
 }
 
-/* =============================================================================
-   Confirm modal activar/desactivar
-============================================================================= */
+/* Modal confirmación */
 .confirm-overlay {
   position: fixed;
   inset: 0;
@@ -807,31 +813,24 @@
   justify-content: flex-end;
 }
 
-/* =============================================================================
-   Toast (no se estira + light/dark)
-============================================================================= */
+/* Toast */
 .toast {
   position: fixed;
   right: 24px;
   left: auto;
   bottom: 24px;
-
   width: auto;
   max-width: 420px;
-
   padding: 12px 16px;
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
-
   background: rgba(15, 23, 42, 0.96);
   color: #f8fafc;
-
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   transform: translateY(40px);
   opacity: 0;
   transition: all 0.25s ease;
   z-index: 99999;
-
   white-space: normal;
 }
 
@@ -853,13 +852,7 @@
   border-color: rgba(239, 68, 68, 0.55);
 }
 
-/* Light toast */
-:where(
-    html[data-theme="light"],
-    body[data-theme="light"],
-    html.light,
-    body.light
-  )
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
   .toast {
   background: rgba(255, 255, 255, 0.96);
   color: #0f172a;
@@ -867,7 +860,6 @@
   box-shadow: 0 12px 30px rgba(2, 6, 23, 0.12);
 }
 
-/* En móvil conviene ancho completo */
 @media (max-width: 560px) {
   .toast {
     left: 16px;
@@ -875,4 +867,819 @@
     max-width: none;
     bottom: 16px;
   }
+}/* =============================================================================
+   PRODUCTOS - CSS MEJORADO CON VALIDACIÓN Y NUEVAS FUNCIONES
+   Agregar al final del CSS existente
+============================================================================= */
+
+/* Validación en tiempo real */
+.productos-page .input-valid,
+#editOverlay .input-valid {
+  border-color: rgba(34, 197, 94, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
 }
+
+.productos-page .input-invalid,
+#editOverlay .input-invalid {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Botón Copiar */
+.productos-page .btn-copy {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.3);
+  color: #a78bfa;
+}
+
+.productos-page .btn-copy:hover {
+  background: rgba(167, 139, 250, 0.18);
+  border-color: rgba(167, 139, 250, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Botón Limpiar mejorado */
+#btnClearForm {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+#btnClearForm:hover {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+/* Indicadores de campo obligatorio */
+.productos-page .pf-field label[required]::after,
+.edit-field label[required]::after {
+  content: " *";
+  color: var(--p-danger);
+  font-weight: 700;
+}
+
+/* Animación al hacer focus */
+.productos-page input:focus,
+.productos-page select:focus,
+#editOverlay input:focus,
+#editOverlay select:focus {
+  transform: translateY(-1px);
+  transition: all 0.18s ease;
+}
+
+/* Placeholder mejorado */
+.productos-page input::placeholder,
+#editOverlay input::placeholder {
+  color: var(--p-muted);
+  opacity: 0.6;
+}
+
+/* Estado loading en inputs */
+.productos-page input.loading,
+#editOverlay input.loading {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(56, 189, 248, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: loading-shine 1.5s infinite;
+}
+
+@keyframes loading-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Tooltip para botones */
+.productos-page [title] {
+  position: relative;
+}
+
+/* Mejora visual de los tags */
+.productos-page .tag {
+  transition: all 0.18s ease;
+}
+
+.productos-page .tag:hover {
+  transform: scale(1.05);
+}
+
+/* Acciones de fila más compactas en móvil */
+@media (max-width: 768px) {
+  .productos-page .btn-line {
+    font-size: 0.75rem;
+    padding: 5px 8px;
+  }
+  
+  .productos-page .btn-line.btn-copy {
+    display: block;
+    margin-top: 4px;
+  }
+}
+
+/* Estado hover mejorado en filas */
+.productos-page .productos-table tbody tr.producto-row {
+  transition: all 0.2s ease;
+}
+
+.productos-page .productos-table tbody tr.producto-row:hover {
+  background: rgba(56, 189, 248, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.15);
+}
+
+/* Mensajes de ayuda contextuales */
+.productos-page .field-help {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: var(--p-muted);
+  font-style: italic;
+}
+
+/* Iconos en botones */
+.productos-page .btn-primary::before {
+  content: "💾 ";
+}
+
+#btnClearForm::before {
+  content: "🗑️ ";
+}
+
+.productos-page .btn-copy::before {
+  content: "📋 ";
+}
+
+/* Loading overlay para acciones */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--p-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mejoras de accesibilidad */
+.productos-page button:focus-visible,
+.productos-page a:focus-visible,
+#editOverlay button:focus-visible {
+  outline: 2px solid var(--p-primary);
+  outline-offset: 2px;
+}
+
+/* Transición suave al cambiar de página */
+.productos-page .table-wrapper {
+  transition: opacity 0.2s ease;
+}
+
+.productos-page .table-wrapper.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Badge de "Nuevo" para productos recién agregados */
+.producto-row.is-new {
+  background: rgba(34, 197, 94, 0.05);
+  animation: highlight-new 2s ease;
+}
+
+@keyframes highlight-new {
+  0% {
+    background: rgba(34, 197, 94, 0.15);
+  }
+  100% {
+    background: rgba(34, 197, 94, 0.05);
+  }
+}
+
+/* Mejora de contraste en modo claro */
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
+  .productos-page .btn-copy {
+  background: rgba(139, 92, 246, 0.08);
+  color: #7c3aed;
+  border-color: rgba(139, 92, 246, 0.2);
+}
+
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
+  .productos-page .btn-copy:hover {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* Animación de entrada para toasts */
+.toast {
+  animation: toast-enter 0.3s ease;
+}
+
+@keyframes toast-enter {
+  from {
+    transform: translateY(40px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Scroll suave en formulario */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Feedback visual al guardar */
+.productos-form.saving {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.productos-form.saving .btn-primary {
+  position: relative;
+}
+
+.productos-form.saving .btn-primary::after {
+  content: "Guardando...";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: inherit;
+  border-radius: inherit;
+}/* ===========================
+   ESTADÍSTICAS RÁPIDAS
+=========================== */
+.quick-stats{
+  display:flex;gap:16px;padding:16px 0;flex-wrap:wrap;
+  margin-bottom:14px;border-bottom:1px solid rgba(148,163,184,.1);
+}
+.stat-item{
+  display:flex;flex-direction:column;align-items:center;
+  padding:12px 20px;border-radius:12px;
+  background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);
+  transition:all .2s ease;min-width:80px;
+}
+.stat-item:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(56,189,248,.15);border-color:rgba(56,189,248,.35)}
+.stat-value{font-size:1.75rem;font-weight:900;color:var(--p-primary);line-height:1;letter-spacing:-.02em}
+.stat-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--p-muted);margin-top:6px;font-weight:700}
+
+/* Colores específicos */
+.stat-item:nth-child(2){background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.2)}
+.stat-item:nth-child(2) .stat-value{color:var(--p-success)}
+.stat-item:nth-child(3){background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2)}
+.stat-item:nth-child(3) .stat-value{color:var(--p-danger)}
+.stat-item:nth-child(4){background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2)}
+.stat-item:nth-child(4) .stat-value{color:var(--p-warning)}
+
+/* ===========================
+   INDICADOR DE GUARDANDO (refuerzo)
+=========================== */
+.productos-form.saving{opacity:.6;pointer-events:none;position:relative}
+.productos-form.saving .btn-primary{position:relative}
+.productos-form.saving .btn-primary::after{
+  content:"💾 Guardando...";
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:inherit;border-radius:inherit
+}
+
+/* =============================================================================
+   🔧 CORRECCIONES RESPONSIVE Y UX
+============================================================================= */
+
+/* ===========================
+   FORMULARIO: Grid Mejorado
+=========================== */
+.productos-form .pf-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.productos-form .pf-row.full {
+  grid-template-columns: 1fr;
+}
+
+/* Inputs menos estirados */
+.productos-form input[name="nombre"],
+.productos-form input[name="proveedor"] {
+  max-width: 100%;
+}
+
+.productos-form input[name="codigo"] {
+  max-width: 250px;
+}
+
+.productos-form input[name="precio"],
+.productos-form input[name="costo"],
+.productos-form input[name="stock"],
+.productos-form input[name="stock_minimo"] {
+  max-width: 180px;
+}
+
+/* ===========================
+   TABLA: Responsive Mejorado
+=========================== */
+
+/* Pantallas grandes (>1200px) */
+@media (min-width: 1200px) {
+  .productos-table {
+    font-size: 0.95rem;
+  }
+  
+  .productos-table th,
+  .productos-table td {
+    padding: 14px 12px;
+  }
+  
+  .btn-line {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Pantallas medianas (768px - 1199px) */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .page-wrap.productos-page {
+    padding: 0 12px;
+  }
+  
+  .productos-table {
+    font-size: 0.85rem;
+  }
+  
+  .productos-table th,
+  .productos-table td {
+    padding: 10px 8px;
+  }
+  
+  .btn-line {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .quick-stats {
+    gap: 12px;
+  }
+  
+  .stat-item {
+    min-width: 70px;
+    padding: 10px 14px;
+  }
+}
+
+/* Pantallas pequeñas (<768px) */
+@media (max-width: 767px) {
+  .page-wrap.productos-page {
+    padding: 0 8px;
+    margin: 14px auto;
+  }
+  
+  /* Formulario en 1 columna */
+  .productos-form .pf-row {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Tabla scroll horizontal */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .productos-table {
+    min-width: 900px;
+    font-size: 0.8rem;
+  }
+  
+  .productos-table th,
+  .productos-table td {
+    padding: 8px 6px;
+  }
+  
+  .btn-line {
+    padding: 5px 8px;
+    font-size: 0.75rem;
+  }
+  
+  /* Stats en columna */
+  .quick-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .stat-item {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+  
+  .stat-label {
+    order: -1;
+    margin-top: 0;
+    margin-right: 12px;
+  }
+  
+  /* Header apilado */
+  .productos-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .productos-header-left {
+    width: 100%;
+  }
+  
+  .btn-new-product {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* Filters apilados */
+  .filters {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .filters > * {
+    width: 100%;
+  }
+}
+
+/* ===========================
+   SCROLL SUAVE EN TABLA
+=========================== */
+.table-wrapper {
+  position: relative;
+}
+
+.table-wrapper::-webkit-scrollbar {
+  height: 10px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 5px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 5px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* ===========================
+   PANEL EDICIÓN: Scroll Fix
+=========================== */
+#editPanel {
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#editPanel .edit-panel-body {
+  max-height: calc(90vh - 80px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Scroll en panel */
+#editPanel::-webkit-scrollbar,
+#editPanel .edit-panel-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+#editPanel::-webkit-scrollbar-track,
+#editPanel .edit-panel-body::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+#editPanel::-webkit-scrollbar-thumb,
+#editPanel .edit-panel-body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+/* ===========================
+   FORM PRINCIPAL: Scroll Visible
+=========================== */
+#productFormBlock {
+  overflow: visible !important;
+}
+
+.productos-form {
+  width: 100%;
+  max-height: none;
+}
+
+/* ===========================
+   BOTONES: Mejor Espaciado
+=========================== */
+.btn-line + .btn-line {
+  margin-left: 6px;
+}
+
+@media (max-width: 767px) {
+  .btn-line + .btn-line {
+    margin-left: 4px;
+  }
+}
+
+/* ===========================
+   FIX: Paginación No Se Recarga
+=========================== */
+.pagination {
+  pointer-events: auto;
+  user-select: none;
+}
+
+.pagination a {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* ===========================
+   FIN CORRECCIONES
+=========================== */
+
+/* =============================================================================
+   🎮 PANEL DE ATAJOS FLOTANTE
+============================================================================= */
+.shortcuts-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shortcuts-toggle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--p-primary) 0%, var(--p-accent) 100%);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.4);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shortcuts-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(56, 189, 248, 0.6);
+}
+
+.shortcuts-toggle:active {
+  transform: scale(0.95);
+}
+
+.shortcuts-content {
+  position: absolute;
+  bottom: 70px;
+  right: 0;
+  min-width: 280px;
+  background: var(--p-card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shortcuts-panel.collapsed .shortcuts-content {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.shortcuts-content h4 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--p-heading);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  gap: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.shortcut-item:last-child {
+  border-bottom: none;
+}
+
+.shortcut-item kbd {
+  display: inline-block;
+  padding: 4px 8px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--p-primary);
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.shortcut-item span {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--p-text);
+  text-align: right;
+}
+
+/* Light mode */
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
+  .shortcuts-content {
+  background: #ffffff;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
+}
+
+:where(html[data-theme="light"], body[data-theme="light"], html.light, body.light)
+  .shortcut-item kbd {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .shortcuts-panel {
+    bottom: 16px;
+    right: 16px;
+  }
+  
+  .shortcuts-toggle {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+  
+  .shortcuts-content {
+    min-width: 240px;
+    padding: 16px;
+    right: -8px;
+  }
+  
+  .shortcut-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .shortcut-item span {
+    text-align: left;
+  }
+}
+
+/* Animación inicial */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shortcuts-panel {
+  animation: slideInUp 0.5s ease 0.3s backwards;
+}
+
+/* =============================================================================
+   🔧 FORZAR ESTILOS EN TABLA AJAX
+============================================================================= */
+
+/* Asegurar que los iconos se apliquen siempre */
+.productos-table .btn-line.btn-copy::before {
+  content: "📋 " !important;
+}
+
+.productos-table .btn-line.btn-edit::before {
+  content: "✏️ ";
+}
+
+.productos-table .btn-line.btn-toggle::before {
+  content: "";
+}
+
+/* Asegurar consistencia visual */
+.productos-table .btn-line {
+  display: inline-block;
+  padding: 7px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.productos-table .btn-line.btn-edit {
+  color: var(--p-text);
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.productos-table .btn-line.btn-edit:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.productos-table .btn-line.btn-copy {
+  color: var(--p-primary);
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+.productos-table .btn-line.btn-copy:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.productos-table .btn-line.btn-toggle {
+  color: var(--p-text);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+.productos-table .btn-line.btn-toggle:hover {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+/* Espaciado entre botones */
+.productos-table .btn-line + .btn-line {
+  margin-left: 6px;
+}
+/* =============================================================================
+   ✅ PATCH FINAL: variables faltantes + evitar íconos duplicados
+   Pegalo al FINAL del CSS de productos
+============================================================================= */
+
+:where(.page-wrap.productos-page, #editOverlay, #confirmToggle) {
+  --p-accent: #a78bfa;
+  --p-card-bg: var(--p-surface);
+  --p-heading: var(--p-text);
+}
+
+/* Evitar duplicación: solo mostrar emoji si el botón NO tiene icono HTML adentro */
+.productos-page .btn-primary:has(i, svg, .icon)::before { content: none !important; }
+#btnClearForm:has(i, svg, .icon)::before { content: none !important; }
+.productos-page .btn-copy:has(i, svg, .icon)::before { content: none !important; }
+
+/* También para la tabla (tenías reglas con !important) */
+.productos-table .btn-line.btn-copy:has(i, svg, .icon)::before { content: none !important; }
+.productos-table .btn-line.btn-edit:has(i, svg, .icon)::before { content: none !important; }
+
+/* =============================================================================
+   FIN MEJORAS FINALES
+============================================================================= */

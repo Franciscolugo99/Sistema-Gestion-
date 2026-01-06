@@ -2,12 +2,11 @@
 // public/auth.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/config.php';
-require_once __DIR__ . '/lib/terminal.php';
+require_once __DIR__ . '/lib/session.php';
+flus_session_start();
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-  session_start();
-}
+require_once FLUS_ROOT . '/src/config.php';
+require_once __DIR__ . '/lib/terminal.php';
 
 function current_user(): ?array {
   return isset($_SESSION['user']) && is_array($_SESSION['user'])
@@ -79,7 +78,6 @@ function user_has_permission(string $slug): bool {
   return $ok;
 }
 
-
 function user_has_any_permission(array $slugs): bool {
   foreach ($slugs as $s) {
     $s = (string)$s;
@@ -113,7 +111,7 @@ function current_terminal_id(): int {
 
   try {
     $pdo = getPDO();
-    $tid = terminal_current_id($pdo);
+    $tid = terminal_current_id($pdo); // <- viene de lib/terminal.php (terminal_*), NO de auth.php
     if ($tid > 0) {
       $_SESSION['terminal_id'] = $tid;
       $cache = $tid;

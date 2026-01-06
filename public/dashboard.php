@@ -249,10 +249,56 @@ if ($canRentabilidad) {
 }
 
 /* =========================
-   MÉTODOS DE PAGO
+   MÉTODOS DE PAGO (soporta split con venta_pagos)
 ========================= */
 $metodosPago = [];
-if ($hasVentas && $ventasFechaCol && $ventasTotalCol && $ventasMedioCol) {
+
+$hasVentaPagos = tableExists($pdo, 'venta_pagos');
+$ventasVueltoCol = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['vuelto','cambio']) : null;
+
+if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
+
+  $vpVentaId = firstExistingColumn($pdo, 'venta_pagos', ['venta_id']);
+  $vpMedio   = firstExistingColumn($pdo, 'venta_pagos', ['medio_pago','metodo_pago']);
+  $vpMonto   = firstExistingColumn($pdo, 'venta_pagos', ['monto','importe']);
+
+  if ($vpVentaId && $vpMedio && $vpMonto) {
+
+    $vueltoExpr = $ventasVueltoCol ? "COALESCE(MAX(v.`{$ventasVueltoCol}`),0)" : "0";
+
+    // Net cash: efectivo_recibido - vuelto (solo 1 vez por venta)
+    $sql = "
+      SELECT
+        x.medio_pago,
+        COUNT(DISTINCT x.venta_id) AS cantidad,
+        COALESCE(SUM(x.monto_net),0) AS monto,
+        COALESCE(AVG(x.monto_net),0) AS ticket_promedio
+      FROM (
+        SELECT
+          vp.`{$vpVentaId}` AS venta_id,
+          vp.`{$vpMedio}`   AS medio_pago,
+          CASE
+            WHEN vp.`{$vpMedio}`='EFECTIVO'
+              THEN GREATEST(SUM(vp.`{$vpMonto}`) - {$vueltoExpr}, 0)
+            ELSE SUM(vp.`{$vpMonto}`)
+          END AS monto_net
+        FROM venta_pagos vp
+        JOIN ventas v ON v.id = vp.`{$vpVentaId}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        GROUP BY vp.`{$vpVentaId}`, vp.`{$vpMedio}`
+      ) x
+      GROUP BY x.medio_pago
+      ORDER BY monto DESC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$fromStart, $toEnd]);
+    $metodosPago = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+} elseif ($hasVentas && $ventasFechaCol && $ventasTotalCol && $ventasMedioCol) {
+
+  // fallback legacy (sin venta_pagos)
   $stmt = $pdo->prepare("
     SELECT
       `{$ventasMedioCol}` AS medio_pago,

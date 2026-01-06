@@ -92,3 +92,7 @@ codigo_completo.txt
 
 d
 public/img/
+
+# Backups locales
+*.bak_*
+public/_csrf_token.php

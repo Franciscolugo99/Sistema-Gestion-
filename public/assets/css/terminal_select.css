@@ -1,131 +1,208 @@
 /* public/assets/css/terminal_select.css */
-/* Pantalla: Elegir caja / terminal */
 
-.terminal-card {
-  width: min(520px, 92vw);
+/* Fallbacks por si algún token no existe */
+:root{
+  --ts-text: var(--text, #e9eef6);
+  --ts-muted: var(--muted, rgba(233,238,246,.75));
+  --ts-panel: var(--panel, rgba(255,255,255,.06));
+  --ts-panel2: var(--panel-2, rgba(255,255,255,.08));
+  --ts-border: var(--border, rgba(255,255,255,.10));
+  --ts-shadow: 0 10px 35px rgba(0,0,0,.25);
+  --ts-radius: 16px;
+  --ts-success: #3cc878;
+  --ts-error: #ff5b5b;
 }
 
-.terminal-sub {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.3;
+/* ✅ no tocamos body: el theme global manda */
+.ts-page{
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 18px;
+  color: var(--ts-text);
 }
 
-/* Grid tarjetas */
-.terminal-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+.ts-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
   gap: 12px;
-  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--ts-border);
+  background: var(--ts-panel);
+  border-radius: var(--ts-radius);
+  box-shadow: var(--ts-shadow);
+  margin-bottom: 14px;
 }
 
-/* Tarjeta clickeable */
-.terminal-option {
-  display: grid;
-  grid-template-columns: 22px 1fr auto;
-  align-items: center;
-  gap: 12px;
-
-  padding: 14px 14px;
-  border-radius: 16px;
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  cursor: pointer;
-  transition: transform 0.08s ease, border-color 0.12s ease;
-  user-select: none;
+.ts-title{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
 }
 
-.terminal-option:hover {
-  transform: translateY(-1px);
-  border-color: rgba(120, 220, 255, 0.35);
+.ts-title h1{
+  margin:0;
+  font-size: 1.25rem;
+  letter-spacing: .2px;
 }
 
-.terminal-option:active {
-  transform: translateY(0);
+.ts-sub{
+  margin:0;
+  color: var(--ts-muted);
+  font-size: .95rem;
 }
 
-.terminal-option input[type="radio"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #21d07a;
-}
-
-.terminal-name {
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--text);
-}
-
-.terminal-code {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-/* Badge libre/ocupada */
-.terminal-badge {
-  display: inline-flex;
-  align-items: center;
+.ts-pill{
+  display:inline-flex;
+  align-items:center;
   gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ts-border);
+  background: var(--ts-panel2);
+  color: var(--ts-muted);
+  font-size: .85rem;
+  white-space: nowrap;
+  max-width: 52vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ts-next{
+  color: var(--ts-text);
+  font-weight: 700;
+  margin-left: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ts-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.ts-card{
+  border-radius: var(--ts-radius);
+  border: 1px solid var(--ts-border);
+  background: var(--ts-panel);
+  padding: 14px 14px 12px;
+  cursor:pointer;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+  box-shadow: 0 10px 28px rgba(0,0,0,.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-card:hover:not(.disabled):not(.selecting){
+  transform: translateY(-2px);
+  background: var(--ts-panel2);
+  border-color: rgba(255,255,255,.18);
+}
+
+.ts-card:focus{
+  outline: 2px solid var(--ts-success);
+  outline-offset: 2px;
+}
+
+.ts-card.current{
+  border-color: rgba(60, 200, 120, 0.4);
+  background: rgba(60, 200, 120, 0.08);
+}
+
+.ts-card.selecting{
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: wait;
+}
+
+.ts-card.disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ts-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+.ts-name{
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: 1.05rem;
+}
+
+.ts-badge{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  border: 1px solid var(--panel-border);
-  white-space: nowrap;
+  font-size: .78rem;
+  border: 1px solid var(--ts-border);
+  background: rgba(255,255,255,.05);
+  color: var(--ts-muted);
 }
 
-.terminal-badge.ok {
-  background: rgba(33, 208, 122, 0.12);
-  border-color: rgba(33, 208, 122, 0.35);
-  color: #7dffc0;
-}
-
-.terminal-badge.locked {
-  background: rgba(255, 80, 80, 0.12);
-  border-color: rgba(255, 80, 80, 0.35);
-  color: #ffb0b0;
-}
-
-/* Acciones */
-.terminal-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.ts-meta{
+  margin-top: 10px;
+  color: var(--ts-muted);
+  font-size: .92rem;
+  display:flex;
+  justify-content:space-between;
   gap: 10px;
-  margin-top: 16px;
 }
 
-/* Botones estilo FLUS (sin tocar tu app.css) */
-.btn-flus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 14px;
-  border-radius: 14px;
-  font-weight: 800;
-  text-decoration: none;
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  color: var(--text);
+.ts-status-dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ts-success);
+  box-shadow: 0 0 0 3px rgba(60,200,120,.18);
 }
 
-.btn-flus.primary {
-  background: linear-gradient(
-    90deg,
-    rgba(33, 208, 122, 0.95),
-    rgba(33, 208, 122, 0.75)
-  );
-  border-color: rgba(33, 208, 122, 0.35);
-  color: #04140c;
+.ts-dot-off{
+  background: var(--ts-error);
+  box-shadow: 0 0 0 3px rgba(255,91,91,.16);
 }
 
-.btn-flus:hover {
-  filter: brightness(1.05);
+.ts-toast{
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  background: rgba(0,0,0,.82);
+  color:#fff;
+  padding:10px 14px;
+  border-radius: 12px;
+  opacity:0;
+  transition:.18s;
+  z-index:9999;
+  font-size:.95rem;
+  border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+}
+.ts-toast.show{ opacity:1; }
+
+.ts-loader{
+  display:inline-block;
+  width:16px;
+  height:16px;
+  border:2px solid rgba(255,255,255,.2);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:ts-spin .8s linear infinite;
+  vertical-align: -3px;
+  margin-right: 6px;
 }
 
-@media (max-width: 420px) {
-  .terminal-actions {
-    grid-template-columns: 1fr;
-  }
+@keyframes ts-spin{
+  to{ transform: rotate(360deg); }
+}
+
+@media (max-width: 640px){
+  .ts-head{ flex-direction: column; align-items: stretch; }
+  .ts-pill{ max-width: 100%; }
 }

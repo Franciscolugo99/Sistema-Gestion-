@@ -1,13 +1,17 @@
 <?php
 // public/venta_detalle.php
 declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
 
-/* =========================
-   FALLBACK HELPERS (por si helpers.php no los tiene)
-========================= */
+function has_table(PDO $pdo, string $table): bool {
+  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
+  $st->execute([$table]);
+  return (bool)$st->fetchColumn();
+}
+
 /* =========================
    ID
 ========================= */
@@ -36,6 +40,41 @@ if (!$venta) {
 }
 
 /* =========================
+   Pagos (split payments)
+========================= */
+$hasVentaPagos = has_table($pdo, 'venta_pagos');
+$pagos = [];
+$pagadoTotal = 0.0;
+
+if ($hasVentaPagos) {
+  $stPag = $pdo->prepare("SELECT medio_pago, monto FROM venta_pagos WHERE venta_id = ? ORDER BY monto DESC, id ASC");
+  $stPag->execute([$id]);
+  $pagos = $stPag->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+if ($pagos) {
+  foreach ($pagos as $p) $pagadoTotal += (float)($p['monto'] ?? 0);
+  $pagadoTotal = round($pagadoTotal, 2);
+} else {
+  $pagadoTotal = round((float)($venta['monto_pagado'] ?? $venta['total'] ?? 0), 2);
+}
+
+/* Medio a mostrar: MIXTO si hay más de un pago */
+$medioShow = (string)($venta['medio_pago'] ?? 'SIN_ESPECIFICAR');
+$medioTitle = '';
+
+if ($pagos) {
+  $mediosUnicos = [];
+  foreach ($pagos as $p) {
+    $m = strtoupper(trim((string)($p['medio_pago'] ?? '')));
+    if ($m !== '') $mediosUnicos[$m] = true;
+  }
+  $lista = implode('+', array_keys($mediosUnicos));
+  $medioShow = (count($mediosUnicos) > 1) ? 'MIXTO' : ($lista !== '' ? $lista : $medioShow);
+  $medioTitle = (count($mediosUnicos) > 1) ? $lista : '';
+}
+
+/* =========================
    Items
 ========================= */
 $stmt = $pdo->prepare("
@@ -49,23 +88,11 @@ $stmt->execute([$id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 /* =========================
-   Promos aplicadas (si existe tabla venta_promos)
+   Promos aplicadas (si existe venta_promos)
 ========================= */
 $promos = [];
 $promosTotal = 0.0;
-$hasVentaPromos = false;
-
-try {
-  $hasVentaPromos = (bool)$pdo->query("
-    SELECT 1
-    FROM INFORMATION_SCHEMA.TABLES
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'venta_promos'
-    LIMIT 1
-  ")->fetchColumn();
-} catch (Throwable $e) {
-  $hasVentaPromos = false;
-}
+$hasVentaPromos = has_table($pdo, 'venta_promos');
 
 if ($hasVentaPromos) {
   $st = $pdo->prepare("
@@ -77,17 +104,12 @@ if ($hasVentaPromos) {
   $st->execute([$id]);
   $promos = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-  foreach ($promos as $p) {
-    $promosTotal += (float)($p['descuento_monto'] ?? 0);
-  }
+  foreach ($promos as $p) $promosTotal += (float)($p['descuento_monto'] ?? 0);
   $promosTotal = round($promosTotal, 2);
 }
 
 /* =========================
    Totales calculados desde items
-   - Bruto: precio_unit_original * cantidad (si existe), sino precio*cantidad
-   - Neto : subtotal (si existe), sino precio*cantidad
-   - Desc : suma descuento_monto (si existe), sino bruto - neto
 ========================= */
 $brutoCalc = 0.0;
 $netoCalc  = 0.0;
@@ -96,24 +118,15 @@ $descCalc  = 0.0;
 foreach ($items as $it) {
   $cant = (float)($it['cantidad'] ?? 0);
 
-  $puOriginal = null;
-  if (array_key_exists('precio_unit_original', $it) && $it['precio_unit_original'] !== null) {
-    $puOriginal = (float)$it['precio_unit_original'];
-  } else {
-    $puOriginal = (float)($it['precio'] ?? 0);
-  }
+  $puOriginal = ($it['precio_unit_original'] ?? null) !== null
+    ? (float)$it['precio_unit_original']
+    : (float)($it['precio'] ?? 0);
 
-  $subtotal = null;
-  if (array_key_exists('subtotal', $it) && $it['subtotal'] !== null) {
-    $subtotal = (float)$it['subtotal'];
-  } else {
-    $subtotal = (float)($it['precio'] ?? 0) * $cant;
-  }
+  $subtotal = ($it['subtotal'] ?? null) !== null
+    ? (float)$it['subtotal']
+    : (float)($it['precio'] ?? 0) * $cant;
 
-  $descLinea = 0.0;
-  if (array_key_exists('descuento_monto', $it) && $it['descuento_monto'] !== null) {
-    $descLinea = (float)$it['descuento_monto'];
-  }
+  $descLinea = ($it['descuento_monto'] ?? null) !== null ? (float)$it['descuento_monto'] : 0.0;
 
   $brutoCalc += ($puOriginal * $cant);
   $netoCalc  += $subtotal;
@@ -124,11 +137,10 @@ $brutoCalc = round($brutoCalc, 2);
 $netoCalc  = round($netoCalc, 2);
 $descCalc  = round($descCalc, 2);
 
-// Autoridad final: ventas.total (si mañana agregás recargos/ajustes)
 $totalVenta = round((float)($venta['total'] ?? 0), 2);
 
 /* =========================
-   Factura vinculada (si existe)
+   Factura vinculada
 ========================= */
 $stmt = $pdo->prepare("
   SELECT f.*
@@ -141,7 +153,7 @@ $stmt->execute([$id]);
 $factura = $stmt->fetch(PDO::FETCH_ASSOC);
 
 /* =========================
-   Config facturación (habilitada?)
+   Config facturación
 ========================= */
 $stmt = $pdo->query("
   SELECT *
@@ -158,7 +170,7 @@ $facturacionHabilitada = (bool)$configFact;
 ========================= */
 $pageTitle      = "Venta #$id - FLUS";
 $currentSection = "ventas";
-$extraCss       = ['assets/css/venta_detalle.css?v=1'];
+$extraCss       = ['assets/css/venta_detalle.css?v=2'];
 $extraJs        = ['assets/js/venta_anular.js'];
 
 require __DIR__ . '/partials/header.php';
@@ -174,7 +186,6 @@ require __DIR__ . '/partials/header.php';
 
 <div class="page-wrap venta-page">
 
-  <!-- PANEL PRINCIPAL -->
   <div class="panel venta-panel">
 
     <div class="venta-header">
@@ -195,12 +206,14 @@ require __DIR__ . '/partials/header.php';
             <span class="label">Medio de pago</span>
             <span class="value">
               <?php
-                $mp = (string)($venta['medio_pago'] ?? 'SIN_ESPECIFICAR');
-                $mpClass = strtolower(preg_replace('/[^a-z0-9_]+/i', '', $mp));
+                $mpClass = strtolower(preg_replace('/[^a-z0-9_]+/i', '', $medioShow));
               ?>
-              <span class="badge-medio badge-medio-<?= h($mpClass) ?>">
-                <?= h($mp) ?>
+              <span class="badge-medio badge-medio-<?= h($mpClass) ?>" <?= $medioTitle ? 'title="'.h($medioTitle).'"' : '' ?>>
+                <?= h($medioShow) ?>
               </span>
+              <?php if ($medioTitle): ?>
+                <span class="muted" style="margin-left:8px;"><?= h($medioTitle) ?></span>
+              <?php endif; ?>
             </span>
           </div>
 
@@ -248,7 +261,7 @@ require __DIR__ . '/partials/header.php';
 
           <div class="venta-resumen-item">
             <span class="label">Pagado</span>
-            <span class="value"><?= money($venta['monto_pagado'] ?? 0) ?></span>
+            <span class="value"><?= money($pagadoTotal) ?></span>
           </div>
 
           <div class="venta-resumen-item">
@@ -256,9 +269,23 @@ require __DIR__ . '/partials/header.php';
             <span class="value"><?= money($venta['vuelto'] ?? 0) ?></span>
           </div>
 
+          <?php if ($pagos): ?>
+            <div class="venta-resumen-item" style="grid-column: 1 / -1;">
+              <span class="label">Detalle de pagos</span>
+              <span class="value">
+                <?php foreach ($pagos as $p): ?>
+                  <?php
+                    $m = strtoupper(trim((string)($p['medio_pago'] ?? '')));
+                    $mon = (float)($p['monto'] ?? 0);
+                  ?>
+                  <span class="badge" style="margin-right:6px;"><?= h($m ?: 'PAGO') ?>: <?= money($mon) ?></span>
+                <?php endforeach; ?>
+              </span>
+            </div>
+          <?php endif; ?>
+
         </div>
 
-        <!-- ACCIONES / FACTURACIÓN -->
         <div class="venta-acciones">
           <?php if ($factura): ?>
             <div class="factura-info">
@@ -309,7 +336,6 @@ require __DIR__ . '/partials/header.php';
     </div>
   </div>
 
-  <!-- PROMOS APLICADAS -->
   <?php if ($hasVentaPromos && !empty($promos)): ?>
     <div class="panel">
       <div class="venta-detalle-header">
@@ -353,7 +379,6 @@ require __DIR__ . '/partials/header.php';
     </div>
   <?php endif; ?>
 
-  <!-- DETALLE PRODUCTOS -->
   <div class="panel">
     <div class="venta-detalle-header">
       <h2>Productos de la venta</h2>

@@ -1,288 +1,248 @@
-/* assets/css/caja_cerrar.css */
-/* Estilos específicos para cierre de caja (armonizado con core + theme) */
+/* ==========================================================================
+   FLUS - CAJA_CERRAR.CSS
+   Estilos específicos de la pantalla "Cierre de caja"
+   (lo general vive en core.css / theme.css)
+========================================================================== */
 
-/* PANEL PRINCIPAL -------------------------------------------------- */
-.panel-cierre {
-  padding: 24px 26px 26px;
+.panel-cierre{
+  max-width: 980px;
+  margin: 26px auto;
+  padding: 22px;
+  border-radius: 18px;
+  background: var(--panel, rgba(255,255,255,.88));
+  border: 1px solid var(--border, rgba(0,0,0,.08));
+  box-shadow: var(--shadow, 0 18px 45px rgba(0,0,0,.10));
 }
 
-/* HEADER ----------------------------------------------------------- */
-.cierre-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 20px;
+/* Header */
+.cierre-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border, rgba(0,0,0,.12));
+  margin-bottom: 16px;
 }
 
-.cierre-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  font-size: 0.78rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+.cierre-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-weight: 700;
+  letter-spacing:.2px;
+  font-size: .85rem;
+  padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid var(--panel-border);
-  color: var(--muted);
-  background: transparent;
+  background: rgba(59, 130, 246, .12);
+  color: var(--text, #111827);
 }
 
-.cierre-title {
+.cierre-title{
   margin: 6px 0 4px;
-  font-size: 1.6rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 2rem;
+  line-height: 1.15;
+  color: var(--text, #111827);
 }
 
-.cierre-meta {
-  font-size: 0.9rem;
-  color: var(--muted);
+.cierre-meta{
+  color: var(--muted, rgba(17,24,39,.72));
+  font-size: .95rem;
 }
 
-.cierre-meta .strong {
-  font-weight: 600;
+.strong{ font-weight: 700; }
+
+.cierre-status .pill{
+  display:inline-flex;
+  align-items:center;
+  font-weight: 800;
+  font-size: .82rem;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border, rgba(0,0,0,.10));
 }
 
-.cierre-status {
-  display: flex;
-  align-items: center;
+.pill-open{
+  background: rgba(34, 197, 94, .12);
+}
+
+.pill-closed{
+  background: rgba(239, 68, 68, .10);
+}
+
+/* Grid */
+.cierre-grid{
+  display:grid;
+  grid-template-columns: 1.3fr .7fr;
+  gap: 14px;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.cierre-card{
+  background: var(--card, rgba(255,255,255,.80));
+  border: 1px solid var(--border, rgba(0,0,0,.08));
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.cierre-section-title{
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text, #111827);
+}
+
+/* Resumen */
+.cierre-list{
+  list-style: none;          /* <- chau bullets */
+  padding: 0;
+  margin: 0;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+}
+
+.cierre-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.03);
+}
+
+.cierre-row-simple{
+  background: transparent;
+  border: 1px dashed var(--border, rgba(0,0,0,.10));
+}
+
+.mono{
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 800;
+}
+
+/* Total */
+.cierre-total-label{
+  color: var(--muted, rgba(17,24,39,.72));
+  font-weight: 800;
+  font-size: .95rem;
+}
+
+.cierre-total-amount{
+  font-size: 2rem;
+  font-weight: 950;
+  margin: 6px 0 4px;
+}
+
+.cierre-total-sub{
+  color: var(--muted, rgba(17,24,39,.70));
+  font-size: .92rem;
+}
+
+.cierre-total-extra{
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border, rgba(0,0,0,.12));
+  display:flex;
+  flex-direction:column;
   gap: 8px;
 }
 
-/* Pills de estado (reusa las del sistema) */
-.pill.pill-open {
-  background: rgba(34, 197, 94, 0.10);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.45);
-}
-
-.pill.pill-closed {
-  background: rgba(248, 113, 113, 0.10);
-  color: #f87171;
-  border: 1px solid rgba(248, 113, 113, 0.45);
-}
-
-/* GRID RESUMEN + TOTAL --------------------------------------------- */
-.cierre-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.6fr);
-  gap: 18px;
-  margin-bottom: 18px;
-}
-
-.cierre-card {
-  background: var(--panel);
-  border-radius: 18px;
-  padding: 18px 20px 20px;
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--shadow-soft);
-}
-
-/* Títulos de secciones */
-.cierre-section-title {
-  font-size: 0.95rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  margin: 0 0 12px;
-  color: var(--muted);
-}
-
-/* Lista resumen */
-.cierre-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.cierre-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px dashed rgba(148, 163, 184, 0.32);
-  font-size: 0.92rem;
-}
-
-.cierre-row:last-child {
-  border-bottom: none;
-}
-
-.cierre-row.cierre-row-simple {
-  border-bottom: none;
-  padding-top: 10px;
-}
-
-.cierre-row span:first-child {
-  color: var(--muted);
-}
-
-/* CARD TOTAL SISTEMA ----------------------------------------------- */
-.cierre-total {
-  position: relative;
-  overflow: hidden;
-
-  /* fondo consistente: panel + glow verde suave */
-  background:
-    radial-gradient(circle at top, rgba(34, 197, 94, 0.16), transparent 58%),
-    var(--panel);
-}
-
-.cierre-total-label {
-  font-size: 0.88rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-  color: var(--muted);
-}
-
-.cierre-total-amount {
-  font-size: 2.4rem;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--text);
-}
-
-.cierre-total-sub {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.cierre-total-extra {
-  margin-top: 18px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.32);
-}
-
-.cierre-total-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.cierre-total-line{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap: 12px;
-  font-size: 0.9rem;
-  padding: 4px 0;
-}
-
-.cierre-total-line span:first-child {
-  color: var(--muted);
 }
 
 /* Diferencias */
-.dif-ok  { color: #22c55e; }
-.dif-pos { color: #16a34a; }
-.dif-neg { color: #f87171; }
+.dif-ok{ color: var(--text, #111827); }
+.dif-pos{ color: rgba(34, 197, 94, 1); }
+.dif-neg{ color: rgba(239, 68, 68, 1); }
 
-/* CONTEO DE CAJA --------------------------------------------------- */
-.cierre-conteo {
-  margin-top: 4px;
+/* Conteo */
+.cierre-error{
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, .12);
+  border: 1px solid rgba(239, 68, 68, .22);
+  color: var(--text, #111827);
+  font-weight: 800;
 }
 
-.cierre-form {
-  margin-top: 10px;
-}
-
-.cierre-label {
-  display: block;
-  font-size: 0.88rem;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.cierre-label-notas {
-  margin-top: 14px;
-}
-
-.cierre-input-row {
-  display: flex;
+.cierre-form{
+  display:flex;
+  flex-direction:column;
   gap: 10px;
-  align-items: center;
 }
 
-/* Input pill, pero usando variables del theme */
-.cierre-input {
+.cierre-label{
+  font-weight: 900;
+  color: var(--text, #111827);
+  font-size: .95rem;
+}
+
+.cierre-input-row{
+  display:flex;
+  align-items:stretch;
+  gap: 10px;
+}
+
+.cierre-input{
   flex: 1;
-  padding: 9px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
-  color: var(--input-text);
-  font-size: 0.95rem;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-}
-
-.cierre-input:focus {
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(0,0,0,.12));
+  background: rgba(255,255,255,.85);
+  color: var(--text, #111827);
   outline: none;
-  border-color: var(--accent-green);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
 }
 
-.cierre-btn {
-  white-space: nowrap;
-  padding-inline: 22px;
+.cierre-input:focus{
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .16);
+  border-color: rgba(59, 130, 246, .35);
 }
 
-/* textarea notas (mismo idioma que inputs) */
-.cierre-textarea {
+.cierre-btn{
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 900;
+  min-width: 150px;
+}
+
+.cierre-textarea{
   width: 100%;
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
-  color: var(--input-text);
-  font-size: 0.9rem;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, rgba(0,0,0,.12));
+  background: rgba(255,255,255,.85);
+  color: var(--text, #111827);
   resize: vertical;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-}
-
-.cierre-textarea:focus {
   outline: none;
-  border-color: var(--accent-green);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.22);
 }
 
-/* errores */
-.cierre-error {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 0.86rem;
-  border: 1px solid rgba(248, 113, 113, 0.7);
-  background: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
+.cierre-textarea:focus{
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .16);
+  border-color: rgba(59, 130, 246, .35);
 }
 
-/* info cuando ya está cerrada */
-.cierre-cerrada-info {
-  margin-top: 8px;
-}
-
-.cierre-notas {
+.cierre-notas{
   margin-top: 10px;
-  font-size: 0.88rem;
-  color: var(--muted);
-  border-top: 1px dashed rgba(148, 163, 184, 0.32);
-  padding-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.03);
+  border: 1px dashed var(--border, rgba(0,0,0,.12));
+  color: var(--text, #111827);
 }
 
-/* RESPONSIVE ------------------------------------------------------- */
-@media (max-width: 900px) {
-  .cierre-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cierre-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .cierre-input-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .cierre-btn {
-    width: 100%;
-    text-align: center;
-  }
+/* Responsive */
+@media (max-width: 880px){
+  .panel-cierre{ margin: 18px 10px; padding: 16px; }
+  .cierre-grid{ grid-template-columns: 1fr; }
+  .cierre-input-row{ flex-direction: column; }
+  .cierre-btn{ width: 100%; }
 }

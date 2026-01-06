@@ -388,3 +388,576 @@
 .badge-anulada{
   color: rgba(239,68,68,.95);
 }
+/* ============================================================================
+   VENTAS - MEJORAS UX/UI ADICIONALES
+============================================================================ */
+
+/* -----------------------------------------
+   LOADER GLOBAL
+----------------------------------------- */
+.global-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+.loader-content {
+  background: var(--panel);
+  padding: 32px 48px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--panel-border);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* -----------------------------------------
+   AUTOCOMPLETE DROPDOWN
+----------------------------------------- */
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.autocomplete-dropdown.hidden {
+  display: none;
+}
+
+.autocomplete-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel-border);
+  transition: background 0.15s;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: var(--bg-soft);
+}
+
+.autocomplete-item.empty {
+  cursor: default;
+  color: var(--muted);
+  text-align: center;
+}
+
+.ac-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.ac-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* -----------------------------------------
+   BARRA DE ACCIONES MASIVAS
+----------------------------------------- */
+.bulk-actions-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border-top: 2px solid var(--accent-cyan);
+  padding: 16px 24px;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: slideUp 0.3s ease;
+}
+
+.bulk-actions-bar.hidden {
+  display: none;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bulk-info {
+  flex: 1;
+  font-weight: 600;
+}
+
+.bulk-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--accent-cyan);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  margin: 0 8px;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* -----------------------------------------
+   VISTA COMPACTA
+----------------------------------------- */
+.ventas-table.compact-view {
+  font-size: 0.85rem;
+}
+
+.ventas-table.compact-view th,
+.ventas-table.compact-view td {
+  padding: 8px 10px;
+}
+
+.ventas-table.compact-view .badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+}
+
+/* -----------------------------------------
+   NOTIFICACIONES TOAST
+----------------------------------------- */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  min-width: 320px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-icon {
+  background: rgba(34, 197, 94, 0.15);
+  color: rgb(34, 197, 94);
+}
+
+.toast-error .toast-icon {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(239, 68, 68);
+}
+
+.toast-warning .toast-icon {
+  background: rgba(251, 191, 36, 0.15);
+  color: rgb(251, 191, 36);
+}
+
+.toast-info .toast-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgb(59, 130, 246);
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+/* -----------------------------------------
+   MODAL PREVIEW RÁPIDO
+----------------------------------------- */
+.quick-preview-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.quick-preview-modal.hidden {
+  display: none;
+}
+
+.preview-dialog {
+  width: min(600px, 100%);
+  max-height: 90vh;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.preview-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preview-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.preview-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.preview-row:last-child {
+  border-bottom: none;
+}
+
+.preview-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preview-value {
+  font-weight: 600;
+}
+
+.preview-items {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid var(--panel-border);
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 0.95rem;
+}
+
+.preview-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* -----------------------------------------
+   PANEL DE GRÁFICOS
+----------------------------------------- */
+.charts-panel {
+  margin: 20px 0;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+}
+
+.charts-panel.hidden {
+  display: none;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.chart-box {
+  background: var(--bg-soft);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px;
+  height: 320px;
+}
+
+.chart-box canvas {
+  max-height: 100%;
+}
+
+.chart-box.large {
+  grid-column: 1 / -1;
+  height: 400px;
+}
+
+@media (max-width: 900px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -----------------------------------------
+   VARIACIÓN POSITIVA/NEGATIVA
+----------------------------------------- */
+.kpi-value.positive {
+  color: rgb(34, 197, 94);
+}
+
+.kpi-value.negative {
+  color: rgb(239, 68, 68);
+}
+
+.kpi-value.positive::before {
+  content: "↗ ";
+  font-size: 1.2em;
+}
+
+.kpi-value.negative::before {
+  content: "↘ ";
+  font-size: 1.2em;
+}
+
+/* -----------------------------------------
+   CHECKBOXES EN TABLA
+----------------------------------------- */
+.ventas-table input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-cyan);
+}
+
+/* -----------------------------------------
+   BOTONES ICONOS
+----------------------------------------- */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--bg-soft);
+  transform: translateY(-2px);
+}
+
+.btn-icon.active {
+  background: var(--accent-cyan);
+  color: #fff;
+  border-color: var(--accent-cyan);
+}
+
+/* -----------------------------------------
+   BADGE DE SHORTCUTS
+----------------------------------------- */
+.shortcuts-hint {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 0.85rem;
+  z-index: 100;
+}
+
+.shortcuts-hint.hidden {
+  display: none;
+}
+
+.shortcuts-hint h4 {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shortcuts-hint ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.shortcuts-hint li {
+  padding: 6px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shortcut-key {
+  background: var(--bg-soft);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--panel-border);
+}
+
+/* -----------------------------------------
+   ANIMACIONES SUAVES
+----------------------------------------- */
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* -----------------------------------------
+   RESPONSIVE
+----------------------------------------- */
+@media (max-width: 768px) {
+  .bulk-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bulk-actions {
+    flex-direction: column;
+  }
+
+  .toast {
+    left: 16px;
+    right: 16px;
+    min-width: 0;
+  }
+
+  .shortcuts-hint {
+    display: none !important;
+  }
+}
+
+/* -----------------------------------------
+   DARK MODE IMPROVEMENTS
+----------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  .spinner {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: var(--accent-cyan);
+  }
+
+  .autocomplete-dropdown,
+  .quick-preview-modal,
+  .toast {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+}/* Al final de ventas.css */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-soft, #f1f5f9);
+  border: 1px solid var(--panel-border, #e2e8f0);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.chip:hover {
+  background: var(--accent-cyan, #06b6d4);
+  color: #fff;
+  border-color: var(--accent-cyan, #06b6d4);
+}
