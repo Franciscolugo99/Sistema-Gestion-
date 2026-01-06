@@ -1,87 +1,77 @@
-﻿<?php
-// public/api/actions/buscar_productos.php
-// Endpoint: ?action=buscar_productos&q=...&limit=5
-// DiseÃ±ado para ser robusto con distintos nombres de columnas (nombre/descripcion, precio/precio_venta, stock/stock_actual).
+<?php
+declare(strict_types=1);
 
-if (function_exists('require_login')) {
-  // Si tu API ya valida sesiÃ³n arriba, esto no molesta.
-  require_login();
+// Action: ?action=buscar_productos&q=...&limit=5
+// Objetivo: NO romper Caja. Si algo falla, responde ok:true con productos=[]
+
+require_once __DIR__ . '/../../lib/root.php';
+require_once FLUS_ROOT . '/src/config.php';
+
+if (!function_exists('json_ok')) {
+  header('Content-Type: application/json; charset=utf-8');
+  function json_ok(array $data = []): void {
+    echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+  function json_fail(string $error, int $code = 400): void {
+    http_response_code($code);
+    echo json_encode(['ok' => false, 'error' => $error], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
 }
 
 $q = trim((string)($_GET['q'] ?? ''));
 if ($q === '') {
-  if (function_exists('json_fail')) json_fail('Query vacÃ­a', 422);
-  http_response_code(422);
-  header('Content-Type: application/json; charset=utf-8');
-  echo json_encode(['ok'=>false,'error'=>'Query vacÃ­a'], JSON_UNESCAPED_UNICODE);
-  exit;
+  json_ok(['productos' => []]); // no explotar por query vacía
 }
 
 $limit = (int)($_GET['limit'] ?? 5);
 $limit = max(1, min($limit, 20));
+$like  = '%' . $q . '%';
 
-// Cache estÃ¡tico de columnas (evita SHOW COLUMNS cada request)
-static $cols = null;
-if ($cols === null) {
+try {
+  $pdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : getPDO();
+} catch (Throwable $e) {
+  // Si falla DB, no romper caja ni spamear 503
+  json_ok(['productos' => []]);
+}
+
+/**
+ * Intentos de query por si tu esquema usa "descripcion" o "nombre", etc.
+ */
+$tries = [
+  // esquema típico kiosco
+  "SELECT id, codigo, descripcion AS nombre, precio AS precio, stock AS stock
+   FROM productos
+   WHERE activo = 1 AND (codigo LIKE :q OR descripcion LIKE :q OR categoria LIKE :q)
+   ORDER BY descripcion
+   LIMIT %d",
+
+  // alternativo: nombre
+  "SELECT id, codigo, nombre AS nombre, precio AS precio, stock AS stock
+   FROM productos
+   WHERE activo = 1 AND (codigo LIKE :q OR nombre LIKE :q OR categoria LIKE :q)
+   ORDER BY nombre
+   LIMIT %d",
+
+  // alternativo: precio_venta / stock_actual
+  "SELECT id, codigo, nombre AS nombre, precio_venta AS precio, stock_actual AS stock
+   FROM productos
+   WHERE activo = 1 AND (codigo LIKE :q OR nombre LIKE :q OR categoria LIKE :q)
+   ORDER BY nombre
+   LIMIT %d",
+];
+
+foreach ($tries as $tpl) {
   try {
-    $cols = $pdo->query("SHOW COLUMNS FROM productos")->fetchAll(PDO::FETCH_COLUMN);
+    $sql = sprintf($tpl, $limit);
+    $st = $pdo->prepare($sql);
+    $st->execute([':q' => $like]);
+    json_ok(['productos' => $st->fetchAll(PDO::FETCH_ASSOC)]);
   } catch (Throwable $e) {
-    $cols = [];
+    // probar siguiente variante
   }
 }
 
-$has = fn(string $c): bool => in_array($c, $cols, true);
-
-// Elegir columnas compatibles
-$nameCol  = $has('nombre') ? 'nombre' : ($has('descripcion') ? 'descripcion' : 'nombre');
-$codeCol  = $has('codigo') ? 'codigo' : 'codigo';
-
-$priceCol = $has('precio') ? 'precio'
-         : ($has('precio_venta') ? 'precio_venta'
-         : ($has('precio_unitario') ? 'precio_unitario' : null));
-
-$stockCol = $has('stock') ? 'stock'
-        : ($has('stock_actual') ? 'stock_actual'
-        : ($has('existencia') ? 'existencia' : null));
-
-$activeCol = $has('activo') ? 'activo'
-          : ($has('active') ? 'active' : null);
-
-// Armado de SELECT
-$select = "id, {$codeCol} AS codigo, {$nameCol} AS nombre";
-if ($priceCol) $select .= ", {$priceCol} AS precio";
-if ($stockCol) $select .= ", {$stockCol} AS stock";
-
-// WHERE (activo si existe)
-$where = [];
-$params = [':q' => '%' . $q . '%'];
-
-$where[] = "{$codeCol} LIKE :q";
-$where[] = "{$nameCol} LIKE :q";
-
-if ($has('categoria')) $where[] = "categoria LIKE :q";
-
-$w = '(' . implode(' OR ', $where) . ')';
-if ($activeCol) {
-  $w = "({$activeCol} = 1) AND " . $w;
-}
-
-$sql = "
-  SELECT {$select}
-  FROM productos
-  WHERE {$w}
-  ORDER BY nombre
-  LIMIT {$limit}
-";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-if (function_exists('json_ok')) {
-  json_ok(['productos' => $rows]);
-}
-
-header('Content-Type: application/json; charset=utf-8');
-echo json_encode(['ok'=>true,'productos'=>$rows], JSON_UNESCAPED_UNICODE);
-exit;
+// si nada matchea (o columnas no existen), no romper
+json_ok(['productos' => []]);

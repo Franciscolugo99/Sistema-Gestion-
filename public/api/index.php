@@ -1,6 +1,6 @@
-﻿<?php
-// public/api/index.php
+<?php
 declare(strict_types=1);
+// public/api/index.php
 require_once __DIR__ . '/../lib/root.php';
 
 // API JSON: nunca romper por warnings/HTML
@@ -492,7 +492,13 @@ $action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
 ================================ */
 $__actionFile = __DIR__ . '/actions/' . $action . '.php';
 if (is_file($__actionFile)) {
-  require $__actionFile;
+  
+  //  Asegurar PDO antes de ejecutar el action
+  if (!isset($pdo) && function_exists('getPDO')) {
+    $pdo = getPDO();
+  }
+
+require $__actionFile;
   exit;
 }
 

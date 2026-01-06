@@ -622,3 +622,107 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* =========================================================
+   FIX: btnAgregarPago no debe quedar "pegado" al estilo anterior
+   - Pegarlo al FINAL de app.css (ideal)
+   ========================================================= */
+
+/* Base (modo claro por defecto) */
+.pagos-resumen #btnAgregarPago.btn-mini,
+.pagos-resumen #btnAgregarPago{
+  width: auto !important;
+  flex: 0 0 auto !important;
+  align-self: center !important;
+
+  min-width: 150px !important;
+  max-width: 210px !important;
+
+  padding: .30rem .70rem !important;
+  border-radius: 999px !important;
+
+  font-size: .86rem !important;
+  line-height: 1.1 !important;
+  font-weight: 800 !important;
+  letter-spacing: .15px !important;
+  white-space: nowrap !important;
+
+  border: 1px solid rgba(6, 130, 145, .55) !important;
+  background: linear-gradient(180deg,
+    rgba(18, 183, 201, .22),
+    rgba(18, 183, 201, .36)
+  ) !important;
+  color: #043f47 !important;
+
+  box-shadow: 0 10px 22px rgba(0,0,0,.08) !important;
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease !important;
+
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Shine (suave) */
+.pagos-resumen #btnAgregarPago::before{
+  content: "" !important;
+  position: absolute !important;
+  top: -60% !important;
+  left: -60% !important;
+  width: 80% !important;
+  height: 220% !important;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent) !important;
+  transform: rotate(25deg) !important;
+  opacity: .35 !important;
+  pointer-events: none !important;
+  animation: flusPagoShine 3.8s ease-in-out infinite !important;
+}
+
+@keyframes flusPagoShine{
+  0%   { transform: translateX(-35%) rotate(25deg); opacity: 0; }
+  20%  { opacity: .35; }
+  50%  { transform: translateX(170%) rotate(25deg); opacity: .12; }
+  100% { transform: translateX(170%) rotate(25deg); opacity: 0; }
+}
+
+/* Hover/Active */
+.pagos-resumen #btnAgregarPago:hover{
+  transform: translateY(-1px) !important;
+  filter: saturate(1.05) !important;
+  box-shadow: 0 14px 28px rgba(0,0,0,.12) !important;
+}
+.pagos-resumen #btnAgregarPago:active{
+  transform: translateY(0) scale(.99) !important;
+}
+
+/* ✅ MODO OSCURO (solo en raíz, para evitar “pegado” por clases sueltas) */
+html[data-theme="dark"] .pagos-resumen #btnAgregarPago,
+body.dark .pagos-resumen #btnAgregarPago,
+body[data-theme="dark"] .pagos-resumen #btnAgregarPago{
+  border-color: rgba(79, 230, 255, .46) !important;
+  background: linear-gradient(180deg,
+    rgba(79, 230, 255, .16),
+    rgba(79, 230, 255, .28)
+  ) !important;
+  color: #c9f9ff !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,.22) !important;
+}
+
+/* ✅ Forzar modo claro cuando NO es dark (por si queda algo colgado) */
+html:not([data-theme="dark"]) body:not(.dark) .pagos-resumen #btnAgregarPago{
+  border-color: rgba(6, 130, 145, .55) !important;
+  background: linear-gradient(180deg,
+    rgba(18, 183, 201, .22),
+    rgba(18, 183, 201, .36)
+  ) !important;
+  color: #043f47 !important;
+}
+
+/* Accesibilidad */
+@media (prefers-reduced-motion: reduce){
+  .pagos-resumen #btnAgregarPago{
+    transition: none !important;
+  }
+  .pagos-resumen #btnAgregarPago::before{
+    animation: none !important;
+    opacity: .2 !important;
+  }
+}
