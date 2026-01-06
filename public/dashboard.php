@@ -661,7 +661,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="dash-header">
       <div>
-        <h1 class="dash-title">📊 Dashboard</h1>
+        <h1 class="dash-title">📊 Panel de control</h1>
         <p class="dash-sub">Análisis completo de ventas, rentabilidad y operaciones</p>
       </div>
       <div class="dash-header-meta">
@@ -712,7 +712,7 @@ require __DIR__ . '/partials/header.php';
 
     <!-- INSIGHTS -->
     <div class="insights-container">
-      <h2 class="section-title">💡 Insights Clave</h2>
+      <h2 class="section-title">💡 Indicadores clave</h2>
       <div class="insights-grid">
         <?php
           $insights = [];

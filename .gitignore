@@ -100,3 +100,6 @@ public/img/productos/*
 # Backups locales
 *.bak_*
 public/_csrf_token.php
+
+*.bak3
+qa!

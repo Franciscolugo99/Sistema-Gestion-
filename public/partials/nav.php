@@ -128,7 +128,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
         <a href="dashboard.php" 
            class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'dashboard' ? 'page' : 'false' ?>">
-          📊 Dashboard
+          📊 Panel de control
         </a>
       <?php endif; ?>
 
