@@ -1,11 +1,6 @@
-<?php
-<<<<<<< Updated upstream
-=======
+﻿<?php
 // public/api/index.php
->>>>>>> Stashed changes
 declare(strict_types=1);
-// public/api/index.php
-require_once __DIR__ . '/../lib/root.php';
 
 // API JSON: nunca romper por warnings/HTML
 error_reporting(E_ALL);
@@ -489,23 +484,6 @@ $body   = read_request_body();
 
 
 $action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
-/* ================================
-   FLUS: action file dispatch
-   Permite agregar endpoints en public/api/actions/{action}.php
-   sin ensuciar el switch principal.
-================================ */
-$__actionFile = __DIR__ . '/actions/' . $action . '.php';
-if (is_file($__actionFile)) {
-  
-  //  Asegurar PDO antes de ejecutar el action
-  if (!isset($pdo) && function_exists('getPDO')) {
-    $pdo = getPDO();
-  }
-
-require $__actionFile;
-  exit;
-}
-
 function read_request_body(): array {
   // POST (FormData / x-www-form-urlencoded)
   if (!empty($_POST) && is_array($_POST)) {

@@ -91,8 +91,12 @@ public/_debug_dashboard_schema.php
 codigo_completo.txt
 
 d
-public/img/
-
+public/img/*
+!public/img/.htaccess
+!public/img/.gitkeep
+public/img/productos/*
+!public/img/productos/.htaccess
+!public/img/productos/.gitkeep
 # Backups locales
 *.bak_*
 public/_csrf_token.php

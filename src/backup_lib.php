@@ -5,10 +5,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/logger.php';
 
+/**
+ * Obtiene el directorio de backups
+ */
 function backups_dir(): string {
-    return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'backups';
+    return defined('BACKUPS_PATH') ? BACKUPS_PATH : (dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'backups');
 }
 
+/**
+ * Asegura que existan los directorios necesarios
+ */
 function backups_ensure_dirs(): void {
     $dir = backups_dir();
     if (!is_dir($dir)) {
@@ -17,101 +23,274 @@ function backups_ensure_dirs(): void {
 }
 
 /**
- * Quote compatible (Linux/Windows) for shell commands.
+ * Quote compatible para comandos shell (Linux/Windows)
  */
 function sh_quote(string $s): string {
-    // En Windows, escapeshellarg usa comillas simples, que suelen romper cmd.
+    // En Windows, escapeshellarg usa comillas simples que rompen cmd
     if (stripos(PHP_OS_FAMILY, 'Windows') === 0) {
-        return '"' . str_replace('"', '\\"', $s) . '"';
+        // Escapar comillas dobles y envolver en comillas dobles
+        return '"' . str_replace('"', '""', $s) . '"';
     }
     return escapeshellarg($s);
 }
 
-function find_mysqldump(): ?string {
-    // 1) Si está en PATH
-    $candidates = ['mysqldump'];
-
-    // 2) Rutas típicas XAMPP (Windows)
-    if (stripos(PHP_OS_FAMILY, 'Windows') === 0) {
-        $candidates[] = 'C:\\xampp\\mysql\\bin\\mysqldump.exe';
-        $candidates[] = 'C:\\xampp\\mysql\\bin\\mysqldump';
-    }
-
-    foreach ($candidates as $c) {
-        if ($c === 'mysqldump') {
-            // Probar existencia a través del comando
-            $out = [];
-            $code = 0;
-            @exec('mysqldump --version 2>NUL', $out, $code);
-            if ($code === 0) return 'mysqldump';
-            continue;
+/**
+ * Busca mysqldump en ubicaciones comunes
+ */
+function find_mysqldump(): ?array {
+    $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
+    
+    // Si hay una constante MYSQLDUMP_BIN definida, usarla primero
+    if (defined('MYSQLDUMP_BIN') && file_exists(MYSQLDUMP_BIN)) {
+        $path = MYSQLDUMP_BIN;
+        $output = [];
+        $returnCode = 0;
+        $testCmd = sh_quote($path) . ' --version 2>&1';
+        @exec($testCmd, $output, $returnCode);
+        
+        if ($returnCode === 0) {
+            return [
+                'path' => $path,
+                'version' => implode(' ', $output)
+            ];
         }
-        if (is_file($c)) return $c;
     }
+    
+    // Lista de candidatos
+    $candidates = [];
+    
+    if ($isWindows) {
+        // Rutas comunes en Windows
+        $candidates = [
+            'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+            'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqldump.exe',
+            'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysqldump.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
+        ];
+        
+        // Intentar encontrar en PATH
+        $output = [];
+        $returnCode = 0;
+        @exec('where mysqldump 2>nul', $output, $returnCode);
+        if ($returnCode === 0 && !empty($output[0])) {
+            array_unshift($candidates, $output[0]);
+        }
+    } else {
+        // Rutas comunes en Linux/Mac
+        $candidates = [
+            '/usr/bin/mysqldump',
+            '/usr/local/bin/mysqldump',
+            '/usr/local/mysql/bin/mysqldump',
+            '/opt/lampp/bin/mysqldump',
+        ];
+        
+        // Intentar encontrar en PATH
+        $output = [];
+        $returnCode = 0;
+        @exec('which mysqldump 2>/dev/null', $output, $returnCode);
+        if ($returnCode === 0 && !empty($output[0])) {
+            array_unshift($candidates, $output[0]);
+        }
+    }
+    
+    // Verificar cada candidato
+    foreach ($candidates as $path) {
+        if (is_file($path)) {
+            // Verificar que sea ejecutable probando --version
+            $output = [];
+            $returnCode = 0;
+            
+            $testCmd = sh_quote($path) . ' --version 2>&1';
+            @exec($testCmd, $output, $returnCode);
+            
+            if ($returnCode === 0) {
+                return [
+                    'path' => $path,
+                    'version' => implode(' ', $output)
+                ];
+            }
+        }
+    }
+    
     return null;
 }
 
 /**
- * Crea un backup .sql en /storage/backups y devuelve el nombre del archivo.
+ * Obtiene las credenciales de la base de datos
+ * Compatible con define() y $GLOBALS[]
+ */
+function get_db_credentials(): array {
+    // Prioridad 1: Constantes definidas con define()
+    $host = defined('DB_HOST') ? DB_HOST : ($GLOBALS['DB_HOST'] ?? 'localhost');
+    $name = defined('DB_NAME') ? DB_NAME : ($GLOBALS['DB_NAME'] ?? '');
+    $user = defined('DB_USER') ? DB_USER : ($GLOBALS['DB_USER'] ?? 'root');
+    $pass = defined('DB_PASS') ? DB_PASS : ($GLOBALS['DB_PASS'] ?? '');
+    
+    return [
+        'host' => (string)$host,
+        'name' => (string)$name,
+        'user' => (string)$user,
+        'pass' => (string)$pass,
+    ];
+}
+
+/**
+ * Crea un backup de la base de datos
  */
 function backup_create(?string &$err = null): ?string {
     backups_ensure_dirs();
 
-    global $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS;
+    // Obtener credenciales
+    $db = get_db_credentials();
+    
+    // Verificar configuración
+    if (empty($db['name'])) {
+        $err = 'Error de configuración: nombre de base de datos no está definido';
+        app_log('ERROR', 'backup_create: DB_NAME no definida');
+        return null;
+    }
 
-    $mysqldump = find_mysqldump();
-    if (!$mysqldump) {
-        $err = 'No se encontró mysqldump. En XAMPP debería estar en C:\\xampp\\mysql\\bin\\mysqldump.exe';
+    // Buscar mysqldump
+    $mysqldumpInfo = find_mysqldump();
+    if (!$mysqldumpInfo) {
+        $err = 'No se encontró mysqldump. Instalá MySQL/MariaDB o verificá que MYSQLDUMP_BIN esté correctamente configurado.';
+        if (defined('MYSQLDUMP_BIN')) {
+            $err .= ' (Ruta configurada: ' . MYSQLDUMP_BIN . ')';
+        }
         app_log('ERROR', 'backup_create: mysqldump not found');
         return null;
     }
+    
+    $mysqldump = $mysqldumpInfo['path'];
+    app_log('INFO', 'mysqldump encontrado', ['path' => $mysqldump, 'version' => $mysqldumpInfo['version']]);
 
+    // Generar nombre de archivo
     $ts = date('Ymd_His');
-    $fileName = sprintf('%s_%s.sql', $DB_NAME ?: 'db', $ts);
+    $fileName = sprintf('%s_%s.sql', preg_replace('/[^a-zA-Z0-9_]/', '_', $db['name']), $ts);
     $fullPath = backups_dir() . DIRECTORY_SEPARATOR . $fileName;
 
-    $hostArg = '--host=' . sh_quote((string)$DB_HOST);
-    $userArg = '--user=' . sh_quote((string)$DB_USER);
-    $passArg = '';
-    $dbArg   = sh_quote((string)$DB_NAME);
-
-    if ((string)$DB_PASS !== '') {
-        // mysqldump acepta --password=... (sin espacio)
-        $passArg = '--password=' . sh_quote((string)$DB_PASS);
-    }
-
-    // Flags recomendados
-    $flags = implode(' ', [
-        '--default-character-set=utf8mb4',
-        '--single-transaction',
-        '--routines',
-        '--triggers',
-        '--events',
-        '--add-drop-table',
-        '--skip-comments'
-    ]);
-
-    // Redirección a archivo
-    $cmd = sh_quote($mysqldump) . " $flags $hostArg $userArg " . ($passArg ? "$passArg " : '') . "$dbArg > " . sh_quote($fullPath) . " 2>&1";
-
-    $out = [];
-    $code = 0;
-    @exec($cmd, $out, $code);
-
-    if ($code !== 0 || !is_file($fullPath) || filesize($fullPath) < 200) {
-        @unlink($fullPath);
-        $err = 'Error creando backup. ' . implode("\n", $out);
-        app_log('ERROR', 'backup_create failed', ['code' => $code, 'out' => $out]);
+    // Verificar que el directorio sea escribible
+    if (!is_writable(backups_dir())) {
+        $err = 'El directorio de backups no tiene permisos de escritura: ' . backups_dir();
+        app_log('ERROR', 'backup_create: directorio no escribible', ['dir' => backups_dir()]);
         return null;
     }
 
-    app_log('INFO', 'Backup creado', ['file' => $fileName, 'size' => filesize($fullPath)]);
+    // Construir comando mysqldump
+    $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
+    
+    if ($isWindows) {
+        // En Windows, formato especial para evitar problemas con espacios y comillas
+        $args = [
+            '--host=' . $db['host'],
+            '--user=' . $db['user'],
+            '--default-character-set=utf8mb4',
+            '--single-transaction',
+            '--routines',
+            '--triggers',
+            '--events',
+            '--add-drop-table',
+            '--skip-comments',
+        ];
+        
+        // Agregar password si existe
+        if ($db['pass'] !== '') {
+            $args[] = '--password=' . $db['pass'];
+        }
+        
+        // Agregar database
+        $args[] = $db['name'];
+        
+        // Comando final con redirección
+        $cmd = sprintf(
+            '"%s" %s > "%s" 2>&1',
+            $mysqldump,
+            implode(' ', $args),
+            $fullPath
+        );
+    } else {
+        // En Linux/Mac, usar escapeshellarg
+        $args = [
+            '--host=' . escapeshellarg($db['host']),
+            '--user=' . escapeshellarg($db['user']),
+            '--default-character-set=utf8mb4',
+            '--single-transaction',
+            '--routines',
+            '--triggers',
+            '--events',
+            '--add-drop-table',
+            '--skip-comments',
+        ];
+        
+        if ($db['pass'] !== '') {
+            $args[] = '--password=' . escapeshellarg($db['pass']);
+        }
+        
+        $args[] = escapeshellarg($db['name']);
+        
+        $cmd = sprintf(
+            '%s %s > %s 2>&1',
+            escapeshellarg($mysqldump),
+            implode(' ', $args),
+            escapeshellarg($fullPath)
+        );
+    }
+    
+    app_log('DEBUG', 'Ejecutando mysqldump', ['cmd' => $cmd]);
+
+    // Ejecutar comando
+    $output = [];
+    $returnCode = 0;
+    @exec($cmd, $output, $returnCode);
+    
+    // Verificar resultado
+    if ($returnCode !== 0) {
+        $outputStr = implode("\n", $output);
+        $err = 'mysqldump falló (código ' . $returnCode . '): ' . $outputStr;
+        app_log('ERROR', 'backup_create: mysqldump falló', [
+            'code' => $returnCode,
+            'output' => $outputStr
+        ]);
+        
+        // Limpiar archivo parcial
+        if (file_exists($fullPath)) {
+            @unlink($fullPath);
+        }
+        
+        return null;
+    }
+    
+    // Verificar que el archivo se creó y tiene contenido
+    if (!is_file($fullPath)) {
+        $err = 'El archivo de backup no se creó en: ' . $fullPath;
+        app_log('ERROR', 'backup_create: archivo no creado', ['path' => $fullPath]);
+        return null;
+    }
+    
+    $filesize = filesize($fullPath);
+    if ($filesize === false || $filesize < 200) {
+        $err = 'El backup está vacío o es muy pequeño (' . $filesize . ' bytes). Verificá la conexión a la base de datos.';
+        app_log('ERROR', 'backup_create: archivo muy pequeño', ['size' => $filesize]);
+        @unlink($fullPath);
+        return null;
+    }
+
+    // Log de éxito
+    app_log('INFO', 'Backup creado exitosamente', [
+        'file' => $fileName,
+        'size' => $filesize,
+        'size_formatted' => fmt_bytes($filesize)
+    ]);
+    
+    // Rotación de backups antiguos
     backup_rotate(30);
+    
     return $fileName;
 }
 
 /**
- * Lista backups disponibles.
+ * Lista backups disponibles
  * @return array<int,array{file:string, path:string, size:int, mtime:int}>
  */
 function backup_list(): array {
@@ -119,59 +298,123 @@ function backup_list(): array {
     $dir = backups_dir();
 
     $items = [];
-    foreach (glob($dir . DIRECTORY_SEPARATOR . '*.sql') as $path) {
+    $files = @glob($dir . DIRECTORY_SEPARATOR . '*.sql');
+    
+    if ($files === false) {
+        app_log('WARNING', 'No se pudo leer el directorio de backups', ['dir' => $dir]);
+        return [];
+    }
+    
+    foreach ($files as $path) {
         if (!is_file($path)) continue;
+        
         $items[] = [
             'file' => basename($path),
             'path' => $path,
-            'size' => (int)filesize($path),
-            'mtime' => (int)filemtime($path),
+            'size' => (int)@filesize($path),
+            'mtime' => (int)@filemtime($path),
         ];
     }
 
+    // Ordenar por fecha descendente (más reciente primero)
     usort($items, fn($a, $b) => $b['mtime'] <=> $a['mtime']);
+    
     return $items;
 }
 
+/**
+ * Elimina un backup
+ */
 function backup_delete(string $file, ?string &$err = null): bool {
     $file = basename($file);
+    
+    // Validar nombre de archivo
     if (!preg_match('/^[A-Za-z0-9._-]+\.sql$/', $file)) {
         $err = 'Nombre de archivo inválido.';
+        app_log('WARNING', 'backup_delete: nombre inválido', ['file' => $file]);
         return false;
     }
 
     $path = backups_dir() . DIRECTORY_SEPARATOR . $file;
+    
     if (!is_file($path)) {
         $err = 'El archivo no existe.';
+        app_log('WARNING', 'backup_delete: archivo no existe', ['path' => $path]);
         return false;
     }
 
     if (!@unlink($path)) {
-        $err = 'No se pudo borrar el archivo.';
+        $err = 'No se pudo borrar el archivo. Verificá los permisos.';
+        app_log('ERROR', 'backup_delete: error al eliminar', ['path' => $path]);
         return false;
     }
 
-    app_log('INFO', 'Backup borrado', ['file' => $file]);
+    app_log('INFO', 'Backup eliminado', ['file' => $file]);
     return true;
 }
 
+/**
+ * Rota backups antiguos manteniendo solo los últimos N
+ */
 function backup_rotate(int $keep = 30): void {
     $items = backup_list();
-    if (count($items) <= $keep) return;
+    if (count($items) <= $keep) {
+        return;
+    }
 
     $toDelete = array_slice($items, $keep);
+    $deleted = 0;
+    
     foreach ($toDelete as $it) {
-        @unlink($it['path']);
+        if (@unlink($it['path'])) {
+            $deleted++;
+        }
+    }
+    
+    if ($deleted > 0) {
+        app_log('INFO', 'Backups rotados', ['deleted' => $deleted, 'kept' => $keep]);
     }
 }
 
+/**
+ * Formatea bytes a formato legible
+ */
 function fmt_bytes(int $bytes): string {
     $units = ['B','KB','MB','GB','TB'];
     $i = 0;
     $n = (float)$bytes;
-    while ($n >= 1024 && $i < count($units)-1) {
+    
+    while ($n >= 1024 && $i < count($units) - 1) {
         $n /= 1024;
         $i++;
     }
+    
     return number_format($n, $i === 0 ? 0 : 2, ',', '.') . ' ' . $units[$i];
+}
+
+/**
+ * Obtiene información de diagnóstico del sistema de backups
+ */
+function backup_diagnostics(): array {
+    $mysqldumpInfo = find_mysqldump();
+    $dir = backups_dir();
+    $db = get_db_credentials();
+    
+    return [
+        'mysqldump_found' => $mysqldumpInfo !== null,
+        'mysqldump_path' => $mysqldumpInfo['path'] ?? null,
+        'mysqldump_version' => $mysqldumpInfo['version'] ?? null,
+        'mysqldump_defined' => defined('MYSQLDUMP_BIN') ? MYSQLDUMP_BIN : null,
+        'backups_dir' => $dir,
+        'dir_exists' => is_dir($dir),
+        'dir_writable' => is_writable($dir),
+        'db_config' => [
+            'host' => $db['host'],
+            'name' => $db['name'],
+            'user' => $db['user'],
+            'pass_set' => !empty($db['pass']),
+        ],
+        'php_os' => PHP_OS_FAMILY,
+        'backups_count' => count(backup_list()),
+    ];
 }

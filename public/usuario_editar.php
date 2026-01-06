@@ -1,11 +1,46 @@
 <?php
-// public/usuario_nuevo.php
+// public/usuario_editar.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
 if (session_status() === PHP_SESSION_NONE) session_start();
+
+/* ============================================================
+   OBTENER ID DEL USUARIO A EDITAR
+============================================================ */
+$userId = (int)($_GET['id'] ?? 0);
+
+if ($userId <= 0) {
+    $_SESSION['flash_error'] = 'ID de usuario inválido';
+    header('Location: usuarios.php');
+    exit;
+}
+
+/* ============================================================
+   OBTENER DATOS DEL USUARIO
+============================================================ */
+try {
+    $stmt = $pdo->prepare("
+        SELECT id, nombre, email, username, role_id, activo
+        FROM users
+        WHERE id = :id
+    ");
+    $stmt->execute([':id' => $userId]);
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$usuario) {
+        $_SESSION['flash_error'] = 'Usuario no encontrado';
+        header('Location: usuarios.php');
+        exit;
+    }
+} catch (PDOException $e) {
+    error_log("Error al cargar usuario: " . $e->getMessage());
+    $_SESSION['flash_error'] = 'Error al cargar el usuario';
+    header('Location: usuarios.php');
+    exit;
+}
 
 /* ============================================================
    PROCESAR FORMULARIO (POST)
@@ -32,11 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'El email no es válido';
     } else {
-        // Verificar email único
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-        $stmt->execute([':email' => $email]);
+        // Verificar email único (excepto el actual)
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email AND id != :id");
+        $stmt->execute([':email' => $email, ':id' => $userId]);
         if ($stmt->fetch()) {
-            $errors[] = 'Este email ya está registrado';
+            $errors[] = 'Este email ya está registrado por otro usuario';
         }
     }
     
@@ -47,17 +82,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
         $errors[] = 'El usuario solo puede contener letras, números y guion bajo';
     } else {
-        // Verificar username único
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username");
-        $stmt->execute([':username' => $username]);
+        // Verificar username único (excepto el actual)
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username AND id != :id");
+        $stmt->execute([':username' => $username, ':id' => $userId]);
         if ($stmt->fetch()) {
-            $errors[] = 'Este nombre de usuario ya está en uso';
+            $errors[] = 'Este nombre de usuario ya está en uso por otro usuario';
         }
     }
     
-    if (empty($password)) {
-        $errors[] = 'La contraseña es obligatoria';
-    } elseif (strlen($password) < 6) {
+    // Validar contraseña solo si se ingresó una nueva
+    if (!empty($password) && strlen($password) < 6) {
         $errors[] = 'La contraseña debe tener al menos 6 caracteres';
     }
     
@@ -65,46 +99,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Debe seleccionar un rol válido';
     }
     
-    // Si no hay errores, crear usuario
+    // Prevenir auto-desactivación
+    if ($userId === (int)($_SESSION['user_id'] ?? 0) && $activo === 0) {
+        $errors[] = 'No puedes desactivar tu propio usuario';
+    }
+    
+    // Si no hay errores, actualizar usuario
     if (empty($errors)) {
         try {
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+            // Preparar query según si hay nueva contraseña
+            if (!empty($password)) {
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+                $sql = "
+                    UPDATE users 
+                    SET nombre = :nombre,
+                        email = :email,
+                        username = :username,
+                        password_hash = :password_hash,
+                        role_id = :role_id,
+                        activo = :activo
+                    WHERE id = :id
+                ";
+                $params = [
+                    ':nombre' => $nombre,
+                    ':email' => $email,
+                    ':username' => $username,
+                    ':password_hash' => $password_hash,
+                    ':role_id' => $role_id,
+                    ':activo' => $activo,
+                    ':id' => $userId
+                ];
+            } else {
+                $sql = "
+                    UPDATE users 
+                    SET nombre = :nombre,
+                        email = :email,
+                        username = :username,
+                        role_id = :role_id,
+                        activo = :activo
+                    WHERE id = :id
+                ";
+                $params = [
+                    ':nombre' => $nombre,
+                    ':email' => $email,
+                    ':username' => $username,
+                    ':role_id' => $role_id,
+                    ':activo' => $activo,
+                    ':id' => $userId
+                ];
+            }
             
-            $stmt = $pdo->prepare("
-                INSERT INTO users (nombre, email, username, password_hash, role_id, activo, created_at)
-                VALUES (:nombre, :email, :username, :password_hash, :role_id, :activo, NOW())
-            ");
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             
-            $stmt->execute([
-                ':nombre' => $nombre,
-                ':email' => $email,
-                ':username' => $username,
-                ':password_hash' => $password_hash,
-                ':role_id' => $role_id,
-                ':activo' => $activo
-            ]);
-            
-            $_SESSION['flash_success'] = 'Usuario creado correctamente';
+            $_SESSION['flash_success'] = 'Usuario actualizado correctamente';
             header('Location: usuarios.php');
             exit;
             
         } catch (PDOException $e) {
-            error_log("Error al crear usuario: " . $e->getMessage());
-            $errors[] = 'Error al crear el usuario. Por favor, intente nuevamente.';
+            error_log("Error al actualizar usuario: " . $e->getMessage());
+            $errors[] = 'Error al actualizar el usuario. Por favor, intente nuevamente.';
         }
     }
     
-    // Si hay errores, guardar en sesión para mostrar
+    // Si hay errores, guardar en sesión
     if (!empty($errors)) {
         $_SESSION['form_errors'] = $errors;
-        $_SESSION['form_data'] = $_POST;
+        // Mantener los datos del POST para el formulario
+        $usuario = array_merge($usuario, $_POST);
     }
 }
 
-// Recuperar datos del formulario si hay errores
-$formData = $_SESSION['form_data'] ?? [];
+// Recuperar errores si hay
 $formErrors = $_SESSION['form_errors'] ?? [];
-unset($_SESSION['form_data'], $_SESSION['form_errors']);
+unset($_SESSION['form_errors']);
 
 // Obtener roles disponibles
 try {
@@ -117,7 +185,7 @@ try {
 /* ============================================================
    CONFIG PARA HEADER
 ============================================================ */
-$pageTitle = 'Nuevo Usuario';
+$pageTitle = 'Editar Usuario';
 $currentSection = 'usuarios';
 $extraCss = ['assets/css/usuarios.css?v=2'];
 $extraJs = ['assets/js/usuario_form.js?v=1'];
@@ -129,8 +197,8 @@ require __DIR__ . '/partials/header.php';
 
   <header class="form-header">
     <div class="form-header-left">
-      <h1 class="page-title">Nuevo Usuario</h1>
-      <p class="page-sub">Completá los datos para crear un nuevo usuario en el sistema.</p>
+      <h1 class="page-title">Editar Usuario</h1>
+      <p class="page-sub">Modificá los datos del usuario <strong><?= h($usuario['username']) ?></strong></p>
     </div>
     <div class="form-header-right">
       <a href="usuarios.php" class="v-btn v-btn--ghost">
@@ -161,7 +229,7 @@ require __DIR__ . '/partials/header.php';
 
   <!-- Formulario -->
   <div class="form-container">
-    <form method="post" action="usuario_nuevo.php" class="usuario-form" id="usuarioForm" novalidate>
+    <form method="post" action="usuario_editar.php?id=<?= $userId ?>" class="usuario-form" id="usuarioForm" novalidate>
       
       <div class="form-section">
         <h3 class="form-section-title">Información Personal</h3>
@@ -177,7 +245,7 @@ require __DIR__ . '/partials/header.php';
               name="nombre" 
               class="form-input"
               placeholder="Ej: Juan Pérez"
-              value="<?= h($formData['nombre'] ?? '') ?>"
+              value="<?= h($usuario['nombre'] ?? '') ?>"
               required
               minlength="3"
               maxlength="100"
@@ -196,7 +264,7 @@ require __DIR__ . '/partials/header.php';
               name="email" 
               class="form-input"
               placeholder="usuario@ejemplo.com"
-              value="<?= h($formData['email'] ?? '') ?>"
+              value="<?= h($usuario['email'] ?? '') ?>"
               required
               maxlength="150"
               autocomplete="email"
@@ -220,7 +288,7 @@ require __DIR__ . '/partials/header.php';
               name="username" 
               class="form-input"
               placeholder="usuario123"
-              value="<?= h($formData['username'] ?? '') ?>"
+              value="<?= h($usuario['username'] ?? '') ?>"
               required
               minlength="3"
               maxlength="50"
@@ -233,7 +301,7 @@ require __DIR__ . '/partials/header.php';
 
           <div class="form-field">
             <label for="password" class="form-label">
-              Contraseña <span class="required">*</span>
+              Nueva Contraseña
             </label>
             <div class="password-input-wrap">
               <input 
@@ -241,8 +309,7 @@ require __DIR__ . '/partials/header.php';
                 id="password" 
                 name="password" 
                 class="form-input"
-                placeholder="••••••••"
-                required
+                placeholder="Dejar vacío para no cambiar"
                 minlength="6"
                 maxlength="255"
                 autocomplete="new-password"
@@ -254,7 +321,7 @@ require __DIR__ . '/partials/header.php';
                 </svg>
               </button>
             </div>
-            <span class="form-hint">Mínimo 6 caracteres</span>
+            <span class="form-hint">Dejá vacío si no querés cambiar la contraseña</span>
             <span class="form-error" data-error-for="password"></span>
           </div>
         </div>
@@ -278,7 +345,7 @@ require __DIR__ . '/partials/header.php';
               <?php foreach ($roles as $rol): ?>
                 <option 
                   value="<?= (int)$rol['id'] ?>"
-                  <?= isset($formData['role_id']) && $formData['role_id'] == $rol['id'] ? 'selected' : '' ?>
+                  <?= $usuario['role_id'] == $rol['id'] ? 'selected' : '' ?>
                 >
                   <?= h($rol['nombre']) ?>
                 </option>
@@ -296,12 +363,18 @@ require __DIR__ . '/partials/header.php';
                   id="activo" 
                   name="activo" 
                   class="form-checkbox"
-                  <?= !isset($formData['activo']) || !empty($formData['activo']) ? 'checked' : '' ?>
+                  <?= !empty($usuario['activo']) ? 'checked' : '' ?>
                 >
                 <span class="checkbox-custom"></span>
                 <span class="checkbox-text">Usuario activo</span>
               </label>
-              <span class="form-hint">Si está desactivado, no podrá iniciar sesión</span>
+              <span class="form-hint">
+                <?php if ($userId === (int)($_SESSION['user_id'] ?? 0)): ?>
+                  No podés desactivar tu propio usuario
+                <?php else: ?>
+                  Si está desactivado, no podrá iniciar sesión
+                <?php endif; ?>
+              </span>
             </div>
           </div>
         </div>
@@ -315,7 +388,7 @@ require __DIR__ . '/partials/header.php';
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
             <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
           </svg>
-          Guardar usuario
+          Actualizar usuario
         </button>
       </div>
 

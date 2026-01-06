@@ -1,0 +1,990 @@
+/* ============================================================================
+   FLUS - ROLES.CSS
+   Estilos para roles.php y rol_permisos.php
+   Diseño moderno con cards, badges y agrupación
+============================================================================ */
+
+/* ============================================================================
+   [01] PANEL Y HEADER
+============================================================================ */
+
+.roles-panel {
+  padding: 24px 28px;
+  min-height: calc(100vh - 120px);
+}
+
+.roles-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.roles-header-left .page-title {
+  margin-bottom: 6px;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.roles-header-left .page-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.roles-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.roles-actions .v-btn svg {
+  margin-right: 6px;
+}
+
+/* ============================================================================
+   [02] BREADCRUMB
+============================================================================ */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.breadcrumb-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.breadcrumb-link:hover {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+}
+
+.breadcrumb svg {
+  color: var(--muted);
+}
+
+.breadcrumb-current {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   [03] BADGES
+============================================================================ */
+
+.slug-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--accent-blue);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+}
+
+.info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-critico {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================================
+   [04] FILTROS Y BÚSQUEDA
+============================================================================ */
+
+.roles-filters {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.filters-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 0 0 auto;
+}
+
+.filter-group.filter-search {
+  flex: 1 1 auto;
+  min-width: 280px;
+}
+
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.filter-input::placeholder {
+  color: var(--muted);
+}
+
+.clear-search {
+  position: absolute;
+  right: 8px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.filter-clear:hover {
+  color: var(--text);
+  background: var(--hover-bg);
+  border-color: var(--accent-blue);
+}
+
+/* ============================================================================
+   [05] GRID DE ROLES
+============================================================================ */
+
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+/* ============================================================================
+   [06] ROLE CARD
+============================================================================ */
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.role-card:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+  transform: translateY(-2px);
+}
+
+.role-card--critico {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg, var(--card-bg) 0%, rgba(251, 191, 36, 0.03) 100%);
+}
+
+.role-card--critico:hover {
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
+}
+
+/* Header del card */
+.role-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.role-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  border-radius: var(--radius-md);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+
+.role-card--critico .role-icon {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.25);
+}
+
+.role-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.role-slug {
+  margin: 0;
+  font-size: 0.8rem;
+  font-family: 'Fira Code', monospace;
+  color: var(--muted);
+}
+
+/* Estadísticas */
+.role-stats {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.stat-item svg {
+  flex-shrink: 0;
+  color: var(--accent-blue);
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Progress bar */
+.role-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill[data-percentage="100"] {
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+}
+
+.progress-fill[data-percentage="0"] {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Acciones del card */
+.role-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn--primary {
+  flex: 1;
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.action-btn--primary:hover {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+}
+
+.action-btn--secondary {
+  flex: 1;
+  border-color: var(--border);
+}
+
+.action-btn--secondary:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(14, 165, 233, 0.05);
+}
+
+.action-btn--danger {
+  padding: 8px;
+  border-color: var(--border);
+}
+
+.action-btn--danger:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+/* ============================================================================
+   [07] EMPTY STATE
+============================================================================ */
+
+.roles-empty,
+.permisos-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--card-bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+  color: var(--muted);
+}
+
+.roles-empty h3,
+.permisos-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.roles-empty p,
+.permisos-empty p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+/* ============================================================================
+   [08] PERMISOS - TOOLBAR
+============================================================================ */
+
+.permisos-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.permisos-toolbar .search-input-wrap {
+  flex: 1;
+  min-width: 280px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-actions .v-btn svg {
+  margin-right: 4px;
+}
+
+/* ============================================================================
+   [09] PERMISOS - SECCIONES
+============================================================================ */
+
+.permisos-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.permisos-section.hidden {
+  display: none;
+}
+
+.permisos-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.permisos-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.permisos-section-title svg {
+  color: var(--accent-blue);
+}
+
+.permisos-count {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.permisos-count-selected {
+  color: var(--accent-blue);
+}
+
+/* ============================================================================
+   [10] PERMISOS - GRID
+============================================================================ */
+
+.permisos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* ============================================================================
+   [11] PERMISO CARD
+============================================================================ */
+
+.permiso-card {
+  display: flex;
+  align-items: center;
+  padding: 14px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.permiso-card:hover {
+  border-color: var(--accent-blue);
+  background: rgba(14, 165, 233, 0.04);
+}
+
+.permiso-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.permiso-checkbox:checked + .permiso-content {
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.permiso-checkbox:checked + .permiso-content .permiso-icon {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.permiso-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.permiso-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  transition: all 0.2s ease;
+}
+
+.permiso-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.permiso-nombre {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.permiso-slug {
+  font-size: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  color: var(--muted);
+}
+
+/* ============================================================================
+   [12] FORM FOOTER
+============================================================================ */
+
+.form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-top: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.form-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.form-footer-info svg {
+  color: var(--accent-blue);
+}
+
+.form-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-footer-actions .v-btn svg {
+  margin-right: 6px;
+}
+
+/* ============================================================================
+   [13] MODAL
+============================================================================ */
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal.is-open {
+  display: flex;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.25s ease;
+  z-index: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+}
+
+.modal-icon--warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.modal-body p {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.modal-body p.text-muted {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================================
+   [14] ALERTS
+============================================================================ */
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.alert-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.alert-warning {
+  background: rgba(251, 191, 36, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.alert-warning strong {
+  color: #f59e0b;
+}
+
+/* ============================================================================
+   [15] RESPONSIVE
+============================================================================ */
+
+@media (max-width: 1024px) {
+  .roles-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  .permisos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .roles-panel {
+    padding: 20px;
+  }
+
+  .roles-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .roles-actions,
+  .toolbar-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .roles-actions .v-btn,
+  .toolbar-actions .v-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .roles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .roles-filters,
+  .permisos-toolbar {
+    flex-direction: column;
+  }
+
+  .filter-group,
+  .filter-group.filter-search,
+  .permisos-toolbar .search-input-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .permisos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-footer-actions {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+
+  .form-footer-actions .v-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .role-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .roles-panel {
+    padding: 16px;
+  }
+
+  .roles-header-left .page-title {
+    font-size: 1.5rem;
+  }
+
+  .modal-content {
+    max-width: 100%;
+  }
+
+  .role-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+}

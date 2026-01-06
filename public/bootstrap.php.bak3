@@ -1,14 +1,12 @@
 <?php
-declare(strict_types=1);
 // public/bootstrap.php
-require_once __DIR__ . '/lib/root.php';
+declare(strict_types=1);
 
 require_once __DIR__ . '/lib/session.php';
 flus_session_start();
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
-
 
 define('APP_BOOTSTRAPPED', true);
 

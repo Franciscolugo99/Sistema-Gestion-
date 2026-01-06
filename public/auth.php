@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/session.php';
 flus_session_start();
+require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
 require_once __DIR__ . '/lib/terminal.php';
@@ -58,7 +59,12 @@ function user_has_permission(string $slug): bool {
     return false;
   }
 
-  $pdo = getPDO();
+  try {
+    $pdo = getPDO();
+  } catch (Throwable $e) {
+    $cache[$slug] = false;
+    return false;
+  }
   $sql = "
     SELECT 1
     FROM users u

@@ -1,5 +1,11 @@
 <?php
+<<<<<<< Updated upstream
 declare(strict_types=1);
+=======
+// public/api/actions/buscar_productos.php
+// Endpoint: ?action=buscar_productos&q=...&limit=5
+// DiseÃ±ado para ser robusto con distintos nombres de columnas (nombre/descripcion, precio/precio_venta, stock/stock_actual).
+>>>>>>> Stashed changes
 
 // Action: ?action=buscar_productos&q=...&limit=5
 // Objetivo: NO romper Caja. Si algo falla, responde ok:true con productos=[]

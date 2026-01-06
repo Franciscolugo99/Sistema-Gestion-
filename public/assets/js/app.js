@@ -79,6 +79,9 @@ let currentEditId = null;
 document.addEventListener("DOMContentLoaded", () => {
   // ✅ Guard real: si querés pausar el heartbeat, esto ahora SÍ funciona
   if (window.__pauseTerminalHeartbeat) return;
+  // ✅ Guard anti-doble arranque
+  if (window.__flus_terminal_heartbeat_started) return;
+  window.__flus_terminal_heartbeat_started = true;
 
   // Guard duro: nunca correr en login/selector de terminal
   const p = (window.location.pathname || "").toLowerCase();
@@ -150,14 +153,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (r.ok) {
         try { await r.json(); } catch (_) {}
+        return true;
       }
+      return false;
     } catch (_) {
-      // silencioso
+      return false;
     }
   };
 
-  ping();
-  setInterval(ping, 25000);
+  // Backoff anti-spam si el servidor/DB cae
+  let failCount = 0;
+  let timer = null;
+  let inFlight = false;
+
+  const nextDelay = () => {
+    if (failCount <= 0) return 25000;
+    if (failCount === 1) return 45000;
+    if (failCount === 2) return 90000;
+    return 180000;
+  };
+
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(pingWrapped, nextDelay());
+  };
+
+  const pingWrapped = async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
+
+    try {
+      const ok = await ping();
+      if (ok) {
+        failCount = 0;
+      } else {
+        failCount = Math.min(9, failCount + 1);
+        if (window.showToast && failCount === 1) {
+          window.showToast("Servidor sin respuesta. Reintentando…", "warn", 2500);
+        }
+      }
+    } finally {
+      inFlight = false;
+      if (!stopped) schedule();
+    }
+  };
+
+  // Arranque
+  pingWrapped();
+  schedule();
 });
 
 

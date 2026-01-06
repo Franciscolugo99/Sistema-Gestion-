@@ -1,8 +1,6 @@
 /* ============================================================================
-   FLUS - USUARIOS.CSS (PRO EDITION)
-   Estilos específicos del módulo Usuarios
-   → Todo lo global (paneles, tablas, botones, inputs, tipografía)
-     ya está manejado por CORE + THEME.
+   FLUS - USUARIOS.CSS V2 (PRO EDITION)
+   Módulo Usuarios — Diseño moderno con filtros, paginación y acciones inline
 ============================================================================ */
 
 /* ============================================================================ 
@@ -10,7 +8,8 @@
 ============================================================================ */
 
 .usuarios-panel {
-  padding: 22px 26px;
+  padding: 24px 28px;
+  min-height: calc(100vh - 120px);
 }
 
 /* ============================================================================ 
@@ -21,12 +20,21 @@
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
 }
 
 .usuarios-header-left .page-title {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.usuarios-header-left .page-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 .usuarios-actions {
@@ -35,134 +43,1293 @@
   gap: 10px;
 }
 
+.usuarios-actions .v-btn svg {
+  margin-right: 6px;
+}
+
 /* ============================================================================ 
-   [03] TABLA USUARIOS
+   [03] FILTROS
+============================================================================ */
+
+.usuarios-filters {
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.filters-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  flex: 0 0 auto;
+}
+
+.filter-group.filter-search {
+  flex: 1 1 auto;
+  min-width: 280px;
+}
+
+/* Search input */
+.search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.filter-input::placeholder {
+  color: var(--muted);
+}
+
+.clear-search {
+  position: absolute;
+  right: 8px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+/* Select filters */
+.filter-select {
+  min-width: 160px;
+  padding: 10px 36px 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.filter-select:hover {
+  border-color: var(--accent-blue);
+}
+
+/* Clear filters button */
+.filter-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.filter-clear:hover {
+  color: var(--text);
+  background: var(--hover-bg);
+  border-color: var(--accent-blue);
+}
+
+.filter-clear svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ============================================================================ 
+   [04] TABLA USUARIOS
 ============================================================================ */
 
 .usuarios-table-wrap {
   width: 100%;
 }
 
-.tabla-usuarios th,
-.tabla-usuarios td {
-  padding: 10px 12px;
+.table-responsive {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
 }
 
-/* Ajuste para nombres largos */
-.tabla-usuarios td {
+.tabla-usuarios {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-usuarios th {
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
   white-space: nowrap;
 }
 
-/* Hover suave — consistente con core */
+.tabla-usuarios th.th-actions {
+  text-align: center;
+}
+
+.tabla-usuarios td {
+  padding: 16px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tabla-usuarios tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 .tabla-usuarios tbody tr:hover {
-  background: rgba(34, 211, 238, 0.06);
+  background: rgba(34, 211, 238, 0.04);
+}
+
+.tabla-usuarios tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Usuario cell con avatar */
+.td-user {
+  min-width: 220px;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  cursor: default;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-username {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: 'Fira Code', monospace;
+}
+
+/* Email */
+.td-email {
+  min-width: 200px;
+}
+
+.email-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.email-link:hover {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+}
+
+/* Último acceso */
+.td-last-access {
+  min-width: 140px;
+}
+
+.last-access {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 /* ============================================================================ 
-   [04] BADGES
+   [05] BADGES
 ============================================================================ */
 
 /* Rol */
 .badge-rol {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
-  background: rgba(14, 165, 233, 0.15); /* accent-blue */
+  background: rgba(14, 165, 233, 0.12);
   color: var(--accent-blue);
+  text-transform: capitalize;
+  white-space: nowrap;
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
-/* Estado general */
+/* Estado */
 .badge-estado {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-/* Activo */
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .badge-estado--ok {
-  background: rgba(34, 197, 94, 0.18);
-  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
-/* Inactivo */
+.badge-estado--ok .badge-dot {
+  background: #22c55e;
+}
+
 .badge-estado--off {
-  background: rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-estado--off .badge-dot {
+  background: #ef4444;
+  animation: none;
+  opacity: 0.6;
 }
 
 /* ============================================================================ 
-   [05] MENSAJE VACÍO
+   [06] ACCIONES
+============================================================================ */
+
+.td-actions {
+  text-align: center;
+  min-width: 140px;
+}
+
+.action-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  border-color: var(--accent-blue);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--accent-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+}
+
+.action-btn--edit:hover {
+  border-color: var(--accent-blue);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--accent-blue);
+}
+
+.action-btn--toggle:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--accent-cyan);
+}
+
+.action-btn--delete:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ============================================================================ 
+   [07] PAGINACIÓN
+============================================================================ */
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding: 18px 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(.pagination-btn--disabled) {
+  border-color: var(--accent-blue);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--accent-blue);
+  transform: translateY(-1px);
+}
+
+.pagination-btn--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-current {
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ============================================================================ 
+   [08] ESTADO VACÍO
 ============================================================================ */
 
 .usuarios-empty {
-  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
   text-align: center;
-  font-size: 0.95rem;
+  color: var(--muted);
+  background: var(--card-bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+  color: var(--muted);
+}
+
+.usuarios-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.usuarios-empty p {
+  margin: 0;
+  font-size: 0.9rem;
   color: var(--muted);
 }
 
 /* ============================================================================ 
-   [06] FORMULARIO: NUEVO USUARIO / EDITAR USUARIO
+   [09] MODAL
 ============================================================================ */
 
-.usuarios-form-wrap {
-  margin-top: 8px;
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.usuarios-form {
+.modal.is-open {
+  display: flex;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.25s ease;
+  z-index: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px;
+  text-align: center;
+}
+
+.modal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+}
+
+.modal-icon--warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.modal-body p {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.modal-body p.text-muted {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ============================================================================ 
+   [10] ALERTS CON ICONOS
+============================================================================ */
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alert svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.alert-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ============================================================================ 
+   [11] RESPONSIVE
+============================================================================ */
+
+@media (max-width: 1024px) {
+  .usuarios-panel {
+    padding: 20px;
+  }
+
+  .tabla-usuarios th,
+  .tabla-usuarios td {
+    padding: 12px 10px;
+  }
+
+  .user-avatar {
+    width: 38px;
+    height: 38px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .usuarios-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .usuarios-actions {
+    justify-content: stretch;
+  }
+
+  .usuarios-actions .v-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .filters-form {
+    flex-direction: column;
+  }
+
+  .filter-group,
+  .filter-group.filter-search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  /* Hacer tabla scrollable horizontalmente */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tabla-usuarios {
+    min-width: 800px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .usuarios-panel {
+    padding: 16px;
+  }
+
+  .usuarios-header-left .page-title {
+    font-size: 1.5rem;
+  }
+
+  .modal-content {
+    max-width: 100%;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .action-btn {
+    width: 32px;
+    height: 32px;
+  }
+}
+/* ============================================================================
+   FLUS - FORMULARIOS DE USUARIOS (Nuevo/Editar)
+   Diseño moderno con validación visual y soporte tema claro/oscuro
+============================================================================ */
+
+/* ============================================================================
+   [01] CONTAINER Y HEADER
+============================================================================ */
+
+.form-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-header-left .page-title {
+  margin-bottom: 6px;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.form-header-left .page-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.form-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ============================================================================
+   [02] SECCIONES DEL FORMULARIO
+============================================================================ */
+
+.usuario-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 32px;
 }
 
-.usuarios-form .form-row {
+.form-section {
+  padding: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.form-section-title {
+  margin: 0 0 20px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ============================================================================
+   [03] FILAS Y CAMPOS
+============================================================================ */
+
+.form-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.form-field label {
-  font-size: 0.85rem;
-  color: var(--muted);
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
 }
 
-/* Inputs → heredan estilos del core */
-.usuarios-form input,
-.usuarios-form select {
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
+.form-label .required {
+  color: #ef4444;
+  margin-left: 2px;
 }
 
-/* Botonera */
-.usuarios-form-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
-}
-
-/* ============================================================================ 
-   [07] RESPONSIVE
+/* ============================================================================
+   [04] INPUTS
 ============================================================================ */
 
-@media (max-width: 720px) {
-  .usuarios-form .form-row {
-    grid-template-columns: 1fr;
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.form-input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* Estados de validación */
+.form-input:valid:not(:placeholder-shown) {
+  border-color: #22c55e;
+}
+
+.form-input.error,
+.form-select.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.form-input.error:focus,
+.form-select.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* ============================================================================
+   [05] PASSWORD INPUT
+============================================================================ */
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  padding: 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.password-toggle:active {
+  transform: scale(0.95);
+}
+
+/* ============================================================================
+   [06] SELECT
+============================================================================ */
+
+.form-select {
+  padding-right: 40px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+
+.form-select:hover {
+  border-color: var(--accent-blue);
+}
+
+.form-select option {
+  padding: 10px;
+}
+
+/* ============================================================================
+   [07] CHECKBOX
+============================================================================ */
+
+.checkbox-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.form-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-custom {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.form-checkbox:checked + .checkbox-custom {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.form-checkbox:checked + .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.form-checkbox:focus + .checkbox-custom {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.checkbox-label:hover .checkbox-custom {
+  border-color: var(--accent-blue);
+}
+
+.checkbox-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ============================================================================
+   [08] HINTS Y ERRORES
+============================================================================ */
+
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.form-error {
+  display: none;
+  font-size: 0.85rem;
+  color: #ef4444;
+  font-weight: 500;
+  margin-top: 4px;
+  animation: slideDown 0.2s ease;
+}
+
+.form-error.visible {
+  display: block;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================================
+   [09] ALERT CON LISTA DE ERRORES
+============================================================================ */
+
+.error-list {
+  margin: 8px 0 0 0;
+  padding: 0 0 0 20px;
+  list-style: disc;
+}
+
+.error-list li {
+  margin: 4px 0;
+  font-size: 0.9rem;
+}
+
+/* ============================================================================
+   [10] FOOTER DEL FORMULARIO
+============================================================================ */
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.form-footer .v-btn svg {
+  margin-right: 6px;
+}
+
+/* ============================================================================
+   [11] VARIANTES DE COLOR PARA TEMA CLARO/OSCURO
+============================================================================ */
+
+/* Variables CSS que se adaptan al tema */
+:root {
+  /* Estos valores se pueden sobrescribir según el tema activo */
+}
+
+/* Si tienes clase para tema claro */
+.theme-light {
+  --bg: #ffffff;
+  --card-bg: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --hover-bg: #f3f4f6;
+}
+
+/* Si tienes clase para tema oscuro */
+.theme-dark,
+[data-theme="dark"] {
+  --bg: #1a1d29;
+  --card-bg: #232734;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #374151;
+  --hover-bg: #2d3142;
+}
+
+/* Ajustes específicos para inputs en tema oscuro */
+.theme-dark .form-input,
+.theme-dark .form-select,
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select {
+  background: #1a1d29;
+  color: #e5e7eb;
+  border-color: #374151;
+}
+
+.theme-dark .form-input::placeholder,
+[data-theme="dark"] .form-input::placeholder {
+  color: #6b7280;
+}
+
+.theme-dark .form-input.error,
+[data-theme="dark"] .form-input.error {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* ============================================================================
+   [12] LOADING STATE
+============================================================================ */
+
+.form-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.v-btn.loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.v-btn.loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   [13] RESPONSIVE
+============================================================================ */
+
+@media (max-width: 768px) {
+  .form-container {
+    max-width: 100%;
   }
 
-  .tabla-usuarios td,
-  .tabla-usuarios th {
-    padding: 8px 8px;
+  .form-header {
+    flex-direction: column;
   }
+
+  .form-header-right {
+    width: 100%;
+  }
+
+  .form-header-right .v-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .form-section {
+    padding: 20px 16px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .form-footer {
+    flex-direction: column-reverse;
+    padding: 16px;
+  }
+
+  .form-footer .v-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-header-left .page-title {
+    font-size: 1.5rem;
+  }
+
+  .form-section-title {
+    font-size: 1rem;
+  }
+
+  .form-input,
+  .form-select {
+    font-size: 16px; /* Previene zoom en iOS */
+  }
+}
+
+/* ============================================================================
+   [14] FOCUS VISIBLE (Accesibilidad)
+============================================================================ */
+
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-checkbox:focus-visible + .checkbox-custom,
+.v-btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   [15] ANIMACIÓN DE SUCCESS
+============================================================================ */
+
+@keyframes successPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+}
+
+.form-input.success {
+  animation: successPulse 0.6s ease;
 }

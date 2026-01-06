@@ -1,6 +1,17 @@
 # FLUS - Public webroot
 Options -Indexes
 
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Bloqueo directo de carpetas sensibles dentro de /public
+  RewriteRule ^(?:includes|lib)(?:/|$) - [F,L]
+</IfModule>
+
+# Bloqueo de archivos sensibles por extensión (por si quedan dentro de /public)
+<FilesMatch "(?i)\.(sql|sqlite|sqlite3|bak|zip|rar|7z|env|log|ini|conf|pem|key)$">
+  Require all denied
+</FilesMatch>
+
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
