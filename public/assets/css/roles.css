@@ -1,15 +1,14 @@
 /* ============================================================================
-   FLUS - ROLES.CSS
-   Estilos para roles.php y rol_permisos.php
-   Diseño moderno con cards, badges y agrupación
+   FLUS - ROLES.CSS COMPACT VERSION
+   Versión compacta para ver más permisos en pantalla
 ============================================================================ */
 
 /* ============================================================================
-   [01] PANEL Y HEADER
+   [01] PANEL Y HEADER - COMPACTO
 ============================================================================ */
 
 .roles-panel {
-  padding: 24px 28px;
+  padding: 20px 24px;
   min-height: calc(100vh - 120px);
 }
 
@@ -18,47 +17,43 @@
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 18px;
-  margin-bottom: 28px;
-  padding-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .roles-header-left .page-title {
-  margin-bottom: 6px;
-  font-size: 1.75rem;
+  margin-bottom: 4px;
+  font-size: 1.5rem;
   font-weight: 700;
 }
 
 .roles-header-left .page-sub {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .roles-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.roles-actions .v-btn svg {
-  margin-right: 6px;
+  gap: 8px;
 }
 
 /* ============================================================================
-   [02] BREADCRUMB
+   [02] BREADCRUMB - COMPACTO
 ============================================================================ */
 
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 0.9rem;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
 }
 
 .breadcrumb-link {
@@ -69,7 +64,6 @@
 
 .breadcrumb-link:hover {
   color: var(--accent-cyan);
-  text-decoration: underline;
 }
 
 .breadcrumb svg {
@@ -82,18 +76,18 @@
 }
 
 /* ============================================================================
-   [03] BADGES
+   [03] BADGES - MÁS PEQUEÑOS
 ============================================================================ */
 
 .slug-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: 2px 6px;
   background: rgba(14, 165, 233, 0.1);
   color: var(--accent-blue);
   border: 1px solid rgba(14, 165, 233, 0.2);
-  border-radius: 4px;
-  font-size: 0.75rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
   font-weight: 600;
   font-family: 'Fira Code', monospace;
 }
@@ -101,38 +95,38 @@
 .info-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 3px;
+  padding: 2px 6px;
   background: rgba(34, 211, 238, 0.1);
   color: var(--accent-cyan);
   border: 1px solid rgba(34, 211, 238, 0.2);
-  border-radius: 4px;
-  font-size: 0.75rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
 .badge-critico {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
+  gap: 3px;
+  padding: 2px 5px;
   background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
   border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 /* ============================================================================
-   [04] FILTROS Y BÚSQUEDA
+   [04] FILTROS Y BÚSQUEDA - COMPACTO
 ============================================================================ */
 
 .roles-filters {
-  margin-bottom: 24px;
-  padding: 18px 20px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -141,17 +135,13 @@
 .filters-form {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-}
-
-.filter-group {
-  flex: 0 0 auto;
 }
 
 .filter-group.filter-search {
   flex: 1 1 auto;
-  min-width: 280px;
+  min-width: 240px;
 }
 
 .search-input-wrap {
@@ -162,41 +152,37 @@
 
 .search-icon {
   position: absolute;
-  left: 12px;
+  left: 10px;
   color: var(--muted);
   pointer-events: none;
 }
 
 .filter-input {
   width: 100%;
-  padding: 10px 12px 10px 40px;
+  padding: 8px 10px 8px 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: all 0.2s ease;
 }
 
 .filter-input:focus {
   outline: none;
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-}
-
-.filter-input::placeholder {
-  color: var(--muted);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.1);
 }
 
 .clear-search {
   position: absolute;
-  right: 8px;
-  padding: 4px;
+  right: 6px;
+  padding: 3px;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: all 0.2s ease;
 }
 
@@ -205,45 +191,25 @@
   color: var(--text);
 }
 
-.filter-clear {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-decoration: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition: all 0.2s ease;
-}
-
-.filter-clear:hover {
-  color: var(--text);
-  background: var(--hover-bg);
-  border-color: var(--accent-blue);
-}
-
 /* ============================================================================
-   [05] GRID DE ROLES
+   [05] GRID DE ROLES - MÁS COMPACTO
 ============================================================================ */
 
 .roles-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
 }
 
 /* ============================================================================
-   [06] ROLE CARD
+   [06] ROLE CARD - COMPACTO
 ============================================================================ */
 
 .role-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: 12px;
+  padding: 16px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -252,8 +218,8 @@
 
 .role-card:hover {
   border-color: var(--accent-blue);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(14, 165, 233, 0.1);
+  transform: translateY(-1px);
 }
 
 .role-card--critico {
@@ -261,34 +227,28 @@
   background: linear-gradient(135deg, var(--card-bg) 0%, rgba(251, 191, 36, 0.03) 100%);
 }
 
-.role-card--critico:hover {
-  border-color: rgba(251, 191, 36, 0.5);
-  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.15);
-}
-
-/* Header del card */
 .role-card-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .role-icon {
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
   border-radius: var(--radius-md);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
+  box-shadow: 0 2px 6px rgba(14, 165, 233, 0.2);
 }
 
 .role-card--critico .role-icon {
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.25);
+  box-shadow: 0 2px 6px rgba(251, 191, 36, 0.2);
 }
 
 .role-info {
@@ -299,25 +259,24 @@
 .role-name {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 4px 0;
-  font-size: 1.1rem;
+  gap: 6px;
+  margin: 0 0 3px 0;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text);
 }
 
 .role-slug {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-family: 'Fira Code', monospace;
   color: var(--muted);
 }
 
-/* Estadísticas */
 .role-stats {
   display: flex;
-  gap: 16px;
-  padding: 12px 0;
+  gap: 12px;
+  padding: 10px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
@@ -325,44 +284,45 @@
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
 }
 
 .stat-item svg {
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
   color: var(--accent-blue);
 }
 
 .stat-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .stat-value {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1;
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--muted);
   line-height: 1;
 }
 
-/* Progress bar */
 .role-progress {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .progress-bar {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background: var(--border);
   border-radius: 999px;
   overflow: hidden;
@@ -375,34 +335,25 @@
   transition: width 0.3s ease;
 }
 
-.progress-fill[data-percentage="100"] {
-  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
-}
-
-.progress-fill[data-percentage="0"] {
-  background: rgba(239, 68, 68, 0.5);
-}
-
 .progress-text {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--muted);
   font-weight: 500;
 }
 
-/* Acciones del card */
 .role-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 4px;
+  gap: 6px;
+  padding-top: 2px;
 }
 
 .action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 0.85rem;
+  gap: 5px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
   font-weight: 600;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -413,9 +364,14 @@
   transition: all 0.2s ease;
 }
 
+.action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .action-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .action-btn--primary {
@@ -442,7 +398,7 @@
 }
 
 .action-btn--danger {
-  padding: 8px;
+  padding: 7px;
   border-color: var(--border);
 }
 
@@ -462,7 +418,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 40px 20px;
   text-align: center;
   color: var(--muted);
   background: var(--card-bg);
@@ -471,17 +427,17 @@
 }
 
 .empty-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 16px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
   opacity: 0.3;
   color: var(--muted);
 }
 
 .roles-empty h3,
 .permisos-empty h3 {
-  margin: 0 0 8px 0;
-  font-size: 1.1rem;
+  margin: 0 0 6px 0;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text);
 }
@@ -489,21 +445,21 @@
 .roles-empty p,
 .permisos-empty p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
 /* ============================================================================
-   [08] PERMISOS - TOOLBAR
+   [08] PERMISOS - TOOLBAR COMPACTO
 ============================================================================ */
 
 .permisos-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
-  padding: 18px 20px;
+  margin-bottom: 18px;
+  padding: 12px 16px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -511,60 +467,144 @@
 
 .permisos-toolbar .search-input-wrap {
   flex: 1;
-  min-width: 280px;
+  min-width: 220px;
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.toolbar-actions .v-btn {
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  position: relative;
 }
 
 .toolbar-actions .v-btn svg {
   margin-right: 4px;
+  width: 14px;
+  height: 14px;
+}
+
+/* Tooltips mejorados para botones */
+.toolbar-actions .v-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toolbar-actions .v-btn[title]:hover::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: rgba(0, 0, 0, 0.9);
+  z-index: 1001;
+  pointer-events: none;
+}
+
+/* Indicadores visuales de funcionalidad */
+.v-btn--select-all:hover {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.v-btn--deselect-all:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.v-btn--expand:hover {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.v-btn--collapse:hover {
+  background: rgba(156, 163, 175, 0.1);
+  border-color: #9ca3af;
+  color: #9ca3af;
 }
 
 /* ============================================================================
-   [09] PERMISOS - SECCIONES
+   [09] PERMISOS - SECCIONES COLAPSABLES
 ============================================================================ */
 
 .permisos-section {
-  margin-bottom: 24px;
-  padding: 20px;
+  margin-bottom: 14px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
 .permisos-section.hidden {
   display: none;
 }
 
+.permisos-section.collapsed .permisos-grid {
+  display: none;
+}
+
+.permisos-section.collapsed .permisos-section-header {
+  border-bottom: none;
+}
+
 .permisos-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.permisos-section-header:hover {
+  background: var(--hover-bg);
 }
 
 .permisos-section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text);
 }
 
 .permisos-section-title svg {
+  width: 16px;
+  height: 16px;
   color: var(--accent-blue);
 }
 
 .permisos-count {
-  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
   color: var(--muted);
   font-weight: 600;
 }
@@ -573,29 +613,44 @@
   color: var(--accent-blue);
 }
 
+.collapse-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.permisos-section.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+
 /* ============================================================================
-   [10] PERMISOS - GRID
+   [10] PERMISOS - GRID COMPACTO (4-5 COLUMNAS)
 ============================================================================ */
 
 .permisos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  padding: 12px;
 }
 
 /* ============================================================================
-   [11] PERMISO CARD
+   [11] PERMISO CARD - MÁS COMPACTO
 ============================================================================ */
 
 .permiso-card {
   display: flex;
   align-items: center;
-  padding: 14px;
+  padding: 8px 10px;
   background: var(--bg);
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   user-select: none;
 }
 
@@ -623,24 +678,29 @@
 .permiso-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  padding: 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
 }
 
 .permiso-icon {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   color: var(--muted);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+}
+
+.permiso-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .permiso-info {
@@ -649,29 +709,35 @@
 }
 
 .permiso-nombre {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .permiso-slug {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-family: 'Fira Code', monospace;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ============================================================================
-   [12] FORM FOOTER
+   [12] FORM FOOTER - COMPACTO
 ============================================================================ */
 
 .form-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  margin-top: 24px;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-top: 18px;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -681,28 +747,37 @@
 .form-footer-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
+  gap: 6px;
+  font-size: 0.85rem;
   color: var(--muted);
   font-weight: 500;
 }
 
 .form-footer-info svg {
+  width: 14px;
+  height: 14px;
   color: var(--accent-blue);
 }
 
 .form-footer-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+.form-footer-actions .v-btn {
+  padding: 8px 14px;
+  font-size: 0.85rem;
 }
 
 .form-footer-actions .v-btn svg {
-  margin-right: 6px;
+  margin-right: 5px;
+  width: 16px;
+  height: 16px;
 }
 
 /* ============================================================================
-   [13] MODAL
+   [13] MODAL - SIN CAMBIOS (ya está bien)
 ============================================================================ */
 
 .modal {
@@ -765,13 +840,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 18px 20px;
   border-bottom: 1px solid var(--border);
 }
 
 .modal-title {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
 }
@@ -780,8 +855,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background: none;
   border: none;
@@ -797,7 +872,7 @@
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 20px;
   text-align: center;
 }
 
@@ -805,9 +880,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 16px;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
   border-radius: 50%;
 }
 
@@ -817,36 +892,36 @@
 }
 
 .modal-body p {
-  margin: 0 0 12px 0;
-  font-size: 0.95rem;
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
 .modal-body p.text-muted {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 16px 24px;
+  gap: 8px;
+  padding: 14px 20px;
   border-top: 1px solid var(--border);
 }
 
 /* ============================================================================
-   [14] ALERTS
+   [14] ALERTS - COMPACTAS
 ============================================================================ */
 
 .alert {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  margin-bottom: 20px;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
   border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   animation: slideDown 0.3s ease;
 }
@@ -864,8 +939,8 @@
 
 .alert svg {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .alert-success {
@@ -886,27 +961,29 @@
   border: 1px solid rgba(251, 191, 36, 0.2);
 }
 
-.alert-warning strong {
-  color: #f59e0b;
-}
-
 /* ============================================================================
-   [15] RESPONSIVE
+   [15] RESPONSIVE - AJUSTADO PARA COMPACTO
 ============================================================================ */
+
+@media (max-width: 1400px) {
+  .permisos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
 
 @media (max-width: 1024px) {
   .roles-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 
   .permisos-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .roles-panel {
-    padding: 20px;
+    padding: 16px;
   }
 
   .roles-header {
@@ -963,17 +1040,17 @@
 
   .role-stats {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 }
 
 @media (max-width: 480px) {
   .roles-panel {
-    padding: 16px;
+    padding: 12px;
   }
 
   .roles-header-left .page-title {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
   }
 
   .modal-content {

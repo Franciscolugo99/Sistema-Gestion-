@@ -130,8 +130,8 @@ $usuariosActivos = (int)$stmtUsers->fetchColumn();
 ============================================================ */
 $pageTitle = 'Permisos del rol';
 $currentSection = 'roles';
-$extraCss = ['assets/css/roles.css?v=1'];
-$extraJs = ['assets/js/rol_permisos.js?v=1'];
+$extraCss = ['assets/css/roles.css?v=2'];
+$extraJs = ['assets/js/rol_permisos.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -219,17 +219,29 @@ require __DIR__ . '/partials/header.php';
         </div>
 
         <div class="toolbar-actions">
-            <button type="button" class="v-btn v-btn--ghost" onclick="selectAll()">
+            <button type="button" class="v-btn v-btn--ghost v-btn--select-all" onclick="if(typeof selectAll === 'function') selectAll()" title="Marcar todos los checkboxes visibles (Ctrl+A)">
                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                Seleccionar todos
+                <span class="btn-text">Marcar todos</span>
             </button>
-            <button type="button" class="v-btn v-btn--ghost" onclick="deselectAll()">
+            <button type="button" class="v-btn v-btn--ghost v-btn--deselect-all" onclick="if(typeof deselectAll === 'function') deselectAll()" title="Desmarcar todos los checkboxes visibles">
                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 </svg>
-                Deseleccionar todos
+                <span class="btn-text">Desmarcar todos</span>
+            </button>
+            <button type="button" class="v-btn v-btn--ghost v-btn--expand" onclick="if(typeof expandAll === 'function') expandAll()" title="Abrir todas las categorías para verlas (Ctrl+E)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="18 15 12 9 6 15"/>
+                </svg>
+                <span class="btn-text">Abrir categorías</span>
+            </button>
+            <button type="button" class="v-btn v-btn--ghost v-btn--collapse" onclick="if(typeof collapseAll === 'function') collapseAll()" title="Cerrar todas las categorías para vista compacta (Ctrl+Q)">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+                <span class="btn-text">Cerrar categorías</span>
             </button>
         </div>
     </section>

@@ -1,10 +1,135 @@
 /**
- * FLUS - Rol Permisos
- * Gestión de permisos con búsqueda y select all/deselect all
+ * FLUS - Rol Permisos COMPACT
+ * Con secciones colapsables para mejor vista general
  */
 
 (function() {
   'use strict';
+
+  // =========================================================================
+  // EXPONER FUNCIONES GLOBALMENTE PRIMERO (antes de DOMContentLoaded)
+  // =========================================================================
+  
+  window.selectAll = function() {
+    const checkboxes = document.querySelectorAll('.permiso-checkbox:not(:checked)');
+    checkboxes.forEach(checkbox => {
+      const card = checkbox.closest('.permiso-card');
+      if (card && card.style.display !== 'none') {
+        checkbox.checked = true;
+        updateCategoryCount(checkbox);
+      }
+    });
+    updateTotalCount();
+  };
+
+  window.deselectAll = function() {
+    const checkboxes = document.querySelectorAll('.permiso-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+      const card = checkbox.closest('.permiso-card');
+      if (card && card.style.display !== 'none') {
+        checkbox.checked = false;
+        updateCategoryCount(checkbox);
+      }
+    });
+    updateTotalCount();
+  };
+
+  window.expandAll = function() {
+    const sections = document.querySelectorAll('.permisos-section');
+    sections.forEach(section => {
+      section.classList.remove('collapsed');
+      
+      const sectionId = section.dataset.categoria || section.querySelector('.permisos-section-title')?.textContent;
+      if (sectionId) {
+        localStorage.setItem(`section_${sectionId}_collapsed`, false);
+      }
+    });
+  };
+
+  window.collapseAll = function() {
+    const sections = document.querySelectorAll('.permisos-section');
+    sections.forEach(section => {
+      section.classList.add('collapsed');
+      
+      const sectionId = section.dataset.categoria || section.querySelector('.permisos-section-title')?.textContent;
+      if (sectionId) {
+        localStorage.setItem(`section_${sectionId}_collapsed`, true);
+      }
+    });
+  };
+
+  window.updateCategoryCount = function(checkbox) {
+    const section = checkbox.closest('.permisos-section');
+    if (!section) return;
+
+    const allCheckboxes = section.querySelectorAll('.permiso-checkbox');
+    const checkedCheckboxes = section.querySelectorAll('.permiso-checkbox:checked');
+    
+    const countSpan = section.querySelector('.permisos-count-selected');
+    if (countSpan) {
+      countSpan.textContent = checkedCheckboxes.length;
+    }
+    
+    updateTotalCount();
+  };
+
+  function updateTotalCount() {
+    const totalChecked = document.querySelectorAll('.permiso-checkbox:checked').length;
+    const totalCountSpan = document.getElementById('permisosSelectedCount');
+    
+    if (totalCountSpan) {
+      totalCountSpan.textContent = totalChecked;
+    }
+  }
+
+  // =========================================================================
+  // COLAPSAR/EXPANDIR SECCIONES
+  // =========================================================================
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    const sections = document.querySelectorAll('.permisos-section');
+    
+    sections.forEach(section => {
+      const header = section.querySelector('.permisos-section-header');
+      if (!header) return;
+
+      // Agregar icono de colapso si no existe
+      if (!header.querySelector('.collapse-icon')) {
+        const collapseIcon = document.createElement('div');
+        collapseIcon.className = 'collapse-icon';
+        collapseIcon.innerHTML = `
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        `;
+        header.appendChild(collapseIcon);
+      }
+
+      // Toggle al hacer clic
+      header.addEventListener('click', function(e) {
+        // No colapsar si se hace clic en un checkbox
+        if (e.target.closest('.permiso-checkbox')) return;
+        
+        section.classList.toggle('collapsed');
+        
+        // Guardar estado en localStorage
+        const sectionId = section.dataset.categoria || section.querySelector('.permisos-section-title')?.textContent;
+        if (sectionId) {
+          const collapsed = section.classList.contains('collapsed');
+          localStorage.setItem(`section_${sectionId}_collapsed`, collapsed);
+        }
+      });
+
+      // Restaurar estado desde localStorage
+      const sectionId = section.dataset.categoria || section.querySelector('.permisos-section-title')?.textContent;
+      if (sectionId) {
+        const wasCollapsed = localStorage.getItem(`section_${sectionId}_collapsed`) === 'true';
+        if (wasCollapsed) {
+          section.classList.add('collapsed');
+        }
+      }
+    });
+  });
 
   // =========================================================================
   // BÚSQUEDA DE PERMISOS
@@ -34,80 +159,36 @@
           }
         });
         
-        // Ocultar sección si no tiene cards visibles
-        if (visibleCount === 0 && searchTerm !== '') {
-          section.classList.add('hidden');
+        // Si hay búsqueda activa, expandir secciones con resultados
+        if (searchTerm !== '') {
+          if (visibleCount > 0) {
+            section.classList.remove('hidden');
+            section.classList.remove('collapsed'); // Auto-expandir
+          } else {
+            section.classList.add('hidden');
+          }
         } else {
           section.classList.remove('hidden');
+          // Restaurar estado de colapso
+          const sectionId = section.dataset.categoria || section.querySelector('.permisos-section-title')?.textContent;
+          if (sectionId) {
+            const wasCollapsed = localStorage.getItem(`section_${sectionId}_collapsed`) === 'true';
+            if (wasCollapsed) {
+              section.classList.add('collapsed');
+            }
+          }
         }
       });
       
-      // Actualizar contador total
       updateTotalCount();
     });
   });
-
-  // =========================================================================
-  // SELECT ALL / DESELECT ALL
-  // =========================================================================
-  
-  window.selectAll = function() {
-    const checkboxes = document.querySelectorAll('.permiso-checkbox:not(:checked)');
-    checkboxes.forEach(checkbox => {
-      if (checkbox.closest('.permiso-card').style.display !== 'none') {
-        checkbox.checked = true;
-        updateCategoryCount(checkbox);
-      }
-    });
-    updateTotalCount();
-  };
-
-  window.deselectAll = function() {
-    const checkboxes = document.querySelectorAll('.permiso-checkbox:checked');
-    checkboxes.forEach(checkbox => {
-      if (checkbox.closest('.permiso-card').style.display !== 'none') {
-        checkbox.checked = false;
-        updateCategoryCount(checkbox);
-      }
-    });
-    updateTotalCount();
-  };
-
-  // =========================================================================
-  // ACTUALIZAR CONTADORES
-  // =========================================================================
-  
-  window.updateCategoryCount = function(checkbox) {
-    const section = checkbox.closest('.permisos-section');
-    if (!section) return;
-
-    const allCheckboxes = section.querySelectorAll('.permiso-checkbox');
-    const checkedCheckboxes = section.querySelectorAll('.permiso-checkbox:checked');
-    
-    const countSpan = section.querySelector('.permisos-count-selected');
-    if (countSpan) {
-      countSpan.textContent = checkedCheckboxes.length;
-    }
-    
-    // Actualizar contador total
-    updateTotalCount();
-  };
-
-  function updateTotalCount() {
-    const totalChecked = document.querySelectorAll('.permiso-checkbox:checked').length;
-    const totalCountSpan = document.getElementById('permisosSelectedCount');
-    
-    if (totalCountSpan) {
-      totalCountSpan.textContent = totalChecked;
-    }
-  }
 
   // =========================================================================
   // INICIALIZACIÓN DE CONTADORES
   // =========================================================================
   
   document.addEventListener('DOMContentLoaded', function() {
-    // Actualizar contador inicial de cada categoría
     const sections = document.querySelectorAll('.permisos-section');
     sections.forEach(section => {
       const checkedCheckboxes = section.querySelectorAll('.permiso-checkbox:checked');
@@ -117,7 +198,6 @@
       }
     });
     
-    // Actualizar contador total inicial
     updateTotalCount();
   });
 
@@ -132,13 +212,11 @@
     let originalState = getFormState();
     let hasChanges = false;
 
-    // Detectar cambios
     form.addEventListener('change', function() {
       const currentState = getFormState();
       hasChanges = originalState !== currentState;
     });
 
-    // Advertir antes de salir si hay cambios
     window.addEventListener('beforeunload', function(e) {
       if (hasChanges) {
         e.preventDefault();
@@ -147,7 +225,6 @@
       }
     });
 
-    // Limpiar al enviar
     form.addEventListener('submit', function() {
       hasChanges = false;
     });
@@ -170,7 +247,6 @@
       const totalChecked = document.querySelectorAll('.permiso-checkbox:checked').length;
       const totalCheckboxes = document.querySelectorAll('.permiso-checkbox').length;
       
-      // Si tiene todos o ninguno seleccionado, confirmar
       if (totalChecked === 0) {
         e.preventDefault();
         if (!confirm('¿Está seguro que desea quitar TODOS los permisos de este rol?\n\nLos usuarios con este rol no tendrán acceso a ninguna funcionalidad.')) {
@@ -202,10 +278,22 @@
       
       // Ctrl/Cmd + A para seleccionar todos
       if ((e.ctrlKey || e.metaKey) && e.key === 'a' && e.target.id === 'permisosSearch') {
-        return; // Permitir select all en input de búsqueda
+        return;
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
-        selectAll();
+        if (typeof selectAll === 'function') selectAll();
+      }
+
+      // Ctrl/Cmd + E para expandir todas
+      if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+        e.preventDefault();
+        if (typeof expandAll === 'function') expandAll();
+      }
+
+      // Ctrl/Cmd + Q para colapsar todas
+      if ((e.ctrlKey || e.metaKey) && e.key === 'q') {
+        e.preventDefault();
+        if (typeof collapseAll === 'function') collapseAll();
       }
     });
   });
@@ -221,11 +309,10 @@
       checkbox.addEventListener('change', function() {
         const card = this.closest('.permiso-card');
         if (card) {
-          // Animación visual al cambiar
-          card.style.animation = 'checkboxPulse 0.3s ease';
+          card.style.animation = 'checkboxPulse 0.25s ease';
           setTimeout(() => {
             card.style.animation = '';
-          }, 300);
+          }, 250);
         }
       });
     });
@@ -242,7 +329,7 @@
         transform: scale(1);
       }
       50% {
-        transform: scale(1.02);
+        transform: scale(1.015);
       }
     }
     
@@ -250,21 +337,32 @@
       display: none;
     }
     
-    /* Highlight del input de búsqueda cuando tiene texto */
     #permisosSearch:not(:placeholder-shown) {
       background: rgba(34, 211, 238, 0.05);
       border-color: var(--accent-cyan);
     }
     
-    /* Loading state para el botón de guardar */
     .form-footer-actions .v-btn--primary:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
     
-    /* Feedback visual para permisos cambiados */
-    .permiso-checkbox.changed + .permiso-content {
-      box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.3);
+    /* Transición suave para colapso */
+    .permisos-grid {
+      transition: all 0.2s ease;
+    }
+    
+    .permisos-section.collapsed .permisos-grid {
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+    }
+    
+    /* Ocultar texto en mobile para botones más compactos */
+    @media (max-width: 768px) {
+      .toolbar-actions .btn-text {
+        display: none;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -273,6 +371,17 @@
   // LOG PARA DEBUGGING
   // =========================================================================
   
-  console.log('✓ Rol Permisos JS cargado correctamente');
+  console.log('✓ Rol Permisos COMPACT JS cargado correctamente');
+  console.log('Funciones disponibles:');
+  console.log('  - selectAll()');
+  console.log('  - deselectAll()');
+  console.log('  - expandAll()');
+  console.log('  - collapseAll()');
+  console.log('');
+  console.log('Shortcuts:');
+  console.log('  Ctrl+S: Guardar');
+  console.log('  Ctrl+A: Marcar todos');
+  console.log('  Ctrl+E: Abrir categorías');
+  console.log('  Ctrl+Q: Cerrar categorías');
 
 })();

@@ -4,14 +4,59 @@
    (lo general vive en core.css / theme.css)
 ========================================================================== */
 
+/* ------------------------------
+   TOKENS LOCALES (LIGHT / DARK)
+   Evita fallbacks blancos en dark mode
+------------------------------ */
+:root{
+  --cierre-panel-bg:   var(--panel, rgba(255,255,255,.88));
+  --cierre-card-bg:    rgba(255,255,255,.82);
+  --cierre-row-bg:     rgba(0,0,0,.035);
+  --cierre-input-bg:   rgba(255,255,255,.90);
+  --cierre-note-bg:    rgba(0,0,0,.03);
+
+  --cierre-border:     var(--border, rgba(0,0,0,.10));
+  --cierre-border-weak:rgba(0,0,0,.12);
+
+  --cierre-text:       var(--text, #111827);
+  --cierre-muted:      var(--muted, rgba(17,24,39,.72));
+
+  --cierre-shadow:     var(--shadow, 0 18px 45px rgba(0,0,0,.12));
+}
+
+/* Soporta distintos “toggles” típicos:
+   html/body con data-theme="dark", body.dark, body.theme-dark, etc. */
+html[data-theme="dark"],
+body[data-theme="dark"],
+body.theme-dark,
+body.dark,
+:root.dark{
+  --cierre-panel-bg:   rgba(15, 23, 42, .72);   /* panel glass oscuro */
+  --cierre-card-bg:    rgba(2, 6, 23, .55);     /* cards oscuras */
+  --cierre-row-bg:     rgba(255,255,255,.06);   /* filas visibles */
+  --cierre-input-bg:   rgba(2, 6, 23, .50);     /* inputs oscuros */
+  --cierre-note-bg:    rgba(255,255,255,.05);
+
+  --cierre-border:     rgba(255,255,255,.12);
+  --cierre-border-weak:rgba(255,255,255,.14);
+
+  --cierre-text:       rgba(226,232,240,1);
+  --cierre-muted:      rgba(226,232,240,.72);
+
+  --cierre-shadow:     0 18px 55px rgba(0,0,0,.55);
+}
+
+/* Panel */
 .panel-cierre{
   max-width: 980px;
   margin: 26px auto;
   padding: 22px;
   border-radius: 18px;
-  background: var(--panel, rgba(255,255,255,.88));
-  border: 1px solid var(--border, rgba(0,0,0,.08));
-  box-shadow: var(--shadow, 0 18px 45px rgba(0,0,0,.10));
+  background: var(--cierre-panel-bg);
+  border: 1px solid var(--cierre-border);
+  box-shadow: var(--cierre-shadow);
+  color: var(--cierre-text);
+  backdrop-filter: blur(10px);
 }
 
 /* Header */
@@ -21,7 +66,7 @@
   justify-content:space-between;
   gap:14px;
   padding-bottom: 14px;
-  border-bottom: 1px dashed var(--border, rgba(0,0,0,.12));
+  border-bottom: 1px dashed var(--cierre-border-weak);
   margin-bottom: 16px;
 }
 
@@ -29,46 +74,42 @@
   display:inline-flex;
   align-items:center;
   gap:8px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing:.2px;
   font-size: .85rem;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(59, 130, 246, .12);
-  color: var(--text, #111827);
+  background: rgba(59, 130, 246, .14);
+  color: var(--cierre-text);
 }
 
 .cierre-title{
   margin: 6px 0 4px;
   font-size: 2rem;
   line-height: 1.15;
-  color: var(--text, #111827);
+  color: var(--cierre-text);
 }
 
 .cierre-meta{
-  color: var(--muted, rgba(17,24,39,.72));
+  color: var(--cierre-muted);
   font-size: .95rem;
 }
 
-.strong{ font-weight: 700; }
+.strong{ font-weight: 800; }
 
 .cierre-status .pill{
   display:inline-flex;
   align-items:center;
-  font-weight: 800;
+  font-weight: 900;
   font-size: .82rem;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border, rgba(0,0,0,.10));
+  border: 1px solid var(--cierre-border);
+  color: var(--cierre-text);
 }
 
-.pill-open{
-  background: rgba(34, 197, 94, .12);
-}
-
-.pill-closed{
-  background: rgba(239, 68, 68, .10);
-}
+.pill-open{  background: rgba(34, 197, 94, .16); }
+.pill-closed{background: rgba(239, 68, 68, .14); }
 
 /* Grid */
 .cierre-grid{
@@ -80,22 +121,23 @@
 }
 
 .cierre-card{
-  background: var(--card, rgba(255,255,255,.80));
-  border: 1px solid var(--border, rgba(0,0,0,.08));
+  background: var(--cierre-card-bg);
+  border: 1px solid var(--cierre-border);
   border-radius: 16px;
   padding: 16px;
+  color: var(--cierre-text);
 }
 
 .cierre-section-title{
   margin: 0 0 12px;
   font-size: 1.05rem;
-  font-weight: 900;
-  color: var(--text, #111827);
+  font-weight: 950;
+  color: var(--cierre-text);
 }
 
 /* Resumen */
 .cierre-list{
-  list-style: none;          /* <- chau bullets */
+  list-style: none;
   padding: 0;
   margin: 0;
   display:flex;
@@ -110,24 +152,33 @@
   gap: 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(0,0,0,.03);
+  background: var(--cierre-row-bg);
+  border: 1px solid rgba(0,0,0,0); /* para que no “salte” en focus/hover */
+}
+
+html[data-theme="dark"] .cierre-row,
+body[data-theme="dark"] .cierre-row,
+body.theme-dark .cierre-row,
+body.dark .cierre-row,
+:root.dark .cierre-row{
+  border-color: rgba(255,255,255,.06);
 }
 
 .cierre-row-simple{
   background: transparent;
-  border: 1px dashed var(--border, rgba(0,0,0,.10));
+  border: 1px dashed var(--cierre-border-weak);
 }
 
 .mono{
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 /* Total */
 .cierre-total-label{
-  color: var(--muted, rgba(17,24,39,.72));
-  font-weight: 800;
+  color: var(--cierre-muted);
+  font-weight: 900;
   font-size: .95rem;
 }
 
@@ -135,17 +186,18 @@
   font-size: 2rem;
   font-weight: 950;
   margin: 6px 0 4px;
+  color: var(--cierre-text);
 }
 
 .cierre-total-sub{
-  color: var(--muted, rgba(17,24,39,.70));
+  color: var(--cierre-muted);
   font-size: .92rem;
 }
 
 .cierre-total-extra{
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px dashed var(--border, rgba(0,0,0,.12));
+  border-top: 1px dashed var(--cierre-border-weak);
   display:flex;
   flex-direction:column;
   gap: 8px;
@@ -159,7 +211,7 @@
 }
 
 /* Diferencias */
-.dif-ok{ color: var(--text, #111827); }
+.dif-ok{  color: var(--cierre-text); }
 .dif-pos{ color: rgba(34, 197, 94, 1); }
 .dif-neg{ color: rgba(239, 68, 68, 1); }
 
@@ -168,10 +220,10 @@
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(239, 68, 68, .12);
-  border: 1px solid rgba(239, 68, 68, .22);
-  color: var(--text, #111827);
-  font-weight: 800;
+  background: rgba(239, 68, 68, .14);
+  border: 1px solid rgba(239, 68, 68, .28);
+  color: var(--cierre-text);
+  font-weight: 900;
 }
 
 .cierre-form{
@@ -181,8 +233,8 @@
 }
 
 .cierre-label{
-  font-weight: 900;
-  color: var(--text, #111827);
+  font-weight: 950;
+  color: var(--cierre-text);
   font-size: .95rem;
 }
 
@@ -196,21 +248,25 @@
   flex: 1;
   border-radius: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--border, rgba(0,0,0,.12));
-  background: rgba(255,255,255,.85);
-  color: var(--text, #111827);
+  border: 1px solid var(--cierre-border);
+  background: var(--cierre-input-bg);
+  color: var(--cierre-text);
   outline: none;
 }
 
+.cierre-input::placeholder{
+  color: color-mix(in srgb, var(--cierre-muted) 90%, transparent);
+}
+
 .cierre-input:focus{
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, .16);
-  border-color: rgba(59, 130, 246, .35);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .18);
+  border-color: rgba(59, 130, 246, .42);
 }
 
 .cierre-btn{
   border-radius: 12px;
   padding: 10px 14px;
-  font-weight: 900;
+  font-weight: 950;
   min-width: 150px;
 }
 
@@ -218,25 +274,29 @@
   width: 100%;
   border-radius: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--border, rgba(0,0,0,.12));
-  background: rgba(255,255,255,.85);
-  color: var(--text, #111827);
+  border: 1px solid var(--cierre-border);
+  background: var(--cierre-input-bg);
+  color: var(--cierre-text);
   resize: vertical;
   outline: none;
 }
 
+.cierre-textarea::placeholder{
+  color: color-mix(in srgb, var(--cierre-muted) 90%, transparent);
+}
+
 .cierre-textarea:focus{
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, .16);
-  border-color: rgba(59, 130, 246, .35);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .18);
+  border-color: rgba(59, 130, 246, .42);
 }
 
 .cierre-notas{
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(0,0,0,.03);
-  border: 1px dashed var(--border, rgba(0,0,0,.12));
-  color: var(--text, #111827);
+  background: var(--cierre-note-bg);
+  border: 1px dashed var(--cierre-border-weak);
+  color: var(--cierre-text);
 }
 
 /* Responsive */

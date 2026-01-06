@@ -309,3 +309,57 @@ body[data-theme="dark"] {
   --info: #38bdf8;
 }
 
+/* =========================================================
+   FIX DARK MODE (VENTAS) — chips + controles nativos
+   Pegalo al FINAL de ventas.css
+========================================================= */
+
+/* Asegura color de texto siempre */
+.ventas-filters .chip{
+  color: var(--text);
+}
+
+/* Dark mode: chips con fondo oscuro (evita fallback #f1f5f9) */
+html[data-theme="dark"] .ventas-filters .chip,
+body[data-theme="dark"] .ventas-filters .chip,
+body.theme-dark .ventas-filters .chip,
+body.dark .ventas-filters .chip,
+:root.dark .ventas-filters .chip{
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.14);
+  color: rgba(226,232,240,1);
+}
+
+/* Hover consistente en dark */
+html[data-theme="dark"] .ventas-filters .chip:hover,
+body[data-theme="dark"] .ventas-filters .chip:hover,
+body.theme-dark .ventas-filters .chip:hover,
+body.dark .ventas-filters .chip:hover,
+:root.dark .ventas-filters .chip:hover{
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: #fff;
+}
+
+/* Controles nativos (date/select) para que el iconito/calendario no quede negro */
+html[data-theme="dark"] .ventas-filters input,
+html[data-theme="dark"] .ventas-filters select,
+body[data-theme="dark"] .ventas-filters input,
+body[data-theme="dark"] .ventas-filters select,
+body.theme-dark .ventas-filters input,
+body.theme-dark .ventas-filters select,
+body.dark .ventas-filters input,
+body.dark .ventas-filters select,
+:root.dark .ventas-filters input,
+:root.dark .ventas-filters select{
+  color-scheme: dark;
+}
+
+/* Placeholder legible */
+html[data-theme="dark"] .ventas-filters input::placeholder,
+body[data-theme="dark"] .ventas-filters input::placeholder,
+body.theme-dark .ventas-filters input::placeholder,
+body.dark .ventas-filters input::placeholder,
+:root.dark .ventas-filters input::placeholder{
+  color: rgba(226,232,240,.55);
+}
