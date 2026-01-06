@@ -1,6 +1,7 @@
-<?php
+﻿<?php
 // public/api/index.php
 declare(strict_types=1);
+require_once __DIR__ . '/../lib/root.php';
 
 // API JSON: nunca romper por warnings/HTML
 error_reporting(E_ALL);
@@ -11,7 +12,17 @@ ob_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-require_once __DIR__ . '/../../src/config.php';
+$cfg = __DIR__ . '/../../src/config.php';
+if (!is_file($cfg)) {
+  if (ob_get_length()) ob_clean();
+  http_response_code(503);
+  echo json_encode(['ok'=>false,'error'=>'CONFIG_MISSING','hint'=>'Abrí /install.php para configurar FLUS.'],
+    JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+  );
+  exit;
+}
+
+require_once $cfg;
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
 require_once __DIR__ . '/../lib/terminal.php';      // ✅ terminal_* + require_terminal_lock_json()
@@ -33,6 +44,21 @@ function json_fail(string $msg, int $code = 400, array $extra = []): void {
 }
 
 // ✅ Si hay fatal/parse, devolvemos JSON (evita "NO JSON" en front)
+set_exception_handler(function (Throwable $e): void {
+  if (ob_get_length()) ob_clean();
+  if (!headers_sent()) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+  }
+  $code = ($e instanceof PDOException) ? 503 : 500;
+  http_response_code($code);
+  echo json_encode([
+    'ok' => false,
+    'error' => ($e instanceof PDOException) ? 'DB_DOWN' : 'SERVER_ERROR'
+  ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  exit;
+});
+
 register_shutdown_function(function (): void {
   $e = error_get_last();
   if (!$e) return;
@@ -459,6 +485,17 @@ $body   = read_request_body();
 
 
 $action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
+/* ================================
+   FLUS: action file dispatch
+   Permite agregar endpoints en public/api/actions/{action}.php
+   sin ensuciar el switch principal.
+================================ */
+$__actionFile = __DIR__ . '/actions/' . $action . '.php';
+if (is_file($__actionFile)) {
+  require $__actionFile;
+  exit;
+}
+
 function read_request_body(): array {
   // POST (FormData / x-www-form-urlencoded)
   if (!empty($_POST) && is_array($_POST)) {
@@ -487,7 +524,40 @@ try {
 
   switch ($action) {
 
-    case 'buscar_producto': {
+    
+    case 'health': {
+      require_login_json();
+      // No requiere CSRF (GET) - solo diagnóstico
+      try {
+        $pdo = getPDO();
+        $pdo->query('SELECT 1');
+      } catch (Throwable $e) {
+        json_fail('DB_DOWN', 503);
+      }
+
+      $tables = ['users','productos','ventas','venta_items','terminales','terminal_locks'];
+      $present = [];
+      foreach ($tables as $t) {
+        $ok = false;
+        try {
+          $st = $pdo->prepare('SHOW TABLES LIKE :t');
+          $st->execute([':t' => $t]);
+          $ok = (bool)$st->fetchColumn();
+        } catch (Throwable $e) {
+          $ok = false;
+        }
+        $present[$t] = $ok;
+      }
+
+      json_ok([
+        'db_ok' => true,
+        'tables' => $present,
+        'time' => date('c'),
+        'php' => PHP_VERSION,
+      ]);
+    }
+
+case 'buscar_producto': {
       require_login_json();
       require_perm_json('realizar_ventas');
       if ($method !== 'GET') json_fail('Método no permitido', 405);

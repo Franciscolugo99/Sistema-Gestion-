@@ -1,8 +1,68 @@
-// public/assets/js/caja.js
+﻿// public/assets/js/caja.js
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "api/index.php";
   const API_VENTA = "api/index.php";
-  const API_TIMEOUT_MS = 8000;
+  const API_TIMEOUT_MS = 8000;  
+  // FLUS: Sugerencias (buscar_productos) - no requiere tocar HTML
+  (function initSugerenciasProductos() {
+    const input = document.getElementById("codigo");
+    if (!input) return;
+
+    // datalist auto-creado
+    let dl = document.getElementById("sugerencias");
+    if (!dl) {
+      dl = document.createElement("datalist");
+      dl.id = "sugerencias";
+      document.body.appendChild(dl);
+    }
+    input.setAttribute("list", "sugerencias");
+
+    // escape para inyectar options seguro
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    }[c]));
+
+    // fallback fetchJson (si tu caja.js ya tiene fetchJson, no lo pisa)
+    if (!window.fetchJson) {
+      window.fetchJson = async (url, opts = {}) => {
+        const r = await fetch(url, opts);
+        const ct = r.headers.get("content-type") || "";
+        const data = ct.includes("application/json") ? await r.json() : { ok: false, error: "NON_JSON" };
+        if (!r.ok || data?.ok === false) throw data;
+        return data;
+      };
+    }
+
+    let abort = null;
+
+    const doSuggest = (query) => {
+      query = (query || "").trim();
+      if (query.length < 2) { dl.innerHTML = ""; return; }
+
+      if (abort) abort.abort();
+      abort = new AbortController();
+
+      window.fetchJson(
+        `${API_BASE}?action=buscar_productos&q=${encodeURIComponent(query)}&limit=5`,
+        { signal: abort.signal }
+      ).then((data) => {
+        const productos = data?.productos || data?.data?.productos || [];
+        dl.innerHTML = productos.map(p =>
+          `<option value="${esc(p.codigo)}" label="${esc(p.nombre)}"></option>`
+        ).join("");
+      }).catch((err) => {
+        if (err?.name === "AbortError") return;
+        dl.innerHTML = "";
+      });
+    };
+
+    // Debounce (usa tu debounce global si existe)
+    const debounced = (window.debounce)
+      ? window.debounce(doSuggest, 120)
+      : (() => { let t; return (v) => { clearTimeout(t); t = setTimeout(() => doSuggest(v), 120); }; })();
+
+    input.addEventListener("input", () => debounced(input.value));
+  })();
 
   // Papel del ticket
   const PAPER_KEY = "kiosco-ticket-paper";
@@ -93,7 +153,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Storage por caja (evita mezclar tickets entre aperturas)
   const STORAGE_PREFIX = "kiosco-caja-estado-v1";
-  const STORAGE_KEY = `${STORAGE_PREFIX}:${CAJA_ID || "0"}`;
+    // FLUS: Storage key estable por terminal + sesiÃ³n (evita colisiones y CAJA_ID=0)
+  const FLUS_TERMINAL_ID =
+    (window.TERMINAL_ID ?? window.terminalId ?? document.body?.dataset?.terminalId ?? 0);
+
+  const __flusSidKey = "kiosco-caja-session-id";
+  let __flusSid = sessionStorage.getItem(__flusSidKey);
+  if (!__flusSid) {
+    __flusSid = (crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(16).slice(2)));
+    sessionStorage.setItem(__flusSidKey, __flusSid);
+  }
+
+  const STORAGE_KEY = `kiosco-caja-v2:${FLUS_TERMINAL_ID}:${__flusSid}`;
 
   let promosPorProducto = {};
   let promosCombos = [];
