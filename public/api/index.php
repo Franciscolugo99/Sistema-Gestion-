@@ -1,8 +1,4 @@
 <?php
-<<<<<<< Updated upstream
-=======
-// public/api/index.php
->>>>>>> Stashed changes
 declare(strict_types=1);
 // public/api/index.php
 require_once __DIR__ . '/../lib/root.php';
