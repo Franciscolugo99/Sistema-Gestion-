@@ -1,7 +1,6 @@
 ﻿// public/assets/js/terminal_select.js
 (() => {
   const script = document.currentScript;
-  const base = script?.dataset?.base || "";
   const nextUrl = script?.dataset?.next || "";
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
@@ -10,8 +9,12 @@
 
   let selecting = false;
 
+  // ✅ FIX DEFINITIVO:
+  // Siempre resuelve contra la URL actual (localhost:8080 o IP:8080)
+  // Evita por completo el bug de "//api/..." => "http://api/..."
+  const API_ENDPOINT = new URL("api/index.php", window.location.href).toString();
+
   function toast(msg, type = "info", ms = 2400) {
-    // âœ… si FLUS ya tiene showToast, lo usamos (look consistente)
     if (typeof window.showToast === "function") {
       return window.showToast(msg, type, ms);
     }
@@ -30,7 +33,9 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        const r = await fetch(`${base}/api/index.php?action=${encodeURIComponent(action)}`, {
+        const url = `${API_ENDPOINT}?action=${encodeURIComponent(action)}`;
+
+        const r = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -59,7 +64,6 @@
   function formatDate(dateStr) {
     if (!dateStr) return '';
     try {
-      // âœ… MySQL "YYYY-MM-DD HH:MM:SS" â†’ ISO "YYYY-MM-DDTHH:MM:SS"
       const norm = String(dateStr).includes('T') ? String(dateStr) : String(dateStr).replace(' ', 'T');
       const d = new Date(norm);
       if (isNaN(d.getTime())) return '';
@@ -91,7 +95,7 @@
       return;
     }
 
-    setMsg('ElegÃ­ una terminal para bloquearla y continuar.');
+    setMsg('Elegí una terminal para bloquearla y continuar.');
 
     terminales.forEach(t => {
       const id = Number(t.id || t.terminal_id || 0);
@@ -107,8 +111,8 @@
       if (isCurrent) card.classList.add('current');
       if (!activo) card.classList.add('disabled');
 
-      let metaLeft = `ID: ${id}`;
-      let metaRight = isCurrent ? 'En uso ahora' : (activo ? 'Click para seleccionar' : 'Inactiva');
+      const metaLeft = `ID: ${id}`;
+      const metaRight = isCurrent ? 'En uso ahora' : (activo ? 'Click para seleccionar' : 'Inactiva');
 
       const uso = ultimoUso ? formatDate(ultimoUso) : '';
       const metaMid = uso ? `Uso: ${uso}` : '';
@@ -130,44 +134,44 @@
       `;
 
       const handleSelect = async () => {
-        if (!activo) return toast('Esta terminal estÃ¡ inactiva.', 'warn');
-        if (isCurrent) return toast('Ya estÃ¡s usando esta terminal.', 'info');
+        if (!activo) return toast('Esta terminal está inactiva.', 'warn');
+        if (isCurrent) return toast('Ya estás usando esta terminal.', 'info');
         if (selecting || !id) return;
 
         selecting = true;
         card.classList.add('selecting');
-        setMsg('<span class="ts-loader"></span> Seleccionando terminalâ€¦');
+        setMsg('<span class="ts-loader"></span> Seleccionando terminal…');
 
         try {
           const { status, json } = await api('terminal_select', { csrf, terminal_id: id });
 
           if (status === 409 && json?.error === 'CAJA_ABIERTA') {
-            toast('No podÃ©s cambiar: hay una caja abierta en la terminal actual.', 'warn', 3200);
-            setMsg('ElegÃ­ otra terminal o cerrÃ¡ la caja abierta.');
+            toast('No podés cambiar: hay una caja abierta en la terminal actual.', 'warn', 3200);
+            setMsg('Elegí otra terminal o cerrá la caja abierta.');
             card.classList.remove('selecting');
             selecting = false;
             return;
           }
 
           if (status === 403) {
-            toast('No tenÃ©s permiso para usar esta terminal.', 'error', 2800);
-            setMsg('ElegÃ­ otra terminal.');
+            toast('No tenés permiso para usar esta terminal.', 'error', 2800);
+            setMsg('Elegí otra terminal.');
             card.classList.remove('selecting');
             selecting = false;
             return;
           }
 
           if (!json || json.ok !== true) {
-            throw new Error('Respuesta invÃ¡lida del servidor');
+            throw new Error('Respuesta inválida del servidor');
           }
 
-          toast('Terminal seleccionada. Redirigiendoâ€¦', 'ok', 1500);
+          toast('Terminal seleccionada. Redirigiendo…', 'ok', 1500);
           setTimeout(() => { window.location.href = nextUrl; }, 800);
 
         } catch (e) {
           console.error(e);
-          toast('No se pudo seleccionar la terminal. ReintentÃ¡.', 'error', 2800);
-          setMsg('Error al seleccionar. IntentÃ¡ de nuevo.');
+          toast('No se pudo seleccionar la terminal. Reintentá.', 'error', 2800);
+          setMsg('Error al seleccionar. Intentá de nuevo.');
           card.classList.remove('selecting');
           selecting = false;
         }
@@ -201,11 +205,10 @@
     } catch (e) {
       console.error(e);
       setMsg('No se pudo cargar la lista de terminales. <button id="tsRetry" class="btn-mini" type="button">Reintentar</button>');
-      toast('Error cargando terminales. RecargÃ¡ o reintentÃ¡.', 'error', 3500);
+      toast('Error cargando terminales. Recargá o reintentá.', 'error', 3500);
 
       const btn = document.getElementById('tsRetry');
       if (btn) btn.addEventListener('click', () => window.location.reload());
     }
   })();
 })();
-
