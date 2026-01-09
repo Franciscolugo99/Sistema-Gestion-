@@ -36,42 +36,106 @@ try {
   json_ok(['productos' => []]);
 }
 
-/**
- * Intentos de query por si tu esquema usa "descripcion" o "nombre", etc.
- */
-$tries = [
-  // esquema típico kiosco
-  "SELECT id, codigo, descripcion AS nombre, precio AS precio, stock AS stock
-   FROM productos
-   WHERE activo = 1 AND (codigo LIKE :q OR descripcion LIKE :q OR categoria LIKE :q)
-   ORDER BY descripcion
-   LIMIT %d",
+/* ============================================================================
+   🚀 OPTIMIZACIÓN: DETECCIÓN AUTOMÁTICA DE SCHEMA CON CACHE
+   - Detecta una sola vez qué columnas existen
+   - Guarda en cache por 1 hora
+   - Evita múltiples intentos de queries fallidas
+============================================================================ */
 
-  // alternativo: nombre
-  "SELECT id, codigo, nombre AS nombre, precio AS precio, stock AS stock
-   FROM productos
-   WHERE activo = 1 AND (codigo LIKE :q OR nombre LIKE :q OR categoria LIKE :q)
-   ORDER BY nombre
-   LIMIT %d",
+$SCHEMA_CACHE_FILE = __DIR__ . '/.productos_schema_cache.json';
 
-  // alternativo: precio_venta / stock_actual
-  "SELECT id, codigo, nombre AS nombre, precio_venta AS precio, stock_actual AS stock
-   FROM productos
-   WHERE activo = 1 AND (codigo LIKE :q OR nombre LIKE :q OR categoria LIKE :q)
-   ORDER BY nombre
-   LIMIT %d",
-];
+function detectProductosSchema(PDO $pdo, string $cacheFile): array {
+  // Verificar cache existente
+  if (file_exists($cacheFile)) {
+    $cache = @json_decode(file_get_contents($cacheFile), true);
+    if ($cache && isset($cache['timestamp']) && time() - $cache['timestamp'] < 3600) {
+      return $cache['schema'];
+    }
+  }
 
-foreach ($tries as $tpl) {
+  // Detectar estructura de la tabla
+  $defaultSchema = [
+    'nombre' => 'nombre',
+    'precio' => 'precio',
+    'stock' => 'stock'
+  ];
+
   try {
-    $sql = sprintf($tpl, $limit);
-    $st = $pdo->prepare($sql);
-    $st->execute([':q' => $like]);
-    json_ok(['productos' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    $stmt = $pdo->query("SHOW COLUMNS FROM productos");
+    $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    if (empty($columns)) {
+      return $defaultSchema;
+    }
+
+    $schema = [
+      'nombre' => in_array('nombre', $columns) ? 'nombre' : 'descripcion',
+      'precio' => in_array('precio', $columns) ? 'precio' : 'precio_venta',
+      'stock' => in_array('stock', $columns) ? 'stock' : 'stock_actual'
+    ];
+
+    // Guardar en cache
+    $cacheData = [
+      'schema' => $schema,
+      'timestamp' => time()
+    ];
+    @file_put_contents($cacheFile, json_encode($cacheData, JSON_PRETTY_PRINT));
+
+    return $schema;
   } catch (Throwable $e) {
-    // probar siguiente variante
+    return $defaultSchema;
   }
 }
 
-// si nada matchea (o columnas no existen), no romper
-json_ok(['productos' => []]);
+$schema = detectProductosSchema($pdo, $SCHEMA_CACHE_FILE);
+
+/* ============================================================================
+   QUERY ÚNICA OPTIMIZADA
+   - Una sola consulta usando el schema detectado
+   - Búsqueda en código, nombre/descripcion y categoría
+   - Ordenado por relevancia (matches en código primero)
+============================================================================ */
+
+try {
+  $sql = "SELECT 
+            id,
+            codigo,
+            {$schema['nombre']} AS nombre,
+            {$schema['precio']} AS precio,
+            {$schema['stock']} AS stock,
+            CASE 
+              WHEN codigo LIKE :qExact THEN 1
+              WHEN {$schema['nombre']} LIKE :qStart THEN 2
+              ELSE 3
+            END AS relevancia
+          FROM productos
+          WHERE activo = 1 
+            AND (
+              codigo LIKE :q 
+              OR {$schema['nombre']} LIKE :q 
+              " . (in_array('categoria', array_keys($schema)) ? "OR categoria LIKE :q" : "") . "
+            )
+          ORDER BY relevancia ASC, {$schema['nombre']} ASC
+          LIMIT :limit";
+
+  $st = $pdo->prepare($sql);
+  $st->bindValue(':q', $like, PDO::PARAM_STR);
+  $st->bindValue(':qExact', $q, PDO::PARAM_STR);
+  $st->bindValue(':qStart', $q . '%', PDO::PARAM_STR);
+  $st->bindValue(':limit', $limit, PDO::PARAM_INT);
+  $st->execute();
+  
+  $productos = $st->fetchAll(PDO::FETCH_ASSOC);
+  
+  // Remover columna de relevancia antes de enviar
+  foreach ($productos as &$p) {
+    unset($p['relevancia']);
+  }
+  
+  json_ok(['productos' => $productos]);
+} catch (Throwable $e) {
+  // Último recurso: no romper, devolver vacío
+  error_log("Error en buscar_productos.php: " . $e->getMessage());
+  json_ok(['productos' => []]);
+}

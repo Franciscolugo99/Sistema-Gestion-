@@ -143,7 +143,7 @@
 
     async function getProductos() {
       if (productosCache) return productosCache;
-      const data = await fetchJsonGet(`${API_BASE}?action=productos`);
+      const data = await fetchJsonGet(`${API_BASE}?action=promo_productos`);
       productosCache = data.productos || [];
       return productosCache;
     }
@@ -187,7 +187,7 @@
     // ===================== CARGAR PROMO =====================
     async function cargarPromo(id) {
       try {
-        const data = await fetchJsonGet(`${API_BASE}?action=obtener&id=${encodeURIComponent(id)}`);
+        const data = await fetchJsonGet(`${API_BASE}?action=promo_obtener&id=${encodeURIComponent(id)}`);
         if (!data.ok) return notify(data.error || "No se pudo cargar la promoción.", "error");
 
         const p = data.promo;
@@ -285,7 +285,7 @@
       if (!window.apiJson) return notify("Falta apiJson (app.js). Cargá app.js antes.", "error");
 
       try {
-        await window.apiJson(`${API_BASE}?action=actualizar`, payload, { method: "POST" });
+        await window.apiJson(`${API_BASE}?action=promo_actualizar`, payload, { method: "POST" });
         notify("Promoción actualizada correctamente.", "success");
         setTimeout(() => window.location.reload(), 500);
       } catch (err) {
@@ -346,7 +346,7 @@
       const id = promoAEliminar.id;
 
       try {
-        await window.apiJson(`${API_BASE}?action=eliminar&id=${encodeURIComponent(id)}`, {}, { method: "POST" });
+        await window.apiJson(`${API_BASE}?action=promo_eliminar&id=${encodeURIComponent(id)}`, {}, { method: "POST" });
         const row = document.querySelector(`tr.promo-row[data-id="${id}"]`);
         if (row) {
           row.classList.add("fade-out");

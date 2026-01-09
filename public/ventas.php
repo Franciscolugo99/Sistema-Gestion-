@@ -108,18 +108,16 @@ if ($medio && in_array($medio, $allowedMedios, true)) {
       )";
     } else {
       $whereParts[] = "(
-        EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id AND vp2.medio_pago = :medio)
+        EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id AND vp2.medio_pago = :medio_vp)
         OR (
           NOT EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id)
-          AND v.medio_pago = :medio
+          AND v.medio_pago = :medio_legacy
         )
       )";
-      $params[':medio'] = $medio;
+      $params[':medio_vp'] = $medio;
+      $params[':medio_legacy'] = $medio;
     }
-  } else {
-    $whereParts[] = 'v.medio_pago = :medio';
-    $params[':medio'] = $medio;
-  }
+    }
 }
 
 // Estado (en tu sistema EMITIDA suele ser NULL o 'EMITIDA')

@@ -8,9 +8,16 @@ require_any_permission(['realizar_ventas','ver_reportes']);
 
 $pdo = getPDO();
 
-// ------------------------------
-// Params
-// ------------------------------
+/* =========================
+   Ticket compacto (flags)
+========================= */
+$TICKET_SHOW_CODE          = false;  // ❌ no imprimir códigos (ni barcode)
+$TICKET_SHOW_PROMO_DETAILS = false;  // ❌ no listar promos una por una
+$TICKET_SHOW_UNIT_PRICE_UN = false;  // UN: si cant=1, no muestra PU (ticket más corto)
+
+/* =========================
+   Params
+========================= */
 $ventaId = (int)($_GET['venta_id'] ?? 0);
 if ($ventaId <= 0) $ventaId = (int)($_GET['id'] ?? 0);
 if ($ventaId <= 0) {
@@ -23,16 +30,16 @@ $paper = ($paper === '58') ? '58' : '80';
 
 $autoPrint = ((string)($_GET['autoprint'] ?? '') === '1');
 
-// ------------------------------
-// Helpers
-// ------------------------------
+/* =========================
+   Helpers
+========================= */
 if (!function_exists('fmt_money_ticket')) {
   function fmt_money_ticket($n): string {
     return '$' . number_format((float)$n, 2, ',', '.');
   }
 }
 if (!function_exists('fmt_qty_ticket')) {
-  function fmt_qty_ticket($n, int $dec = 2): string {
+  function fmt_qty_ticket($n, int $dec = 3): string {
     return number_format((float)$n, $dec, ',', '.');
   }
 }
@@ -49,12 +56,52 @@ function has_col(PDO $pdo, string $table, string $col): bool {
   return (bool)$st->fetchColumn();
 }
 
+/**
+ * Normaliza unidad (para lógica)
+ * - UN / KG / LT / G / ML
+ */
 function norm_unit(string $u, bool $pesable): string {
   $u = strtoupper(trim($u));
   if ($u === '') return $pesable ? 'KG' : 'UN';
+
   if (in_array($u, ['UNIDAD','UNIDADES','UNID','UN'], true)) return 'UN';
   if (in_array($u, ['KG','KILO','KILOS','KGS'], true)) return 'KG';
+  if (in_array($u, ['LT','LITRO','LITROS','L'], true)) return 'LT';
+  if (in_array($u, ['G','GR','GRAMO','GRAMOS'], true)) return 'G';
+  if (in_array($u, ['ML','MILI','MILILITRO','MILILITROS'], true)) return 'ML';
+
   return mb_strimwidth($u, 0, 4, '', 'UTF-8');
+}
+
+/**
+ * Unidad (para mostrar)
+ */
+function unit_disp(string $u): string {
+  $u = strtoupper(trim($u));
+  return match ($u) {
+    'UN' => 'UN',
+    'KG' => 'kg',
+    'LT' => 'l',
+    'G'  => 'g',
+    'ML' => 'ml',
+    default => $u,
+  };
+}
+
+/**
+ * Sufijo para PU en ticket
+ * - G/ML: precio por 100 g / 100 ml
+ */
+function unit_price_suffix(string $u, bool $pesable): string {
+  if (!$pesable) return '';
+  $u = strtoupper(trim($u));
+  return match ($u) {
+    'G'  => '/100 g',
+    'ML' => '/100 ml',
+    'KG' => '/kg',
+    'LT' => '/l',
+    default => '/' . $u,
+  };
 }
 
 function label_medio_pago(string $m): string {
@@ -65,18 +112,18 @@ function label_medio_pago(string $m): string {
   return 'Efectivo';
 }
 
-// ------------------------------
-// Config
-// ------------------------------
+/* =========================
+   Config
+========================= */
 $bizName = config_get($pdo, 'business_name', 'KIOSCO');
 $cuit    = config_get($pdo, 'business_cuit', '');
 $addr    = config_get($pdo, 'business_address', '');
 $phone   = config_get($pdo, 'business_phone', '');
 $footer  = config_get($pdo, 'ticket_footer', 'Gracias por su compra');
 
-// ------------------------------
-// Query venta
-// ------------------------------
+/* =========================
+   Query venta
+========================= */
 $selectUser  = (has_col($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
 $selectBruto = has_col($pdo, 'ventas', 'total_bruto');
 $selectDescT = has_col($pdo, 'ventas', 'descuento_total');
@@ -102,13 +149,14 @@ if (!$venta) {
   die('Venta no encontrada.');
 }
 
-// ------------------------------
-// Items
-// ------------------------------
+/* =========================
+   Items
+========================= */
 $sqlItems = "
-  SELECT p.codigo, p.nombre, p.unidad_venta, p.es_pesable,
-         vi.cantidad, vi.precio, vi.precio_unit_original, vi.precio_unit_final,
-         vi.descuento_monto, vi.subtotal
+  SELECT
+    p.codigo, p.nombre, p.unidad_venta, p.es_pesable,
+    vi.cantidad, vi.precio, vi.precio_unit_original, vi.precio_unit_final,
+    vi.descuento_monto, vi.subtotal
   FROM venta_items vi
   LEFT JOIN productos p ON vi.producto_id = p.id
   WHERE vi.venta_id = :id
@@ -118,9 +166,9 @@ $stmtIt = $pdo->prepare($sqlItems);
 $stmtIt->execute([':id' => $ventaId]);
 $items = $stmtIt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// ------------------------------
-// Promos
-// ------------------------------
+/* =========================
+   Promos (para total desc)
+========================= */
 $promos = [];
 $descPromos = 0.0;
 
@@ -140,9 +188,9 @@ if (has_table($pdo, 'venta_promos')) {
   $descPromos = round($descPromos, 2);
 }
 
-// ------------------------------
-// Totales (fallback si no hay columnas en ventas)
-// ------------------------------
+/* =========================
+   Totales fallback
+========================= */
 $brutoCalc = 0.0;
 $descItems = 0.0;
 
@@ -164,21 +212,18 @@ $descItems = round($descItems, 2);
 
 $totalNeto = round((float)($venta['total'] ?? 0), 2);
 
-// Preferir columnas de ventas si existen
 $brutoTotal = ($selectBruto && $venta['total_bruto'] !== null)
   ? round((float)$venta['total_bruto'], 2)
   : $brutoCalc;
 
-// Descuento total: si hay venta_promos, usamos ese; sino usamos suma de items;
-// si existe ventas.descuento_total, lo usamos como fallback real
 $descMostrar = ($descPromos > 0.00001) ? $descPromos : $descItems;
 if ($selectDescT && $venta['descuento_total'] !== null && $descMostrar < 0.00001) {
   $descMostrar = round((float)$venta['descuento_total'], 2);
 }
 
-// ------------------------------
-// Pagos (split) + fallback legacy
-// ------------------------------
+/* =========================
+   Pagos (split) + fallback
+========================= */
 $pagos = [];
 if (has_table($pdo, 'venta_pagos')) {
   $stPag = $pdo->prepare("
@@ -191,7 +236,6 @@ if (has_table($pdo, 'venta_pagos')) {
   $pagos = $stPag->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
-// fallback legacy si no hay filas
 if (!$pagos) {
   $pagos = [[
     'medio_pago' => (string)($venta['medio_pago'] ?? 'EFECTIVO'),
@@ -247,7 +291,7 @@ window.addEventListener('load', () => {
   <div class="sep"></div>
 
   <!-- INFO TICKET -->
-  <div style="font-size:13px; margin-bottom:12px;">
+  <div style="font-size:13px; margin-bottom:10px;">
     <div><strong>Ticket #<?= (int)$venta['id'] ?></strong></div>
     <div><?= date('d/m/Y H:i', strtotime((string)$venta['fecha'])) ?></div>
     <?php if (!empty($venta['caja_id'])): ?>
@@ -282,40 +326,79 @@ window.addEventListener('load', () => {
     $codigo     = (string)($it['codigo'] ?? '');
 
     $isPesable  = ((int)($it['es_pesable'] ?? 0) === 1);
-    $unidad     = norm_unit((string)($it['unidad_venta'] ?? ''), $isPesable);
+    $unidadNorm = norm_unit((string)($it['unidad_venta'] ?? ''), $isPesable);
+    $unidadTxt  = unit_disp($unidadNorm);
 
-    // ✅ 3 decimales para pesables
-    if ($isPesable) {
-      $cantTxt        = fmt_qty_ticket($cantidad, 3) . ' ' . $unidad;
-      $precioTxt      = fmt_money_ticket($puFinal) . '/' . $unidad;
-      $precioListaTxt = fmt_money_ticket($puOriginal) . '/' . $unidad;
+    // ===== Cantidad a mostrar =====
+    // Importante: en G/ML tu sistema usa "unidad interna = 100" (packs de 100g/100ml).
+    // Por eso: 3 => 300g y el precio es por 100g.
+    if ($isPesable && ($unidadNorm === 'G' || $unidadNorm === 'ML')) {
+      $qtyShow = (int)round($cantidad * 100);         // gramos/ml reales
+      $cantTxt = number_format((float)$qtyShow, 0, ',', '.') . ' ' . $unidadTxt;
+    } elseif ($isPesable) {
+      // KG/LT: si es entero, no imprimimos 3 decimales
+      $isInt = abs($cantidad - round($cantidad)) < 0.0005;
+      $cantTxt = $isInt
+        ? ((string)(int)round($cantidad) . ' ' . $unidadTxt)
+        : (fmt_qty_ticket($cantidad, 3) . ' ' . $unidadTxt);
     } else {
-      $cantInt        = (int)round($cantidad);
-      $cantTxt        = $cantInt . ' ' . $unidad;
+      $qtyInt = (int)round($cantidad);
+      $cantTxt = $qtyInt . ' ' . $unidadTxt;
+    }
+
+    // ===== PU / Lista =====
+    $puSuffix = unit_price_suffix($unidadNorm, $isPesable);
+
+    if ($isPesable) {
+      $precioTxt      = fmt_money_ticket($puFinal) . $puSuffix;
+      $precioListaTxt = fmt_money_ticket($puOriginal) . $puSuffix;
+    } else {
       $precioTxt      = fmt_money_ticket($puFinal);
       $precioListaTxt = fmt_money_ticket($puOriginal);
     }
 
     $hayRebajaPrecio = (abs($puFinal - $puOriginal) > 0.009);
     $hayDescLinea    = ($descLinea > 0.009);
+
+    // Mostrar “meta” solo cuando aporta valor (ticket más corto)
+    $qtyIntForMeta = (int)round($cantidad);
+    $showPU = false;
+
+    if ($isPesable) {
+      $showPU = true; // pesables siempre muestran PU
+    } else {
+      if ($TICKET_SHOW_UNIT_PRICE_UN || $qtyIntForMeta > 1) $showPU = true;
+    }
+
+    $showMeta = $showPU || $hayRebajaPrecio || $hayDescLinea;
+    $puLine = $showPU ? ('PU: ' . $precioTxt) : '';
   ?>
 
   <div class="row">
     <div class="prod">
       <div class="name"><?= htmlspecialchars($nombreFull) ?></div>
+
+      <?php if ($showMeta): ?>
       <div class="meta">
-        <?php if ($codigo): ?>[<?= htmlspecialchars($codigo) ?>] <?php endif; ?>
-        <?= htmlspecialchars($cantTxt) ?> × <?= htmlspecialchars($precioTxt) ?>
+        <?php if ($TICKET_SHOW_CODE && $codigo): ?>
+          [<?= htmlspecialchars($codigo) ?>]
+        <?php endif; ?>
+
+        <?php if ($puLine): ?>
+          <?= htmlspecialchars($puLine) ?>
+        <?php endif; ?>
 
         <?php if ($hayRebajaPrecio): ?>
           <br><small style="opacity:0.82">Lista: <?= htmlspecialchars($precioListaTxt) ?></small>
         <?php endif; ?>
 
         <?php if ($hayDescLinea): ?>
-          <br><small style="opacity:0.85">Descuento: -<?= fmt_money_ticket($descLinea) ?></small>
+          <br><small style="opacity:0.85">Desc: -<?= fmt_money_ticket($descLinea) ?></small>
         <?php endif; ?>
       </div>
+      <?php endif; ?>
     </div>
+
     <div class="t-right"><?= htmlspecialchars($cantTxt) ?></div>
     <div class="t-right"><?= fmt_money_ticket($subtotal) ?></div>
   </div>
@@ -332,37 +415,24 @@ window.addEventListener('load', () => {
     </div>
 
     <?php if ($descMostrar > 0.009): ?>
+      <div class="line">
+        <strong>Descuentos:</strong>
+        <strong>-<?= fmt_money_ticket($descMostrar) ?></strong>
+      </div>
 
-      <?php if (count($promos) > 0): ?>
-        <div style="margin:10px 0; padding:8px 0; border-top:1px dashed rgba(0,0,0,0.2); font-size:12px;">
-          <div style="margin-bottom:6px; opacity:0.9;"><strong>Descuentos aplicados:</strong></div>
-
+      <?php if ($TICKET_SHOW_PROMO_DETAILS && count($promos) > 0): ?>
+        <div style="margin:8px 0; font-size:12px; opacity:0.9;">
           <?php foreach ($promos as $pr):
             $nom = trim((string)($pr['promo_nombre'] ?? 'Promo'));
-            $des = trim((string)($pr['descripcion'] ?? ''));
             $mon = (float)($pr['descuento_monto'] ?? 0);
           ?>
-          <div class="line" style="padding:3px 0;">
-            <span style="padding-left:8px; opacity:0.85;">
-              • <?= htmlspecialchars($nom) ?>
-              <?php if ($des): ?>(<?= htmlspecialchars($des) ?>)<?php endif; ?>
-            </span>
-            <span>-<?= fmt_money_ticket($mon) ?></span>
-          </div>
+            <div class="line">
+              <span>• <?= htmlspecialchars($nom) ?></span>
+              <span>-<?= fmt_money_ticket($mon) ?></span>
+            </div>
           <?php endforeach; ?>
-
-          <div class="line" style="border-top:1px solid rgba(0,0,0,0.15); margin-top:6px; padding-top:6px;">
-            <strong style="padding-left:8px;">Total desc:</strong>
-            <strong>-<?= fmt_money_ticket($descMostrar) ?></strong>
-          </div>
-        </div>
-      <?php else: ?>
-        <div class="line">
-          <strong>Descuentos:</strong>
-          <strong>-<?= fmt_money_ticket($descMostrar) ?></strong>
         </div>
       <?php endif; ?>
-
     <?php endif; ?>
   </div>
 
@@ -424,7 +494,6 @@ window.addEventListener('load', () => {
 </div>
 
 <script>
-// Cambiar tamaño papel
 document.getElementById('paperSelect')?.addEventListener('change', (e) => {
   const p = e.target.value;
   document.body.dataset.paper = p;
@@ -434,7 +503,6 @@ document.getElementById('paperSelect')?.addEventListener('change', (e) => {
   window.history.replaceState({}, '', url);
 });
 
-// Botón imprimir
 document.getElementById('btnPrint')?.addEventListener('click', () => {
   window.focus();
   window.print();

@@ -103,3 +103,14 @@ public/_csrf_token.php
 
 *.bak3
 qa!
+
+# --- FLUS: caches locales ---
+public/api/actions/.productos_schema_cache.json
+
+# --- FLUS: vendor local (opcional; dejar fuera por defecto) ---
+public/assets/vendor/
+
+# Logs/cache típicos
+storage/logs/
+storage/cache/
+*.log

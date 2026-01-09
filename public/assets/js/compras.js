@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const inQty = document.getElementById("itemCantidad");
   const inCost = document.getElementById("itemCosto");
   const unitLbl = document.getElementById("itemUnidad");
+  const qtyFieldContainer = document.getElementById("qtyFieldContainer");
   const btnAdd = document.getElementById("btnAddItem");
   const table = document.getElementById("itemsTable");
   const tbody = table?.querySelector("tbody");
@@ -14,15 +15,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let productosData = [];
   let selectedProduct = null;
+  let itemsAdded = [];
+  let autoIdCounter = Date.now();
 
-  // Track rows (permite múltiples líneas del mismo producto si querés)
-  let itemsAdded = []; // { rowId, productId }
+  /* ============================================================================
+     CONSTANTES Y UTILS
+  ============================================================================ */
+  const MAX_QTY = 99999;
+  const MAX_COST = 9999999;
 
-  /* -----------------------------
-    Utils
-  ------------------------------ */
   const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-
   const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   function fmtMoney(n) {
@@ -57,6 +59,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
   }
 
+  /* ============================================================================
+     PRODUCTOS PESABLES - UX MEJORADA
+  ============================================================================ */
   function applyQtyInputRules(product) {
     const pes = isPesable(product);
     inQty.step = pes ? "0.001" : "1";
@@ -65,9 +70,64 @@ document.addEventListener("DOMContentLoaded", () => {
       inQty.value = pes ? "1.000" : "1";
   }
 
-  /* -----------------------------
-    Load products from DOM
-  ------------------------------ */
+  function updatePesableUI(product) {
+    const isPes = isPesable(product);
+    
+    // Limpiar UI previa
+    const existingBadge = qtyFieldContainer.querySelector('.badge-pesable');
+    const existingHelp = qtyFieldContainer.querySelector('.help-pesable');
+    if (existingBadge) existingBadge.remove();
+    if (existingHelp) existingHelp.remove();
+    
+    inQty.classList.remove('input-pesable');
+    
+    if (isPes) {
+      // Badge visual
+      const badge = document.createElement('span');
+      badge.className = 'badge-pesable';
+      badge.innerHTML = `⚖️ ${product.unidad}`;
+      qtyFieldContainer.querySelector('label').appendChild(badge);
+      
+      // Placeholder dinámico
+      const unidadLower = product.unidad.toLowerCase();
+      inQty.placeholder = `Ej: 2.500 (${unidadLower})`;
+      inQty.classList.add('input-pesable');
+      
+      // Ayuda contextual
+      const help = document.createElement('div');
+      help.className = 'help-pesable';
+      help.innerHTML = `
+        <strong>💡 Producto pesable:</strong> 
+        Ingresá el peso con 3 decimales.
+        <br>Ejemplo: <code>1.500</code> = 1.5 ${unidadLower}
+      `;
+      qtyFieldContainer.appendChild(help);
+      
+      // Validación en tiempo real
+      inQty.addEventListener('input', validatePesableInput);
+      
+    } else {
+      inQty.placeholder = 'Cantidad (unidades enteras)';
+      inQty.removeEventListener('input', validatePesableInput);
+    }
+  }
+
+  function validatePesableInput(e) {
+    const val = e.target.value;
+    const num = parseFloat(val);
+    
+    if (val && !isNaN(num)) {
+      const parts = val.split('.');
+      if (parts[1] && parts[1].length > 3) {
+        e.target.value = num.toFixed(3);
+        showToast('Máximo 3 decimales para productos pesables', 'info');
+      }
+    }
+  }
+
+  /* ============================================================================
+     CARGAR PRODUCTOS
+  ============================================================================ */
   function loadProducts() {
     const select = document.getElementById("productosData");
     if (!select) return;
@@ -76,10 +136,10 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(select.options).forEach((opt) => {
       if (!opt.value) return;
 
-      // opt.textContent viene como "Nombre (COD)" desde PHP
-      // lo limpiamos para que "nombre" sea solo el nombre real:
+      // Limpiar nombre (quitar "(COD)" pero preservar paréntesis en nombre real)
       const rawText = opt.textContent.trim();
-      const cleanName = rawText.replace(/\s*\([^)]*\)\s*$/, "");
+      // Solo quitar el último paréntesis si parece ser código
+      const cleanName = rawText.replace(/\s*\([^)]+\)\s*$/, '').trim();
 
       productosData.push({
         id: parseInt(opt.value, 10),
@@ -94,9 +154,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   loadProducts();
 
-  /* -----------------------------
-    Autocomplete
-  ------------------------------ */
+  /* ============================================================================
+     AUTOCOMPLETE MEJORADO
+  ============================================================================ */
   function highlightMatch(text, query) {
     const safe = escapeRegExp(query);
     const regex = new RegExp(`(${safe})`, "gi");
@@ -108,16 +168,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!product) return;
 
     selectedProduct = product;
-
     searchInput.value = product.nombre;
     suggestionsBox.classList.remove("active");
 
-    // Set rules for qty
+    // Aplicar reglas y UI para pesables
     applyQtyInputRules(product);
+    updatePesableUI(product);
 
     // Prefill cost
     if (product.ultimoCosto > 0) {
       inCost.value = round2(product.ultimoCosto).toFixed(2);
+    } else {
+      inCost.value = "0.00";
     }
 
     unitLbl.textContent = `Unidad: ${product.unidad}`;
@@ -128,11 +190,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (searchInput && suggestionsBox) {
     let debounceTimer;
+    let isSearchActive = false;
 
     searchInput.addEventListener("input", (e) => {
-      // Importante: si el usuario cambia el texto, invalidamos la selección previa
+      // Invalidar selección previa
       selectedProduct = null;
       unitLbl.textContent = "Unidad: UNIDAD";
+      updatePesableUI({ esPesable: 0, unidad: "UNIDAD" });
       applyQtyInputRules({ esPesable: 0, unidad: "UNIDAD" });
 
       clearTimeout(debounceTimer);
@@ -141,9 +205,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (query.length < 2) {
         suggestionsBox.classList.remove("active");
         suggestionsBox.innerHTML = "";
+        isSearchActive = false;
         return;
       }
 
+      isSearchActive = true;
       debounceTimer = setTimeout(() => {
         const filtered = productosData
           .filter(
@@ -187,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .forEach((item) => {
             item.addEventListener("click", () => {
               selectProduct(parseInt(item.dataset.id, 10));
+              isSearchActive = false;
             });
           });
       }, 250);
@@ -198,6 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
         !suggestionsBox.contains(e.target)
       ) {
         suggestionsBox.classList.remove("active");
+        isSearchActive = false;
       }
     });
 
@@ -205,7 +273,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const items = suggestionsBox.querySelectorAll(
         ".suggestion-item[data-id]"
       );
-      if (!items.length) return;
+      if (!items.length) {
+        // Enter sin sugerencias - prevenir si búsqueda activa
+        if (e.key === "Enter" && isSearchActive) {
+          e.preventDefault();
+          return;
+        }
+        return;
+      }
 
       const active = suggestionsBox.querySelector(
         ".suggestion-item.keyboard-active"
@@ -227,14 +302,17 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (e.key === "Enter") {
         e.preventDefault();
         const target = active || items[0];
-        if (target) selectProduct(parseInt(target.dataset.id, 10));
+        if (target) {
+          selectProduct(parseInt(target.dataset.id, 10));
+          isSearchActive = false;
+        }
       }
     });
   }
 
-  /* -----------------------------
-    Rows
-  ------------------------------ */
+  /* ============================================================================
+     MANEJO DE FILAS
+  ============================================================================ */
   function removeEmptyRow() {
     const empty = tbody.querySelector(".empty-row");
     if (empty) empty.remove();
@@ -262,17 +340,28 @@ document.addEventListener("DOMContentLoaded", () => {
     inQty.value = "1";
     inCost.value = "0";
     unitLbl.textContent = "Unidad: UNIDAD";
+    
+    // Limpiar UI pesable
+    const existingBadge = qtyFieldContainer.querySelector('.badge-pesable');
+    const existingHelp = qtyFieldContainer.querySelector('.help-pesable');
+    if (existingBadge) existingBadge.remove();
+    if (existingHelp) existingHelp.remove();
+    inQty.classList.remove('input-pesable');
+    inQty.placeholder = '';
+    
     searchInput.focus();
   }
 
+  /* ============================================================================
+     UI HELPERS
+  ============================================================================ */
   function showToast(msg, type = "info") {
     if (window.showToast) {
       window.showToast(msg, type);
       return;
     }
     const toast = document.createElement("div");
-    toast.className = "toast compras-toast toast-success show";
-
+    toast.className = `toast compras-toast toast-${type} show`;
     toast.textContent = msg;
     document.body.appendChild(toast);
 
@@ -333,6 +422,9 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  /* ============================================================================
+     EDICIÓN INLINE
+  ============================================================================ */
   function enableEditMode(tr, product) {
     const qtyCell = tr.querySelector(".editable-cell[data-field='cantidad']");
     const costCell = tr.querySelector(".editable-cell[data-field='costo']");
@@ -369,14 +461,27 @@ document.addEventListener("DOMContentLoaded", () => {
         const field = cell.dataset.field;
         const newValue = parseFloat(editInput.value || 0);
 
-        // Validación: qty > 0, costo >= 0
-        if (field === "cantidad" && !(newValue > 0)) {
-          showToast("Cantidad inválida", "warning");
-          return;
+        // Validación
+        if (field === "cantidad") {
+          if (!(newValue > 0)) {
+            showToast("Cantidad inválida", "warning");
+            return;
+          }
+          if (newValue > MAX_QTY) {
+            showToast(`Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`, "warning");
+            return;
+          }
         }
-        if (field === "costo" && newValue < 0) {
-          showToast("Costo inválido", "warning");
-          return;
+        
+        if (field === "costo") {
+          if (newValue < 0) {
+            showToast("Costo inválido", "warning");
+            return;
+          }
+          if (newValue > MAX_COST) {
+            showToast(`Costo muy alto (máx: ${fmtMoney(MAX_COST)})`, "warning");
+            return;
+          }
         }
 
         // Update hidden
@@ -389,7 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
         valueSpan.textContent =
           field === "cantidad" ? fmtQty(newValue, product) : fmtMoney(newValue);
 
-        // Recalc subtotal (redondeado)
+        // Recalc subtotal
         const qtyVal = parseFloat(
           tr.querySelector(`input[name="cantidad[]"]`).value || 0
         );
@@ -426,6 +531,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ============================================================================
+     CREAR/ELIMINAR FILAS
+  ============================================================================ */
   function createNewRow(product, qty, cost) {
     removeEmptyRow();
 
@@ -433,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cost = Number(cost);
 
     const subtotal = round2(qty * cost);
-    const rowId = Date.now() + Math.floor(Math.random() * 1000);
+    const rowId = autoIdCounter++;
 
     const tr = document.createElement("tr");
     tr.dataset.row = "item";
@@ -463,7 +571,6 @@ document.addEventListener("DOMContentLoaded", () => {
           🗑️
         </button>
 
-        <!-- Hidden inputs (válidos dentro de td) -->
         <input type="hidden" name="producto_id[]" value="${product.id}">
         <input type="hidden" name="cantidad[]" value="${qty}">
         <input type="hidden" name="costo_unitario[]" value="${cost}">
@@ -497,6 +604,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ============================================================================
+     AGREGAR ITEM (con validaciones mejoradas)
+  ============================================================================ */
   function addItem() {
     if (!selectedProduct) {
       showToast("Seleccioná un producto primero", "warning");
@@ -507,6 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const qty = parseFloat(inQty.value || 0);
     const cost = parseFloat(inCost.value || 0);
 
+    // Validaciones básicas
     if (!(qty > 0)) {
       showToast("La cantidad debe ser mayor a 0", "warning");
       inQty.focus();
@@ -518,15 +629,28 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Si ya existe ese producto, te pregunto si querés sumar o crear línea nueva
+    // Validaciones de rangos
+    if (qty > MAX_QTY) {
+      showToast(`Cantidad muy alta (máximo: ${MAX_QTY.toLocaleString()})`, "warning");
+      inQty.focus();
+      return;
+    }
+    if (cost > MAX_COST) {
+      showToast(`Costo muy alto (máximo: ${fmtMoney(MAX_COST)})`, "warning");
+      inCost.focus();
+      return;
+    }
+
+    // Producto duplicado
     const existing = itemsAdded.find(
       (it) => it.productId === selectedProduct.id
     );
+    
     if (existing) {
       showConfirm(
         "Este producto ya está en la lista. ¿Sumar cantidad en la línea existente?",
         () => {
-          // sumar en la primer ocurrencia
+          // Sumar en la primer ocurrencia
           const tr = tbody.querySelector(`tr[data-row-id="${existing.rowId}"]`);
           if (!tr) return createNewRow(selectedProduct, qty, cost);
 
@@ -534,6 +658,13 @@ document.addEventListener("DOMContentLoaded", () => {
           const hiddenCost = tr.querySelector(`input[name="costo_unitario[]"]`);
 
           const newQty = parseFloat(hiddenQty.value || 0) + qty;
+          
+          // Validar nueva cantidad
+          if (newQty > MAX_QTY) {
+            showToast(`La suma superaría el máximo permitido (${MAX_QTY.toLocaleString()})`, "warning");
+            return;
+          }
+
           hiddenQty.value = newQty;
           hiddenCost.value = cost;
 
@@ -568,6 +699,9 @@ document.addEventListener("DOMContentLoaded", () => {
     createNewRow(selectedProduct, qty, cost);
   }
 
+  /* ============================================================================
+     EVENT LISTENERS
+  ============================================================================ */
   if (btnAdd) {
     btnAdd.addEventListener("click", addItem);
 
@@ -590,5 +724,86 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ============================================================================
+     CARGAR ITEMS EN MODO EDICIÓN
+  ============================================================================ */
+  const preloadedItems = tbody.querySelectorAll('.preloaded-item');
+  if (preloadedItems.length > 0) {
+    removeEmptyRow();
+    
+    preloadedItems.forEach(stub => {
+      const productId = parseInt(stub.dataset.productoId);
+      const qty = parseFloat(stub.dataset.cantidad);
+      const cost = parseFloat(stub.dataset.costo);
+      const esPesable = parseInt(stub.dataset.esPesable);
+      const unidad = stub.dataset.unidad;
+      const nombre = stub.dataset.nombre;
+      const codigo = stub.dataset.codigo;
+      
+      const productMock = {
+        id: productId,
+        nombre: nombre,
+        codigo: codigo,
+        esPesable: esPesable,
+        unidad: unidad
+      };
+      
+      const subtotal = round2(qty * cost);
+      const rowId = autoIdCounter++;
+      
+      const tr = document.createElement("tr");
+      tr.dataset.row = "item";
+      tr.dataset.rowId = String(rowId);
+      tr.dataset.subtotal = String(subtotal);
+      
+      tr.innerHTML = `
+        <td>
+          <div class="item-name">${nombre}</div>
+          <div class="item-code">${codigo}</div>
+        </td>
+        <td class="right editable-cell" data-field="cantidad">
+          <span class="cell-value">${fmtQty(qty, productMock)}</span>
+          <input type="number" class="cell-edit" value="${qty}" style="display:none;">
+        </td>
+        <td class="right editable-cell" data-field="costo">
+          <span class="cell-value">${fmtMoney(cost)}</span>
+          <input type="number" class="cell-edit" value="${cost}" style="display:none;">
+        </td>
+        <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
+        <td class="center">
+          <button type="button" class="btn-icon" title="Editar" data-action="edit">
+            ✏️
+          </button>
+          <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">
+            🗑️
+          </button>
+
+          <input type="hidden" name="producto_id[]" value="${productId}">
+          <input type="hidden" name="cantidad[]" value="${qty}">
+          <input type="hidden" name="costo_unitario[]" value="${cost}">
+        </td>
+      `;
+      
+      tr.querySelector("[data-action='edit']").addEventListener("click", () =>
+        enableEditMode(tr, productMock)
+      );
+      tr.querySelector("[data-action='delete']").addEventListener("click", () =>
+        deleteRow(tr, rowId)
+      );
+      
+      tbody.appendChild(tr);
+      itemsAdded.push({ rowId, productId });
+      
+      stub.remove();
+    });
+    
+    recalcTotal();
+  }
+
+  /* ============================================================================
+     INICIALIZACIÓN
+  ============================================================================ */
   if (searchInput) searchInput.focus();
+  addEmptyRowIfNeeded();
+  recalcTotal();
 });

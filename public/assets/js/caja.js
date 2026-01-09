@@ -237,6 +237,119 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
+    // =========================
+  // ✅ PESABLE UX (G/ML sin confusión)
+  // - G  => unidad interna = 100 g
+  // - ML => unidad interna = 100 ml
+  // Heurística compat:
+  //   * si ingresa <= 20 => se interpreta como "packs" (modo viejo)
+  //   * si ingresa > 20  => se interpreta como gramos/ml (modo cajero)
+  // KG/LT:
+  //   * si ingresa >= 50 => se interpreta como gramos/ml y se convierte a kg/lt
+  // =========================
+  const fmtInt0 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
+
+  function parseNumeroLocale(v) {
+    const s = String(v ?? "").trim().replace(/\./g, "").replace(",", ".");
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function unidadPrecioHint(unidadVenta) {
+    const u = String(unidadVenta || "").toUpperCase();
+    if (u === "G") return "100 g";
+    if (u === "ML") return "100 ml";
+    if (u === "KG") return "kg";
+    if (u === "LT") return "lt";
+    return "";
+  }
+
+  function cantidadInternaDesdeInput(raw, unidadVenta, esPesable) {
+    if (!esPesable) {
+      const n = parseInt(String(raw ?? "1"), 10);
+      return Number.isFinite(n) && n > 0 ? n : 1;
+    }
+
+    const u = String(unidadVenta || "KG").toUpperCase();
+    const n = parseNumeroLocale(raw);
+    if (!Number.isFinite(n) || n <= 0) return NaN;
+
+    // G/ML (packs de 100)
+    if (u === "G" || u === "ML") {
+      // compat: si es chico, interpretamos "packs" (3 => 3x100)
+      if (n <= 20) return n;
+      // modo cajero: 300 => 3
+      return n / 100;
+    }
+
+    // KG/LT (permitimos escribir gramos/ml directo)
+    if (u === "KG") {
+      if (n >= 50) return n / 1000; // 3560 => 3.560 kg
+      return n;                     // 3.56 => 3.56 kg
+    }
+    if (u === "LT") {
+      if (n >= 50) return n / 1000; // 700 => 0.700 lt
+      return n;                     // 0.7 => 0.7 lt
+    }
+
+    return n;
+  }
+
+  function cantidadHumanaDesdeInterna(cantInterna, unidadVenta, esPesable) {
+    const c = Number(cantInterna) || 0;
+    if (!esPesable) return Math.round(c);
+
+    const u = String(unidadVenta || "KG").toUpperCase();
+    if (u === "G")  return c * 100;   // packs -> gramos
+    if (u === "ML") return c * 100;   // packs -> ml
+    return c; // KG/LT ya están en unidad humana
+  }
+
+  function formatearCantidadHumana(item) {
+    const cant = Number(item?.cantidad) || 0;
+    const esPesable = !!item?.esPesable;
+    const u = String(item?.unidadVenta || (esPesable ? "KG" : "UNID")).toUpperCase();
+
+    if (!esPesable) {
+      return `${Math.round(cant)} UNID`;
+    }
+
+    if (u === "G")  return `${fmtInt0.format(cant * 100)} g`;
+    if (u === "ML") return `${fmtInt0.format(cant * 100)} ml`;
+
+    // KG / LT: mantenemos 3 decimales si hace falta
+    const entero = Math.round(cant);
+    const esEntero = Math.abs(cant - entero) < 0.0005;
+
+    if (esEntero) return `${entero} ${u}`;
+    return `${fmtQty3.format(cant)} ${u}`;
+  }
+
+  function aplicarHintCantidadInput(unidadVenta) {
+    if (!inputCant) return;
+    const u = String(unidadVenta || "").toUpperCase();
+
+    if (u === "G") {
+      inputCant.placeholder = "Ej: 300 (g) o 3 (x100g)";
+      inputCant.title = "Podés escribir gramos (300) o packs (3×100g).";
+      inputCant.step = "1";
+    } else if (u === "ML") {
+      inputCant.placeholder = "Ej: 800 (ml) o 8 (x100ml)";
+      inputCant.title = "Podés escribir ml (800) o packs (8×100ml).";
+      inputCant.step = "1";
+    } else if (u === "KG") {
+      inputCant.placeholder = "Ej: 3.560 (kg) o 3560 (g)";
+      inputCant.title = "Podés escribir kg (3.560) o gramos (3560).";
+      inputCant.step = "0.001";
+    } else if (u === "LT") {
+      inputCant.placeholder = "Ej: 0.700 (lt) o 700 (ml)";
+      inputCant.title = "Podés escribir litros (0.700) o ml (700).";
+      inputCant.step = "0.001";
+    } else {
+      inputCant.placeholder = "";
+      inputCant.title = "";
+    }
+  }
 
   function getCsrf() {
     return (
@@ -261,18 +374,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function formatearCantidad(item) {
-    const cant = Number(item.cantidad);
-    const entero = Math.round(cant);
-    const esEntero = Math.abs(cant - entero) < 0.0005;
-    const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
-
-    if (item.esPesable) {
-      return esEntero
-        ? `${entero} ${unidad}`
-        : `${fmtQty3.format(cant)} ${unidad}`;
-    }
-    return `${entero} ${unidad}`;
+    return formatearCantidadHumana(item);
   }
+
 
   
   // =========================
@@ -678,138 +782,202 @@ function medioEsEfectivo() {
   // =========================
   // RENDER (con debounce)
   // =========================
-  function _actualizarVista() {
-    if (!tbodyTicket) return;
-    tbodyTicket.innerHTML = "";
+    function _actualizarVista() {
+      if (!tbodyTicket) return;
+      tbodyTicket.innerHTML = "";
 
-    const combos = aplicarCombos(carrito);
+      const combos = aplicarCombos(carrito);
 
-    let totalBruto = 0;
-    let totalNeto = 0;
-    let totalDescCombos = 0;
+      let totalBruto = 0;
+      let totalNeto = 0;
+      let totalDescCombos = 0;
 
-    // descuento combos (como antes): sumaLista - precio_combo
-    combos.forEach((cb) => {
-      const sumaLista = cb.combo.items.reduce((acc, it) => {
-        const prod = carrito.find((p) => Number(p.id) === it.producto_id);
-        if (!prod) return acc;
-        return acc + (Number(prod.precioLista) || 0) * it.cantidad;
-      }, 0);
 
-      const descuentoUnit = sumaLista - cb.combo.precio_combo;
-      cb.descuento = descuentoUnit * cb.cantidad;
-      totalDescCombos += cb.descuento;
-    });
-
-    carrito.forEach((item, idx) => {
-      const cant = Number(item.cantidad);
-      const lista = Number(item.precioLista) || 0;
-      const base = Number(item.precio) || 0;
-
-      const subtotalOriginal = cant * lista;
-      let subtotalConPromo = cant * base;
-
-      const promo = aplicarPromosItem(item);
-      let descuentoPromo = 0;
-      let descNombre = null;
-
-      // si hay promo: ignora descuento manual (como backend)
-      if (promo) {
-        subtotalConPromo = promo.subtotalFinal;
-        descuentoPromo = promo.descuento;
-        descNombre = promo.descripcion;
+      // ✅ Helpers UI (solo para mostrar, NO cambia cálculos internos)
+      function unidadPrecioSuffix(u, esPesable) {
+        u = String(u || "").toUpperCase();
+        if (!esPesable) return "";
+        if (u === "G") return " / 100 g";
+        if (u === "ML") return " / 100 ml";
+        if (u === "KG") return " / kg";
+        if (u === "LT") return " / lt";
+        return ` / ${u}`;
       }
 
-      totalBruto += subtotalOriginal;
-      totalNeto += subtotalConPromo;
+      function formatearCantidadUI(item) {
+        const cant = Number(item.cantidad) || 0;
+        const esPesable = !!item.esPesable;
+        const u = String(item.unidadVenta || (esPesable ? "KG" : "UNID")).toUpperCase();
 
-      const tieneDescManual = !promo && Math.abs(base - lista) > 0.009;
+        if (!esPesable) {
+          const entero = Math.max(0, Math.round(cant));
+          return `${entero} UNID`;
+        }
 
-      const precioHtml = tieneDescManual
-        ? `<div>${formatearMoneda(base)}</div>
-           <div class="precio-lista">Lista: ${formatearMoneda(lista)}</div>`
-        : formatearMoneda(promo ? lista : base);
+        // G / ML (interno = “unidad de 100”)
+        if (u === "G") {
+          const gramos = Math.round(cant * 100);
+          return `${fmtInt0.format(gramos)} g`;
+        }
+        if (u === "ML") {
+          const ml = Math.round(cant * 100);
+          return `${fmtInt0.format(ml)} ml`;
+        }
 
-      // ✅ Si no tiene permiso, no mostrar botón Desc.
-      const btnDescHtml = CAN_MOD_PRECIO
-        ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
-        : "";
+        // KG (interno en kg)
+        if (u === "KG") {
+          const kg = cant;
+          const kgInt = Math.floor(kg + 1e-9);
+          let g = Math.round((kg - kgInt) * 1000);
 
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td>${item.codigo}</td>
-        <td>${item.nombre}</td>
-        <td class="center col-cant">${formatearCantidad(item)}</td>
-        <td class="right">${precioHtml}</td>
-        <td class="right">${formatearMoneda(subtotalConPromo)}</td>
-        <td class="acciones">
-          <button class="btn-accion btn-editar" data-idx="${idx}">Editar</button>
-          ${btnDescHtml}
-          <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
-        </td>
-      `;
-      tbodyTicket.appendChild(tr);
+          if (g >= 1000) { g -= 1000; } // ajuste por redondeo
 
-      if (descNombre) {
-        const trPromo = document.createElement("tr");
-        trPromo.innerHTML = `
-          <td colspan="7" class="promo-aplicada">
-            Promo: ${descNombre} → -${formatearMoneda(descuentoPromo)}
-          </td>`;
-        tbodyTicket.appendChild(trPromo);
+          if (kgInt <= 0) return `${fmtInt0.format(Math.max(g, 0))} g`;
+          if (g <= 0) return `${kgInt} kg`;
+          return `${kgInt} kg ${fmtInt0.format(g)} g`;
+        }
+
+        // LT (interno en litros)
+        if (u === "LT") {
+          const lt = cant;
+          const ltInt = Math.floor(lt + 1e-9);
+          let ml = Math.round((lt - ltInt) * 1000);
+
+          if (ml >= 1000) { ml -= 1000; } // ajuste por redondeo
+
+          if (ltInt <= 0) return `${fmtInt0.format(Math.max(ml, 0))} ml`;
+          if (ml <= 0) return `${ltInt} l`;
+          return `${ltInt} l ${fmtInt0.format(ml)} ml`;
+        }
+
+        // fallback
+        return `${fmtQty3.format(cant)} ${u}`;
       }
-    });
 
-    if (combos.length > 0) {
+      // descuento combos (como antes): sumaLista - precio_combo
       combos.forEach((cb) => {
+        const sumaLista = cb.combo.items.reduce((acc, it) => {
+          const prod = carrito.find((p) => Number(p.id) === it.producto_id);
+          if (!prod) return acc;
+          return acc + (Number(prod.precioLista) || 0) * it.cantidad;
+        }, 0);
+
+        const descuentoUnit = sumaLista - cb.combo.precio_combo;
+        cb.descuento = descuentoUnit * cb.cantidad;
+        totalDescCombos += cb.descuento;
+      });
+
+      carrito.forEach((item, idx) => {
+        const cant = Number(item.cantidad);
+        const lista = Number(item.precioLista) || 0;
+        const base = Number(item.precio) || 0;
+
+        const subtotalOriginal = cant * lista;
+        let subtotalConPromo = cant * base;
+
+        const promo = aplicarPromosItem(item);
+        let descuentoPromo = 0;
+        let descNombre = null;
+
+        // si hay promo: ignora descuento manual (como backend)
+        if (promo) {
+          subtotalConPromo = promo.subtotalFinal;
+          descuentoPromo = promo.descuento;
+          descNombre = promo.descripcion;
+        }
+
+        totalBruto += subtotalOriginal;
+        totalNeto += subtotalConPromo;
+
+        const tieneDescManual = !promo && Math.abs(base - lista) > 0.009;
+
+        const u = String(item.unidadVenta || (item.esPesable ? "KG" : "UNID")).toUpperCase();
+        const suf = unidadPrecioSuffix(u, !!item.esPesable);
+
+        const precioHtml = tieneDescManual
+          ? `<div>${formatearMoneda(base)}${suf}</div>
+            <div class="precio-lista">Lista: ${formatearMoneda(lista)}${suf}</div>`
+          : `${formatearMoneda(promo ? lista : base)}${suf}`;
+
+        // ✅ Si no tiene permiso, no mostrar botón Desc.
+        const btnDescHtml = CAN_MOD_PRECIO
+          ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
+          : "";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td>${item.codigo}</td>
+          <td>${item.nombre}</td>
+          <td class="center col-cant">${formatearCantidadUI(item)}</td>
+          <td class="right">${precioHtml}</td>
+          <td class="right">${formatearMoneda(subtotalConPromo)}</td>
+          <td class="acciones">
+            <button class="btn-accion btn-editar" data-idx="${idx}">Editar</button>
+            ${btnDescHtml}
+            <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
+          </td>
+        `;
+        tbodyTicket.appendChild(tr);
+
+        if (descNombre) {
+          const trPromo = document.createElement("tr");
+          trPromo.innerHTML = `
+            <td colspan="7" class="promo-aplicada">
+              Promo: ${descNombre} → -${formatearMoneda(descuentoPromo)}
+            </td>`;
+          tbodyTicket.appendChild(trPromo);
+        }
+      });
+
+      if (combos.length > 0) {
+        combos.forEach((cb) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td colspan="7" class="promo-aplicada">
+              Combo aplicado: ${cb.combo.nombre} x${cb.cantidad}
+              → -${formatearMoneda(cb.descuento)}
+            </td>`;
+          tbodyTicket.appendChild(tr);
+        });
+        totalNeto -= totalDescCombos;
+      }
+
+      // normalizar
+      totalNeto = Math.max(0, Number(totalNeto.toFixed(2)));
+
+      // descuento global al final
+      const descG = Number(calcDescGlobal(totalNeto).toFixed(2));
+      if (descG > 0) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td colspan="7" class="promo-aplicada">
-            Combo aplicado: ${cb.combo.nombre} x${cb.cantidad}
-            → -${formatearMoneda(cb.descuento)}
+            Descuento global → -${formatearMoneda(descG)}
           </td>`;
         tbodyTicket.appendChild(tr);
-      });
-      totalNeto -= totalDescCombos;
+
+        totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
+      }
+
+      lblTotalBruto.textContent = formatearMoneda(totalBruto);
+      lblTotal.textContent = formatearMoneda(totalNeto);
+      lblDescGlobal.textContent = formatearMoneda(Math.max(0, totalBruto - totalNeto));
+
+      totalNetoActual = totalNeto;
+
+      ajustarPagoSegunMedio();
+      recalcularVuelto();
+      guardarEstado();
     }
 
-    // normalizar
-    totalNeto = Math.max(0, Number(totalNeto.toFixed(2)));
+    // ✅ Debounced version para inputs rápidos
+    const actualizarVista = debounce(_actualizarVista, 150);
 
-    // descuento global al final
-    const descG = Number(calcDescGlobal(totalNeto).toFixed(2));
-    if (descG > 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td colspan="7" class="promo-aplicada">
-          Descuento global → -${formatearMoneda(descG)}
-        </td>`;
-      tbodyTicket.appendChild(tr);
-
-      totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
+    // Para cambios que necesitan render inmediato (agregar/quitar)
+    function actualizarVistaInmediata() {
+      _actualizarVista();
     }
 
-    lblTotalBruto.textContent = formatearMoneda(totalBruto);
-    lblTotal.textContent = formatearMoneda(totalNeto);
-    lblDescGlobal.textContent = formatearMoneda(
-      Math.max(0, totalBruto - totalNeto)
-    );
-
-    totalNetoActual = totalNeto;
-
-    ajustarPagoSegunMedio();
-    recalcularVuelto();
-    guardarEstado();
-  }
-
-  // ✅ Debounced version para inputs rápidos
-  const actualizarVista = debounce(_actualizarVista, 150);
-
-  // Para cambios que necesitan render inmediato (agregar/quitar)
-  function actualizarVistaInmediata() {
-    _actualizarVista();
-  }
 
   // =========================
   // AGREGAR ITEM
@@ -835,11 +1003,18 @@ function medioEsEfectivo() {
         p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
       const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
 
-      let cantidad = esPesable
-        ? parseFloat(String(inputCant?.value || "0").replace(",", "."))
-        : parseInt(String(inputCant?.value || "1"), 10);
+      // ✅ Hint para el cajero (según unidad)
+      aplicarHintCantidadInput(unidadVenta);
 
-      if (isNaN(cantidad) || cantidad <= 0) cantidad = esPesable ? 0.1 : 1;
+      let cantidad = cantidadInternaDesdeInput(inputCant?.value || "1", unidadVenta, esPesable);
+
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        // defaults “seguros”
+        if (esPesable && (unidadVenta === "G" || unidadVenta === "ML")) cantidad = 1; // 1 pack = 100g/100ml
+        else if (esPesable) cantidad = 0.1; // 0.1 kg/lt
+        else cantidad = 1;
+      }
+
 
       const existente = carrito.find((i) => Number(i.id) === Number(p.id));
       const enCarrito = existente ? Number(existente.cantidad) : 0;
@@ -960,6 +1135,85 @@ function medioEsEfectivo() {
     if (!modal.classList.contains("hidden") && e.key === "Escape")
       cerrarModal(false);
   });
+  // ✅ Parse decimal tolerante: "3,373" | "3.373" | "1.234,567"
+    function parseDecimalFlex(raw) {
+      let s = String(raw ?? "").trim();
+      if (!s) return NaN;
+
+      s = s.replace(/\s+/g, "");
+
+      const lastComma = s.lastIndexOf(",");
+      const lastDot = s.lastIndexOf(".");
+
+      // si hay ambos, el último es decimal y el otro miles
+      if (lastComma > -1 && lastDot > -1) {
+        const dec = lastComma > lastDot ? "," : ".";
+        const parts = s.split(dec);
+        const intPart = parts.slice(0, -1).join(dec).replace(/[.,]/g, "");
+        const fracPart = parts[parts.length - 1].replace(/[.,]/g, "");
+        return parseFloat(intPart + "." + fracPart);
+      }
+
+      // si hay uno solo, lo tratamos como decimal
+      if (lastComma > -1) return parseFloat(s.replace(/\./g, "").replace(",", "."));
+      if (lastDot > -1) return parseFloat(s.replace(/,/g, "")); // deja el punto como decimal
+
+      return parseFloat(s);
+    }
+
+    // ✅ Cantidad pesable flexible según unidad (KG/LT/G(100g)/ML(100ml))
+    // - admite sufijos: g, kg, ml, l/lt
+    // - si unidad es G o ML y no hay sufijo: 3 = "3x100" ; 300 = "300g/ml" (heurística)
+    function parseCantPesableFlex(raw, unidadVenta) {
+      let s = String(raw ?? "").trim().toLowerCase();
+      if (!s) return NaN;
+      s = s.replace(/\s+/g, "");
+
+      const m = s.match(/^([0-9.,]+)(kg|g|lt|l|ml)?$/i);
+      if (!m) return NaN;
+
+      const n = parseDecimalFlex(m[1]);
+      if (!Number.isFinite(n)) return NaN;
+
+      const suf = (m[2] || "").toLowerCase();
+      const u = String(unidadVenta || "KG").toUpperCase();
+
+      // Sin sufijo: interpretar según unidad
+      // Sin sufijo: interpretar según unidad
+      if (!suf) {
+        if (u === "G")  return n >= 20 ? (n / 100) : n;    // 300 => 3 (x100g)
+        if (u === "ML") return n >= 20 ? (n / 100) : n;    // 800 => 8 (x100ml)
+
+        if (u === "KG") return n >= 50 ? (n / 1000) : n;   // 3373 => 3.373 kg
+        if (u === "LT") return n >= 50 ? (n / 1000) : n;   // 700  => 0.700 lt
+
+        return n;
+      }
+
+
+      // Con sufijo: convertir a tu unidad interna
+      if (suf === "g") {
+        if (u === "KG") return n / 1000;
+        if (u === "G")  return n / 100;
+        return n;
+      }
+      if (suf === "kg") {
+        if (u === "G") return (n * 1000) / 100; // kg -> (100g)
+        return n;
+      }
+      if (suf === "ml") {
+        if (u === "LT") return n / 1000;
+        if (u === "ML") return n / 100;
+        return n;
+      }
+      if (suf === "l" || suf === "lt") {
+        if (u === "ML") return (n * 1000) / 100; // litros -> (100ml)
+        return n;
+      }
+
+      return n;
+    }
+
   // =========================
   // EDITAR / QUITAR / DESCUENTO ITEM
   // =========================
@@ -976,53 +1230,65 @@ function medioEsEfectivo() {
       const item = carrito[idx];
       if (!item) return;
 
+      const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
       const step = item.esPesable ? "0.001" : "1";
       const min = item.esPesable ? "0.001" : "1";
 
+      // ✅ Hints para el cajero
+      const hint =
+        item.esPesable
+          ? (unidad === "KG" ? "Ej: 3,373  |  3.373  |  3373g"
+            : unidad === "LT" ? "Ej: 0,700  |  0.7  |  700ml"
+            : unidad === "G"  ? "Ej: 3 (x100g)  |  300  |  300g"
+            : unidad === "ML" ? "Ej: 8 (x100ml) | 800  | 800ml"
+            : "")
+          : "";
+
       mostrarModal({
         titulo: "Editar cantidad",
-        texto: item.nombre,
+        texto: hint ? `${item.nombre}\n${hint}` : item.nombre,
         input: true,
-        valorDefault: item.cantidad,
-        label: "Cantidad",
-        showTipo: false,
-        inputType: "number",
+        valorDefault: item.esPesable
+        ? String(cantidadHumanaDesdeInterna(item.cantidad, unidad, true))
+        : item.cantidad,
+
+        // ✅ CLAVE: para pesables usamos TEXT para que NO te “coma” el punto
+        inputType: item.esPesable ? "text" : "number",
         min,
         step,
       }).then((val) => {
         if (val === false) return;
 
-        let num = parseFloat(String(val).replace(",", "."));
+        let num;
+
+        if (item.esPesable) {
+          num = parseCantPesableFlex(val, unidad);
+        } else {
+          num = parseFloat(String(val).replace(",", "."));
+          if (Number.isFinite(num)) num = Math.round(num);
+        }
+
         if (!Number.isFinite(num)) return;
 
-        if (!item.esPesable) num = Math.round(num);
-
-        // ✅ 0 o menor => eliminar item
+        // ✅ 0 o menor => eliminar
         if (num <= 0) {
           carrito.splice(idx, 1);
           actualizarVistaInmediata();
           return;
         }
 
-        // ✅ Stock (solo si existe en el item; evita borrar por estados viejos sin stock)
+        // ✅ Validar stock (si existe)
         const hasStock = item.stock != null && item.stock !== "";
         if (hasStock) {
           const stock = Number(item.stock) || 0;
           const tol = item.esPesable ? 0.01 : 0;
 
           if (num > stock + tol) {
-            const maxTxt = item.esPesable
-              ? fmtQty3.format(stock)
-              : String(Math.round(stock));
-
-            mostrarMensaje(
-              "error",
-              `Stock insuficiente. Máximo: ${maxTxt} ${item.unidadVenta || ""}`
-            );
+            const maxTxt = item.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
+            mostrarMensaje("error", `Stock insuficiente. Máximo: ${maxTxt} ${unidad}`);
             num = stock;
           }
 
-          // si el stock es 0 (o quedó 0 tras ajustar), se elimina
           if (num <= 0) {
             carrito.splice(idx, 1);
             actualizarVistaInmediata();
@@ -1030,13 +1296,13 @@ function medioEsEfectivo() {
           }
         }
 
-        // si NO hay stock guardado, igual permitimos el cambio (sin validar contra stock)
         item.cantidad = num;
         actualizarVistaInmediata();
       });
 
       return;
     }
+
 
     // -------------------------
     // DESCUENTO / CAMBIAR PRECIO

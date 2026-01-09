@@ -24,9 +24,16 @@ $ver = ($env === 'dev') ? (string)time() : '1.0.0';
 
 <!-- JS adicionales por página -->
 <?php foreach ($extraJs as $src): ?>
-  <?php $sep = (strpos((string)$src, '?') !== false) ? '&' : '?'; ?>
-  <script src="<?= htmlspecialchars((string)$src, ENT_QUOTES, 'UTF-8') ?><?= $sep ?>v=<?= htmlspecialchars($ver, ENT_QUOTES, 'UTF-8') ?>"></script>
+  <?php
+    $srcStr = (string)$src;
+    $clean  = strtok($srcStr, '?'); // quita query si trae
+    $fsPath = __DIR__ . '/../' . ltrim($clean, '/'); // public/partials -> public/...
+    $mtime  = file_exists($fsPath) ? (string)filemtime($fsPath) : $ver;
+    $sep    = (strpos($srcStr, '?') !== false) ? '&' : '?';
+  ?>
+  <script src="<?= htmlspecialchars($srcStr, ENT_QUOTES, 'UTF-8') ?><?= $sep ?>v=<?= htmlspecialchars($mtime, ENT_QUOTES, 'UTF-8') ?>"></script>
 <?php endforeach; ?>
+
 
 <!-- Inline JS específico (opcional) -->
 <?php if ($inlineJs): ?>

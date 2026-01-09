@@ -1,20 +1,35 @@
 // public/assets/js/dashboard.js
-let __dashCharts = [];
+if (window.__flus_dashboard_js_loaded) {
+  // evita doble carga accidental
+} else {
+  window.__flus_dashboard_js_loaded = true;
 
-document.addEventListener("DOMContentLoaded", () => {
-  const data = window.dashboardData || {};
+  let __dashCharts = [];
 
-  initPresetChips(data);
-  initToast();
-  initSparklines();
+  function bootDashboard() {
+    const data = window.dashboardData || {};
 
-  renderAllCharts(data);
+    initPresetChips(data);
+    initToast();
+    initExportLinks();   // ✅ ahora sí se ejecuta
+    initSparklines();
 
-  watchThemeChanges(() => {
     renderAllCharts(data);
-    initSparklines(); // redibuja sparklines cuando cambia el tema
-  });
-});
+
+    watchThemeChanges(() => {
+      renderAllCharts(data);
+      initSparklines();
+    });
+  }
+
+  // ✅ Soporta carga tardía (si el script entra después de DOMContentLoaded)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootDashboard);
+  } else {
+    bootDashboard();
+  }
+
+  // ⬇️ TODO lo demás del archivo queda igual, debajo
 
 /* =========================
    HELPERS NUM / FORMAT
@@ -870,31 +885,6 @@ function formatHumanDate(ymd) {
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
 }
-function initExportLinks() {
-  const fromInput = document.getElementById("dashFrom");
-  const toInput = document.getElementById("dashTo");
-  const links = Array.from(
-    document.querySelectorAll("a.dash-export[data-export-type]")
-  );
-  if (!fromInput || !toInput || links.length === 0) return;
-
-  const refresh = () => {
-    const from = fromInput.value || "";
-    const to = toInput.value || "";
-    links.forEach((a) => {
-      const type = a.dataset.exportType || "kpis";
-      a.href = `dashboard_export.php?type=${encodeURIComponent(
-        type
-      )}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    });
-  };
-
-  refresh();
-  fromInput.addEventListener("change", refresh);
-  toInput.addEventListener("change", refresh);
-  fromInput.addEventListener("input", refresh);
-  toInput.addEventListener("input", refresh);
-}
 /* =========================
    EXPORT LINKS (actualiza from/to)
 ========================= */
@@ -907,9 +897,7 @@ function initExportLinks() {
   if (!fromInput || !toInput || links.length === 0) return;
 
   const buildHref = (type, from, to) =>
-    `dashboard_export.php?type=${encodeURIComponent(
-      type
-    )}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
 
   const refresh = () => {
     const from = fromInput.value || "";
@@ -922,13 +910,18 @@ function initExportLinks() {
   };
 
   refresh();
-  fromInput.addEventListener("change", refresh);
-  toInput.addEventListener("change", refresh);
+
+  // ✅ change + input (más responsive)
+  ["change", "input"].forEach((ev) => {
+    fromInput.addEventListener(ev, refresh);
+    toInput.addEventListener(ev, refresh);
+  });
 
   links.forEach((a) => {
     a.addEventListener("click", () => {
-      // cerrar dropdown al click
       if (dd && dd.open) dd.open = false;
     });
   });
+}
+
 }

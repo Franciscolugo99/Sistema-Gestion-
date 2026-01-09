@@ -10,13 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const motivo = prompt("Motivo de anulación (opcional):", "");
     if (motivo === null) return; // cancel
 
-    if (
-      !confirm(
-        `¿Confirmás anular la venta #${ventaId}? Se repondrá el stock y se ajustará la caja.`
-      )
-    ) return;
+    if (!confirm(`¿Confirmás anular la venta #${ventaId}? Se repondrá el stock y se ajustará la caja.`)) {
+      return;
+    }
 
-    // Chequeo CSRF (solo para dar un error claro si falta el meta)
     const csrf =
       (window.getCsrfToken && window.getCsrfToken()) ||
       document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
@@ -34,11 +31,11 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error("apiJson() no está disponible (¿se cargó app.js en esta página?).");
       }
 
-      await window.apiJson("api/index.php", {
-        action: "anular_venta",
+      await window.apiJson("api/index.php?action=anular_venta", {
         venta_id: ventaId,
         motivo: (motivo || "").trim(),
       });
+
 
       location.reload();
     } catch (e) {

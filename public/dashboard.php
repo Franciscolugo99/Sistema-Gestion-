@@ -644,7 +644,7 @@ if ($hasVentas && $ventasFechaCol) {
 /* =========================
    HEADER
 ========================= */
-$pageTitle = 'Dashboard';
+$pageTitle = 'Panel de Control';
 $currentSection = 'dashboard';
 $extraCss = ['assets/css/dashboard.css?v=2', 'assets/css/dashboard-advanced.css?v=2'];
 
@@ -678,7 +678,7 @@ require __DIR__ . '/partials/header.php';
         <button type="button" class="dash-chip" data-preset="month">Este mes</button>
 
         <!-- Dropdown export (no molesta visualmente) -->
-        <details class="dash-export-dd">
+        <details id="dashExportDD" class="dash-export-dd">
           <summary>Exportar ▾</summary>
           <div class="dash-export-dd-menu">
             <a class="dash-export" data-export-type="kpis" href="dashboard_export.php?type=kpis&from=<?= h($from) ?>&to=<?= h($to) ?>">KPIs</a>
@@ -938,7 +938,33 @@ require __DIR__ . '/partials/header.php';
   };
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="assets/js/dashboard.js?v=4" defer></script>
+<script>
+(function () {
+  function load(src, onload, onerror) {
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = false; // ✅ respeta orden
+    s.onload = onload || null;
+    s.onerror = onerror || null;
+    document.head.appendChild(s);
+  }
+
+  function loadDash() {
+    load("assets/js/dashboard.js?v=4");
+  }
+
+  load(
+    "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+    function () {
+      if (window.Chart) loadDash();
+      else load("assets/vendor/chartjs/chart.umd.min.js?v=4.4.1", loadDash);
+    },
+    function () {
+      load("assets/vendor/chartjs/chart.umd.min.js?v=4.4.1", loadDash);
+    }
+  );
+})();
+</script>
+
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

@@ -1,5 +1,5 @@
 <?php
-// public/productos.php
+// public/productos.php - VERSIÓN CORREGIDA (2026) ✅
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -42,7 +42,7 @@ function productos_clean_qs(array $qs): array {
   // params internos que NO deben viajar en links
   foreach ([
     'toggle','action','csrf_token',
-    'ajaxList','ajaxTbody','ajax','editar',
+    'ajaxList','ajaxTbody','ajax','editar', // ✅ editar también se limpia
     'saved','toast','toast_msg','clearForm',
   ] as $k) {
     unset($qs[$k]);
@@ -388,6 +388,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $unidadVenta = 'UNIDAD';
     }
 
+    /* ================================
+      VALIDACIÓN COHERENCIA PESABLES
+    ================================ */
+    $unidadesPesables = ['KG', 'G', 'LT', 'ML'];
+
+    if ($esPesable === 1 && $unidadVenta === 'UNIDAD') {
+      $msg = "Error: Producto pesable debe tener unidad de peso o volumen (KG, G, LT, ML).";
+    }
+
+    if ($msg === '' && $esPesable === 0 && in_array($unidadVenta, $unidadesPesables, true)) {
+      $msg = "Error: Producto con unidad de peso/volumen debe estar marcado como pesable.";
+    }
+
+    if ($msg === '' && $esPesable === 1 && $precio <= 0) {
+      $msg = "Error: Producto pesable debe tener precio mayor a $0.";
+    }
+
     $imagenNombre   = null;
     $imagenAnterior = null;
 
@@ -466,7 +483,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $params = productos_return_params_from_post();
-        $params = $params + ['saved' => 'updated'];
+        
+        // ✅ FIX: NO incluir 'editar' en el redirect
+        unset($params['editar']);
+        unset($params['ajax']);
+        
+        $params['saved'] = 'updated';
         header("Location: productos.php?" . http_build_query($params));
         exit;
       } else {
@@ -488,7 +510,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         $params = productos_return_params_from_post();
-        $params = $params + ['saved' => 'created', 'clearForm' => '1'];
+        
+        // ✅ FIX: NO incluir 'editar' en el redirect
+        unset($params['editar']);
+        unset($params['ajax']);
+        
+        $params['saved'] = 'created';
+        $params['clearForm'] = '1';
         header("Location: productos.php?" . http_build_query($params));
         exit;
       }
@@ -498,14 +526,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /* ================================
    OBTENER PRODUCTO PARA EDICIÓN
+   ✅ FIX: Limpiar URL después de cargar
 ================================ */
 $editProducto = null;
+$esModoEdicion = false;
+
 if (isset($_GET['editar'])) {
   $id = (int)($_GET['editar'] ?? 0);
   if ($id > 0) {
     $stmt = $pdo->prepare("SELECT * FROM productos WHERE id = ? LIMIT 1");
     $stmt->execute([$id]);
     $editProducto = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    
+    if ($editProducto) {
+      $esModoEdicion = true;
+    }
   }
 }
 
@@ -562,8 +597,7 @@ $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $orderSql = "ORDER BY activo DESC, {$sort} {$dir}";
 
 /* ================================
-   AJAX TBODY (para búsqueda en vivo)
-   -> devuelve HTML de filas con el mismo markup que PHP
+   AJAX TBODY
 ================================ */
 if (isset($_GET['ajaxTbody'])) {
   $validSort = ['nombre','codigo','precio','stock','categoria','marca','proveedor'];
@@ -643,8 +677,7 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 $pageTitle      = 'Productos';
 $currentSection = 'productos';
 
-// bust cache para evitar que el navegador use JS viejo
-$ver = '20260105_01';
+$ver = '20260108_01'; // ✅ bump version
 $extraCss = ["assets/css/productos.css?v={$ver}"];
 $extraJs  = ["assets/js/productos.js?v={$ver}"];
 
@@ -655,26 +688,32 @@ require_once __DIR__ . '/partials/header.php';
 
   <div class="panel">
     <?php
-      $showForm = !empty($editProducto);
+      // ✅ FIX: Mostrar formulario solo si estamos editando o hubo error
+      $showForm = $esModoEdicion;
       if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($msg)) $showForm = true;
     ?>
 
-      <!-- Reemplazar el botón actual en productos.php (línea ~780 aprox) -->
-      <div class="productos-header">
-        <div class="productos-header-left">
-          <h1 class="page-title">Productos</h1>
-          <p class="page-sub">Gestión de productos del sistema</p>
-        </div>
-
-        <button type="button" class="btn btn-primary btn-new-product" id="toggleFormBtn" data-toggle-product-form="1">
-          <span class="label">Agregar producto</span>
-        </button>
+    <div class="productos-header">
+      <div class="productos-header-left">
+        <h1 class="page-title">Productos</h1>
+        <p class="page-sub">Gestión de productos del sistema</p>
       </div>
+
+      <button type="button"
+        class="btn btn-primary btn-new-product"
+        id="toggleFormBtn"
+        data-toggle-product-form="1"
+        aria-controls="productFormBlock"
+        aria-expanded="<?= $showForm ? 'true' : 'false' ?>">
+        <span class="label"><?= $esModoEdicion ? 'Editar producto' : 'Agregar producto' ?></span>
+      </button>
+    </div>
 
     <div id="productFormBlock" class="product-form-block<?= $showForm ? '' : ' is-collapsed' ?>">
       <form method="post" class="productos-form" enctype="multipart/form-data" autocomplete="off">
         <?= csrf_field() ?>
         <input type="hidden" name="return_qs" value="<?= h($returnQs) ?>">
+
         <?php if (!empty($editProducto)): ?>
           <input type="hidden" name="id" value="<?= (int)$editProducto['id'] ?>">
         <?php endif; ?>
@@ -744,29 +783,62 @@ require_once __DIR__ . '/partials/header.php';
             <input type="number" name="stock_minimo" step="0.001" min="0" value="<?= h($editProducto['stock_minimo'] ?? '0') ?>">
           </div>
 
+          <!-- Sistema compacto de productos pesables -->
           <div class="pf-field pf-field-pesable">
             <div class="pf-label-top">Producto pesable</div>
             <div class="pf-pesable-row">
               <label class="edit-switch">
-                <input type="checkbox" name="es_pesable" value="1" <?= $esPesableForm ? 'checked' : '' ?>>
+                <input type="checkbox" name="es_pesable" value="1" id="esPesableMain" <?= $esPesableForm ? 'checked' : '' ?>>
                 <span class="edit-switch-slider"></span>
               </label>
               <div class="pf-pesable-text">
                 <div class="pf-pesable-title">Venta por peso / volumen</div>
-                <p class="pf-help-text">Ej: carnicería, fiambres, frutas por kilo, etc.</p>
+                <p class="pf-help-text">Ej: carnicería, fiambres, frutas por kilo.</p>
               </div>
             </div>
           </div>
 
-          <div class="pf-field">
-            <label for="unidad_venta">Unidad de venta</label>
-            <select name="unidad_venta" id="unidad_venta">
-              <?php foreach (['UNIDAD','KG','G','LT','ML'] as $u): ?>
-                <option value="<?= h($u) ?>" <?= ($unidadVentaForm === $u) ? 'selected' : '' ?>>
-                  <?= h($u) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
+          <div class="pf-field pf-field-wide pesable-units-container" id="pesableOptionsMain" <?= $esPesableForm ? '' : 'style="display:none;"' ?>>
+            <div class="units-compact-grid">
+              <label class="unit-compact-card">
+                <input type="radio" name="unidad_venta_visual" value="KG" <?= ($esPesableForm && $unidadVentaForm === 'KG') ? 'checked' : '' ?>>
+                <span class="unit-compact-content">
+                  <span class="unit-compact-icon">🍖</span>
+                  <span class="unit-compact-label">1 KG</span>
+                </span>
+              </label>
+
+              <label class="unit-compact-card">
+                <input type="radio" name="unidad_venta_visual" value="G" <?= ($esPesableForm && $unidadVentaForm === 'G') ? 'checked' : '' ?>>
+                <span class="unit-compact-content">
+                  <span class="unit-compact-icon">🥩</span>
+                  <span class="unit-compact-label">100 G</span>
+                </span>
+              </label>
+
+              <label class="unit-compact-card">
+                <input type="radio" name="unidad_venta_visual" value="LT" <?= ($esPesableForm && $unidadVentaForm === 'LT') ? 'checked' : '' ?>>
+                <span class="unit-compact-content">
+                  <span class="unit-compact-icon">🥛</span>
+                  <span class="unit-compact-label">1 Litro</span>
+                </span>
+              </label>
+
+              <label class="unit-compact-card">
+                <input type="radio" name="unidad_venta_visual" value="ML" <?= ($esPesableForm && $unidadVentaForm === 'ML') ? 'checked' : '' ?>>
+                <span class="unit-compact-content">
+                  <span class="unit-compact-icon">🧃</span>
+                  <span class="unit-compact-label">100 ML</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="units-compact-preview" id="pesablePreviewMain">
+              <span class="preview-compact-label">Vista previa:</span>
+              <span class="preview-compact-value">—</span>
+            </div>
+
+            <input type="hidden" name="unidad_venta" id="unidad_venta_real_main" value="<?= h($unidadVentaForm) ?>">
           </div>
 
           <div class="pf-field pf-field-wide">
@@ -793,7 +865,9 @@ require_once __DIR__ . '/partials/header.php';
         </div>
 
         <div class="pf-actions">
-          <button class="btn btn-primary" type="submit">Guardar</button>
+          <button class="btn btn-primary" type="submit">
+            <?= $esModoEdicion ? 'Actualizar' : 'Guardar' ?>
+          </button>
           <button class="btn btn-secondary" type="button" id="btnClearForm" data-clear-form="1" title="Limpiar formulario">
             Limpiar
           </button>
@@ -817,13 +891,15 @@ require_once __DIR__ . '/partials/header.php';
 
     <form method="get" class="filters" id="filtersForm">
       <div class="filters-left">
-        <input
-          type="text"
-          id="searchInput"
-          name="q"
-          placeholder="Buscar por código, nombre, marca..."
-          value="<?= h($buscar) ?>"
-        >
+        <div class="search-wrapper">
+          <input
+            type="text"
+            id="searchInput"
+            name="q"
+            placeholder="Buscar (Ctrl+K)"
+            value="<?= h($buscar) ?>"
+          >
+        </div>
       </div>
 
       <div class="filters-right">
@@ -844,6 +920,10 @@ require_once __DIR__ . '/partials/header.php';
         <input type="hidden" name="page" value="1">
 
         <button class="btn btn-filter" type="submit">Aplicar</button>
+
+        <button type="button" id="btnExportCSV" class="btn-export" title="Exportar a Excel (CSV)">
+          Exportar
+        </button>
 
         <?php if ($buscar !== '' || $estado !== ''): ?>
           <a href="productos.php" class="btn btn-secondary">Limpiar</a>
@@ -978,7 +1058,7 @@ require_once __DIR__ . '/partials/header.php';
           <div class="edit-label-top">Producto pesable</div>
           <div class="edit-pesable-row">
             <label class="edit-switch">
-              <input type="checkbox" name="es_pesable" value="1">
+              <input type="checkbox" name="es_pesable" value="1" id="esPesableEdit">
               <span class="edit-switch-slider"></span>
             </label>
             <div class="edit-pesable-text">
@@ -988,15 +1068,47 @@ require_once __DIR__ . '/partials/header.php';
           </div>
         </div>
 
-        <div class="edit-field">
-          <label>Unidad de venta</label>
-          <select name="unidad_venta">
-            <option value="UNIDAD">UNIDAD</option>
-            <option value="KG">KG</option>
-            <option value="G">G</option>
-            <option value="LT">LT</option>
-            <option value="ML">ML</option>
-          </select>
+        <div class="edit-field edit-field-full pesable-units-container" id="pesableOptionsEdit" style="display:none;">
+          <div class="units-compact-grid">
+            <label class="unit-compact-card">
+              <input type="radio" name="unidad_venta_visual_edit" value="KG">
+              <span class="unit-compact-content">
+                <span class="unit-compact-icon">🍖</span>
+                <span class="unit-compact-label">1 KG</span>
+              </span>
+            </label>
+
+            <label class="unit-compact-card">
+              <input type="radio" name="unidad_venta_visual_edit" value="G">
+              <span class="unit-compact-content">
+                <span class="unit-compact-icon">🥩</span>
+                <span class="unit-compact-label">100 G</span>
+              </span>
+            </label>
+
+            <label class="unit-compact-card">
+              <input type="radio" name="unidad_venta_visual_edit" value="LT">
+              <span class="unit-compact-content">
+                <span class="unit-compact-icon">🥛</span>
+                <span class="unit-compact-label">1 Litro</span>
+              </span>
+            </label>
+
+            <label class="unit-compact-card">
+              <input type="radio" name="unidad_venta_visual_edit" value="ML">
+              <span class="unit-compact-content">
+                <span class="unit-compact-icon">🧃</span>
+                <span class="unit-compact-label">100 ML</span>
+              </span>
+            </label>
+          </div>
+
+          <div class="units-compact-preview" id="pesablePreviewEdit">
+            <span class="preview-compact-label">Vista previa:</span>
+            <span class="preview-compact-value">—</span>
+          </div>
+
+          <input type="hidden" name="unidad_venta" id="unidad_venta_real_edit">
         </div>
 
         <div class="edit-field edit-field-full">
@@ -1042,6 +1154,20 @@ require_once __DIR__ . '/partials/header.php';
 <?php
 $inlineJs = $inlineJs ?? '';
 
+// ✅ FIX: Limpiar parámetro 'editar' de la URL si cargamos en modo edición
+if ($esModoEdicion) {
+  $inlineJs .= <<<JS
+  (function() {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('editar')) {
+      url.searchParams.delete('editar');
+      url.searchParams.delete('ajax');
+      window.history.replaceState({}, '', url.toString());
+    }
+  })();
+  JS;
+}
+
 if (!empty($_GET['saved'])) {
   $msgToast = ($_GET['saved'] === 'created')
     ? 'Producto creado correctamente.'
@@ -1058,6 +1184,7 @@ if (!empty($_GET['toast'])) {
   if ($t === 'error')        $inlineJs .= "window.showToast && window.showToast(" . json_encode($tm ?: 'Ocurrió un error.') . ", 'error');";
 }
 
+// Limpiar parámetros de URL
 $inlineJs .= <<<JS
 (() => {
   const url = new URL(window.location.href);
@@ -1066,4 +1193,31 @@ $inlineJs .= <<<JS
 })();
 JS;
 
+?>
+
+<div class="keyboard-hints" id="keyboardHints">
+  <div class="keyboard-hints-item">
+    <kbd class="keyboard-hints-key">Ctrl</kbd> +
+    <kbd class="keyboard-hints-key">K</kbd> = Buscar
+  </div>
+  <div class="keyboard-hints-item">
+    <kbd class="keyboard-hints-key">Ctrl</kbd> +
+    <kbd class="keyboard-hints-key">N</kbd> = Nuevo
+  </div>
+  <div class="keyboard-hints-item">
+    <kbd class="keyboard-hints-key">Esc</kbd> = Cerrar
+  </div>
+</div>
+
+<script>
+setTimeout(() => {
+  const hints = document.getElementById('keyboardHints');
+  if (hints) {
+    hints.classList.add('show');
+    setTimeout(() => hints.classList.remove('show'), 5000);
+  }
+}, 1000);
+</script>
+
+<?php
 require_once __DIR__ . '/partials/footer.php';
