@@ -363,3 +363,68 @@ body.dark .ventas-filters input::placeholder,
 :root.dark .ventas-filters input::placeholder{
   color: rgba(226,232,240,.55);
 }
+/* =========================================================
+   Scrollbar linda SOLO para el panel de edición
+   (Chrome/Edge/Safari + Firefox)
+========================================================= */
+
+/* Asegurá que el panel sea el que scrollea (si ya lo tenés, dejalo) */
+#editPanel.edit-panel{
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* WebKit */
+#editPanel.edit-panel::-webkit-scrollbar{
+  width: 10px;
+}
+#editPanel.edit-panel::-webkit-scrollbar-track{
+  background: var(--sb-track);
+  border-radius: 999px;
+  margin: 10px 0; /* separa arriba/abajo para que quede “premium” */
+}
+#editPanel.edit-panel::-webkit-scrollbar-thumb{
+  background: var(--sb-thumb);
+  border-radius: 999px;
+
+  /* truco para que se vea fino aunque sea ancho */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+#editPanel.edit-panel::-webkit-scrollbar-thumb:hover{
+  background: var(--sb-thumb-hover);
+  background-clip: padding-box;
+}
+#editPanel.edit-panel::-webkit-scrollbar-thumb:active{
+  background: var(--sb-thumb-active);
+  background-clip: padding-box;
+}
+
+/* =========================
+   Tokens por tema (usa tu data-theme)
+========================= */
+:root{
+  --sb-track: rgba(148,163,184,.10);
+  --sb-thumb: rgba(148,163,184,.30);
+  --sb-thumb-hover: rgba(148,163,184,.45);
+  --sb-thumb-active: rgba(148,163,184,.60);
+}
+
+html[data-theme="dark"]{
+  --sb-track: rgba(2,6,23,.30);
+  --sb-thumb: rgba(148,163,184,.28);
+  --sb-thumb-hover: rgba(148,163,184,.45);
+  --sb-thumb-active: rgba(148,163,184,.62);
+}
+
+html[data-theme="light"]{
+  --sb-track: rgba(15,23,42,.08);
+  --sb-thumb: rgba(15,23,42,.20);
+  --sb-thumb-hover: rgba(15,23,42,.32);
+  --sb-thumb-active: rgba(15,23,42,.45);
+}

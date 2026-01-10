@@ -234,89 +234,102 @@ if (!function_exists('terminal_locks_gc')) {
   }
 }
 
-if (!function_exists('terminal_lock_acquire')) {
-  function terminal_lock_acquire(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
-    if ($terminalId <= 0 || $userId <= 0 || $sessionId === '') {
-      return ['ok' => false, 'error' => 'BAD_ARGS'];
-    }
-    if (!terminal__table_exists($pdo, 'terminal_locks')) {
-      return ['ok' => false, 'error' => 'NO_LOCK_TABLE'];
-    }
-
-    $ttlSeconds = max(15, min(600, (int)$ttlSeconds));
-    $expires = (new DateTimeImmutable('now'))->modify("+{$ttlSeconds} seconds")->format('Y-m-d H:i:s');
-
-    try {
-      $s = terminal__schema_locks($pdo);
-
-      terminal_locks_gc($pdo, $ttlSeconds);
-
-      // Insert/Update condicional (si está expirado o es el mismo usuario+sesión)
-      $sql = "
-        INSERT INTO terminal_locks
-          (`{$s['terminal_id']}`, `{$s['user_id']}`, `{$s['session_id']}`, `{$s['expires_at']}`" .
-          ($s['updated_at'] ? ", `{$s['updated_at']}`" : "") .
-          ($s['created_at'] ? ", `{$s['created_at']}`" : "") .
-        ")
-        VALUES
-          (:tid, :uid, :sid, :exp" .
-          ($s['updated_at'] ? ", NOW()" : "") .
-          ($s['created_at'] ? ", NOW()" : "") .
-        ")
-        ON DUPLICATE KEY UPDATE
-          `{$s['user_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid2 AND `{$s['session_id']}` = :sid2), VALUES(`{$s['user_id']}`), `{$s['user_id']}`),
-          `{$s['session_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid3 AND `{$s['session_id']}` = :sid3), VALUES(`{$s['session_id']}`), `{$s['session_id']}`),
-          `{$s['expires_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid4 AND `{$s['session_id']}` = :sid4), VALUES(`{$s['expires_at']}`), `{$s['expires_at']}`) " .
-          ($s['updated_at'] ? ", `{$s['updated_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid5 AND `{$s['session_id']}` = :sid5), NOW(), `{$s['updated_at']}`)" : "") . "
-      ";
-
-      $st = $pdo->prepare($sql);
-      $st->execute([
-        ':tid' => $terminalId,
-        ':uid' => $userId,
-        ':sid' => $sessionId,
-        ':exp' => $expires,
-        ':uid2'=> $userId, ':sid2'=> $sessionId,
-        ':uid3'=> $userId, ':sid3'=> $sessionId,
-        ':uid4'=> $userId, ':sid4'=> $sessionId,
-        ':uid5'=> $userId, ':sid5'=> $sessionId,
-      ]);
-
-      // Verificamos quién quedó dueño
-      $st2 = $pdo->prepare("
-        SELECT
-          `{$s['user_id']}` AS user_id,
-          `{$s['session_id']}` AS session_id,
-          `{$s['expires_at']}` AS expires_at
-        FROM terminal_locks
-        WHERE `{$s['terminal_id']}` = :tid
-        LIMIT 1
-      ");
-      $st2->execute([':tid' => $terminalId]);
-      $row = $st2->fetch(PDO::FETCH_ASSOC) ?: [];
-
-      $rowUid = (int)($row['user_id'] ?? 0);
-      $rowSid = (string)($row['session_id'] ?? '');
-      $rowExp = (string)($row['expires_at'] ?? '');
-
-      if ($rowUid === $userId && $rowSid === $sessionId) {
-        return ['ok' => true, 'terminal_id' => $terminalId, 'expires_at' => $rowExp];
+  if (!function_exists('terminal_lock_acquire')) {
+    function terminal_lock_acquire(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {
+      if ($terminalId <= 0 || $userId <= 0 || $sessionId === '') {
+        return ['ok' => false, 'error' => 'BAD_ARGS'];
+      }
+      if (!terminal__table_exists($pdo, 'terminal_locks')) {
+        return ['ok' => false, 'error' => 'NO_LOCK_TABLE'];
       }
 
-      return [
-        'ok' => false,
-        'error' => 'LOCKED',
-        'locked_by_user_id' => $rowUid,
-        'locked_by_session' => $rowSid,
-        'expires_at' => $rowExp,
-      ];
+      $ttlSeconds = max(15, min(600, (int)$ttlSeconds));
+      $expires = (new DateTimeImmutable('now'))->modify("+{$ttlSeconds} seconds")->format('Y-m-d H:i:s');
 
-    } catch (Throwable $e) {
-      error_log('terminal_lock_acquire: ' . $e->getMessage());
-      return ['ok' => false, 'error' => 'DB_ERROR'];
+      try {
+        $s = terminal__schema_locks($pdo);
+
+        terminal_locks_gc($pdo, $ttlSeconds);
+
+        $sql = "
+          INSERT INTO terminal_locks
+            (`{$s['terminal_id']}`, `{$s['user_id']}`, `{$s['session_id']}`, `{$s['expires_at']}`" .
+            ($s['updated_at'] ? ", `{$s['updated_at']}`" : "") .
+            ($s['created_at'] ? ", `{$s['created_at']}`" : "") .
+          ")
+          VALUES
+            (:tid, :uid, :sid, :exp" .
+            ($s['updated_at'] ? ", NOW()" : "") .
+            ($s['created_at'] ? ", NOW()" : "") .
+          ")
+          ON DUPLICATE KEY UPDATE
+            `{$s['user_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid2 AND `{$s['session_id']}` = :sid2), VALUES(`{$s['user_id']}`), `{$s['user_id']}`),
+            `{$s['session_id']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid3 AND `{$s['session_id']}` = :sid3), VALUES(`{$s['session_id']}`), `{$s['session_id']}`),
+            `{$s['expires_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid4 AND `{$s['session_id']}` = :sid4), VALUES(`{$s['expires_at']}`), `{$s['expires_at']}`) " .
+            ($s['updated_at'] ? ", `{$s['updated_at']}` = IF(`{$s['expires_at']}` < NOW() OR (`{$s['user_id']}` = :uid5 AND `{$s['session_id']}` = :sid5), NOW(), `{$s['updated_at']}`)" : "") . "
+        ";
+
+        $params = [
+          ':tid' => $terminalId,
+          ':uid' => $userId,
+          ':sid' => $sessionId,
+          ':exp' => $expires,
+
+          ':uid2'=> $userId, ':sid2'=> $sessionId,
+          ':uid3'=> $userId, ':sid3'=> $sessionId,
+          ':uid4'=> $userId, ':sid4'=> $sessionId,
+        ];
+
+        // ✅ SOLO agregar uid5/sid5 si el SQL los usa
+        if ($s['updated_at']) {
+          $params[':uid5'] = $userId;
+          $params[':sid5'] = $sessionId;
+        }
+
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+
+        // Verificamos quién quedó dueño
+        $st2 = $pdo->prepare("
+          SELECT
+            `{$s['user_id']}` AS user_id,
+            `{$s['session_id']}` AS session_id,
+            `{$s['expires_at']}` AS expires_at
+          FROM terminal_locks
+          WHERE `{$s['terminal_id']}` = :tid
+          LIMIT 1
+        ");
+        $st2->execute([':tid' => $terminalId]);
+        $row = $st2->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $rowUid = (int)($row['user_id'] ?? 0);
+        $rowSid = (string)($row['session_id'] ?? '');
+        $rowExp = (string)($row['expires_at'] ?? '');
+
+        if ($rowUid === $userId && $rowSid === $sessionId) {
+          return ['ok' => true, 'terminal_id' => $terminalId, 'expires_at' => $rowExp];
+        }
+
+        return [
+          'ok' => false,
+          'error' => 'LOCKED',
+          'locked_by_user_id' => $rowUid,
+          'locked_by_session' => $rowSid,
+          'expires_at' => $rowExp,
+        ];
+
+      } catch (Throwable $e) {
+        // ✅ devolvé detalle útil (sin romper UI)
+        error_log('terminal_lock_acquire: ' . $e->getMessage());
+        return [
+          'ok' => false,
+          'error' => 'DB_ERROR',
+          'message' => $e->getMessage(),
+        ];
+      }
     }
   }
-}
+
 
 if (!function_exists('terminal_lock_heartbeat')) {
   function terminal_lock_heartbeat(PDO $pdo, int $terminalId, int $userId, string $sessionId, int $ttlSeconds = 90): array {

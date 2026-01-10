@@ -613,7 +613,7 @@ case 'buscar_producto': {
       ]);
     }
 
-    /* =========================================================
+        /* =========================================================
        TERMINALES (selección/lock)
     ========================================================= */
     case 'terminal_list': {
@@ -649,7 +649,7 @@ case 'buscar_producto': {
       $currentTid = terminal_current_id($pdo);
       if ($currentTid > 0) $_SESSION['terminal_id'] = $currentTid;
 
-      // ✅ si no mandan terminal_id -> devolvemos lista (SIN BUG)
+      // ✅ si no mandan terminal_id -> devolvemos lista
       if ($requestedTerminalId <= 0) {
         $terminales = terminal_list($pdo);
         json_ok([
@@ -661,27 +661,33 @@ case 'buscar_producto': {
       }
 
       $tNew = terminal_get($pdo, $requestedTerminalId);
-      if (!$tNew || (int)($tNew['activo'] ?? 0) !== 1) json_fail('Terminal inválida', 400);
-
-      // Si hay caja abierta en el terminal actual, no permitimos cambiar (seguridad)
-      if ($currentTid > 0) {
-        $open = caja_get_abierta($pdo, $currentTid);
-        if (is_array($open) && !empty($open['id'])) {
-          http_response_code(409);
-          echo json_encode(['ok'=>false, 'error'=>'CAJA_ABIERTA'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-          exit;
-        }
+      if (!$tNew || (int)($tNew['activo'] ?? 0) !== 1) {
+        json_fail('Terminal inválida', 400);
       }
 
       $user = current_user();
       $uid  = (int)($user['id'] ?? 0);
       $sid  = session_id();
 
+      // ✅ Si hay caja abierta en la terminal actual, NO permitimos CAMBIAR a otra
+      if ($currentTid > 0 && $requestedTerminalId !== $currentTid) {
+        $open = caja_get_abierta($pdo, $currentTid);
+        if (is_array($open) && !empty($open['id'])) {
+          json_fail('CAJA_ABIERTA', 409);
+        }
+      }
+
+      // ✅ Si estamos cambiando de terminal, liberamos el lock anterior de este usuario (best effort)
+      if ($currentTid > 0 && $requestedTerminalId !== $currentTid && $uid > 0) {
+        terminal_lock_release($pdo, $currentTid, $uid);
+      }
+
+      // ✅ Adquirir/renovar lock para la terminal pedida (incluye el caso "misma terminal")
       $res = terminal_lock_acquire($pdo, $requestedTerminalId, $uid, $sid, $ttl);
       if (!($res['ok'] ?? false)) {
-        http_response_code(409);
-        echo json_encode(['ok'=>false, 'error'=>(string)($res['error'] ?? 'LOCK_FAIL'), 'detail'=>$res], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-        exit;
+        $err  = (string)($res['error'] ?? 'LOCK_FAIL');
+        $code = ($err === 'DB_ERROR' || $err === 'DB_DOWN' || $err === 'NO_LOCK_TABLE' || $err === 'LOCK_SCHEMA') ? 503 : 409;
+        json_fail($err, $code, ['detail' => $res]);
       }
 
       terminal_set_cookie($requestedTerminalId);
@@ -735,13 +741,10 @@ case 'buscar_producto': {
       }
 
       if ($tid <= 0) {
-        http_response_code(409);
-        echo json_encode(['ok'=>false, 'error'=>'NO_TERMINAL'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-        exit;
+        json_fail('NO_TERMINAL', 409);
       }
 
       $_SESSION['terminal_id'] = $tid;
-
 
       terminal_locks_gc($pdo, $ttl);
 
@@ -760,23 +763,15 @@ case 'buscar_producto': {
             json_ok(['reacquired' => true]);
           }
 
-          // si no se pudo re-adquirir, devolvemos el error real
-          http_response_code(409);
-          echo json_encode(['ok'=>false, 'error'=>(string)($try['error'] ?? $err), 'detail'=>$try],
-            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-          );
-          exit;
+          json_fail((string)($try['error'] ?? $err), 409, ['detail' => $try]);
         }
 
-        http_response_code(409);
-        echo json_encode(['ok'=>false, 'error'=>$err !== '' ? $err : 'LOCK_FAIL', 'detail'=>$res],
-          JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
-        );
-        exit;
+        json_fail($err !== '' ? $err : 'LOCK_FAIL', 409, ['detail' => $res]);
       }
 
       json_ok();
-       }
+    }
+
 
     /* =========================================================
        VENTA (registrar_venta con split payments + promos + desc global)
