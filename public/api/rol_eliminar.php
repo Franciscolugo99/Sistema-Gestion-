@@ -32,6 +32,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Obtener datos JSON
 $input = json_decode(file_get_contents('php://input'), true);
 
+// ✅ FIX v2.1.2: Validar CSRF
+require_once __DIR__ . '/../lib/csrf.php';
+$csrfToken = $input['csrf_token'] ?? $input['csrf'] ?? $_POST['csrf_token'] ?? '';
+if (!csrf_validate($csrfToken)) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Token CSRF inválido'
+    ]);
+    exit;
+}
+
 if (!$input || !isset($input['role_id'])) {
     http_response_code(400);
     echo json_encode([

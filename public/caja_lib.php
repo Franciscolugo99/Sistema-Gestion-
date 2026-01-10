@@ -2,7 +2,30 @@
 // public/caja_lib.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/bootstrap.php';
+// ✅ FIX v2.1.2: No incluir bootstrap.php completo para evitar side-effects en APIs
+// Solo cargar las dependencias necesarias
+if (!defined('APP_BOOTSTRAPPED')) {
+  // Si no está bootstrapped, cargar solo lo mínimo necesario
+  require_once __DIR__ . '/lib/root.php';
+  if (file_exists(FLUS_ROOT . '/src/config.php')) {
+    require_once FLUS_ROOT . '/src/config.php';
+  }
+  if (file_exists(FLUS_ROOT . '/src/helpers.php')) {
+    require_once FLUS_ROOT . '/src/helpers.php';
+  }
+}
+
+// Fallback si parse_money_ar no existe
+if (!function_exists('parse_money_ar')) {
+  function parse_money_ar($v): float {
+    if (is_int($v) || is_float($v)) return (float)$v;
+    $s = trim((string)$v);
+    if ($s === '') return 0.0;
+    $s = str_replace('.', '', $s);
+    $s = str_replace(',', '.', $s);
+    return is_numeric($s) ? (float)$s : 0.0;
+  }
+}
 
 
 /**

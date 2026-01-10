@@ -2,12 +2,21 @@
 /**
  * Script de Diagnóstico - Compatible con define()
  * Para tu configuración específica de FLUS
+ * 
+ * PROTEGIDO: Requiere autenticación y permiso de backups
  */
 
 declare(strict_types=1);
 
-// Cargar config
-require_once __DIR__ . '/../src/config.php';
+// Cargar bootstrap completo para autenticación
+require_once __DIR__ . '/bootstrap.php';
+
+// SEGURIDAD: Verificar que el usuario está logueado y tiene permisos
+require_login();
+require_permission('gestionar_backups');
+
+// Cargar config (ya cargado por bootstrap, pero por compatibilidad)
+// require_once __DIR__ . '/../src/config.php';
 
 $isWeb = php_sapi_name() !== 'cli';
 

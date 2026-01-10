@@ -30,6 +30,28 @@ try {
   $pdo = getPDO();
 } catch (Throwable $e) {
   http_response_code(503);
+  
+  // ✅ FIX v2.1.1: Si estamos en contexto API, devolver JSON en lugar de HTML
+  $isApiContext = (
+    defined('FLUS_API_CONTEXT') || 
+    str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/') ||
+    (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'))
+  );
+  
+  if ($isApiContext) {
+    if (!headers_sent()) {
+      header('Content-Type: application/json; charset=utf-8');
+      header('Cache-Control: no-store');
+    }
+    echo json_encode([
+      'ok' => false,
+      'error' => 'DB_DOWN',
+      'hint' => 'Base de datos no disponible'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+  
+  // Contexto HTML normal
   if (!headers_sent()) {
     header('Content-Type: text/html; charset=utf-8');
     header('Cache-Control: no-store');

@@ -51,25 +51,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
       ]);
       $pdo->query('SELECT 1');
 
-      // Crear config.php (simple y compatible)
+      // Crear config.php (con CONSTANTES + SINGLETON - compatible con auth.php)
       $config = "<?php\n".
         "// src/config.php (generado por install.php)\n".
-        "declare(strict_types=1);\n".
+        "declare(strict_types=1);\n\n".
         "date_default_timezone_set('America/Argentina/Buenos_Aires');\n\n".
-        "\$DB_HOST = " . var_export($host, true) . ";\n".
-        "\$DB_PORT = " . (int)$port . ";\n".
-        "\$DB_NAME = " . var_export($name, true) . ";\n".
-        "\$DB_USER = " . var_export($user, true) . ";\n".
-        "\$DB_PASS = " . var_export($pass, true) . ";\n\n".
+        "// ============================================\n".
+        "// CONFIGURACIÓN DE BASE DE DATOS\n".
+        "// ============================================\n".
+        "define('DB_HOST', " . var_export($host, true) . ");\n".
+        "define('DB_PORT', " . (int)$port . ");\n".
+        "define('DB_NAME', " . var_export($name, true) . ");\n".
+        "define('DB_USER', " . var_export($user, true) . ");\n".
+        "define('DB_PASS', " . var_export($pass, true) . ");\n".
+        "define('DB_CHARSET', 'utf8mb4');\n\n".
+        "// ============================================\n".
+        "// CONFIGURACIÓN DE APLICACIÓN\n".
+        "// ============================================\n".
+        "define('APP_DEBUG', false);  // true para desarrollo\n".
+        "define('APP_NAME', 'FLUS');\n".
+        "define('APP_VERSION', '2.1.3');\n\n".
+        "// ============================================\n".
+        "// CONEXIÓN PDO (singleton)\n".
+        "// ============================================\n".
         "function getPDO(): PDO {\n".
-        "  global \$DB_HOST, \$DB_PORT, \$DB_NAME, \$DB_USER, \$DB_PASS;\n".
-        "  \$dsn = \"mysql:host={\$DB_HOST};port={\$DB_PORT};dbname={\$DB_NAME};charset=utf8mb4\";\n".
-        "  \$pdo = new PDO(\$dsn, \$DB_USER, \$DB_PASS, [\n".
-        "    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,\n".
-        "    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n".
-        "  ]);\n".
-        "  \$pdo->exec(\"SET time_zone = '-03:00'\");\n".
-        "  return \$pdo;\n".
+        "    static \$pdo = null;\n\n".
+        "    if (\$pdo === null) {\n".
+        "        \$dsn = sprintf(\n".
+        "            \"mysql:host=%s;port=%d;dbname=%s;charset=%s\",\n".
+        "            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET\n".
+        "        );\n\n".
+        "        \$pdo = new PDO(\$dsn, DB_USER, DB_PASS, [\n".
+        "            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,\n".
+        "            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n".
+        "            PDO::ATTR_EMULATE_PREPARES   => false,\n".
+        "        ]);\n\n".
+        "        \$pdo->exec(\"SET time_zone = '-03:00'\");\n".
+        "    }\n\n".
+        "    return \$pdo;\n".
         "}\n";
 
       if (!is_dir(FLUS_ROOT . '/src')) {

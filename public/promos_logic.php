@@ -1,7 +1,16 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/bootstrap.php';
+// ✅ FIX v2.1.2: No incluir bootstrap.php completo para evitar side-effects en APIs
+// Solo cargar las dependencias necesarias
+if (!defined('APP_BOOTSTRAPPED')) {
+  // Si no está bootstrapped, cargar solo lo mínimo necesario
+  require_once __DIR__ . '/lib/root.php';
+  if (file_exists(FLUS_ROOT . '/src/config.php')) {
+    require_once FLUS_ROOT . '/src/config.php';
+  }
+}
+
 require_once __DIR__ . '/includes/PromoEngine.php';
 
 /**

@@ -780,6 +780,122 @@ function medioEsEfectivo() {
   }
 
   // =========================
+  // ✅ SINCRONIZACIÓN CON SERVIDOR (FIX duplicación de lógica)
+  // Esta función actualiza el carrito con los precios calculados por el backend
+  // =========================
+  let sincronizandoConServidor = false;
+  let ultimaSincronizacion = 0;
+  const SYNC_DEBOUNCE_MS = 300;
+
+  async function sincronizarCarritoConServidor(forzar = false) {
+    // ✅ FIX v2.1.2: Si es forzado y hay sync en curso, esperar a que termine
+    if (sincronizandoConServidor) {
+      if (forzar) {
+        // Esperar hasta 2 segundos a que termine el sync actual
+        let intentos = 0;
+        while (sincronizandoConServidor && intentos < 20) {
+          await new Promise(r => setTimeout(r, 100));
+          intentos++;
+        }
+        // Si sigue ocupado después de esperar, continuar igual
+        if (sincronizandoConServidor) {
+          console.warn("Sync forzado: timeout esperando sync anterior");
+        }
+      } else {
+        return null;
+      }
+    }
+    
+    const ahora = Date.now();
+    if (!forzar && (ahora - ultimaSincronizacion) < SYNC_DEBOUNCE_MS) {
+      return null;
+    }
+
+    if (!carrito || carrito.length === 0) {
+      totalNetoActual = 0;
+      return { total_neto: 0, total_bruto: 0, descuento_total: 0 };
+    }
+
+    sincronizandoConServidor = true;
+    ultimaSincronizacion = ahora;
+
+    try {
+      // ✅ FIX v2.1.2: Incluir precio manual para que el server lo respete
+      const itemsParaServidor = carrito.map(i => ({
+        id: Number(i.id),
+        cantidad: Number(i.cantidad),
+        precio: Number(i.precio) || Number(i.precioLista) || 0  // precio manual si existe
+      }));
+
+      const fd = new FormData();
+      fd.append("csrf_token", getCsrf());
+      fd.append("items", JSON.stringify(itemsParaServidor));
+      
+      // ✅ FIX v2.1.3: Solo enviar desc_global si tiene permiso
+      // Esto es doble validación (el backend también rechaza)
+      if (descGlobal && CAN_MOD_PRECIO) {
+        fd.append("desc_global", JSON.stringify(descGlobal));
+      }
+
+      const response = await fetchJson(`${API_BASE}?action=calcular_carrito`, {
+        method: "POST",
+        body: fd
+      });
+
+      if (response.ok && Array.isArray(response.items)) {
+        // Actualizar carrito con precios del servidor
+        response.items.forEach((serverItem, idx) => {
+          const localItem = carrito.find(c => Number(c.id) === Number(serverItem.producto_id));
+          if (localItem) {
+            // Actualizar con datos del servidor
+            localItem.subtotalServidor = serverItem.subtotal || serverItem.neto;
+            localItem.descuentoServidor = serverItem.descuento || 0;
+            localItem.promoServidor = serverItem.promo || '';
+          }
+        });
+
+        // Actualizar total con lo que dice el servidor
+        totalNetoActual = Number(response.total_neto) || 0;
+        
+        return {
+          total_neto: response.total_neto,
+          total_bruto: response.total_bruto,
+          descuento_total: response.descuento_total,
+          items: response.items
+        };
+      }
+    } catch (e) {
+      console.warn("sincronizarCarritoConServidor error (usando cálculo local):", e);
+      // En caso de error, el cálculo local sigue funcionando como fallback
+    } finally {
+      sincronizandoConServidor = false;
+    }
+
+    return null;
+  }
+
+  // Sincronización en background cuando el carrito cambia
+  const sincronizarEnBackground = debounce(async () => {
+    if (carrito.length > 0) {
+      // ✅ FIX v2.1.1: Guardar el total local ANTES de sincronizar
+      const totalLocalAntes = Number(totalNetoActual) || 0;
+      
+      const result = await sincronizarCarritoConServidor();
+      if (result && result.total_neto !== undefined) {
+        // Comparar con el total local PREVIO (no el actual, que ya fue actualizado)
+        const diff = Math.abs(result.total_neto - totalLocalAntes);
+        if (diff > 0.01) {
+          console.log(`Precios sincronizados: local=${totalLocalAntes} → servidor=${result.total_neto}`);
+          // Actualizar labels sin recalcular
+          if (lblTotal) lblTotal.textContent = formatearMoneda(result.total_neto);
+          if (lblTotalBruto) lblTotalBruto.textContent = formatearMoneda(result.total_bruto || 0);
+          recalcularVuelto();
+        }
+      }
+    }
+  }, 500);
+
+  // =========================
   // RENDER (con debounce)
   // =========================
     function _actualizarVista() {
@@ -1483,40 +1599,67 @@ function medioEsEfectivo() {
     if (!carrito || carrito.length === 0)
       return mostrarMensaje("error", "Ticket vacío");
 
-    const totalUI = Number(totalNetoActual) || 0;
-
-    // Ayuda UX: si es 1 solo medio y NO es efectivo, el monto debe ser exacto
-    if (!splitActivo() && !medioEsEfectivo() && inputPagado) {
-      inputPagado.value = String(Number(totalUI).toFixed(2));
-    }
-
-    const pagos = pagosDesdeUI();
-    const totalPag = totalPagado(pagos);
-
-    if (!pagos || pagos.length === 0) {
-      return mostrarMensaje("error", "Ingresá el pago");
-    }
-
-    if (totalPag + 0.01 < totalUI) {
-      return mostrarMensaje("error", "El pago no alcanza");
-    }
-
-    const vuelto = Math.max(totalPag - totalUI, 0);
-    const efectivo = efectivoPagado(pagos);
-
-    // Si hay vuelto, tiene que salir de EFECTIVO
-    if (vuelto > 0.009 && efectivo + 0.0001 < vuelto) {
-      return mostrarMensaje(
-        "error",
-        "El vuelto supera el efectivo ingresado (agregá/ajustá EFECTIVO)"
-      );
-    }
-
     cobrando = true;
     const btn = document.getElementById("btnCobrar");
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Procesando...";
+    }
 
     try {
+      // ✅ FIX v2.1.1: Sincronizar con servidor ANTES de cobrar
+      // El servidor es la FUENTE DE VERDAD para los precios
+      mostrarMensaje("info", "Verificando precios...");
+      const syncResult = await sincronizarCarritoConServidor(true);
+      
+      // ✅ IMPORTANTE: Guardamos el total del servidor en variable separada
+      // para evitar que se pise con cálculos locales
+      let totalConfirmado = Number(totalNetoActual) || 0;
+      
+      if (syncResult && syncResult.total_neto !== undefined) {
+        totalConfirmado = Number(syncResult.total_neto) || 0;
+        
+        // Actualizar UI sin recalcular (solo mostrar)
+        if (lblTotal) lblTotal.textContent = formatearMoneda(totalConfirmado);
+        if (lblTotalBruto) lblTotalBruto.textContent = formatearMoneda(Number(syncResult.total_bruto) || 0);
+        if (lblDescGlobal) lblDescGlobal.textContent = formatearMoneda(Number(syncResult.descuento_total) || 0);
+        
+        // Guardar el total confirmado
+        totalNetoActual = totalConfirmado;
+      }
+      
+      limpiarMensaje();
+      
+      // ✅ Usar totalConfirmado (no totalNetoActual que podría pisarse)
+      const totalUI = totalConfirmado;
+
+      // Ayuda UX: si es 1 solo medio y NO es efectivo, el monto debe ser exacto
+      if (!splitActivo() && !medioEsEfectivo() && inputPagado) {
+        inputPagado.value = String(Number(totalUI).toFixed(2));
+      }
+
+      const pagos = pagosDesdeUI();
+      const totalPag = totalPagado(pagos);
+
+      if (!pagos || pagos.length === 0) {
+        return mostrarMensaje("error", "Ingresá el pago");
+      }
+
+      if (totalPag + 0.01 < totalUI) {
+        return mostrarMensaje("error", "El pago no alcanza");
+      }
+
+      const vuelto = Math.max(totalPag - totalUI, 0);
+      const efectivo = efectivoPagado(pagos);
+
+      // Si hay vuelto, tiene que salir de EFECTIVO
+      if (vuelto > 0.009 && efectivo + 0.0001 < vuelto) {
+        return mostrarMensaje(
+          "error",
+          "El vuelto supera el efectivo ingresado (agregá/ajustá EFECTIVO)"
+        );
+      }
+
       const itemsLimpios = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
@@ -1526,7 +1669,6 @@ function medioEsEfectivo() {
       const token = getCsrf();
 
       // Compat legacy: para no romper backend viejo, mandamos como medio_pago el del "Pago 1".
-// (cuando apliques el patch del backend, si llega `pagos[]` esta parte se ignora)
       const medioCompat = String(selMedio?.value || "EFECTIVO").toUpperCase();
 
       const payload = {
@@ -1593,7 +1735,10 @@ function medioEsEfectivo() {
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
     } finally {
       cobrando = false;
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Cobrar";
+      }
     }
   }
 

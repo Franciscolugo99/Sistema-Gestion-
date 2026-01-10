@@ -1072,3 +1072,24 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   width: 100%;
   margin-bottom: 8px;
 }
+/* ✅ FIX v2.1.3: Botón "Cambiar" más visible */
+.caja-panel .btn-link-total {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 6px;
+  color: var(--accent-cyan);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.caja-panel .btn-link-total:hover {
+  background: var(--accent-cyan);
+  color: #0f172a;
+  filter: none;
+}

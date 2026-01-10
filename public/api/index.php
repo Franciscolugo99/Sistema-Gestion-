@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 // public/api/index.php
+
+// ✅ Indicar que estamos en contexto API (para que bootstrap no devuelva HTML)
+define('FLUS_API_CONTEXT', true);
+
 require_once __DIR__ . '/../lib/root.php';
 
 // API JSON: nunca romper por warnings/HTML
@@ -72,11 +76,16 @@ register_shutdown_function(function (): void {
     header('Cache-Control: no-store');
   }
   http_response_code(500);
-  echo json_encode([
-    'ok' => false,
-    'error' => 'FATAL',
-    'detail' => $e['message'] ?? 'Error fatal',
-  ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  
+  // Solo mostrar detalles si APP_DEBUG está habilitado
+  $response = ['ok' => false, 'error' => 'FATAL'];
+  if (defined('APP_DEBUG') && APP_DEBUG === true) {
+    $response['detail'] = $e['message'] ?? 'Error fatal';
+    $response['file'] = $e['file'] ?? '';
+    $response['line'] = $e['line'] ?? 0;
+  }
+  
+  echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 });
 
 
@@ -485,13 +494,22 @@ $body   = read_request_body();
 
 
 $action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
+
 /* ================================
    FLUS: action file dispatch
    Permite agregar endpoints en public/api/actions/{action}.php
    sin ensuciar el switch principal.
+   
+   ✅ SEGURIDAD: Validar $action para evitar path traversal
 ================================ */
+
+// Sanitización: solo permitir caracteres alfanuméricos y guión bajo
+if ($action !== '' && !preg_match('/^[a-z0-9_]+$/i', $action)) {
+  json_fail('Acción inválida', 400);
+}
+
 $__actionFile = __DIR__ . '/actions/' . $action . '.php';
-if (is_file($__actionFile)) {
+if ($action !== '' && is_file($__actionFile)) {
   
   //  Asegurar PDO antes de ejecutar el action
   if (!isset($pdo) && function_exists('getPDO')) {
@@ -613,9 +631,161 @@ case 'buscar_producto': {
       ]);
     }
 
-        /* =========================================================
-       TERMINALES (selección/lock)
+    /* =========================================================
+       CALCULAR CARRITO (unifica lógica de precios frontend/backend)
+       
+       ✅ FIX v2.1.2: Usa EXACTAMENTE el mismo motor que registrar_venta
+          (calcular_totales_con_promos) + desc_global + precio manual
     ========================================================= */
+    case 'calcular_carrito': {
+      require_login_json();
+      require_perm_json('realizar_ventas');
+      require_csrf_json($body);  // ✅ CSRF obligatorio
+      if ($method !== 'POST') json_fail('Método no permitido', 405);
+
+      $pdo = getPDO();
+      
+      // Leer items del body
+      $itemsRaw = $body['items'] ?? null;
+      if (is_string($itemsRaw)) {
+        $itemsRaw = json_decode($itemsRaw, true);
+      }
+      
+      // ✅ FIX v2.1.2: Leer desc_global (mismo formato que registrar_venta)
+      $descGlobalRaw = $body['desc_global'] ?? null;
+      if (is_string($descGlobalRaw)) {
+        $descGlobalRaw = json_decode($descGlobalRaw, true);
+      }
+      $descGlobalReq = parse_desc_global($descGlobalRaw);
+      
+      // ✅ FIX v2.1.3: Verificar permiso para modificar precio/descuento
+      // MISMO permiso y MISMA lógica que registrar_venta
+      $canModifyPrice = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
+      
+      // ✅ FIX v2.1.3: Si viene desc_global sin permiso → ERROR (no anular silencioso)
+      if ($descGlobalReq !== null && !$canModifyPrice) {
+        json_fail('No tiene permiso para aplicar descuentos', 403);
+      }
+      
+      // Respuesta vacía si no hay items
+      if (!is_array($itemsRaw) || empty($itemsRaw)) {
+        json_ok([
+          'items' => [],
+          'total_bruto' => 0,
+          'total_neto' => 0,
+          'descuento_total' => 0,
+          'promos_aplicadas' => [],
+        ]);
+      }
+
+      // Obtener promos activas
+      try {
+        $promos = obtenerPromosActivas($pdo);
+      } catch (Throwable $e) {
+        $promos = ['simples' => [], 'combos' => []];
+      }
+
+      // Construir items con datos de BD (mismo formato que registrar_venta)
+      $srvItems = [];
+      $productIds = array_filter(array_map(fn($it) => (int)($it['id'] ?? $it['producto_id'] ?? 0), $itemsRaw));
+      
+      if (empty($productIds)) {
+        json_ok([
+          'items' => [],
+          'total_bruto' => 0,
+          'total_neto' => 0,
+          'descuento_total' => 0,
+          'promos_aplicadas' => [],
+        ]);
+      }
+      
+      // Cargar productos en una sola query
+      $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+      $stProds = $pdo->prepare("
+        SELECT id, codigo, nombre, precio, stock, es_pesable, unidad_venta
+        FROM productos
+        WHERE id IN ({$placeholders}) AND activo = 1
+      ");
+      $stProds->execute(array_values($productIds));
+      $productsMap = [];
+      while ($row = $stProds->fetch(PDO::FETCH_ASSOC)) {
+        $productsMap[(int)$row['id']] = $row;
+      }
+
+      // ✅ FIX v2.1.2: Mapear cantidades Y precios del request
+      $itemsMap = [];
+      foreach ($itemsRaw as $it) {
+        $pid = (int)($it['id'] ?? $it['producto_id'] ?? 0);
+        $cant = (float)($it['cantidad'] ?? 0);
+        $precioManual = isset($it['precio']) ? (float)$it['precio'] : null;
+        
+        if ($pid > 0 && $cant > 0) {
+          $itemsMap[$pid] = [
+            'cantidad' => $cant,
+            'precio_manual' => $precioManual
+          ];
+        }
+      }
+
+      // Construir items en el MISMO formato que usa registrar_venta
+      foreach ($itemsMap as $pid => $itemData) {
+        if (!isset($productsMap[$pid])) continue;
+        
+        $p = $productsMap[$pid];
+        $precioLista = (float)$p['precio'];
+        
+        // ✅ FIX v2.1.2: Respetar precio manual si tiene permiso
+        $precioActual = $precioLista;
+        if ($canModifyPrice && $itemData['precio_manual'] !== null && $itemData['precio_manual'] > 0) {
+          $precioActual = $itemData['precio_manual'];
+        }
+        
+        $srvItems[] = [
+          'producto_id'   => $pid,
+          'codigo'        => (string)$p['codigo'],
+          'nombre'        => (string)$p['nombre'],
+          'cantidad'      => $itemData['cantidad'],
+          'precio_lista'  => $precioLista,
+          'precio_actual' => $precioActual,
+          'es_pesable'    => (int)$p['es_pesable'],
+          'unidad_venta'  => $p['unidad_venta'] ?: 'UNIDAD',
+          'stock'         => (float)$p['stock'],
+        ];
+      }
+
+      if (empty($srvItems)) {
+        json_ok([
+          'items' => [],
+          'total_bruto' => 0,
+          'total_neto' => 0,
+          'descuento_total' => 0,
+          'promos_aplicadas' => [],
+        ]);
+      }
+
+      // ✅ Usar EXACTAMENTE el mismo motor que registrar_venta
+      $calc = calcular_totales_con_promos($srvItems, $promos);
+      
+      $totalBruto = round((float)($calc['total_bruto'] ?? 0), 2);
+      $totalNetoSinGlobal = round((float)($calc['total_neto'] ?? 0), 2);
+      $descPromos = round((float)($calc['descuento_total'] ?? 0), 2);
+      
+      // ✅ FIX v2.1.2: Aplicar descuento global (mismo que registrar_venta)
+      $descGlobalMonto = calc_desc_global($totalNetoSinGlobal, $descGlobalReq);
+      $totalNeto = round($totalNetoSinGlobal - $descGlobalMonto, 2);
+      $descTotal = round($descPromos + $descGlobalMonto, 2);
+      
+      json_ok([
+        'items' => $calc['items'] ?? $srvItems,
+        'total_bruto' => $totalBruto,
+        'total_neto' => $totalNeto,
+        'total_neto_sin_global' => $totalNetoSinGlobal,
+        'descuento_total' => $descTotal,
+        'descuento_promos' => $descPromos,
+        'descuento_global' => round($descGlobalMonto, 2),
+        'promos_aplicadas' => $calc['promos_aplicadas'] ?? [],
+      ]);
+    }
     case 'terminal_list': {
       require_login_json();
       if ($method !== 'GET') json_fail('Método no permitido', 405);
@@ -809,9 +979,14 @@ case 'buscar_producto': {
       if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
 
   
-
+      // ✅ FIX v2.1.3: Verificar permiso para modificar precio/descuento
+      // MISMA lógica que calcular_carrito
       $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
-      if (!$puedeCambiarPrecio) $descGlobalReq = null;
+      
+      // ✅ FIX v2.1.3: Si viene desc_global sin permiso → ERROR (no anular silencioso)
+      if ($descGlobalReq !== null && !$puedeCambiarPrecio) {
+        json_fail('No tiene permiso para aplicar descuentos', 403);
+      }
 
       // Agrupar por producto
       $agg = [];

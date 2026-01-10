@@ -17,16 +17,16 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 try {
   $pdo = getPDO();
   $tid = (int)($_SESSION['terminal_id'] ?? 0);
-  if ($tid <= 0) $tid = terminal_cookie_id();
-
+  // ✅ FIX v2.1.2: terminal_cookie_id() no existe, usar solo session
+  
   $uid = 0;
   if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
     $uid = (int)($_SESSION['user']['id'] ?? 0);
   }
 
-  if ($tid > 0) {
-    // liberar por terminal+user (session puede cambiar)
-    terminal_lock_release($pdo, $tid, $uid, session_id());
+  if ($tid > 0 && $uid > 0) {
+    // ✅ FIX v2.1.2: terminal_lock_release acepta 3 parámetros, no 4
+    terminal_lock_release($pdo, $tid, $uid);
   }
 } catch (Throwable $e) {
   // no bloqueamos el logout por esto
