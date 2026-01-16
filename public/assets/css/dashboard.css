@@ -568,3 +568,121 @@ body[data-theme="light"] .kpi-delta {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+
+/* =========================================================
+   A11Y helpers
+========================================================= */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* =========================================================
+   Chart data (accesible por teclado)
+========================================================= */
+.chart-data {
+  margin-top: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 6px 10px;
+  background: rgba(2, 6, 23, 0.04);
+}
+body[data-theme="dark"] .chart-data {
+  background: rgba(2, 6, 23, 0.25);
+}
+.chart-data > summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  color: var(--muted);
+  outline: none;
+}
+.chart-data > summary:focus {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+}
+.chart-data-inner {
+  padding-top: 8px;
+}
+.chart-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.chart-data-table th,
+.chart-data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+.chart-data-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* =========================================================
+   Loading states (charts)
+========================================================= */
+@keyframes flusSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.dash-card.is-loading .chart-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.03);
+  backdrop-filter: blur(1px);
+  z-index: 2;
+}
+
+body[data-theme="dark"] .dash-card.is-loading .chart-wrap::after {
+  background: rgba(2, 6, 23, 0.25);
+}
+
+.dash-card.is-loading .chart-wrap::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 999px;
+  border: 3px solid rgba(148, 163, 184, 0.35);
+  border-top-color: rgba(56, 189, 248, 0.9);
+  animation: flusSpin 0.9s linear infinite;
+  z-index: 3;
+}
+
+/* =========================================================
+   Responsive móvil (tabla stock)
+========================================================= */
+@media (max-width: 640px) {
+  .stock-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stock-table {
+    min-width: 520px;
+  }
+  .dash-presets {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dash-chip {
+    flex: 0 0 auto;
+  }
+}
+

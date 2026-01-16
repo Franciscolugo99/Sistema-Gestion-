@@ -687,3 +687,71 @@
     });
   });
 })();
+// ===== Modal "Acerca de FLUS" (badge footer) =====
+(() => {
+  const modal = document.getElementById("flusAboutModal");
+  if (!modal) return;
+
+  let lastActive = null;
+
+  const open = (ev) => {
+    if (ev) ev.preventDefault();
+    lastActive = document.activeElement;
+    modal.hidden = false;
+    document.documentElement.classList.add("flus-modal-open");
+    document.body.classList.add("flus-modal-open");
+
+    const btn = modal.querySelector('[data-close-flus-about]');
+    if (btn) btn.focus();
+  };
+
+  const close = () => {
+    modal.hidden = true;
+    document.documentElement.classList.remove("flus-modal-open");
+    document.body.classList.remove("flus-modal-open");
+    if (lastActive && typeof lastActive.focus === "function") lastActive.focus();
+  };
+
+  document.addEventListener("click", (e) => {
+    const opener = e.target.closest("[data-open-flus-about]");
+    if (opener) return open(e);
+
+    const closer = e.target.closest("[data-close-flus-about]");
+    if (closer) return close();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!modal.hidden && e.key === "Escape") close();
+  });
+
+  const copyBtn = document.getElementById("flusAboutCopy");
+  const copyEl  = document.getElementById("flusAboutCopyText");
+
+  const showToastSafe = (msg) => {
+    if (typeof window.showToast === "function") window.showToast(msg);
+  };
+
+  if (copyBtn && copyEl) {
+    copyBtn.addEventListener("click", async () => {
+      const text = copyEl.innerText || copyEl.textContent || "";
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showToastSafe("Info copiada");
+      } catch {
+        showToastSafe("No se pudo copiar");
+      }
+    });
+  }
+})();

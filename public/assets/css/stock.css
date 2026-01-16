@@ -1,8 +1,10 @@
 /* ============================================================
-   FLUS - STOCK.CSS (pulido)
-   - Sin duplicados
-   - Compatible con modo oscuro/claro (usa tus variables del sistema)
-   - Fallbacks para color-mix()
+   FLUS - STOCK.CSS (V2)
+   - Animaciones de feedback (row-updated, row-fading-out)
+   - KPIs clickeables
+   - Mejor responsive
+   - Fix color-scheme dinámico
+   - Compatibilidad tema claro/oscuro
 ============================================================ */
 
 /* ---------- Variables de estado ----------- */
@@ -11,16 +13,21 @@
   --color-warning: #e9b83f;
   --color-danger:  #e05d5d;
   --color-info:    #4a9eff;
-
   --transition: all 0.2s ease;
 }
 
-/* Ajustes para tema claro (si tu sistema usa data-theme="light") */
+/* Tema claro */
 [data-theme="light"] {
   --color-success: #2ea85f;
   --color-warning: #d4a637;
   --color-danger:  #c74545;
   --color-info:    #3182ce;
+  color-scheme: light;
+}
+
+/* Tema oscuro (default) */
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 /* ============================================================
@@ -52,6 +59,12 @@
   gap: 10px;
 }
 
+/* Botón deshabilitado */
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ============================================================
    KPIs
 ============================================================ */
@@ -76,6 +89,19 @@
   box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.15));
 }
 
+/* KPIs clickeables */
+.stat-clickable {
+  cursor: pointer;
+}
+
+.stat-clickable:hover {
+  border-color: var(--primary);
+}
+
+.stat-clickable:active {
+  transform: translateY(0);
+}
+
 .stat-label {
   margin-bottom: 8px;
   font-size: 0.82rem;
@@ -93,13 +119,13 @@
   color: var(--text);
 }
 
-/* Fallbacks (si no hay color-mix) */
+/* Colores de estado para cards */
 .stat-ok       { background: rgba(60, 200, 120, 0.08); border-color: rgba(60, 200, 120, 0.20); }
 .stat-bajo     { background: rgba(233, 184, 63, 0.08); border-color: rgba(233, 184, 63, 0.20); }
 .stat-sin      { background: rgba(224, 93, 93, 0.08);  border-color: rgba(224, 93, 93, 0.20); }
 .stat-inactivo { background: rgba(130, 130, 130, 0.08); border-color: rgba(130, 130, 130, 0.20); }
 
-/* Mejoras si hay soporte color-mix */
+/* Mejoras con color-mix si hay soporte */
 @supports (background: color-mix(in srgb, white 10%, transparent)) {
   .stat-ok {
     background: color-mix(in srgb, var(--color-success) 8%, var(--panel));
@@ -143,10 +169,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-
   padding: 12px 20px;
   border-radius: var(--radius) var(--radius) 0 0;
-
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--muted);
@@ -173,7 +197,6 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-
   border-radius: 10px;
   background: var(--color-danger);
   color: #fff;
@@ -208,11 +231,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-
   margin-bottom: 16px;
   padding: 12px 16px;
   border-radius: var(--radius);
-
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -230,12 +251,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-
   padding: 6px 12px;
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
   background: transparent;
-
   color: var(--text);
   cursor: pointer;
   text-decoration: none;
@@ -273,13 +292,11 @@
   position: sticky;
   top: 0;
   z-index: 10;
-
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-
   border-bottom: 2px solid var(--panel-border);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -293,9 +310,57 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+/* Filas por estado */
 .stock-table tbody tr.row-sin  { background: rgba(224, 93, 93, 0.03); }
 .stock-table tbody tr.row-bajo { background: rgba(233, 184, 63, 0.03); }
 
+/* ============================================================
+   ANIMACIONES DE FEEDBACK
+============================================================ */
+
+/* Fila recién actualizada */
+.stock-table tbody tr.row-updated {
+  animation: rowHighlight 2.5s ease-out;
+}
+
+@keyframes rowHighlight {
+  0% {
+    background: rgba(60, 200, 120, 0.25);
+    box-shadow: inset 0 0 0 2px var(--color-success);
+  }
+  70% {
+    background: rgba(60, 200, 120, 0.10);
+    box-shadow: inset 0 0 0 1px var(--color-success);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* Fila que se va (fade out) */
+.stock-table tbody tr.row-fading-out {
+  animation: rowFadeOut 0.5s ease-out forwards;
+}
+
+@keyframes rowFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(30px);
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+}
+
+/* ============================================================
+   Elementos de tabla
+============================================================ */
 .stock-table code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
   font-size: 0.85rem;
@@ -315,11 +380,9 @@
   display: inline-block;
   padding: 2px 6px;
   border-radius: 4px;
-
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
-
   background: var(--color-info);
   color: #fff;
 }
@@ -344,79 +407,35 @@
 .stock-bar-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 
 .stock-bar-ok       { background: var(--color-success); }
 .stock-bar-bajo     { background: var(--color-warning); }
-.stock-bar-sin      { background: var(--color-danger);  }
-.stock-bar-inactivo { background: #6f6f6f; }
+.stock-bar-sin      { background: var(--color-danger); }
+.stock-bar-inactivo { background: var(--muted); }
 
-/* Tag estado */
+/* Tags de estado */
 .tag {
   display: inline-block;
   padding: 5px 10px;
-  border-radius: 6px;
-
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-
-  color: #fff;
-}
-
-.tag-ok       { background: var(--color-success); }
-.tag-bajo     { background: var(--color-warning); }
-.tag-sin      { background: var(--color-danger); }
-.tag-inactivo { background: #6f6f6f; }
-
-/* Botones acciones */
-.action-btns {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-
-/* ============================================================
-   Movimientos (opcional)
-   (si sacás el tab en V1, podés borrar esta sección)
-============================================================ */
-.movements-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.movements-table th,
-.movements-table td {
-  padding: 12px;
-  text-align: left;
-}
-
-.movements-table thead th {
-  font-size: 0.78rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-
-  border-bottom: 2px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.02);
+  transition: var(--transition);
 }
 
-.movements-table tbody tr {
-  border-bottom: 1px solid var(--panel-border);
-}
-.movements-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
+.tag-ok       { background: rgba(60,200,120,.15); color: var(--color-success); }
+.tag-bajo     { background: rgba(233,184,63,.15); color: var(--color-warning); }
+.tag-sin      { background: rgba(224,93,93,.15);  color: var(--color-danger); }
+.tag-inactivo { background: rgba(130,130,130,.15); color: #888; }
 
+/* Badges de movimiento */
 .badge {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 4px;
-
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -442,15 +461,11 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-
   align-items: center;
   justify-content: center;
   padding: 20px;
-
-  /* fallback */
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
-
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -471,12 +486,10 @@
   max-width: 500px;
   max-height: 90vh;
   overflow: auto;
-
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg, 0 10px 40px rgba(0,0,0,.30));
-
   animation: modalSlideIn 0.2s ease;
 }
 
@@ -491,7 +504,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   padding: 20px 24px;
   border-bottom: 1px solid var(--panel-border);
 }
@@ -506,14 +518,11 @@
 .modal-close {
   width: 30px;
   height: 30px;
-
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
   border: none;
   background: none;
-
   font-size: 1.8rem;
   cursor: pointer;
   color: var(--muted);
@@ -532,17 +541,16 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-
   padding: 16px 24px;
   border-top: 1px solid var(--panel-border);
 }
 
+/* Formularios */
 .form-group { margin-bottom: 18px; }
 
 .form-group label {
   display: block;
   margin-bottom: 6px;
-
   font-size: 0.88rem;
   font-weight: 800;
   color: var(--text);
@@ -551,13 +559,10 @@
 .form-control {
   width: 100%;
   padding: 10px 12px;
-
   border-radius: var(--radius);
   border: 1px solid var(--panel-border);
-
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
-
   font-size: 0.92rem;
   transition: var(--transition);
 }
@@ -566,6 +571,13 @@
   outline: none;
   border-color: var(--primary);
   background: rgba(255, 255, 255, 0.08);
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .producto-info {
@@ -578,6 +590,64 @@
 .producto-info strong { display: block; margin-bottom: 4px; color: var(--text); }
 .producto-info small  { font-size: 0.82rem; color: var(--muted); }
 
+/* Info de stock en modal */
+.stock-info-row {
+  display: flex;
+  gap: 16px;
+}
+
+.stock-info-item {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+  text-align: center;
+}
+
+.stock-info-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.stock-info-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Select en modal - fix para modo oscuro */
+#modalAjusteStock select.form-control,
+#modalConfirmacion select.form-control {
+  color: var(--text);
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--panel-border);
+}
+
+#modalAjusteStock select.form-control option,
+#modalAjusteStock select.form-control optgroup,
+#modalConfirmacion select.form-control option {
+  background-color: var(--panel);
+  color: var(--text);
+}
+
+/* Botón danger para confirmación */
+.v-btn--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+
+.v-btn--danger:hover {
+  background: #c74545;
+  border-color: #c74545;
+}
+
 /* ============================================================
    Toast
 ============================================================ */
@@ -586,11 +656,9 @@
   top: 20px;
   right: 20px;
   z-index: 9999;
-
   display: flex;
   flex-direction: column;
   gap: 10px;
-
   pointer-events: none;
 }
 
@@ -598,20 +666,16 @@
   display: flex;
   align-items: center;
   gap: 12px;
-
   padding: 14px 18px;
   min-width: 280px;
   max-width: 400px;
-
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg, 0 4px 16px rgba(0,0,0,.20));
-
   opacity: 0;
   transform: translateX(400px);
   transition: all 0.3s ease;
-
   pointer-events: all;
 }
 
@@ -636,10 +700,8 @@
   justify-content: center;
   align-items: center;
   gap: 16px;
-
   margin-top: 24px;
   padding-top: 20px;
-
   border-top: 1px solid var(--panel-border);
 }
 
@@ -647,14 +709,11 @@
   padding: 8px 16px;
   border-radius: var(--radius);
   border: 1px solid var(--panel-border);
-
   background: var(--panel);
   color: var(--text);
   text-decoration: none;
-
   font-weight: 800;
   font-size: 0.88rem;
-
   transition: var(--transition);
 }
 
@@ -715,9 +774,26 @@
     flex-direction: column;
     align-items: stretch;
   }
+  
+  .action-buttons {
+    justify-content: center;
+  }
 
   .stock-table { font-size: 0.85rem; }
   .stock-table th, .stock-table td { padding: 10px 8px; }
+  
+  /* Ocultar columnas menos importantes en móvil */
+  .stock-table th:nth-child(4),
+  .stock-table td:nth-child(4),
+  .stock-table th:nth-child(5),
+  .stock-table td:nth-child(5) {
+    display: none;
+  }
+  
+  .stock-info-row {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -726,35 +802,33 @@
 
   .toast-container { left: 10px; right: 10px; }
   .toast { min-width: auto; }
+  
+  /* En móvil muy pequeño, ocultar más columnas */
+  .stock-table th:nth-child(3),
+  .stock-table td:nth-child(3) {
+    display: none;
+  }
 }
+
 /* ============================================================
-   FIX: Select/Options invisibles en modo oscuro (Chrome/Win)
-   Pegarlo AL FINAL de stock.css
+   Print styles
 ============================================================ */
-
-/* Si tu sistema usa data-theme="dark"/"light" */
-[data-theme="dark"] { color-scheme: dark; }
-[data-theme="light"] { color-scheme: light; }
-
-/* Si tu default es oscuro (sin data-theme), dejá esto también */
-:root { color-scheme: dark; }
-
-/* Asegurar colores del select dentro del modal */
-#modalAjusteStock select.form-control {
-  color: var(--text);
-  background-color: color-mix(in srgb, var(--text) 6%, transparent);
-  border-color: var(--panel-border);
-}
-
-/* Asegurar que el desplegable (options) sea oscuro y legible */
-#modalAjusteStock select.form-control option,
-#modalAjusteStock select.form-control optgroup {
-  background-color: var(--panel);
-  color: var(--text);
-}
-
-/* Extra: por si algún estilo previo te baja la opacidad del texto */
-#modalAjusteStock select.form-control,
-#modalAjusteStock select.form-control option {
-  opacity: 1;
+@media print {
+  .page-header,
+  .filters,
+  .table-actions,
+  .pager,
+  .modal,
+  .toast-container,
+  .action-btns {
+    display: none !important;
+  }
+  
+  .stock-table {
+    font-size: 10pt;
+  }
+  
+  .stock-bar {
+    display: none;
+  }
 }

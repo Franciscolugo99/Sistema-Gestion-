@@ -428,3 +428,172 @@ html[data-theme="light"]{
   --sb-thumb-hover: rgba(15,23,42,.32);
   --sb-thumb-active: rgba(15,23,42,.45);
 }
+/* ===== Compat tokens para componentes FLUS (no rompe nada) ===== */
+:root{
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--panel);
+  --bg-tertiary: var(--bg-alt);
+
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+
+  --border-color: var(--panel-border);
+  --shadow: var(--shadow-md);
+
+  --panel-2: var(--bg-alt);
+}
+
+/* ===== Modal "Acerca de FLUS" (usa tokens FLUS reales) ===== */
+.flus-modal[hidden]{ display:none; }
+
+.flus-modal{
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 4001);
+}
+
+.flus-modal__backdrop{
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-modal-backdrop, 4000);
+  background: rgba(2, 6, 23, .62);
+}
+
+/* en dark queda premium con blur, en light no molesta */
+html[data-theme="dark"] .flus-modal__backdrop,
+body[data-theme="dark"] .flus-modal__backdrop{
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background: rgba(2, 6, 23, .55);
+}
+
+.flus-modal__card{
+  position: relative;
+  z-index: calc(var(--z-modal, 4001) + 1);
+  width: min(560px, calc(100% - 28px));
+  margin: 10vh auto 0;
+
+  background: var(--panel-bg, var(--panel));
+  color: var(--text);
+
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xl, 20px);
+  box-shadow: var(--shadow-lg, 0 18px 40px rgba(0,0,0,.25));
+  overflow: hidden;
+}
+
+.flus-modal__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: var(--space-3, 14px) var(--space-4, 18px);
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--bg-alt);
+}
+
+.flus-modal__title{
+  margin: 0;
+  font-size: var(--text-sm, 14px);
+  color: var(--text-strong, var(--text));
+  font-weight: 800;
+}
+
+.flus-icon-btn{
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg, var(--panel));
+  color: var(--muted);
+  cursor: pointer;
+}
+.flus-icon-btn:hover{ color: var(--text); }
+
+.flus-modal__body{
+  padding: var(--space-4, 18px);
+}
+
+.flus-about__version{
+  font-size: var(--text-lg, 18px);
+  font-weight: 900;
+  color: var(--text-strong, var(--text));
+  margin-bottom: var(--space-3, 14px);
+}
+
+.flus-about__grid{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg);
+}
+
+/* filas: label / value */
+.flus-about__row{
+  display:grid;
+  grid-template-columns: 120px 1fr;
+  align-items:center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: var(--text-sm, 14px);
+}
+.flus-about__row b{
+  justify-self:end;
+  text-align:right;
+  color: var(--text-strong, var(--text));
+  font-weight: 800;
+}
+
+.flus-about__hint{
+  margin-top: 10px;
+  font-size: var(--text-xs, 12px);
+  color: var(--muted);
+  opacity: .9;
+}
+
+.flus-about__copy{
+  position:absolute;
+  left:-9999px;
+  top:-9999px;
+  white-space: pre-wrap;
+}
+
+.flus-modal__footer{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  padding: var(--space-3, 14px) var(--space-4, 18px);
+  border-top: 1px solid var(--panel-border);
+  background: var(--bg-alt);
+}
+
+/* botones alineados a tu theme */
+.flus-btn{
+  padding: 10px 14px;
+  border-radius: var(--radius-lg, 16px);
+  border: 1px solid var(--btn-secondary-border, var(--panel-border));
+  background: var(--btn-secondary-bg, transparent);
+  color: var(--btn-secondary-text, var(--text));
+  cursor: pointer;
+  font-weight: 900;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.flus-btn:hover{
+  background: var(--nav-pill-hover-bg, rgba(148,163,184,.12));
+}
+
+.flus-btn-primary{
+  border: none;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+/* bloquear scroll al abrir */
+html.flus-modal-open,
+body.flus-modal-open{
+  overflow: hidden;
+}

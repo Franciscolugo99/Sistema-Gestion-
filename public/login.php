@@ -84,7 +84,9 @@ switch ($errorCode) {
 
         <button type="submit" class="btn-primary login-btn">Entrar</button>
       </form>
-
+        <div style="margin-top:14px; text-align:center; opacity:.75; font-size:12px;">
+          <?= htmlspecialchars(flus_version_label(), ENT_QUOTES, 'UTF-8') ?>
+        </div>
     </div>
   </div>
 

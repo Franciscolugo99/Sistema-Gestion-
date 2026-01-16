@@ -1096,5 +1096,30 @@ body[data-theme="light"] .toast {
 }
 
 /* ============================================================================
+   Version de FLus
+============================================================================ */
+.flus-version-badge{
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  z-index: 50;
+  opacity: .85;
+}
+
+.flus-version-link{
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: .2px;
+}
+
+.flus-version-badge:hover{ opacity: 1; }
+.flus-version-link:hover{ color: var(--text-primary); }
+/* ============================================================================
    FIN DEL CORE CSS
 ============================================================================ */

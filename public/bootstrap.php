@@ -8,6 +8,7 @@ flus_session_start();
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
+require_once FLUS_ROOT . '/src/version.php';
 
 
 define('APP_BOOTSTRAPPED', true);

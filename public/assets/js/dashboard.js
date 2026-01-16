@@ -1,4 +1,4 @@
-// public/assets/js/dashboard.js
+// public/assets/js/dashboard.js - v3 con soporte para filtro categoría
 if (window.__flus_dashboard_js_loaded) {
   // evita doble carga accidental
 } else {
@@ -11,8 +11,10 @@ if (window.__flus_dashboard_js_loaded) {
 
     initPresetChips(data);
     initToast();
-    initExportLinks();   // ✅ ahora sí se ejecuta
+    initExportLinks();
     initSparklines();
+    initCategoryFilter();
+    initScrollShadows();
 
     renderAllCharts(data);
 
@@ -22,14 +24,11 @@ if (window.__flus_dashboard_js_loaded) {
     });
   }
 
-  // ✅ Soporta carga tardía (si el script entra después de DOMContentLoaded)
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", bootDashboard);
   } else {
     bootDashboard();
   }
-
-  // ⬇️ TODO lo demás del archivo queda igual, debajo
 
 /* =========================
    HELPERS NUM / FORMAT
@@ -102,7 +101,7 @@ function watchThemeChanges(onChange) {
 }
 
 /* =========================
-   EMPTY STATE (inyecta si no existe)
+   EMPTY STATE
 ========================= */
 function getOrCreateEmptyMsg(canvas, emptyId, text = "Sin datos") {
   if (!canvas) return null;
@@ -122,7 +121,7 @@ function getOrCreateEmptyMsg(canvas, emptyId, text = "Sin datos") {
   if (!e) {
     e = document.createElement("div");
     e.className = "chart-empty";
-    e.style.display = "none"; // lo manejamos nosotros
+    e.style.display = "none";
     e.style.placeItems = "center";
     e.style.textAlign = "center";
     e.style.opacity = "0.75";
@@ -148,7 +147,6 @@ function initSparklines() {
     }
     if (!Array.isArray(values) || values.length === 0) return;
 
-    // Tamaño CSS real
     const rect = canvas.getBoundingClientRect();
     const cssW = Math.max(
       80,
@@ -159,7 +157,6 @@ function initSparklines() {
       Math.floor(rect.height || canvas.offsetHeight || 30)
     );
 
-    // HiDPI
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     canvas.width = Math.floor(cssW * dpr);
     canvas.height = Math.floor(cssH * dpr);
@@ -169,11 +166,8 @@ function initSparklines() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Reset transform + scale
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-
-    // limpiar
     ctx.clearRect(0, 0, cssW, cssH);
 
     const theme = getTheme();
@@ -206,7 +200,6 @@ function initSparklines() {
 
     ctx.stroke();
 
-    // Área
     ctx.lineTo(cssW - padding, cssH - padding);
     ctx.lineTo(padding, cssH - padding);
     ctx.closePath();
@@ -223,6 +216,51 @@ function initSparklines() {
 }
 
 /* =========================
+   🆕 FILTRO DE CATEGORÍA
+========================= */
+function initCategoryFilter() {
+  const select = document.getElementById("dashCategoria");
+  if (!select) return;
+  
+  // Agregar efecto visual al cambiar
+  select.addEventListener("change", function() {
+    const form = document.getElementById("dashFilters");
+    if (form) {
+      // Mostrar loading
+      const panel = document.querySelector(".dashboard-panel");
+      if (panel) {
+        panel.style.opacity = "0.6";
+        panel.style.pointerEvents = "none";
+      }
+    }
+  });
+}
+
+/* =========================
+   🆕 SCROLL SHADOWS
+========================= */
+function initScrollShadows() {
+  const tables = document.querySelectorAll(".dormidos-table-wrap, .stock-table-wrap");
+  
+  tables.forEach(wrap => {
+    const checkScroll = () => {
+      const hasScroll = wrap.scrollWidth > wrap.clientWidth;
+      const isScrolledRight = wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth - 5;
+      
+      if (hasScroll && !isScrolledRight) {
+        wrap.classList.add("has-scroll");
+      } else {
+        wrap.classList.remove("has-scroll");
+      }
+    };
+    
+    checkScroll();
+    wrap.addEventListener("scroll", checkScroll);
+    window.addEventListener("resize", checkScroll);
+  });
+}
+
+/* =========================
    CHARTS
 ========================= */
 function renderAllCharts(data) {
@@ -230,83 +268,97 @@ function renderAllCharts(data) {
 
   destroyCharts();
 
-  const theme = getTheme();
-  const { textColor, gridColor } = applyChartDefaults(theme);
+  const loadingCards = Array.from(document.querySelectorAll(".dash-card"))
+    .filter((c) => c.querySelector("canvas"));
+  loadingCards.forEach((c) => c.classList.add("is-loading"));
+  
+  try {
+    const theme = getTheme();
+    const { textColor, gridColor } = applyChartDefaults(theme);
 
-  const palette =
-    theme === "light"
-      ? {
-          primary: "#0891b2",
-          primaryFill: "rgba(8,145,178,0.18)",
-          secondary: "#7c3aed",
-          secondaryFill: "rgba(124,58,237,0.18)",
-          accent: "#16a34a",
-          warning: "#f59e0b",
-          danger: "#ef4444",
-          info: "#2563eb",
-          donut: [
-            "#0891b2",
-            "#7c3aed",
-            "#16a34a",
-            "#f59e0b",
-            "#ef4444",
-            "#2563eb",
-            "#06b6d4",
-            "#8b5cf6",
-          ],
-          donutBorder: "rgba(255,255,255,0.9)",
-        }
-      : {
-          primary: "#22d3ee",
-          primaryFill: "rgba(34,211,238,0.18)",
-          secondary: "#a78bfa",
-          secondaryFill: "rgba(167,139,250,0.22)",
-          accent: "#34d399",
-          warning: "#fbbf24",
-          danger: "#fb7185",
-          info: "#60a5fa",
-          donut: [
-            "#22d3ee",
-            "#a78bfa",
-            "#34d399",
-            "#fbbf24",
-            "#fb7185",
-            "#60a5fa",
-            "#06b6d4",
-            "#c084fc",
-          ],
-          donutBorder: "rgba(15,23,42,0.65)",
-        };
+    const palette =
+      theme === "light"
+        ? {
+            primary: "#0891b2",
+            primaryFill: "rgba(8,145,178,0.18)",
+            secondary: "#7c3aed",
+            secondaryFill: "rgba(124,58,237,0.18)",
+            accent: "#16a34a",
+            warning: "#f59e0b",
+            danger: "#ef4444",
+            info: "#2563eb",
+            donut: [
+              "#0891b2",
+              "#7c3aed",
+              "#16a34a",
+              "#f59e0b",
+              "#ef4444",
+              "#2563eb",
+              "#06b6d4",
+              "#8b5cf6",
+              "#10b981",
+              "#f97316",
+            ],
+            donutBorder: "rgba(255,255,255,0.9)",
+          }
+        : {
+            primary: "#22d3ee",
+            primaryFill: "rgba(34,211,238,0.18)",
+            secondary: "#a78bfa",
+            secondaryFill: "rgba(167,139,250,0.22)",
+            accent: "#34d399",
+            warning: "#fbbf24",
+            danger: "#fb7185",
+            info: "#60a5fa",
+            donut: [
+              "#22d3ee",
+              "#a78bfa",
+              "#34d399",
+              "#fbbf24",
+              "#fb7185",
+              "#60a5fa",
+              "#06b6d4",
+              "#c084fc",
+              "#10b981",
+              "#f97316",
+            ],
+            donutBorder: "rgba(15,23,42,0.65)",
+          };
 
-  renderLineChart(
-    "chartVentas",
-    "noVentasMsg",
-    data.ventasLabels,
-    data.ventasData,
-    palette,
-    textColor,
-    gridColor
-  );
+    renderLineChart(
+      "chartVentas",
+      "noVentasMsg",
+      data.ventasLabels,
+      data.ventasData,
+      palette,
+      textColor,
+      gridColor
+    );
 
-  renderBarChart(
-    "chartTopProductos",
-    "noTopMsg",
-    data.topProdLabels,
-    data.topProdData,
-    palette,
-    textColor,
-    gridColor
-  );
+    renderBarChart(
+      "chartTopProductos",
+      "noTopMsg",
+      data.topProdLabels,
+      data.topProdData,
+      palette,
+      textColor,
+      gridColor
+    );
 
-  renderMetodosPago(data.metodosPago, palette, textColor);
-  renderCategorias(data.categorias, palette, textColor, gridColor);
-  renderHorarios(data.ventasPorHora, palette, textColor, gridColor);
-  renderProductosRentables(
-    data.productosRentables,
-    palette,
-    textColor,
-    gridColor
-  );
+    renderMetodosPago(data.metodosPago, palette, textColor);
+    renderCategorias(data.categorias, palette, textColor, gridColor);
+    renderHorarios(data.ventasPorHora, palette, textColor, gridColor);
+    renderProductosRentables(
+      data.productosRentables,
+      palette,
+      textColor,
+      gridColor
+    );
+  } finally {
+    window.setTimeout(() => {
+      loadingCards.forEach((c) => c.classList.remove("is-loading"));
+    }, 0);
+  }
 }
 
 /* =========================
@@ -594,7 +646,6 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
 
   const list = Array.isArray(ventasPorHora) ? ventasPorHora : [];
 
-  // 24 horas completas
   const horasCompletas = Array.from({ length: 24 }, (_, i) => i);
   const dataMap = {};
   list.forEach((v) => {
@@ -762,6 +813,10 @@ function initPresetChips(data) {
 
   markActivePreset(chips, data);
 
+  chips.forEach((c) => {
+    if (!c.hasAttribute("aria-pressed")) c.setAttribute("aria-pressed", "false");
+  });
+
   chips.forEach((chip) => {
     chip.addEventListener("click", () => {
       const preset = chip.dataset.preset;
@@ -820,9 +875,11 @@ function markActivePreset(chips, data) {
     active = "month";
 
   if (!active) return;
-  chips.forEach((chip) =>
-    chip.classList.toggle("is-active", chip.dataset.preset === active)
-  );
+  chips.forEach((chip) => {
+    const isActive = chip.dataset.preset === active;
+    chip.classList.toggle("is-active", isActive);
+    chip.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 /* =========================
@@ -885,37 +942,49 @@ function formatHumanDate(ymd) {
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
 }
+
 /* =========================
    EXPORT LINKS (actualiza from/to)
 ========================= */
 function initExportLinks() {
   const fromInput = document.getElementById("dashFrom");
   const toInput = document.getElementById("dashTo");
+  const catSelect = document.getElementById("dashCategoria");
   const links = Array.from(document.querySelectorAll(".dash-export"));
   const dd = document.getElementById("dashExportDD");
 
   if (!fromInput || !toInput || links.length === 0) return;
 
-  const buildHref = (type, from, to) =>
-    `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  const buildHref = (type, from, to, categoria) => {
+    let url = `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    if (categoria) {
+      url += `&categoria=${encodeURIComponent(categoria)}`;
+    }
+    return url;
+  };
 
   const refresh = () => {
     const from = fromInput.value || "";
     const to = toInput.value || "";
+    const categoria = catSelect ? catSelect.value : "";
+    
     links.forEach((a) => {
       const type = a.dataset.exportType || "";
       if (!type || !from || !to) return;
-      a.setAttribute("href", buildHref(type, from, to));
+      a.setAttribute("href", buildHref(type, from, to, categoria));
     });
   };
 
   refresh();
 
-  // ✅ change + input (más responsive)
   ["change", "input"].forEach((ev) => {
     fromInput.addEventListener(ev, refresh);
     toInput.addEventListener(ev, refresh);
   });
+  
+  if (catSelect) {
+    catSelect.addEventListener("change", refresh);
+  }
 
   links.forEach((a) => {
     a.addEventListener("click", () => {

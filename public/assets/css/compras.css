@@ -1,9 +1,10 @@
 /* ============================================================================
-   COMPRAS - VERSIÓN COMPLETA CON MEJORAS UX
+   COMPRAS - CSS UNIFICADO Y OPTIMIZADO
+   Versión corregida sin duplicaciones
 ============================================================================ */
 
 /* -------------------------
-   Wrapper + Variables (DEFAULT: DARK)
+   Variables CSS (DEFAULT: DARK)
 -------------------------- */
 .compras-page {
   width: 100%;
@@ -11,7 +12,7 @@
   margin: 26px auto;
   padding: 0 16px;
 
-  /* palette dark (default) */
+  /* Paleta dark (default) */
   --c-primary: #38bdf8;
   --c-primary-dark: #0ea5e9;
   --c-success: #22c55e;
@@ -27,7 +28,7 @@
   --c-muted: rgba(226, 232, 240, 0.75);
 
   --c-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
-  --c-overlay: rgba(0, 0, 0, 0.7);
+  --c-overlay: rgba(0, 0, 0, 0.72);
 
   --c-dropdown-bg: rgba(15, 23, 42, 0.98);
   --c-dropdown-hover: rgba(56, 189, 248, 0.12);
@@ -56,14 +57,14 @@ body.theme-light .compras-page {
   --c-muted: rgba(15, 23, 42, 0.6);
 
   --c-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
-  --c-overlay: rgba(15, 23, 42, 0.35);
+  --c-overlay: rgba(15, 23, 42, 0.4);
 
   --c-dropdown-bg: #ffffff;
   --c-dropdown-hover: rgba(2, 132, 199, 0.08);
 }
 
 /* ============================================================================
-   HEADERS / TITULOS
+   HEADERS / TÍTULOS
 ============================================================================ */
 .compras-page .page-header {
   margin-bottom: 24px;
@@ -98,7 +99,7 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   FORM
+   FORMULARIO
 ============================================================================ */
 .compras-page .compras-form {
   margin-top: 16px;
@@ -313,7 +314,8 @@ body.theme-light .compras-page {
   background: var(--c-dropdown-hover);
 }
 
-.compras-page .suggestion-item.empty {
+.compras-page .suggestion-item.empty,
+.compras-page .suggestion-item.loading-item {
   cursor: default;
   opacity: 0.7;
   text-align: center;
@@ -429,6 +431,7 @@ body.theme-light .compras-page {
   position: relative;
   cursor: pointer;
 }
+
 .compras-page .editable-cell:hover {
   background: rgba(56, 189, 248, 0.05);
 }
@@ -456,6 +459,7 @@ body.theme-light .compras-page {
   font-weight: 700;
   margin-bottom: 3px;
 }
+
 .compras-page .item-code {
   font-size: 0.78rem;
   opacity: 0.65;
@@ -465,8 +469,14 @@ body.theme-light .compras-page {
 .compras-page .right {
   text-align: right;
 }
+
 .compras-page .center {
   text-align: center;
+}
+
+/* FIX: Ocultar filas precargadas hasta que JS las procese */
+.compras-page .preloaded-item {
+  display: none;
 }
 
 /* ============================================================================
@@ -489,11 +499,7 @@ body.theme-light .compras-page {
 }
 
 .compras-page .btn-primary {
-  background: linear-gradient(
-    135deg,
-    var(--c-primary) 0%,
-    var(--c-primary-dark) 100%
-  );
+  background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-dark) 100%);
   color: #fff;
   box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
 }
@@ -523,7 +529,7 @@ body.theme-light .compras-page {
   background: rgba(56, 189, 248, 0.18);
 }
 
-/* icon buttons */
+/* Icon buttons */
 .compras-page .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -537,6 +543,7 @@ body.theme-light .compras-page {
   color: var(--c-text);
   cursor: pointer;
   transition: all 0.18s ease;
+  text-decoration: none;
 }
 
 .compras-page .btn-icon:hover {
@@ -563,26 +570,6 @@ body.theme-light .compras-page {
   color: var(--c-danger);
 }
 
-.compras-page .btn-close {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(148, 163, 184, 0.1);
-  color: var(--c-text);
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.compras-page .btn-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--c-danger);
-}
-
 /* ============================================================================
    FILTROS / PAGINACIÓN
 ============================================================================ */
@@ -603,6 +590,7 @@ body.theme-light .compras-page {
   flex: 1 1 260px;
   min-width: 240px;
 }
+
 .compras-page .filters-left input {
   width: 100%;
 }
@@ -628,6 +616,7 @@ body.theme-light .compras-page {
   font-size: 0.9rem;
   color: var(--c-muted);
 }
+
 .compras-page .pagination-pages {
   display: flex;
   gap: 6px;
@@ -685,7 +674,53 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   MODAL
+   ESTADOS
+============================================================================ */
+.compras-page .estado-badge,
+.estado-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compras-page .estado-BORRADOR,
+.estado-BORRADOR {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--c-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.compras-page .estado-CONFIRMADA,
+.estado-CONFIRMADA {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--c-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.compras-page .estado-ANULADA,
+.estado-ANULADA {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--c-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================================================
+   ACCIONES
+============================================================================ */
+.compras-page .actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ============================================================================
+   MODAL - UNIFICADO
 ============================================================================ */
 .modal-overlay {
   position: fixed;
@@ -693,48 +728,99 @@ body.theme-light .compras-page {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--c-overlay);
-  display: flex;
+  background: var(--c-overlay, rgba(0, 0, 0, 0.72));
+  backdrop-filter: blur(3px);
+  display: none;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
-  padding: 16px;
-  animation: fadeIn 0.2s ease;
+  z-index: 99999;
+  padding: 20px;
+  animation: fadeInModal 0.2s ease;
+  overflow-y: auto;
+}
+
+.modal-overlay[style*="display: flex"],
+.modal-overlay.active {
+  display: flex !important;
 }
 
 .modal-box {
+  /* Definir variables locales para el modal (por si está fuera de .compras-page) */
+  --c-surface: rgba(2, 6, 23, 0.92);
+  --c-surface-2: rgba(2, 6, 23, 0.96);
+  --c-border: rgba(148, 163, 184, 0.22);
+  --c-text: #e5e7eb;
+  
   background: var(--c-surface);
+  border: 1.5px solid var(--c-border);
   border-radius: 16px;
-  padding: 24px;
-  max-width: 500px;
+  padding: 28px;
   width: 100%;
-  box-shadow: var(--c-shadow);
-  animation: scaleIn 0.2s ease;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: scaleInModal 0.25s ease;
   position: relative;
+  margin: auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--c-text);
 }
 
-.modal-detalle {
-  max-width: 900px;
+.modal-box.modal-detalle {
+  max-width: 1000px;
+  max-height: 85vh;
 }
 
 .modal-header {
-  margin-bottom: 16px;
-  padding-right: 40px;
+  margin-bottom: 20px;
+  padding-right: 45px;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   color: var(--c-text);
+  font-weight: 700;
 }
 
 .modal-body {
-  max-height: 70vh;
+  flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0 -8px;
+  padding: 0 8px;
+}
+
+.btn-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--c-text);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.btn-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  transform: rotate(90deg);
 }
 
 .modal-message {
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   font-size: 1rem;
   line-height: 1.6;
   color: var(--c-text);
@@ -744,24 +830,140 @@ body.theme-light .compras-page {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  margin-top: 20px;
+  margin-top: 24px;
+  flex-shrink: 0;
 }
 
 .detalle-info {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 16px;
-  background: rgba(56, 189, 248, 0.05);
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 18px;
+  background: rgba(56, 189, 248, 0.06);
   border-radius: 12px;
+  border: 1.5px solid rgba(56, 189, 248, 0.15);
+}
+
+.detalle-info > div {
+  font-size: 0.95rem;
+}
+
+.detalle-info strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
 }
 
 .loading {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   font-size: 1.1rem;
   opacity: 0.7;
+  color: var(--c-text);
+}
+
+/* Modal - Light mode */
+html[data-theme="light"] .modal-box,
+body[data-theme="light"] .modal-box,
+html.light .modal-box,
+body.light .modal-box,
+html.theme-light .modal-box,
+body.theme-light .modal-box {
+  --c-surface: #ffffff;
+  --c-surface-2: #f1f5f9;
+  --c-border: rgba(15, 23, 42, 0.14);
+  --c-text: #0f172a;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+}
+
+html[data-theme="light"] .btn-close,
+body[data-theme="light"] .btn-close,
+html.light .btn-close,
+body.light .btn-close,
+html.theme-light .btn-close,
+body.theme-light .btn-close {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .detalle-info,
+body[data-theme="light"] .detalle-info,
+html.light .detalle-info,
+body.light .detalle-info,
+html.theme-light .detalle-info,
+body.theme-light .detalle-info {
+  background: rgba(56, 189, 248, 0.04);
+  border-color: rgba(56, 189, 248, 0.12);
+}
+
+/* Tabla en modal */
+.modal-body .table-wrapper {
+  margin-top: 16px;
+  border-radius: 12px;
+  max-height: none;
+}
+
+.modal-body .compras-table {
+  font-size: 0.95rem;
+}
+
+.modal-body .compras-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface-2);
+}
+
+/* ============================================================================
+   TOAST
+============================================================================ */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 14px 20px;
+  background: var(--c-surface, rgba(2, 6, 23, 0.92));
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  z-index: 100000;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  max-width: 400px;
+  border: 1.5px solid var(--c-border, rgba(148, 163, 184, 0.22));
+  color: var(--c-text, #e5e7eb);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.toast-warning {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.toast-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.toast-info {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
 }
 
 /* ============================================================================
@@ -778,15 +980,15 @@ body.theme-light .compras-page {
   }
 }
 
-@keyframes fadeIn {
+@keyframes fadeInModal {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes scaleIn {
+@keyframes scaleInModal {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.92);
   }
   to {
     opacity: 1;
@@ -830,88 +1032,6 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   ESTADOS
-============================================================================ */
-.compras-page .estado-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.compras-page .estado-BORRADOR {
-  background: rgba(245, 158, 11, 0.12);
-  color: var(--c-warning);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-.compras-page .estado-CONFIRMADA {
-  background: rgba(34, 197, 94, 0.12);
-  color: var(--c-success);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-.compras-page .estado-ANULADA {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--c-danger);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-/* ============================================================================
-   ACCIONES
-============================================================================ */
-.compras-page .actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-/* ============================================================================
-   TOAST
-============================================================================ */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 14px 20px;
-  background: var(--c-surface);
-  border-radius: 12px;
-  box-shadow: var(--c-shadow);
-  z-index: 10000;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.3s ease;
-  max-width: 400px;
-  border: 1.5px solid var(--c-border);
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.toast-success {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--c-success);
-}
-
-.toast-warning {
-  border-color: rgba(245, 158, 11, 0.3);
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--c-warning);
-}
-
-.toast-error {
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--c-danger);
-}
-
-/* ============================================================================
    RESPONSIVE
 ============================================================================ */
 @media (max-width: 980px) {
@@ -930,247 +1050,6 @@ body.theme-light .compras-page {
     align-items: flex-start;
   }
 }
-
-@media (max-width: 560px) {
-  .compras-page {
-    margin: 16px auto;
-  }
-  .compras-page .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .compras-page .items-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .compras-page .filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .compras-page .filters-left,
-  .compras-page .filters-right {
-    width: 100%;
-  }
-  .compras-page .filters-right {
-    flex-direction: column;
-  }
-  
-  .toast {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-  }
-  
-  .modal-box {
-    margin: 16px;
-  }
-}
-
-/* ============================================================================
-   SCROLLBAR
-============================================================================ */
-.compras-page .table-wrapper::-webkit-scrollbar,
-.compras-page .suggestions-box::-webkit-scrollbar,
-.modal-body::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.compras-page .table-wrapper::-webkit-scrollbar-track,
-.compras-page .suggestions-box::-webkit-scrollbar-track,
-.modal-body::-webkit-scrollbar-track {
-  background: rgba(2, 6, 23, 0.1);
-  border-radius: 10px;
-}
-
-.compras-page .table-wrapper::-webkit-scrollbar-thumb,
-.compras-page .suggestions-box::-webkit-scrollbar-thumb,
-.modal-body::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 10px;
-}
-
-.compras-page .table-wrapper::-webkit-scrollbar-thumb:hover,
-.compras-page .suggestions-box::-webkit-scrollbar-thumb:hover,
-.modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
-}
-
-/* Firefox scrollbar */
-.compras-page .table-wrapper,
-.compras-page .suggestions-box,
-.modal-body {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
-}/* ============================================================================
-   MODAL - FIX VISUAL (agregar al final de compras.css)
-============================================================================ */
-
-/* Overlay del modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--c-overlay);
-  display: none; /* Oculto por defecto */
-  align-items: center;
-  justify-content: center;
-  z-index: 99999; /* MUY alto para estar sobre todo */
-  padding: 20px;
-  animation: fadeInModal 0.2s ease;
-  overflow-y: auto; /* Permite scroll si el contenido es muy grande */
-}
-
-/* Cuando el modal está activo (agregado por JS) */
-.modal-overlay[style*="display: flex"],
-.modal-overlay.active {
-  display: flex !important;
-}
-
-/* Caja del modal */
-.modal-box {
-  background: var(--c-surface);
-  border-radius: 16px;
-  padding: 28px;
-  width: 100%;
-  max-width: 500px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: scaleInModal 0.25s ease;
-  position: relative;
-  margin: auto; /* Centrado vertical cuando hay scroll */
-  max-height: 90vh; /* No exceder 90% del viewport */
-  display: flex;
-  flex-direction: column;
-}
-
-/* Modal más grande para detalle de compras */
-.modal-box.modal-detalle {
-  max-width: 1000px;
-  max-height: 85vh;
-}
-
-/* Header del modal */
-.modal-header {
-  margin-bottom: 20px;
-  padding-right: 45px; /* Espacio para el botón X */
-  flex-shrink: 0; /* No se comprime */
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.4rem;
-  color: var(--c-text);
-  font-weight: 700;
-}
-
-/* Body del modal (contenido scrolleable) */
-.modal-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  margin: 0 -8px; /* Compensar padding del scrollbar */
-  padding: 0 8px;
-}
-
-/* Botón cerrar (X) */
-.btn-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--c-text);
-  font-size: 1.3rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.btn-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: var(--c-danger);
-  transform: rotate(90deg);
-}
-
-/* Mensaje del modal */
-.modal-message {
-  margin: 0 0 24px;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--c-text);
-}
-
-/* Acciones del modal (botones) */
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 24px;
-  flex-shrink: 0; /* No se comprime */
-}
-
-/* Info del detalle de compra */
-.detalle-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-  padding: 18px;
-  background: rgba(56, 189, 248, 0.06);
-  border-radius: 12px;
-  border: 1.5px solid rgba(56, 189, 248, 0.15);
-}
-
-.detalle-info > div {
-  font-size: 0.95rem;
-}
-
-.detalle-info strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.75;
-}
-
-/* Loading en modal */
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  font-size: 1.1rem;
-  opacity: 0.7;
-  color: var(--c-text);
-}
-
-/* Animaciones */
-@keyframes fadeInModal {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes scaleInModal {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* ============================================================================
-   RESPONSIVE MODAL
-============================================================================ */
 
 @media (max-width: 768px) {
   .modal-box {
@@ -1215,6 +1094,40 @@ body.theme-light .compras-page {
   }
 }
 
+@media (max-width: 560px) {
+  .compras-page {
+    margin: 16px auto;
+  }
+  .compras-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .compras-page .items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compras-page .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .compras-page .filters-left,
+  .compras-page .filters-right {
+    width: 100%;
+  }
+  .compras-page .filters-right {
+    flex-direction: column;
+  }
+  
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+  
+  .modal-box {
+    margin: 16px;
+  }
+}
+
 @media (max-width: 480px) {
   .modal-overlay {
     padding: 10px;
@@ -1225,7 +1138,6 @@ body.theme-light .compras-page {
     border-radius: 12px;
   }
   
-  /* Tabla en modal más compacta en mobile */
   .modal-body .compras-table thead th {
     font-size: 0.7rem;
     padding: 10px 8px;
@@ -1238,177 +1150,39 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   FIX PARA MODO LIGHT
+   SCROLLBAR
 ============================================================================ */
-
-html[data-theme="light"] .modal-overlay,
-body[data-theme="light"] .modal-overlay,
-html.light .modal-overlay,
-body.light .modal-overlay,
-html.theme-light .modal-overlay,
-body.theme-light .modal-overlay {
-  background: rgba(15, 23, 42, 0.4); /* Overlay más suave en light */
-}
-
-html[data-theme="light"] .modal-box,
-body[data-theme="light"] .modal-box,
-html.light .modal-box,
-body.light .modal-box,
-html.theme-light .modal-box,
-body.theme-light .modal-box {
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
-}
-
-html[data-theme="light"] .btn-close,
-body[data-theme="light"] .btn-close,
-html.light .btn-close,
-body.light .btn-close,
-html.theme-light .btn-close,
-body.theme-light .btn-close {
-  background: rgba(15, 23, 42, 0.08);
-}
-
-html[data-theme="light"] .btn-close:hover,
-body[data-theme="light"] .btn-close:hover,
-html.light .btn-close:hover,
-body.light .btn-close:hover,
-html.theme-light .btn-close:hover,
-body.theme-light .btn-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-}
-
-html[data-theme="light"] .detalle-info,
-body[data-theme="light"] .detalle-info,
-html.light .detalle-info,
-body.light .detalle-info,
-html.theme-light .detalle-info,
-body.theme-light .detalle-info {
-  background: rgba(56, 189, 248, 0.04);
-  border-color: rgba(56, 189, 248, 0.12);
-}
-
-/* ============================================================================
-   FIX SCROLLBAR EN MODAL
-============================================================================ */
-
+.compras-page .table-wrapper::-webkit-scrollbar,
+.compras-page .suggestions-box::-webkit-scrollbar,
 .modal-body::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
+.compras-page .table-wrapper::-webkit-scrollbar-track,
+.compras-page .suggestions-box::-webkit-scrollbar-track,
 .modal-body::-webkit-scrollbar-track {
   background: transparent;
   border-radius: 10px;
 }
 
+.compras-page .table-wrapper::-webkit-scrollbar-thumb,
+.compras-page .suggestions-box::-webkit-scrollbar-thumb,
 .modal-body::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.3);
   border-radius: 10px;
 }
 
+.compras-page .table-wrapper::-webkit-scrollbar-thumb:hover,
+.compras-page .suggestions-box::-webkit-scrollbar-thumb:hover,
 .modal-body::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* Firefox */
+/* Firefox scrollbar */
+.compras-page .table-wrapper,
+.compras-page .suggestions-box,
 .modal-body {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
-}
-
-/* ============================================================================
-   FIX Z-INDEX CONFLICTOS
-============================================================================ */
-
-/* Asegurar que el modal esté sobre todo */
-.modal-overlay {
-  z-index: 99999 !important;
-}
-
-/* Si hay otros modales o dropdowns, bajar su z-index */
-.compras-page .suggestions-box {
-  z-index: 100; /* Muy por debajo del modal */
-}
-
-/* ============================================================================
-   MEJORA VISUAL: TABLA EN MODAL
-============================================================================ */
-
-.modal-body .table-wrapper {
-  margin-top: 16px;
-  border-radius: 12px;
-  max-height: none; /* Sin límite de altura, el modal-body maneja el scroll */
-}
-
-.modal-body .compras-table {
-  font-size: 0.95rem;
-}
-
-.modal-body .compras-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--c-surface-2);
-}
-
-/* Mejor contraste en modo light */
-html[data-theme="light"] .modal-body .compras-table thead th,
-body[data-theme="light"] .modal-body .compras-table thead th,
-html.light .modal-body .compras-table thead th,
-body.light .modal-body .compras-table thead th,
-html.theme-light .modal-body .compras-table thead th,
-body.theme-light .modal-body .compras-table thead th {
-  background: var(--c-surface-2);
-  border-bottom-color: rgba(56, 189, 248, 0.2);
-}/* ============================================================================
-   PATCH: Modal NO transparente + variables aseguradas aunque el modal esté en <body>
-   (PEGAR AL FINAL de compras.css)
-============================================================================ */
-
-/* El modal define su propio set de variables (override) */
-.modal-overlay{
-  /* overlay más oscuro + blur */
-  --c-overlay: rgba(0,0,0,.72);
-
-  /* superficies más opacas SOLO para el modal */
-  --c-surface: rgba(2,6,23,.92);
-  --c-surface-2: rgba(2,6,23,.96);
-  --c-input: rgba(2,6,23,.85);
-
-  --c-border: rgba(148,163,184,.22);
-  --c-text: #e5e7eb;
-  --c-muted: rgba(226,232,240,.75);
-
-  background: var(--c-overlay);
-  backdrop-filter: blur(3px);
-}
-
-/* Asegurá fondo sólido en la caja */
-.modal-box{
-  background: var(--c-surface);
-  border: 1.5px solid var(--c-border);
-}
-
-/* Header sticky de tabla en modal (por si quedaba “lavado”) */
-.modal-body .compras-table thead th{
-  background: var(--c-surface-2);
-}
-
-/* =========================
-   Light mode (modal)
-========================= */
-html[data-theme="light"] .modal-overlay,
-body[data-theme="light"] .modal-overlay,
-html.light .modal-overlay,
-body.light .modal-overlay,
-html.theme-light .modal-overlay,
-body.theme-light .modal-overlay{
-  --c-overlay: rgba(15,23,42,.35);
-
-  --c-surface: #ffffff;
-  --c-surface-2: #f1f5f9;
-  --c-input: #ffffff;
-
-  --c-border: rgba(15,23,42,.14);
-  --c-text: #0f172a;
-  --c-muted: rgba(15,23,42,.6);
 }

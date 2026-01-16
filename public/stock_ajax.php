@@ -10,105 +10,183 @@ header('Content-Type: application/json; charset=utf-8');
 
 $pdo = getPDO();
 
+/* ============================
+   CONSTANTES DE TIPOS DE AJUSTE
+============================ */
+const TIPOS_AJUSTE = [
+    'entrada'    => ['label' => 'Entrada',     'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
+    'salida'     => ['label' => 'Salida',      'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Salida manual'],
+    'ajuste_pos' => ['label' => 'Ajuste (+)',  'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
+    'ajuste_neg' => ['label' => 'Ajuste (−)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
+    'perdida'    => ['label' => 'Pérdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Pérdida/Rotura/Vencimiento'],
+];
+
+const MOTIVO_MAX_LENGTH = 255;
+
+/* ============================
+   FUNCIONES HELPER
+============================ */
 function json_ok(array $data = []): void {
-  echo json_encode(['success' => true] + $data, JSON_UNESCAPED_UNICODE);
-  exit;
+    echo json_encode(['success' => true] + $data, JSON_UNESCAPED_UNICODE);
+    exit;
 }
+
 function json_fail(string $msg, int $code = 400): void {
-  http_response_code($code);
-  echo json_encode(['success' => false, 'message' => $msg], JSON_UNESCAPED_UNICODE);
-  exit;
+    http_response_code($code);
+    echo json_encode(['success' => false, 'message' => $msg], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
+/**
+ * Calcula el estado del stock
+ */
+function calcular_estado_stock(float $stock, float $stock_minimo, bool $activo): string {
+    if (!$activo) return 'inactivo';
+    if ($stock <= 0) return 'sin';
+    if ($stock <= $stock_minimo) return 'bajo';
+    return 'ok';
+}
+
+/**
+ * Calcula el porcentaje de la barra de stock
+ */
+function calcular_stock_pct(float $stock, float $stock_minimo): float {
+    if ($stock_minimo <= 0) {
+        return $stock > 0 ? 100 : 0;
+    }
+    return min(100, ($stock / $stock_minimo) * 100);
+}
+
+/* ============================
+   MAIN
+============================ */
 try {
-  if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_fail('Método no permitido', 405);
+    // Solo POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        json_fail('Método no permitido', 405);
+    }
 
-  if (!function_exists('csrf_verify') || !csrf_verify($_POST['csrf_token'] ?? null)) {
-    json_fail('CSRF inválido. Recargá y probá de nuevo.', 403);
-  }
+    // Verificar CSRF
+    if (!function_exists('csrf_verify') || !csrf_verify($_POST['csrf_token'] ?? null)) {
+        json_fail('CSRF inválido. Recargá la página y probá de nuevo.', 403);
+    }
 
-  $action = (string)($_POST['action'] ?? '');
-  if ($action !== 'ajustar') json_fail('Acción no válida', 400);
+    $action = trim((string)($_POST['action'] ?? ''));
+    
+    if ($action !== 'ajustar') {
+        json_fail('Acción no válida', 400);
+    }
 
-  $producto_id = (int)($_POST['producto_id'] ?? 0);
-  $tipo        = (string)($_POST['tipo'] ?? '');
-  $cantidad    = (float)($_POST['cantidad'] ?? 0);
-  $motivo      = trim((string)($_POST['motivo'] ?? ''));
+    // Parsear datos
+    $producto_id = (int)($_POST['producto_id'] ?? 0);
+    $tipo        = trim((string)($_POST['tipo'] ?? ''));
+    $cantidad    = (float)($_POST['cantidad'] ?? 0);
+    $motivo      = trim((string)($_POST['motivo'] ?? ''));
 
-  if ($producto_id <= 0) throw new Exception('ID de producto inválido');
+    // Validaciones
+    if ($producto_id <= 0) {
+        throw new Exception('ID de producto inválido');
+    }
 
-  $tipos_permitidos = ['entrada','salida','ajuste_pos','ajuste_neg','perdida'];
-  if (!in_array($tipo, $tipos_permitidos, true)) throw new Exception('Tipo inválido');
+    if (!isset(TIPOS_AJUSTE[$tipo])) {
+        throw new Exception('Tipo de ajuste inválido');
+    }
 
-  if ($cantidad <= 0) throw new Exception('La cantidad debe ser mayor a 0');
+    if ($cantidad <= 0) {
+        throw new Exception('La cantidad debe ser mayor a 0');
+    }
 
-  // Normalizar tipo → tipo_mov BD + cambio
-  $tipo_mov = 'AJUSTE_POSITIVO';
-  $cambio   = +$cantidad;
+    // Validar longitud de motivo
+    if (mb_strlen($motivo) > MOTIVO_MAX_LENGTH) {
+        throw new Exception('El motivo no puede superar los ' . MOTIVO_MAX_LENGTH . ' caracteres');
+    }
 
-  switch ($tipo) {
-    case 'entrada':
-    case 'ajuste_pos':
-      $tipo_mov = 'AJUSTE_POSITIVO';
-      $cambio   = +$cantidad;
-      break;
+    // Obtener configuración del tipo
+    $tipoConfig = TIPOS_AJUSTE[$tipo];
+    $tipo_mov = $tipoConfig['mov'];
+    $cambio = $tipoConfig['signo'] * $cantidad;
 
-    case 'salida':
-      $tipo_mov = 'AJUSTE_NEGATIVO';
-      $cambio   = -$cantidad;
-      if ($motivo === '') $motivo = 'Salida manual';
-      break;
+    // Motivo por defecto si aplica
+    if ($motivo === '' && isset($tipoConfig['motivo_default'])) {
+        $motivo = $tipoConfig['motivo_default'];
+    }
 
-    case 'ajuste_neg':
-      $tipo_mov = 'AJUSTE_NEGATIVO';
-      $cambio   = -$cantidad;
-      break;
+    // Iniciar transacción
+    $pdo->beginTransaction();
 
-    case 'perdida':
-      $tipo_mov = 'AJUSTE_NEGATIVO';
-      $cambio   = -$cantidad;
-      if ($motivo === '') $motivo = 'Pérdida/Rotura/Vencimiento';
-      break;
-  }
+    // Lock producto para evitar race conditions
+    $stmt = $pdo->prepare("
+        SELECT id, nombre, stock, stock_minimo, es_pesable, activo 
+        FROM productos 
+        WHERE id = ? 
+        FOR UPDATE
+    ");
+    $stmt->execute([$producto_id]);
+    $p = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$p) {
+        throw new Exception('Producto no encontrado');
+    }
 
-  $pdo->beginTransaction();
+    $stockActual = (float)$p['stock'];
+    $stockMinimo = (float)$p['stock_minimo'];
+    $activo = (bool)$p['activo'];
+    $esPesable = function_exists('is_pesable_row') ? is_pesable_row($p) : (bool)($p['es_pesable'] ?? false);
 
-  // Lock producto
-  $stmt = $pdo->prepare("SELECT id, stock, es_pesable FROM productos WHERE id = ? FOR UPDATE");
-  $stmt->execute([$producto_id]);
-  $p = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (!$p) throw new Exception('Producto no encontrado');
+    // Validar enteros para no pesables
+    if (!$esPesable && !is_int($cantidad) && floor($cantidad) != $cantidad) {
+        throw new Exception('Para productos por unidad, la cantidad debe ser un número entero');
+    }
 
-  $stockActual = (float)$p['stock'];
-  $esPesable   = function_exists('is_pesable_row') ? is_pesable_row($p) : (bool)($p['es_pesable'] ?? false);
+    // Calcular nuevo stock
+    $nuevoStock = $stockActual + $cambio;
+    
+    if ($nuevoStock < 0) {
+        throw new Exception('El stock no puede quedar negativo. Stock actual: ' . 
+            (function_exists('format_qty') ? format_qty($stockActual, $esPesable) : $stockActual));
+    }
 
-  $nuevoStock = $stockActual + $cambio;
-  if ($nuevoStock < 0) throw new Exception('El stock no puede ser negativo');
+    // Actualizar stock
+    $upd = $pdo->prepare("UPDATE productos SET stock = ? WHERE id = ?");
+    $upd->execute([$nuevoStock, $producto_id]);
 
-  $upd = $pdo->prepare("UPDATE productos SET stock = ? WHERE id = ?");
-  $upd->execute([$nuevoStock, $producto_id]);
+    // Insertar movimiento
+    $ins = $pdo->prepare("
+        INSERT INTO movimientos_stock
+          (venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario)
+        VALUES
+          (NULL, NOW(), ?, ?, ?, NULL, NULL, ?)
+    ");
+    $ins->execute([$producto_id, $tipo_mov, $cantidad, $motivo]);
 
-  // ✅ movimientos_stock: (id, venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario)
-  $ins = $pdo->prepare("
-    INSERT INTO movimientos_stock
-      (venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario)
-    VALUES
-      (NULL, NOW(), ?, ?, ?, NULL, NULL, ?)
-  ");
-  $ins->execute([$producto_id, $tipo_mov, $cantidad, $motivo]);
+    $pdo->commit();
 
-  $pdo->commit();
+    // Calcular nuevos valores para respuesta enriquecida
+    $estadoNuevo = calcular_estado_stock($nuevoStock, $stockMinimo, $activo);
+    $stockPct = calcular_stock_pct($nuevoStock, $stockMinimo);
 
-  json_ok([
-    'message' => 'Stock actualizado correctamente',
-    'data' => [
-      'stock_anterior' => function_exists('format_qty') ? format_qty($stockActual, $esPesable) : $stockActual,
-      'stock_nuevo'    => function_exists('format_qty') ? format_qty($nuevoStock, $esPesable) : $nuevoStock,
-      'cambio'         => function_exists('format_qty') ? format_qty($cambio, $esPesable) : $cambio,
-    ]
-  ]);
+    // Respuesta enriquecida
+    json_ok([
+        'message' => 'Stock actualizado correctamente',
+        'data' => [
+            'producto_id'     => $producto_id,
+            'producto_nombre' => (string)$p['nombre'],
+            'stock_anterior'  => function_exists('format_qty') ? format_qty($stockActual, $esPesable) : number_format($stockActual, $esPesable ? 3 : 0),
+            'stock_nuevo'     => function_exists('format_qty') ? format_qty($nuevoStock, $esPesable) : number_format($nuevoStock, $esPesable ? 3 : 0),
+            'stock_nuevo_raw' => $nuevoStock,
+            'stock_minimo'    => function_exists('format_qty') ? format_qty($stockMinimo, $esPesable) : number_format($stockMinimo, $esPesable ? 3 : 0),
+            'stock_minimo_raw'=> $stockMinimo,
+            'cambio'          => function_exists('format_qty') ? format_qty($cambio, $esPesable) : number_format($cambio, $esPesable ? 3 : 0),
+            'estado_nuevo'    => $estadoNuevo,
+            'stock_pct'       => round($stockPct, 1),
+            'es_pesable'      => $esPesable,
+            'activo'          => $activo,
+        ]
+    ]);
 
 } catch (Throwable $e) {
-  if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-  json_fail($e->getMessage(), 400);
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    json_fail($e->getMessage(), 400);
 }

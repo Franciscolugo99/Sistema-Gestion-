@@ -5,7 +5,10 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../bootstrap.php';
+
+// FIX: Verificar login Y permisos
 require_login();
+require_permission('editar_stock');
 
 $id = (int)($_GET['id'] ?? 0);
 
@@ -63,7 +66,7 @@ try {
       'nombre' => $it['nombre'],
       'codigo' => $it['codigo'],
       'cantidad' => $qty,
-      'cantidad_fmt' => $qtyFmt . ' ' . $it['unidad_venta'],
+      'cantidad_fmt' => $qtyFmt . ' ' . ($it['unidad_venta'] ?? 'UNIDAD'),
       'costo_unitario' => (float)$it['costo_unitario'],
       'costo_fmt' => '$' . number_format((float)$it['costo_unitario'], 2, ',', '.'),
       'subtotal' => (float)$it['subtotal'],

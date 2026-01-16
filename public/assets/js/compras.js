@@ -1,3 +1,12 @@
+/**
+ * COMPRAS.JS - Versión corregida con todos los fixes
+ * Fixes aplicados:
+ * - resetForm() ahora resetea step/min del input cantidad
+ * - enableEditMode() usa AbortController para manejo correcto de listeners
+ * - Agregado beforeunload para prevenir pérdida de datos
+ * - Mejorado feedback de carga en autocomplete
+ */
+
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("compraForm");
   const searchInput = document.getElementById("itemBuscar");
@@ -17,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedProduct = null;
   let itemsAdded = [];
   let autoIdCounter = Date.now();
+  let hasUnsavedChanges = false;
 
   /* ============================================================================
      CONSTANTES Y UTILS
@@ -80,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingHelp) existingHelp.remove();
     
     inQty.classList.remove('input-pesable');
+    inQty.removeEventListener('input', validatePesableInput);
     
     if (isPes) {
       // Badge visual
@@ -108,7 +119,6 @@ document.addEventListener("DOMContentLoaded", () => {
       
     } else {
       inQty.placeholder = 'Cantidad (unidades enteras)';
-      inQty.removeEventListener('input', validatePesableInput);
     }
   }
 
@@ -210,6 +220,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       isSearchActive = true;
+      
+      // FIX: Mostrar feedback de carga inmediato
+      suggestionsBox.innerHTML = '<div class="suggestion-item loading-item">🔍 Buscando...</div>';
+      suggestionsBox.classList.add("active");
+      
       debounceTimer = setTimeout(() => {
         const filtered = productosData
           .filter(
@@ -256,7 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
               isSearchActive = false;
             });
           });
-      }, 250);
+      }, 200);
     });
 
     document.addEventListener("click", (e) => {
@@ -334,10 +349,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (totalLbl) totalLbl.textContent = fmtMoney(total);
   }
 
+  // FIX: resetForm ahora resetea correctamente el step/min del input
   function resetForm() {
     selectedProduct = null;
     searchInput.value = "";
-    inQty.value = "1";
     inCost.value = "0";
     unitLbl.textContent = "Unidad: UNIDAD";
     
@@ -348,6 +363,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingHelp) existingHelp.remove();
     inQty.classList.remove('input-pesable');
     inQty.placeholder = '';
+    
+    // FIX: Resetear input cantidad a valores por defecto (unidades enteras)
+    inQty.step = "1";
+    inQty.min = "1";
+    inQty.value = "1";
+    inQty.removeEventListener('input', validatePesableInput);
     
     searchInput.focus();
   }
@@ -423,8 +444,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     EDICIÓN INLINE
+     EDICIÓN INLINE - FIX: Usar AbortController para manejo correcto de listeners
   ============================================================================ */
+  
   function enableEditMode(tr, product) {
     const qtyCell = tr.querySelector(".editable-cell[data-field='cantidad']");
     const costCell = tr.querySelector(".editable-cell[data-field='costo']");
@@ -433,9 +455,14 @@ document.addEventListener("DOMContentLoaded", () => {
     cells.forEach((cell, idx) => {
       const valueSpan = cell.querySelector(".cell-value");
       const editInput = cell.querySelector(".cell-edit");
+      if (!valueSpan || !editInput) return;
 
-      // Ajustes de step
-      if (cell.dataset.field === "cantidad") {
+      const field = cell.dataset.field;
+      const hiddenName = field === "cantidad" ? "cantidad[]" : "costo_unitario[]";
+      const hiddenInput = tr.querySelector(`input[name="${hiddenName}"]`);
+
+      // Ajustes de step/min (importante para evitar stepMismatch en type=number)
+      if (field === "cantidad") {
         const pes = isPesable(product);
         editInput.step = pes ? "0.001" : "1";
         editInput.min = pes ? "0.001" : "1";
@@ -444,53 +471,63 @@ document.addEventListener("DOMContentLoaded", () => {
         editInput.min = "0";
       }
 
-      valueSpan.style.display = "none";
-      editInput.style.display = "block";
+      // Sincronizar valor del editor con el hidden real (source of truth)
+      if (hiddenInput) editInput.value = hiddenInput.value;
+
+      const openEditor = () => {
+        valueSpan.style.display = "none";
+        editInput.disabled = false;
+        editInput.style.display = "block";
+      };
+
+      const closeEditor = () => {
+        valueSpan.style.display = "inline";
+        editInput.disabled = true;
+        editInput.style.display = "none";
+      };
+
+      // Abrir editor
+      openEditor();
 
       // Focus SOLO en cantidad (primero)
       if (idx === 0) {
         editInput.focus();
-        editInput.select();
+        editInput.select?.();
       }
 
-      let canceled = false;
+      // FIX: Usar AbortController para limpiar listeners correctamente
+      const controller = new AbortController();
+      let hasClosed = false;
 
-      const saveEdit = () => {
-        if (canceled) return;
+      const validateValue = (fieldName, v) => {
+        if (fieldName === "cantidad") {
+          if (!(v > 0)) return "Cantidad inválida";
+          if (v > MAX_QTY) return `Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`;
+        }
+        if (fieldName === "costo") {
+          if (v < 0) return "Costo inválido";
+          if (v > MAX_COST) return `Costo muy alto (máx: ${fmtMoney(MAX_COST)})`;
+        }
+        return "";
+      };
 
-        const field = cell.dataset.field;
+      const commitValue = () => {
         const newValue = parseFloat(editInput.value || 0);
+        const err = validateValue(field, newValue);
 
-        // Validación
-        if (field === "cantidad") {
-          if (!(newValue > 0)) {
-            showToast("Cantidad inválida", "warning");
-            return;
-          }
-          if (newValue > MAX_QTY) {
-            showToast(`Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`, "warning");
-            return;
-          }
-        }
-        
-        if (field === "costo") {
-          if (newValue < 0) {
-            showToast("Costo inválido", "warning");
-            return;
-          }
-          if (newValue > MAX_COST) {
-            showToast(`Costo muy alto (máx: ${fmtMoney(MAX_COST)})`, "warning");
-            return;
-          }
+        // Si es inválido, NO cerrar: permitir corrección inmediata
+        if (err) {
+          showToast(err, "warning");
+          // re-enfocar para corregir
+          editInput.focus();
+          editInput.select?.();
+          return false;
         }
 
-        // Update hidden
-        const hiddenName =
-          field === "cantidad" ? "cantidad[]" : "costo_unitario[]";
-        const hiddenInput = tr.querySelector(`input[name="${hiddenName}"]`);
-        hiddenInput.value = newValue;
+        // Update hidden (lo que realmente se envía)
+        if (hiddenInput) hiddenInput.value = newValue;
 
-        // Update UI
+        // Update UI (span)
         valueSpan.textContent =
           field === "cantidad" ? fmtQty(newValue, product) : fmtMoney(newValue);
 
@@ -506,30 +543,49 @@ document.addEventListener("DOMContentLoaded", () => {
         tr.dataset.subtotal = String(newSubtotal);
         tr.querySelector(".subtotal-cell").textContent = fmtMoney(newSubtotal);
 
-        valueSpan.style.display = "inline";
-        editInput.style.display = "none";
-
+        hasUnsavedChanges = true;
         recalcTotal();
         showToast("Item actualizado", "success");
+
+        closeEditor();
+        hasClosed = true;
+        controller.abort();
+        return true;
       };
 
-      editInput.addEventListener("blur", saveEdit, { once: true });
+      const cancelEdit = () => {
+        // Volver al valor original (hidden real)
+        if (hiddenInput) editInput.value = hiddenInput.value;
+        closeEditor();
+        hasClosed = true;
+        controller.abort();
+      };
+
+      editInput.addEventListener(
+        "blur",
+        () => {
+          if (hasClosed) return;
+          commitValue();
+        },
+        { signal: controller.signal }
+      );
+
       editInput.addEventListener(
         "keydown",
         (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            saveEdit();
+            commitValue();
           } else if (e.key === "Escape") {
-            canceled = true;
-            valueSpan.style.display = "inline";
-            editInput.style.display = "none";
+            e.preventDefault();
+            cancelEdit();
           }
         },
-        { once: true }
+        { signal: controller.signal }
       );
     });
   }
+
 
   /* ============================================================================
      CREAR/ELIMINAR FILAS
@@ -539,6 +595,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     qty = Number(qty);
     cost = Number(cost);
+
+    const pes = isPesable(product);
+    const qtyStep = pes ? "0.001" : "1";
+    const qtyMin  = pes ? "0.001" : "1";
+
 
     const subtotal = round2(qty * cost);
     const rowId = autoIdCounter++;
@@ -556,11 +617,11 @@ document.addEventListener("DOMContentLoaded", () => {
       </td>
       <td class="right editable-cell" data-field="cantidad">
         <span class="cell-value">${fmtQty(qty, product)}</span>
-        <input type="number" class="cell-edit" value="${qty}" style="display:none;">
+        <input type="number" class="cell-edit" value="${qty}" step="${qtyStep}" min="${qtyMin}" disabled style="display:none;">
       </td>
       <td class="right editable-cell" data-field="costo">
         <span class="cell-value">${fmtMoney(cost)}</span>
-        <input type="number" class="cell-edit" value="${cost}" style="display:none;">
+        <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
       </td>
       <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
       <td class="center">
@@ -587,6 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tbody.appendChild(tr);
     itemsAdded.push({ rowId, productId: product.id });
 
+    hasUnsavedChanges = true;
     recalcTotal();
     resetForm();
     showToast("Producto agregado", "success");
@@ -598,6 +660,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
         tr.remove();
         itemsAdded = itemsAdded.filter((it) => it.rowId !== rowId);
+        hasUnsavedChanges = true;
         addEmptyRowIfNeeded();
         recalcTotal();
       }, 180);
@@ -683,6 +746,7 @@ document.addEventListener("DOMContentLoaded", () => {
           tr.classList.add("highlight-update");
           setTimeout(() => tr.classList.remove("highlight-update"), 450);
 
+          hasUnsavedChanges = true;
           recalcTotal();
           resetForm();
           showToast("Item actualizado", "success");
@@ -720,7 +784,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!tbody.querySelector("tr[data-row='item']")) {
         e.preventDefault();
         showToast("Agregá al menos 1 ítem a la compra", "warning");
+        return;
       }
+      // Si se envía el form, desactivar la advertencia de salida
+      hasUnsavedChanges = false;
     });
   }
 
@@ -747,7 +814,12 @@ document.addEventListener("DOMContentLoaded", () => {
         esPesable: esPesable,
         unidad: unidad
       };
-      
+
+      const pes2 = isPesable(productMock);
+      const qtyStep2 = pes2 ? "0.001" : "1";
+      const qtyMin2  = pes2 ? "0.001" : "1";
+
+  
       const subtotal = round2(qty * cost);
       const rowId = autoIdCounter++;
       
@@ -763,11 +835,11 @@ document.addEventListener("DOMContentLoaded", () => {
         </td>
         <td class="right editable-cell" data-field="cantidad">
           <span class="cell-value">${fmtQty(qty, productMock)}</span>
-          <input type="number" class="cell-edit" value="${qty}" style="display:none;">
+          <input type="number" class="cell-edit" value="${qty}" step="${qtyStep2}" min="${qtyMin2}" disabled style="display:none;">
         </td>
         <td class="right editable-cell" data-field="costo">
           <span class="cell-value">${fmtMoney(cost)}</span>
-          <input type="number" class="cell-edit" value="${cost}" style="display:none;">
+          <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
         </td>
         <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
         <td class="center">
@@ -799,6 +871,17 @@ document.addEventListener("DOMContentLoaded", () => {
     
     recalcTotal();
   }
+
+  /* ============================================================================
+     FIX: PREVENIR PÉRDIDA DE DATOS - beforeunload
+  ============================================================================ */
+  window.addEventListener('beforeunload', (e) => {
+    if (hasUnsavedChanges && itemsAdded.length > 0) {
+      e.preventDefault();
+      e.returnValue = ''; // Necesario para Chrome
+      return ''; // Necesario para otros navegadores
+    }
+  });
 
   /* ============================================================================
      INICIALIZACIÓN

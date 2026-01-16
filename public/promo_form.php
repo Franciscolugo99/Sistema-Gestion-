@@ -225,12 +225,12 @@ $pageTitle      = ($editing ? 'Editar promo' : 'Nueva promo') . ' - Promociones'
 $currentSection = 'promos';
 
 $extraCss = [
-  'assets/css/promos.css',
-  'assets/css/promo_combo_fijo.css',
+  'assets/css/promos.css?v=5',
+  'assets/css/promo_combo_fijo.css?v=2',
 ];
 
 $extraJs  = [
-  'assets/js/promo_form.js',
+  'assets/js/promo_form.js?v=2',
 ];
 
 require __DIR__ . '/partials/header.php';
@@ -240,7 +240,7 @@ require __DIR__ . '/partials/header.php';
   <header class="page-header with-back">
     <div class="page-header-left">
       <a href="promos.php" class="link-back">← Volver</a>
-      <h1 class="page-title"><?= $editing ? 'Editar promo' : 'Nueva promo' ?></h1>
+      <h1 class="page-title">🏷️ <?= $editing ? 'Editar promo' : 'Nueva promo' ?></h1>
       <p class="page-sub">Configurá las condiciones con las que se aplicará automáticamente en caja.</p>
     </div>
 
@@ -272,7 +272,7 @@ require __DIR__ . '/partials/header.php';
       <div class="form-grid-2">
         <div class="field">
           <label for="nombre" class="field-label">Nombre de la promo</label>
-          <input type="text" class="field-input" id="nombre" name="nombre" required value="<?= h((string)$promo['nombre']) ?>">
+          <input type="text" class="field-input" id="nombre" name="nombre" required value="<?= h((string)$promo['nombre']) ?>" placeholder="Ej: Oferta Coca 500ml">
         </div>
 
         <div class="field">
@@ -287,7 +287,7 @@ require __DIR__ . '/partials/header.php';
       <div class="field">
         <label for="producto_id" class="field-label">Producto</label>
         <select id="producto_id" name="producto_id" class="field-input field-select" required>
-          <option value="">-- Elegir --</option>
+          <option value="">-- Elegir producto --</option>
           <?php foreach ($productos as $pr): ?>
             <option value="<?= (int)$pr['id'] ?>" <?= ((int)$promo['producto_id'] === (int)$pr['id']) ? 'selected' : '' ?>>
               [<?= h((string)$pr['codigo']) ?>] <?= h((string)$pr['nombre']) ?>
@@ -304,26 +304,26 @@ require __DIR__ . '/partials/header.php';
           <div class="field-label field-label-top">Parámetros según tipo</div>
 
           <!-- NxM -->
-          <div id="block-nxm" class="promo-param-block">
+          <div id="block-nxm" class="promo-param-block" style="<?= ((string)$promo['tipo'] !== 'N_PAGA_M') ? 'display:none;' : '' ?>">
             <div class="form-grid-2">
               <div class="field">
-                <label for="n" class="field-label">N (llevás)</label>
-                <input type="number" class="field-input field-input-sm" id="n" name="nxm_n" min="2" value="<?= (int)$promo['n'] ?>">
+                <label for="nxm_n" class="field-label">N (llevás)</label>
+                <input type="number" class="field-input field-input-sm" id="nxm_n" name="nxm_n" min="2" value="<?= (int)$promo['n'] ?>">
               </div>
               <div class="field">
-                <label for="m" class="field-label">M (pagás)</label>
-                <input type="number" class="field-input field-input-sm" id="m" name="nxm_m" min="1" value="<?= (int)$promo['m'] ?>">
+                <label for="nxm_m" class="field-label">M (pagás)</label>
+                <input type="number" class="field-input field-input-sm" id="nxm_m" name="nxm_m" min="1" value="<?= (int)$promo['m'] ?>">
               </div>
             </div>
             <p class="field-hint">Ejemplo: 3x2 → N=3, M=2.</p>
           </div>
 
           <!-- % a la N° -->
-          <div id="block-nth" class="promo-param-block">
+          <div id="block-nth" class="promo-param-block" style="<?= ((string)$promo['tipo'] !== 'NTH_PCT') ? 'display:none;' : '' ?>">
             <div class="form-grid-2">
               <div class="field">
-                <label for="n_nth" class="field-label">N° de unidad</label>
-                <input type="number" class="field-input field-input-sm" id="n_nth" name="nth_n" min="2" value="<?= (int)$promo['n'] ?>">
+                <label for="nth_n" class="field-label">N° de unidad</label>
+                <input type="number" class="field-input field-input-sm" id="nth_n" name="nth_n" min="2" value="<?= (int)$promo['n'] ?>">
               </div>
               <div class="field">
                 <label for="porcentaje" class="field-label">% de descuento</label>
@@ -338,23 +338,25 @@ require __DIR__ . '/partials/header.php';
         <div>
           <div class="field">
             <div class="field-label field-label-top">Vigencia</div>
-            <div class="form-grid-2">
-              <div class="field">
-                <label for="fecha_inicio" class="field-label">Desde</label>
-                <input type="date" class="field-input" id="fecha_inicio" name="fecha_inicio"
-                       value="<?= !empty($promo['fecha_inicio']) ? h(substr((string)$promo['fecha_inicio'], 0, 10)) : '' ?>">
+            <div class="promo-param-block">
+              <div class="form-grid-2">
+                <div class="field">
+                  <label for="fecha_inicio" class="field-label">Desde</label>
+                  <input type="date" class="field-input" id="fecha_inicio" name="fecha_inicio"
+                         value="<?= !empty($promo['fecha_inicio']) ? h(substr((string)$promo['fecha_inicio'], 0, 10)) : '' ?>">
+                </div>
+                <div class="field">
+                  <label for="fecha_fin" class="field-label">Hasta</label>
+                  <input type="date" class="field-input" id="fecha_fin" name="fecha_fin"
+                         value="<?= !empty($promo['fecha_fin']) ? h(substr((string)$promo['fecha_fin'], 0, 10)) : '' ?>">
+                </div>
               </div>
-              <div class="field">
-                <label for="fecha_fin" class="field-label">Hasta</label>
-                <input type="date" class="field-input" id="fecha_fin" name="fecha_fin"
-                       value="<?= !empty($promo['fecha_fin']) ? h(substr((string)$promo['fecha_fin'], 0, 10)) : '' ?>">
-              </div>
+              <p class="field-hint">Dejá en blanco para que sea sin fecha límite.</p>
             </div>
-            <p class="field-hint">Dejá en blanco para que sea sin fecha límite.</p>
           </div>
 
-          <div class="field field-switch">
-            <div class="field-label-top">Estado de la promo</div>
+          <div class="field field-switch mt-2">
+            <div class="field-label-top">Estado</div>
 
             <div class="field-switch-row">
               <label class="edit-switch">
@@ -364,7 +366,7 @@ require __DIR__ . '/partials/header.php';
 
               <div class="field-switch-text">
                 <div class="field-switch-title">Promo activa</div>
-                <p class="field-hint">Podés desactivarla sin eliminarla para conservar el historial.</p>
+                <p class="field-hint">Podés desactivarla sin eliminarla.</p>
               </div>
             </div>
           </div>

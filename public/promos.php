@@ -76,38 +76,65 @@ if ($promoIds) {
   }
 }
 
+// Contadores para stats
+$totalPromos = count($promosBase);
+$activasCount = count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1));
+$inactivasCount = $totalPromos - $activasCount;
+
 /* --------------------------------------------------------
    Header
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=3'];
+$extraCss       = ['assets/css/promos.css?v=5'];
 $extraJs        = ['assets/js/promos.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
 <div class="promos-page">
-  
 <div class="root container-global" id="promos-page" data-csrf="<?= h(csrf_token()) ?>">
   <div class="panel panel-promos">
 
+    <!-- HEADER -->
     <div class="panel-header">
       <div>
-        <h1 class="panel-title">Promociones</h1>
-        <p class="panel-sub">Definí y gestioná promociones aplicadas automáticamente en caja.</p>
+        <div class="panel-title-group">
+          <span class="panel-icon">🏷️</span>
+          <h1 class="panel-title">Promociones</h1>
+        </div>
+        <p class="panel-sub">Buscá productos con autocomplete, editá ítems en línea y confirmá para impactar stock.</p>
       </div>
 
       <div class="promo-actions-top">
         <a href="promo_form.php" class="v-btn v-btn--primary">+ Nueva promo</a>
-        <a href="promo_combo_form.php" class="v-btn v-btn--outline">+ Nuevo combo fijo</a>
+        <a href="promo_combo_form.php" class="v-btn v-btn--outline">+ Combo fijo</a>
       </div>
     </div>
 
+    <!-- STATS (ARRIBA) -->
+    <div class="promo-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total</div>
+        <div class="stat-value"><?= $totalPromos ?></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Activas</div>
+        <div class="stat-value stat-value--success"><?= $activasCount ?></div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Inactivas</div>
+        <div class="stat-value stat-value--muted"><?= $inactivasCount ?></div>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
     <div class="promo-filters">
       <div class="filters-grid">
         <div class="field">
           <label for="filtroTexto">Buscar</label>
-          <input type="text" id="filtroTexto" class="input" placeholder="Nombre, producto, código…">
+          <input type="text" id="filtroTexto" class="input" placeholder="Nombre, producto, código...">
         </div>
 
         <div class="field">
@@ -115,15 +142,15 @@ require __DIR__ . '/partials/header.php';
           <select id="filtroTipo" class="input">
             <option value="">Todos</option>
             <option value="N_PAGA_M">NxM</option>
-            <option value="NTH_PCT">% a la N°</option>
-            <option value="COMBO_FIJO">Combo fijo</option>
+            <option value="NTH_PCT">% Unidad</option>
+            <option value="COMBO_FIJO">Combo</option>
           </select>
         </div>
 
         <div class="field">
           <label for="filtroEstado">Estado</label>
           <select id="filtroEstado" class="input">
-            <option value="">Todas</option>
+            <option value="">Todos</option>
             <option value="activa">Activas</option>
             <option value="inactiva">Inactivas</option>
           </select>
@@ -131,6 +158,7 @@ require __DIR__ . '/partials/header.php';
       </div>
     </div>
 
+    <!-- TABLA -->
     <div class="table-wrapper">
       <table class="promo-table">
         <thead>
@@ -149,7 +177,7 @@ require __DIR__ . '/partials/header.php';
         <tbody>
           <?php if (!$promosBase): ?>
             <tr>
-              <td colspan="8" class="empty-cell">No hay promociones cargadas aún.</td>
+              <td colspan="8" class="empty-cell">No hay promociones cargadas</td>
             </tr>
           <?php else: ?>
             <?php $nro = 0; foreach ($promosBase as $p): $nro++; ?>
@@ -158,8 +186,8 @@ require __DIR__ . '/partials/header.php';
                 $tipo   = (string)($p['tipo'] ?? '');
                 $activa = ((int)($p['activo'] ?? 0) === 1);
 
-                $desde = !empty($p['fecha_inicio']) ? date('d/m/Y', strtotime((string)$p['fecha_inicio'])) : '—';
-                $hasta = !empty($p['fecha_fin'])    ? date('d/m/Y', strtotime((string)$p['fecha_fin']))    : '—';
+                $desde = !empty($p['fecha_inicio']) ? date('d/m/y', strtotime((string)$p['fecha_inicio'])) : '—';
+                $hasta = !empty($p['fecha_fin'])    ? date('d/m/y', strtotime((string)$p['fecha_fin']))    : '—';
 
                 $items = ($tipo === 'COMBO_FIJO')
                   ? ($itemsComboByPromo[$id] ?? [])
@@ -173,19 +201,18 @@ require __DIR__ . '/partials/header.php';
                   } else {
                     $parts = [];
                     foreach (array_slice($items, 0, 2) as $it) {
-                      $cod  = trim((string)($it['prod_codigo'] ?? ''));
                       $nom  = trim((string)($it['prod_nombre'] ?? ''));
                       $cant = (float)($it['cantidad'] ?? 0);
-                      $cantTxt = rtrim(rtrim(number_format($cant, 3, '.', ''), '0'), '.');
-                      $parts[] = ($cod !== '' ? "[$cod] " : '') . $nom . " x{$cantTxt}";
+                      $cantTxt = rtrim(rtrim(number_format($cant, 1, '.', ''), '0'), '.');
+                      $parts[] = $nom . ' ×' . $cantTxt;
                     }
-                    $extra = $cnt > 2 ? " +".($cnt - 2) : "";
-                    $prodLabel = $cnt . " productos: " . implode(', ', $parts) . $extra;
+                    $extra = $cnt > 2 ? ' +'.($cnt - 2).' más' : '';
+                    $prodLabel = implode(', ', $parts) . $extra;
                   }
                 } else {
                   $it0 = $items[0] ?? null;
-                  if ($it0 && (!empty($it0['prod_codigo']) || !empty($it0['prod_nombre']))) {
-                    $prodLabel = '[' . (string)($it0['prod_codigo'] ?? '') . '] ' . (string)($it0['prod_nombre'] ?? '');
+                  if ($it0 && !empty($it0['prod_nombre'])) {
+                    $prodLabel = (string)($it0['prod_nombre'] ?? '');
                   } else {
                     $prodLabel = '—';
                   }
@@ -196,15 +223,32 @@ require __DIR__ . '/partials/header.php';
                 $it0 = $items[0] ?? null;
 
                 if ($tipo === 'N_PAGA_M' && $it0) {
-                  $paramsLabel = 'Llevás <strong>'.(int)($it0['n'] ?? 0).'</strong> y pagás <strong>'.(int)($it0['m'] ?? 0).'</strong>';
+                  $n = (int)($it0['n'] ?? 0);
+                  $m = (int)($it0['m'] ?? 0);
+                  $paramsLabel = 'Llevás <strong>'.$n.'</strong>, pagás <strong>'.$m.'</strong>';
                 } elseif ($tipo === 'NTH_PCT' && $it0) {
                   $pct = (float)($it0['porcentaje'] ?? 0);
                   $nn  = (int)($it0['n'] ?? 0);
-                  $pctTxt = rtrim(rtrim(number_format($pct, 2, '.', ''), '0'), '.');
+                  $pctTxt = rtrim(rtrim(number_format($pct, 0), '0'), '.');
                   $paramsLabel = '<strong>'.$pctTxt.'%</strong> en la <strong>'.$nn.'°</strong> unidad';
                 } elseif ($tipo === 'COMBO_FIJO') {
-                  $paramsLabel = '<span class="muted">Precio combo: <strong>' . h(money_ar((float)($p['precio_combo'] ?? 0))) . '</strong></span>';
+                  $paramsLabel = 'Precio: <strong>' . h(money_ar((float)($p['precio_combo'] ?? 0))) . '</strong>';
                 }
+
+                // Badge tipo
+                $tipoLabel = match($tipo) {
+                  'N_PAGA_M' => 'NxM',
+                  'NTH_PCT' => '% Unidad',
+                  'COMBO_FIJO' => 'Combo',
+                  default => $tipo
+                };
+                
+                $tipoBadgeClass = match($tipo) {
+                  'N_PAGA_M' => 'badge-nxm',
+                  'NTH_PCT' => 'badge-nth',
+                  'COMBO_FIJO' => 'badge-combo',
+                  default => 'badge-otro'
+                };
               ?>
 
               <tr
@@ -215,18 +259,10 @@ require __DIR__ . '/partials/header.php';
               >
                 <td><?= (int)$nro ?></td>
 
-                <td class="promo-name"><?= h($p['nombre'] ?? '') ?></td>
+                <td><span class="promo-name"><?= h($p['nombre'] ?? '') ?></span></td>
 
                 <td>
-                  <?php if ($tipo === 'N_PAGA_M'): ?>
-                    <span class="badge badge-nxm">NxM</span>
-                  <?php elseif ($tipo === 'NTH_PCT'): ?>
-                    <span class="badge badge-nth">% a la N°</span>
-                  <?php elseif ($tipo === 'COMBO_FIJO'): ?>
-                    <span class="badge badge-combo">Combo fijo</span>
-                  <?php else: ?>
-                    <span class="badge badge-otro"><?= h($tipo) ?></span>
-                  <?php endif; ?>
+                  <span class="badge <?= $tipoBadgeClass ?>"><?= h($tipoLabel) ?></span>
                 </td>
 
                 <td class="promo-prod"><?= h($prodLabel) ?></td>
@@ -243,9 +279,15 @@ require __DIR__ . '/partials/header.php';
                   </span>
                 </td>
 
-                <td class="t-right">
-                  <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
-                  <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
+                <td class="t-right actions-cell">
+                  <div class="actions-desktop">
+                    <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
+                    <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
+                  </div>
+                  <div class="actions-mobile">
+                    <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
+                    <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
+                  </div>
                 </td>
               </tr>
 
@@ -255,71 +297,55 @@ require __DIR__ . '/partials/header.php';
       </table>
     </div>
 
-    <div class="promo-stats">
-      <div class="stat-card">
-        <div class="stat-label">Total promos</div>
-        <div class="stat-value"><?= count($promosBase) ?></div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">Activas</div>
-        <div class="stat-value stat-value--success">
-          <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 1)) ?>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">Inactivas</div>
-        <div class="stat-value stat-value--muted">
-          <?= count(array_filter($promosBase, fn($p) => (int)($p['activo'] ?? 0) === 0)) ?>
-        </div>
-      </div>
-    </div>
-
   </div>
 </div>
+</div>
 
-<!-- PANEL LATERAL EDITAR PROMO -->
-<div id="promoEditOverlay" class="promo-overlay">
+<!-- PANEL LATERAL EDICIÓN RÁPIDA -->
+<div class="promo-overlay" id="promoEditOverlay">
   <div class="promo-panel">
     <div class="promo-panel-header">
-      <h2 id="promoEditTitle">Editar promoción</h2>
-      <button id="promoCloseBtn" class="panel-close-btn" type="button">×</button>
+      <h2 id="promoEditTitle">Editar promo</h2>
+      <button type="button" class="panel-close-btn" id="promoCloseBtn">&times;</button>
     </div>
 
     <div class="promo-panel-content">
-      <form id="promoEditForm">
-        <label for="promoNombre">Nombre</label>
-        <input type="text" id="promoNombre" autocomplete="off">
+      <form id="promoEditForm" autocomplete="off">
+        <input type="hidden" name="id" id="promoId">
 
-        <label for="promoTipo">Tipo</label>
-        <select id="promoTipo" disabled>
-          <option value="N_PAGA_M">N paga M</option>
-          <option value="NTH_PCT">% en N°</option>
-          <option value="COMBO_FIJO">Combo fijo</option>
+        <label>Nombre</label>
+        <input type="text" name="nombre" id="promoNombre" class="input" required>
+
+        <label>Tipo</label>
+        <select name="tipo" id="promoTipo" class="input" disabled>
+          <option value="N_PAGA_M">NxM</option>
+          <option value="NTH_PCT">% Unidad</option>
+          <option value="COMBO_FIJO">Combo</option>
         </select>
 
+        <!-- Campos N_PAGA_M y NTH_PCT -->
         <div id="promoSimplesFields">
-          <label for="promoProducto">Producto</label>
-          <select id="promoProducto"></select>
+          <label>Producto</label>
+          <select name="producto_id" id="promoProducto" class="input"></select>
 
-          <label for="promoN">N (cada cuántas unidades)</label>
-          <input type="number" id="promoN" min="1">
+          <label>N (llevá)</label>
+          <input type="number" name="n" id="promoN" class="input" min="1">
 
-          <label for="promoM">M (cuántas paga)</label>
-          <input type="number" id="promoM" min="1">
+          <label>M (pagá)</label>
+          <input type="number" name="m" id="promoM" class="input" min="1">
 
-          <label for="promoPct">Porcentaje</label>
-          <input type="number" id="promoPct" min="0" max="100" step="0.1">
+          <label>Descuento %</label>
+          <input type="number" name="porcentaje" id="promoPct" class="input" min="1" max="100">
         </div>
 
+        <!-- Campos COMBO_FIJO -->
         <div id="promoComboFields" style="display:none;">
-          <label for="comboPrecio">Precio combo</label>
-          <input type="number" id="comboPrecio" min="0" step="0.01">
+          <label>Precio combo</label>
+          <input type="number" name="precio_combo" id="comboPrecio" class="input" step="0.01" min="0">
 
+          <label>Ítems del combo</label>
           <div id="comboItemsContainer"></div>
-
-          <button type="button" id="btnAddComboItem" class="btn-small">Agregar producto</button>
+          <button type="button" class="btn-small" id="btnAddComboItem">+ Agregar ítem</button>
         </div>
 
         <button type="submit" class="btn-save">Guardar cambios</button>
@@ -328,25 +354,22 @@ require __DIR__ . '/partials/header.php';
   </div>
 </div>
 
-<!-- MODAL ELIMINAR PROMO (seguro: nombre por textContent) -->
-<div id="modalEliminarPromo" class="modal-overlay">
+<!-- MODAL ELIMINAR -->
+<div class="modal-overlay" id="modalEliminarPromo">
   <div class="modal-box">
-    <h2 class="modal-title">ELIMINAR PROMOCIÓN</h2>
+    <div class="modal-title">Eliminar promoción</div>
     <p class="modal-text">
-      ¿Eliminar la promoción <strong id="delPromoName"></strong>?<br>
+      ¿Seguro que querés eliminar "<strong id="delPromoName"></strong>"?
       <small>Esta acción no se puede deshacer.</small>
     </p>
-
     <div class="modal-actions">
-      <button id="btnCancelarEliminarPromo" class="modal-btn-cancel" type="button">Cancelar</button>
-      <button id="btnConfirmarEliminarPromo" class="modal-btn-danger" type="button">Sí, eliminar</button>
+      <button type="button" class="modal-btn-cancel" id="btnCancelarEliminarPromo">Cancelar</button>
+      <button type="button" class="modal-btn-danger" id="btnConfirmarEliminarPromo">Eliminar</button>
     </div>
   </div>
 </div>
 
-<div id="promoToast" class="promo-toast"></div>
-
-</div>
-
+<!-- TOAST -->
+<div class="promo-toast" id="promoToast"></div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

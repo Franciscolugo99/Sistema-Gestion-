@@ -1,5 +1,5 @@
 <?php
-// public/dashboard_export.php
+// public/dashboard_export.php - v3 con productos dormidos
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -42,7 +42,7 @@ function csvOut(array $row, $out, string $delimiter=';'): void {
    INPUTS
 ========================= */
 $type = strtolower(trim($_GET['type'] ?? 'kpis'));
-$allowed = ['movimientos','kpis','top_productos','metodos_pago','categorias','rentables'];
+$allowed = ['movimientos','kpis','top_productos','metodos_pago','categorias','rentables','dormidos','cierre_caja'];
 if (!in_array($type, $allowed, true)) $type = 'kpis';
 
 $today = (new DateTime('today'))->format('Y-m-d');
@@ -90,6 +90,9 @@ $viPriceCol   = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['prec
 $prodNombreCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['nombre','descripcion']) : null;
 $prodCostoCol  = $hasProductos ? firstExistingColumn($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
 $prodCatCol    = $hasProductos ? firstExistingColumn($pdo, 'productos', ['categoria','rubro','familia']) : null;
+$prodStockCol  = $hasProductos ? firstExistingColumn($pdo, 'productos', ['stock']) : null;
+$prodActivoCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['activo','is_active']) : null;
+$prodPrecioCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['precio','precio_venta','price']) : null;
 
 $msFechaCol = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
 $msTipoCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['tipo']) : null;
@@ -209,7 +212,7 @@ try {
         WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
         GROUP BY p.id
         ORDER BY unidades DESC
-        LIMIT 10
+        LIMIT 50
       ";
       $stmt = $pdo->prepare($sql);
       $stmt->execute([$fromStart, $toEnd]);
@@ -280,7 +283,7 @@ try {
             AND vt.subtotal_total > 0
           GROUP BY categoria
           ORDER BY ventas DESC
-          LIMIT 20
+          LIMIT 50
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
@@ -298,7 +301,7 @@ try {
           WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
           GROUP BY categoria
           ORDER BY ventas DESC
-          LIMIT 20
+          LIMIT 50
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$fromStart, $toEnd]);
@@ -349,7 +352,7 @@ try {
           AND p.`{$prodCostoCol}` IS NOT NULL
         GROUP BY p.id
         ORDER BY ganancia DESC
-        LIMIT 50
+        LIMIT 100
       ";
       $stmt = $pdo->prepare($sql);
       $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
@@ -370,6 +373,161 @@ try {
       }
     } else {
       csvOut(['ERROR', 'Faltan columnas (subtotal/total/precio*cant) o costo para rentables'], $out, $D);
+    }
+  }
+
+  /* =========================
+     🆕 PRODUCTOS DORMIDOS
+  ========================= */
+  if ($type === 'dormidos') {
+    $diasSinMovimiento = (int)($_GET['dias'] ?? 30);
+    if ($diasSinMovimiento < 7) $diasSinMovimiento = 7;
+    if ($diasSinMovimiento > 180) $diasSinMovimiento = 180;
+    
+    csvOut(['producto', 'categoria', 'stock', 'precio', 'valor_stock', 'ultima_venta', 'dias_sin_venta'], $out, $D);
+    
+    $can = $hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMovs && $msProdCol && $msFechaCol;
+    
+    if ($can) {
+      $fechaLimite = (new DateTime('today'))->modify("-{$diasSinMovimiento} days")->format('Y-m-d H:i:s');
+      $catCol = $prodCatCol ? "COALESCE(p.`{$prodCatCol}`, 'Sin Categoría')" : "'Sin Categoría'";
+      $precioCol = $prodPrecioCol ?: ($prodCostoCol ?: null);
+      $valorExpr = $precioCol ? "p.`{$precioCol}`" : "0";
+      
+      $sql = "
+        SELECT
+          p.id,
+          p.`{$prodNombreCol}` AS nombre,
+          {$catCol} AS categoria,
+          p.`{$prodStockCol}` AS stock,
+          {$valorExpr} AS precio,
+          (p.`{$prodStockCol}` * {$valorExpr}) AS valor_stock,
+          MAX(ms.`{$msFechaCol}`) AS ultima_venta
+        FROM productos p
+        LEFT JOIN movimientos_stock ms
+          ON ms.`{$msProdCol}` = p.id
+          AND ms.`{$msTipoCol}` = 'VENTA'
+        WHERE p.`{$prodActivoCol}` = 1
+          AND p.`{$prodStockCol}` > 0
+        GROUP BY p.id, p.`{$prodNombreCol}`, {$catCol}, p.`{$prodStockCol}`, {$valorExpr}
+        HAVING ultima_venta IS NULL OR ultima_venta < ?
+        ORDER BY valor_stock DESC
+      ";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$fechaLimite]);
+      
+      $totalCapital = 0.0;
+      $rows = [];
+      
+      while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $ultimaVenta = $r['ultima_venta'];
+        $diasSin = $ultimaVenta 
+          ? (int)(new DateTime($ultimaVenta))->diff(new DateTime('today'))->format('%a')
+          : 999;
+        
+        $rows[] = [
+          $r['nombre'],
+          $r['categoria'],
+          number_format((float)$r['stock'], 3, '.', ''),
+          number_format((float)$r['precio'], 2, '.', ''),
+          number_format((float)$r['valor_stock'], 2, '.', ''),
+          $ultimaVenta ? (new DateTime($ultimaVenta))->format('Y-m-d') : 'Nunca',
+          $diasSin === 999 ? 'Nunca vendido' : $diasSin
+        ];
+        
+        $totalCapital += (float)$r['valor_stock'];
+      }
+      
+      // Resumen al inicio
+      csvOut([''], $out, $D);
+      csvOut(['RESUMEN'], $out, $D);
+      csvOut(['Total productos dormidos', count($rows)], $out, $D);
+      csvOut(['Capital total parado', number_format($totalCapital, 2, '.', '')], $out, $D);
+      csvOut(['Días sin movimiento', $diasSinMovimiento], $out, $D);
+      csvOut([''], $out, $D);
+      
+      // Datos
+      foreach ($rows as $row) {
+        csvOut($row, $out, $D);
+      }
+      
+    } else {
+      csvOut(['ERROR', 'Faltan tablas/columnas para productos dormidos'], $out, $D);
+    }
+  }
+
+  /* =========================
+     🆕 CIERRE DE CAJA
+  ========================= */
+  if ($type === 'cierre_caja') {
+    $fecha = validDateYmd($_GET['fecha'] ?? null) ?? $today;
+    $fechaStart = $fecha . " 00:00:00";
+    $fechaEnd = (new DateTime($fecha))->modify('+1 day')->format('Y-m-d') . " 00:00:00";
+    
+    csvOut(['CIERRE DE CAJA', $fecha], $out, $D);
+    csvOut([''], $out, $D);
+    
+    if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
+      // Total del día
+      $stmt = $pdo->prepare("
+        SELECT 
+          COUNT(*) as total_ventas,
+          COALESCE(SUM({$ventasTotalSQL}), 0) as monto_total,
+          MIN({$ventasDateSQL}) as primera_venta,
+          MAX({$ventasDateSQL}) as ultima_venta
+        FROM ventas
+        WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}
+      ");
+      $stmt->execute([$fechaStart, $fechaEnd]);
+      $resumen = $stmt->fetch(PDO::FETCH_ASSOC);
+      
+      csvOut(['Total ventas', $resumen['total_ventas']], $out, $D);
+      csvOut(['Monto total', number_format((float)$resumen['monto_total'], 2, '.', '')], $out, $D);
+      csvOut(['Primera venta', $resumen['primera_venta'] ?: 'N/A'], $out, $D);
+      csvOut(['Última venta', $resumen['ultima_venta'] ?: 'N/A'], $out, $D);
+      
+      $ticketProm = $resumen['total_ventas'] > 0 
+        ? (float)$resumen['monto_total'] / (int)$resumen['total_ventas'] 
+        : 0;
+      csvOut(['Ticket promedio', number_format($ticketProm, 2, '.', '')], $out, $D);
+      
+      // Anulaciones
+      if ($ventasEstadoCol) {
+        $anuladaCond = " AND `{$ventasEstadoCol}`='ANULADA' ";
+        $stmt = $pdo->prepare("
+          SELECT COUNT(*) as anulaciones, COALESCE(SUM({$ventasTotalSQL}), 0) as monto
+          FROM ventas
+          WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$anuladaCond}
+        ");
+        $stmt->execute([$fechaStart, $fechaEnd]);
+        $anul = $stmt->fetch(PDO::FETCH_ASSOC);
+        csvOut(['Anulaciones', $anul['anulaciones']], $out, $D);
+        csvOut(['Monto anulado', number_format((float)$anul['monto'], 2, '.', '')], $out, $D);
+      }
+      
+      csvOut([''], $out, $D);
+      csvOut(['DESGLOSE POR MEDIO DE PAGO'], $out, $D);
+      csvOut(['medio_pago', 'cantidad', 'monto'], $out, $D);
+      
+      // Desglose por método de pago
+      if ($ventasMedioCol) {
+        $stmt = $pdo->prepare("
+          SELECT `{$ventasMedioCol}` AS medio_pago,
+                 COUNT(*) AS cantidad,
+                 COALESCE(SUM({$ventasTotalSQL}),0) AS monto
+          FROM ventas
+          WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}
+          GROUP BY `{$ventasMedioCol}`
+          ORDER BY monto DESC
+        ");
+        $stmt->execute([$fechaStart, $fechaEnd]);
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          csvOut([$r['medio_pago'], $r['cantidad'], number_format((float)$r['monto'], 2, '.', '')], $out, $D);
+        }
+      }
+      
+    } else {
+      csvOut(['ERROR', 'Faltan columnas fecha/total en ventas'], $out, $D);
     }
   }
 

@@ -14,7 +14,7 @@ $errores = [];
 // Cargar productos para el <select> (solo activos)
 // --------------------------------------------------
 $sqlProd = "
-  SELECT id, codigo, nombre
+  SELECT id, codigo, nombre, precio
   FROM productos
   WHERE activo = 1
   ORDER BY nombre
@@ -232,11 +232,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle      = ($id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo') . ' - Promociones';
 $currentSection = 'promos';
 $extraCss = [
-  'assets/css/promos.css',
-  'assets/css/promo_combo_fijo.css',
+  'assets/css/promos.css?v=5',
+  'assets/css/promo_combo_fijo.css?v=2',
 ];
 
-$extraJs        = ['assets/js/promo_combo_form.js'];
+$extraJs        = ['assets/js/promo_combo_form.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -245,7 +245,7 @@ require __DIR__ . '/partials/header.php';
   <header class="page-header with-back">
     <div class="page-header-left">
       <a href="promos.php" class="link-back">← Volver</a>
-      <h1 class="page-title"><?= $id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo' ?></h1>
+      <h1 class="page-title">📦 <?= $id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo' ?></h1>
       <p class="page-sub">
         Definí combos de varios productos con un <strong>precio fijo</strong> que se aplica automáticamente en caja.
       </p>
@@ -253,7 +253,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="page-header-right">
       <?php if ($id > 0): ?>
-        <span class="badge badge-pill badge-purple">Combo fijo</span>
+        <span class="badge badge-pill badge-purple">Combo</span>
       <?php else: ?>
         <span class="badge badge-pill badge-outline">Nuevo</span>
       <?php endif; ?>
@@ -300,13 +300,17 @@ require __DIR__ . '/partials/header.php';
               inputmode="decimal"
               id="precio_combo"
               name="precio_combo"
-              class="field-input"
               value="<?= h((string)$precioCombo) ?>"
               required
             >
           </div>
           <p class="field-hint">Es el total que se va a cobrar cuando el combo se detecta completo.</p>
         </div>
+      </div>
+
+      <!-- PREVIEW AHORRO -->
+      <div class="combo-preview" id="combo-preview">
+        Agregá productos para ver el ahorro estimado.
       </div>
 
       <!-- VIGENCIA / ESTADO -->
@@ -334,7 +338,7 @@ require __DIR__ . '/partials/header.php';
         </div>
 
         <div class="field field-switch">
-          <div class="field-label-top">Estado de la promo</div>
+          <div class="field-label-top">Estado</div>
 
           <div class="field-switch-row">
             <label class="edit-switch">
@@ -343,8 +347,8 @@ require __DIR__ . '/partials/header.php';
             </label>
 
             <div class="field-switch-text">
-              <div class="field-switch-title">Promo activa</div>
-              <p class="field-hint">Podés desactivarla sin eliminarla para conservar el historial.</p>
+              <div class="field-switch-title">Activa</div>
+              <p class="field-hint">Podés desactivarla sin eliminarla.</p>
             </div>
           </div>
         </div>
@@ -356,13 +360,13 @@ require __DIR__ . '/partials/header.php';
       <div class="combo-items-header">
         <div>
           <h2 class="sub-title-page">Productos del combo</h2>
-          <p class="page-sub">Agregá los productos que incluye el combo y la cantidad de cada uno.</p>
+          <p class="page-sub">Agregá los productos y la cantidad de cada uno.</p>
         </div>
         <button type="button" class="btn btn-outline" id="btn-add-item">+ Agregar producto</button>
       </div>
 
       <div class="table-wrapper mt-1">
-        <table class="table table-compact" id="tabla-items-combo">
+        <table id="tabla-items-combo">
           <thead>
             <tr>
               <th style="width: 55%;">Producto</th>
@@ -378,7 +382,11 @@ require __DIR__ . '/partials/header.php';
                   <select name="item_producto_id[]" class="field-input field-select" required>
                     <option value="">-- Elegir producto --</option>
                     <?php foreach ($productos as $p): ?>
-                      <option value="<?= (int)$p['id'] ?>" <?= ((int)$p['id'] === (int)$it['producto_id']) ? 'selected' : '' ?>>
+                      <option 
+                        value="<?= (int)$p['id'] ?>" 
+                        data-precio="<?= (float)($p['precio'] ?? 0) ?>"
+                        <?= ((int)$p['id'] === (int)$it['producto_id']) ? 'selected' : '' ?>
+                      >
                         [<?= h((string)$p['codigo']) ?>] <?= h((string)$p['nombre']) ?>
                       </option>
                     <?php endforeach; ?>
@@ -396,7 +404,7 @@ require __DIR__ . '/partials/header.php';
                   >
                 </td>
                 <td class="center">
-                  <button type="button" class="btn btn-xs btn-danger btn-remove-item">Quitar</button>
+                  <button type="button" class="btn-remove-item">Quitar</button>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -406,7 +414,10 @@ require __DIR__ . '/partials/header.php';
                 <select name="item_producto_id[]" class="field-input field-select" required>
                   <option value="">-- Elegir producto --</option>
                   <?php foreach ($productos as $p): ?>
-                    <option value="<?= (int)$p['id'] ?>">
+                    <option 
+                      value="<?= (int)$p['id'] ?>"
+                      data-precio="<?= (float)($p['precio'] ?? 0) ?>"
+                    >
                       [<?= h((string)$p['codigo']) ?>] <?= h((string)$p['nombre']) ?>
                     </option>
                   <?php endforeach; ?>
@@ -424,7 +435,7 @@ require __DIR__ . '/partials/header.php';
                 >
               </td>
               <td class="center">
-                <button type="button" class="btn btn-xs btn-danger btn-remove-item">Quitar</button>
+                <button type="button" class="btn-remove-item">Quitar</button>
               </td>
             </tr>
           <?php endif; ?>
@@ -439,5 +450,8 @@ require __DIR__ . '/partials/header.php';
     </form>
   </div>
 </div>
+
+<!-- Toast para mensajes -->
+<div class="form-toast" id="formToast"></div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

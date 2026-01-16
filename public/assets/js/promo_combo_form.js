@@ -1,7 +1,8 @@
 /**
- * public/assets/js/promo_combo_form.js v2.1 (conservado + ordenado)
+ * public/assets/js/promo_combo_form.js v3
+ * - Usa toast en lugar de alert
  * - Duplicados: marca + fusiona al guardar
- * - Preview ahorro
+ * - Preview ahorro con colores
  * - Validaciones
  */
 (function () {
@@ -28,8 +29,10 @@
       fechaInicio: document.querySelector('input[name="fecha_inicio"]'),
       fechaFin: document.querySelector('input[name="fecha_fin"]'),
       nombrePromo: document.querySelector('input[name="nombre"]'),
+      preview: document.querySelector("#combo-preview"),
+      toast: document.querySelector("#formToast"),
     };
-    return Object.values(el).every((x) => x);
+    return el.btnAdd && el.tbody && el.form;
   }
 
   function getRows() {
@@ -50,10 +53,20 @@
     return !Number.isNaN(d.getTime());
   }
 
-  // Toast simple (si querés lo migramos a tu toast global después)
-  function flash(msg) {
-    // eslint-disable-next-line no-alert
-    alert(msg);
+  // Toast en lugar de alert
+  function toast(msg, type = "info") {
+    if (!el.toast) {
+      // Fallback a alert si no hay toast
+      alert(msg);
+      return;
+    }
+    
+    el.toast.textContent = msg;
+    el.toast.className = `form-toast show toast-${type}`;
+    
+    setTimeout(() => {
+      el.toast.classList.remove("show");
+    }, 3500);
   }
 
   function fusionarDuplicados() {
@@ -109,7 +122,7 @@
       const c = count.get(pid) || 0;
 
       if (pid > 0 && c > 1) {
-        sel.style.outline = "2px solid var(--accent-cyan)";
+        sel.style.outline = "2px solid var(--accent-cyan, #22d3ee)";
         sel.style.outlineOffset = "2px";
         sel.title = `Producto repetido (${c} veces). Se fusionará al guardar.`;
       } else {
@@ -121,6 +134,8 @@
   }
 
   function calcularAhorroCombo() {
+    if (!el.preview) return;
+    
     const precioCombo = normalizeMoneyAr(el.comboPrecio?.value || "0");
     const rows = getRows();
 
@@ -141,19 +156,24 @@
       }
     }
 
-    const previewEl = document.getElementById("combo-preview");
-    if (!previewEl) return;
+    // Reset clases
+    el.preview.classList.remove("has-savings", "no-savings");
 
     if (itemsCount === 0) {
-      previewEl.textContent = "Agregá productos para ver el ahorro estimado.";
+      el.preview.textContent = "Agregá productos para ver el ahorro estimado.";
       return;
     }
 
     const ahorro = precioNormal - precioCombo;
+    
     if (ahorro > 0.01) {
-      previewEl.textContent = `Ahorro: $${ahorro.toFixed(2)} (Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)})`;
+      el.preview.classList.add("has-savings");
+      el.preview.innerHTML = `<strong>Ahorro: $${ahorro.toFixed(2)}</strong> — Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)}`;
+    } else if (ahorro < -0.01) {
+      el.preview.classList.add("no-savings");
+      el.preview.innerHTML = `<strong>⚠️ Combo más caro que productos sueltos</strong> — Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)}`;
     } else {
-      previewEl.textContent = `Atención: no hay ahorro (Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)})`;
+      el.preview.textContent = `Sin ahorro — Normal: $${precioNormal.toFixed(2)} / Combo: $${precioCombo.toFixed(2)}`;
     }
   }
 
@@ -185,7 +205,7 @@
       }
     });
 
-    if (itemsValidos < 2) errores.push("Un combo debe tener al menos 2 productos");
+    if (itemsValidos < 1) errores.push("El combo debe tener al menos 1 producto");
 
     const fi = el.fechaInicio?.value;
     const ff = el.fechaFin?.value;
@@ -199,18 +219,21 @@
 
   function agregarFila() {
     const firstRow = el.tbody.querySelector("tr");
-    if (!firstRow) return flash("No se puede agregar una nueva fila");
+    if (!firstRow) return toast("No se puede agregar una nueva fila", "error");
 
     const clone = firstRow.cloneNode(true);
     const sel = qs(clone, 'select[name="item_producto_id[]"]');
     const inp = qs(clone, 'input[name="item_cantidad[]"]');
 
     if (sel) sel.value = "";
-    if (inp) inp.value = "1.000";
+    if (inp) inp.value = "1";
 
     el.tbody.appendChild(clone);
     marcarDuplicados();
     calcularAhorroCombo();
+    
+    // Focus en el nuevo select
+    sel?.focus();
   }
 
   function eliminarFila(btn) {
@@ -220,7 +243,9 @@
       const sel = qs(row, 'select[name="item_producto_id[]"]');
       const inp = qs(row, 'input[name="item_cantidad[]"]');
       if (sel) sel.value = "";
-      if (inp) inp.value = "1.000";
+      if (inp) inp.value = "1";
+      marcarDuplicados();
+      calcularAhorroCombo();
       return;
     }
     const row = btn.closest("tr");
@@ -249,16 +274,25 @@
       }
     });
 
-    el.comboPrecio.addEventListener("input", calcularAhorroCombo);
+    el.tbody.addEventListener("input", (e) => {
+      if (e.target.matches('input[name="item_cantidad[]"]')) {
+        calcularAhorroCombo();
+      }
+    });
+
+    el.comboPrecio?.addEventListener("input", calcularAhorroCombo);
 
     el.form.addEventListener("submit", (e) => {
       e.preventDefault();
 
       const fusionados = fusionarDuplicados();
-      if (fusionados > 0) flash(`Se fusionaron ${fusionados} producto(s) duplicado(s)`);
+      if (fusionados > 0) toast(`Se fusionaron ${fusionados} producto(s) duplicado(s)`, "info");
 
       const errores = validarFormulario();
-      if (errores.length > 0) return flash(errores.join("\n"));
+      if (errores.length > 0) {
+        toast(errores[0], "error");
+        return;
+      }
 
       e.target.submit();
     });
@@ -277,4 +311,5 @@
   } else {
     init();
   }
+  
 })();

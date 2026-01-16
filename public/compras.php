@@ -22,6 +22,46 @@ function normalizeProveedorName(string $name): string {
   return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
 }
 
+/**
+ * Obtiene o crea un proveedor de forma segura (evita duplicados por race condition)
+ */
+function getOrCreateProveedor(PDO $pdo, string $nombre): int {
+  $nombre = normalizeProveedorName($nombre);
+  
+  // Primero intentar buscar
+  $stFind = $pdo->prepare("
+    SELECT id FROM proveedores 
+    WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) 
+    LIMIT 1
+  ");
+  $stFind->execute([$nombre]);
+  $proveedorId = (int)($stFind->fetchColumn() ?: 0);
+  
+  if ($proveedorId > 0) {
+    return $proveedorId;
+  }
+  
+  // Intentar crear (con manejo de duplicate key por si otro proceso lo creó)
+  try {
+    $stIns = $pdo->prepare("
+      INSERT INTO proveedores (nombre, activo)
+      VALUES (?, 1)
+    ");
+    $stIns->execute([$nombre]);
+    return (int)$pdo->lastInsertId();
+  } catch (PDOException $e) {
+    // Si es error de duplicate key (código 23000), buscar de nuevo
+    if ($e->getCode() == 23000 || str_contains($e->getMessage(), 'Duplicate')) {
+      $stFind->execute([$nombre]);
+      $proveedorId = (int)($stFind->fetchColumn() ?: 0);
+      if ($proveedorId > 0) {
+        return $proveedorId;
+      }
+    }
+    throw $e;
+  }
+}
+
 /* -----------------------------
    EDITAR: cargar datos
 ------------------------------ */
@@ -79,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($accion === 'guardar_borrador') {
 
       $compraId = (int)($_POST['compra_id'] ?? 0); // 0 = crear, >0 = editar
-      $proveedorTxt = normalizeProveedorName((string)($_POST['proveedor'] ?? ''));
+      $proveedorTxt = trim((string)($_POST['proveedor'] ?? ''));
       $tipoComp     = trim((string)($_POST['tipo_comp'] ?? ''));
       $nroComp      = trim((string)($_POST['nro_comp'] ?? ''));
       $observacion  = trim((string)($_POST['observacion'] ?? ''));
@@ -153,23 +193,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
           $pdo->beginTransaction();
 
-          // Proveedor (buscar normalizado o crear)
-          $stFind = $pdo->prepare("
-            SELECT id FROM proveedores 
-            WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) 
-            LIMIT 1
-          ");
-          $stFind->execute([$proveedorTxt]);
-          $proveedorId = (int)($stFind->fetchColumn() ?: 0);
-
-          if ($proveedorId <= 0) {
-            $stInsProv = $pdo->prepare("
-              INSERT INTO proveedores (nombre, activo)
-              VALUES (?, 1)
-            ");
-            $stInsProv->execute([$proveedorTxt]);
-            $proveedorId = (int)$pdo->lastInsertId();
-          }
+          // Proveedor (buscar normalizado o crear - con protección contra duplicados)
+          $proveedorId = getOrCreateProveedor($pdo, $proveedorTxt);
 
           $totalNeto = $total;
           $totalIva  = 0.0;
@@ -339,6 +364,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
           if (!$items) throw new RuntimeException("La compra no tiene ítems.");
+
+          // Verificar que todos los productos existen y están activos
+          $stCheckProd = $pdo->prepare("SELECT id, nombre, activo FROM productos WHERE id = ?");
+          foreach ($items as $it) {
+            $stCheckProd->execute([$it['producto_id']]);
+            $prod = $stCheckProd->fetch(PDO::FETCH_ASSOC);
+            if (!$prod) {
+              throw new RuntimeException("El producto ID {$it['producto_id']} ya no existe en el sistema.");
+            }
+            if (!$prod['activo']) {
+              throw new RuntimeException("El producto '{$prod['nombre']}' está desactivado. Eliminalo de la compra o reactivá el producto.");
+            }
+          }
 
           // Impactar stock + movimientos
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
@@ -660,7 +698,7 @@ require __DIR__ . "/partials/header.php";
 
         <div class="field" id="qtyFieldContainer">
           <label>📦 Cantidad</label>
-          <input id="itemCantidad" type="number" step="0.001" min="0.001" value="1" autocomplete="off">
+          <input id="itemCantidad" type="number" step="1" min="1" value="1" autocomplete="off">
           <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
         </div>
 
@@ -939,7 +977,7 @@ require __DIR__ . "/partials/header.php";
 <?php endif; ?>
 
 <script>
-// Ver detalle (modal)
+// Ver detalle (modal) - con manejo de errores mejorado
 function verDetalle(id) {
   const modal = document.getElementById('modalDetalle');
   const content = document.getElementById('modalContent');
@@ -949,7 +987,10 @@ function verDetalle(id) {
   content.innerHTML = '<div class="loading">⏳ Cargando...</div>';
   
   fetch(`api/compra_detalle.php?id=${id}`)
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) throw new Error(`Error HTTP: ${r.status}`);
+      return r.json();
+    })
     .then(data => {
       if (data.error) {
         content.innerHTML = `<div class="msg msg-error">${data.error}</div>`;
@@ -1008,7 +1049,15 @@ function verDetalle(id) {
       content.innerHTML = html;
     })
     .catch(err => {
-      content.innerHTML = `<div class="msg msg-error">Error al cargar: ${err.message}</div>`;
+      content.innerHTML = `
+        <div class="msg msg-error">
+          Error al cargar: ${err.message}
+          <br>
+          <button class="btn btn-secondary" onclick="verDetalle(${id})" style="margin-top:12px;">
+            🔄 Reintentar
+          </button>
+        </div>
+      `;
     });
 }
 
@@ -1061,6 +1110,9 @@ document.addEventListener('keydown', (e) => {
     if (modal && modal.style.display !== 'none') {
       cerrarDetalle();
     }
+    // También cerrar modal de anulación si existe
+    const anularModal = document.querySelector('.compras-modal-overlay');
+    if (anularModal) anularModal.remove();
   }
 });
 </script>
