@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 // public/api/index.php
+// v2.2.0 - Refactorizado con helpers centralizados
 
 // ✅ Indicar que estamos en contexto API (para que bootstrap no devuelva HTML)
 define('FLUS_API_CONTEXT', true);
@@ -27,131 +28,15 @@ if (!is_file($cfg)) {
 }
 
 require_once $cfg;
+require_once __DIR__ . '/../../src/api_helpers.php';  // ✅ Helpers centralizados
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
-require_once __DIR__ . '/../lib/terminal.php';      // ✅ terminal_* + require_terminal_lock_json()
+require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
-require_once __DIR__ . '/../promos_logic.php';      // obtenerPromosActivas()
+require_once __DIR__ . '/../promos_logic.php';
 
-function json_ok(array $data = [], int $code = 200): void {
-  if (ob_get_length()) ob_clean();
-  http_response_code($code);
-  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-  exit;
-}
-
-function json_fail(string $msg, int $code = 400, array $extra = []): void {
-  if (ob_get_length()) ob_clean();
-  http_response_code($code);
-  echo json_encode(['ok' => false, 'error' => $msg] + $extra, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-  exit;
-}
-
-// ✅ Si hay fatal/parse, devolvemos JSON (evita "NO JSON" en front)
-set_exception_handler(function (Throwable $e): void {
-  if (ob_get_length()) ob_clean();
-  if (!headers_sent()) {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store');
-  }
-  $code = ($e instanceof PDOException) ? 503 : 500;
-  http_response_code($code);
-  echo json_encode([
-    'ok' => false,
-    'error' => ($e instanceof PDOException) ? 'DB_DOWN' : 'SERVER_ERROR'
-  ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-  exit;
-});
-
-register_shutdown_function(function (): void {
-  $e = error_get_last();
-  if (!$e) return;
-
-  $fatal = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
-  if (!in_array((int)$e['type'], $fatal, true)) return;
-
-  if (ob_get_length()) ob_clean();
-  if (!headers_sent()) {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store');
-  }
-  http_response_code(500);
-  
-  // Solo mostrar detalles si APP_DEBUG está habilitado
-  $response = ['ok' => false, 'error' => 'FATAL'];
-  if (defined('APP_DEBUG') && APP_DEBUG === true) {
-    $response['detail'] = $e['message'] ?? 'Error fatal';
-    $response['file'] = $e['file'] ?? '';
-    $response['line'] = $e['line'] ?? 0;
-  }
-  
-  echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-});
-
-
-
-function parse_num($v): float {
-  if (is_int($v) || is_float($v)) return (float)$v;
-  $s = trim((string)$v);
-  if ($s === '') return 0.0;
-  // AR: 1.234,56 -> 1234.56
-  $s = str_replace('.', '', $s);
-  $s = str_replace(',', '.', $s);
-  return is_numeric($s) ? (float)$s : 0.0;
-}
-
-function norm_medio_pago(string $m): string {
-  $m = strtoupper(trim($m));
-  if ($m === 'EFECTIVO') return 'EFECTIVO';
-  if ($m === 'MP' || str_contains($m, 'MERCADO')) return 'MP';
-  if ($m === 'DEBITO' || str_contains($m, 'DEB')) return 'DEBITO';
-  if ($m === 'CREDITO' || str_contains($m, 'CRED')) return 'CREDITO';
-  return 'EFECTIVO';
-}
-
-// ✅ MEJORADO: Cargar todas las columnas de una tabla en una query
-function get_table_columns(PDO $pdo, string $table): array {
-  static $cache = [];
-  if (isset($cache[$table])) return $cache[$table];
-
-  $st = $pdo->prepare("
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
-  ");
-  $st->execute([$table]);
-  $cache[$table] = $st->fetchAll(PDO::FETCH_COLUMN);
-  return $cache[$table];
-}
-
-function has_col(PDO $pdo, string $table, string $col): bool {
-  $cols = get_table_columns($pdo, $table);
-  return in_array($col, $cols, true);
-}
-
-function insert_dynamic(PDO $pdo, string $table, array $data): int {
-  $availableCols = get_table_columns($pdo, $table);
-
-  $cols = [];
-  $ph   = [];
-  $params = [];
-
-  foreach ($data as $col => $val) {
-    if (!in_array($col, $availableCols, true)) continue;
-    $cols[] = $col;
-    $ph[] = ':' . $col;
-    $params[':' . $col] = $val;
-  }
-
-  if (!$cols) {
-    throw new RuntimeException("No hay columnas compatibles para insertar en {$table}");
-  }
-
-  $sql = "INSERT INTO {$table} (" . implode(',', $cols) . ") VALUES (" . implode(',', $ph) . ")";
-  $st = $pdo->prepare($sql);
-  $st->execute($params);
-  return (int)$pdo->lastInsertId();
-}
+// ✅ Configurar handlers de error para API
+setup_api_error_handlers();
 
 function update_caja_venta_totales(PDO $pdo, int $cajaId, float $importe, float $productos): void {
   if ($cajaId <= 0) return;
@@ -590,16 +475,60 @@ case 'buscar_producto': {
       if ($codigo === '') json_fail('Código vacío', 422);
 
       $pdo = getPDO();
+      
+      // ✅ MEJORADO: Buscar primero por código exacto, luego por nombre
+      // 1. Código exacto
       $stmt = $pdo->prepare("
         SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
         FROM productos
-        WHERE codigo = :cod
+        WHERE codigo = :cod AND activo = 1
         LIMIT 1
       ");
       $stmt->execute([':cod' => $codigo]);
       $p = $stmt->fetch(PDO::FETCH_ASSOC);
 
-      if (!$p || (int)$p['activo'] !== 1) {
+      // 2. Si no encuentra, buscar por nombre exacto
+      if (!$p) {
+        $stmt = $pdo->prepare("
+          SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+          FROM productos
+          WHERE nombre = :nom AND activo = 1
+          LIMIT 1
+        ");
+        $stmt->execute([':nom' => $codigo]);
+        $p = $stmt->fetch(PDO::FETCH_ASSOC);
+      }
+
+      // 3. Si no encuentra, buscar por nombre parcial (el más relevante)
+      if (!$p) {
+        $like  = '%' . $codigo . '%';
+        $start = $codigo . '%';
+
+        // ⚠️ PDO MySQL (emulación OFF) no permite repetir :param en un mismo statement.
+        // Usamos placeholders posicionales para evitar SQLSTATE[HY093].
+        $sql = "
+          SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+          FROM productos
+          WHERE activo = 1 AND (codigo LIKE ? OR nombre LIKE ?)
+          ORDER BY 
+            CASE 
+              WHEN codigo = ? THEN 0
+              WHEN nombre = ? THEN 1
+              WHEN codigo LIKE ? THEN 2
+              WHEN nombre LIKE ? THEN 3
+              ELSE 4
+            END,
+            nombre ASC
+          LIMIT 1
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$like, $like, $codigo, $codigo, $start, $start]);
+        $p = $stmt->fetch(PDO::FETCH_ASSOC);
+
+      }
+
+      if (!$p) {
         json_fail('Producto no encontrado o inactivo', 404);
       }
 
@@ -609,6 +538,59 @@ case 'buscar_producto': {
       $p['unidad_venta'] = $p['unidad_venta'] ?: 'UNIDAD';
 
       json_ok(['producto' => $p]);
+    }
+
+    // ✅ BUSCAR PRODUCTOS (plural) - Autocompletado en caja
+    case 'buscar_productos': {
+      require_login_json();
+      require_perm_json('realizar_ventas');
+      if ($method !== 'GET') json_fail('Método no permitido', 405);
+
+      $q = trim((string)($_GET['q'] ?? ''));
+      if ($q === '' || mb_strlen($q) < 2) {
+        json_ok(['productos' => []]);
+      }
+
+      $limit = (int)($_GET['limit'] ?? 10);
+      $limit = max(1, min($limit, 20));
+      $like  = '%' . $q . '%';
+      $start = $q . '%';
+
+      $pdo = getPDO();
+
+      // ⚠️ PDO MySQL (emulación OFF) NO permite repetir :param ni bindear LIMIT en algunos setups.
+      // Usamos placeholders posicionales y LIMIT inline (int) para evitar SQLSTATE[HY093].
+      $sql = "
+        SELECT id, codigo, nombre, precio, stock, es_pesable, unidad_venta
+        FROM productos
+        WHERE activo = 1
+          AND (codigo LIKE ? OR nombre LIKE ?)
+        ORDER BY 
+          CASE 
+            WHEN codigo = ? THEN 0
+            WHEN codigo LIKE ? THEN 1
+            WHEN nombre LIKE ? THEN 2
+            ELSE 3
+          END,
+          nombre ASC
+        LIMIT {$limit}
+      ";
+
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$like, $like, $q, $start, $start]);
+
+      $productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+      // Normalizar tipos
+      foreach ($productos as &$p) {
+        $p['precio'] = (float)$p['precio'];
+        $p['stock'] = (float)$p['stock'];
+        $p['es_pesable'] = ((int)($p['es_pesable'] ?? 0) === 1);
+        $p['unidad_venta'] = $p['unidad_venta'] ?: 'UNIDAD';
+      }
+      unset($p);
+
+      json_ok(['productos' => $productos]);
     }
 
     case 'listar_promos_activas': {

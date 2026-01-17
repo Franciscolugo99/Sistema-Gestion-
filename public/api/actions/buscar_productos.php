@@ -10,9 +10,12 @@ require_once FLUS_ROOT . '/src/config.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-function json_ok(array $data = []): void {
-  echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-  exit;
+// ✅ Solo definir si no existe (evita conflicto con api_helpers.php)
+if (!function_exists('json_ok')) {
+  function json_ok(array $data = []): void {
+    echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+  }
 }
 
 /* ========================================================================
@@ -156,6 +159,19 @@ $schema = detectProductosSchema($pdo, $SCHEMA_CACHE_FILE, $SCHEMA_LOCK_FILE);
 try {
   $whereActivo = $schema['has_activo'] ? "activo = 1 AND" : "";
 
+  $conds = [
+    "codigo LIKE ?",
+    "{$schema['nombre']} LIKE ?",
+  ];
+  $params = [$like, $like];
+
+  if (!empty($schema['has_categoria'])) {
+    $conds[] = "categoria LIKE ?";
+    $params[] = $like;
+  }
+
+  // ⚠️ PDO MySQL (emulación OFF) no permite repetir :param en un mismo statement.
+  // Usamos placeholders posicionales + LIMIT inline (int) para evitar SQLSTATE[HY093].
   $sql = "SELECT
             id,
             codigo,
@@ -163,30 +179,23 @@ try {
             {$schema['precio']} AS precio,
             {$schema['stock']} AS stock,
             CASE
-              WHEN codigo = :qExact THEN 0
-              WHEN codigo LIKE :qStart THEN 1
-              WHEN {$schema['nombre']} LIKE :qStart THEN 2
+              WHEN codigo = ? THEN 0
+              WHEN codigo LIKE ? THEN 1
+              WHEN {$schema['nombre']} LIKE ? THEN 2
               ELSE 3
             END AS relevancia
           FROM productos
-          WHERE {$whereActivo} (
-            codigo LIKE :q
-            OR {$schema['nombre']} LIKE :q";
-
-  if (!empty($schema['has_categoria'])) {
-    $sql .= " OR categoria LIKE :q";
-  }
-
-  $sql .= ")
+          WHERE {$whereActivo} (" . implode(' OR ', $conds) . ")
           ORDER BY relevancia ASC, {$schema['nombre']} ASC
-          LIMIT :limit";
+          LIMIT " . (int)$limit;
+
+  // relevancia params (exact + starts)
+  $params[] = $q;        // codigo exact
+  $params[] = $q . '%';  // codigo starts
+  $params[] = $q . '%';  // nombre starts
 
   $st = $pdo->prepare($sql);
-  $st->bindValue(':q', $like, PDO::PARAM_STR);
-  $st->bindValue(':qExact', $q, PDO::PARAM_STR);
-  $st->bindValue(':qStart', $q . '%', PDO::PARAM_STR);
-  $st->bindValue(':limit', $limit, PDO::PARAM_INT);
-  $st->execute();
+  $st->execute($params);
 
   $productos = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
   foreach ($productos as &$p) unset($p['relevancia']);

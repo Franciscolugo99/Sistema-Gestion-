@@ -24,14 +24,14 @@ const TIPOS_AJUSTE = [
 const MOTIVO_MAX_LENGTH = 255;
 
 /* ============================
-   FUNCIONES HELPER
+   FUNCIONES HELPER (locales - usan 'success' en vez de 'ok')
 ============================ */
-function json_ok(array $data = []): void {
+function stock_json_ok(array $data = []): void {
     echo json_encode(['success' => true] + $data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-function json_fail(string $msg, int $code = 400): void {
+function stock_json_fail(string $msg, int $code = 400): void {
     http_response_code($code);
     echo json_encode(['success' => false, 'message' => $msg], JSON_UNESCAPED_UNICODE);
     exit;
@@ -63,18 +63,18 @@ function calcular_stock_pct(float $stock, float $stock_minimo): float {
 try {
     // Solo POST
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        json_fail('Método no permitido', 405);
+        stock_json_fail('Método no permitido', 405);
     }
 
     // Verificar CSRF
     if (!function_exists('csrf_verify') || !csrf_verify($_POST['csrf_token'] ?? null)) {
-        json_fail('CSRF inválido. Recargá la página y probá de nuevo.', 403);
+        stock_json_fail('CSRF inválido. Recargá la página y probá de nuevo.', 403);
     }
 
     $action = trim((string)($_POST['action'] ?? ''));
     
     if ($action !== 'ajustar') {
-        json_fail('Acción no válida', 400);
+        stock_json_fail('Acción no válida', 400);
     }
 
     // Parsear datos
@@ -166,7 +166,7 @@ try {
     $stockPct = calcular_stock_pct($nuevoStock, $stockMinimo);
 
     // Respuesta enriquecida
-    json_ok([
+    stock_json_ok([
         'message' => 'Stock actualizado correctamente',
         'data' => [
             'producto_id'     => $producto_id,
@@ -188,5 +188,5 @@ try {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    json_fail($e->getMessage(), 400);
+    stock_json_fail($e->getMessage(), 400);
 }

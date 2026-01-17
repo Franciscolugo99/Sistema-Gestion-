@@ -1093,3 +1093,93 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   color: #0f172a;
   filter: none;
 }
+/* =========================
+   AUTOCOMPLETE CAJA (FINAL)
+   - Visible en claro/oscuro
+   - Sin estilos pisados
+========================= */
+
+.caja-panel .caja-scan-card { overflow: visible !important; }
+
+#sugerencias-dropdown.autocomplete-dropdown{
+  box-sizing: border-box;
+  z-index: 99999 !important;
+
+  /* tamaño/pos */
+  margin-top: 6px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+
+  /* look (usa variables si existen) */
+  background: var(--panel, var(--bg-secondary, #ffffff));
+  color: var(--text, var(--text-primary, #0f172a));
+  border: 1px solid var(--border, var(--border-color, rgba(148,163,184,.35)));
+  border-radius: 14px;
+  box-shadow: 0 18px 45px rgba(0,0,0,.18);
+}
+
+/* items */
+#sugerencias-dropdown .autocomplete-item{
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  opacity: 1 !important;
+}
+
+#sugerencias-dropdown .autocomplete-item + .autocomplete-item{
+  margin-top: 6px;
+}
+
+/* hover / selected */
+#sugerencias-dropdown .autocomplete-item:hover,
+#sugerencias-dropdown .autocomplete-item.selected{
+  background: var(--hover-bg, rgba(59,130,246,.12));
+  outline: 1px solid rgba(59,130,246,.25);
+}
+
+/* texto */
+#sugerencias-dropdown .ac-title{
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.2;
+  color: inherit !important;
+}
+
+#sugerencias-dropdown .ac-meta{
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-muted, var(--text-secondary, #64748b)) !important;
+  opacity: 1 !important;
+}
+
+/* scrollbar discreta */
+#sugerencias-dropdown::-webkit-scrollbar{ width: 10px; }
+#sugerencias-dropdown::-webkit-scrollbar-thumb{
+  background: rgba(100,116,139,.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+#sugerencias-dropdown::-webkit-scrollbar-track{ background: transparent; }
+
+/* modo oscuro: más contraste (si tu sistema usa data-theme/html.dark/body.dark) */
+:root[data-theme="dark"] #sugerencias-dropdown,
+html.dark #sugerencias-dropdown,
+body.dark #sugerencias-dropdown{
+  background: var(--panel, #0b1220);
+  border-color: rgba(148,163,184,.22);
+  box-shadow: 0 18px 45px rgba(0,0,0,.55);
+}
+
+:root[data-theme="dark"] #sugerencias-dropdown .autocomplete-item:hover,
+:root[data-theme="dark"] #sugerencias-dropdown .autocomplete-item.selected,
+html.dark #sugerencias-dropdown .autocomplete-item:hover,
+html.dark #sugerencias-dropdown .autocomplete-item.selected,
+body.dark #sugerencias-dropdown .autocomplete-item:hover,
+body.dark #sugerencias-dropdown .autocomplete-item.selected{
+  background: rgba(34,211,238,.14);
+  outline: 1px solid rgba(34,211,238,.25);
+}

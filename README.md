@@ -2,9 +2,20 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Versión:** 1.5.2  
+**Versión:** 2.2.0  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
+
+---
+
+## 🆕 Novedades v2.2.0
+
+- ✅ **Helpers API centralizados** - Código más limpio y mantenible
+- ✅ **Fix Foreign Key** - `promo_combo_items` ahora con CASCADE correcto
+- ✅ **Limpieza de código** - Eliminados archivos redundantes
+- ✅ **Script de upgrade SQL** - Mejoras de base de datos
+
+Ver [CHANGELOG.md](CHANGELOG.md) para detalles completos.
 
 ---
 
@@ -147,3 +158,26 @@ find . -name "*.php" -exec php -l {} \;
 # Verificar que la API responde
 curl http://localhost/flus/public/api/index.php?action=health
 ```
+
+---
+
+## 🔄 Upgrade desde versiones anteriores
+
+### Desde v2.1.x a v2.2.0
+
+1. **Backup obligatorio**
+```bash
+mysqldump -u root -p kiosco > backup_antes_v220.sql
+```
+
+2. **Reemplazar archivos**
+- Subir los nuevos archivos (conservar `src/config.php`)
+
+3. **Ejecutar script SQL**
+```bash
+mysql -u root -p kiosco < scripts/upgrade_v220.sql
+```
+
+4. **Verificar**
+- Entrar al sistema y probar crear/eliminar un producto que esté en un combo
+- Si funciona sin errores, el upgrade fue exitoso

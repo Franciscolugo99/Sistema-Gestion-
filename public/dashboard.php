@@ -205,6 +205,18 @@ $from = validDateYmd($_GET['from'] ?? null) ?? $defaultFrom;
 $to   = validDateYmd($_GET['to'] ?? null) ?? $defaultTo;
 $categoriaFiltro = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : null;
 
+// Filtros de hora
+$horaDesde = isset($_GET['hora_desde']) && $_GET['hora_desde'] !== '' ? trim($_GET['hora_desde']) : null;
+$horaHasta = isset($_GET['hora_hasta']) && $_GET['hora_hasta'] !== '' ? trim($_GET['hora_hasta']) : null;
+
+// Validar formato HH:MM
+if ($horaDesde && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaDesde)) {
+  $horaDesde = null;
+}
+if ($horaHasta && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaHasta)) {
+  $horaHasta = null;
+}
+
 if ($from > $to) [$from, $to] = [$to, $from];
 
 /* =========================
@@ -230,6 +242,14 @@ if ($diffDays > ($maxDays - 1)) {
 
 $fromStart = $from . " 00:00:00";
 $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00";
+
+// Aplicar filtro de horas si están definidos
+if ($horaDesde) {
+  $fromStart = $from . " " . $horaDesde . ":00";
+}
+if ($horaHasta) {
+  $toEnd = $to . " " . $horaHasta . ":59";
+}
 
 /* =========================
    WHERE helpers
@@ -265,7 +285,7 @@ $dashCacheHit = false;
 $dashCached   = null;
 
 $sid = (session_status() === PHP_SESSION_ACTIVE) ? session_id() : '';
-$dashKeyBase = md5($from . '|' . $to . '|' . ($categoriaFiltro ?? '') . '|' . json_encode($_GET) . '|' . $sid);
+$dashKeyBase = md5($from . '|' . $to . '|' . ($categoriaFiltro ?? '') . '|' . ($horaDesde ?? '') . '|' . ($horaHasta ?? '') . '|' . json_encode($_GET) . '|' . $sid);
 
 $dashCacheApcuEnabled = function_exists('apcu_fetch') && (bool)ini_get('apc.enabled');
 $dashCacheApcuKey = 'flus_dash_v4:' . $dashKeyBase;
@@ -1144,11 +1164,33 @@ require __DIR__ . '/partials/header.php';
             <span>Hasta</span>
             <input type="date" id="dashTo" name="to" value="<?= h($to) ?>" />
           </label>
+          
+          <!-- Filtros de hora -->
+          <label class="dash-hora-label">
+            <span>🕐 Hora desde</span>
+            <input type="time" id="dashHoraDesde" name="hora_desde" value="<?= h($horaDesde ?? '') ?>" placeholder="08:00" class="dash-hora-input" />
+          </label>
+          <label class="dash-hora-label">
+            <span>🕐 Hora hasta</span>
+            <input type="time" id="dashHoraHasta" name="hora_hasta" value="<?= h($horaHasta ?? '') ?>" placeholder="20:00" class="dash-hora-input" />
+          </label>
+          
+          <?php if ($horaDesde || $horaHasta): ?>
+          <button type="button" class="dash-clear-hours" onclick="document.getElementById('dashHoraDesde').value=''; document.getElementById('dashHoraHasta').value=''; this.form.submit();" title="Limpiar filtro de horas">
+            ✕
+          </button>
+          <?php endif; ?>
+          
           <button type="submit" class="dash-apply">Aplicar</button>
         </div>
         <div class="dash-range-hint">
           <?php if ($categoriaFiltro): ?>
             <span class="dash-filter-badge">🏷️ <?= h($categoriaFiltro) ?></span>
+          <?php endif; ?>
+          <?php if ($horaDesde || $horaHasta): ?>
+            <span class="dash-filter-badge">
+              🕐 <?= h($horaDesde ?? '00:00') ?> - <?= h($horaHasta ?? '23:59') ?>
+            </span>
           <?php endif; ?>
           Rango: <strong><?= (new DateTime($from))->format('d/m/Y'); ?></strong>
           → <strong><?= (new DateTime($to))->format('d/m/Y'); ?></strong>

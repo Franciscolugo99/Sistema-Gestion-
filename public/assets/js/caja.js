@@ -3,65 +3,204 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "api/index.php";
   const API_VENTA = "api/index.php";
   const API_TIMEOUT_MS = 8000;  
-  // FLUS: Sugerencias (buscar_productos) - no requiere tocar HTML
-  (function initSugerenciasProductos() {
+
+  // =========================================================================
+  // ✅ AUTOCOMPLETADO VISUAL (dropdown con sugerencias)
+  // =========================================================================
+  (function initAutocompletadoProductos() {
     const input = document.getElementById("codigo");
     if (!input) return;
 
-    // datalist auto-creado
-    let dl = document.getElementById("sugerencias");
-    if (!dl) {
-      dl = document.createElement("datalist");
-      dl.id = "sugerencias";
-      document.body.appendChild(dl);
-    }
-    input.setAttribute("list", "sugerencias");
+    // Crear dropdown de sugerencias
+    let dropdown = document.getElementById("sugerencias-dropdown");
+    if (!dropdown) {
+      dropdown = document.createElement("div");
+      dropdown.id = "sugerencias-dropdown";
+      dropdown.className = "autocomplete-dropdown";
 
-    // escape para inyectar options seguro
+      // ✅ NO estilos visuales inline (los maneja caja.css)
+      dropdown.style.position = "absolute";
+      dropdown.style.display = "none";
+      dropdown.style.zIndex = "99999";
+
+      input.parentElement.style.position = "relative";
+      input.parentElement.appendChild(dropdown);
+    }
+
+
+    // Remover datalist viejo si existe
+    const oldDatalist = document.getElementById("sugerencias");
+    if (oldDatalist) oldDatalist.remove();
+    input.removeAttribute("list");
+
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
     }[c]));
 
-    // fallback fetchJson (si tu caja.js ya tiene fetchJson, no lo pisa)
-    if (!window.fetchJson) {
-      window.fetchJson = async (url, opts = {}) => {
-        const r = await fetch(url, opts);
-        const ct = r.headers.get("content-type") || "";
-        const data = ct.includes("application/json") ? await r.json() : { ok: false, error: "NON_JSON" };
-        if (!r.ok || data?.ok === false) throw data;
-        return data;
-      };
-    }
-
+    let productos = [];
+    let selectedIndex = -1;
     let abort = null;
 
-    const doSuggest = (query) => {
+    function posicionarDropdown() {
+      const rect = input.getBoundingClientRect();
+      const parentRect = input.parentElement.getBoundingClientRect();
+      dropdown.style.top = (rect.bottom - parentRect.top + 4) + "px";
+      dropdown.style.left = (rect.left - parentRect.left) + "px";
+      dropdown.style.width = rect.width + "px";
+    }
+
+    function renderDropdown() {
+      if (productos.length === 0) {
+        dropdown.style.display = "none";
+        return;
+      }
+
+      posicionarDropdown();
+
+      dropdown.innerHTML = productos.map((p, i) => `
+        <div class="autocomplete-item ${i === selectedIndex ? "selected" : ""}" data-index="${i}">
+          <div class="ac-title">${esc(p.nombre)}</div>
+          <div class="ac-meta">
+            Código: ${esc(p.codigo)} · Stock: ${p.stock} · $${Number(p.precio).toFixed(2)}
+          </div>
+        </div>
+      `).join("");
+
+      dropdown.style.display = "block";
+    }
+
+
+    function actualizarSeleccionUI() {
+      const items = dropdown.querySelectorAll(".autocomplete-item");
+      items.forEach((el) => el.classList.remove("selected"));
+      if (selectedIndex >= 0 && items[selectedIndex]) {
+        items[selectedIndex].classList.add("selected");
+        // opcional: asegurar que el seleccionado se vea
+        items[selectedIndex].scrollIntoView({ block: "nearest" });
+      }
+    }
+
+
+    function ocultarDropdown() {
+      dropdown.style.display = "none";
+      productos = [];
+      selectedIndex = -1;
+    }
+
+    function seleccionarProducto(index) {
+      const p = productos[index];
+      if (!p) return;
+      input.value = p.codigo;
+      ocultarDropdown();
+      // Disparar evento para que se agregue al ticket
+      const btnAgregar = document.getElementById("btnAgregar");
+      if (btnAgregar) btnAgregar.click();
+    }
+
+    async function buscarProductos(query) {
       query = (query || "").trim();
-      if (query.length < 2) { dl.innerHTML = ""; return; }
+      if (query.length < 2) {
+        ocultarDropdown();
+        return;
+      }
 
       if (abort) abort.abort();
       abort = new AbortController();
 
-      window.fetchJson(
-        `${API_BASE}?action=buscar_productos&q=${encodeURIComponent(query)}&limit=5`,
-        { signal: abort.signal }
-      ).then((data) => {
-        const productos = data?.productos || data?.data?.productos || [];
-        dl.innerHTML = productos.map(p =>
-          `<option value="${esc(p.codigo)}" label="${esc(p.nombre)}"></option>`
-        ).join("");
-      }).catch((err) => {
-        if (err?.name === "AbortError") return;
-        dl.innerHTML = "";
+      try {
+        const res = await fetch(
+          `${API_BASE}?action=buscar_productos&q=${encodeURIComponent(query)}&limit=8`,
+          { signal: abort.signal, credentials: "same-origin" }
+        );
+        const data = await res.json();
+        
+        if (data.ok && Array.isArray(data.productos)) {
+          productos = data.productos;
+          selectedIndex = -1;
+          renderDropdown();
+        } else {
+          ocultarDropdown();
+        }
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.warn("Error buscando productos:", err);
+          ocultarDropdown();
+        }
+      }
+    }
+
+    // Debounce
+    let debounceTimer = null;
+    function debouncedBuscar(query) {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => buscarProductos(query), 150);
+    }
+
+    // Eventos del input
+    input.addEventListener("input", () => {
+      debouncedBuscar(input.value);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (dropdown.style.display === "none" || productos.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        selectedIndex = Math.min(selectedIndex + 1, productos.length - 1);
+        actualizarSeleccionUI();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        selectedIndex = Math.max(selectedIndex - 1, 0);
+        actualizarSeleccionUI();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (selectedIndex < 0) selectedIndex = 0;
+        seleccionarProducto(selectedIndex);
+      } else if (e.key === "Escape") {
+        ocultarDropdown();
+      }
+    });
+
+
+    // Click en sugerencia
+      dropdown.addEventListener("mousedown", (e) => {
+        const item = e.target.closest(".autocomplete-item");
+        if (!item) return;
+
+        e.preventDefault();   // evita blur del input antes de seleccionar
+        e.stopPropagation();
+
+        const index = parseInt(item.dataset.index, 10);
+        seleccionarProducto(index);
       });
-    };
 
-    // Debounce (usa tu debounce global si existe)
-    const debounced = (window.debounce)
-      ? window.debounce(doSuggest, 120)
-      : (() => { let t; return (v) => { clearTimeout(t); t = setTimeout(() => doSuggest(v), 120); }; })();
 
-    input.addEventListener("input", () => debounced(input.value));
+    // Hover en sugerencias
+      dropdown.addEventListener("mousemove", (e) => {
+        const item = e.target.closest(".autocomplete-item");
+        if (!item) return;
+        const index = parseInt(item.dataset.index, 10);
+        if (Number.isFinite(index) && index !== selectedIndex) {
+          selectedIndex = index;
+          actualizarSeleccionUI();
+        }
+      });
+
+    // Ocultar al hacer click fuera
+    document.addEventListener("click", (e) => {
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        ocultarDropdown();
+      }
+    });
+
+    // Ocultar al perder foco (con delay para permitir click)
+    input.addEventListener("blur", () => {
+      setTimeout(() => {
+        if (!dropdown.matches(":hover")) {
+          ocultarDropdown();
+        }
+      }, 150);
+    });
   })();
 
   // Papel del ticket
@@ -1102,14 +1241,40 @@ function medioEsEfectivo() {
     const codigo = (inputCodigo?.value || "").trim();
     if (!codigo) return;
 
-    try {
-      const data = await fetchJson(
-        `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(
-          codigo
-        )}`
-      );
+    // ✅ SMART: permitir escribir nombre (o parte) y resolver el producto más relevante
+    async function resolverProductoPorTexto(q) {
+      // Si viene muy corto, no buscamos
+      if (!q || q.trim().length < 2) return null;
+      const r = await fetchJson(`${API_BASE}?action=buscar_productos&q=${encodeURIComponent(q)}&limit=8`);
+      if (!r?.ok || !Array.isArray(r.productos) || r.productos.length === 0) return null;
+      // Tomamos el primer match (API ya viene ordenada por relevancia)
+      return r.productos[0] || null;
+    }
 
-      if (!data.ok) return mostrarMensaje("error", data.error);
+    try {
+      let data = null;
+      try {
+        data = await fetchJson(`${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`);
+      } catch (e) {
+        // Si no encontró por código exacto / nombre exacto, intentamos por autocompletado
+        const msg = String(e?.message || "").toLowerCase();
+        const pareceNoEncontrado = msg.includes("no encontrado") || msg.includes("inactivo") || msg.includes("404");
+        const tieneLetras = /[a-záéíóúñü]/i.test(codigo);
+
+        if (pareceNoEncontrado || tieneLetras) {
+          const top = await resolverProductoPorTexto(codigo);
+          if (top?.codigo) {
+            // Reintentar con el código real
+            data = await fetchJson(`${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(top.codigo)}`);
+          } else {
+            throw e;
+          }
+        } else {
+          throw e;
+        }
+      }
+
+      if (!data || !data.ok) return mostrarMensaje("error", data?.error || "Error al buscar producto");
 
       const p = data.producto;
 

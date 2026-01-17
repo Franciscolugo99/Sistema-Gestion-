@@ -1,5 +1,189 @@
 # CHANGELOG - FLUS
 
+## [2.2.5] - 2026-01-16
+
+### ✨ Autocompletado Visual en Caja
+
+#### Nuevo dropdown de sugerencias
+- **Antes**: Usaba `<datalist>` HTML nativo (limitado, depende del navegador)
+- **Ahora**: Dropdown visual personalizado con estilo del sistema
+
+#### Características del nuevo autocompletado:
+- 📝 Muestra **nombre**, código, stock y precio de cada producto
+- ⌨️ Navegación con **flechas ↑↓** y selección con **Enter**
+- 🖱️ Click o hover para seleccionar
+- 🔍 Busca a partir de **2 caracteres**
+- ⚡ Debounce de 150ms para no saturar el servidor
+
+#### Ejemplo de uso:
+1. Escribir "coc" → Aparece dropdown con:
+   - Coca Cola 500ml - Código: 123 - Stock: 50 - $1500.00
+   - Coca Cola 1.5L - Código: 124 - Stock: 30 - $2500.00
+2. Seleccionar con mouse o flechas + Enter
+3. Se agrega automáticamente al ticket
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/assets/js/caja.js` | Nuevo sistema de autocompletado visual |
+| `src/version.php` | Actualizado a v2.2.5 |
+
+---
+
+## [2.2.4] - 2026-01-16
+
+### ✨ Mejora de Búsqueda en Caja
+
+#### Buscar producto por nombre (no solo código)
+- **Problema**: Al escribir "coca" o "Agua Graciani" y dar Enter, devolvía "Producto no encontrado"
+- El endpoint `buscar_producto` solo buscaba por código exacto (`WHERE codigo = :cod`)
+- **Resultado**: No se podía agregar productos escribiendo el nombre
+
+#### Solución
+El endpoint ahora busca en este orden de prioridad:
+1. Código exacto
+2. Nombre exacto  
+3. Código o nombre parcial (LIKE) - toma el más relevante
+
+**Ejemplo**: Escribir "coca" ahora encuentra "Coca Cola 500ml" aunque el código sea "7790895000515"
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/api/index.php` | Mejorado endpoint `buscar_producto` |
+| `src/version.php` | Actualizado a v2.2.4 |
+
+---
+
+## [2.2.3] - 2026-01-16
+
+### 🔴 Corrección Crítica
+
+#### Error "Cannot redeclare json_ok()"
+- **Problema**: Conflicto de funciones duplicadas entre `api_helpers.php` y otros archivos
+- `buscar_productos.php` y `stock_ajax.php` definían `json_ok()` que ya existía en `api_helpers.php`
+- **Resultado**: Error 500 "Cannot redeclare json_ok()" al buscar productos
+
+#### Solución
+- `buscar_productos.php`: Agregado check `if (!function_exists('json_ok'))` 
+- `stock_ajax.php`: Renombradas funciones a `stock_json_ok()` / `stock_json_fail()` (usa formato diferente: `success` en vez de `ok`)
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/api/actions/buscar_productos.php` | Fix redefinición json_ok |
+| `public/stock_ajax.php` | Renombradas funciones locales |
+| `src/version.php` | Actualizado a v2.2.3 |
+
+---
+
+## [2.2.2] - 2026-01-16
+
+### 🔴 Corrección Crítica
+
+#### Autocompletado de productos en Caja
+- **Problema**: El endpoint `buscar_productos` (plural) no existía en la API
+- El autocompletado en caja usaba `action=buscar_productos` pero solo existía `buscar_producto` (singular)
+- **Resultado**: No aparecían sugerencias al escribir nombre/código de producto
+
+#### Solución
+- Agregado nuevo endpoint `buscar_productos` en `api/index.php`
+- Busca por código o nombre parcial (LIKE)
+- Ordenamiento por relevancia (código exacto primero)
+- Límite configurable (default 10, max 20)
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/api/index.php` | Agregado endpoint `buscar_productos` |
+| `src/version.php` | Actualizado a v2.2.2 |
+
+---
+
+## [2.2.1] - 2026-01-16
+
+### ✨ Mejoras
+
+#### 1. Validación de Formularios de Usuario
+- **Nuevo archivo `public/assets/js/usuario_form.js`**
+- Validación client-side con mensajes en español
+- Toggle de contraseña (mostrar/ocultar) 
+- Limpieza de errores en tiempo real
+- Compatible con `usuario_nuevo.php` y `usuario_editar.php`
+
+#### 2. Fix Permiso de Stock
+- Corregido permiso en menú: `ver_stock` → `editar_stock`
+- Ahora consistente con la funcionalidad real de la página
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/assets/js/usuario_form.js` | ✨ NUEVO |
+| `public/index.php` | Fix permiso stock |
+| `src/version.php` | Actualizado a v2.2.1 |
+
+---
+
+## [2.2.0] - 2026-01-16
+
+### 🏗️ Refactorización Mayor
+
+#### 1. Helpers API Centralizados
+- **Nuevo archivo `src/api_helpers.php`**: Funciones compartidas para todas las APIs
+- Incluye: `json_ok()`, `json_fail()`, `json_error()`, `json_response()`
+- Incluye: `parse_num()`, `norm_medio_pago()`, helpers de DB
+- Incluye: `setup_api_error_handlers()` para configurar exception handlers
+- **Resultado**: Eliminada duplicación de código en 4 archivos
+
+#### 2. Limpieza de Código Muerto
+- ❌ Eliminada carpeta `views/` (era redundante, solo hacía require de `public/partials/`)
+- ❌ Eliminado archivo `d` (output de grep commiteado por error)
+
+#### 3. API Principal Simplificada
+- `public/api/index.php` ahora usa helpers centralizados
+- Reducidas ~100 líneas de código duplicado
+- Mejor mantenibilidad
+
+### 🔧 Correcciones de Base de Datos
+
+#### 4. Script de Upgrade SQL
+- **Nuevo archivo `scripts/upgrade_v220.sql`**
+- Fix crítico: Foreign Key `promo_combo_items.producto_id` ahora tiene `ON DELETE CASCADE`
+- Índices de optimización para ventas, movimientos y promos
+- Verificaciones automáticas post-upgrade
+
+### 📁 Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/api_helpers.php` | ✨ NUEVO - Helpers centralizados |
+| `src/version.php` | Actualizado a v2.2.0 |
+| `public/api/index.php` | Refactorizado para usar api_helpers.php |
+| `scripts/upgrade_v220.sql` | ✨ NUEVO - Script de upgrade DB |
+| `views/` | ❌ ELIMINADO |
+| `d` | ❌ ELIMINADO |
+
+### ⚠️ Instrucciones de Upgrade
+
+1. Hacer backup de la base de datos
+2. Reemplazar archivos del sistema
+3. Ejecutar `scripts/upgrade_v220.sql` en phpMyAdmin
+
+### 📊 Métricas de la Refactorización
+
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Definiciones de json_ok/json_fail | 4 | 1 (centralizada) |
+| Carpeta views/ | Existía | Eliminada |
+| Archivos basura | 1 | 0 |
+
+---
+
 ## [2.1.3] - 2026-01-10
 
 ### 🔴 Corrección Crítica

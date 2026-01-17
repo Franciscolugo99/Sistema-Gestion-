@@ -15,6 +15,7 @@ if (window.__flus_dashboard_js_loaded) {
     initSparklines();
     initCategoryFilter();
     initScrollShadows();
+    initTimeFilters();
 
     renderAllCharts(data);
 
@@ -950,15 +951,23 @@ function initExportLinks() {
   const fromInput = document.getElementById("dashFrom");
   const toInput = document.getElementById("dashTo");
   const catSelect = document.getElementById("dashCategoria");
+  const horaDesdeInput = document.getElementById("dashHoraDesde");
+  const horaHastaInput = document.getElementById("dashHoraHasta");
   const links = Array.from(document.querySelectorAll(".dash-export"));
   const dd = document.getElementById("dashExportDD");
 
   if (!fromInput || !toInput || links.length === 0) return;
 
-  const buildHref = (type, from, to, categoria) => {
+  const buildHref = (type, from, to, categoria, horaDesde, horaHasta) => {
     let url = `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
     if (categoria) {
       url += `&categoria=${encodeURIComponent(categoria)}`;
+    }
+    if (horaDesde) {
+      url += `&hora_desde=${encodeURIComponent(horaDesde)}`;
+    }
+    if (horaHasta) {
+      url += `&hora_hasta=${encodeURIComponent(horaHasta)}`;
     }
     return url;
   };
@@ -967,11 +976,13 @@ function initExportLinks() {
     const from = fromInput.value || "";
     const to = toInput.value || "";
     const categoria = catSelect ? catSelect.value : "";
+    const horaDesde = horaDesdeInput ? horaDesdeInput.value : "";
+    const horaHasta = horaHastaInput ? horaHastaInput.value : "";
     
     links.forEach((a) => {
       const type = a.dataset.exportType || "";
       if (!type || !from || !to) return;
-      a.setAttribute("href", buildHref(type, from, to, categoria));
+      a.setAttribute("href", buildHref(type, from, to, categoria, horaDesde, horaHasta));
     });
   };
 
@@ -985,12 +996,102 @@ function initExportLinks() {
   if (catSelect) {
     catSelect.addEventListener("change", refresh);
   }
+  
+  if (horaDesdeInput) {
+    horaDesdeInput.addEventListener("change", refresh);
+  }
+  
+  if (horaHastaInput) {
+    horaHastaInput.addEventListener("change", refresh);
+  }
 
   links.forEach((a) => {
     a.addEventListener("click", () => {
       if (dd && dd.open) dd.open = false;
     });
   });
+}
+
+/* =========================
+   FILTROS DE HORA
+========================= */
+function initTimeFilters() {
+  const horaDesde = document.getElementById("dashHoraDesde");
+  const horaHasta = document.getElementById("dashHoraHasta");
+  
+  if (!horaDesde || !horaHasta) return;
+  
+  // Validar que hora_hasta > hora_desde
+  const validateTimeRange = () => {
+    if (horaDesde.value && horaHasta.value) {
+      if (horaDesde.value > horaHasta.value) {
+        horaHasta.setCustomValidity("La hora final debe ser posterior a la hora inicial");
+      } else {
+        horaHasta.setCustomValidity("");
+      }
+    } else {
+      horaHasta.setCustomValidity("");
+    }
+  };
+  
+  horaDesde.addEventListener("change", validateTimeRange);
+  horaHasta.addEventListener("change", validateTimeRange);
+  
+  // Limpiar validación al escribir
+  horaDesde.addEventListener("input", () => horaDesde.setCustomValidity(""));
+  horaHasta.addEventListener("input", () => horaHasta.setCustomValidity(""));
+  
+  // Tooltips informativos
+  const addTooltip = (element, message) => {
+    element.title = message;
+    element.setAttribute("aria-label", message);
+  };
+  
+  addTooltip(horaDesde, "Filtrar ventas desde esta hora (formato 24h)");
+  addTooltip(horaHasta, "Filtrar ventas hasta esta hora (formato 24h)");
+  
+  // Sugerencias de horarios comunes (preset buttons)
+  const form = document.getElementById("dashFilters");
+  if (form) {
+    // Agregar botones de preset de horarios después de los presets existentes
+    const presetsContainer = form.querySelector(".dash-presets");
+    if (presetsContainer && !presetsContainer.querySelector(".time-preset-separator")) {
+      const separator = document.createElement("span");
+      separator.className = "time-preset-separator";
+      separator.textContent = "|";
+      separator.style.cssText = "margin: 0 4px; opacity: 0.3;";
+      
+      const timePresets = [
+        { label: "🌅 Mañana", desde: "06:00", hasta: "12:00" },
+        { label: "☀️ Tarde", desde: "12:00", hasta: "18:00" },
+        { label: "🌙 Noche", desde: "18:00", hasta: "23:59" }
+      ];
+      
+      const fragment = document.createDocumentFragment();
+      fragment.appendChild(separator);
+      
+      timePresets.forEach(preset => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "dash-chip time-preset";
+        btn.textContent = preset.label;
+        btn.title = `${preset.desde} - ${preset.hasta}`;
+        btn.onclick = (e) => {
+          e.preventDefault();
+          horaDesde.value = preset.desde;
+          horaHasta.value = preset.hasta;
+          validateTimeRange();
+          
+          // Visual feedback
+          btn.classList.add("is-active");
+          setTimeout(() => btn.classList.remove("is-active"), 300);
+        };
+        fragment.appendChild(btn);
+      });
+      
+      presetsContainer.appendChild(fragment);
+    }
+  }
 }
 
 }

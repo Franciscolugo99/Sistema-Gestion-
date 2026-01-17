@@ -269,10 +269,4 @@
   `;
   document.head.appendChild(style);
 
-  // =========================================================================
-  // LOG PARA DEBUGGING
-  // =========================================================================
-  
-  console.log('✓ Rol Permisos JS cargado correctamente');
-
 })();

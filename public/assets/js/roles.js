@@ -367,21 +367,6 @@
   `;
   document.head.appendChild(style);
 
-  // =========================================================================
-  // LOG PARA DEBUGGING
-  // =========================================================================
-  
-  console.log('✓ Rol Permisos COMPACT JS cargado correctamente');
-  console.log('Funciones disponibles:');
-  console.log('  - selectAll()');
-  console.log('  - deselectAll()');
-  console.log('  - expandAll()');
-  console.log('  - collapseAll()');
-  console.log('');
-  console.log('Shortcuts:');
-  console.log('  Ctrl+S: Guardar');
-  console.log('  Ctrl+A: Marcar todos');
-  console.log('  Ctrl+E: Abrir categorías');
-  console.log('  Ctrl+Q: Cerrar categorías');
+  // Inicialización completa
 
 })();
