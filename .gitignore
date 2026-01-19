@@ -114,3 +114,4 @@ public/assets/vendor/
 storage/logs/
 storage/cache/
 *.log
+*.backup

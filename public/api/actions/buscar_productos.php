@@ -13,13 +13,18 @@ header('Cache-Control: no-store');
 // ✅ Solo definir si no existe (evita conflicto con api_helpers.php)
 if (!function_exists('json_ok')) {
   function json_ok(array $data = []): void {
-    echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    try {
+      echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    } catch (Throwable $e) {
+      echo '{"ok":true,"productos":[]}';
+    }
     exit;
   }
 }
 
 /* ========================================================================
    🔒 Rate limit (soft): si se excede NO rompe caja => devuelve productos=[]
+   IMPORTANTE: la sesión PHP bloquea entre pestañas => cerrar ASAP.
 ======================================================================== */
 if (session_status() !== PHP_SESSION_ACTIVE) {
   @session_start();
@@ -41,7 +46,19 @@ function checkRateLimitSoft(string $key, int $maxRequests = 30, int $perSeconds 
   return $_SESSION[$rk]['count'] <= $maxRequests;
 }
 
-if (!checkRateLimitSoft('buscar_productos', 30, 60)) {
+$rateOk = true;
+try {
+  $rateOk = checkRateLimitSoft('buscar_productos', 30, 60);
+} catch (Throwable $e) {
+  $rateOk = true; // fail-open para no romper caja
+}
+
+// ✅ Cerrar sesión YA (evita bloqueo entre pestañas/terminales)
+if (session_status() === PHP_SESSION_ACTIVE) {
+  @session_write_close();
+}
+
+if (!$rateOk) {
   json_ok(['productos' => [], 'rate_limited' => true]);
 }
 
@@ -55,7 +72,8 @@ if ($q === '') {
 
 $limit = (int)($_GET['limit'] ?? 5);
 $limit = max(1, min($limit, 20));
-$like  = '%' . $q . '%';
+
+$like = '%' . $q . '%';
 
 try {
   $pdo = (isset($pdo) && $pdo instanceof PDO) ? $pdo : getPDO();
@@ -68,7 +86,9 @@ try {
    Schema detection + cache (en storage/cache)
 ======================================================================== */
 $cacheDir = FLUS_ROOT . '/storage/cache';
-if (!is_dir($cacheDir)) @mkdir($cacheDir, 0775, true);
+if (!is_dir($cacheDir)) {
+  @mkdir($cacheDir, 0775, true);
+}
 
 $SCHEMA_CACHE_FILE = $cacheDir . '/productos_schema_cache.json';
 $SCHEMA_LOCK_FILE  = $SCHEMA_CACHE_FILE . '.lock';
@@ -82,47 +102,65 @@ function detectProductosSchema(PDO $pdo, string $cacheFile, string $lockFile): a
     'has_activo'    => true,
   ];
 
-  // cache válido 1h
-  $readCache = function() use ($cacheFile) {
+  // TTL normal: 24h | Stale: hasta 6h extra bajo contención
+  $TTL_NORMAL = 86400;   // 24h
+  $TTL_STALE  = 21600;   // 6h
+
+  $readCache = function(bool $allowStale = false) use ($cacheFile, $TTL_NORMAL, $TTL_STALE) {
     if (!is_file($cacheFile)) return null;
     $raw = @file_get_contents($cacheFile);
     if (!$raw) return null;
     $j = @json_decode($raw, true);
     if (!is_array($j) || empty($j['timestamp']) || empty($j['schema'])) return null;
-    if (time() - (int)$j['timestamp'] > 3600) return null;
+
+    $age = time() - (int)$j['timestamp'];
+    if ($allowStale) {
+      if ($age > ($TTL_NORMAL + $TTL_STALE)) return null; // 30h máx
+    } else {
+      if ($age > $TTL_NORMAL) return null; // 24h
+    }
     return $j['schema'];
   };
 
-  $cached = $readCache();
+  // 1) Cache sin lock
+  $cached = $readCache(false);
   if (is_array($cached)) return $cached;
 
+  // 2) Lock
   $lock = @fopen($lockFile, 'c');
-  if (!$lock) return $default;
+  if (!$lock) {
+    // si no se puede lockear, usar stale si existe
+    $cached = $readCache(true);
+    return is_array($cached) ? $cached : $default;
+  }
 
+  // Lock máximo 300ms, retry 20ms
   $got = false;
   $start = microtime(true);
   while (!( $got = @flock($lock, LOCK_EX | LOCK_NB) )) {
-    if ((microtime(true) - $start) > 2.0) break;
-    usleep(80000);
+    if ((microtime(true) - $start) > 0.30) break;
+    usleep(20000);
   }
 
   if (!$got) {
-    fclose($lock);
-    $cached = $readCache();
+    @fclose($lock);
+    $cached = $readCache(true);
     return is_array($cached) ? $cached : $default;
   }
 
   try {
-    // re-check cache con lock
-    $cached = $readCache();
+    // re-check cache con lock (otro proceso pudo escribirlo)
+    $cached = $readCache(false);
     if (is_array($cached)) return $cached;
 
-    // Si la tabla no existe, fallback
+    // Detectar schema desde DB
     try {
       $stmt = $pdo->query("SHOW COLUMNS FROM productos");
-      $cols = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+      $cols = $stmt ? ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: []) : [];
     } catch (Throwable $e) {
-      return $default;
+      error_log('[buscar_productos] schema detect DB error: ' . $e->getMessage());
+      $cached = $readCache(true);
+      return is_array($cached) ? $cached : $default;
     }
 
     if (!$cols) return $default;
@@ -143,8 +181,9 @@ function detectProductosSchema(PDO $pdo, string $cacheFile, string $lockFile): a
 
     return $schema;
   } catch (Throwable $e) {
-    error_log("[buscar_productos] schema detect error: " . $e->getMessage());
-    return $default;
+    error_log('[buscar_productos] schema detect error: ' . $e->getMessage());
+    $cached = $readCache(true);
+    return is_array($cached) ? $cached : $default;
   } finally {
     @flock($lock, LOCK_UN);
     @fclose($lock);
@@ -163,15 +202,11 @@ try {
     "codigo LIKE ?",
     "{$schema['nombre']} LIKE ?",
   ];
-  $params = [$like, $like];
 
   if (!empty($schema['has_categoria'])) {
     $conds[] = "categoria LIKE ?";
-    $params[] = $like;
   }
 
-  // ⚠️ PDO MySQL (emulación OFF) no permite repetir :param en un mismo statement.
-  // Usamos placeholders posicionales + LIMIT inline (int) para evitar SQLSTATE[HY093].
   $sql = "SELECT
             id,
             codigo,
@@ -189,10 +224,20 @@ try {
           ORDER BY relevancia ASC, {$schema['nombre']} ASC
           LIMIT " . (int)$limit;
 
-  // relevancia params (exact + starts)
+  // ✅ IMPORTANTE: params en el MISMO ORDEN que los placeholders
+  $params = [];
+
+  // CASE params (3 primeros ?)
   $params[] = $q;        // codigo exact
   $params[] = $q . '%';  // codigo starts
   $params[] = $q . '%';  // nombre starts
+
+  // WHERE params
+  $params[] = $like;     // codigo LIKE %q%
+  $params[] = $like;     // nombre LIKE %q%
+  if (!empty($schema['has_categoria'])) {
+    $params[] = $like;   // categoria LIKE %q%
+  }
 
   $st = $pdo->prepare($sql);
   $st->execute($params);

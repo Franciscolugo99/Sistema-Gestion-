@@ -35,7 +35,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 // ✅ FIX v2.1.2: Validar CSRF
 require_once __DIR__ . '/../lib/csrf.php';
 $csrfToken = $input['csrf_token'] ?? $input['csrf'] ?? $_POST['csrf_token'] ?? '';
-if (!csrf_validate($csrfToken)) {
+if (!csrf_verify($csrfToken)) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
