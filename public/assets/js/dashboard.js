@@ -579,7 +579,7 @@ function renderMetodosPago(metodosPago, palette, textColor) {
 }
 
 /* =========================
-   GRÁFICO: Categorías
+   GRÁFICO: Categorías (fix TOTAL/rollup + tolerancia keys)
 ========================= */
 function renderCategorias(categorias, palette, textColor, gridColor) {
   const canvas = document.getElementById("chartCategorias");
@@ -587,9 +587,22 @@ function renderCategorias(categorias, palette, textColor, gridColor) {
 
   const empty = getOrCreateEmptyMsg(canvas, null, "Sin datos de categorías");
 
-  const list = Array.isArray(categorias) ? categorias : [];
-  const labels = list.map((c) => String(c?.categoria ?? "Sin Categoría"));
-  const values = list.map((c) => num(c?.ventas, 0));
+  const raw = Array.isArray(categorias) ? categorias : [];
+
+  // ✅ tolerante: acepta distintas keys de categoría
+  const getCatName = (c) =>
+    String(c?.categoria ?? c?.cat ?? c?.nombre_categoria ?? c?.nombre ?? "").trim();
+
+  // ✅ Quitamos filas que no son categorías reales (NULL / "" / "TOTAL")
+  const list = raw.filter((c) => {
+    const cat = getCatName(c);
+    if (!cat) return false;
+    if (cat.toLowerCase() === "total") return false;
+    return true;
+  });
+
+  const labels = list.map((c) => getCatName(c));
+  const values = list.map((c) => num(c?.ventas ?? c?.monto, 0));
 
   const hasData = hasSomePositive(values);
   if (!hasData) {
@@ -597,6 +610,7 @@ function renderCategorias(categorias, palette, textColor, gridColor) {
     if (empty) empty.style.display = "grid";
     return;
   }
+
   canvas.style.display = "block";
   if (empty) empty.style.display = "none";
 
@@ -635,6 +649,7 @@ function renderCategorias(categorias, palette, textColor, gridColor) {
 
   __dashCharts.push(chart);
 }
+
 
 /* =========================
    GRÁFICO: Horarios pico
@@ -953,22 +968,22 @@ function initExportLinks() {
   const catSelect = document.getElementById("dashCategoria");
   const horaDesdeInput = document.getElementById("dashHoraDesde");
   const horaHastaInput = document.getElementById("dashHoraHasta");
+  const horaDesdeAmpm = document.getElementById("dashHoraDesdeAmpm");
+  const horaHastaAmpm = document.getElementById("dashHoraHastaAmpm");
   const links = Array.from(document.querySelectorAll(".dash-export"));
   const dd = document.getElementById("dashExportDD");
 
   if (!fromInput || !toInput || links.length === 0) return;
 
-  const buildHref = (type, from, to, categoria, horaDesde, horaHasta) => {
+  const buildHref = (type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH) => {
     let url = `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    if (categoria) {
-      url += `&categoria=${encodeURIComponent(categoria)}`;
-    }
-    if (horaDesde) {
-      url += `&hora_desde=${encodeURIComponent(horaDesde)}`;
-    }
-    if (horaHasta) {
-      url += `&hora_hasta=${encodeURIComponent(horaHasta)}`;
-    }
+
+    if (categoria) url += `&categoria=${encodeURIComponent(categoria)}`;
+    if (horaDesde) url += `&hora_desde=${encodeURIComponent(horaDesde)}`;
+    if (horaHasta) url += `&hora_hasta=${encodeURIComponent(horaHasta)}`;
+    if (ampmD) url += `&hora_desde_ampm=${encodeURIComponent(ampmD)}`;
+    if (ampmH) url += `&hora_hasta_ampm=${encodeURIComponent(ampmH)}`;
+
     return url;
   };
 
@@ -976,13 +991,17 @@ function initExportLinks() {
     const from = fromInput.value || "";
     const to = toInput.value || "";
     const categoria = catSelect ? catSelect.value : "";
+
     const horaDesde = horaDesdeInput ? horaDesdeInput.value : "";
     const horaHasta = horaHastaInput ? horaHastaInput.value : "";
-    
+
+    const ampmD = horaDesdeAmpm ? horaDesdeAmpm.value : "";
+    const ampmH = horaHastaAmpm ? horaHastaAmpm.value : "";
+
     links.forEach((a) => {
       const type = a.dataset.exportType || "";
       if (!type || !from || !to) return;
-      a.setAttribute("href", buildHref(type, from, to, categoria, horaDesde, horaHasta));
+      a.setAttribute("href", buildHref(type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH));
     });
   };
 
@@ -992,18 +1011,14 @@ function initExportLinks() {
     fromInput.addEventListener(ev, refresh);
     toInput.addEventListener(ev, refresh);
   });
-  
-  if (catSelect) {
-    catSelect.addEventListener("change", refresh);
-  }
-  
-  if (horaDesdeInput) {
-    horaDesdeInput.addEventListener("change", refresh);
-  }
-  
-  if (horaHastaInput) {
-    horaHastaInput.addEventListener("change", refresh);
-  }
+
+  if (catSelect) catSelect.addEventListener("change", refresh);
+
+  if (horaDesdeInput) ["change", "input"].forEach(ev => horaDesdeInput.addEventListener(ev, refresh));
+  if (horaHastaInput) ["change", "input"].forEach(ev => horaHastaInput.addEventListener(ev, refresh));
+
+  if (horaDesdeAmpm) horaDesdeAmpm.addEventListener("change", refresh);
+  if (horaHastaAmpm) horaHastaAmpm.addEventListener("change", refresh);
 
   links.forEach((a) => {
     a.addEventListener("click", () => {
@@ -1012,86 +1027,85 @@ function initExportLinks() {
   });
 }
 
+
 /* =========================
    FILTROS DE HORA
 ========================= */
 function initTimeFilters() {
   const horaDesde = document.getElementById("dashHoraDesde");
   const horaHasta = document.getElementById("dashHoraHasta");
-  
+  const ampmDesde = document.getElementById("dashHoraDesdeAmpm");
+  const ampmHasta = document.getElementById("dashHoraHastaAmpm");
+  const fromInput = document.getElementById("dashFrom");
+  const toInput   = document.getElementById("dashTo");
+
   if (!horaDesde || !horaHasta) return;
-  
-  // Validar que hora_hasta > hora_desde
-  const validateTimeRange = () => {
-    if (horaDesde.value && horaHasta.value) {
-      if (horaDesde.value > horaHasta.value) {
-        horaHasta.setCustomValidity("La hora final debe ser posterior a la hora inicial");
-      } else {
-        horaHasta.setCustomValidity("");
-      }
-    } else {
-      horaHasta.setCustomValidity("");
+
+  const pad2 = (n) => String(n).padStart(2, "0");
+
+  function normalizeTimeTo24(timeStr, ampm) {
+    if (!timeStr) return "";
+    const [hh, mm] = timeStr.split(":");
+    let h = parseInt(hh, 10);
+    let m = parseInt(mm, 10);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
+    if (h < 0 || h > 23 || m < 0 || m > 59) return "";
+
+    const mode = (ampm || "AUTO").toUpperCase();
+    if (mode === "AM" || mode === "PM") {
+      // Si ya es 13..23, ignoramos AM/PM
+      if (h >= 13) return `${pad2(h)}:${pad2(m)}`;
+
+      // 12h -> 24h
+      if (h === 12) h = (mode === "AM") ? 0 : 12;
+      else if (h >= 1 && h <= 11 && mode === "PM") h += 12;
     }
-  };
-  
-  horaDesde.addEventListener("change", validateTimeRange);
-  horaHasta.addEventListener("change", validateTimeRange);
-  
-  // Limpiar validación al escribir
-  horaDesde.addEventListener("input", () => horaDesde.setCustomValidity(""));
-  horaHasta.addEventListener("input", () => horaHasta.setCustomValidity(""));
-  
-  // Tooltips informativos
-  const addTooltip = (element, message) => {
-    element.title = message;
-    element.setAttribute("aria-label", message);
-  };
-  
-  addTooltip(horaDesde, "Filtrar ventas desde esta hora (formato 24h)");
-  addTooltip(horaHasta, "Filtrar ventas hasta esta hora (formato 24h)");
-  
-  // Sugerencias de horarios comunes (preset buttons)
-  const form = document.getElementById("dashFilters");
-  if (form) {
-    // Agregar botones de preset de horarios después de los presets existentes
-    const presetsContainer = form.querySelector(".dash-presets");
-    if (presetsContainer && !presetsContainer.querySelector(".time-preset-separator")) {
-      const separator = document.createElement("span");
-      separator.className = "time-preset-separator";
-      separator.textContent = "|";
-      separator.style.cssText = "margin: 0 4px; opacity: 0.3;";
-      
-      const timePresets = [
-        { label: "🌅 Mañana", desde: "06:00", hasta: "12:00" },
-        { label: "☀️ Tarde", desde: "12:00", hasta: "18:00" },
-        { label: "🌙 Noche", desde: "18:00", hasta: "23:59" }
-      ];
-      
-      const fragment = document.createDocumentFragment();
-      fragment.appendChild(separator);
-      
-      timePresets.forEach(preset => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "dash-chip time-preset";
-        btn.textContent = preset.label;
-        btn.title = `${preset.desde} - ${preset.hasta}`;
-        btn.onclick = (e) => {
-          e.preventDefault();
-          horaDesde.value = preset.desde;
-          horaHasta.value = preset.hasta;
-          validateTimeRange();
-          
-          // Visual feedback
-          btn.classList.add("is-active");
-          setTimeout(() => btn.classList.remove("is-active"), 300);
-        };
-        fragment.appendChild(btn);
-      });
-      
-      presetsContainer.appendChild(fragment);
-    }
+    return `${pad2(h)}:${pad2(m)}`;
   }
+
+  function timeToMinutes(t24) {
+    const [h, m] = t24.split(":").map(Number);
+    return (h * 60) + m;
+  }
+
+  function syncAmpmLock(timeInput, ampmSelect) {
+    if (!ampmSelect) return;
+    const v = timeInput.value || "";
+    const hh = parseInt(v.split(":")[0] || "0", 10);
+    const lock = Number.isFinite(hh) && hh >= 13;
+    ampmSelect.disabled = lock;
+    if (lock) ampmSelect.value = "AUTO";
+  }
+
+  // Validamos solo si from==to (mismo día)
+  const validate = () => {
+    horaHasta.setCustomValidity("");
+
+    const dFrom = fromInput ? fromInput.value : "";
+    const dTo   = toInput ? toInput.value : "";
+    if (dFrom && dTo && dFrom !== dTo) return; // rango multi-día: no bloqueamos por horas
+
+    if (horaDesde.value && horaHasta.value) {
+      const d24 = normalizeTimeTo24(horaDesde.value, ampmDesde ? ampmDesde.value : "AUTO");
+      const h24 = normalizeTimeTo24(horaHasta.value, ampmHasta ? ampmHasta.value : "AUTO");
+      if (d24 && h24 && timeToMinutes(h24) <= timeToMinutes(d24)) {
+        horaHasta.setCustomValidity("La hora final debe ser posterior a la hora inicial");
+      }
+    }
+  };
+
+  horaDesde.addEventListener("change", () => { syncAmpmLock(horaDesde, ampmDesde); validate(); });
+  horaHasta.addEventListener("change", () => { syncAmpmLock(horaHasta, ampmHasta); validate(); });
+  if (ampmDesde) ampmDesde.addEventListener("change", validate);
+  if (ampmHasta) ampmHasta.addEventListener("change", validate);
+  if (fromInput) fromInput.addEventListener("change", validate);
+  if (toInput)   toInput.addEventListener("change", validate);
+
+  // Init
+  syncAmpmLock(horaDesde, ampmDesde);
+  syncAmpmLock(horaHasta, ampmHasta);
+  validate();
 }
+
 
 }

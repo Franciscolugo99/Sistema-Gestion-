@@ -1,6 +1,8 @@
 <?php
-// includes/ClienteController.php
+// public/includes/ClienteController.php
 declare(strict_types=1);
+
+require_once __DIR__ . '/CuitValidator.php';
 
 class ClienteController
 {
@@ -11,9 +13,6 @@ class ClienteController
         $this->pdo = $pdo;
     }
 
-    /**
-     * Opciones de condición IVA
-     */
     public static function getCondIvaOptions(): array
     {
         return [
@@ -24,10 +23,31 @@ class ClienteController
             'EX' => 'Exento',
         ];
     }
+    
+    public static function getTipoClienteOptions(): array
+    {
+        return [
+            'MINORISTA'   => 'Minorista',
+            'MAYORISTA'   => 'Mayorista',
+            'CORPORATIVO' => 'Corporativo',
+        ];
+    }
+    
+    public function getZonasReparto(): array
+    {
+        try {
+            $stmt = $this->pdo->query("
+                SELECT codigo, nombre, costo_envio, tiempo_estimado_min
+                FROM zonas_reparto
+                WHERE activo = 1
+                ORDER BY orden ASC, nombre ASC
+            ");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
 
-    /**
-     * Toggle estado activo/inactivo
-     */
     public function toggleActivo(array $post): bool
     {
         $id    = (int)($post['id'] ?? 0);
@@ -36,14 +56,22 @@ class ClienteController
         if ($id <= 0) {
             return false;
         }
+        
+        $userId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
 
-        $st = $this->pdo->prepare("UPDATE clientes SET activo = :v WHERE id = :id");
-        return $st->execute([':v' => ($valor ? 1 : 0), ':id' => $id]);
+        $st = $this->pdo->prepare("
+            UPDATE clientes 
+            SET activo = :v, updated_by = :uid
+            WHERE id = :id
+        ");
+        
+        return $st->execute([
+            ':v' => ($valor ? 1 : 0), 
+            ':id' => $id,
+            ':uid' => $userId > 0 ? $userId : null
+        ]);
     }
 
-    /**
-     * Validar datos del formulario
-     */
     public function validateForm(array $post): array
     {
         $errores = [];
@@ -52,74 +80,153 @@ class ClienteController
         $cuit   = trim((string)($post['cuit'] ?? ''));
         $email  = trim((string)($post['email'] ?? ''));
         $condIva = trim((string)($post['cond_iva'] ?? ''));
-
+        $descuentoPct = (string)($post['descuento_porcentaje'] ?? '0');
+        
+        // Nombre obligatorio
         if ($nombre === '') {
             $errores[] = 'El nombre es obligatorio.';
+        } elseif (strlen($nombre) > 200) {
+            $errores[] = 'El nombre es demasiado largo (máx. 200 caracteres).';
         }
-
-        if ($cuit !== '' && strlen($cuit) > 20) {
-            $errores[] = 'El CUIT/CUIL es demasiado largo (máx. 20 caracteres).';
+        
+        // Validar CUIT si viene
+        if ($cuit !== '') {
+            if (!CuitValidator::validar($cuit)) {
+                $errorDetallado = CuitValidator::obtenerError($cuit);
+                $errores[] = $errorDetallado ?: 'El CUIT/CUIL no es válido.';
+            } else {
+                // Verificar duplicados
+                $id = isset($post['id']) && $post['id'] !== '' ? (int)$post['id'] : null;
+                
+                if ($this->existeCuitDuplicado($cuit, $id)) {
+                    $errores[] = 'Ya existe un cliente activo con ese CUIT/CUIL.';
+                }
+            }
         }
-
+        
+        // RI DEBE tener CUIT
+        if ($condIva === 'RI' && $cuit === '') {
+            $errores[] = 'Los Responsables Inscriptos deben tener un CUIT/CUIL válido.';
+        }
+        
+        // Email
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errores[] = 'El email no tiene un formato válido.';
         }
+        
+        if ($email !== '' && strlen($email) > 100) {
+            $errores[] = 'El email es demasiado largo (máx. 100 caracteres).';
+        }
 
+        // Condición IVA
         if ($condIva !== '' && !array_key_exists($condIva, self::getCondIvaOptions())) {
             $errores[] = 'Condición IVA inválida.';
+        }
+        
+        // Descuento
+        if ($descuentoPct !== '') {
+            $descuento = (float)$descuentoPct;
+            if ($descuento < 0 || $descuento > 100) {
+                $errores[] = 'El descuento debe estar entre 0% y 100%.';
+            }
         }
 
         return $errores;
     }
+    
+    private function existeCuitDuplicado(string $cuit, ?int $excludeId = null): bool
+    {
+        $cuitLimpio = CuitValidator::limpiar($cuit);
+        
+        $sql = "
+            SELECT COUNT(*) 
+            FROM clientes 
+            WHERE REPLACE(REPLACE(cuit, '-', ''), ' ', '') = :cuit
+            AND activo = 1
+        ";
+        
+        $params = [':cuit' => $cuitLimpio];
+        
+        if ($excludeId) {
+            $sql .= " AND id != :id";
+            $params[':id'] = $excludeId;
+        }
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        
+        return (int)$stmt->fetchColumn() > 0;
+    }
 
-    /**
-     * Crear nuevo cliente
-     */
     public function create(array $post): bool
     {
+        $userId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
+        
+        $cuit = trim((string)($post['cuit'] ?? ''));
+        if ($cuit !== '') {
+            $cuit = CuitValidator::formatear($cuit) ?? $cuit;
+        }
+        
         $st = $this->pdo->prepare("
-            INSERT INTO clientes (nombre, cuit, cond_iva, direccion, email, telefono, activo)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO clientes (
+                nombre, cuit, cond_iva, tipo_cliente, descuento_porcentaje,
+                direccion, zona_reparto, email, telefono, notas, activo,
+                created_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         return $st->execute([
             trim($post['nombre']),
-            $this->nullIfEmpty($post['cuit'] ?? ''),
+            $this->nullIfEmpty($cuit),
             $this->nullIfEmpty($post['cond_iva'] ?? ''),
+            $this->nullIfEmpty($post['tipo_cliente'] ?? 'MINORISTA'),
+            (float)($post['descuento_porcentaje'] ?? 0),
             $this->nullIfEmpty($post['direccion'] ?? ''),
+            $this->nullIfEmpty($post['zona_reparto'] ?? ''),
             $this->nullIfEmpty($post['email'] ?? ''),
             $this->nullIfEmpty($post['telefono'] ?? ''),
-            isset($post['activo']) ? 1 : 0
+            $this->nullIfEmpty($post['notas'] ?? ''),
+            isset($post['activo']) ? 1 : 0,
+            $userId > 0 ? $userId : null
         ]);
     }
 
-    /**
-     * Actualizar cliente existente
-     */
     public function update(int $id, array $post): bool
     {
+        $userId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
+        
+        $cuit = trim((string)($post['cuit'] ?? ''));
+        if ($cuit !== '') {
+            $cuit = CuitValidator::formatear($cuit) ?? $cuit;
+        }
+        
         $st = $this->pdo->prepare("
             UPDATE clientes SET
-                nombre = ?, cuit = ?, cond_iva = ?, direccion = ?,
-                email = ?, telefono = ?, activo = ?
+                nombre = ?, cuit = ?, cond_iva = ?, tipo_cliente = ?,
+                descuento_porcentaje = ?, direccion = ?, zona_reparto = ?,
+                email = ?, telefono = ?, notas = ?, activo = ?,
+                updated_by = ?
             WHERE id = ?
         ");
 
         return $st->execute([
             trim($post['nombre']),
-            $this->nullIfEmpty($post['cuit'] ?? ''),
+            $this->nullIfEmpty($cuit),
             $this->nullIfEmpty($post['cond_iva'] ?? ''),
+            $this->nullIfEmpty($post['tipo_cliente'] ?? 'MINORISTA'),
+            (float)($post['descuento_porcentaje'] ?? 0),
             $this->nullIfEmpty($post['direccion'] ?? ''),
+            $this->nullIfEmpty($post['zona_reparto'] ?? ''),
             $this->nullIfEmpty($post['email'] ?? ''),
             $this->nullIfEmpty($post['telefono'] ?? ''),
+            $this->nullIfEmpty($post['notas'] ?? ''),
             isset($post['activo']) ? 1 : 0,
+            $userId > 0 ? $userId : null,
             $id
         ]);
     }
 
-    /**
-     * Obtener cliente por ID
-     */
     public function getById(int $id): ?array
     {
         $st = $this->pdo->prepare("SELECT * FROM clientes WHERE id = ? LIMIT 1");
@@ -128,13 +235,11 @@ class ClienteController
         return $result ?: null;
     }
 
-    /**
-     * Listar clientes con filtros
-     */
     public function getList(array $filters): array
     {
         $q       = trim($filters['q'] ?? '');
         $estado  = $filters['estado'] ?? '';
+        $tipo    = $filters['tipo'] ?? '';
         $perPage = (int)($filters['per_page'] ?? 50);
         $page    = max(1, (int)($filters['page'] ?? 1));
 
@@ -142,7 +247,7 @@ class ClienteController
         $params = [];
 
         if ($q !== '') {
-            $where[] = '(nombre LIKE :q OR cuit LIKE :q OR email LIKE :q)';
+            $where[] = '(nombre LIKE :q OR cuit LIKE :q OR email LIKE :q OR telefono LIKE :q)';
             $params[':q'] = '%' . $q . '%';
         }
 
@@ -151,10 +256,14 @@ class ClienteController
         } elseif ($estado === 'inactivos') {
             $where[] = 'activo = 0';
         }
+        
+        if ($tipo !== '' && $tipo !== 'TODOS') {
+            $where[] = 'tipo_cliente = :tipo';
+            $params[':tipo'] = $tipo;
+        }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
 
-        // Total
         $st = $this->pdo->prepare("SELECT COUNT(*) FROM clientes {$whereSql}");
         $st->execute($params);
         $totalRows = (int)$st->fetchColumn();
@@ -166,12 +275,11 @@ class ClienteController
         
         $offset = ($page - 1) * $perPage;
 
-        // Listado
         $sqlList = "
-            SELECT *
-            FROM clientes
+            SELECT c.*
+            FROM clientes c
             {$whereSql}
-            ORDER BY nombre ASC
+            ORDER BY c.nombre ASC
             LIMIT :limit OFFSET :offset
         ";
 
@@ -191,12 +299,50 @@ class ClienteController
         ];
     }
 
-    /**
-     * Helper: convierte string vacío a null
-     */
     private function nullIfEmpty(string $value): ?string
     {
         $trimmed = trim($value);
         return $trimmed === '' ? null : $trimmed;
+    }
+    
+    public function exportarCSV(array $filters): void
+    {
+        $filters['per_page'] = 999999;
+        $filters['page'] = 1;
+        $data = $this->getList($filters);
+        
+        $condIvaOptions = self::getCondIvaOptions();
+        $tipoOptions = self::getTipoClienteOptions();
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="clientes_' . date('Y-m-d') . '.csv"');
+        
+        $out = fopen('php://output', 'w');
+        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        fputcsv($out, [
+            'ID', 'Nombre', 'CUIT', 'Condición IVA', 'Tipo Cliente', 
+            'Descuento %', 'Email', 'Teléfono', 'Dirección', 'Zona Reparto',
+            'Estado', 'Fecha Creación'
+        ]);
+        
+        foreach ($data['clientes'] as $c) {
+            fputcsv($out, [
+                $c['id'],
+                $c['nombre'],
+                $c['cuit'] ?? '',
+                $condIvaOptions[$c['cond_iva'] ?? ''] ?? '',
+                $tipoOptions[$c['tipo_cliente'] ?? 'MINORISTA'] ?? '',
+                number_format((float)($c['descuento_porcentaje'] ?? 0), 2),
+                $c['email'] ?? '',
+                $c['telefono'] ?? '',
+                $c['direccion'] ?? '',
+                $c['zona_reparto'] ?? '',
+                (int)($c['activo'] ?? 0) === 1 ? 'Activo' : 'Inactivo',
+                $c['created_at'] ?? ''
+            ]);
+        }
+        
+        fclose($out);
     }
 }

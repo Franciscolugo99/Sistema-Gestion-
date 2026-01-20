@@ -35,6 +35,7 @@ if ($currentSection === '') {
     'caja.php'                => 'caja',
     'productos.php'           => 'productos',
     'stock.php'               => 'stock',
+    'inventario_analisis.php' => 'inventario_analisis',
     'movimientos.php'         => 'movimientos',
     'ventas.php'              => 'ventas',
     'venta_detalle.php'       => 'ventas',
@@ -83,6 +84,11 @@ $canDashboard   = $can('ver_reportes');
 $canCaja        = $can('realizar_ventas');
 $canProductos   = $can('editar_productos') || $can('ver_productos');
 $canStock       = $can('editar_stock')     || $can('ver_stock');
+
+// ✅ NUEVO: permiso Inventario (ajustable)
+// - Por defecto: si puede ver productos o stock, puede ver Inventario
+$canInventario  = $canProductos || $canStock;
+
 $canMovimientos = $can('ver_movimientos');
 $canVentas      = $can('ver_reportes')     || $can('realizar_ventas');
 $canCompras     = $can('editar_stock')     || $can('ver_costos') || $can('editar_productos');
@@ -102,17 +108,17 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
 ?>
 
 <nav class="nav-container" role="navigation" aria-label="Navegación principal">
-  
+
   <!-- Logo / Marca (opcional) -->
   <a href="index.php" class="nav-brand" aria-label="Inicio">
     <span class="nav-logo">FLUS</span>
   </a>
 
   <!-- Botón hamburguesa (mobile) -->
-  <button type="button" 
-          class="nav-hamburger" 
-          id="navHamburger" 
-          aria-label="Menú de navegación" 
+  <button type="button"
+          class="nav-hamburger"
+          id="navHamburger"
+          aria-label="Menú de navegación"
           aria-expanded="false"
           aria-controls="navMenu">
     <span class="hamburger-line"></span>
@@ -123,9 +129,9 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
   <!-- Menú principal -->
   <div class="nav-menu-wrapper" id="navMenu">
     <div class="nav-left">
-      
+
       <?php if ($canDashboard): ?>
-        <a href="dashboard.php" 
+        <a href="dashboard.php"
            class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'dashboard' ? 'page' : 'false' ?>">
           📊 Panel de control
@@ -133,7 +139,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canCaja): ?>
-        <a href="caja.php" 
+        <a href="caja.php"
            class="nav-pill <?= $currentSection === 'caja' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'caja' ? 'page' : 'false' ?>">
           🛒 Caja
@@ -141,7 +147,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canProductos): ?>
-        <a href="productos.php" 
+        <a href="productos.php"
            class="nav-pill <?= $currentSection === 'productos' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'productos' ? 'page' : 'false' ?>">
           📦 Productos
@@ -149,15 +155,24 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canStock): ?>
-        <a href="stock.php" 
+        <a href="stock.php"
            class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'stock' ? 'page' : 'false' ?>">
           📋 Stock
         </a>
       <?php endif; ?>
 
+      <!-- ✅ NUEVO: Inventario -->
+      <?php if ($canInventario): ?>
+        <a href="inventario_analisis.php"
+           class="nav-pill <?= $currentSection === 'inventario_analisis' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'inventario_analisis' ? 'page' : 'false' ?>">
+          📦 Inventario
+        </a>
+      <?php endif; ?>
+
       <?php if ($canMovimientos): ?>
-        <a href="movimientos.php" 
+        <a href="movimientos.php"
            class="nav-pill <?= $currentSection === 'movimientos' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'movimientos' ? 'page' : 'false' ?>">
           🔄 Movimientos
@@ -165,7 +180,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canVentas): ?>
-        <a href="ventas.php" 
+        <a href="ventas.php"
            class="nav-pill <?= $currentSection === 'ventas' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'ventas' ? 'page' : 'false' ?>">
           💰 Ventas
@@ -173,7 +188,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canCompras): ?>
-        <a href="compras.php" 
+        <a href="compras.php"
            class="nav-pill <?= $currentSection === 'compras' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'compras' ? 'page' : 'false' ?>">
           🛍️ Compras
@@ -181,7 +196,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canHistCaja): ?>
-        <a href="caja_historial.php" 
+        <a href="caja_historial.php"
            class="nav-pill <?= $currentSection === 'caja_historial' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'caja_historial' ? 'page' : 'false' ?>">
           📜 Historial
@@ -189,7 +204,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canPromos): ?>
-        <a href="promos.php" 
+        <a href="promos.php"
            class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'promos' ? 'page' : 'false' ?>">
           🎁 Promos
@@ -197,7 +212,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canClientes): ?>
-        <a href="clientes.php" 
+        <a href="clientes.php"
            class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'clientes' ? 'page' : 'false' ?>">
           👥 Clientes
@@ -205,7 +220,7 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
       <?php endif; ?>
 
       <?php if ($canFacturacion): ?>
-        <a href="facturacion.php" 
+        <a href="facturacion.php"
            class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'facturacion' ? 'page' : 'false' ?>">
           🧾 Facturación
@@ -214,10 +229,10 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
     </div>
 
     <div class="nav-right">
-      
+
       <!-- Badge caja -->
       <?php if ($canCaja): ?>
-        <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>" 
+        <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>"
              title="<?= $cajaAbierta ? "Caja #{$cajaId} abierta" : 'Caja cerrada' ?>">
           <span class="badge-dot"></span>
           <span class="badge-text">
@@ -243,8 +258,8 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
         <div class="nav-dropdown" id="adminMenu">
           <button type="button"
                   class="nav-icon nav-dropdown-btn <?= $adminActive ? 'active' : '' ?>"
-                  aria-haspopup="true" 
-                  aria-expanded="false" 
+                  aria-haspopup="true"
+                  aria-expanded="false"
                   aria-label="Menú de administración"
                   title="Ajustes">
             ⚙️

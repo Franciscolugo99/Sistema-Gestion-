@@ -186,13 +186,13 @@ $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPrice
 $categoriasDisponibles = [];
 if ($hasProductos && $prodCatCol) {
   $stmt = $pdo->query("
-    SELECT DISTINCT COALESCE(`{$prodCatCol}`, 'Sin Categoría') AS categoria
+    SELECT DISTINCT COALESCE(NULLIF(TRIM(`{$prodCatCol}`), ''), 'Sin Categoría') AS categoria
     FROM productos
-    WHERE `{$prodCatCol}` IS NOT NULL AND `{$prodCatCol}` != ''
     ORDER BY categoria
   ");
   $categoriasDisponibles = $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
+
 
 /* =========================
    RANGO DE FECHAS + FILTRO CATEGORÍA
@@ -208,6 +208,28 @@ $categoriaFiltro = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim
 // Filtros de hora
 $horaDesde = isset($_GET['hora_desde']) && $_GET['hora_desde'] !== '' ? trim($_GET['hora_desde']) : null;
 $horaHasta = isset($_GET['hora_hasta']) && $_GET['hora_hasta'] !== '' ? trim($_GET['hora_hasta']) : null;
+$horaDesdeAmpm = isset($_GET['hora_desde_ampm']) ? strtoupper(trim((string)$_GET['hora_desde_ampm'])) : 'AUTO';
+$horaHastaAmpm = isset($_GET['hora_hasta_ampm']) ? strtoupper(trim((string)$_GET['hora_hasta_ampm'])) : 'AUTO';
+
+if (!in_array($horaDesdeAmpm, ['AUTO','AM','PM'], true)) $horaDesdeAmpm = 'AUTO';
+if (!in_array($horaHastaAmpm, ['AUTO','AM','PM'], true)) $horaHastaAmpm = 'AUTO';
+
+function flus_time_to_24h(string $hhmm, string $ampm): string {
+  $ampm = strtoupper($ampm);
+  if ($ampm !== 'AM' && $ampm !== 'PM') return $hhmm;
+
+  [$h, $m] = array_map('intval', explode(':', $hhmm, 2));
+  // Si ya está en 13..23, ignoramos AM/PM
+  if ($h >= 13) return $hhmm;
+
+  // Interpretación 12h
+  if ($h === 12) {
+    $h = ($ampm === 'AM') ? 0 : 12;
+  } elseif ($h >= 1 && $h <= 11) {
+    if ($ampm === 'PM') $h += 12;
+  }
+  return sprintf('%02d:%02d', $h, $m);
+}
 
 // Validar formato HH:MM
 if ($horaDesde && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaDesde)) {
@@ -218,6 +240,8 @@ if ($horaHasta && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaHasta)
 }
 
 if ($from > $to) [$from, $to] = [$to, $from];
+$horaDesdeSql = $horaDesde ? flus_time_to_24h($horaDesde, $horaDesdeAmpm) : null;
+$horaHastaSql = $horaHasta ? flus_time_to_24h($horaHasta, $horaHastaAmpm) : null;
 
 /* =========================
    LÍMITE DE RANGO (365 días)
@@ -243,13 +267,14 @@ if ($diffDays > ($maxDays - 1)) {
 $fromStart = $from . " 00:00:00";
 $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00";
 
-// Aplicar filtro de horas si están definidos
-if ($horaDesde) {
-  $fromStart = $from . " " . $horaDesde . ":00";
+// Aplicar filtro de horas si están definidos (convertidos a 24h para SQL)
+if ($horaDesdeSql) {
+  $fromStart = $from . " " . $horaDesdeSql . ":00";
 }
-if ($horaHasta) {
-  $toEnd = $to . " " . $horaHasta . ":59";
+if ($horaHastaSql) {
+  $toEnd = $to . " " . $horaHastaSql . ":59";
 }
+
 
 /* =========================
    WHERE helpers
@@ -593,7 +618,10 @@ if ($hasVentaPromos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 $categorias = [];
 if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasTotalCol && $viVentaIdCol && $viProdIdCol && $viQtyCol) {
   $catCol = $prodCatCol ?: null;
-  $catSelect = $catCol ? "COALESCE(p.`{$catCol}`, 'Sin Categoría')" : "'Sin Categoría'";
+  $catSelect = $catCol
+  ? "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin Categoría')"
+  : "'Sin Categoría'";
+
 
   if ($lineExprVi && $lineExprVi2) {
     $sqlCategorias = "
@@ -1168,17 +1196,39 @@ require __DIR__ . '/partials/header.php';
           <!-- Filtros de hora -->
           <label class="dash-hora-label">
             <span>🕐 Hora desde</span>
-            <input type="time" id="dashHoraDesde" name="hora_desde" value="<?= h($horaDesde ?? '') ?>" placeholder="08:00" class="dash-hora-input" />
+            <div class="dash-hora-row">
+              <input type="time" id="dashHoraDesde" name="hora_desde" value="<?= h($horaDesde ?? '') ?>" class="dash-hora-input" />
+              <select id="dashHoraDesdeAmpm" name="hora_desde_ampm" class="dash-ampm" aria-label="AM/PM desde">
+                <option value="AUTO" <?= ($horaDesdeAmpm ?? 'AUTO') === 'AUTO' ? 'selected' : '' ?>>Auto</option>
+                <option value="AM"   <?= ($horaDesdeAmpm ?? '') === 'AM' ? 'selected' : '' ?>>AM</option>
+                <option value="PM"   <?= ($horaDesdeAmpm ?? '') === 'PM' ? 'selected' : '' ?>>PM</option>
+              </select>
+            </div>
           </label>
+
           <label class="dash-hora-label">
             <span>🕐 Hora hasta</span>
-            <input type="time" id="dashHoraHasta" name="hora_hasta" value="<?= h($horaHasta ?? '') ?>" placeholder="20:00" class="dash-hora-input" />
+            <div class="dash-hora-row">
+              <input type="time" id="dashHoraHasta" name="hora_hasta" value="<?= h($horaHasta ?? '') ?>" class="dash-hora-input" />
+              <select id="dashHoraHastaAmpm" name="hora_hasta_ampm" class="dash-ampm" aria-label="AM/PM hasta">
+                <option value="AUTO" <?= ($horaHastaAmpm ?? 'AUTO') === 'AUTO' ? 'selected' : '' ?>>Auto</option>
+                <option value="AM"   <?= ($horaHastaAmpm ?? '') === 'AM' ? 'selected' : '' ?>>AM</option>
+                <option value="PM"   <?= ($horaHastaAmpm ?? '') === 'PM' ? 'selected' : '' ?>>PM</option>
+              </select>
+            </div>
           </label>
+
           
           <?php if ($horaDesde || $horaHasta): ?>
-          <button type="button" class="dash-clear-hours" onclick="document.getElementById('dashHoraDesde').value=''; document.getElementById('dashHoraHasta').value=''; this.form.submit();" title="Limpiar filtro de horas">
-            ✕
-          </button>
+          <button type="button" class="dash-clear-hours"
+            onclick="
+              document.getElementById('dashHoraDesde').value='';
+              document.getElementById('dashHoraHasta').value='';
+              const a=document.getElementById('dashHoraDesdeAmpm'); if(a) a.value='AUTO';
+              const b=document.getElementById('dashHoraHastaAmpm'); if(b) b.value='AUTO';
+              this.form.submit();
+            "
+            title="Limpiar filtro de horas">✕</button>
           <?php endif; ?>
           
           <button type="submit" class="dash-apply">Aplicar</button>
@@ -1673,8 +1723,9 @@ require __DIR__ . '/partials/header.php';
 
   if ($isList) {
     foreach ($cats as $row) {
-      $cat = (string)($row['categoria'] ?? 'Sin Categoría');
-      $monto = (float)($row['ventas'] ?? 0);
+    $catRaw = (string)($row['categoria'] ?? '');
+    $cat = (trim($catRaw) !== '') ? $catRaw : 'Sin Categoría';
+    $monto = (float)($row['ventas'] ?? 0);
       ?>
       <tr>
         <td><?= h($cat) ?></td>

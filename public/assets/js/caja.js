@@ -153,6 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedIndex = Math.max(selectedIndex - 1, 0);
         actualizarSeleccionUI();
       } else if (e.key === "Enter") {
+        // ✅ FIX: Enter en autocompletado ya hace click en "Agregar"; marcamos defaultPrevented
         e.preventDefault();
         if (selectedIndex < 0) selectedIndex = 0;
         seleccionarProducto(selectedIndex);
@@ -1934,6 +1935,8 @@ function medioEsEfectivo() {
 
   inputCodigo?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
+      // ✅ FIX: si el autocompletado manejó Enter, ya se agregó el item (evita doble carga)
+      if (e.defaultPrevented) return;
       e.preventDefault();
       agregarItem();
     } else {

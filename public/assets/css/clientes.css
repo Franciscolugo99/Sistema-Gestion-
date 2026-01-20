@@ -1,5 +1,6 @@
 /* ==========================================================
-   CLIENTES – ESTILOS ESPECÍFICOS
+   CLIENTES – ESTILOS ESPECÍFICOS (FLUS)
+   Unificado (sin duplicados) y compatible con dark/light.
 ========================================================== */
 
 .cli-panel {
@@ -11,11 +12,63 @@
 }
 
 /* ----------------------------------------------------------
-   FORM: Formulario dentro del drawer
+   Filtros
+---------------------------------------------------------- */
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filters-left,
+.filters-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filters .search-input {
+  min-width: 280px;
+}
+
+.filters select,
+.filters .search-input {
+  width: auto;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
+  background: var(--input-bg, rgba(2, 6, 23, 0.14));
+  color: var(--text-main, var(--text, #e5e7eb));
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.filters .search-input::placeholder {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.filters select:focus,
+.filters .search-input:focus {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+/* ----------------------------------------------------------
+   Form: Formulario dentro del drawer
 ---------------------------------------------------------- */
 
 .clientes-form {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .cli-grid {
@@ -43,18 +96,46 @@
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted, #94a3b8);
   margin-bottom: 4px;
 }
 
-/* Inputs/selects: ✅ legibles en dark/light */
+.required {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.helper-text {
+  font-size: 0.78rem;
+  color: var(--muted, #94a3b8);
+  cursor: help;
+  display: inline-block;
+  margin-left: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field-help {
+  font-size: 0.82rem;
+  color: var(--muted, #94a3b8);
+  opacity: 0.9;
+  margin-top: 6px;
+}
+
+.field-error {
+  font-size: 0.82rem;
+  color: #ef4444;
+  display: none;
+  margin-top: 6px;
+}
+
+/* Inputs/selects/textarea: legibles en dark/light */
 .clientes-form input,
-.clientes-form select {
+.clientes-form select,
+.clientes-form textarea {
   width: 100%;
-  height: 38px;
-  padding: 0 11px;
   border-radius: 12px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
   background: var(--input-bg, rgba(2, 6, 23, 0.14));
   color: var(--text-main, var(--text, #e5e7eb));
   font-size: 0.95rem;
@@ -63,25 +144,53 @@
     background 0.15s ease;
 }
 
-.clientes-form input::placeholder {
+.clientes-form input,
+.clientes-form select {
+  height: 38px;
+  padding: 0 11px;
+}
+
+.clientes-form textarea {
+  padding: 10px 11px;
+  min-height: 90px;
+  resize: vertical;
+}
+
+.clientes-form input::placeholder,
+.clientes-form textarea::placeholder {
   color: rgba(148, 163, 184, 0.75);
 }
 
 .clientes-form input:focus,
-.clientes-form select:focus {
+.clientes-form select:focus,
+.clientes-form textarea:focus {
   border-color: rgba(56, 189, 248, 0.8);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
 }
 
-/* ✅ Mejor contraste en dark mode */
+/* Mejor contraste en dark mode */
 body[data-theme="dark"] .clientes-form input,
-body[data-theme="dark"] .clientes-form select {
+body[data-theme="dark"] .clientes-form select,
+body[data-theme="dark"] .clientes-form textarea,
+html.dark .clientes-form input,
+html.dark .clientes-form select,
+html.dark .clientes-form textarea,
+body.dark .clientes-form input,
+body.dark .clientes-form select,
+body.dark .clientes-form textarea {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(148, 163, 184, 0.25);
 }
 
 body[data-theme="dark"] .clientes-form input:focus,
-body[data-theme="dark"] .clientes-form select:focus {
+body[data-theme="dark"] .clientes-form select:focus,
+body[data-theme="dark"] .clientes-form textarea:focus,
+html.dark .clientes-form input:focus,
+html.dark .clientes-form select:focus,
+html.dark .clientes-form textarea:focus,
+body.dark .clientes-form input:focus,
+body.dark .clientes-form select:focus,
+body.dark .clientes-form textarea:focus {
   border-color: rgba(56, 189, 248, 0.6);
   background: rgba(255, 255, 255, 0.08);
 }
@@ -89,23 +198,71 @@ body[data-theme="dark"] .clientes-form select:focus {
 /* Fix icono calendario en dark */
 body[data-theme="dark"]
   .clientes-form
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark .clientes-form input[type="date"]::-webkit-calendar-picker-indicator,
+body.dark .clientes-form input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.8;
 }
 
-/* Estado */
-.cli-field-status {
-  align-items: flex-start;
-  justify-content: center;
-  gap: 6px;
+/* ----------------------------------------------------------
+   Switch Activo
+---------------------------------------------------------- */
+
+.edit-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.cli-status-label {
-  margin-bottom: 6px;
+.edit-switch input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
 }
 
-/* Acciones */
+.edit-switch-slider {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
+  border-radius: 999px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.edit-switch-slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.edit-switch input[type="checkbox"]:checked + .edit-switch-slider {
+  background: rgba(34, 197, 94, 0.55);
+  border-color: rgba(34, 197, 94, 0.55);
+}
+
+.edit-switch input[type="checkbox"]:checked + .edit-switch-slider::before {
+  transform: translate(24px, -50%);
+}
+
+.edit-switch-text {
+  color: var(--text-main, var(--text, #e5e7eb));
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------
+   Acciones
+---------------------------------------------------------- */
+
 .cli-actions {
   margin-top: 16px;
   display: flex;
@@ -113,30 +270,64 @@ body[data-theme="dark"]
   flex-wrap: wrap;
 }
 
-/* ✅ Loading state para botones */
-.cli-actions button:disabled {
+.cli-actions button:disabled,
+.cli-actions .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Tabla */
-.clientes-table .t-right {
-  text-align: right;
+/* ----------------------------------------------------------
+   Errores dentro del drawer
+---------------------------------------------------------- */
+
+.cli-form-errors {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
-.clientes-table .center {
+
+.cli-form-errors ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.cli-form-errors li {
+  color: #ef4444;
+  margin-bottom: 4px;
+}
+
+.cli-form-errors li:last-child {
+  margin-bottom: 0;
+}
+
+/* ----------------------------------------------------------
+   Tabla
+---------------------------------------------------------- */
+
+.cli-table .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+}
+
+.cli-table .small {
+  font-size: 0.84rem;
+}
+
+.cli-table .muted {
+  color: var(--muted, #94a3b8);
+}
+
+.cli-table .center {
   text-align: center;
 }
 
-.clientes-table td,
-.clientes-table th {
-  color: var(--text-main, var(--text, #e5e7eb));
-}
+/* ----------------------------------------------------------
+   Drawer (panel derecho)
+---------------------------------------------------------- */
 
-.clientes-table .muted {
-  color: var(--muted);
-}
-
-/* ===== Drawer (panel derecho) ===== */
 .drawer-overlay {
   position: fixed;
   inset: 0;
@@ -154,8 +345,8 @@ body[data-theme="dark"]
   right: 0;
   height: 100vh;
   width: min(480px, 96vw);
-  background: var(--panel);
-  border-left: 1px solid var(--panel-border);
+  background: var(--panel, rgba(15, 23, 42, 0.9));
+  border-left: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
   box-shadow: -20px 0 60px rgba(0, 0, 0, 0.35);
   transform: translateX(102%);
   transition: transform 0.22s ease;
@@ -179,7 +370,7 @@ body[data-theme="dark"]
   justify-content: space-between;
   gap: 12px;
   padding: 16px 16px 12px;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
 }
 
 .drawer-title {
@@ -187,15 +378,16 @@ body[data-theme="dark"]
   font-size: 1.05rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--text-main, var(--text, #e5e7eb));
 }
 
 .drawer-close {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
   background: transparent;
-  color: var(--text);
+  color: var(--text-main, var(--text, #e5e7eb));
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -209,30 +401,58 @@ body[data-theme="dark"]
   overflow: auto;
 }
 
-/* ✅ Evitar scroll del body cuando está abierto */
+/* Evitar scroll del body cuando está abierto */
 body.no-scroll {
   overflow: hidden;
 }
 
-/* ✅ Error messages dentro del drawer */
-.cli-form-errors {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: 10px;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+/* ----------------------------------------------------------
+   Tags por tipo
+---------------------------------------------------------- */
+
+.tag-minorista {
+  background: rgba(56, 189, 248, 0.14);
+  color: rgba(56, 189, 248, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.35);
 }
 
-.cli-form-errors ul {
-  margin: 0;
-  padding-left: 20px;
+.tag-mayorista {
+  background: rgba(167, 139, 250, 0.14);
+  color: rgba(167, 139, 250, 0.95);
+  border: 1px solid rgba(167, 139, 250, 0.35);
 }
 
-.cli-form-errors li {
-  color: #ef4444;
-  margin-bottom: 4px;
+.tag-corporativo {
+  background: rgba(245, 158, 11, 0.14);
+  color: rgba(245, 158, 11, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
-.cli-form-errors li:last-child {
-  margin-bottom: 0;
+.tag-descuento {
+  background: rgba(34, 197, 94, 0.14);
+  color: rgba(34, 197, 94, 0.95);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  font-weight: 700;
+}
+
+/* ----------------------------------------------------------
+   Responsive
+---------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-left,
+  .filters-right {
+    width: 100%;
+  }
+
+  .filters .search-input,
+  .filters select {
+    width: 100%;
+    min-width: unset;
+  }
 }

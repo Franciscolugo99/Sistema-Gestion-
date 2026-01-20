@@ -501,4 +501,53 @@ body[data-theme="light"] .badge-info {
 
 body[data-theme="light"] .counter-badge {
   background: #dc2626;
+}.dash-hora-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.dash-ampm{
+  min-width:76px;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid var(--border-color, #e2e8f0);
+  background: var(--input-bg, #fff);
+  color: var(--text-primary, #0f172a);
+}
+/* fila hora + am/pm */
+.dash-hora-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* select AM/PM: visible en light y dark */
+.dash-ampm{
+  min-width:78px;
+  height:38px;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid var(--border-color, rgba(148,163,184,.35));
+  background: var(--input-bg, rgba(255,255,255,.08));
+  color: var(--text-primary, #e5e7eb);
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+/* forzar dark si tu theme usa data-theme o clases */
+html[data-theme="dark"] .dash-ampm,
+body.dark .dash-ampm,
+html.dark .dash-ampm{
+  background: rgba(255,255,255,.06);
+  color: #e5e7eb;
+  border-color: rgba(148,163,184,.28);
+}
+
+/* menú desplegable (Windows) */
+html[data-theme="dark"] .dash-ampm option,
+body.dark .dash-ampm option,
+html.dark .dash-ampm option{
+  background:#0b1220;
+  color:#e5e7eb;
 }
