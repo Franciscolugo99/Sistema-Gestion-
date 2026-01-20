@@ -86,13 +86,13 @@ $inactivasCount = $totalPromos - $activasCount;
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=5'];
+$extraCss       = ['assets/css/promos.css?v=6'];
 $extraJs        = ['assets/js/promos.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
 <div class="promos-page">
-<div class="root container-global" id="promos-page" data-csrf="<?= h(csrf_token()) ?>">
+<div id="promos-page" data-csrf="<?= h(csrf_token()) ?>">
   <div class="panel panel-promos">
 
     <!-- HEADER -->

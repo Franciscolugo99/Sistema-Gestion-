@@ -232,8 +232,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pageTitle      = ($id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo') . ' - Promociones';
 $currentSection = 'promos';
 $extraCss = [
-  'assets/css/promos.css?v=5',
-  'assets/css/promo_combo_fijo.css?v=2',
+  'assets/css/promos.css?v=6',
+  'assets/css/promo_combo_fijo.css?v=3',
 ];
 
 $extraJs        = ['assets/js/promo_combo_form.js?v=3'];

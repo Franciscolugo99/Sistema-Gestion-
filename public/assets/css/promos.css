@@ -5,7 +5,7 @@
 
 /* === CONTENEDOR PRINCIPAL === */
 .promos-page {
-  padding: var(--space-4, 1rem) var(--space-6, 1.5rem);
+  padding: 0;
   min-height: calc(100vh - 60px);
 }
 
@@ -16,6 +16,7 @@
 
 /* === PANEL (estilo Compras) === */
 .panel-promos {
+  padding: 0;
   background: var(--panel, #0f172a);
   border: 1px solid var(--panel-border, #1e293b);
   border-radius: var(--radius-lg, 12px);

@@ -6,9 +6,10 @@
 
 /* === LAYOUT PÁGINA === */
 .page-wrap-promos {
-  max-width: 1000px;
+  width: 100%;
+  max-width: 1500px;
   margin: 0 auto;
-  padding: var(--space-4, 1rem);
+  padding: 0;
 }
 
 /* === HEADER CON VOLVER === */
