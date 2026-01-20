@@ -129,6 +129,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Heurística: si parece código de barras (lector) evitamos autocompletar por API
+    const esBarcode = (q) => /^\d{6,}$/.test(String(q || "").trim());
+    const tieneLetras = (q) => /[a-záéíóúñü]/i.test(String(q || ""));
+
     // Debounce
     let debounceTimer = null;
     function debouncedBuscar(query) {
@@ -138,7 +142,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Eventos del input
     input.addEventListener("input", () => {
-      debouncedBuscar(input.value);
+      const v = (input.value || "").trim();
+
+      // ✅ FIX lector: cancelar debounce y cualquier fetch en vuelo, y evitar lista vieja
+      clearTimeout(debounceTimer);
+      if (abort) { try { abort.abort(); } catch (_) {} abort = null; }
+      ocultarDropdown();
+
+      // Si viene corto, no sugerimos
+      if (v.length < 2) return;
+
+      // Si parece código de barras (lector), NO autocompletamos
+      if (esBarcode(v)) return;
+
+      debouncedBuscar(v);
     });
 
     input.addEventListener("keydown", (e) => {
@@ -153,9 +170,21 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedIndex = Math.max(selectedIndex - 1, 0);
         actualizarSeleccionUI();
       } else if (e.key === "Enter") {
-        // ✅ FIX: Enter en autocompletado ya hace click en "Agregar"; marcamos defaultPrevented
+        const v = (input.value || "").trim();
+
+        // ✅ FIX lector: si parece barcode, NO dejamos que el dropdown capture Enter
+        if (esBarcode(v)) {
+          ocultarDropdown();
+          return;
+        }
+
+        // Si no hay selección explícita, solo autoseleccionamos si el usuario escribió texto (nombre)
+        if (selectedIndex < 0) {
+          if (tieneLetras(v)) selectedIndex = 0;
+          else return;
+        }
+
         e.preventDefault();
-        if (selectedIndex < 0) selectedIndex = 0;
         seleccionarProducto(selectedIndex);
       } else if (e.key === "Escape") {
         ocultarDropdown();
@@ -1345,6 +1374,9 @@ function medioEsEfectivo() {
       }
 
       inputCodigo.value = "";
+
+      // ✅ FIX dropdown: al limpiar por JS, disparar input para cancelar debounce/fetch y ocultar sugerencias
+      try { inputCodigo.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
 
       // ✅ FIX: no dejar clavado 0.100
       if (inputCant) inputCant.value = "1";
