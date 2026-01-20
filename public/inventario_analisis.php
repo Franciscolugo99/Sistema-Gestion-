@@ -1,9 +1,9 @@
 <?php
 /**
  * inventario_analisis.php
- * Dashboard de Análisis de Inventario - VERSIÓN MEJORADA
+ * Dashboard de Análisis de Inventario - VERSIÓN CON AYUDA INTEGRADA
  *
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 declare(strict_types=1);
@@ -27,6 +27,11 @@ if ($bootstrap === null) {
 }
 require_once $bootstrap;
 require_once __DIR__ . '/includes/InventarioAnalisis.php';
+
+// Incluir sistema de ayuda
+if (is_file(__DIR__ . '/partials/inventario_ayuda.php')) {
+    require_once __DIR__ . '/partials/inventario_ayuda.php';
+}
 
 /* ============================================================================
    Auth helpers
@@ -134,14 +139,26 @@ $fmtMoney = static function($value): string {
     return '$' . number_format((float)$value, 0, ',', '.');
 };
 
+// Helper para tooltips de ayuda (fallback si no existe el archivo)
+if (!function_exists('renderTooltipAyuda')) {
+    function renderTooltipAyuda(string $clave): string {
+        return '<button type="button" class="inv-help-btn" data-help="' . htmlspecialchars($clave) . '" aria-label="Ayuda"><span class="inv-help-icon">?</span></button>';
+    }
+}
+
 /* ========== HEADER ========== */
 $pageTitle = 'Análisis de Inventario';
-$currentSection = 'inventario_analisis'; // o 'stock' si querés que marque Stock
-$extraCss = ['assets/css/inventario_analisis.css'];
-$extraJs  = ['assets/js/inventario_analisis.js'];
+$currentSection = 'inventario_analisis';
+$extraCss = [
+    'assets/css/inventario_analisis.css',
+    'assets/css/inventario_ayuda.css'
+];
+$extraJs = [
+    'assets/js/inventario_analisis.js',
+    'assets/js/inventario_ayuda.js'
+];
 
 require __DIR__ . '/partials/header.php';
-
 
 ?>
 
@@ -178,13 +195,16 @@ require __DIR__ . '/partials/header.php';
         <a href="?tab=ventas" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">📈 Ventas</a>
     </div>
 
-    <!-- Tarjetas de Resumen (siempre visibles) -->
+    <!-- ========== TARJETAS DE RESUMEN (siempre visibles) ========== -->
     <div class="inv-cards-grid">
         <div class="inv-card inv-card-primary">
             <div class="inv-card-icon">💰</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['inversion_total']) ?></span>
-                <span class="inv-card-label">Capital Invertido</span>
+                <span class="inv-card-label">
+                    Capital Invertido
+                    <?= renderTooltipAyuda('capital_invertido') ?>
+                </span>
             </div>
             <?php if ((int)$resumen['productos_sin_costo'] > 0): ?>
                 <div class="inv-card-footnote" title="Productos sin costo cargado">
@@ -197,7 +217,10 @@ require __DIR__ . '/partials/header.php';
             <div class="inv-card-icon">📈</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['valor_venta_potencial']) ?></span>
-                <span class="inv-card-label">Valor de Venta</span>
+                <span class="inv-card-label">
+                    Valor de Venta
+                    <?= renderTooltipAyuda('valor_venta') ?>
+                </span>
             </div>
             <div class="inv-card-sub">Ventas 30d: <?= $fmtMoney($resumen['ventas_mes']['total_vendido']) ?></div>
         </div>
@@ -206,7 +229,10 @@ require __DIR__ . '/partials/header.php';
             <div class="inv-card-icon">📊</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['margen_teorico']) ?></span>
-                <span class="inv-card-label">Margen Teórico</span>
+                <span class="inv-card-label">
+                    Margen Teórico
+                    <?= renderTooltipAyuda('margen_teorico') ?>
+                </span>
             </div>
             <?php $margenPct = $resumen['inversion_total'] > 0 ? round(($resumen['margen_teorico'] / $resumen['inversion_total']) * 100, 1) : 0; ?>
             <div class="inv-card-badge"><?= $margenPct ?>%</div>
@@ -215,7 +241,7 @@ require __DIR__ . '/partials/header.php';
         <div class="inv-card inv-card-neutral">
             <div class="inv-card-icon">📦</div>
             <div class="inv-card-content">
-	                <span class="inv-card-value"><?= number_format((float)$resumen['total_unidades'], 0, ',', '.') ?></span>
+                <span class="inv-card-value"><?= number_format((float)$resumen['total_unidades'], 0, ',', '.') ?></span>
                 <span class="inv-card-label">Unidades en Stock</span>
             </div>
             <div class="inv-card-sub"><?= $resumen['total_productos'] ?> productos activos</div>
@@ -227,7 +253,10 @@ require __DIR__ . '/partials/header.php';
             <div class="inv-card-icon">⚠️</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $resumen['productos_stock_bajo'] ?></span>
-                <span class="inv-card-label">Stock Bajo</span>
+                <span class="inv-card-label">
+                    Stock Bajo
+                    <?= renderTooltipAyuda('stock_bajo') ?>
+                </span>
             </div>
             <a href="?tab=alertas" class="inv-card-link">Ver detalle →</a>
         </div>
@@ -243,6 +272,11 @@ require __DIR__ . '/partials/header.php';
         </div>
         <?php endif; ?>
     </div>
+
+    <!-- ========== PANEL DE ACCIONES RECOMENDADAS (solo en Resumen) ========== -->
+    <?php if ($tabActivo === 'resumen' && function_exists('renderAccionesRecomendadas')): ?>
+        <?= renderAccionesRecomendadas($resumen, $stockBajo, $productosParados) ?>
+    <?php endif; ?>
 
     <!-- Filtros (para tabs que lo necesitan) -->
     <?php if (in_array($tabActivo, ['inversion', 'parados', 'rotacion'])): ?>
@@ -297,7 +331,7 @@ require __DIR__ . '/partials/header.php';
     </div>
     <?php endif; ?>
 
-    <!-- CONTENIDO SEGÚN TAB -->
+    <!-- ==================== CONTENIDO SEGÚN TAB ==================== -->
     
     <?php if ($tabActivo === 'resumen'): ?>
     <!-- ==================== TAB RESUMEN ==================== -->
@@ -306,7 +340,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Top 10 Inversión -->
             <div class="panel inv-table-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">💰 Top 10 Mayor Inversión</h2>
+                    <h2 class="panel-title">💰 Top 10 Mayor Inversión <?= renderTooltipAyuda('capital_invertido') ?></h2>
                     <a href="?tab=inversion" class="btn btn-sm btn-link">Ver todos →</a>
                 </div>
                 <div class="inv-table-wrap">
@@ -331,13 +365,13 @@ require __DIR__ . '/partials/header.php';
                                 </td>
                                 <td class="text-right inv-highlight"><?= $fmtMoney($prod['capital_invertido']) ?></td>
                                 <td class="text-right">
-	                                    <?php if (($prod['margen_pct'] ?? null) === null || $prod['margen_pct'] === ''): ?>
-	                                        <span class="inv-margen inv-margen-na">-</span>
-	                                    <?php else: $margen = (float)$prod['margen_pct']; ?>
-	                                        <span class="inv-margen <?= $margen >= 30 ? 'inv-margen-good' : ($margen >= 15 ? 'inv-margen-ok' : 'inv-margen-low') ?>">
-	                                            <?= number_format($margen, 1, ',', '.') ?>%
-	                                        </span>
-	                                    <?php endif; ?>
+                                    <?php if (($prod['margen_pct'] ?? null) === null || $prod['margen_pct'] === ''): ?>
+                                        <span class="inv-margen inv-margen-na">-</span>
+                                    <?php else: $margen = (float)$prod['margen_pct']; ?>
+                                        <span class="inv-margen <?= $margen >= 30 ? 'inv-margen-good' : ($margen >= 15 ? 'inv-margen-ok' : 'inv-margen-low') ?>">
+                                            <?= number_format($margen, 1, ',', '.') ?>%
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -349,7 +383,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Productos Parados -->
             <div class="panel inv-table-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">😴 Productos Parados (30+ días)</h2>
+                    <h2 class="panel-title">😴 Productos Parados (30+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
                     <a href="?tab=parados" class="btn btn-sm btn-link">Ver todos →</a>
                 </div>
                 <div class="inv-table-wrap">
@@ -388,7 +422,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Gráfico Categorías -->
             <div class="panel inv-chart-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">📊 Inversión por Categoría</h2>
+                    <h2 class="panel-title">📊 Inversión por Categoría <?= renderTooltipAyuda('inversion_categoria') ?></h2>
                 </div>
                 <div class="inv-chart-container">
                     <canvas id="chartCategorias"></canvas>
@@ -416,7 +450,7 @@ require __DIR__ . '/partials/header.php';
                             <?php foreach ($topVendidosResumen as $prod): ?>
                             <tr>
                                 <td><div class="inv-prod-name-sm"><?= htmlspecialchars($prod['nombre']) ?></div></td>
-	                                <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
+                                <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
                                 <td class="text-right"><?= $fmtMoney($prod['ingresos']) ?></td>
                             </tr>
                             <?php endforeach; ?>
@@ -428,7 +462,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Stock Bajo -->
             <div class="panel inv-table-panel" id="stock-bajo">
                 <div class="panel-header">
-                    <h2 class="panel-title">🔴 Stock Bajo Mínimo</h2>
+                    <h2 class="panel-title">🔴 Stock Bajo Mínimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
                     <span class="panel-badge panel-badge-danger"><?= count($stockBajo) ?></span>
                 </div>
                 <div class="inv-table-wrap inv-table-compact">
@@ -462,7 +496,7 @@ require __DIR__ . '/partials/header.php';
     <!-- ==================== TAB INVERSIÓN ==================== -->
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">💰 Capital Invertido por Producto</h2>
+            <h2 class="panel-title">💰 Capital Invertido por Producto <?= renderTooltipAyuda('capital_invertido') ?></h2>
             <div class="panel-info">
                 Mostrando <?= count($topInversion) ?> de <?= $totalConCosto ?> productos con costo
             </div>
@@ -487,7 +521,7 @@ require __DIR__ . '/partials/header.php';
                 <tbody>
                     <?php $totalInvertido = 0; $totalValor = 0; ?>
                     <?php foreach ($topInversion as $i => $prod): ?>
-	                    <?php $totalInvertido += (float)$prod['capital_invertido']; $totalValor += (float)$prod['valor_venta']; ?>
+                    <?php $totalInvertido += (float)$prod['capital_invertido']; $totalValor += (float)$prod['valor_venta']; ?>
                     <tr>
                         <td class="text-muted"><?= $i + 1 ?></td>
                         <td><code><?= htmlspecialchars($prod['codigo']) ?></code></td>
@@ -504,13 +538,13 @@ require __DIR__ . '/partials/header.php';
                         <td class="text-right inv-highlight"><strong><?= $fmtMoney($prod['capital_invertido']) ?></strong></td>
                         <td class="text-right"><?= $fmtMoney($prod['valor_venta']) ?></td>
                         <td class="text-center">
-	                            <?php if (($prod['margen_pct'] ?? null) === null || $prod['margen_pct'] === ''): ?>
-	                                <span class="inv-margen inv-margen-na">-</span>
-	                            <?php else: $margen = (float)$prod['margen_pct']; ?>
-	                                <span class="inv-margen <?= $margen >= 30 ? 'inv-margen-good' : ($margen >= 15 ? 'inv-margen-ok' : 'inv-margen-low') ?>">
-	                                    <?= number_format($margen, 1, ',', '.') ?>%
-	                                </span>
-	                            <?php endif; ?>
+                            <?php if (($prod['margen_pct'] ?? null) === null || $prod['margen_pct'] === ''): ?>
+                                <span class="inv-margen inv-margen-na">-</span>
+                            <?php else: $margen = (float)$prod['margen_pct']; ?>
+                                <span class="inv-margen <?= $margen >= 30 ? 'inv-margen-good' : ($margen >= 15 ? 'inv-margen-ok' : 'inv-margen-low') ?>">
+                                    <?= number_format($margen, 1, ',', '.') ?>%
+                                </span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -531,7 +565,7 @@ require __DIR__ . '/partials/header.php';
     <div class="inv-grid-2col">
         <div class="panel inv-chart-panel">
             <div class="panel-header">
-                <h2 class="panel-title">📊 Inversión por Categoría</h2>
+                <h2 class="panel-title">📊 Inversión por Categoría <?= renderTooltipAyuda('inversion_categoria') ?></h2>
             </div>
             <div class="inv-chart-container-lg">
                 <canvas id="chartCategorias"></canvas>
@@ -539,7 +573,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         <div class="panel inv-chart-panel">
             <div class="panel-header">
-                <h2 class="panel-title">🏭 Inversión por Proveedor</h2>
+                <h2 class="panel-title">🏭 Inversión por Proveedor <?= renderTooltipAyuda('inversion_proveedor') ?></h2>
             </div>
             <div class="inv-chart-container-lg">
                 <canvas id="chartProveedores"></canvas>
@@ -549,9 +583,31 @@ require __DIR__ . '/partials/header.php';
 
     <?php elseif ($tabActivo === 'rotacion'): ?>
     <!-- ==================== TAB ROTACIÓN ==================== -->
+    
+    <!-- Leyenda ABC -->
+    <div class="inv-abc-legend-panel">
+        <div class="inv-abc-legend-title">
+            📊 Clasificación ABC <?= renderTooltipAyuda('clasificacion_abc') ?>
+        </div>
+        <div class="inv-abc-legend-items">
+            <span class="inv-abc-legend-item">
+                <span class="inv-abc inv-abc-a">A</span>
+                <span>Productos estrella (80% de ingresos)</span>
+            </span>
+            <span class="inv-abc-legend-item">
+                <span class="inv-abc inv-abc-b">B</span>
+                <span>Venta media (15% de ingresos)</span>
+            </span>
+            <span class="inv-abc-legend-item">
+                <span class="inv-abc inv-abc-c">C</span>
+                <span>Baja rotación (5% de ingresos)</span>
+            </span>
+        </div>
+    </div>
+    
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">🔄 Rotación de Productos (últimos 30 días)</h2>
+            <h2 class="panel-title">🔄 Rotación de Productos (últimos 30 días) <?= renderTooltipAyuda('rotacion') ?></h2>
             <div class="panel-controls">
                 <select onchange="location.href='?tab=rotacion&orden='+this.value" class="inv-filter-select">
                     <option value="vendidos" <?= ($_GET['orden'] ?? '') === 'vendidos' ? 'selected' : '' ?>>Más vendidos primero</option>
@@ -571,7 +627,7 @@ require __DIR__ . '/partials/header.php';
                         <th class="text-center">Vendidos 30d</th>
                         <th class="text-right">Ingresos 30d</th>
                         <th class="text-center">Prom. Diario</th>
-                        <th class="text-center">Días Stock</th>
+                        <th class="text-center">Días Stock <?= renderTooltipAyuda('dias_stock_restante') ?></th>
                         <th class="text-center">ABC</th>
                     </tr>
                 </thead>
@@ -593,13 +649,13 @@ require __DIR__ . '/partials/header.php';
                             <span class="inv-vendidos"><?= $fmtQty($prod['vendidos_30d'], $prod['es_pesable']) ?></span>
                         </td>
                         <td class="text-right"><?= $fmtMoney($prod['ingresos_30d']) ?></td>
-	                        <td class="text-center"><?= number_format((float)$prod['promedio_diario'], 2, ',', '.') ?></td>
+                        <td class="text-center"><?= number_format((float)$prod['promedio_diario'], 2, ',', '.') ?></td>
                         <td class="text-center">
                             <?php if ($prod['dias_stock_restante'] >= 999): ?>
                                 <span class="tag tag-muted">∞</span>
                             <?php else: ?>
                                 <span class="inv-dias-rest <?= $prod['dias_stock_restante'] < 7 ? 'inv-dias-urgent' : ($prod['dias_stock_restante'] < 15 ? 'inv-dias-soon' : '') ?>">
-	                                    <?= number_format((float)$prod['dias_stock_restante'], 0) ?>d
+                                    <?= number_format((float)$prod['dias_stock_restante'], 0) ?>d
                                 </span>
                             <?php endif; ?>
                         </td>
@@ -644,7 +700,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">😴 Productos Sin Venta (<?= $diasParados ?>+ días)</h2>
+            <h2 class="panel-title">😴 Productos Sin Venta (<?= $diasParados ?>+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
             <div class="panel-info">
                 <?= count($productosParados) ?> productos | Capital parado: 
                 <strong><?= $fmtMoney(array_sum(array_column($productosParados, 'capital_parado'))) ?></strong>
@@ -660,7 +716,6 @@ require __DIR__ . '/partials/header.php';
                         <th class="text-right">Capital Parado</th>
                         <th class="text-center">Última Venta</th>
                         <th class="text-center">Días</th>
-                        <th class="text-center">Acción</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -687,14 +742,11 @@ require __DIR__ . '/partials/header.php';
                                 <?= $prod['dias_sin_venta'] ?>d
                             </span>
                         </td>
-                        <td class="text-center">
-                            <a href="producto_form.php?id=<?= $prod['id'] ?>" class="btn btn-xs btn-secondary" title="Editar">✏️</a>
-                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php if (empty($productosParados)): ?>
                     <tr>
-                        <td colspan="7" class="text-center text-success">✅ Todos los productos tienen ventas en los últimos <?= $diasParados ?> días</td>
+                        <td colspan="6" class="text-center text-success">✅ Todos los productos tienen ventas en los últimos <?= $diasParados ?> días</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -708,7 +760,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Stock Bajo -->
         <div class="panel inv-table-panel">
             <div class="panel-header">
-                <h2 class="panel-title">🔴 Stock Bajo Mínimo</h2>
+                <h2 class="panel-title">🔴 Stock Bajo Mínimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
                 <span class="panel-badge panel-badge-danger"><?= count($stockBajo) ?></span>
             </div>
             <div class="inv-table-wrap inv-table-scroll">
@@ -746,7 +798,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Próximos a Agotarse -->
         <div class="panel inv-table-panel">
             <div class="panel-header">
-                <h2 class="panel-title">⏰ Se Agotan en 7 días</h2>
+                <h2 class="panel-title">⏰ Se Agotan en 7 días <?= renderTooltipAyuda('proximos_agotarse') ?></h2>
                 <span class="panel-badge panel-badge-warning"><?= count($proximosAgotarse) ?></span>
             </div>
             <div class="inv-table-wrap inv-table-scroll">
@@ -756,8 +808,8 @@ require __DIR__ . '/partials/header.php';
                             <th>Producto</th>
                             <th class="text-center">Stock</th>
                             <th class="text-center">Prom/día</th>
-                            <th class="text-center">Días Rest.</th>
-                            <th class="text-center">Reponer</th>
+                            <th class="text-center">Días Rest. <?= renderTooltipAyuda('dias_stock_restante') ?></th>
+                            <th class="text-center">Reponer <?= renderTooltipAyuda('cantidad_reponer') ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -767,13 +819,13 @@ require __DIR__ . '/partials/header.php';
                                 <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
                             </td>
                             <td class="text-center"><?= $fmtQty($prod['stock'], $prod['es_pesable']) ?></td>
-	                            <td class="text-center"><?= number_format((float)$prod['promedio_diario'], 1, ',', '.') ?></td>
+                            <td class="text-center"><?= number_format((float)$prod['promedio_diario'], 1, ',', '.') ?></td>
                             <td class="text-center">
-	                                <span class="inv-dias-badge inv-dias-urgent"><?= number_format((float)$prod['dias_restantes'], 0) ?>d</span>
+                                <span class="inv-dias-badge inv-dias-urgent"><?= number_format((float)$prod['dias_restantes'], 0) ?>d</span>
                             </td>
                             <td class="text-center">
                                 <?php if ($prod['cantidad_reponer'] > 0): ?>
-	                                    <span class="inv-reponer">+<?= number_format((float)$prod['cantidad_reponer'], 0, ',', '.') ?></span>
+                                    <span class="inv-reponer">+<?= number_format((float)$prod['cantidad_reponer'], 0, ',', '.') ?></span>
                                 <?php else: ?>
                                     <span class="text-muted">-</span>
                                 <?php endif; ?>
@@ -816,7 +868,7 @@ require __DIR__ . '/partials/header.php';
                                 <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
                                 <div class="inv-prod-code"><?= htmlspecialchars($prod['categoria'] ?: '-') ?></div>
                             </td>
-	                            <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
+                            <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
                             <td class="text-right"><strong><?= $fmtMoney($prod['ingresos']) ?></strong></td>
                             <td class="text-center"><?= $prod['veces_vendido'] ?></td>
                         </tr>
@@ -850,5 +902,10 @@ window.FLUS_INV_DATA = {
     tab: '<?= $tabActivo ?>'
 };
 </script>
+
+<!-- Modal de Ayuda -->
+<?php if (function_exists('renderModalAyuda')): ?>
+    <?= renderModalAyuda() ?>
+<?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
