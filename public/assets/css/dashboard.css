@@ -5,8 +5,10 @@
 
 /* ---------- Wrapper / Header ---------- */
 .dashboard-panel {
-  max-width: 1200px;
-  margin: 30px auto;
+  /* Más ancho en pantallas grandes, sin pegarse a los bordes */
+  width: calc(100% - 36px);
+  max-width: 1440px;
+  margin: 22px auto;
 }
 
 .dash-header {
@@ -37,7 +39,9 @@
   background: var(--panel);
   border: 1px solid rgba(148, 163, 184, 0.18);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-  transition: transform 0.18s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.2s ease;
 }
 .stat-card:hover {
   transform: translateY(-1px);
@@ -157,7 +161,10 @@
   color: var(--text-main);
   cursor: pointer;
   user-select: none;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
     background 0.2s ease;
 }
 body[data-theme="dark"] .dash-chip {
@@ -172,7 +179,8 @@ body[data-theme="dark"] .dash-chip {
 .dash-chip.is-active {
   border-color: rgba(56, 189, 248, 0.6);
   background: rgba(56, 189, 248, 0.14);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12),
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.12),
     0 10px 26px rgba(56, 189, 248, 0.1);
 }
 
@@ -187,7 +195,9 @@ body[data-theme="dark"] .dash-chip {
 /* 👇 CONTROLES en grid: Desde | Hasta | Aplicar */
 .dash-range-controls {
   display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(210px, 260px) minmax(150px, 180px) minmax(150px, 180px) auto auto;
+  grid-template-columns:
+    minmax(210px, 260px) minmax(210px, 260px) minmax(150px, 180px)
+    minmax(150px, 180px) auto auto;
   column-gap: 16px;
   row-gap: 12px; /* importante (para la fila de export) */
   align-items: end;
@@ -280,7 +290,9 @@ body[data-theme="dark"]
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
-body[data-theme="dark"] .dash-range-controls input[type="date"]::-webkit-calendar-picker-indicator {
+body[data-theme="dark"]
+  .dash-range-controls
+  input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.75;
 }
@@ -297,7 +309,10 @@ body[data-theme="dark"] .dash-range-controls input[type="date"]::-webkit-calenda
   white-space: nowrap;
   align-self: end;
   justify-self: start;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
   position: relative;
   z-index: 10;
 }
@@ -370,7 +385,10 @@ body[data-theme="light"] .dash-filter-badge {
   background: rgba(148, 163, 184, 0.1);
   color: var(--text-main);
 
-  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease,
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
     border-color 0.2s ease;
 }
 .dash-export:hover {
@@ -438,7 +456,9 @@ body[data-theme="light"] .dash-filter-badge {
 
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
 }
 
 .flus-toast.is-show {
@@ -534,7 +554,8 @@ body[data-theme="light"] .dash-chip {
 }
 body[data-theme="light"] .dash-chip.is-active {
   border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14),
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.14),
     0 12px 26px rgba(56, 189, 248, 0.1);
 }
 /* Fuerza controles nativos a respetar tema */
@@ -644,7 +665,6 @@ body[data-theme="light"] .kpi-delta {
   -webkit-overflow-scrolling: touch;
 }
 
-
 /* =========================================================
    A11Y helpers
 ========================================================= */
@@ -707,8 +727,12 @@ body[data-theme="dark"] .chart-data {
    Loading states (charts)
 ========================================================= */
 @keyframes flusSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dash-card.is-loading .chart-wrap::after {
@@ -749,7 +773,7 @@ body[data-theme="dark"] .dash-card.is-loading .chart-wrap::after {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  
+
   .dash-apply,
   .dash-clear-hours {
     grid-column: 1 / -1;
@@ -772,19 +796,19 @@ body[data-theme="dark"] .dash-card.is-loading .chart-wrap::after {
   .dash-chip {
     flex: 0 0 auto;
   }
-  
+
   .dash-range-controls {
     grid-template-columns: 1fr;
   }
-  
+
   .dash-range {
     grid-template-columns: 1fr;
   }
-  
+
   .dash-range-hint {
     font-size: 0.85rem;
   }
-  
+
   .dash-hora-label span {
     font-size: 0.7rem;
   }
