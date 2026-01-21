@@ -1,0 +1,8 @@
+# Bloquear acceso directo por HTTP a /api/actions/*.php
+# Estos archivos deben ejecutarse solo vía public/api/index.php (router)
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Deny from all
+</IfModule>
