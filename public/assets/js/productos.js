@@ -74,29 +74,51 @@ const ProductosManager = {
             return this.state.csrfToken;
         }
 
+        // Fallback: leer token existente del DOM (meta o input hidden)
+        const readDomToken = () => {
+            const inp = document.querySelector('input[name="csrf_token"]');
+            if (inp && inp.value) return inp.value;
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            const m = meta ? meta.getAttribute('content') : '';
+            return m || null;
+        };
+
         try {
             const res = await fetch('_csrf_token.php?_=' + now, {
                 method: 'GET',
                 cache: 'no-store',
                 credentials: 'same-origin',
             });
-            if (!res.ok) return null;
 
-            const data = await res.json();
-            if (data?.csrf_token) {
-                this.state.csrfToken = data.csrf_token;
-                this.state.csrfLastFetch = now;
+            if (res.ok) {
+                const data = await res.json();
+                if (data?.csrf_token) {
+                    this.state.csrfToken = data.csrf_token;
+                    this.state.csrfLastFetch = now;
 
-                // Actualizar todos los formularios
-                document.querySelectorAll('input[name="csrf_token"]').forEach(inp => {
-                    inp.value = data.csrf_token;
-                });
+                    // Actualizar todos los formularios
+                    document.querySelectorAll('input[name="csrf_token"]').forEach(inp => {
+                        inp.value = data.csrf_token;
+                    });
 
-                return data.csrf_token;
+                    return data.csrf_token;
+                }
             }
         } catch (e) {
             console.warn('[ProductosManager] Error refreshing CSRF:', e);
         }
+
+        // Si falló el endpoint, no romper: usar el token ya renderizado
+        const fallback = readDomToken();
+        if (fallback) {
+            this.state.csrfToken = fallback;
+            this.state.csrfLastFetch = now;
+            document.querySelectorAll('input[name="csrf_token"]').forEach(inp => {
+                inp.value = fallback;
+            });
+            return fallback;
+        }
+
         return null;
     },
 

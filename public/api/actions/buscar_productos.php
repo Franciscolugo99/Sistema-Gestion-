@@ -22,6 +22,27 @@ if (!function_exists('json_ok')) {
   }
 }
 
+// 🔒 Solo vía API router (evita acceso directo a /api/actions/*.php)
+if (!defined('FLUS_API_CONTEXT')) {
+  http_response_code(404);
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store');
+  echo json_encode(['ok' => false, 'error' => 'NOT_FOUND'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  exit;
+}
+
+// Auth/Permisos: si no está logueado o no tiene permiso => no revelar catálogo
+require_once __DIR__ . '/../../auth.php';
+
+if (function_exists('is_logged_in') && !is_logged_in()) {
+  json_ok(['productos' => []]);
+}
+
+if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+  json_ok(['productos' => []]);
+}
+
+
 /* ========================================================================
    🔒 Rate limit (soft): si se excede NO rompe caja => devuelve productos=[]
    IMPORTANTE: la sesión PHP bloquea entre pestañas => cerrar ASAP.

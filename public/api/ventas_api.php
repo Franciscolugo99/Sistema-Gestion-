@@ -340,7 +340,67 @@ try {
         'message' => 'Abrí el link para enviar por WhatsApp',
       ]);
       break;
+      // =============================================
+      // Preview rápido de venta (CON TRACKING)
+      // =============================================
+      case 'venta_preview':
+        require_login();
+        
+        $id = (int)($_GET['id'] ?? 0);
+        if ($id <= 0) {
+          success_fail('ID inválido', 400);
+        }
 
+        // ⭐ NUEVO: Actualizar ultima_visualizacion
+        try {
+          $pdo->prepare("UPDATE ventas SET ultima_visualizacion = NOW() WHERE id = ?")->execute([$id]);
+        } catch (Exception $e) {
+          // Si la columna no existe, seguir sin error
+        }
+
+        // Venta
+        $stmt = $pdo->prepare("
+          SELECT 
+            v.*,
+            COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre
+          FROM ventas v
+          LEFT JOIN clientes c ON c.id = v.cliente_id
+          WHERE v.id = ?
+          LIMIT 1
+        ");
+        $stmt->execute([$id]);
+        $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$venta) {
+          success_fail('Venta no encontrada', 404);
+        }
+
+        // Items
+        $stmt = $pdo->prepare("
+          SELECT 
+            vi.cantidad,
+            vi.precio,
+            vi.subtotal,
+            p.nombre
+          FROM venta_items vi
+          JOIN productos p ON p.id = vi.producto_id
+          WHERE vi.venta_id = ?
+          ORDER BY vi.id ASC
+        ");
+        $stmt->execute([$id]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        json_response([
+          'success' => true,
+          'venta' => [
+            'id' => (int)$venta['id'],
+            'fecha' => $venta['fecha'],
+            'cliente' => $venta['cliente_nombre'],
+            'total' => (float)$venta['total'],
+            'items' => $items,
+          ],
+        ]);
+        break;
     // =============================================
     // Enviar ticket por Email
     // =============================================

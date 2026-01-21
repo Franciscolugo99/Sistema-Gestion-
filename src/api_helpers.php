@@ -42,8 +42,10 @@ function json_fail(string $msg, int $code = 400, array $extra = []): void {
 /**
  * Alias de compatibilidad para json_fail
  */
+if (!function_exists('json_error')) {
 function json_error(string $msg, int $code = 400, array $extra = []): void {
     json_fail($msg, $code, $extra);
+}
 }
 
 
