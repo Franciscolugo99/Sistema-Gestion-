@@ -1293,3 +1293,27 @@ body[data-theme="light"] .section-filter-badge {
   color: #d97706;
   background: rgba(217, 119, 6, 0.15);
 }
+
+/* =========================
+   BADGE GLOBAL (para datos no filtrados)
+========================= */
+
+.stat-global-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+body[data-theme="light"] .stat-global-badge {
+  background: rgba(100, 116, 139, 0.15);
+}

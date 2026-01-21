@@ -293,8 +293,35 @@ $ventasAnuladaCond = ($hasVentas && $ventasEstadoCol)
 /* Condición de filtro por categoría */
 $categoriaJoinCond = "";
 $categoriaWhereCond = "";
+$esSinCategoria = ($categoriaFiltro === 'Sin Categoría');
+
+// Genera condición SQL para filtro de categoría (maneja "Sin Categoría" como NULL/vacío)
+// Retorna string SQL que puede insertarse directamente (ya incluye el valor escapado)
+function buildCatCond(string $alias, string $colName, ?string $filtro, PDO $pdo): string {
+  if (!$filtro) return "";
+  if ($filtro === 'Sin Categoría') {
+    return " AND ({$alias}.`{$colName}` IS NULL OR TRIM({$alias}.`{$colName}`) = '') ";
+  }
+  return " AND {$alias}.`{$colName}` = " . $pdo->quote($filtro) . " ";
+}
+
+// Genera condición para subquery IN (retorna condición completa para WHERE de subquery)
+function buildCatCondForSubquery(string $alias, string $colName, ?string $filtro, PDO $pdo): string {
+  if (!$filtro) return "";
+  if ($filtro === 'Sin Categoría') {
+    return " AND ({$alias}.`{$colName}` IS NULL OR TRIM({$alias}.`{$colName}`) = '') ";
+  }
+  return " AND {$alias}.`{$colName}` = " . $pdo->quote($filtro) . " ";
+}
+
+// Pre-calcular condiciones que se usan frecuentemente
+$catCondP = "";  // Para alias 'p' (productos)
+if ($categoriaFiltro && $hasProductos && $prodCatCol) {
+  $catCondP = buildCatCond('p', $prodCatCol, $categoriaFiltro, $pdo);
+}
+
 if ($categoriaFiltro && $hasProductos && $prodCatCol && $hasVentaItems && $viProdIdCol) {
-  $categoriaWhereCond = " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) . " ";
+  $categoriaWhereCond = $catCondP;
 }
 
 /* =========================
@@ -383,9 +410,9 @@ if ($hasVentas && $ventasFechaCol) {
       JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
       JOIN productos p ON p.id = vi.`{$viProdIdCol}`
       WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-        AND p.`{$prodCatCol}` = ?
+        {$catCondP}
     ");
-    $stmt->execute([$fromStart, $toEnd, $categoriaFiltro]);
+    $stmt->execute([$fromStart, $toEnd]);
     $ventasRango = (int)$stmt->fetchColumn();
     
     // Facturación filtrada por categoría (solo líneas de esa categoría)
@@ -396,9 +423,9 @@ if ($hasVentas && $ventasFechaCol) {
         JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
         JOIN productos p ON p.id = vi.`{$viProdIdCol}`
         WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-          AND p.`{$prodCatCol}` = ?
+          {$catCondP}
       ");
-      $stmt->execute([$fromStart, $toEnd, $categoriaFiltro]);
+      $stmt->execute([$fromStart, $toEnd]);
       $facturacionRango = (float)$stmt->fetchColumn();
     }
   } else {
@@ -423,9 +450,9 @@ if ($hasVentas && $hasVentaItems && $viVentaIdCol && $viQtyCol && $ventasFechaCo
       JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
       JOIN productos p ON p.id = vi.`{$viProdIdCol}`
       WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-        AND p.`{$prodCatCol}` = ?
+        {$catCondP}
     ");
-    $stmt->execute([$fromStart, $toEnd, $categoriaFiltro]);
+    $stmt->execute([$fromStart, $toEnd]);
   } else {
     $stmt = $pdo->prepare("
       SELECT COALESCE(SUM(vi.`{$viQtyCol}`),0)
@@ -467,7 +494,7 @@ $lineExprVi  = $lineExprForAlias('vi');
 $lineExprVi2 = $lineExprForAlias('vi2');
 
 if ($canRentabilidad) {
-  $catCondCostos = $categoriaFiltro ? " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) : "";
+  $catCondCostos = $catCondP;  // Ya está pre-calculada con manejo de "Sin Categoría"
   
   $stmt = $pdo->prepare("
     SELECT COALESCE(SUM(vi.`{$viQtyCol}` * p.`{$prodCostoCol}`), 0)
@@ -517,7 +544,7 @@ if ($canRentabilidad) {
 }
 
 /* =========================
-   MÉTODOS DE PAGO
+   MÉTODOS DE PAGO (con filtro categoría)
 ========================= */
 $metodosPago = [];
 
@@ -531,49 +558,125 @@ if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 
   if ($vpVentaId && $vpMedio && $vpMonto) {
     $vueltoExpr = $ventasVueltoCol ? "COALESCE(MAX(v.`{$ventasVueltoCol}`),0)" : "0";
-
-    $sql = "
-      SELECT
-        x.medio_pago,
-        COUNT(DISTINCT x.venta_id) AS cantidad,
-        COALESCE(SUM(x.monto_net),0) AS monto,
-        COALESCE(AVG(x.monto_net),0) AS ticket_promedio
-      FROM (
+    
+    // Construir condición de subquery para categoría (maneja "Sin Categoría")
+    $catSubqueryWhere = "";
+    if ($categoriaFiltro) {
+      if ($esSinCategoria) {
+        $catSubqueryWhere = "WHERE (p.`{$prodCatCol}` IS NULL OR TRIM(p.`{$prodCatCol}`) = '')";
+      } else {
+        $catSubqueryWhere = "WHERE p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro);
+      }
+    }
+    
+    // Con filtro de categoría
+    if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+      $sql = "
         SELECT
-          vp.`{$vpVentaId}` AS venta_id,
-          vp.`{$vpMedio}`   AS medio_pago,
-          CASE
-            WHEN vp.`{$vpMedio}`='EFECTIVO'
-              THEN GREATEST(SUM(vp.`{$vpMonto}`) - {$vueltoExpr}, 0)
-            ELSE SUM(vp.`{$vpMonto}`)
-          END AS monto_net
-        FROM venta_pagos vp
-        JOIN ventas v ON v.id = vp.`{$vpVentaId}`
-        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-        GROUP BY vp.`{$vpVentaId}`, vp.`{$vpMedio}`
-      ) x
-      GROUP BY x.medio_pago
-      ORDER BY monto DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$fromStart, $toEnd]);
+          x.medio_pago,
+          COUNT(DISTINCT x.venta_id) AS cantidad,
+          COALESCE(SUM(x.monto_net),0) AS monto,
+          COALESCE(AVG(x.monto_net),0) AS ticket_promedio
+        FROM (
+          SELECT
+            vp.`{$vpVentaId}` AS venta_id,
+            vp.`{$vpMedio}`   AS medio_pago,
+            CASE
+              WHEN vp.`{$vpMedio}`='EFECTIVO'
+                THEN GREATEST(SUM(vp.`{$vpMonto}`) - {$vueltoExpr}, 0)
+              ELSE SUM(vp.`{$vpMonto}`)
+            END AS monto_net
+          FROM venta_pagos vp
+          JOIN ventas v ON v.id = vp.`{$vpVentaId}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+            AND v.id IN (
+              SELECT DISTINCT vi.`{$viVentaIdCol}`
+              FROM venta_items vi
+              JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+              {$catSubqueryWhere}
+            )
+          GROUP BY vp.`{$vpVentaId}`, vp.`{$vpMedio}`
+        ) x
+        GROUP BY x.medio_pago
+        ORDER BY monto DESC
+      ";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$fromStart, $toEnd]);
+    } else {
+      // Sin filtro
+      $sql = "
+        SELECT
+          x.medio_pago,
+          COUNT(DISTINCT x.venta_id) AS cantidad,
+          COALESCE(SUM(x.monto_net),0) AS monto,
+          COALESCE(AVG(x.monto_net),0) AS ticket_promedio
+        FROM (
+          SELECT
+            vp.`{$vpVentaId}` AS venta_id,
+            vp.`{$vpMedio}`   AS medio_pago,
+            CASE
+              WHEN vp.`{$vpMedio}`='EFECTIVO'
+                THEN GREATEST(SUM(vp.`{$vpMonto}`) - {$vueltoExpr}, 0)
+              ELSE SUM(vp.`{$vpMonto}`)
+            END AS monto_net
+          FROM venta_pagos vp
+          JOIN ventas v ON v.id = vp.`{$vpVentaId}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+          GROUP BY vp.`{$vpVentaId}`, vp.`{$vpMedio}`
+        ) x
+        GROUP BY x.medio_pago
+        ORDER BY monto DESC
+      ";
+      $stmt = $pdo->prepare($sql);
+      $stmt->execute([$fromStart, $toEnd]);
+    }
     $metodosPago = $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
 } elseif ($hasVentas && $ventasFechaCol && $ventasTotalCol && $ventasMedioCol) {
-  $stmt = $pdo->prepare("
-    SELECT
-      `{$ventasMedioCol}` AS medio_pago,
-      COUNT(*) AS cantidad,
-      COALESCE(SUM({$ventasTotalSQL}),0) AS monto,
-      COALESCE(AVG({$ventasTotalSQL}),0) AS ticket_promedio
-    FROM ventas
-    WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
-    GROUP BY `{$ventasMedioCol}`
-    ORDER BY monto DESC
-  ");
-  $stmt->execute([$fromStart, $toEnd]);
+  // Fallback sin tabla venta_pagos - construir condición de subquery
+  $catSubqueryWhere = "";
+  if ($categoriaFiltro && $prodCatCol) {
+    if ($esSinCategoria) {
+      $catSubqueryWhere = "WHERE (p.`{$prodCatCol}` IS NULL OR TRIM(p.`{$prodCatCol}`) = '')";
+    } else {
+      $catSubqueryWhere = "WHERE p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro);
+    }
+  }
+  
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+    $stmt = $pdo->prepare("
+      SELECT
+        v.`{$ventasMedioCol}` AS medio_pago,
+        COUNT(DISTINCT v.id) AS cantidad,
+        COALESCE(SUM(v.{$ventasTotalSQL}),0) AS monto,
+        COALESCE(AVG(v.{$ventasTotalSQL}),0) AS ticket_promedio
+      FROM ventas v
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        AND v.id IN (
+          SELECT DISTINCT vi.`{$viVentaIdCol}`
+          FROM venta_items vi
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          {$catSubqueryWhere}
+        )
+      GROUP BY v.`{$ventasMedioCol}`
+      ORDER BY monto DESC
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+  } else {
+    $stmt = $pdo->prepare("
+      SELECT
+        `{$ventasMedioCol}` AS medio_pago,
+        COUNT(*) AS cantidad,
+        COALESCE(SUM({$ventasTotalSQL}),0) AS monto,
+        COALESCE(AVG({$ventasTotalSQL}),0) AS ticket_promedio
+      FROM ventas
+      WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
+      GROUP BY `{$ventasMedioCol}`
+      ORDER BY monto DESC
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+  }
   $metodosPago = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -644,7 +747,6 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasT
         AND vt.subtotal_total > 0
       GROUP BY categoria
       ORDER BY ventas DESC
-      LIMIT 10
     ";
     $stmt = $pdo->prepare($sqlCategorias);
     $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
@@ -663,7 +765,6 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasT
       WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
       GROUP BY categoria
       ORDER BY ventas DESC
-      LIMIT 10
     ";
     $stmt = $pdo->prepare($sqlCategorias);
     $stmt->execute([$fromStart, $toEnd]);
@@ -672,21 +773,49 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasT
 }
 
 /* =========================
-   ANULACIONES
+   ANULACIONES (con filtro categoría)
 ========================= */
 $ventasAnuladas = 0;
 $montoAnulado = 0.0;
 $tasaAnulacion = 0.0;
 
 if ($hasVentas && $ventasFechaCol && $ventasEstadoCol) {
-  $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasAnuladaCond}");
-  $stmt->execute([$fromStart, $toEnd]);
-  $ventasAnuladas = (int)$stmt->fetchColumn();
-
-  if ($ventasTotalCol) {
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasAnuladaCond}");
+  // Con filtro de categoría
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+    $stmt = $pdo->prepare("
+      SELECT COUNT(DISTINCT v.id) 
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasAnuladaCond}
+        {$catCondP}
+    ");
     $stmt->execute([$fromStart, $toEnd]);
-    $montoAnulado = (float)$stmt->fetchColumn();
+    $ventasAnuladas = (int)$stmt->fetchColumn();
+
+    if ($ventasTotalCol) {
+      $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) 
+        FROM ventas v
+        JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasAnuladaCond}
+          {$catCondP}
+      ");
+      $stmt->execute([$fromStart, $toEnd]);
+      $montoAnulado = (float)$stmt->fetchColumn();
+    }
+  } else {
+    // Sin filtro
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasAnuladaCond}");
+    $stmt->execute([$fromStart, $toEnd]);
+    $ventasAnuladas = (int)$stmt->fetchColumn();
+
+    if ($ventasTotalCol) {
+      $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasAnuladaCond}");
+      $stmt->execute([$fromStart, $toEnd]);
+      $montoAnulado = (float)$stmt->fetchColumn();
+    }
   }
 
   $totalVentasConAnuladas = $ventasRango + $ventasAnuladas;
@@ -694,35 +823,69 @@ if ($hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 }
 
 /* =========================
-   TEMPORAL: Ventas por hora / día semana
+   TEMPORAL: Ventas por hora / día semana (con filtro categoría)
 ========================= */
 $ventasPorHora = [];
 $ventasPorDiaSemana = [];
 
 if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
-  $stmt = $pdo->prepare("
-    SELECT HOUR({$ventasDateSQL}) AS hora,
-           COUNT(*) AS cantidad,
-           COALESCE(SUM({$ventasTotalSQL}),0) AS monto
-    FROM ventas
-    WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
-    GROUP BY HOUR({$ventasDateSQL})
-    ORDER BY hora
-  ");
-  $stmt->execute([$fromStart, $toEnd]);
-  $ventasPorHora = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  // Con filtro de categoría
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+    $stmt = $pdo->prepare("
+      SELECT HOUR(v.{$ventasDateSQL}) AS hora,
+             COUNT(DISTINCT v.id) AS cantidad,
+             COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) AS monto
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        {$catCondP}
+      GROUP BY HOUR(v.{$ventasDateSQL})
+      ORDER BY hora
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+    $ventasPorHora = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-  $stmt = $pdo->prepare("
-    SELECT DAYOFWEEK({$ventasDateSQL}) AS dia_num,
-           COUNT(*) AS cantidad,
-           COALESCE(SUM({$ventasTotalSQL}),0) AS monto
-    FROM ventas
-    WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
-    GROUP BY DAYOFWEEK({$ventasDateSQL})
-    ORDER BY dia_num
-  ");
-  $stmt->execute([$fromStart, $toEnd]);
-  $ventasPorDiaSemana = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("
+      SELECT DAYOFWEEK(v.{$ventasDateSQL}) AS dia_num,
+             COUNT(DISTINCT v.id) AS cantidad,
+             COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) AS monto
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        {$catCondP}
+      GROUP BY DAYOFWEEK(v.{$ventasDateSQL})
+      ORDER BY dia_num
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+    $ventasPorDiaSemana = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  } else {
+    // Sin filtro
+    $stmt = $pdo->prepare("
+      SELECT HOUR({$ventasDateSQL}) AS hora,
+             COUNT(*) AS cantidad,
+             COALESCE(SUM({$ventasTotalSQL}),0) AS monto
+      FROM ventas
+      WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
+      GROUP BY HOUR({$ventasDateSQL})
+      ORDER BY hora
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+    $ventasPorHora = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt = $pdo->prepare("
+      SELECT DAYOFWEEK({$ventasDateSQL}) AS dia_num,
+             COUNT(*) AS cantidad,
+             COALESCE(SUM({$ventasTotalSQL}),0) AS monto
+      FROM ventas
+      WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
+      GROUP BY DAYOFWEEK({$ventasDateSQL})
+      ORDER BY dia_num
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+    $ventasPorDiaSemana = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
 
   $diasSemana = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   foreach ($ventasPorDiaSemana as &$dia) {
@@ -736,7 +899,7 @@ if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
 ========================= */
 $stockCritico = [];
 if ($hasProductos && $prodNombreCol && $prodStockCol && $prodMinCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msTipoCol && $msCantCol && $msFechaCol) {
-  $catCondStock = $categoriaFiltro && $prodCatCol ? " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) : "";
+  $catCondStock = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
   
   $stmt = $pdo->prepare("
     SELECT
@@ -777,7 +940,7 @@ $capitalDormido = 0.0;
 
 if ($hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msFechaCol) {
   $fechaLimiteDormido = (new DateTime('today'))->modify("-{$diasSinMovimiento} days")->format('Y-m-d H:i:s');
-  $catCondDormidos = $categoriaFiltro && $prodCatCol ? " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) : "";
+  $catCondDormidos = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
   $precioCol = $prodPrecioCol ?: ($prodCostoCol ?: null);
   $valorExpr = $precioCol ? "p.`{$precioCol}`" : "0";
   
@@ -952,14 +1115,42 @@ $ventasPrev = 0;
 $facturacionPrev = 0.0;
 
 if ($hasVentas && $ventasFechaCol) {
-  $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}");
-  $stmt->execute([$prevFromStart, $prevToEnd]);
-  $ventasPrev = (int)$stmt->fetchColumn();
-
-  if ($ventasTotalCol) {
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}");
+  // Con filtro de categoría
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+    $stmt = $pdo->prepare("
+      SELECT COUNT(DISTINCT v.id) 
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        {$catCondP}
+    ");
     $stmt->execute([$prevFromStart, $prevToEnd]);
-    $facturacionPrev = (float)$stmt->fetchColumn();
+    $ventasPrev = (int)$stmt->fetchColumn();
+
+    if ($ventasTotalCol && $viLineCol) {
+      $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(vi.`{$viLineCol}`),0)
+        FROM venta_items vi
+        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+          {$catCondP}
+      ");
+      $stmt->execute([$prevFromStart, $prevToEnd]);
+      $facturacionPrev = (float)$stmt->fetchColumn();
+    }
+  } else {
+    // Sin filtro
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}");
+    $stmt->execute([$prevFromStart, $prevToEnd]);
+    $ventasPrev = (int)$stmt->fetchColumn();
+
+    if ($ventasTotalCol) {
+      $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}");
+      $stmt->execute([$prevFromStart, $prevToEnd]);
+      $facturacionPrev = (float)$stmt->fetchColumn();
+    }
   }
 }
 
@@ -970,19 +1161,35 @@ $factDelta   = kpiDeltaBadge((float)$facturacionRango, (float)$facturacionPrev);
 $ticketDelta = kpiDeltaBadge((float)$ticketPromedio, (float)$ticketPrev);
 
 /* =========================
-   CHARTS DATA
+   CHARTS DATA (con filtro categoría)
 ========================= */
 $ventasLabels = [];
 $ventasData = [];
 if ($hasVentas && $ventasFechaCol) {
-  $stmt = $pdo->prepare("
-    SELECT DATE({$ventasDateSQL}) AS dia, COUNT(*) AS total
-    FROM ventas
-    WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
-    GROUP BY DATE({$ventasDateSQL})
-    ORDER BY dia
-  ");
-  $stmt->execute([$fromStart, $toEnd]);
+  // Con filtro de categoría
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+    $stmt = $pdo->prepare("
+      SELECT DATE(v.{$ventasDateSQL}) AS dia, COUNT(DISTINCT v.id) AS total
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        {$catCondP}
+      GROUP BY DATE(v.{$ventasDateSQL})
+      ORDER BY dia
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+  } else {
+    // Sin filtro
+    $stmt = $pdo->prepare("
+      SELECT DATE({$ventasDateSQL}) AS dia, COUNT(*) AS total
+      FROM ventas
+      WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
+      GROUP BY DATE({$ventasDateSQL})
+      ORDER BY dia
+    ");
+    $stmt->execute([$fromStart, $toEnd]);
+  }
   $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
   $ventasMap = [];
@@ -1001,7 +1208,7 @@ if ($hasVentas && $ventasFechaCol) {
 $topProductosLabels = [];
 $topProductosData = [];
 if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
-  $catCondTop = $categoriaFiltro && $prodCatCol ? " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) : "";
+  $catCondTop = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
   
   $stmt = $pdo->prepare("
     SELECT p.`{$prodNombreCol}` AS nombre, SUM(vi.`{$viQtyCol}`) AS total
@@ -1022,7 +1229,7 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVenta
 }
 
 /* =========================
-   SPARKLINES
+   SPARKLINES (con filtro categoría)
 ========================= */
 $sparkFromDT = (new DateTime('today'))->modify('-6 days');
 $sparkToDT   = new DateTime('today');
@@ -1034,28 +1241,62 @@ $sparklineVentas = [];
 $sparklineFacturacion = [];
 
 if ($hasVentas && $ventasFechaCol) {
-  $stmt = $pdo->prepare("
-    SELECT DATE({$ventasDateSQL}) as dia, COUNT(*) as total
-    FROM ventas
-    WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
-    GROUP BY DATE({$ventasDateSQL})
-    ORDER BY dia
-  ");
-  $stmt->execute([$sparklineStart, $sparklineEnd]);
-  $mapVentas = [];
-  foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapVentas[(string)$r['dia']] = (int)$r['total'];
-
-  $mapFact = [];
-  if ($ventasTotalCol) {
+  // Con filtro de categoría
+  if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
-      SELECT DATE({$ventasDateSQL}) as dia, COALESCE(SUM({$ventasTotalSQL}),0) as monto
+      SELECT DATE(v.{$ventasDateSQL}) as dia, COUNT(DISTINCT v.id) as total
+      FROM ventas v
+      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+        {$catCondP}
+      GROUP BY DATE(v.{$ventasDateSQL})
+      ORDER BY dia
+    ");
+    $stmt->execute([$sparklineStart, $sparklineEnd]);
+    $mapVentas = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapVentas[(string)$r['dia']] = (int)$r['total'];
+
+    $mapFact = [];
+    if ($ventasTotalCol && $viLineCol) {
+      $stmt = $pdo->prepare("
+        SELECT DATE(v.{$ventasDateSQL}) as dia, COALESCE(SUM(vi.`{$viLineCol}`),0) as monto
+        FROM ventas v
+        JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+          {$catCondP}
+        GROUP BY DATE(v.{$ventasDateSQL})
+        ORDER BY dia
+      ");
+      $stmt->execute([$sparklineStart, $sparklineEnd]);
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapFact[(string)$r['dia']] = (float)$r['monto'];
+    }
+  } else {
+    // Sin filtro
+    $stmt = $pdo->prepare("
+      SELECT DATE({$ventasDateSQL}) as dia, COUNT(*) as total
       FROM ventas
       WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
       GROUP BY DATE({$ventasDateSQL})
       ORDER BY dia
     ");
     $stmt->execute([$sparklineStart, $sparklineEnd]);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapFact[(string)$r['dia']] = (float)$r['monto'];
+    $mapVentas = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapVentas[(string)$r['dia']] = (int)$r['total'];
+
+    $mapFact = [];
+    if ($ventasTotalCol) {
+      $stmt = $pdo->prepare("
+        SELECT DATE({$ventasDateSQL}) as dia, COALESCE(SUM({$ventasTotalSQL}),0) as monto
+        FROM ventas
+        WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$ventasEmitidaCond}
+        GROUP BY DATE({$ventasDateSQL})
+        ORDER BY dia
+      ");
+      $stmt->execute([$sparklineStart, $sparklineEnd]);
+      foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) $mapFact[(string)$r['dia']] = (float)$r['monto'];
+    }
   }
 
   $periodoSpark = new DatePeriod($sparkFromDT, new DateInterval('P1D'), (clone $sparkToDT)->modify('+1 day'));
@@ -1248,10 +1489,33 @@ require __DIR__ . '/partials/header.php';
       </div>
     </form>
 
+    <!-- BANNER FILTRO ACTIVO -->
+    <?php if ($categoriaFiltro || $horaDesde || $horaHasta): ?>
+    <div class="dash-filter-banner">
+      <div class="dash-filter-banner-content">
+        <span class="dash-filter-banner-icon">🔍</span>
+        <span class="dash-filter-banner-text">
+          <strong>Datos filtrados:</strong>
+          <?php if ($categoriaFiltro): ?>
+            Categoría <em>"<?= h($categoriaFiltro) ?>"</em>
+          <?php endif; ?>
+          <?php if ($horaDesde || $horaHasta): ?>
+            <?= $categoriaFiltro ? ' • ' : '' ?>
+            Horario <?= h($horaDesde ?? '00:00') ?> - <?= h($horaHasta ?? '23:59') ?>
+          <?php endif; ?>
+        </span>
+        <a href="dashboard.php?from=<?= h($from) ?>&to=<?= h($to) ?>" class="dash-filter-banner-clear" title="Quitar filtros">✕ Limpiar filtros</a>
+      </div>
+    </div>
+    <?php endif; ?>
+
     <!-- CIERRE DE CAJA HOY -->
     <div class="cierre-caja-section">
       <div class="cierre-caja-header">
-        <h2 class="section-title">🧾 Cierre de Caja - Hoy <?= date('d/m/Y') ?></h2>
+        <div class="cierre-caja-title-row">
+          <h2 class="section-title">🧾 Cierre de Caja - Hoy <?= date('d/m/Y') ?></h2>
+          <span class="cierre-caja-note" title="Este resumen siempre muestra el día de HOY, independiente del filtro de fechas seleccionado">ℹ️ Solo día actual</span>
+        </div>
         <span class="cierre-caja-horario">
           <?php if ($cierreCajaHoy['primera_venta']): ?>
             <?= (new DateTime($cierreCajaHoy['primera_venta']))->format('H:i') ?> - <?= (new DateTime($cierreCajaHoy['ultima_venta']))->format('H:i') ?>
@@ -1381,6 +1645,89 @@ require __DIR__ . '/partials/header.php';
     </div>
 
     <!-- ========================= -->
+    <!-- ACCIONES RECOMENDADAS -->
+    <!-- ========================= -->
+    <?php
+      // Generar acciones recomendadas basadas en los datos
+      $acciones = [];
+      
+      if ($margenPorcentaje < 20 && $totalVentas > 0) {
+        $acciones[] = [
+          'icon' => '⚠️',
+          'title' => 'Revisar márgenes',
+          'desc' => 'Tu margen está por debajo del 20%. Considera ajustar precios o negociar con proveedores.',
+          'link' => 'productos.php',
+          'linkText' => 'Ver productos'
+        ];
+      }
+      
+      if (count($stockCritico) > 3) {
+        $acciones[] = [
+          'icon' => '📦',
+          'title' => 'Reponer stock',
+          'desc' => count($stockCritico) . ' productos necesitan reposición urgente.',
+          'link' => 'stock.php',
+          'linkText' => 'Ir a Stock'
+        ];
+      }
+      
+      if (count($productosDormidos) > 5) {
+        $acciones[] = [
+          'icon' => '💤',
+          'title' => 'Liquidar productos parados',
+          'desc' => 'Tienes $' . number_format($capitalDormido, 0, ',', '.') . ' en mercadería sin movimiento.',
+          'link' => 'promos.php',
+          'linkText' => 'Crear promoción'
+        ];
+      }
+      
+      if ($tasaAnulacion > 5) {
+        $acciones[] = [
+          'icon' => '❌',
+          'title' => 'Investigar anulaciones',
+          'desc' => 'Tasa de anulación del ' . number_format($tasaAnulacion, 1) . '%. Revisar causas.',
+          'link' => 'ventas.php?estado=ANULADA',
+          'linkText' => 'Ver anuladas'
+        ];
+      }
+      
+      if ($ventasDelta['class'] === 'kpi-down' && str_contains($ventasDelta['text'], '▼')) {
+        $acciones[] = [
+          'icon' => '📉',
+          'title' => 'Ventas en baja',
+          'desc' => 'Las ventas cayeron vs el período anterior. Considera acciones promocionales.',
+          'link' => 'promos.php',
+          'linkText' => 'Ver promociones'
+        ];
+      }
+    ?>
+    
+    <?php if (!empty($acciones)): ?>
+    <div class="dash-actions-section">
+      <div class="dash-actions-header">
+        <span>🎯</span>
+        <h3>Acciones Recomendadas</h3>
+      </div>
+      <div class="dash-actions-grid">
+        <?php foreach ($acciones as $accion): ?>
+        <div class="dash-action-item">
+          <span class="dash-action-icon"><?= $accion['icon'] ?></span>
+          <div class="dash-action-content">
+            <div class="dash-action-title"><?= h($accion['title']) ?></div>
+            <div class="dash-action-desc"><?= h($accion['desc']) ?></div>
+            <?php if (!empty($accion['link'])): ?>
+            <a href="<?= h($accion['link']) ?>" class="dash-action-link">
+              <?= h($accion['linkText']) ?> →
+            </a>
+            <?php endif; ?>
+          </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- ========================= -->
     <!-- KPIs PRINCIPALES MEJORADOS -->
     <!-- ========================= -->
     <h2 class="section-title">📊 Métricas de Ventas <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
@@ -1444,7 +1791,7 @@ require __DIR__ . '/partials/header.php';
     <!-- ========================= -->
     <!-- RENTABILIDAD MEJORADA -->
     <!-- ========================= -->
-    <h2 class="section-title">💰 Análisis de Rentabilidad</h2>
+    <h2 class="section-title">💰 Análisis de Rentabilidad <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
     <div class="dash-kpi-row">
       
       <!-- KPI: Ganancia Bruta -->
@@ -1484,7 +1831,12 @@ require __DIR__ . '/partials/header.php';
       <!-- KPI: Descuentos -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">🏷️</span> Descuentos (Promos)</span>
+          <span class="stat-label">
+            <span class="stat-icon">🏷️</span> Descuentos (Promos)
+            <?php if ($categoriaFiltro): ?>
+              <span class="stat-global-badge" title="Este dato es global, no se filtra por categoría">🌐 global</span>
+            <?php endif; ?>
+          </span>
           <button type="button" class="kpi-help" data-tooltip="descuentos" aria-label="Ayuda sobre Descuentos" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($totalDescuentosPromos, 0, ',', '.') ?></div>
@@ -1495,7 +1847,7 @@ require __DIR__ . '/partials/header.php';
     <!-- ========================= -->
     <!-- ANULACIONES MEJORADA -->
     <!-- ========================= -->
-    <h2 class="section-title">❌ Control de Anulaciones</h2>
+    <h2 class="section-title">❌ Control de Anulaciones <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
     <div class="dash-kpi-row">
       
       <?php $anulacionStatus = getKpiStatus('tasa_anulacion', $tasaAnulacion); ?>

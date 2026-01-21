@@ -68,6 +68,21 @@ if ($diffDays > ($maxDays - 1)) {
 $fromStart = $from . " 00:00:00";
 $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00";
 
+// Filtro de categoría
+$categoriaFiltro = trim($_GET['categoria'] ?? '');
+
+// Filtros de hora
+$horaDesde = isset($_GET['hora_desde']) && preg_match('/^\d{2}:\d{2}$/', $_GET['hora_desde']) ? $_GET['hora_desde'] : null;
+$horaHasta = isset($_GET['hora_hasta']) && preg_match('/^\d{2}:\d{2}$/', $_GET['hora_hasta']) ? $_GET['hora_hasta'] : null;
+
+// Aplicar filtros de hora a las fechas
+if ($horaDesde) {
+  $fromStart = $from . " " . $horaDesde . ":00";
+}
+if ($horaHasta) {
+  $toEnd = $to . " " . $horaHasta . ":59";
+}
+
 /* =========================
    DETECCIONES
 ========================= */
@@ -108,6 +123,17 @@ $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPrice
 $ventasDateSQL = ($ventasFechaCol) ? "`{$ventasFechaCol}`" : "fecha";
 $ventasTotalSQL = ($ventasTotalCol) ? "`{$ventasTotalCol}`" : "total";
 $emitidaCond = ($ventasEstadoCol) ? " AND `{$ventasEstadoCol}`='EMITIDA' " : "";
+
+// Construir condición de filtro de categoría
+$esSinCategoria = ($categoriaFiltro === 'Sin Categoría');
+$catCondP = "";  // Para alias 'p' (productos)
+if ($categoriaFiltro && $hasProductos && $prodCatCol) {
+  if ($esSinCategoria) {
+    $catCondP = " AND (p.`{$prodCatCol}` IS NULL OR TRIM(p.`{$prodCatCol}`) = '') ";
+  } else {
+    $catCondP = " AND p.`{$prodCatCol}` = " . $pdo->quote($categoriaFiltro) . " ";
+  }
+}
 
 /* =========================
    RESPONSE HEADERS
@@ -159,25 +185,58 @@ try {
     $ventasRango = 0;
     $facturacion = null;
     if ($hasVentas && $ventasFechaCol) {
-      $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
-      $stmt->execute([$fromStart, $toEnd]);
-      $ventasRango = (int)$stmt->fetchColumn();
-
-      if ($ventasTotalCol) {
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
+      // Con filtro de categoría
+      if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
+        $stmt = $pdo->prepare("
+          SELECT COUNT(DISTINCT v.id) FROM ventas v
+          JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond} {$catCondP}
+        ");
         $stmt->execute([$fromStart, $toEnd]);
-        $facturacion = (float)$stmt->fetchColumn();
+        $ventasRango = (int)$stmt->fetchColumn();
+
+        if ($ventasTotalCol && $viLineCol) {
+          $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(vi.`{$viLineCol}`),0) FROM venta_items vi
+            JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+            JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+            WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond} {$catCondP}
+          ");
+          $stmt->execute([$fromStart, $toEnd]);
+          $facturacion = (float)$stmt->fetchColumn();
+        }
+      } else {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
+        $stmt->execute([$fromStart, $toEnd]);
+        $ventasRango = (int)$stmt->fetchColumn();
+
+        if ($ventasTotalCol) {
+          $stmt = $pdo->prepare("SELECT COALESCE(SUM({$ventasTotalSQL}),0) FROM ventas WHERE {$ventasDateSQL} >= ? AND {$ventasDateSQL} < ? {$emitidaCond}");
+          $stmt->execute([$fromStart, $toEnd]);
+          $facturacion = (float)$stmt->fetchColumn();
+        }
       }
     }
 
     $unidades = 0;
     if ($hasVentas && $hasVentaItems && $viVentaIdCol && $viQtyCol && $ventasFechaCol) {
-      $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(vi.`{$viQtyCol}`),0)
-        FROM venta_items vi
-        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
-        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
-      ");
+      if ($categoriaFiltro && $hasProductos && $prodCatCol) {
+        $stmt = $pdo->prepare("
+          SELECT COALESCE(SUM(vi.`{$viQtyCol}`),0)
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond} {$catCondP}
+        ");
+      } else {
+        $stmt = $pdo->prepare("
+          SELECT COALESCE(SUM(vi.`{$viQtyCol}`),0)
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+        ");
+      }
       $stmt->execute([$fromStart, $toEnd]);
       $unidades = (int)$stmt->fetchColumn();
     } elseif ($hasMovs && $msFechaCol && $msTipoCol && $msCantCol) {
@@ -190,6 +249,7 @@ try {
     if ($facturacion !== null && $ventasRango > 0) $ticket = $facturacion / $ventasRango;
 
     csvOut(['kpi', 'valor'], $out, $D);
+    if ($categoriaFiltro) csvOut(['filtro_categoria', $categoriaFiltro], $out, $D);
     csvOut(['movimientos_rango', $movRango], $out, $D);
     csvOut(['ventas_rango', $ventasRango], $out, $D);
     csvOut(['unidades_vendidas', $unidades], $out, $D);
@@ -202,6 +262,7 @@ try {
   ========================= */
   if ($type === 'top_productos') {
     csvOut(['producto', 'unidades'], $out, $D);
+    if ($categoriaFiltro) csvOut(['filtro_categoria', $categoriaFiltro], $out, $D);
 
     if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
       $sql = "
@@ -210,6 +271,7 @@ try {
         JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
         JOIN productos p ON p.id = vi.`{$viProdIdCol}`
         WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+          {$catCondP}
         GROUP BY p.id
         ORDER BY unidades DESC
         LIMIT 50
