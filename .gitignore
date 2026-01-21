@@ -115,3 +115,14 @@ storage/logs/
 storage/cache/
 *.log
 *.backup
+
+# --- backups / temporales ---
+*.backup
+*.bak
+*~
+*.old
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

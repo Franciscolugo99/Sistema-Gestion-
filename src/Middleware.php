@@ -60,7 +60,7 @@ final class Middleware {
   }
 
   /**
-   * IMPORTANTE: login.php SIN "/" adelante (relativo a /kiosco/public/)
+   * IMPORTANTE: login.php SIN "/" adelante (relativo al public root)
    */
 public function requireAuth(?string $redirectTo = 'login.php'): self {
   $this->checks[] = function() use ($redirectTo) {

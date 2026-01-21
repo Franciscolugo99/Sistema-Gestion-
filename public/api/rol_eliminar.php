@@ -2,31 +2,26 @@
 // api/rol_eliminar.php
 declare(strict_types=1);
 
+// Contexto API
+define('FLUS_API_CONTEXT', true);
+
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../bootstrap.php';
+require_once FLUS_ROOT . '/src/api_helpers.php';
+setup_api_error_handlers();
 
 // Verificar autenticación y permisos
 try {
     require_login();
     require_permission('administrar_usuarios');
 } catch (Exception $e) {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Acceso denegado'
-    ]);
-    exit;
+    success_fail('Acceso denegado', 403);
 }
 
 // Solo permitir POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Método no permitido'
-    ]);
-    exit;
+    success_fail('Método no permitido', 405);
 }
 
 // Obtener datos JSON
@@ -36,33 +31,18 @@ $input = json_decode(file_get_contents('php://input'), true);
 require_once __DIR__ . '/../lib/csrf.php';
 $csrfToken = $input['csrf_token'] ?? $input['csrf'] ?? $_POST['csrf_token'] ?? '';
 if (!csrf_verify($csrfToken)) {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Token CSRF inválido'
-    ]);
-    exit;
+    success_fail('Token CSRF inválido', 403);
 }
 
 if (!$input || !isset($input['role_id'])) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Datos inválidos'
-    ]);
-    exit;
+    success_fail('Datos inválidos', 400);
 }
 
 $roleId = (int)$input['role_id'];
 
 // Validaciones
 if ($roleId <= 0) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => 'ID de rol inválido'
-    ]);
-    exit;
+    success_fail('ID de rol inválido', 400);
 }
 
 // Verificar que el rol existe
@@ -78,13 +58,8 @@ try {
     // No permitir eliminar roles críticos
     $rolesProtegidos = ['administrador', 'admin', 'superadmin'];
     if (in_array(strtolower($role['slug']), $rolesProtegidos)) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'No se puede eliminar un rol crítico del sistema'
-        ]);
-        exit;
-    }
+        success_fail('No se puede eliminar un rol crítico del sistema', 400);
+}
     
     // Verificar si tiene usuarios asignados
     $stmtUsers = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role_id = :id");
@@ -92,22 +67,12 @@ try {
     $totalUsers = (int)$stmtUsers->fetchColumn();
     
     if ($totalUsers > 0) {
-        http_response_code(409);
-        echo json_encode([
-            'success' => false,
-            'message' => "No se puede eliminar el rol porque tiene {$totalUsers} usuario(s) asignado(s). Reasigne los usuarios a otro rol primero."
-        ]);
-        exit;
-    }
+        success_fail("No se puede eliminar el rol porque tiene {$totalUsers} usuario(s) asignado(s). Reasigne los usuarios a otro rol primero.", 409);
+}
     
 } catch (PDOException $e) {
     error_log("Error al verificar rol: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Error al verificar el rol'
-    ]);
-    exit;
+    success_fail('Error al verificar el rol', 500);
 }
 
 // Eliminar rol
@@ -149,26 +114,13 @@ try {
     }
     
     $pdo->commit();
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Rol eliminado correctamente'
-    ]);
-    
+    success_ok(['message' => 'Rol eliminado correctamente']);
 } catch (PDOException $e) {
     $pdo->rollBack();
     error_log("Error al eliminar rol: " . $e->getMessage());
     
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Error al eliminar el rol'
-    ]);
+    success_fail('Error al eliminar el rol', 500);
 } catch (Exception $e) {
     $pdo->rollBack();
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
+    success_fail($e->getMessage(), 500);
 }

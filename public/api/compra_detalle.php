@@ -2,9 +2,12 @@
 // public/api/compra_detalle.php
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/_bootstrap.php';
 
-require_once __DIR__ . '/../bootstrap.php';
+// FIX: Verificar login Y permisos
+require_login();
+require_permission('editar_stock');
+
 
 // FIX: Verificar login Y permisos
 require_login();
@@ -13,8 +16,7 @@ require_permission('editar_stock');
 $id = (int)($_GET['id'] ?? 0);
 
 if ($id <= 0) {
-  echo json_encode(['error' => 'ID inválido']);
-  exit;
+  json_response(['error' => 'ID inválido'], 400);
 }
 
 try {
@@ -31,9 +33,8 @@ try {
   $compra = $st->fetch(PDO::FETCH_ASSOC);
   
   if (!$compra) {
-    echo json_encode(['error' => 'Compra no encontrada']);
-    exit;
-  }
+  json_response(['error' => 'Compra no encontrada'], 404);
+}
   
   // Traer items
   $stItems = $pdo->prepare("
@@ -89,6 +90,5 @@ try {
   ], JSON_UNESCAPED_UNICODE);
   
 } catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['error' => 'Error al cargar: ' . $e->getMessage()]);
+  json_response(['error' => 'Error al cargar'], 500);
 }

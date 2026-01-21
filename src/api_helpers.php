@@ -46,6 +46,21 @@ function json_error(string $msg, int $code = 400, array $extra = []): void {
     json_fail($msg, $code, $extra);
 }
 
+
+/**
+ * Respuesta éxito con formato legacy {success:true}
+ */
+function success_ok(array $data = [], int $code = 200): void {
+    json_response(['success' => true] + $data, $code);
+}
+
+/**
+ * Respuesta error con formato legacy {success:false,message:""}
+ */
+function success_fail(string $message, int $code = 400, array $extra = []): void {
+    json_response(['success' => false, 'message' => $message] + $extra, $code);
+}
+
 /**
  * Respuesta JSON genérica (compat con ventas_api)
  */

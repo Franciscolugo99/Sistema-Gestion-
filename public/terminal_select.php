@@ -6,31 +6,35 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 
 /**
- * Base: /kiosco/public
- * Prefix: /kiosco
+ * Base dinámico del public (soporta subcarpeta y docroot directo)
+ * - DocRoot=/public => base '' (URLs tipo /caja.php)
+ * - Subcarpeta=/kiosco/public => base '/kiosco/public'
  */
-$base   = rtrim(dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/public/terminal_select.php')), '/');
-$prefix = rtrim(dirname($base), '/');
+$base   = flus_public_base_path();
+$prefix = ($base !== '') ? rtrim(dirname($base), '/') : '';
 
 /**
- * next: normalizado a /kiosco/public/...
+ * next: normalizado y restringido a la raíz pública (seguridad)
  */
 $next = (string)($_GET['next'] ?? '');
-if ($next === '') $next = $base . '/caja.php';
+if ($next === '') $next = ($base !== '' ? ($base . '/caja.php') : '/caja.php');
 
-// si viene relativo, lo hacemos /kiosco/public/rel
-if ($next[0] !== '/') {
-  $next = $base . '/' . ltrim($next, '/');
+$next = str_replace('\\', '/', $next);
+
+// si viene relativo, lo hacemos absoluto dentro del public
+if ($next !== '' && $next[0] !== '/') {
+  $next = ($base !== '' ? ($base . '/') : '/') . ltrim($next, '/');
 }
 
-// si viene /kiosco/... pero sin /public, lo arreglamos
-if ($prefix !== '' && str_starts_with($next, $prefix . '/') && !str_starts_with($next, $base . '/')) {
+// si viene /prefix/... pero sin /public (caso /kiosco/... vs /kiosco/public/...), lo arreglamos
+if ($prefix !== '' && str_starts_with($next, $prefix . '/') && ($base !== '' && !str_starts_with($next, $base . '/'))) {
   $next = $base . substr($next, strlen($prefix));
 }
 
-// seguridad: si no apunta a /kiosco/public, fallback
-if (!str_starts_with($next, $base . '/')) {
-  $next = $base . '/caja.php';
+// seguridad: si no apunta a la raíz pública, fallback
+$allowedPrefix = ($base !== '' ? ($base . '/') : '/');
+if (!str_starts_with($next, $allowedPrefix)) {
+  $next = ($base !== '' ? ($base . '/caja.php') : '/caja.php');
 }
 
 $csrf = csrf_token();

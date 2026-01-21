@@ -6,40 +6,17 @@
 
 declare(strict_types=1);
 
-/* Bootstrap */
-$bootstrap = null;
-foreach ([__DIR__ . '/../bootstrap.php', __DIR__ . '/../../bootstrap.php'] as $p) {
-    if (is_file($p)) { $bootstrap = $p; break; }
-}
-if (!$bootstrap) {
-    http_response_code(500);
-    header('Content-Type: application/json');
-    echo json_encode(['ok' => false, 'error' => 'Bootstrap no encontrado']);
-    exit;
-}
-require_once $bootstrap;
-require_once __DIR__ . '/../includes/InventarioAnalisis.php';
+// Contexto API: evita HTML y normaliza errores
+define('FLUS_API_CONTEXT', true);
 
-/* Auth helpers */
-foreach ([__DIR__ . '/../auth.php', __DIR__ . '/../../auth.php', __DIR__ . '/../includes/auth.php'] as $ap) {
-    if (is_file($ap)) { require_once $ap; break; }
-}
+/* Bootstrap */
+require_once __DIR__ . '/../bootstrap.php';
+require_once FLUS_ROOT . '/src/api_helpers.php';
+setup_api_error_handlers();
+require_once __DIR__ . '/../includes/InventarioAnalisis.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-
-/* Helpers */
-if (!function_exists('json_ok')) {
-    function json_ok(array $data = []): void {
-        echo json_encode(['ok' => true] + $data, JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    function json_fail(string $error, int $code = 400): void {
-        http_response_code($code);
-        echo json_encode(['ok' => false, 'error' => $error], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-}
 
 if (!function_exists('flus__has_perm')) {
     function flus__has_perm(string $perm): bool {

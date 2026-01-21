@@ -2,9 +2,7 @@
 // api/ventas_api.php - Endpoints para las nuevas funcionalidades
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
-
-header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/_bootstrap.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
@@ -50,7 +48,7 @@ try {
       
       $id = (int)($_GET['id'] ?? 0);
       if ($id <= 0) {
-        json_error('ID inválido', 400);
+        success_fail('ID inválido', 400);
       }
 
       // Venta
@@ -67,7 +65,7 @@ try {
       $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
       if (!$venta) {
-        json_error('Venta no encontrada', 404);
+        success_fail('Venta no encontrada', 404);
       }
 
       // Items
@@ -228,7 +226,7 @@ try {
       $hasta = $_GET['hasta'] ?? null;
 
       if (!$desde || !$hasta) {
-        json_error('Faltan parámetros desde/hasta', 400);
+        success_fail('Faltan parámetros desde/hasta', 400);
       }
 
       $desde_dt = new DateTime($desde);
@@ -324,7 +322,7 @@ try {
       $phone = trim((string)($input['phone'] ?? ''));
 
       if ($venta_id <= 0 || $phone === '') {
-        json_error('Datos inválidos', 400);
+        success_fail('Datos inválidos', 400);
       }
 
       // Generar link de ticket
@@ -355,7 +353,7 @@ try {
       $email = trim((string)($input['email'] ?? ''));
 
       if ($venta_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        json_error('Datos inválidos', 400);
+        success_fail('Datos inválidos', 400);
       }
 
       // Obtener datos de la venta
@@ -364,7 +362,7 @@ try {
       $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
       if (!$venta) {
-        json_error('Venta no encontrada', 404);
+        success_fail('Venta no encontrada', 404);
       }
 
       // Generar ticket HTML
@@ -393,28 +391,16 @@ try {
           'message' => 'Ticket enviado correctamente',
         ]);
       } else {
-        json_error('Error al enviar email', 500);
+        success_fail('Error al enviar email', 500);
       }
       break;
 
     default:
-      json_error('Acción no válida', 400);
+      success_fail('Acción no válida', 400);
   }
 
 } catch (Exception $e) {
   error_log("API Error: " . $e->getMessage());
-  json_error('Error interno del servidor', 500);
+  success_fail('Error interno del servidor', 500);
 }
 
-// =============================================
-// Helpers
-// =============================================
-function json_response(array $data, int $code = 200): never {
-  http_response_code($code);
-  echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-  exit;
-}
-
-function json_error(string $message, int $code = 400): never {
-  json_response(['success' => false, 'message' => $message], $code);
-}

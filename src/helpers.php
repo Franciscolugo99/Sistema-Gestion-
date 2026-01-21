@@ -151,6 +151,69 @@ if (!function_exists('urlWith')) {
   }
 }
 
+
+// =============================================================================
+// BASE URL / PATH (instalación en subcarpeta)
+// =============================================================================
+
+if (!function_exists('flus_public_base_path')) {
+  /**
+   * Devuelve el path base del "public" en URL.
+   * Ejemplos:
+   * - DocRoot = /public            => ''
+   * - URL = /kiosco/public/...     => '/kiosco/public'
+   * - URL = /kiosco/public/api/... => '/kiosco/public'
+   *
+   * Se puede sobreescribir definiendo FLUS_PUBLIC_BASE (string) en config.
+   */
+  function flus_public_base_path(): string {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    // Override explícito
+    if (defined('FLUS_PUBLIC_BASE') && is_string(FLUS_PUBLIC_BASE)) {
+      $cached = rtrim((string)FLUS_PUBLIC_BASE, '/');
+      if ($cached === '/') $cached = '';
+      return $cached;
+    }
+
+    $sn = str_replace('\\', '/', (string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($sn === '') { $cached = ''; return $cached; }
+
+    $dir = str_replace('\\', '/', dirname($sn));
+    if ($dir === '.') $dir = '/';
+
+    // Si estamos en /api o /api/actions => subir a raíz pública
+    $base = $dir;
+    $base = preg_replace('#/api(?:/.*)?$#', '', $base) ?? $base;
+
+    if ($base === '' || $base === '/') {
+      $cached = '';
+      return $cached;
+    }
+
+    $cached = rtrim($base, '/');
+    return $cached;
+  }
+}
+
+if (!function_exists('flus_url')) {
+  /**
+   * Construye una URL absoluta (path) hacia un recurso dentro de public.
+   * - flus_url('caja.php') => '/caja.php' o '/kiosco/public/caja.php'
+   */
+  function flus_url(string $path = ''): string {
+    $base = flus_public_base_path();
+    $path = ltrim($path, '/');
+
+    if ($base === '') {
+      return $path === '' ? '/' : ('/' . $path);
+    }
+
+    return $path === '' ? $base : ($base . '/' . $path);
+  }
+}
+
 // =============================================================================
 // CSRF
 // =============================================================================
@@ -302,44 +365,7 @@ if (!function_exists('db_exists')) {
   }
 }
 
-// =============================================================================
-// JSON helpers (no rompe: incluye ok y success)
-// =============================================================================
 
-if (!function_exists('json_success')) {
-  function json_success(mixed $data = null, string $message = 'OK', int $code = 200): never {
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-
-    echo json_encode([
-      'ok' => true,
-      'success' => true,
-      'message' => $message,
-      'data' => $data,
-      'timestamp' => date('c'),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-    exit;
-  }
-}
-
-if (!function_exists('json_error')) {
-  function json_error(string $message, int $code = 400, mixed $errors = null): never {
-    http_response_code($code);
-    header('Content-Type: application/json; charset=utf-8');
-
-    $response = [
-      'ok' => false,
-      'success' => false,
-      'error' => $message,
-      'timestamp' => date('c'),
-    ];
-    if ($errors !== null) $response['errors'] = $errors;
-
-    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-  }
-}
 
 // =============================================================================
 // COMPAT / LEGACY (helpers usados por pantallas viejas)
