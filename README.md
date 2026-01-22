@@ -2,20 +2,30 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Versión:** 2.2.0  
+**Versión:** 2.3.0  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## 🆕 Novedades v2.2.0
+## 🆕 Novedades v2.3.0
 
-- ✅ **Helpers API centralizados** - Código más limpio y mantenible
-- ✅ **Fix Foreign Key** - `promo_combo_items` ahora con CASCADE correcto
-- ✅ **Limpieza de código** - Eliminados archivos redundantes
-- ✅ **Script de upgrade SQL** - Mejoras de base de datos
+- ✅ **Ventas**: Historial avanzado con filtros, KPIs, gráficos y **exportación CSV**
+- ✅ **Ventas**: **Autocompletado de clientes** (dropdown visual + teclado)
+- ✅ **Ventas**: **Ticket público compartible** (link con token) + acciones WhatsApp/Email
+- ✅ **Backups**: mejoras de robustez/UX + lock de restore
 
-Ver [CHANGELOG.md](CHANGELOG.md) para detalles completos.
+> Ver [CHANGELOG.md](CHANGELOG.md) para el detalle completo y notas de upgrade.
+
+---
+
+## 🧠 Arquitectura recomendada (LAN)
+
+- **Servidor**: PC donde corre Apache/PHP + BD (y donde vive `storage/`).  
+- **Terminales**: PCs que ingresan por navegador vía LAN (no ejecutan PHP local).
+
+**Importante:** funcionalidades como *ticket público* se validan en el **servidor**, por eso secretos como `APP_SECRET` deben existir y mantenerse estables ahí.
+
 
 ---
 
@@ -139,6 +149,14 @@ flus/
 | `?action=registrar_venta` | POST | Registrar venta |
 | `?action=listar_promos_activas` | GET | Promociones vigentes |
 | `?action=terminal_list` | GET | Listar terminales |
+| `ventas_api.php?action=listar_ventas` | GET | Listado de ventas (filtros/paginación) |
+| `ventas_api.php?action=venta_preview` | GET | Preview de venta (modal) |
+| `ventas_api.php?action=stats` | GET | KPIs/series para gráficos |
+| `ventas_api.php?action=buscar_clientes` | GET | Autocomplete de clientes |
+| `ventas_api.php?action=ticket_publico_url` | GET | Generar URL/token de ticket público |
+| `ventas_api.php?action=send_ticket_whatsapp` | POST | Preparar envío por WhatsApp (wa.me) |
+| `ventas_api.php?action=send_ticket_email` | POST | Envío por Email (si está habilitado) |
+
 
 ---
 
@@ -162,6 +180,26 @@ curl http://localhost/flus/public/api/index.php?action=health
 ---
 
 ## 🔄 Upgrade desde versiones anteriores
+
+### Desde v2.2.x a v2.3.0
+
+1. **Backup obligatorio** (BD + carpeta `storage/`)
+2. **Reemplazar archivos**
+   - Conservar `src/config.php`
+   - **No pisar `storage/`** (logs, backups, uploads, locks, etc.)
+3. **Cosas a considerar**
+   - Agregar `storage/restore.lock` al `.gitignore` (runtime, no va al repo).
+   - Si vas a usar **ticket público**, definir un `APP_SECRET` real en el **servidor** (no usar el secreto por defecto).
+     - Recomendado: persistirlo en `storage/app_secret.key` para que no cambie entre upgrades.
+     - Nota: el token actual no expira por tiempo (TTL). Si querés vencimiento, agregar `ts` al link y validar ventana.
+   - Si tu instalación usa pagos mixtos: la tabla `venta_pagos` mejora la calidad de los reportes; si no existe, FLUS funciona igual (modo compat).
+
+4. **Verificación rápida**
+   - Ventas → filtrar y exportar CSV
+   - Abrir preview de una venta
+   - Generar link de ticket público y abrirlo (debe validar token)
+
+---
 
 ### Desde v2.1.x a v2.2.0
 

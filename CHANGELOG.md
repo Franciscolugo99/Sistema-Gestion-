@@ -1,5 +1,49 @@
 # CHANGELOG - FLUS
 
+## [2.3.0] - 2026-01-22
+
+### ✨ Ventas - módulo avanzado (Historial / Reportes)
+
+- Historial de ventas con **filtros avanzados** (fecha, rango horario, estado, medio, cliente, ID).
+- KPIs del período filtrado + vista de gráficos (Chart.js).
+- **Exportación CSV** respetando filtros.
+- Preview de venta en modal (items, totales) y acciones rápidas.
+
+#### Ticket público compartible (link firmado)
+- Nuevo `public/ticket_publico.php` para acceder a un ticket vía link con **token**.
+- La API puede generar el link/token para compartir y preparar envío por WhatsApp/Email.
+- Nota: el token actual no expira por tiempo (TTL). Si querés vencimiento, agregar `ts` al link y validar ventana de tiempo.
+- **Consideración**: definir un `APP_SECRET` propio en el servidor (evitar secreto por defecto).
+  - Recomendado persistirlo en `storage/app_secret.key` para que no cambie en upgrades.
+
+#### Autocompletado de clientes en Ventas
+- Nuevo dropdown con estilo FLUS (CSS dedicado) + navegación por teclado.
+- Búsqueda con debounce para evitar saturar el servidor.
+- Mejora UX: permite seleccionar cliente sin conocer el `cliente_id`.
+
+### 🧰 Backups - robustez y UX
+- Ajustes en pantalla de backups y librería de restore.
+- Archivo `storage/restore.lock` para evitar restores simultáneos.
+  - **NO commitear** este archivo (agregar a `.gitignore`).
+
+### 📁 Archivos modificados / nuevos
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/ventas.php` | Filtros, KPIs, export, integración de autocomplete |
+| `public/assets/js/ventas.js` | UX/preview + mejoras de seguridad (escape HTML) |
+| `public/assets/css/ventas.css` | Ajustes visuales |
+| `public/assets/css/ventas-autocomplete.css` | ✨ Nuevo (UI autocomplete) |
+| `public/api/ventas_api.php` | Reportes/stats + acciones (ticket/whatsapp/email) |
+| `public/ticket_publico.php` | ✨ Nuevo (ticket con token) |
+| `public/backups.php` | Ajustes |
+| `public/assets/js/backups.js` | Ajustes |
+| `public/assets/css/backups.css` | Ajustes |
+| `src/backup_lib.php` | Ajustes |
+| `public/api/index.php` | Ajustes menores |
+| `public/bootstrap.php` | Ajustes menores |
+
+---
 ## [2.2.5] - 2026-01-16
 
 ### ✨ Autocompletado Visual en Caja
