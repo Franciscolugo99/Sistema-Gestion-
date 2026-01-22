@@ -2,11 +2,13 @@
 // public/venta_detalle.php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/db_helpers.php';
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
 
-function has_table(PDO $pdo, string $table): bool {
+function _legacy_has_table(PDO $pdo, string $table): bool {
   $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
   $st->execute([$table]);
   return (bool)$st->fetchColumn();

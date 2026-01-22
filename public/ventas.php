@@ -2,6 +2,8 @@
 // public/ventas.php - Módulo de Ventas FLUS v4.1 (Corregido para BD)
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/db_helpers.php';
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
@@ -9,7 +11,7 @@ require_permission('ver_reportes');
 /* =========================
    Helpers
 ========================= */
-function has_table(PDO $pdo, string $table): bool {
+function _legacy_has_table(PDO $pdo, string $table): bool {
   static $cache = [];
   if (!isset($cache[$table])) {
     $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
@@ -19,7 +21,7 @@ function has_table(PDO $pdo, string $table): bool {
   return $cache[$table];
 }
 
-function has_column(PDO $pdo, string $table, string $column): bool {
+function _legacy_has_column(PDO $pdo, string $table, string $column): bool {
   static $cache = [];
   $key = "$table.$column";
   if (!isset($cache[$key])) {

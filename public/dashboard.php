@@ -2,9 +2,13 @@
 // public/dashboard.php - DASHBOARD AVANZADO v4 (Con ayuda contextual)
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/db_helpers.php';
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
+require_once FLUS_ROOT . '/src/db_schema.php';
+
 
 /* =========================
    DEFINICIONES DE AYUDA CONTEXTUAL
@@ -88,7 +92,7 @@ function format_qty_trim(float $n): string {
   return $s === '' ? '0' : $s;
 }
 
-function tableExists(PDO $pdo, string $table): bool {
+function _legacy_tableExists(PDO $pdo, string $table): bool {
   try {
     $stmt = $pdo->prepare("
       SELECT COUNT(*)
@@ -102,7 +106,7 @@ function tableExists(PDO $pdo, string $table): bool {
   }
 }
 
-function columnExists(PDO $pdo, string $table, string $column): bool {
+function _legacy_columnExists(PDO $pdo, string $table, string $column): bool {
   try {
     $pdo->query("SELECT `$column` FROM `$table` LIMIT 0");
     return true;
@@ -113,7 +117,7 @@ function columnExists(PDO $pdo, string $table, string $column): bool {
 
 function firstExistingColumn(PDO $pdo, string $table, array $candidates): ?string {
   foreach ($candidates as $c) {
-    if (columnExists($pdo, $table, $c)) return $c;
+    if (flus_column_exists($pdo, $table, $c)) return $c;
   }
   return null;
 }
@@ -141,37 +145,37 @@ function getKpiStatus(string $type, float $value): array {
 /* =========================
    DETECCIONES (tablas/cols)
 ========================= */
-$hasVentas       = tableExists($pdo, 'ventas');
-$hasVentaItems   = tableExists($pdo, 'venta_items');
-$hasProductos    = tableExists($pdo, 'productos');
-$hasMovimientos  = tableExists($pdo, 'movimientos_stock');
-$hasVentaPromos  = tableExists($pdo, 'venta_promos');
-$hasCierresCaja  = tableExists($pdo, 'cierres_caja');
+$hasVentas       = flus_table_exists($pdo, 'ventas');
+$hasVentaItems   = flus_table_exists($pdo, 'venta_items');
+$hasProductos    = flus_table_exists($pdo, 'productos');
+$hasMovimientos  = flus_table_exists($pdo, 'movimientos_stock');
+$hasVentaPromos  = flus_table_exists($pdo, 'venta_promos');
+$hasCierresCaja  = flus_table_exists($pdo, 'cierres_caja');
 
-$ventasFechaCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
-$ventasTotalCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
-$ventasEstadoCol = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['estado','status']) : null;
-$ventasMedioCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
-$ventasCajaCol   = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['caja_id','terminal_id']) : null;
+$ventasFechaCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
+$ventasTotalCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
+$ventasEstadoCol = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['estado','status']) : null;
+$ventasMedioCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
+$ventasCajaCol   = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['caja_id','terminal_id']) : null;
 
-$viVentaIdCol    = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['venta_id']) : null;
-$viProdIdCol     = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['producto_id']) : null;
-$viQtyCol        = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['cantidad','qty']) : null;
-$viLineCol       = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['subtotal','total','importe']) : null;
-$viPriceCol      = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['precio_unitario','precio','unit_price']) : null;
+$viVentaIdCol    = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['venta_id']) : null;
+$viProdIdCol     = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['producto_id']) : null;
+$viQtyCol        = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['cantidad','qty']) : null;
+$viLineCol       = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['subtotal','total','importe']) : null;
+$viPriceCol      = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['precio_unitario','precio','unit_price']) : null;
 
-$prodNombreCol   = $hasProductos ? firstExistingColumn($pdo, 'productos', ['nombre','descripcion']) : null;
-$prodCostoCol    = $hasProductos ? firstExistingColumn($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
-$prodCatCol      = $hasProductos ? firstExistingColumn($pdo, 'productos', ['categoria','rubro','familia']) : null;
-$prodStockCol    = $hasProductos ? firstExistingColumn($pdo, 'productos', ['stock']) : null;
-$prodMinCol      = $hasProductos ? firstExistingColumn($pdo, 'productos', ['stock_minimo','minimo','stock_min']) : null;
-$prodActivoCol   = $hasProductos ? firstExistingColumn($pdo, 'productos', ['activo','is_active']) : null;
-$prodPrecioCol   = $hasProductos ? firstExistingColumn($pdo, 'productos', ['precio','precio_venta','price']) : null;
+$prodNombreCol   = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['nombre','descripcion']) : null;
+$prodCostoCol    = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
+$prodCatCol      = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['categoria','rubro','familia']) : null;
+$prodStockCol    = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['stock']) : null;
+$prodMinCol      = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['stock_minimo','minimo','stock_min']) : null;
+$prodActivoCol   = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['activo','is_active']) : null;
+$prodPrecioCol   = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['precio','precio_venta','price']) : null;
 
-$msFechaCol      = $hasMovimientos ? firstExistingColumn($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
-$msTipoCol       = $hasMovimientos ? firstExistingColumn($pdo, 'movimientos_stock', ['tipo']) : null;
-$msProdIdCol     = $hasMovimientos ? firstExistingColumn($pdo, 'movimientos_stock', ['producto_id']) : null;
-$msCantCol       = $hasMovimientos ? firstExistingColumn($pdo, 'movimientos_stock', ['cantidad']) : null;
+$msFechaCol      = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
+$msTipoCol       = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['tipo']) : null;
+$msProdIdCol     = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['producto_id']) : null;
+$msCantCol       = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['cantidad']) : null;
 
 /* Expr "importe de línea" para prorratear neto (evita vi.subtotal inexistente) */
 $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPriceCol): ?string {
@@ -548,13 +552,13 @@ if ($canRentabilidad) {
 ========================= */
 $metodosPago = [];
 
-$hasVentaPagos = tableExists($pdo, 'venta_pagos');
-$ventasVueltoCol = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['vuelto','cambio']) : null;
+$hasVentaPagos = flus_table_exists($pdo, 'venta_pagos');
+$ventasVueltoCol = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['vuelto','cambio']) : null;
 
 if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
-  $vpVentaId = firstExistingColumn($pdo, 'venta_pagos', ['venta_id']);
-  $vpMedio   = firstExistingColumn($pdo, 'venta_pagos', ['medio_pago','metodo_pago']);
-  $vpMonto   = firstExistingColumn($pdo, 'venta_pagos', ['monto','importe']);
+  $vpVentaId = flus_first_existing_column($pdo, 'venta_pagos', ['venta_id']);
+  $vpMedio   = flus_first_existing_column($pdo, 'venta_pagos', ['medio_pago','metodo_pago']);
+  $vpMonto   = flus_first_existing_column($pdo, 'venta_pagos', ['monto','importe']);
 
   if ($vpVentaId && $vpMedio && $vpMonto) {
     $vueltoExpr = $ventasVueltoCol ? "COALESCE(MAX(v.`{$ventasVueltoCol}`),0)" : "0";
@@ -687,10 +691,10 @@ $promociones = [];
 $totalDescuentosPromos = 0.0;
 
 if ($hasVentaPromos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
-  $vpVentaId = firstExistingColumn($pdo, 'venta_promos', ['venta_id']);
-  $vpNombre  = firstExistingColumn($pdo, 'venta_promos', ['promo_nombre','nombre']);
-  $vpTipo    = firstExistingColumn($pdo, 'venta_promos', ['promo_tipo','tipo']);
-  $vpDesc    = firstExistingColumn($pdo, 'venta_promos', ['descuento_monto','descuento','monto_descuento']);
+  $vpVentaId = flus_first_existing_column($pdo, 'venta_promos', ['venta_id']);
+  $vpNombre  = flus_first_existing_column($pdo, 'venta_promos', ['promo_nombre','nombre']);
+  $vpTipo    = flus_first_existing_column($pdo, 'venta_promos', ['promo_tipo','tipo']);
+  $vpDesc    = flus_first_existing_column($pdo, 'venta_promos', ['descuento_monto','descuento','monto_descuento']);
 
   if ($vpVentaId && $vpNombre && $vpTipo && $vpDesc) {
     $stmt = $pdo->prepare("
@@ -1026,9 +1030,9 @@ if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
   }
   
   if ($hasVentaPagos) {
-    $vpVentaId = firstExistingColumn($pdo, 'venta_pagos', ['venta_id']);
-    $vpMedio   = firstExistingColumn($pdo, 'venta_pagos', ['medio_pago','metodo_pago']);
-    $vpMonto   = firstExistingColumn($pdo, 'venta_pagos', ['monto','importe']);
+    $vpVentaId = flus_first_existing_column($pdo, 'venta_pagos', ['venta_id']);
+    $vpMedio   = flus_first_existing_column($pdo, 'venta_pagos', ['medio_pago','metodo_pago']);
+    $vpMonto   = flus_first_existing_column($pdo, 'venta_pagos', ['monto','importe']);
     
     if ($vpVentaId && $vpMedio && $vpMonto) {
       $vueltoExpr = $ventasVueltoCol ? "COALESCE(MAX(v.`{$ventasVueltoCol}`),0)" : "0";

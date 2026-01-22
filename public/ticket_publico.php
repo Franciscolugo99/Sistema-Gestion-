@@ -12,7 +12,7 @@ $token = trim((string)($_GET['token'] ?? ''));
 $ts = (int)($_GET['ts'] ?? 0);
 $paper = in_array($_GET['paper'] ?? '80', ['58', '80']) ? $_GET['paper'] : '80';
 
-if ($id <= 0 || $token === '' || $ts <= 0) {
+if ($id <= 0 || $token === '' || $ts <= 0 || !ctype_xdigit($token) || !in_array(strlen($token), [16, 32], true)) {
   http_response_code(400);
   die('Parámetros inválidos');
 }
@@ -45,11 +45,13 @@ function validateTicketToken(int $ventaId, int $ts, string $token): bool {
   if (($now - $ts) > ticketTokenTtlSeconds()) return false;
 
   try {
-    $expected = substr(hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", getAppSecret()), 0, 16);
+    $h = hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", getAppSecret());
+    $expected32 = substr($h, 0, 32);
+    $expected16 = substr($h, 0, 16);
   } catch (Throwable $e) {
     return false;
   }
-  return hash_equals($expected, $token);
+  return hash_equals($expected32, $token) || hash_equals($expected16, $token);
 }
 
 if (!validateTicketToken($id, $ts, $token)) {

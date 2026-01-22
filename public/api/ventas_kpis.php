@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../src/db_helpers.php';
+
 /**
  * public/api/ventas_kpis.php - FLUS (2026) ✅
  * KPIs operativos del módulo Ventas (Emitidas/Anuladas) + Pagos por medio.
@@ -34,7 +36,7 @@ function safe_time(?string $s): ?string {
   return preg_match('/^\d{2}:\d{2}$/', $s) ? $s : null;
 }
 
-function has_table(PDO $pdo, string $table): bool {
+function _legacy_has_table(PDO $pdo, string $table): bool {
   static $cache = [];
   if (isset($cache[$table])) return $cache[$table];
   $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
@@ -42,7 +44,7 @@ function has_table(PDO $pdo, string $table): bool {
   return $cache[$table] = (bool)$st->fetchColumn();
 }
 
-function has_column(PDO $pdo, string $table, string $column): bool {
+function _legacy_has_column(PDO $pdo, string $table, string $column): bool {
   static $cache = [];
   $key = $table.'.'.$column;
   if (isset($cache[$key])) return $cache[$key];

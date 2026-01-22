@@ -2,14 +2,18 @@
 // public/dashboard_export.php - v3 con productos dormidos
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/db_helpers.php';
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
+require_once FLUS_ROOT . '/src/db_schema.php';
+
 
 /* =========================
    HELPERS
 ========================= */
-function tableExists(PDO $pdo, string $table): bool {
+function _legacy_tableExists(PDO $pdo, string $table): bool {
   try {
     $stmt = $pdo->prepare("
       SELECT COUNT(*)
@@ -22,7 +26,7 @@ function tableExists(PDO $pdo, string $table): bool {
     return false;
   }
 }
-function columnExists(PDO $pdo, string $table, string $column): bool {
+function _legacy_columnExists(PDO $pdo, string $table, string $column): bool {
   try {
     $pdo->query("SELECT `$column` FROM `$table` LIMIT 0");
     return true;
@@ -31,7 +35,7 @@ function columnExists(PDO $pdo, string $table, string $column): bool {
   }
 }
 function firstExistingColumn(PDO $pdo, string $table, array $candidates): ?string {
-  foreach ($candidates as $c) if (columnExists($pdo, $table, $c)) return $c;
+  foreach ($candidates as $c) if (flus_column_exists($pdo, $table, $c)) return $c;
   return null;
 }
 function csvOut(array $row, $out, string $delimiter=';'): void {
@@ -86,33 +90,33 @@ if ($horaHasta) {
 /* =========================
    DETECCIONES
 ========================= */
-$hasVentas     = tableExists($pdo, 'ventas');
-$hasVentaItems = tableExists($pdo, 'venta_items');
-$hasProductos  = tableExists($pdo, 'productos');
-$hasMovs       = tableExists($pdo, 'movimientos_stock');
+$hasVentas     = flus_table_exists($pdo, 'ventas');
+$hasVentaItems = flus_table_exists($pdo, 'venta_items');
+$hasProductos  = flus_table_exists($pdo, 'productos');
+$hasMovs       = flus_table_exists($pdo, 'movimientos_stock');
 
-$ventasFechaCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
-$ventasTotalCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
-$ventasEstadoCol = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['estado','status']) : null;
-$ventasMedioCol  = $hasVentas ? firstExistingColumn($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
+$ventasFechaCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
+$ventasTotalCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
+$ventasEstadoCol = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['estado','status']) : null;
+$ventasMedioCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
 
-$viVentaIdCol = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['venta_id']) : null;
-$viProdIdCol  = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['producto_id']) : null;
-$viQtyCol     = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['cantidad','qty']) : null;
-$viLineCol    = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['subtotal','total','importe']) : null;
-$viPriceCol   = $hasVentaItems ? firstExistingColumn($pdo, 'venta_items', ['precio_unitario','precio','unit_price']) : null;
+$viVentaIdCol = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['venta_id']) : null;
+$viProdIdCol  = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['producto_id']) : null;
+$viQtyCol     = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['cantidad','qty']) : null;
+$viLineCol    = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['subtotal','total','importe']) : null;
+$viPriceCol   = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['precio_unitario','precio','unit_price']) : null;
 
-$prodNombreCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['nombre','descripcion']) : null;
-$prodCostoCol  = $hasProductos ? firstExistingColumn($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
-$prodCatCol    = $hasProductos ? firstExistingColumn($pdo, 'productos', ['categoria','rubro','familia']) : null;
-$prodStockCol  = $hasProductos ? firstExistingColumn($pdo, 'productos', ['stock']) : null;
-$prodActivoCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['activo','is_active']) : null;
-$prodPrecioCol = $hasProductos ? firstExistingColumn($pdo, 'productos', ['precio','precio_venta','price']) : null;
+$prodNombreCol = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['nombre','descripcion']) : null;
+$prodCostoCol  = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['costo','costo_unitario','cost']) : null;
+$prodCatCol    = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['categoria','rubro','familia']) : null;
+$prodStockCol  = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['stock']) : null;
+$prodActivoCol = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['activo','is_active']) : null;
+$prodPrecioCol = $hasProductos ? flus_first_existing_column($pdo, 'productos', ['precio','precio_venta','price']) : null;
 
-$msFechaCol = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
-$msTipoCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['tipo']) : null;
-$msCantCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['cantidad']) : null;
-$msProdCol  = $hasMovs ? firstExistingColumn($pdo, 'movimientos_stock', ['producto_id']) : null;
+$msFechaCol = $hasMovs ? flus_first_existing_column($pdo, 'movimientos_stock', ['fecha','created_at']) : null;
+$msTipoCol  = $hasMovs ? flus_first_existing_column($pdo, 'movimientos_stock', ['tipo']) : null;
+$msCantCol  = $hasMovs ? flus_first_existing_column($pdo, 'movimientos_stock', ['cantidad']) : null;
+$msProdCol  = $hasMovs ? flus_first_existing_column($pdo, 'movimientos_stock', ['producto_id']) : null;
 
 $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPriceCol): ?string {
   if ($viLineCol) return "{$alias}.`{$viLineCol}`";
