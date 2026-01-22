@@ -126,9 +126,9 @@ $footer  = config_get($pdo, 'ticket_footer', 'Gracias por su compra');
 /* =========================
    Query venta
 ========================= */
-$selectUser  = (has_col($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
-$selectBruto = has_col($pdo, 'ventas', 'total_bruto');
-$selectDescT = has_col($pdo, 'ventas', 'descuento_total');
+$selectUser  = (has_column($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
+$selectBruto = has_column($pdo, 'ventas', 'total_bruto');
+$selectDescT = has_column($pdo, 'ventas', 'descuento_total');
 
 $sqlVenta = "
   SELECT

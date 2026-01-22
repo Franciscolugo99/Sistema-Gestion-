@@ -7,7 +7,6 @@ require_once __DIR__ . '/../src/db_helpers.php';
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
-require_once FLUS_ROOT . '/src/db_schema.php';
 
 
 /* =========================
