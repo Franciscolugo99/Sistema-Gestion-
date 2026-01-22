@@ -509,10 +509,11 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css?v=4', 'assets/css/ventas-autocomplete.css?v=1'];
+$extraCss = ['assets/css/ventas.css?v=4','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2'];
 $extraJs = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-  'assets/js/ventas.js?v=4.1'
+  'assets/js/ventas.js?v=4.1',
+  'assets/js/ventas_kpis.js?v=2'
 ];
 
 require __DIR__ . '/partials/header.php';
@@ -540,51 +541,43 @@ unset($queryParams['page']);
       <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary">💾 Exportar</a>
     </div>
   </div>
+  
+<!-- KPIs (Operativos) -->
+<section id="ventas-kpis" class="ventas-kpis">
+  <div class="vkpi-grid">
+    <div class="vkpi-card">
+      <div class="vkpi-label">Tickets (emitidas)</div>
+      <div class="vkpi-value" data-kpi="tickets"><?= number_format((int)($stats['cnt_hoy'] ?? 0)) ?></div>
+    </div>
 
-  <!-- KPIs -->
-  <div class="kpis-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon">🛒</div>
-      <div class="kpi-content">
-        <span class="kpi-value"><?= number_format($stats['cnt_hoy']) ?></span>
-        <span class="kpi-label">Ventas <?= h($stats['periodo_label']) ?></span>
-        <?php if ($stats['diff_ventas'] != 0): ?>
-          <span class="kpi-trend <?= $stats['diff_ventas'] > 0 ? 'up' : 'down' ?>" title="vs período anterior">
-            <?= $stats['diff_ventas'] > 0 ? '↑' : '↓' ?> <?= abs($stats['diff_ventas']) ?>%
-          </span>
-        <?php endif; ?>
-      </div>
+    <div class="vkpi-card">
+      <div class="vkpi-label">Facturación (emitidas)</div>
+      <div class="vkpi-value" data-kpi="facturacion"><?= money((float)($stats['sum_hoy'] ?? 0)) ?></div>
     </div>
-    
-    <div class="kpi-card highlight">
-      <div class="kpi-icon">💰</div>
-      <div class="kpi-content">
-        <span class="kpi-value"><?= money($stats['sum_hoy']) ?></span>
-        <span class="kpi-label">Total <?= h($stats['periodo_label']) ?></span>
-        <?php if ($stats['diff_total'] != 0): ?>
-          <span class="kpi-trend <?= $stats['diff_total'] > 0 ? 'up' : 'down' ?>" title="vs período anterior">
-            <?= $stats['diff_total'] > 0 ? '↑' : '↓' ?> <?= abs($stats['diff_total']) ?>%
-          </span>
-        <?php endif; ?>
-      </div>
+
+    <div class="vkpi-card">
+      <div class="vkpi-label">Ticket promedio</div>
+      <div class="vkpi-value" data-kpi="ticket_promedio"><?= money((float)($stats['avg_hoy'] ?? 0)) ?></div>
     </div>
-    
-    <div class="kpi-card">
-      <div class="kpi-icon">🎫</div>
-      <div class="kpi-content">
-        <span class="kpi-value"><?= money($stats['avg_hoy']) ?></span>
-        <span class="kpi-label">Ticket Promedio</span>
-      </div>
+
+    <div class="vkpi-card">
+      <div class="vkpi-label">Descuentos</div>
+      <div class="vkpi-value" data-kpi="descuentos"><?= money(0) ?></div>
+      <div class="vkpi-sub" data-kpi="desc_promos">Promos: <?= money(0) ?></div>
     </div>
-    
-    <div class="kpi-card">
-      <div class="kpi-icon">💳</div>
-      <div class="kpi-content">
-        <span class="kpi-value badge-medio-<?= strtolower($stats['top_medio']) ?>"><?= h($stats['top_medio']) ?></span>
-        <span class="kpi-label">Top Medio (<?= $stats['top_medio_pct'] ?>%)</span>
-      </div>
+
+    <div class="vkpi-card">
+      <div class="vkpi-label">Anuladas</div>
+      <div class="vkpi-value" data-kpi="anuladas">0</div>
+      <div class="vkpi-sub" data-kpi="monto_anulado"><?= money(0) ?></div>
     </div>
   </div>
+
+  <div class="vkpi-pagos">
+    <div class="vkpi-pagos-title">Pagos por medio</div>
+    <div class="vkpi-chips" data-kpi="pagos"></div>
+  </div>
+</section>
 
   <!-- Gráficos (oculto por defecto) -->
   <div id="chartsPanel" class="charts-panel hidden">

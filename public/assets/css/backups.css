@@ -511,3 +511,27 @@
     word-break: break-all;
   }
 }
+
+
+/* Maintenance error details */
+.bk-details{
+  margin-top: 10px;
+}
+.bk-details summary{
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+}
+.bk-pre{
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.28);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}

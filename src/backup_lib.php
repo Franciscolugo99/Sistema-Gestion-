@@ -491,6 +491,58 @@ function find_mysql_cli(): ?array {
     return null;
 }
 
+
+/**
+ * Testea conexión a MySQL con credenciales antes de iniciar un restore.
+ * Evita entrar en modo mantenimiento si la conexión/credenciales están mal.
+ */
+function mysql_test_connection(array $mysql, array $creds, ?string &$errDetail = null): bool {
+    $errDetail = null;
+    if (!function_exists('proc_open')) {
+        $errDetail = 'proc_open no está disponible en PHP.';
+        return false;
+    }
+    $cmd = [
+        $mysql['path'],
+        '--protocol=tcp',
+        '--default-character-set=utf8mb4',
+        '--batch',
+        '--skip-column-names',
+    ];
+    if (!empty($creds['host'])) $cmd[] = '--host=' . (string)$creds['host'];
+    if (!empty($creds['port'])) $cmd[] = '--port=' . (string)$creds['port'];
+    if (!empty($creds['user'])) $cmd[] = '--user=' . (string)$creds['user'];
+    if (!empty($creds['pass'])) $cmd[] = '--password=' . (string)$creds['pass'];
+    $db = (string)($creds['name'] ?? '');
+    if ($db !== '') $cmd[] = $db;
+    $cmd[] = '--execute=SELECT 1';
+
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $proc = @proc_open($cmd, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
+    if (!is_resource($proc)) {
+        $errDetail = 'No se pudo iniciar mysql.exe para test.';
+        return false;
+    }
+    // Sin stdin
+    if (is_resource($pipes[0])) @fclose($pipes[0]);
+    $stdout = is_resource($pipes[1]) ? stream_get_contents($pipes[1]) : '';
+    $stderr = is_resource($pipes[2]) ? stream_get_contents($pipes[2]) : '';
+    if (is_resource($pipes[1])) @fclose($pipes[1]);
+    if (is_resource($pipes[2])) @fclose($pipes[2]);
+    $code = @proc_close($proc);
+
+    if ((int)$code !== 0) {
+        $errDetail = trim((string)$stderr) ?: trim((string)$stdout) ?: ('mysql test falló (exit ' . (int)$code . ')');
+        return false;
+    }
+    return true;
+}
+
+
 /**
  * Restaura la base de datos desde un backup (.sql) ubicado en storage/backups.
  *
@@ -513,7 +565,7 @@ function backup_restore(string $file, ?string &$err = null): bool {
         return false;
     }
 
-    // Lock de restauración
+    // Lock de restauración (evita doble restore)
     $lockPath = FLUS_ROOT . '/storage/restore.lock';
     $lockFp = @fopen($lockPath, 'c');
     if (!$lockFp) {
@@ -527,8 +579,10 @@ function backup_restore(string $file, ?string &$err = null): bool {
     }
 
     $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
+
     $ok = false;
     $started = false;
+    $bytesWritten = 0;
 
     // Asegurar que el proceso continúe aunque el usuario cierre el navegador
     @ignore_user_abort(true);
@@ -538,10 +592,31 @@ function backup_restore(string $file, ?string &$err = null): bool {
     $proc = null;
     $pipes = [];
 
+    // Meta de mantenimiento (se completa al iniciar)
+    $meta = [
+        'active' => true,
+        'since'  => date('c'),
+        'reason' => 'backup_restore',
+        'file'   => $file,
+    ];
+
     try {
         $mysql = find_mysql_cli();
         if (!$mysql) {
             $err = 'No se encontró mysql client (mysql.exe).';
+            return false;
+        }
+
+        $creds = get_db_credentials();
+        if (empty($creds['name'])) {
+            $err = 'Error de configuración: DB_NAME no definida.';
+            return false;
+        }
+
+        // ✅ Pre-flight: testear conexión antes de entrar en mantenimiento
+        $testErr = null;
+        if (!mysql_test_connection($mysql, $creds, $testErr)) {
+            $err = 'No se pudo conectar a MySQL para restaurar: ' . ($testErr ?: 'error desconocido');
             return false;
         }
 
@@ -552,19 +627,7 @@ function backup_restore(string $file, ?string &$err = null): bool {
         }
 
         // Activar mantenimiento (recién cuando estamos listos para importar)
-        $meta = [
-            'active' => true,
-            'since'  => date('c'),
-            'reason' => 'backup_restore',
-            'file'   => $file,
-        ];
         @file_put_contents($maintenanceFlag, json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-
-        $creds = get_db_credentials();
-        if (empty($creds['name'])) {
-            $err = 'Error de configuración: DB_NAME no definida.';
-            return false;
-        }
 
         $cmd = [
             $mysql['path'],
@@ -596,8 +659,10 @@ function backup_restore(string $file, ?string &$err = null): bool {
             $chunk = fread($fh, 1024 * 1024); // 1MB
             if ($chunk === false) break;
             if ($chunk === '') continue;
+
             $w = fwrite($pipes[0], $chunk);
             if ($w === false) break;
+            $bytesWritten += (int)$w;
         }
         @fclose($fh);
         $fh = null;
@@ -614,10 +679,21 @@ function backup_restore(string $file, ?string &$err = null): bool {
 
         if ((int)$code !== 0) {
             $err = 'mysql import falló (exit ' . (int)$code . '). ' . trim((string)$stderr);
+
+            // Guardar error en maintenance.flag para debugging
+            $meta['last_error']    = $err;
+            $meta['last_error_at'] = date('c');
+            $meta['mysql_exit']    = (int)$code;
+            $meta['bytes_written'] = (int)$bytesWritten;
+            $meta['mysql_stderr']  = mb_substr((string)$stderr, 0, 2000);
+
+            @file_put_contents($maintenanceFlag, json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
             if (function_exists('app_log')) {
                 app_log('ERROR', 'Backup restore failed', [
                     'file' => $file,
                     'code' => (int)$code,
+                    'bytes' => (int)$bytesWritten,
                     'stderr' => (string)$stderr,
                     'stdout' => (string)$stdout
                 ]);
@@ -650,4 +726,5 @@ function backup_restore(string $file, ?string &$err = null): bool {
         @fclose($lockFp);
     }
 }
+
 

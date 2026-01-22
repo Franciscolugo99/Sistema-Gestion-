@@ -234,6 +234,17 @@
           return false;
         }
 
+
+
+// ✅ Modo mantenimiento: no mostrar "servidor sin respuesta"
+if (r.status === 503) {
+  let j = null;
+  try { j = await r.json(); } catch (_) {}
+  if (j && j.error === "MAINTENANCE") {
+    return true;
+  }
+}
+
         if (r.ok) {
           try { await r.json(); } catch (_) {}
           return true;
