@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * inventario_ayuda.php
  * Componentes de ayuda contextual para el módulo de Análisis de Inventario

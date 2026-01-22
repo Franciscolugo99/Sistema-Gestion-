@@ -19,10 +19,13 @@ if (!function_exists('audit_log_event')) {
   function audit_log_event(PDO $pdo, ?int $userId, string $action, string $entity, ?int $entityId = null, array $meta = []): void {
     try {
       // Compatibilidad: si existe columna "meta" JSON, la usamos; si no, usamos "meta_json".
-      $cols = $pdo->query("SHOW COLUMNS FROM audit_log")->fetchAll(PDO::FETCH_ASSOC) ?: [];
-      $hasMeta = false;
-      foreach ($cols as $c) {
-        if (($c['Field'] ?? '') === 'meta') { $hasMeta = true; break; }
+      static $hasMeta = null;
+      if ($hasMeta === null) {
+        $cols = $pdo->query("SHOW COLUMNS FROM audit_log")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $hasMeta = false;
+        foreach ($cols as $c) {
+          if (($c['Field'] ?? '') === 'meta') { $hasMeta = true; break; }
+        }
       }
 
       $metaJson = empty($meta) ? null : json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

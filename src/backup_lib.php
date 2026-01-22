@@ -34,6 +34,51 @@ function sh_quote(string $s): string {
     return escapeshellarg($s);
 }
 
+
+/**
+ * Crea un archivo temporal de credenciales para mysql/mysqldump.
+ * Evita exponer el password en la línea de comandos (lista de procesos).
+ *
+ * Nota: --defaults-extra-file debe ir como primera opción luego del binario.
+ *
+ * @return string|null Ruta del archivo temporal, o null si no se pudo crear.
+ */
+function flus_mysql_make_defaults_file(array $db): ?string {
+    $tmp = @tempnam(sys_get_temp_dir(), 'flus_mysql_');
+    if (!$tmp) return null;
+
+    // MySQL lee cualquier extensión, pero mantenemos formato .cnf para claridad
+    $cnf = $tmp . '.cnf';
+    @rename($tmp, $cnf);
+
+    $lines = [];
+    $lines[] = "[client]";
+    if (!empty($db['user'])) $lines[] = "user=" . (string)$db['user'];
+    if (array_key_exists('pass', $db) && $db['pass'] !== '') $lines[] = "password=" . (string)$db['pass'];
+    if (!empty($db['host'])) $lines[] = "host=" . (string)$db['host'];
+    if (!empty($db['port'])) $lines[] = "port=" . (string)$db['port'];
+
+    $body = implode(PHP_EOL, $lines) . PHP_EOL;
+
+    $ok = @file_put_contents($cnf, $body, LOCK_EX);
+    if ($ok === false) {
+        @unlink($cnf);
+        return null;
+    }
+
+    // Endurecer permisos en Unix
+    if (stripos(PHP_OS_FAMILY, 'Windows') !== 0) {
+        @chmod($cnf, 0600);
+    }
+
+    return $cnf;
+}
+
+function flus_mysql_delete_defaults_file(?string $path): void {
+    if (!$path) return;
+    @unlink($path);
+}
+
 /**
  * Busca mysqldump en ubicaciones comunes
  */
@@ -181,7 +226,18 @@ function backup_create(?string &$err = null): ?string {
 
     // Construir comando mysqldump
     $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
-    
+
+    // ✅ Evitar exponer password en args: usamos --defaults-extra-file si hay pass
+    $defaultsFile = null;
+    if ($db['pass'] !== '') {
+        $defaultsFile = flus_mysql_make_defaults_file($db);
+        if (!$defaultsFile) {
+            $err = 'No se pudo crear el archivo temporal de credenciales para mysqldump.';
+            app_log('ERROR', 'backup_create: defaults-extra-file no se pudo crear');
+            return null;
+        }
+    }
+
     if ($isWindows) {
         // En Windows, formato especial para evitar problemas con espacios y comillas
         $args = [
@@ -195,12 +251,11 @@ function backup_create(?string &$err = null): ?string {
             '--add-drop-table',
             '--skip-comments',
         ];
-        
-        // Agregar password si existe
-        if ($db['pass'] !== '') {
-            $args[] = '--password=' . $db['pass'];
+
+        if ($defaultsFile) {
+            array_unshift($args, '--defaults-extra-file=' . sh_quote($defaultsFile));
         }
-        
+
         // Agregar database
         $args[] = $db['name'];
         
@@ -224,11 +279,11 @@ function backup_create(?string &$err = null): ?string {
             '--add-drop-table',
             '--skip-comments',
         ];
-        
-        if ($db['pass'] !== '') {
-            $args[] = '--password=' . escapeshellarg($db['pass']);
+
+        if ($defaultsFile) {
+            array_unshift($args, '--defaults-extra-file=' . escapeshellarg($defaultsFile));
         }
-        
+
         $args[] = escapeshellarg($db['name']);
         
         $cmd = sprintf(
@@ -239,12 +294,12 @@ function backup_create(?string &$err = null): ?string {
         );
     }
     
-    app_log('DEBUG', 'Ejecutando mysqldump', ['cmd' => $cmd]);
-
+    app_log('DEBUG', 'Ejecutando mysqldump', ['bin' => $mysqldump, 'out' => $fullPath]);
     // Ejecutar comando
     $output = [];
     $returnCode = 0;
     @exec($cmd, $output, $returnCode);
+    flus_mysql_delete_defaults_file($defaultsFile);
     
     // Verificar resultado
     if ($returnCode !== 0) {
@@ -502,17 +557,32 @@ function mysql_test_connection(array $mysql, array $creds, ?string &$errDetail =
         $errDetail = 'proc_open no está disponible en PHP.';
         return false;
     }
+
+    $defaultsFile = null;
+    if (!empty($creds['pass'])) {
+        $defaultsFile = flus_mysql_make_defaults_file($creds);
+        if (!$defaultsFile) {
+            $errDetail = 'No se pudo crear el archivo temporal de credenciales para mysql.';
+            return false;
+        }
+    }
+
     $cmd = [
         $mysql['path'],
-        '--protocol=tcp',
-        '--default-character-set=utf8mb4',
-        '--batch',
-        '--skip-column-names',
     ];
+    if ($defaultsFile) {
+        // Debe ser la primera opción luego del binario
+        $cmd[] = '--defaults-extra-file=' . $defaultsFile;
+    }
+    $cmd[] = '--protocol=tcp';
+    $cmd[] = '--default-character-set=utf8mb4';
+    $cmd[] = '--batch';
+    $cmd[] = '--skip-column-names';
+
     if (!empty($creds['host'])) $cmd[] = '--host=' . (string)$creds['host'];
     if (!empty($creds['port'])) $cmd[] = '--port=' . (string)$creds['port'];
     if (!empty($creds['user'])) $cmd[] = '--user=' . (string)$creds['user'];
-    if (!empty($creds['pass'])) $cmd[] = '--password=' . (string)$creds['pass'];
+
     $db = (string)($creds['name'] ?? '');
     if ($db !== '') $cmd[] = $db;
     $cmd[] = '--execute=SELECT 1';
@@ -522,25 +592,46 @@ function mysql_test_connection(array $mysql, array $creds, ?string &$errDetail =
         1 => ['pipe', 'w'],
         2 => ['pipe', 'w'],
     ];
-    $proc = @proc_open($cmd, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
-    if (!is_resource($proc)) {
-        $errDetail = 'No se pudo iniciar mysql.exe para test.';
-        return false;
-    }
-    // Sin stdin
-    if (is_resource($pipes[0])) @fclose($pipes[0]);
-    $stdout = is_resource($pipes[1]) ? stream_get_contents($pipes[1]) : '';
-    $stderr = is_resource($pipes[2]) ? stream_get_contents($pipes[2]) : '';
-    if (is_resource($pipes[1])) @fclose($pipes[1]);
-    if (is_resource($pipes[2])) @fclose($pipes[2]);
-    $code = @proc_close($proc);
 
-    if ((int)$code !== 0) {
-        $errDetail = trim((string)$stderr) ?: trim((string)$stdout) ?: ('mysql test falló (exit ' . (int)$code . ')');
-        return false;
+    $proc = null;
+    $pipes = [];
+
+    try {
+        $proc = @proc_open($cmd, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
+        if (!is_resource($proc)) {
+            $errDetail = 'No se pudo iniciar el proceso mysql para testear conexión.';
+            return false;
+        }
+
+        // No escribimos nada
+        if (isset($pipes[0]) && is_resource($pipes[0])) @fclose($pipes[0]);
+
+        $stdout = (isset($pipes[1]) && is_resource($pipes[1])) ? stream_get_contents($pipes[1]) : '';
+        $stderr = (isset($pipes[2]) && is_resource($pipes[2])) ? stream_get_contents($pipes[2]) : '';
+
+        if (isset($pipes[1]) && is_resource($pipes[1])) @fclose($pipes[1]);
+        if (isset($pipes[2]) && is_resource($pipes[2])) @fclose($pipes[2]);
+
+        $code = @proc_close($proc);
+        $proc = null;
+
+        if ((int)$code !== 0) {
+            $errDetail = trim((string)$stderr) !== '' ? trim((string)$stderr) : trim((string)$stdout);
+            if ($errDetail === '') $errDetail = 'mysql devolvió exit ' . (int)$code;
+            return false;
+        }
+
+        return true;
+
+    } finally {
+        flus_mysql_delete_defaults_file($defaultsFile);
+        foreach ($pipes as $p) {
+            if (is_resource($p)) @fclose($p);
+        }
+        if (is_resource($proc)) @proc_close($proc);
     }
-    return true;
 }
+
 
 
 /**
@@ -631,14 +722,27 @@ function backup_restore(string $file, ?string &$err = null): bool {
 
         $cmd = [
             $mysql['path'],
-            '--protocol=tcp',
-            '--default-character-set=utf8mb4',
         ];
+
+        if (!empty($creds['pass'])) {
+            $defaultsFile = flus_mysql_make_defaults_file($creds);
+            if (!$defaultsFile) {
+                $err = 'No se pudo crear el archivo temporal de credenciales para mysql.';
+                return false;
+            }
+            // Debe ser la primera opción luego del binario
+            $cmd[] = '--defaults-extra-file=' . $defaultsFile;
+        }
+
+        $cmd[] = '--protocol=tcp';
+        $cmd[] = '--default-character-set=utf8mb4';
+
         if (!empty($creds['host'])) $cmd[] = '--host=' . (string)$creds['host'];
         if (!empty($creds['port'])) $cmd[] = '--port=' . (string)$creds['port'];
         if (!empty($creds['user'])) $cmd[] = '--user=' . (string)$creds['user'];
-        if (!empty($creds['pass'])) $cmd[] = '--password=' . (string)$creds['pass'];
+
         $cmd[] = (string)$creds['name'];
+
 
         // Importar por STDIN (evita redirecciones y es más robusto)
         $descriptors = [

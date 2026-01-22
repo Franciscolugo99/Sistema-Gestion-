@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // src/facturacion_lib.php
 require_once __DIR__ . '/config.php';
 

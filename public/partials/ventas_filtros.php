@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 // partials/ventas_filtros.php
 
 $estado = $estado ?? '';

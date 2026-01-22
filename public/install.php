@@ -51,6 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
       ]);
       $pdo->query('SELECT 1');
 
+      // Generar APP_SECRET fuerte (para tickets públicos, tokens, etc.)
+      $appSecret = '';
+      try {
+        $appSecret = bin2hex(random_bytes(32));
+      } catch (Throwable $e) {
+        if (function_exists('openssl_random_pseudo_bytes')) {
+          $appSecret = bin2hex(openssl_random_pseudo_bytes(32));
+        } else {
+          $appSecret = bin2hex((string)microtime(true) . (string)mt_rand());
+        }
+      }
+      if (strlen($appSecret) < 32) { $appSecret = str_pad($appSecret, 64, '0'); }
+
+
       // Crear config.php (con CONSTANTES + SINGLETON - compatible con auth.php)
       $config = "<?php\n".
         "// src/config.php (generado por install.php)\n".
@@ -68,9 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
         "// ============================================\n".
         "// CONFIGURACIÓN DE APLICACIÓN\n".
         "// ============================================\n".
+        "require_once __DIR__ . '/version.php';\n".
         "define('APP_DEBUG', false);  // true para desarrollo\n".
         "define('APP_NAME', 'FLUS');\n".
-        "define('APP_VERSION', '2.1.3');\n\n".
+        "defined('APP_VERSION') || define('APP_VERSION', defined('FLUS_VERSION') ? FLUS_VERSION : 'dev');\n".
+        "defined('APP_BUILD')   || define('APP_BUILD',   defined('FLUS_BUILD') ? FLUS_BUILD : '');\n".
+        "define('APP_SECRET', " . var_export($appSecret, true) . ");\n\n".
         "// ============================================\n".
         "// CONEXIÓN PDO (singleton)\n".
         "// ============================================\n".

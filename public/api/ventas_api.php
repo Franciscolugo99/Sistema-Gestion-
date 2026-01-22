@@ -68,7 +68,7 @@ function generateTicketToken(int $ventaId, int $ts, string $secret = ''): string
   if (!$secret) {
     $secret = getAppSecret();
   }
-  return substr(hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", $secret), 0, 16);
+  return substr(hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", $secret), 0, 32);
 }
 
 /**
@@ -85,11 +85,13 @@ function validateTicketToken(int $ventaId, int $ts, string $token): bool {
   if (($now - $ts) > $ttl) return false;
 
   try {
-    $expected = generateTicketToken($ventaId, $ts);
+    // Compat: aceptar tokens viejos (16 hex) y nuevos (32 hex)
+    $expected32 = generateTicketToken($ventaId, $ts);
+    $expected16 = substr($expected32, 0, 16);
   } catch (Throwable $e) {
     return false;
   }
-  return hash_equals($expected, $token);
+  return hash_equals($expected32, $token) || hash_equals($expected16, $token);
 }
 
 /**
