@@ -191,7 +191,7 @@ curl http://localhost/flus/public/api/index.php?action=health
    - Agregar `storage/restore.lock` al `.gitignore` (runtime, no va al repo).
    - Si vas a usar **ticket público**, definir un `APP_SECRET` real en el **servidor** (no usar el secreto por defecto).
      - Recomendado: persistirlo en `storage/app_secret.key` para que no cambie entre upgrades.
-     - Nota: el token actual no expira por tiempo (TTL). Si querés vencimiento, agregar `ts` al link y validar ventana.
+     - El link incluye `ts` y el token **expira**: TTL por defecto 7 días (configurable con `TICKET_TOKEN_TTL_SECONDS`).
    - Si tu instalación usa pagos mixtos: la tabla `venta_pagos` mejora la calidad de los reportes; si no existe, FLUS funciona igual (modo compat).
 
 4. **Verificación rápida**

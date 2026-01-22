@@ -12,7 +12,7 @@
 #### Ticket público compartible (link firmado)
 - Nuevo `public/ticket_publico.php` para acceder a un ticket vía link con **token**.
 - La API puede generar el link/token para compartir y preparar envío por WhatsApp/Email.
-- Nota: el token actual no expira por tiempo (TTL). Si querés vencimiento, agregar `ts` al link y validar ventana de tiempo.
+- El link incluye `ts` y el token **expira**: TTL por defecto 7 días (configurable con `TICKET_TOKEN_TTL_SECONDS`).
 - **Consideración**: definir un `APP_SECRET` propio en el servidor (evitar secreto por defecto).
   - Recomendado persistirlo en `storage/app_secret.key` para que no cambie en upgrades.
 
