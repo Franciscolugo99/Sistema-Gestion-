@@ -126,3 +126,4 @@ storage/cache/
 *.swo
 .DS_Store
 Thumbs.db
+storage/restore.lock
