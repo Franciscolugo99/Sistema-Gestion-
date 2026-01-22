@@ -123,12 +123,14 @@ function find_mysqldump(): ?array {
 function get_db_credentials(): array {
     // Prioridad 1: Constantes definidas con define()
     $host = defined('DB_HOST') ? DB_HOST : ($GLOBALS['DB_HOST'] ?? 'localhost');
+    $port = defined('DB_PORT') ? DB_PORT : ($GLOBALS['DB_PORT'] ?? '3306');
     $name = defined('DB_NAME') ? DB_NAME : ($GLOBALS['DB_NAME'] ?? '');
     $user = defined('DB_USER') ? DB_USER : ($GLOBALS['DB_USER'] ?? 'root');
     $pass = defined('DB_PASS') ? DB_PASS : ($GLOBALS['DB_PASS'] ?? '');
     
     return [
         'host' => (string)$host,
+        'port' => (string)$port,
         'name' => (string)$name,
         'user' => (string)$user,
         'pass' => (string)$pass,
@@ -418,3 +420,234 @@ function backup_diagnostics(): array {
         'backups_count' => count(backup_list()),
     ];
 }
+/* ==========================================================================
+   RESTORE (importar .sql)
+   Nota: restaura la DB desde un backup generado por mysqldump.
+   Seguridad:
+   - valida nombre de archivo
+   - lock de restauración
+   - activa maintenance.flag durante el proceso
+========================================================================== */
+
+function find_mysql_cli(): ?array {
+    $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
+
+    // Constante opcional
+    if (defined('MYSQL_BIN') && MYSQL_BIN && file_exists(MYSQL_BIN)) {
+        $path = MYSQL_BIN;
+        $output = [];
+        $rc = 0;
+        $testCmd = sh_quote($path) . ' --version 2>&1';
+        @exec($testCmd, $output, $rc);
+        if ($rc === 0) {
+            return ['path' => $path, 'version' => implode(' ', $output)];
+        }
+    }
+
+    $candidates = [];
+    if ($isWindows) {
+        $candidates = [
+            'C:\\xampp\\mysql\\bin\\mysql.exe',
+            'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysql.exe',
+            'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysql.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe',
+            'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysql.exe',
+        ];
+
+        $output = [];
+        $rc = 0;
+        @exec('where mysql 2>nul', $output, $rc);
+        if ($rc === 0 && !empty($output[0])) {
+            array_unshift($candidates, $output[0]);
+        }
+    } else {
+        $candidates = [
+            '/usr/bin/mysql',
+            '/usr/local/bin/mysql',
+            '/usr/local/mysql/bin/mysql',
+            '/opt/lampp/bin/mysql',
+        ];
+
+        $output = [];
+        $rc = 0;
+        @exec('which mysql 2>/dev/null', $output, $rc);
+        if ($rc === 0 && !empty($output[0])) {
+            array_unshift($candidates, $output[0]);
+        }
+    }
+
+    foreach ($candidates as $path) {
+        if (is_file($path)) {
+            $output = [];
+            $rc = 0;
+            $testCmd = sh_quote($path) . ' --version 2>&1';
+            @exec($testCmd, $output, $rc);
+            if ($rc === 0) {
+                return ['path' => $path, 'version' => implode(' ', $output)];
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Restaura la base de datos desde un backup (.sql) ubicado en storage/backups.
+ *
+ * IMPORTANTE: esto reemplaza datos existentes.
+ */
+function backup_restore(string $file, ?string &$err = null): bool {
+    $err = null;
+
+    // Sanitizar y validar nombre
+    $file = basename($file);
+    if (!preg_match('/^[A-Za-z0-9_.-]+\.sql$/', $file)) {
+        $err = 'Nombre de archivo inválido.';
+        return false;
+    }
+
+    $dir  = backups_dir();
+    $path = $dir . DIRECTORY_SEPARATOR . $file;
+    if (!is_file($path)) {
+        $err = 'Archivo no encontrado.';
+        return false;
+    }
+
+    // Lock de restauración
+    $lockPath = FLUS_ROOT . '/storage/restore.lock';
+    $lockFp = @fopen($lockPath, 'c');
+    if (!$lockFp) {
+        $err = 'No se pudo crear lock de restauración.';
+        return false;
+    }
+    if (!@flock($lockFp, LOCK_EX | LOCK_NB)) {
+        @fclose($lockFp);
+        $err = 'Ya hay una restauración en curso.';
+        return false;
+    }
+
+    $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
+    $ok = false;
+    $started = false;
+
+    // Asegurar que el proceso continúe aunque el usuario cierre el navegador
+    @ignore_user_abort(true);
+    @set_time_limit(0);
+
+    $fh = null;
+    $proc = null;
+    $pipes = [];
+
+    try {
+        $mysql = find_mysql_cli();
+        if (!$mysql) {
+            $err = 'No se encontró mysql client (mysql.exe).';
+            return false;
+        }
+
+        $fh = @fopen($path, 'rb');
+        if (!$fh) {
+            $err = 'No se pudo abrir el archivo de backup.';
+            return false;
+        }
+
+        // Activar mantenimiento (recién cuando estamos listos para importar)
+        $meta = [
+            'active' => true,
+            'since'  => date('c'),
+            'reason' => 'backup_restore',
+            'file'   => $file,
+        ];
+        @file_put_contents($maintenanceFlag, json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        $creds = get_db_credentials();
+        if (empty($creds['name'])) {
+            $err = 'Error de configuración: DB_NAME no definida.';
+            return false;
+        }
+
+        $cmd = [
+            $mysql['path'],
+            '--protocol=tcp',
+            '--default-character-set=utf8mb4',
+        ];
+        if (!empty($creds['host'])) $cmd[] = '--host=' . (string)$creds['host'];
+        if (!empty($creds['port'])) $cmd[] = '--port=' . (string)$creds['port'];
+        if (!empty($creds['user'])) $cmd[] = '--user=' . (string)$creds['user'];
+        if (!empty($creds['pass'])) $cmd[] = '--password=' . (string)$creds['pass'];
+        $cmd[] = (string)$creds['name'];
+
+        // Importar por STDIN (evita redirecciones y es más robusto)
+        $descriptors = [
+            0 => ['pipe', 'w'],
+            1 => ['pipe', 'r'],
+            2 => ['pipe', 'r'],
+        ];
+
+        $proc = @proc_open($cmd, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
+        if (!is_resource($proc)) {
+            $err = 'No se pudo iniciar el proceso mysql.';
+            return false;
+        }
+        $started = true;
+
+        // Escribir en stdin
+        while (!feof($fh)) {
+            $chunk = fread($fh, 1024 * 1024); // 1MB
+            if ($chunk === false) break;
+            if ($chunk === '') continue;
+            $w = fwrite($pipes[0], $chunk);
+            if ($w === false) break;
+        }
+        @fclose($fh);
+        $fh = null;
+        @fclose($pipes[0]);
+
+        // Leer salida / errores
+        $stdout = is_resource($pipes[1]) ? stream_get_contents($pipes[1]) : '';
+        $stderr = is_resource($pipes[2]) ? stream_get_contents($pipes[2]) : '';
+        if (is_resource($pipes[1])) @fclose($pipes[1]);
+        if (is_resource($pipes[2])) @fclose($pipes[2]);
+
+        $code = @proc_close($proc);
+        $proc = null;
+
+        if ((int)$code !== 0) {
+            $err = 'mysql import falló (exit ' . (int)$code . '). ' . trim((string)$stderr);
+            if (function_exists('app_log')) {
+                app_log('ERROR', 'Backup restore failed', [
+                    'file' => $file,
+                    'code' => (int)$code,
+                    'stderr' => (string)$stderr,
+                    'stdout' => (string)$stdout
+                ]);
+            }
+            return false;
+        }
+
+        $ok = true;
+        if (function_exists('app_log')) {
+            app_log('INFO', 'Backup restaurado', ['file' => $file]);
+        }
+        return true;
+
+    } finally {
+        if (is_resource($fh)) @fclose($fh);
+
+        foreach ($pipes as $p) {
+            if (is_resource($p)) @fclose($p);
+        }
+
+        if (is_resource($proc)) @proc_close($proc);
+
+        // Si salió OK, o si nunca llegó a importar, quitar mantenimiento.
+        // Si falló habiendo importado, dejamos el flag para evitar operar en estado incierto.
+        if (($ok || !$started) && is_file($maintenanceFlag)) {
+            @unlink($maintenanceFlag);
+        }
+
+        @flock($lockFp, LOCK_UN);
+        @fclose($lockFp);
+    }
+}
+

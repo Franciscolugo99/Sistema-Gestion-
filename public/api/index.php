@@ -8,6 +8,16 @@ define('FLUS_API_CONTEXT', true);
 
 require_once __DIR__ . '/../lib/root.php';
 
+// ✅ Modo mantenimiento: bloquear API mientras se restaura la DB
+$maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
+if (is_file($maintenanceFlag)) {
+  if (ob_get_length()) ob_clean();
+  http_response_code(503);
+  echo json_encode(['ok'=>false,'error'=>'MAINTENANCE','hint'=>'Sistema en mantenimiento. Reintentá luego.'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  exit;
+}
+
+
 // API JSON: nunca romper por warnings/HTML
 error_reporting(E_ALL);
 ini_set('display_errors', '0');

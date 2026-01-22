@@ -1,0 +1,140 @@
+/* ventas-autocomplete.css - Estilos para autocomplete de clientes */
+
+/* ==========================================
+   CLIENTE AUTOCOMPLETE
+========================================== */
+.cliente-autocomplete {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cliente-autocomplete input[type="text"] {
+  flex: 1;
+  min-width: 180px;
+}
+
+.cliente-autocomplete .btn-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.cliente-autocomplete .btn-clear:hover {
+  opacity: 1;
+  color: var(--danger, #ef4444);
+}
+
+.cliente-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--panel-bg, #1e293b);
+  border: 1px solid var(--panel-border, #334155);
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 4px;
+  
+  /* Oculto por defecto */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s ease;
+}
+
+.cliente-dropdown.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.cliente-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel-border, #334155);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.15s;
+}
+
+.cliente-item:last-child {
+  border-bottom: none;
+}
+
+.cliente-item:hover,
+.cliente-item.active {
+  background: var(--hover-bg, rgba(6, 182, 212, 0.1));
+}
+
+.cliente-item.active {
+  background: var(--primary, #0ea5e9);
+  color: white;
+}
+
+.cliente-item.active .cliente-doc {
+  color: rgba(255,255,255,0.8);
+}
+
+.cliente-nombre {
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cliente-doc {
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  font-family: monospace;
+}
+
+.cliente-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.9rem;
+}
+
+/* Ajuste para el filtro de cliente en la grilla */
+.filtro-cliente {
+  min-width: 220px;
+}
+
+.filtro-cliente .cliente-autocomplete input[type="text"] {
+  padding-right: 32px; /* Espacio para el botón X */
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+@media (max-width: 768px) {
+  .cliente-autocomplete {
+    width: 100%;
+  }
+  
+  .cliente-dropdown {
+    max-height: 200px;
+  }
+  
+  .filtro-cliente {
+    min-width: 100%;
+  }
+}

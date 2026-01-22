@@ -1,5 +1,5 @@
 <?php
-// public/ventas.php - Versión optimizada usando v_ventas_completo
+// public/ventas.php - Módulo de Ventas FLUS v4.1 (Corregido para BD)
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -10,9 +10,24 @@ require_permission('ver_reportes');
    Helpers
 ========================= */
 function has_table(PDO $pdo, string $table): bool {
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-  $st->execute([$table]);
-  return (bool)$st->fetchColumn();
+  static $cache = [];
+  if (!isset($cache[$table])) {
+    $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
+    $st->execute([$table]);
+    $cache[$table] = (bool)$st->fetchColumn();
+  }
+  return $cache[$table];
+}
+
+function has_column(PDO $pdo, string $table, string $column): bool {
+  static $cache = [];
+  $key = "$table.$column";
+  if (!isset($cache[$key])) {
+    $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
+    $st->execute([$table, $column]);
+    $cache[$key] = (bool)$st->fetchColumn();
+  }
+  return $cache[$key];
 }
 
 function has_view(PDO $pdo, string $view): bool {
@@ -20,87 +35,83 @@ function has_view(PDO $pdo, string $view): bool {
   $st->execute([$view]);
   return (bool)$st->fetchColumn();
 }
-function has_column(PDO $pdo, string $table, string $column): bool {
-  $st = $pdo->prepare("
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = ?
-      AND COLUMN_NAME = ?
-    LIMIT 1
-  ");
-  $st->execute([$table, $column]);
-  return (bool)$st->fetchColumn();
-}
 
-function first_column(PDO $pdo, string $table, array $candidates): ?string {
-  foreach ($candidates as $c) {
-    if (has_column($pdo, $table, $c)) return $c;
+/* Paginación numérica */
+function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
+  if ($totalPages <= 1) return '';
+  
+  unset($params['page']);
+  $html = '<div class="pagination">';
+  
+  if ($showInfo && $total > 0) {
+    $html .= '<span class="pagination-info">' . number_format($from) . '-' . number_format($to) . ' de ' . number_format($total) . '</span>';
   }
-  return null;
+  
+  $html .= '<div class="pagination-btns">';
+  
+  // Anterior
+  if ($page > 1) {
+    $params['page'] = $page - 1;
+    $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">‹</a>';
+  } else {
+    $html .= '<span class="pg-btn disabled">‹</span>';
+  }
+  
+  // Páginas
+  $start = max(1, $page - 2);
+  $end = min($totalPages, $page + 2);
+  
+  if ($start > 1) {
+    $params['page'] = 1;
+    $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">1</a>';
+    if ($start > 2) $html .= '<span class="pg-ellipsis">…</span>';
+  }
+  
+  for ($i = $start; $i <= $end; $i++) {
+    $params['page'] = $i;
+    $html .= ($i === $page) 
+      ? '<span class="pg-btn active">' . $i . '</span>'
+      : '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $i . '</a>';
+  }
+  
+  if ($end < $totalPages) {
+    if ($end < $totalPages - 1) $html .= '<span class="pg-ellipsis">…</span>';
+    $params['page'] = $totalPages;
+    $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $totalPages . '</a>';
+  }
+  
+  // Siguiente
+  if ($page < $totalPages) {
+    $params['page'] = $page + 1;
+    $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">›</a>';
+  } else {
+    $html .= '<span class="pg-btn disabled">›</span>';
+  }
+  
+  $html .= '</div></div>';
+  return $html;
 }
-
 
 /* =========================
-   Inicialización segura
+   Inicialización
 ========================= */
-$stats = [
-  'cnt' => 0,
-  'sum_total' => 0,
-  'sum_pagado' => 0,
-  'avg_total' => 0,
-  // Nuevas estadísticas
-  'cnt_hoy' => 0,
-  'sum_hoy' => 0,
-  'avg_hoy' => 0,
-  'cnt_ayer' => 0,
-  'sum_ayer' => 0,
-  'diff_ventas' => 0,
-  'diff_total' => 0,
-  'top_medio' => 'N/A',
-  'top_medio_pct' => 0,
-];
-
+$stats = ['cnt_hoy' => 0, 'sum_hoy' => 0, 'avg_hoy' => 0, 'cnt_ayer' => 0, 'sum_ayer' => 0, 'diff_ventas' => 0, 'diff_total' => 0, 'top_medio' => 'N/A', 'top_medio_pct' => 0, 'periodo_label' => 'Hoy'];
 $ventas = [];
-$promosActivas = 0;
-
 $totalRows = 0;
 $totalPages = 1;
 $page = 1;
 $perPage = 20;
-$offset = 0;
 $fromRow = 0;
 $toRow = 0;
 
-// Filtros existentes
-$allowedMedios = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO', 'SIN_ESPECIFICAR'];
-$allowedEstados = ['', 'EMITIDA', 'ANULADA'];
-
-$medio = '';
-$estado = '';
-$desde = '';
-$hasta = '';
-$venta_id = '';
-$min_total_raw = '';
-$max_total_raw = '';
-$min_total = null;
-$max_total = null;
-
-// NUEVOS FILTROS
-$cliente_id = '';
-$producto_id = '';
-$terminal_id = '';
-$vendedor_id = '';
-$facturado = '';
-$con_descuento = '';
-$tag = '';
-
 /* =========================
-   Detectar tablas/vistas
+   Detectar tablas y columnas
 ========================= */
 $hasVentaPagos = has_table($pdo, 'venta_pagos');
-$hasVentaTags = has_table($pdo, 'venta_tags');
 $hasVentasCompleto = has_view($pdo, 'v_ventas_completo');
+$hasTerminalId = has_column($pdo, 'ventas', 'terminal_id');
+$hasDescuentoMonto = has_column($pdo, 'ventas', 'descuento_monto');
+$hasDescuentoTotal = has_column($pdo, 'ventas', 'descuento_total');
 
 /* =========================
    Limpiar filtros
@@ -113,52 +124,25 @@ if (isset($_GET['clear'])) {
 /* =========================
    Procesar filtros
 ========================= */
-$medio  = strtoupper(trim((string)($_GET['medio'] ?? '')));
-$estado = strtoupper(trim((string)($_GET['estado'] ?? '')));
+$medio = strtoupper(trim($_GET['medio'] ?? ''));
+$estado = strtoupper(trim($_GET['estado'] ?? ''));
+$desde = validDateYmd($_GET['desde'] ?? null);
+$hasta = validDateYmd($_GET['hasta'] ?? null);
+$venta_id = trim($_GET['venta_id'] ?? '');
+$cliente_id = isset($_GET['cliente_id']) && ctype_digit($_GET['cliente_id']) ? (int)$_GET['cliente_id'] : 0;
 
-if (!in_array($estado, $allowedEstados, true)) $estado = '';
+// Filtro horario
+$hora_desde = trim($_GET['hora_desde'] ?? '');
+$hora_hasta = trim($_GET['hora_hasta'] ?? '');
+if ($hora_desde && !preg_match('/^\d{2}:\d{2}$/', $hora_desde)) $hora_desde = '';
+if ($hora_hasta && !preg_match('/^\d{2}:\d{2}$/', $hora_hasta)) $hora_hasta = '';
 
-$desde    = validDateYmd($_GET['desde'] ?? null);
-$hasta    = validDateYmd($_GET['hasta'] ?? null);
-$venta_id = trim((string)($_GET['venta_id'] ?? ''));
-
-$min_total_raw = (string)($_GET['min_total'] ?? '');
-$max_total_raw = (string)($_GET['max_total'] ?? '');
-
-if ($min_total_raw !== '') $min_total = parse_money_ar($min_total_raw);
-if ($max_total_raw !== '') $max_total = parse_money_ar($max_total_raw);
-
-if ($min_total !== null && $max_total !== null && $min_total > $max_total) {
-  [$min_total, $max_total] = [$max_total, $min_total];
-}
-
-// NUEVOS FILTROS
-$cliente_id = isset($_GET['cliente_id']) && ctype_digit($_GET['cliente_id']) 
-  ? (int)$_GET['cliente_id'] 
-  : 0;
-
-$producto_id = isset($_GET['producto_id']) && ctype_digit($_GET['producto_id']) 
-  ? (int)$_GET['producto_id'] 
-  : 0;
-
-$terminal_id = isset($_GET['terminal_id']) && ctype_digit($_GET['terminal_id']) 
-  ? (int)$_GET['terminal_id'] 
-  : 0;
-
-$vendedor_id = isset($_GET['vendedor_id']) && ctype_digit($_GET['vendedor_id']) 
-  ? (int)$_GET['vendedor_id'] 
-  : 0;
-
-$facturado = trim((string)($_GET['facturado'] ?? ''));
-$con_descuento = trim((string)($_GET['con_descuento'] ?? ''));
-$tag = trim((string)($_GET['tag'] ?? ''));
-
+// FIX: Validación segura de per_page
 $perPage = (int)($_GET['per_page'] ?? 20);
-if (!in_array($perPage, [20, 50, 100], true)) $perPage = 20;
-
+if (!in_array($perPage, [20, 50, 100], true)) {
+    $perPage = 20;
+}
 $page = max(1, (int)($_GET['page'] ?? 1));
-
-$export = ((string)($_GET['export'] ?? '') === 'csv');
 
 /* =========================
    WHERE dinámico
@@ -166,33 +150,20 @@ $export = ((string)($_GET['export'] ?? '') === 'csv');
 $whereParts = ['1=1'];
 $params = [];
 
-// Medio (si existe venta_pagos, filtra por pagos reales y fallback legacy)
-if ($medio && in_array($medio, $allowedMedios, true)) {
+$allowedMedios = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO'];
+if ($medio && in_array($medio, $allowedMedios)) {
   if ($hasVentaPagos) {
-    if ($medio === 'SIN_ESPECIFICAR') {
-      $whereParts[] = "(
-        NOT EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id)
-        AND (v.medio_pago IS NULL OR v.medio_pago = '' OR v.medio_pago = 'SIN_ESPECIFICAR')
-      )";
-    } else {
-      $whereParts[] = "(
-        EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id AND vp2.medio_pago = :medio_vp)
-        OR (
-          NOT EXISTS (SELECT 1 FROM venta_pagos vp2 WHERE vp2.venta_id = v.id)
-          AND v.medio_pago = :medio_legacy
-        )
-      )";
-      $params[':medio_vp'] = $medio;
-      $params[':medio_legacy'] = $medio;
-    }
+    $whereParts[] = "EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.venta_id = v.id AND UPPER(vp.medio_pago) = :medio)";
+  } else {
+    $whereParts[] = "UPPER(v.medio_pago) = :medio";
   }
+  $params[':medio'] = $medio;
 }
 
-// Estado
 if ($estado === 'EMITIDA') {
   $whereParts[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
 } elseif ($estado === 'ANULADA') {
-  $whereParts[] = "(v.estado = 'ANULADA' OR UPPER(v.estado) LIKE '%ANUL%')";
+  $whereParts[] = "v.estado = 'ANULADA'";
 }
 
 if ($desde) {
@@ -204,1085 +175,662 @@ if ($hasta) {
   $params[':hasta'] = $hasta . ' 23:59:59';
 }
 
-if ($venta_id !== '' && ctype_digit($venta_id)) {
+// Filtro horario con soporte para rangos cruzados
+if ($hora_desde && $hora_hasta) {
+  $minD = intval(substr($hora_desde, 0, 2)) * 60 + intval(substr($hora_desde, 3, 2));
+  $minH = intval(substr($hora_hasta, 0, 2)) * 60 + intval(substr($hora_hasta, 3, 2));
+  
+  if ($minH >= $minD) {
+    $whereParts[] = "TIME(v.fecha) BETWEEN :hora_desde AND :hora_hasta";
+  } else {
+    $whereParts[] = "(TIME(v.fecha) >= :hora_desde OR TIME(v.fecha) <= :hora_hasta)";
+  }
+  $params[':hora_desde'] = $hora_desde . ':00';
+  $params[':hora_hasta'] = $hora_hasta . ':59';
+} elseif ($hora_desde) {
+  $whereParts[] = "TIME(v.fecha) >= :hora_desde";
+  $params[':hora_desde'] = $hora_desde . ':00';
+} elseif ($hora_hasta) {
+  $whereParts[] = "TIME(v.fecha) <= :hora_hasta";
+  $params[':hora_hasta'] = $hora_hasta . ':59';
+}
+
+if ($venta_id && ctype_digit($venta_id)) {
   $whereParts[] = 'v.id = :venta_id';
   $params[':venta_id'] = (int)$venta_id;
 }
 
-if ($min_total !== null) {
-  $whereParts[] = 'v.total >= :min_total';
-  $params[':min_total'] = (float)$min_total;
-}
-if ($max_total !== null) {
-  $whereParts[] = 'v.total <= :max_total';
-  $params[':max_total'] = (float)$max_total;
-}
-
-// NUEVOS FILTROS
-
-// Filtro por cliente
 if ($cliente_id > 0) {
   $whereParts[] = 'v.cliente_id = :cliente_id';
   $params[':cliente_id'] = $cliente_id;
 }
 
-// Filtro por producto (requiere JOIN con venta_items)
-$joinProducto = '';
-if ($producto_id > 0) {
-  $joinProducto = "INNER JOIN venta_items vi_filter ON vi_filter.venta_id = v.id";
-  $whereParts[] = 'vi_filter.producto_id = :producto_id';
-  $params[':producto_id'] = $producto_id;
-}
-
-// Filtro por terminal
-if ($terminal_id > 0) {
-  $whereParts[] = 'v.terminal_id = :terminal_id';
-  $params[':terminal_id'] = $terminal_id;
-}
-
-// Filtro por vendedor (ajustar a usuario_id si tu tabla usa ese nombre)
-if ($vendedor_id > 0) {
-  // Si tu tabla usa 'usuario_id' en lugar de 'vendedor_id', cambiar aquí
-  $whereParts[] = '(v.usuario_id = :vendedor_id OR v.vendedor_id = :vendedor_id)';
-  $params[':vendedor_id'] = $vendedor_id;
-}
-
-// Filtro por facturación
-if ($facturado === '1') {
-  $whereParts[] = 'EXISTS (SELECT 1 FROM facturas f WHERE f.venta_id = v.id)';
-} elseif ($facturado === '0') {
-  $whereParts[] = 'NOT EXISTS (SELECT 1 FROM facturas f WHERE f.venta_id = v.id)';
-}
-
-// Filtro por descuento (usando vista optimizada si existe)
-if ($con_descuento === '1') {
-  if ($hasVentasCompleto) {
-    $whereParts[] = 'v.descuento_total > 0';
-  } else {
-    $whereParts[] = '(SELECT COALESCE(SUM(vi2.descuento_monto), 0) FROM venta_items vi2 WHERE vi2.venta_id = v.id) > 0';
-  }
-}
-
-// Filtro por tag
-if ($tag !== '' && $hasVentaTags) {
-  $whereParts[] = 'EXISTS (SELECT 1 FROM venta_tags vt WHERE vt.venta_id = v.id AND vt.tag = :tag)';
-  $params[':tag'] = $tag;
-}
-
-$whereSql = 'WHERE ' . implode(' AND ', $whereParts);
+$whereSQL = implode(' AND ', $whereParts);
 
 /* =========================
-   Join/Select pagos (resumen)
+   KPIs - Respetan los filtros aplicados
 ========================= */
-$joinPagos = "";
-$selectPagos = ", v.monto_pagado AS pagado_calc, NULL AS pagos_cnt, NULL AS pagos_medios";
+$hayFiltros = $medio || $estado || $desde || $hasta || $hora_desde || $hora_hasta || $venta_id || $cliente_id;
+$stats['periodo_label'] = 'Hoy';
 
-if ($hasVentaPagos) {
-  $joinPagos = "
-    LEFT JOIN (
-      SELECT
-        venta_id,
-        SUM(monto)  AS pagado_total,
-        COUNT(*)    AS pagos_cnt,
-        GROUP_CONCAT(DISTINCT medio_pago ORDER BY medio_pago SEPARATOR '+') AS medios
-      FROM venta_pagos
-      GROUP BY venta_id
-    ) vp ON vp.venta_id = v.id
-  ";
-  $selectPagos = ", COALESCE(vp.pagado_total, v.monto_pagado) AS pagado_calc,
-                  COALESCE(vp.pagos_cnt, 0) AS pagos_cnt,
-                  vp.medios AS pagos_medios";
-}
-
-/* =========================
-   EXPORT CSV (OPTIMIZADO)
-========================= */
-if ($export) {
-  header('Content-Type: text/csv; charset=utf-8');
-  header('Content-Disposition: attachment; filename="ventas_' . date('Ymd_His') . '.csv"');
-
-  $out = fopen('php://output', 'w');
-  fputcsv($out, ['id','fecha','cliente','medio_resumen','estado','total','pagado','vuelto','items','descuento','productos','tags','terminal','vendedor','medios_detalle'], ';');
-
-  // Usar vista si existe para mejor performance
-  $selectFields = $hasVentasCompleto 
-    ? "v.id, v.fecha, v.medio_pago, v.estado, v.total, v.vuelto,
-       vc.items_count, vc.descuento_total, vc.productos_preview, vc.tags"
-    : "v.id, v.fecha, v.medio_pago, v.estado, v.total, v.vuelto,
-       (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
-       (SELECT COALESCE(SUM(vi.descuento_monto), 0) FROM venta_items vi WHERE vi.venta_id = v.id) AS descuento_total,
-       NULL AS productos_preview, NULL AS tags";
-
-  $joinVista = $hasVentasCompleto ? "LEFT JOIN v_ventas_completo vc ON vc.id = v.id" : "";
-
-  $sqlCsv = "
-    SELECT
-      {$selectFields},
-      COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre,
-      COALESCE(u.username, u2.username) AS vendedor,
-      t.nombre AS terminal
-      {$selectPagos}
-    FROM v_ventas_completo v
-    {$joinVista}
-    LEFT JOIN clientes c ON c.id = v.cliente_id
-    LEFT JOIN users u ON u.id = v.usuario_id
-    LEFT JOIN users u2 ON u2.id = v.vendedor_id
-    LEFT JOIN terminales t ON t.id = v.terminal_id
-    {$joinProducto}
-    {$joinPagos}
-    {$whereSql}
-    GROUP BY v.id
-    ORDER BY v.fecha DESC, v.id DESC
-  ";
-
-  $st = $pdo->prepare($sqlCsv);
-  foreach ($params as $k => $val) $st->bindValue($k, $val);
-  $st->execute();
-
-  while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-    $cntPagos = (int)($r['pagos_cnt'] ?? 0);
-    $medios   = (string)($r['pagos_medios'] ?? '');
-    $medioLegacy = (string)($r['medio_pago'] ?? 'SIN_ESPECIFICAR');
-
-    $medioResumen = $medioLegacy;
-    $mediosDetalle = '';
-
-    if ($hasVentaPagos && $cntPagos > 0) {
-      $mediosDetalle = $medios;
-      $medioResumen = ($cntPagos > 1) ? 'MIXTO' : ($medios !== '' ? $medios : $medioLegacy);
+try {
+  if ($hayFiltros) {
+    // KPIs del período FILTRADO
+    $stFiltrado = $pdo->prepare("
+      SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+      FROM ventas v 
+      WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+    ");
+    $stFiltrado->execute($params);
+    $rowFiltrado = $stFiltrado->fetch(PDO::FETCH_ASSOC);
+    $stats['cnt_hoy'] = (int)$rowFiltrado['cnt'];
+    $stats['sum_hoy'] = (float)$rowFiltrado['sum'];
+    $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
+    
+    // Determinar label del período
+    if ($desde && $hasta) {
+      if ($desde === $hasta) {
+        $stats['periodo_label'] = date('d/m', strtotime($desde));
+      } else {
+        $stats['periodo_label'] = date('d/m', strtotime($desde)) . ' - ' . date('d/m', strtotime($hasta));
+      }
+    } elseif ($desde) {
+      $stats['periodo_label'] = 'Desde ' . date('d/m', strtotime($desde));
+    } elseif ($hasta) {
+      $stats['periodo_label'] = 'Hasta ' . date('d/m', strtotime($hasta));
+    } else {
+      $stats['periodo_label'] = 'Filtrado';
     }
-
-    fputcsv($out, [
-      $r['id'],
-      $r['fecha'],
-      $r['cliente_nombre'],
-      $medioResumen,
-      $r['estado'],
-      number_format((float)$r['total'], 2, '.', ''),
-      number_format((float)($r['pagado_calc'] ?? 0), 2, '.', ''),
-      number_format((float)$r['vuelto'], 2, '.', ''),
-      (int)($r['items_count'] ?? 0),
-      number_format((float)($r['descuento_total'] ?? 0), 2, '.', ''),
-      $r['productos_preview'] ?? '',
-      $r['tags'] ?? '',
-      $r['terminal'] ?? '',
-      $r['vendedor'] ?? '',
-      $mediosDetalle,
-    ], ';');
+    
+    // Comparación: calcular período anterior equivalente
+    if ($desde && $hasta) {
+      $diasRango = (strtotime($hasta) - strtotime($desde)) / 86400 + 1;
+      $desdeAnterior = date('Y-m-d', strtotime($desde) - ($diasRango * 86400));
+      $hastaAnterior = date('Y-m-d', strtotime($desde) - 86400);
+      
+      // Construir WHERE para período anterior (sin filtros de fecha pero con otros filtros)
+      $wherePartsAnterior = ['1=1'];
+      $paramsAnterior = [];
+      
+      if ($medio && in_array($medio, $allowedMedios)) {
+        if ($hasVentaPagos) {
+          $wherePartsAnterior[] = "EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.venta_id = v.id AND UPPER(vp.medio_pago) = :medio)";
+        } else {
+          $wherePartsAnterior[] = "UPPER(v.medio_pago) = :medio";
+        }
+        $paramsAnterior[':medio'] = $medio;
+      }
+      if ($estado === 'EMITIDA') {
+        $wherePartsAnterior[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+      } elseif ($estado === 'ANULADA') {
+        $wherePartsAnterior[] = "v.estado = 'ANULADA'";
+      }
+      if ($cliente_id > 0) {
+        $wherePartsAnterior[] = 'v.cliente_id = :cliente_id';
+        $paramsAnterior[':cliente_id'] = $cliente_id;
+      }
+      
+      $wherePartsAnterior[] = 'v.fecha >= :desde_ant';
+      $wherePartsAnterior[] = 'v.fecha <= :hasta_ant';
+      $paramsAnterior[':desde_ant'] = $desdeAnterior . ' 00:00:00';
+      $paramsAnterior[':hasta_ant'] = $hastaAnterior . ' 23:59:59';
+      
+      $whereAnterior = implode(' AND ', $wherePartsAnterior);
+      
+      $stAnterior = $pdo->prepare("
+        SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+        FROM ventas v 
+        WHERE $whereAnterior AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+      ");
+      $stAnterior->execute($paramsAnterior);
+      $rowAnterior = $stAnterior->fetch(PDO::FETCH_ASSOC);
+      $stats['cnt_ayer'] = (int)$rowAnterior['cnt'];
+      $stats['sum_ayer'] = (float)$rowAnterior['sum'];
+    }
+    
+    // Top medio de pago del período filtrado
+    if ($hasVentaPagos) {
+      $stMedio = $pdo->prepare("
+        SELECT UPPER(vp.medio_pago) as medio, COUNT(*) as cnt
+        FROM venta_pagos vp
+        JOIN ventas v ON v.id = vp.venta_id
+        WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        GROUP BY UPPER(vp.medio_pago)
+        ORDER BY cnt DESC
+        LIMIT 1
+      ");
+      $stMedio->execute($params);
+    } else {
+      $stMedio = $pdo->prepare("
+        SELECT UPPER(v.medio_pago) as medio, COUNT(*) as cnt
+        FROM ventas v
+        WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        GROUP BY UPPER(v.medio_pago)
+        ORDER BY cnt DESC
+        LIMIT 1
+      ");
+      $stMedio->execute($params);
+    }
+    $topMedio = $stMedio->fetch(PDO::FETCH_ASSOC);
+    
+  } else {
+    // Sin filtros: mostrar datos de HOY
+    $hoy = date('Y-m-d');
+    $ayer = date('Y-m-d', strtotime('-1 day'));
+    
+    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    $stHoy->execute([$hoy]);
+    $rowHoy = $stHoy->fetch(PDO::FETCH_ASSOC);
+    $stats['cnt_hoy'] = (int)$rowHoy['cnt'];
+    $stats['sum_hoy'] = (float)$rowHoy['sum'];
+    $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
+    
+    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    $stAyer->execute([$ayer]);
+    $rowAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
+    $stats['cnt_ayer'] = (int)$rowAyer['cnt'];
+    $stats['sum_ayer'] = (float)$rowAyer['sum'];
+    
+    // Top medio de pago de hoy
+    if ($hasVentaPagos) {
+      $stMedio = $pdo->query("
+        SELECT UPPER(vp.medio_pago) as medio, COUNT(*) as cnt
+        FROM venta_pagos vp
+        JOIN ventas v ON v.id = vp.venta_id
+        WHERE DATE(v.fecha) = CURDATE() AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        GROUP BY UPPER(vp.medio_pago)
+        ORDER BY cnt DESC
+        LIMIT 1
+      ");
+    } else {
+      $stMedio = $pdo->query("
+        SELECT UPPER(medio_pago) as medio, COUNT(*) as cnt
+        FROM ventas
+        WHERE DATE(fecha) = CURDATE() AND (estado IS NULL OR estado = 'EMITIDA')
+        GROUP BY UPPER(medio_pago)
+        ORDER BY cnt DESC
+        LIMIT 1
+      ");
+    }
+    $topMedio = $stMedio->fetch(PDO::FETCH_ASSOC);
   }
-
-  fclose($out);
-  exit;
+  
+  // Calcular diferencias
+  if ($stats['cnt_ayer'] > 0) {
+    $stats['diff_ventas'] = round((($stats['cnt_hoy'] - $stats['cnt_ayer']) / $stats['cnt_ayer']) * 100);
+  }
+  if ($stats['sum_ayer'] > 0) {
+    $stats['diff_total'] = round((($stats['sum_hoy'] - $stats['sum_ayer']) / $stats['sum_ayer']) * 100);
+  }
+  
+  if ($topMedio && $stats['cnt_hoy'] > 0) {
+    $stats['top_medio'] = $topMedio['medio'] ?: 'N/A';
+    $stats['top_medio_pct'] = round(($topMedio['cnt'] / $stats['cnt_hoy']) * 100);
+  }
+} catch (Exception $e) {
+  // Silenciar errores de KPIs
 }
 
 /* =========================
-   Stats MEJORADAS con comparativa
+   Datos para gráficos
 ========================= */
-// Stats generales del período filtrado
-$joinVistaStats = $hasVentasCompleto ? "LEFT JOIN v_ventas_completo vc ON vc.id = v.id" : "";
+$chartData = ['labels' => [], 'ventas' => [], 'totales' => []];
+$chartMedios = ['labels' => [], 'data' => [], 'colors' => []];
 
-$sqlStats = "
-  SELECT
-    COUNT(*) AS cnt,
-    COALESCE(SUM(v.total), 0) AS sum_total,
-    " . ($hasVentaPagos
-      ? "COALESCE(SUM(COALESCE(vp.pagado_total, v.monto_pagado)), 0) AS sum_pagado,"
-      : "COALESCE(SUM(v.monto_pagado), 0) AS sum_pagado,") . "
-    COALESCE(AVG(v.total), 0) AS avg_total
-  FROM v_ventas_completo v
-  {$joinVistaStats}
-  " . ($hasVentaPagos ? $joinPagos : "") . "
-  {$joinProducto}
-  {$whereSql}
-";
-
-$st = $pdo->prepare($sqlStats);
-foreach ($params as $k => $val) $st->bindValue($k, $val);
-$st->execute();
-$statsResult = $st->fetch(PDO::FETCH_ASSOC);
-
-if ($statsResult) {
-  $stats['cnt'] = (int)$statsResult['cnt'];
-  $stats['sum_total'] = (float)$statsResult['sum_total'];
-  $stats['sum_pagado'] = (float)$statsResult['sum_pagado'];
-  $stats['avg_total'] = (float)$statsResult['avg_total'];
-}
-
-// Stats de HOY
-$stHoy = $pdo->query("
-  SELECT 
-    COUNT(*) AS cnt,
-    COALESCE(SUM(total), 0) AS sum,
-    COALESCE(AVG(total), 0) AS avg
-  FROM v_ventas_completo
-  WHERE DATE(fecha) = CURDATE() 
-    AND (estado IS NULL OR estado = 'EMITIDA')
-");
-$statsHoy = $stHoy->fetch(PDO::FETCH_ASSOC);
-$stats['cnt_hoy'] = (int)($statsHoy['cnt'] ?? 0);
-$stats['sum_hoy'] = (float)($statsHoy['sum'] ?? 0);
-$stats['avg_hoy'] = (float)($statsHoy['avg'] ?? 0);
-
-// Stats de AYER
-$stAyer = $pdo->query("
-  SELECT 
-    COUNT(*) AS cnt,
-    COALESCE(SUM(total), 0) AS sum
-  FROM v_ventas_completo
-  WHERE DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY) 
-    AND (estado IS NULL OR estado = 'EMITIDA')
-");
-$statsAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
-$stats['cnt_ayer'] = (int)($statsAyer['cnt'] ?? 0);
-$stats['sum_ayer'] = (float)($statsAyer['sum'] ?? 0);
-
-// Calcular diferencias porcentuales
-if ($stats['cnt_ayer'] > 0) {
-  $stats['diff_ventas'] = round((($stats['cnt_hoy'] - $stats['cnt_ayer']) / $stats['cnt_ayer']) * 100, 1);
-}
-if ($stats['sum_ayer'] > 0) {
-  $stats['diff_total'] = round((($stats['sum_hoy'] - $stats['sum_ayer']) / $stats['sum_ayer']) * 100, 1);
-}
-
-// Top medio de pago HOY
-$stMedio = $pdo->query("
-  SELECT 
-    medio_pago,
-    COUNT(*) AS cnt
-  FROM v_ventas_completo
-  WHERE DATE(fecha) = CURDATE() 
-    AND (estado IS NULL OR estado = 'EMITIDA')
-  GROUP BY medio_pago
-  ORDER BY cnt DESC
-  LIMIT 1
-");
-$topMedio = $stMedio->fetch(PDO::FETCH_ASSOC);
-if ($topMedio) {
-  $stats['top_medio'] = $topMedio['medio_pago'] ?? 'N/A';
-  if ($stats['cnt_hoy'] > 0) {
-    $stats['top_medio_pct'] = round(((int)$topMedio['cnt'] / $stats['cnt_hoy']) * 100, 1);
+try {
+  // Ventas últimos 7 días
+  $st = $pdo->query("
+    SELECT DATE(fecha) as dia, COUNT(*) as cnt, SUM(total) as sum
+    FROM ventas
+    WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (estado IS NULL OR estado = 'EMITIDA')
+    GROUP BY DATE(fecha)
+    ORDER BY dia
+  ");
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $chartData['labels'][] = date('d/m', strtotime($row['dia']));
+    $chartData['ventas'][] = (int)$row['cnt'];
+    $chartData['totales'][] = round((float)$row['sum'], 2);
   }
-}
+  
+  // Distribución por medio
+  $colores = ['EFECTIVO' => '#22c55e', 'MP' => '#3b82f6', 'DEBITO' => '#f59e0b', 'CREDITO' => '#8b5cf6', 'MIXTO' => '#ec4899'];
+  if ($hasVentaPagos) {
+    $st = $pdo->query("
+      SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
+      FROM venta_pagos vp
+      JOIN ventas v ON v.id = vp.venta_id
+      WHERE v.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+      GROUP BY UPPER(vp.medio_pago)
+    ");
+  } else {
+    $st = $pdo->query("
+      SELECT UPPER(medio_pago) as medio, COUNT(*) as cnt
+      FROM ventas
+      WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (estado IS NULL OR estado = 'EMITIDA')
+      GROUP BY UPPER(medio_pago)
+    ");
+  }
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $m = $row['medio'] ?: 'OTRO';
+    $chartMedios['labels'][] = $m;
+    $chartMedios['data'][] = (int)$row['cnt'];
+    $chartMedios['colors'][] = $colores[$m] ?? '#94a3b8';
+  }
+} catch (Exception $e) {}
 
 /* =========================
-   Paginación
+   Count total
 ========================= */
-$sqlCount = "
-  SELECT COUNT(DISTINCT v.id) 
-  FROM v_ventas_completo v
-  " . ($hasVentasCompleto && $con_descuento === '1' ? "LEFT JOIN v_ventas_completo vc ON vc.id = v.id" : "") . "
-  {$joinProducto}
-  " . ($hasVentaPagos ? $joinPagos : "") . "
-  {$whereSql}
-";
-
-$stCount = $pdo->prepare($sqlCount);
-foreach ($params as $k => $val) $stCount->bindValue($k, $val);
-$stCount->execute();
+$stCount = $pdo->prepare("SELECT COUNT(*) FROM ventas v WHERE $whereSQL");
+$stCount->execute($params);
 $totalRows = (int)$stCount->fetchColumn();
-
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
-
-$fromRow = ($totalRows > 0) ? ($offset + 1) : 0;
+$fromRow = $totalRows > 0 ? $offset + 1 : 0;
 $toRow = min($offset + $perPage, $totalRows);
 
 /* =========================
-   Ventas (OPTIMIZADO con vista)
+   Query principal - Detectar columnas dinámicamente
 ========================= */
-if ($hasVentasCompleto) {
-  // OPTIMIZADO: Usar vista v_ventas_completo (1 JOIN en lugar de N subqueries)
-  $sqlVentas = "
-    SELECT
-      v.id, 
-      v.fecha, 
-      v.medio_pago, 
-      v.estado, 
-      v.total, 
-      v.vuelto,
-      v.cliente_id,
-      v.terminal_id,
-      COALESCE(v.usuario_id, v.vendedor_id) AS vendedor_id,
-      vc.items_count,
-      vc.descuento_total,
-      vc.productos_preview,
-      vc.tags,
-      COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre,
-      c.cuit AS cliente_documento,
-      COALESCE(u.username, u2.username) AS vendedor_username,
-      t.nombre AS terminal_nombre,
-      (SELECT 1 FROM facturas f WHERE f.venta_id = v.id LIMIT 1) AS esta_facturada
-      {$selectPagos}
-    FROM v_ventas_completo v
-    LEFT JOIN v_ventas_completo vc ON vc.id = v.id
-    LEFT JOIN clientes c ON c.id = v.cliente_id
-    LEFT JOIN users u ON u.id = v.usuario_id
-    LEFT JOIN users u2 ON u2.id = v.vendedor_id
-    LEFT JOIN terminales t ON t.id = v.terminal_id
-    {$joinProducto}
-    {$joinPagos}
-    {$whereSql}
-    GROUP BY v.id
-    ORDER BY v.fecha DESC, v.id DESC
-    LIMIT :limit OFFSET :offset
-  ";
+$vendedorCol = 'v.usuario_id';
+try {
+  $check = $pdo->query("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ventas' AND COLUMN_NAME = 'vendedor_id' LIMIT 1");
+  if ($check->fetchColumn()) $vendedorCol = 'COALESCE(v.usuario_id, v.vendedor_id)';
+} catch (Exception $e) {}
+
+// Determinar columna de descuento
+if ($hasDescuentoMonto) {
+  $descuentoCol = 'v.descuento_monto';
+} elseif ($hasDescuentoTotal) {
+  $descuentoCol = 'v.descuento_total';
 } else {
-  // FALLBACK: Sin vista optimizada (más lento pero funciona)
-  $sqlVentas = "
-    SELECT
-      v.id, v.fecha, v.medio_pago, v.estado, v.total, v.vuelto,
-      v.cliente_id,
-      v.terminal_id,
-      COALESCE(v.usuario_id, v.vendedor_id) AS vendedor_id,
-      COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre,
-      c.cuit AS cliente_documento,
-      COALESCE(u.username, u2.username) AS vendedor_username,
-      t.nombre AS terminal_nombre,
-      (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
-      (SELECT COALESCE(SUM(vi.descuento_monto), 0) FROM venta_items vi WHERE vi.venta_id = v.id) AS descuento_total,
-      (SELECT GROUP_CONCAT(p.nombre SEPARATOR ', ') 
-       FROM venta_items vi 
-       JOIN productos p ON p.id = vi.producto_id 
-       WHERE vi.venta_id = v.id 
-       LIMIT 2) AS productos_preview,
-      " . ($hasVentaTags ? "
-      (SELECT GROUP_CONCAT(vt.tag SEPARATOR ', ')
-       FROM venta_tags vt
-       WHERE vt.venta_id = v.id) AS tags,
-      " : "NULL AS tags,") . "
-      (SELECT 1 FROM facturas f WHERE f.venta_id = v.id LIMIT 1) AS esta_facturada
-      {$selectPagos}
-    FROM v_ventas_completo v
-    LEFT JOIN clientes c ON c.id = v.cliente_id
-    LEFT JOIN users u ON u.id = v.usuario_id
-    LEFT JOIN users u2 ON u2.id = v.vendedor_id
-    LEFT JOIN terminales t ON t.id = v.terminal_id
-    {$joinProducto}
-    {$joinPagos}
-    {$whereSql}
-    GROUP BY v.id
-    ORDER BY v.fecha DESC, v.id DESC
-    LIMIT :limit OFFSET :offset
-  ";
+  $descuentoCol = '0';
 }
 
-$stVentas = $pdo->prepare($sqlVentas);
-foreach ($params as $k => $val) $stVentas->bindValue($k, $val);
-$stVentas->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stVentas->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stVentas->execute();
-$ventas = $stVentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
+// Determinar si tiene terminal
+$terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
+$terminalJoin = $hasTerminalId ? 'LEFT JOIN terminales t ON t.id = v.terminal_id' : '';
 
-/* =========================
-   Listados para filtros
-========================= */
-// Terminales (activa/activo/habilitada/...)
-$terminales = [];
-$colActTerm = first_column($pdo, 'terminales', ['activa', 'activo', 'habilitada', 'habilitado', 'enabled']);
-
-$sqlTerm = "SELECT id, nombre FROM terminales";
-if ($colActTerm) {
-  $sqlTerm .= " WHERE {$colActTerm} = 1";
-}
-$sqlTerm .= " ORDER BY nombre ASC";
-
-$stTerminales = $pdo->query($sqlTerm);
-$terminales = $stTerminales->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-
-// Vendedores (usuarios activos si existe columna)
-$vendedores = [];
-$colActUser = first_column($pdo, 'users', ['activo', 'activa', 'enabled']);
-
-$sqlVend = "
-  SELECT DISTINCT u.id, u.username
-  FROM users u
-  WHERE " . ($colActUser ? "u.{$colActUser} = 1 AND " : "") . "
-    u.id IN (
-      SELECT DISTINCT COALESCE(usuario_id, vendedor_id)
-      FROM v_ventas_completo
-      WHERE COALESCE(usuario_id, vendedor_id) IS NOT NULL
-    )
-  ORDER BY u.username ASC
+$sql = "
+  SELECT v.id, v.fecha, v.total, v.estado, v.medio_pago, v.cliente_id,
+         $descuentoCol AS descuento_monto,
+         $terminalSelect
+         c.nombre AS cliente_nombre,
+         u.username AS vendedor_username,
+         (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
+         (SELECT GROUP_CONCAT(p.nombre SEPARATOR ', ') FROM venta_items vi JOIN productos p ON p.id = vi.producto_id WHERE vi.venta_id = v.id LIMIT 3) AS productos_resumen
+  FROM ventas v
+  LEFT JOIN clientes c ON c.id = v.cliente_id
+  LEFT JOIN users u ON u.id = $vendedorCol
+  $terminalJoin
+  WHERE $whereSQL
+  ORDER BY v.id DESC
+  LIMIT $perPage OFFSET $offset
 ";
-$stVendedores = $pdo->query($sqlVend);
-$vendedores = $stVendedores->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// Tags disponibles (si existe la tabla)
-$tags = [];
-if ($hasVentaTags) {
-  $stTags = $pdo->query("
-    SELECT DISTINCT tag 
-    FROM venta_tags 
-    ORDER BY tag ASC 
-    LIMIT 50
+$st = $pdo->prepare($sql);
+$st->execute($params);
+$ventas = $st->fetchAll(PDO::FETCH_ASSOC);
+
+// Obtener medios de pago reales si existe venta_pagos
+if ($hasVentaPagos && $ventas) {
+  $ids = array_column($ventas, 'id');
+  $placeholders = implode(',', array_fill(0, count($ids), '?'));
+  $stPagos = $pdo->prepare("
+    SELECT venta_id, GROUP_CONCAT(DISTINCT UPPER(medio_pago) SEPARATOR '+') as medios
+    FROM venta_pagos
+    WHERE venta_id IN ($placeholders)
+    GROUP BY venta_id
   ");
-  $tags = $stTags->fetchAll(PDO::FETCH_COLUMN) ?: [];
-}
-
-// Obtener nombre de cliente seleccionado
-$clienteNombre = '';
-if ($cliente_id > 0) {
-  $stCliente = $pdo->prepare("SELECT nombre FROM clientes WHERE id = ? LIMIT 1");
-  $stCliente->execute([$cliente_id]);
-  $clienteNombre = $stCliente->fetchColumn() ?: '';
-}
-
-// Obtener nombre de producto seleccionado
-$productoNombre = '';
-if ($producto_id > 0) {
-  $stProducto = $pdo->prepare("SELECT nombre FROM productos WHERE id = ? LIMIT 1");
-  $stProducto->execute([$producto_id]);
-  $productoNombre = $stProducto->fetchColumn() ?: '';
+  $stPagos->execute($ids);
+  $mediosMap = [];
+  while ($row = $stPagos->fetch(PDO::FETCH_ASSOC)) {
+    $mediosMap[$row['venta_id']] = $row['medios'];
+  }
+  foreach ($ventas as &$v) {
+    $v['medio_real'] = $mediosMap[$v['id']] ?? ($v['medio_pago'] ?: 'N/A');
+  }
+  unset($v);
 }
 
 /* =========================
-   Promos activas
+   Nombre cliente seleccionado
 ========================= */
-$promosActivas = (int)$pdo->query("
-  SELECT COUNT(*) 
-  FROM promos 
-  WHERE activo = 1
-    AND (fecha_inicio IS NULL OR fecha_inicio <= CURDATE())
-    AND (fecha_fin IS NULL OR fecha_fin >= CURDATE())
-")->fetchColumn();
+$clienteNombre = '';
+if ($cliente_id) {
+  $st = $pdo->prepare("SELECT nombre FROM clientes WHERE id = ?");
+  $st->execute([$cliente_id]);
+  $clienteNombre = $st->fetchColumn() ?: '';
+}
 
 /* =========================
    Header
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css'];
-$extraJs  = [
+$extraCss = ['assets/css/ventas.css?v=4', 'assets/css/ventas-autocomplete.css?v=1'];
+$extraJs = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-  'assets/js/ventas.js'
+  'assets/js/ventas.js?v=4.1'
 ];
 
 require __DIR__ . '/partials/header.php';
+
+$queryParams = $_GET;
+unset($queryParams['page']);
 ?>
 
-<div class="page-wrap ventas-page">
+<div class="ventas-page">
 
-  <div class="panel ventas-panel">
+  <!-- Header -->
+  <div class="ventas-header">
+    <div class="ventas-header-left">
+      <h1>Ventas</h1>
+      <?php if ($hasVentasCompleto): ?>
+        <span class="badge-opt">⚡ Optimizado</span>
+      <?php endif; ?>
+    </div>
+    <div class="ventas-header-right">
+      <select id="paperSel" class="paper-select">
+        <option value="80">80mm</option>
+        <option value="58">58mm</option>
+      </select>
+      <button id="btnCharts" class="btn-icon" title="Gráficos">📊</button>
+      <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary">💾 Exportar</a>
+    </div>
+  </div>
 
-    <!-- Header superior -->
-    <div class="ventas-top">
-      <div class="ventas-top-left">
-        <h1 class="ventas-title">VENTAS</h1>
-        <p class="ventas-sub">
-          Gestión y reportes de ventas 
-          <?php if ($hasVentasCompleto): ?>
-            · <span class="badge-success" title="Usando vista optimizada">⚡ Optimizado</span>
-          <?php endif; ?>
-        </p>
+  <!-- KPIs -->
+  <div class="kpis-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon">🛒</div>
+      <div class="kpi-content">
+        <span class="kpi-value"><?= number_format($stats['cnt_hoy']) ?></span>
+        <span class="kpi-label">Ventas <?= h($stats['periodo_label']) ?></span>
+        <?php if ($stats['diff_ventas'] != 0): ?>
+          <span class="kpi-trend <?= $stats['diff_ventas'] > 0 ? 'up' : 'down' ?>" title="vs período anterior">
+            <?= $stats['diff_ventas'] > 0 ? '↑' : '↓' ?> <?= abs($stats['diff_ventas']) ?>%
+          </span>
+        <?php endif; ?>
       </div>
+    </div>
+    
+    <div class="kpi-card highlight">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-content">
+        <span class="kpi-value"><?= money($stats['sum_hoy']) ?></span>
+        <span class="kpi-label">Total <?= h($stats['periodo_label']) ?></span>
+        <?php if ($stats['diff_total'] != 0): ?>
+          <span class="kpi-trend <?= $stats['diff_total'] > 0 ? 'up' : 'down' ?>" title="vs período anterior">
+            <?= $stats['diff_total'] > 0 ? '↑' : '↓' ?> <?= abs($stats['diff_total']) ?>%
+          </span>
+        <?php endif; ?>
+      </div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-icon">🎫</div>
+      <div class="kpi-content">
+        <span class="kpi-value"><?= money($stats['avg_hoy']) ?></span>
+        <span class="kpi-label">Ticket Promedio</span>
+      </div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-icon">💳</div>
+      <div class="kpi-content">
+        <span class="kpi-value badge-medio-<?= strtolower($stats['top_medio']) ?>"><?= h($stats['top_medio']) ?></span>
+        <span class="kpi-label">Top Medio (<?= $stats['top_medio_pct'] ?>%)</span>
+      </div>
+    </div>
+  </div>
 
-      <div class="ventas-top-right">
-        <div class="paper-box">
-          <label for="paperSel">Papel</label>
-          <select id="paperSel">
-            <option value="80">80mm</option>
-            <option value="58">58mm</option>
+  <!-- Gráficos (oculto por defecto) -->
+  <div id="chartsPanel" class="charts-panel hidden">
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h4>📈 Ventas últimos 7 días</h4>
+        <canvas id="chartVentas"></canvas>
+      </div>
+      <div class="chart-box">
+        <h4>📊 Por medio de pago</h4>
+        <canvas id="chartMedios"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filtros-panel">
+    <form id="ventasForm" method="GET" class="filtros-form">
+      <div class="filtros-main">
+        <div class="filtro-group">
+          <input type="text" name="venta_id" placeholder="🔍 Buscar ID..." value="<?= h($venta_id) ?>" class="input-search">
+        </div>
+        
+        <div class="filtro-group">
+          <input type="date" name="desde" value="<?= h($desde) ?>" title="Desde">
+        </div>
+        
+        <div class="filtro-group">
+          <input type="date" name="hasta" value="<?= h($hasta) ?>" title="Hasta">
+        </div>
+        
+        <div class="filtro-group">
+          <select name="medio">
+            <option value="">Medio: Todos</option>
+            <option value="EFECTIVO" <?= $medio === 'EFECTIVO' ? 'selected' : '' ?>>💵 Efectivo</option>
+            <option value="MP" <?= $medio === 'MP' ? 'selected' : '' ?>>📱 MP</option>
+            <option value="DEBITO" <?= $medio === 'DEBITO' ? 'selected' : '' ?>>💳 Débito</option>
+            <option value="CREDITO" <?= $medio === 'CREDITO' ? 'selected' : '' ?>>💳 Crédito</option>
           </select>
         </div>
-
-        <button id="btnToggleCharts" class="btn btn-secondary">
-          📊 Gráficos
-        </button>
-
-        <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary">
-          💾 Exportar CSV
-        </a>
-
-        <button id="btnScrollTop" class="btn-icon" title="Volver arriba">↑</button>
-      </div>
-    </div>
-
-    <!-- KPIs MEJORADOS con tendencias -->
-    <div class="ventas-kpis">
-      <!-- Ventas Hoy -->
-      <div class="kpi">
-        <div class="kpi-label">Ventas Hoy</div>
-        <div class="kpi-value"><?= number_format($stats['cnt_hoy']) ?></div>
-        <?php if ($stats['diff_ventas'] != 0): ?>
-          <div class="kpi-trend <?= $stats['diff_ventas'] > 0 ? 'positive' : 'negative' ?>">
-            <?= $stats['diff_ventas'] > 0 ? '↗' : '↘' ?>
-            <?= abs($stats['diff_ventas']) ?>% vs ayer
-          </div>
-        <?php endif; ?>
-      </div>
-
-      <!-- Total Hoy -->
-      <div class="kpi">
-        <div class="kpi-label">Total Hoy</div>
-        <div class="kpi-value"><?= money($stats['sum_hoy']) ?></div>
-        <?php if ($stats['diff_total'] != 0): ?>
-          <div class="kpi-trend <?= $stats['diff_total'] > 0 ? 'positive' : 'negative' ?>">
-            <?= $stats['diff_total'] > 0 ? '↗' : '↘' ?>
-            <?= abs($stats['diff_total']) ?>% vs ayer
-          </div>
-        <?php endif; ?>
-      </div>
-
-      <!-- Ticket Promedio Hoy -->
-      <div class="kpi">
-        <div class="kpi-label">Ticket Promedio Hoy</div>
-        <div class="kpi-value"><?= money($stats['avg_hoy']) ?></div>
-      </div>
-
-      <!-- Top Medio de Pago -->
-      <div class="kpi">
-        <div class="kpi-label">Medio Más Usado Hoy</div>
-        <div class="kpi-value">
-          <span class="badge-medio-mini badge-<?= strtolower($stats['top_medio']) ?>">
-            <?= h($stats['top_medio']) ?>
-          </span>
-          <span class="kpi-percentage"><?= $stats['top_medio_pct'] ?>%</span>
+        
+        <div class="filtro-group">
+          <select name="estado">
+            <option value="">Estado: Todos</option>
+            <option value="EMITIDA" <?= $estado === 'EMITIDA' ? 'selected' : '' ?>>✅ Emitidas</option>
+            <option value="ANULADA" <?= $estado === 'ANULADA' ? 'selected' : '' ?>>❌ Anuladas</option>
+          </select>
         </div>
+        
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="ventas.php" class="btn btn-ghost">Limpiar</a>
+        
+        <button type="button" id="btnMoreFilters" class="btn btn-ghost">+ Filtros</button>
       </div>
-    </div>
-
-    <!-- Panel de Gráficos (inicialmente oculto) -->
-    <div id="chartsPanel" class="charts-panel hidden">
-      <h3>📊 Análisis de Ventas</h3>
       
-      <div class="charts-grid">
-        <div class="chart-box">
-          <h4>Ventas por Día (últimos 30 días)</h4>
-          <canvas id="chartVentasPorDia"></canvas>
+      <!-- Filtros avanzados (ocultos) -->
+      <div id="advancedFilters" class="filtros-advanced hidden">
+        <div class="filtro-group">
+          <label>🕐 Hora desde</label>
+          <input type="time" name="hora_desde" value="<?= h($hora_desde) ?>">
         </div>
-        
-        <div class="chart-box">
-          <h4>Distribución por Medio de Pago</h4>
-          <canvas id="chartMediosPago"></canvas>
+        <div class="filtro-group">
+          <label>🕐 Hora hasta</label>
+          <input type="time" name="hora_hasta" value="<?= h($hora_hasta) ?>">
+          <small>Soporta rangos nocturnos (22:00-06:00)</small>
         </div>
-      </div>
-    </div>
-
-    <!-- Filtros activos -->
-    <?php
-      $hayFiltros = $medio || $estado || $desde || $hasta || $cliente_id || $producto_id || $terminal_id || $vendedor_id || $facturado || $con_descuento || $tag;
-    ?>
-    
-    <?php if ($hayFiltros): ?>
-      <div class="active-filters">
-        <span class="filters-label">Filtros activos:</span>
-        
-        <?php if ($medio): ?>
-          <span class="filter-badge">
-            Medio: <?= h($medio) ?>
-            <button class="filter-remove" data-filter="medio">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($estado): ?>
-          <span class="filter-badge">
-            Estado: <?= h($estado) ?>
-            <button class="filter-remove" data-filter="estado">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($desde && $hasta): ?>
-          <span class="filter-badge">
-            Período: <?= h($desde) ?> - <?= h($hasta) ?>
-            <button class="filter-remove" data-filter="fecha">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($cliente_id): ?>
-          <span class="filter-badge">
-            Cliente: <?= h($clienteNombre) ?>
-            <button class="filter-remove" data-filter="cliente">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($producto_id): ?>
-          <span class="filter-badge">
-            Producto: <?= h($productoNombre) ?>
-            <button class="filter-remove" data-filter="producto">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($terminal_id): ?>
-          <span class="filter-badge">
-            Terminal: <?= h(array_column(array_filter($terminales, fn($t) => $t['id'] == $terminal_id), 'nombre')[0] ?? '') ?>
-            <button class="filter-remove" data-filter="terminal">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($tag): ?>
-          <span class="filter-badge">
-            Tag: <?= h($tag) ?>
-            <button class="filter-remove" data-filter="tag">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($facturado === '1'): ?>
-          <span class="filter-badge">
-            Solo facturadas
-            <button class="filter-remove" data-filter="facturado">×</button>
-          </span>
-        <?php elseif ($facturado === '0'): ?>
-          <span class="filter-badge">
-            Sin facturar
-            <button class="filter-remove" data-filter="facturado">×</button>
-          </span>
-        <?php endif; ?>
-        
-        <?php if ($con_descuento === '1'): ?>
-          <span class="filter-badge">
-            Con descuento
-            <button class="filter-remove" data-filter="descuento">×</button>
-          </span>
-        <?php endif; ?>
-      </div>
-    <?php endif; ?>
-
-    <!-- Filtros -->
-    <div class="ventas-filters">
-      <form id="ventasForm" method="get" action="ventas.php">
-
-        <div class="filters-grid">
-
-          <!-- ID Venta -->
-          <div class="field">
-            <label for="venta_id">🔍 ID Venta</label>
-            <input type="text" id="venta_id" name="venta_id" placeholder="Buscar por ID" value="<?= h($venta_id) ?>">
-          </div>
-
-          <!-- NUEVO: Cliente -->
-          <div class="field field-autocomplete">
-            <label for="cliente_buscar">👤 Cliente</label>
+        <div class="filtro-group filtro-cliente">
+          <label>👤 Cliente</label>
+          <div class="cliente-autocomplete">
             <input type="text" 
-                   id="cliente_buscar" 
-                   placeholder="Buscar cliente..."
+                   id="clienteSearch" 
+                   placeholder="Buscar por nombre..." 
                    value="<?= h($clienteNombre) ?>"
                    autocomplete="off">
-            <input type="hidden" id="cliente_id" name="cliente_id" value="<?= $cliente_id ?>">
-            <div id="cliente_dropdown" class="autocomplete-dropdown hidden"></div>
+            <input type="hidden" name="cliente_id" id="clienteIdHidden" value="<?= $cliente_id ?: '' ?>">
+            <button type="button" id="btnClearCliente" class="btn-clear" title="Limpiar">&times;</button>
+            <div id="clienteDropdown" class="cliente-dropdown"></div>
           </div>
-
-          <!-- NUEVO: Producto -->
-          <div class="field field-autocomplete">
-            <label for="producto_buscar">📦 Producto</label>
-            <input type="text" 
-                   id="producto_buscar" 
-                   placeholder="Buscar producto..."
-                   value="<?= h($productoNombre) ?>"
-                   autocomplete="off">
-            <input type="hidden" id="producto_id" name="producto_id" value="<?= $producto_id ?>">
-            <div id="producto_dropdown" class="autocomplete-dropdown hidden"></div>
-          </div>
-
-          <!-- Medio de pago -->
-          <div class="field">
-            <label for="medio">💳 Medio de pago</label>
-            <select id="medio" name="medio">
-              <option value="">Todos</option>
-              <?php foreach ($allowedMedios as $m): ?>
-                <option value="<?= h($m) ?>" <?= ($medio === $m) ? 'selected' : '' ?>><?= h($m) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-
-          <!-- Estado -->
-          <div class="field">
-            <label for="estado">📋 Estado</label>
-            <select id="estado" name="estado">
-              <option value="">Todas</option>
-              <?php foreach ($allowedEstados as $e): ?>
-                <?php if ($e !== ''): ?>
-                  <option value="<?= h($e) ?>" <?= ($estado === $e) ? 'selected' : '' ?>><?= h($e) ?></option>
-                <?php endif; ?>
-              <?php endforeach; ?>
-            </select>
-          </div>
-
-          <!-- NUEVO: Terminal -->
-          <?php if (!empty($terminales)): ?>
-            <div class="field">
-              <label for="terminal_id">🖥️ Terminal</label>
-              <select id="terminal_id" name="terminal_id">
-                <option value="">Todas</option>
-                <?php foreach ($terminales as $t): ?>
-                  <option value="<?= (int)$t['id'] ?>" <?= ($terminal_id === (int)$t['id']) ? 'selected' : '' ?>>
-                    <?= h($t['nombre']) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          <?php endif; ?>
-
-          <!-- NUEVO: Vendedor -->
-          <?php if (!empty($vendedores)): ?>
-            <div class="field">
-              <label for="vendedor_id">👨‍💼 Vendedor</label>
-              <select id="vendedor_id" name="vendedor_id">
-                <option value="">Todos</option>
-                <?php foreach ($vendedores as $v): ?>
-                  <option value="<?= (int)$v['id'] ?>" <?= ($vendedor_id === (int)$v['id']) ? 'selected' : '' ?>>
-                    <?= h($v['username']) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          <?php endif; ?>
-
-          <!-- Desde -->
-          <div class="field">
-            <label for="desde">📅 Desde</label>
-            <input type="date" id="desde" name="desde" value="<?= h($desde ?? '') ?>">
-          </div>
-
-          <!-- Hasta -->
-          <div class="field">
-            <label for="hasta">📅 Hasta</label>
-            <input type="date" id="hasta" name="hasta" value="<?= h($hasta ?? '') ?>">
-          </div>
-
-          <!-- Monto mín -->
-          <div class="field">
-            <label for="min_total">💰 Monto mín.</label>
-            <input type="text" id="min_total" name="min_total" placeholder="0,00" value="<?= h($min_total_raw) ?>">
-          </div>
-
-          <!-- Monto máx -->
-          <div class="field">
-            <label for="max_total">💰 Monto máx.</label>
-            <input type="text" id="max_total" name="max_total" placeholder="999999,00" value="<?= h($max_total_raw) ?>">
-          </div>
-
-          <!-- NUEVO: Facturación -->
-          <div class="field">
-            <label for="facturado">🧾 Facturación</label>
-            <select id="facturado" name="facturado">
-              <option value="">Todas</option>
-              <option value="1" <?= ($facturado === '1') ? 'selected' : '' ?>>Facturadas</option>
-              <option value="0" <?= ($facturado === '0') ? 'selected' : '' ?>>Sin facturar</option>
-            </select>
-          </div>
-
-          <!-- NUEVO: Con descuento -->
-          <div class="field">
-            <label for="con_descuento">🏷️ Descuentos</label>
-            <select id="con_descuento" name="con_descuento">
-              <option value="">Todas</option>
-              <option value="1" <?= ($con_descuento === '1') ? 'selected' : '' ?>>Con descuento</option>
-            </select>
-          </div>
-
-          <!-- NUEVO: Tag -->
-          <?php if (!empty($tags)): ?>
-            <div class="field">
-              <label for="tag">🏷️ Tag</label>
-              <select id="tag" name="tag">
-                <option value="">Todos</option>
-                <?php foreach ($tags as $t): ?>
-                  <option value="<?= h($t) ?>" <?= ($tag === $t) ? 'selected' : '' ?>><?= h($t) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-          <?php endif; ?>
-
-          <!-- Por página -->
-          <div class="field">
-            <label for="per_page">📄 Por página</label>
-            <select id="per_page" name="per_page">
-              <option value="20" <?= ($perPage === 20) ? 'selected' : '' ?>>20</option>
-              <option value="50" <?= ($perPage === 50) ? 'selected' : '' ?>>50</option>
-              <option value="100" <?= ($perPage === 100) ? 'selected' : '' ?>>100</option>
-            </select>
-          </div>
-
-          <!-- Botones -->
-          <div class="field" style="display:flex; gap:8px; align-items:end;">
-            <button type="submit" class="btn btn-primary">Filtrar</button>
-            <a href="ventas.php?clear=1" id="ventasClear" class="btn btn-ghost">Limpiar</a>
-          </div>
-
         </div>
-
-        <!-- Chips de rango rápido EXTENDIDOS -->
-        <div class="quick">
-          <span class="chip" data-range="today">🔥 Hoy</span>
-          <span class="chip" data-range="yesterday">Ayer</span>
-          <span class="chip" data-range="7d">Últimos 7 días</span>
-          <span class="chip" data-range="30d">Últimos 30 días</span>
-          <span class="chip" data-range="this_week">Esta semana</span>
-          <span class="chip" data-range="last_week">Semana pasada</span>
-          <span class="chip" data-range="this_month">Este mes</span>
-          <span class="chip" data-range="last_month">Mes pasado</span>
+        <div class="filtro-group">
+          <label>📄 Por página</label>
+          <select name="per_page">
+            <option value="20" <?= $perPage === 20 ? 'selected' : '' ?>>20</option>
+            <option value="50" <?= $perPage === 50 ? 'selected' : '' ?>>50</option>
+            <option value="100" <?= $perPage === 100 ? 'selected' : '' ?>>100</option>
+          </select>
         </div>
-
-        <input type="hidden" id="page" name="page" value="<?= (int)$page ?>">
-      </form>
-    </div>
-
-    <!-- Barra de acciones en masa (aparece cuando hay selección) -->
-    <div id="bulkActionsBar" class="bulk-actions-bar hidden">
-      <div class="bulk-actions-info">
-        <span id="bulkCount">0</span> ventas seleccionadas
       </div>
       
-      <div class="bulk-actions">
-        <button class="btn btn-secondary" id="btnBulkPrint">
-          🖨️ Imprimir todas
-        </button>
-        
-        <button class="btn btn-secondary" id="btnBulkExport">
-          💾 Exportar selección
-        </button>
-        
-        <button class="btn btn-ghost" id="btnDeselectAll">
-          Deseleccionar todas
-        </button>
+      <!-- Chips rápidos -->
+      <div class="chips-row">
+        <span class="chip" data-range="today">Hoy</span>
+        <span class="chip" data-range="yesterday">Ayer</span>
+        <span class="chip" data-range="7d">7 días</span>
+        <span class="chip" data-range="30d">30 días</span>
+        <span class="chip-sep">|</span>
+        <span class="chip" data-hora="06:00,12:00">🌅 Mañana</span>
+        <span class="chip" data-hora="12:00,18:00">☀️ Tarde</span>
+        <span class="chip" data-hora="18:00,23:59">🌙 Noche</span>
       </div>
-    </div>
+      
+      <input type="hidden" name="page" id="hiddenPage" value="1">
+    </form>
+  </div>
 
-    <!-- Tabla MEJORADA -->
-    <div class="table-wrapper">
-      <table class="ventas-table">
-        <thead>
-          <tr>
-            <th style="width:40px;">
-              <input type="checkbox" id="selectAll" title="Seleccionar todas">
-            </th>
-            <th>ID</th>
-            <th>Fecha</th>
-            <th>Cliente</th>
-            <th>Productos</th>
-            <th>Medio</th>
-            <th>Estado</th>
-            <th class="t-right">Desc.</th>
-            <th class="t-right">Total</th>
-            <th>Vendedor</th>
-            <th>Terminal</th>
-            <?php if ($hasVentaTags): ?>
-            <th>Tags</th>
+  <!-- Filtros activos -->
+  <?php 
+  $filtrosActivos = [];
+  if ($medio) $filtrosActivos[] = ['key' => 'medio', 'label' => "Medio: $medio"];
+  if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
+  if ($desde || $hasta) $filtrosActivos[] = ['key' => 'fecha', 'label' => "Fecha: " . ($desde ?: '...') . " - " . ($hasta ?: '...')];
+  if ($hora_desde || $hora_hasta) $filtrosActivos[] = ['key' => 'hora', 'label' => "Horario: " . ($hora_desde ?: '00:00') . " - " . ($hora_hasta ?: '23:59')];
+  if ($cliente_id) $filtrosActivos[] = ['key' => 'cliente', 'label' => "Cliente: " . ($clienteNombre ?: "#$cliente_id")];
+  ?>
+  <?php if ($filtrosActivos): ?>
+  <div class="filtros-activos">
+    <?php foreach ($filtrosActivos as $f): ?>
+      <span class="filtro-tag">
+        <?= h($f['label']) ?>
+        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">×</button>
+      </span>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+
+  <!-- Paginación superior -->
+  <?= render_pagination($page, $totalPages, $queryParams, true, $totalRows, $fromRow, $toRow) ?>
+
+  <!-- Tabla -->
+  <div class="tabla-container">
+    <table class="ventas-tabla">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Productos</th>
+          <th>Medio</th>
+          <th>Estado</th>
+          <th class="text-right">Total</th>
+          <th class="text-center">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php if ($ventas): ?>
+        <?php foreach ($ventas as $v): 
+          $esAnulada = strtoupper($v['estado'] ?? '') === 'ANULADA';
+          $medioMostrar = $hasVentaPagos ? ($v['medio_real'] ?? 'N/A') : ($v['medio_pago'] ?: 'N/A');
+          $esMixto = strpos($medioMostrar, '+') !== false;
+        ?>
+        <tr class="<?= $esAnulada ? 'row-anulada' : '' ?>">
+          <td class="col-id"><?= (int)$v['id'] ?></td>
+          <td class="col-fecha">
+            <span class="fecha-dia"><?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
+            <span class="fecha-hora"><?= date('H:i', strtotime($v['fecha'])) ?></span>
+          </td>
+          <td class="col-cliente">
+            <?= h($v['cliente_nombre'] ?: 'Consumidor Final') ?>
+          </td>
+          <td class="col-productos">
+            <span class="productos-count"><?= (int)$v['items_count'] ?></span>
+            <span class="productos-preview"><?= h(mb_substr($v['productos_resumen'] ?? '', 0, 30)) ?><?= mb_strlen($v['productos_resumen'] ?? '') > 30 ? '...' : '' ?></span>
+          </td>
+          <td class="col-medio">
+            <span class="badge-medio badge-<?= $esMixto ? 'mixto' : strtolower($medioMostrar) ?>">
+              <?= h($medioMostrar) ?>
+            </span>
+          </td>
+          <td class="col-estado">
+            <?php if ($esAnulada): ?>
+              <span class="badge-estado anulada">Anulada</span>
+            <?php else: ?>
+              <span class="badge-estado emitida">Emitida</span>
             <?php endif; ?>
-            <th class="t-center">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
+          </td>
+          <td class="col-total text-right">
+            <?php if ((float)($v['descuento_monto'] ?? 0) > 0): ?>
+              <span class="descuento-tag">-<?= money($v['descuento_monto']) ?></span>
+            <?php endif; ?>
+            <?= money($v['total']) ?>
+          </td>
+          <td class="col-acciones text-center">
+            <button class="btn-action" data-preview="<?= (int)$v['id'] ?>" title="Vista previa">👁️</button>
+            <button class="btn-action" data-ticket="<?= (int)$v['id'] ?>" title="Ver ticket">🧾</button>
+            <a href="venta_detalle.php?id=<?= (int)$v['id'] ?>" class="btn-action" title="Detalle">→</a>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <tr>
+          <td colspan="8" class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>No hay ventas con los filtros seleccionados</p>
+          </td>
+        </tr>
+      <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
 
-        <?php if ($ventas): ?>
-          <?php foreach ($ventas as $v): ?>
-            <?php
-              $cntPagos = (int)($v['pagos_cnt'] ?? 0);
-              $medios   = (string)($v['pagos_medios'] ?? '');
-              $medioLegacy = (string)($v['medio_pago'] ?? 'SIN_ESPECIFICAR');
+  <!-- Paginación inferior -->
+  <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
-              if ($hasVentaPagos && $cntPagos > 0) {
-                $medioShow = ($cntPagos > 1) ? 'MIXTO' : ($medios !== '' ? $medios : $medioLegacy);
-                $medioTitle = ($cntPagos > 1 && $medios) ? $medios : '';
-              } else {
-                $medioShow  = $medioLegacy ?: 'SIN_ESPECIFICAR';
-                $medioTitle = '';
-              }
+</div>
 
-              $mpClass = strtolower(preg_replace('/[^a-z0-9_]+/i', '', $medioShow));
-              
-              // Clases especiales
-              $rowClasses = [];
-              if ((float)($v['total'] ?? 0) >= 50000) $rowClasses[] = 'venta-grande';
-              if ((float)($v['descuento_total'] ?? 0) > 0) $rowClasses[] = 'con-descuento';
-              if (!($v['esta_facturada'] ?? false) && !empty($v['cliente_id'])) $rowClasses[] = 'sin-facturar';
-            ?>
-            <tr class="<?= implode(' ', $rowClasses) ?>" data-venta-id="<?= (int)$v['id'] ?>">
-              <td>
-                <input type="checkbox" class="venta-check" value="<?= (int)$v['id'] ?>">
-              </td>
-              
-              <td class="mono"><?= h((string)$v['id']) ?></td>
-
-              <td>
-                <?php
-                  $f = $v['fecha'] ?? '';
-                  if ($f) {
-                    try {
-                      $dt = new DateTime((string)$f);
-                      echo h($dt->format('d/m/Y H:i'));
-                    } catch (Exception $e) {
-                      echo h((string)$f);
-                    }
-                  }
-                ?>
-              </td>
-
-              <!-- Cliente -->
-              <td>
-                <?php if (!empty($v['cliente_id'])): ?>
-                  <a href="clientes.php?id=<?= (int)$v['cliente_id'] ?>" class="link-cliente">
-                    <?= h($v['cliente_nombre']) ?>
-                  </a>
-                  <?php if ($v['cliente_documento']): ?>
-                    <br><span class="muted small"><?= h($v['cliente_documento']) ?></span>
-                  <?php endif; ?>
-                <?php else: ?>
-                  <span class="muted">Consumidor Final</span>
-                <?php endif; ?>
-              </td>
-
-              <!-- Productos -->
-              <td class="productos-cell">
-                <span class="badge-qty"><?= (int)($v['items_count'] ?? 0) ?></span>
-                <?php if ($v['productos_preview']): ?>
-                  <div class="productos-preview" title="<?= h($v['productos_preview']) ?>">
-                    <?= h(mb_strimwidth($v['productos_preview'], 0, 30, '...')) ?>
-                  </div>
-                <?php endif; ?>
-              </td>
-
-              <!-- Medio -->
-              <td>
-                <span class="badge badge-<?= h($mpClass) ?>" <?= $medioTitle ? 'title="'.h($medioTitle).'"' : '' ?>>
-                  <?= h($medioShow) ?>
-                </span>
-              </td>
-
-              <!-- Estado -->
-              <td>
-                <?php if (strtoupper((string)($v['estado'] ?? '')) === 'ANULADA'): ?>
-                  <span class="badge-estado badge-anulada">Anulada</span>
-                <?php else: ?>
-                  <span class="badge-estado badge-emitida">Emitida</span>
-                <?php endif; ?>
-              </td>
-
-              <!-- Descuento -->
-              <td class="t-right">
-                <?php if ((float)($v['descuento_total'] ?? 0) > 0): ?>
-                  <span class="badge-descuento">-<?= money($v['descuento_total']) ?></span>
-                <?php else: ?>
-                  <span class="muted">-</span>
-                <?php endif; ?>
-              </td>
-
-              <!-- Total -->
-              <td class="t-right mono"><?= money($v['total'] ?? 0) ?></td>
-
-              <!-- Vendedor -->
-              <td>
-                <?php if ($v['vendedor_username']): ?>
-                  <span class="muted"><?= h($v['vendedor_username']) ?></span>
-                <?php else: ?>
-                  <span class="muted">-</span>
-                <?php endif; ?>
-              </td>
-
-              <!-- Terminal -->
-              <td>
-                <?php if ($v['terminal_nombre']): ?>
-                  <span class="badge badge-terminal"><?= h($v['terminal_nombre']) ?></span>
-                <?php else: ?>
-                  <span class="muted">-</span>
-                <?php endif; ?>
-              </td>
-
-              <!-- Tags -->
-              <?php if ($hasVentaTags): ?>
-              <td>
-                <?php if ($v['tags']): ?>
-                  <?php foreach (explode(', ', $v['tags']) as $tag): ?>
-                    <span class="badge badge-tag"><?= h($tag) ?></span>
-                  <?php endforeach; ?>
-                <?php else: ?>
-                  <span class="muted">-</span>
-                <?php endif; ?>
-              </td>
-              <?php endif; ?>
-
-              <!-- Acciones -->
-              <td class="t-center">
-                <div class="row-actions">
-                  <button class="btn-mini btn-mini-preview" 
-                          data-venta-id="<?= (int)$v['id'] ?>" 
-                          title="Vista previa">
-                    👁️
-                  </button>
-                  <a href="ticket.php?id=<?= (int)$v['id'] ?>&paper=80" 
-                     target="_blank" 
-                     class="btn-mini btn-mini-ok" 
-                     title="Ver ticket">
-                    📄
-                  </a>
-                  <a href="venta_detalle.php?id=<?= (int)$v['id'] ?>" 
-                     class="btn-mini" 
-                     title="Ver detalle">
-                    →
-                  </a>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <tr>
-            <td colspan="<?= $hasVentaTags ? 13 : 12 ?>" class="empty-cell">
-              No hay ventas que coincidan con los filtros seleccionados.
-            </td>
-          </tr>
-        <?php endif; ?>
-
-        </tbody>
-      </table>
+<!-- Modal Preview -->
+<div id="previewModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Venta #<span id="previewId"></span></h3>
+      <button class="modal-close" data-close>×</button>
     </div>
-
-    <!-- Paginación -->
-    <?php if ($totalPages > 1): ?>
-      <div class="pager">
-        <div class="pager-info">
-          Mostrando <?= $fromRow ?> - <?= $toRow ?> de <?= number_format($totalRows) ?> ventas
-        </div>
-
-        <div class="pager-controls">
-          <?php if ($page > 1): ?>
-            <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>" class="pager-btn">← Anterior</a>
-          <?php else: ?>
-            <span class="pager-btn disabled">← Anterior</span>
-          <?php endif; ?>
-
-          <span class="pager-current">Página <?= $page ?> de <?= $totalPages ?></span>
-
-          <?php if ($page < $totalPages): ?>
-            <a href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>" class="pager-btn">Siguiente →</a>
-          <?php else: ?>
-            <span class="pager-btn disabled">Siguiente →</span>
-          <?php endif; ?>
-        </div>
-      </div>
-    <?php endif; ?>
-
+    <div class="modal-body" id="previewBody">
+      <div class="loading">Cargando...</div>
+    </div>
+    <div class="modal-footer">
+      <a href="#" id="previewLink" class="btn btn-primary">Ver detalle completo</a>
+      <button class="btn btn-ghost" data-close>Cerrar</button>
+    </div>
   </div>
 </div>
 
-<!-- Modal de Vista Previa Rápida -->
-<div id="quickPreviewModal" class="quick-preview-modal hidden">
-  <div class="preview-dialog">
-    <div class="preview-header">
-      <h3 class="preview-title">Venta #<span id="previewVentaId"></span></h3>
-      <button class="btn-close" id="closePreview">×</button>
-    </div>
-    
-    <div class="preview-body">
-      <div id="previewContent">
-        <div class="preview-loading">
-          <div class="spinner"></div>
-          <p>Cargando...</p>
-        </div>
+<!-- Modal Ticket -->
+<div id="ticketModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content modal-ticket">
+    <div class="modal-header">
+      <h3>Ticket #<span id="ticketId"></span></h3>
+      <div class="modal-actions">
+        <button id="btnPrintTicket" class="btn btn-primary">🖨️ Imprimir</button>
+        <button class="modal-close" data-close>×</button>
       </div>
     </div>
-    
-    <div class="preview-footer">
-      <a href="#" id="previewVerDetalle" class="btn btn-primary">
-        Ver detalle completo
-      </a>
-      <a href="#" id="previewImprimir" class="btn btn-secondary" target="_blank">
-        🖨️ Imprimir ticket
-      </a>
-      <button class="btn btn-ghost" id="previewCerrar">Cerrar</button>
+    <div class="modal-body">
+      <iframe id="ticketFrame" src="" frameborder="0"></iframe>
     </div>
   </div>
 </div>
+
+<!-- Datos para JS -->
+<script>
+window.VENTAS_DATA = {
+  chartVentas: <?= json_encode($chartData) ?>,
+  chartMedios: <?= json_encode($chartMedios) ?>
+};
+</script>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

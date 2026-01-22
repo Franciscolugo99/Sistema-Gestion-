@@ -2,17 +2,37 @@
 // public/backups.php
 declare(strict_types=1);
 
+$isAjax = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['ajax']);
+if ($isAjax) {
+  // Evitar que warnings/notices rompan el JSON (Unexpected token '<')
+  error_reporting(E_ALL);
+  ini_set('display_errors', '0');
+  if (ob_get_level() === 0) { ob_start(); }
+}
+
+define('FLUS_MAINTENANCE_BYPASS', true);
 require_once __DIR__ . '/bootstrap.php';
 
 require_login();
-require_permission('gestionar_backups');
+// Permiso: preferir sesión (no depender de DB si está en restauración)
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+$hasPerm = in_array('gestionar_backups', $_SESSION['permissions'] ?? [], true);
+if (!$hasPerm && function_exists('user_has_permission')) {
+  $hasPerm = user_has_permission('gestionar_backups');
+}
+if (!$hasPerm) {
+  http_response_code(403);
+  echo 'No tenés permisos para acceder a esta sección.';
+  exit;
+}
 
 require_once __DIR__ . '/../src/backup_lib.php';
-
-if (session_status() === PHP_SESSION_NONE) session_start();
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
 $pageTitle = 'Backups - FLUS';
+$maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
+$maintenanceActive = is_file($maintenanceFlag);
 $currentSection = 'configuracion';
 $extraCss = ['assets/css/backups.css'];
 $extraJs = ['assets/js/backups.js'];
@@ -23,45 +43,62 @@ $error = null;
 // Manejo de acciones POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $token = (string)($_POST['csrf_token'] ?? '');
-  
+
   if (!hash_equals($_SESSION['csrf_token'], $token)) {
     $error = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
   } else {
     $accion = (string)($_POST['accion'] ?? '');
 
-    // Crear backup
     if ($accion === 'crear') {
       $err = null;
       $file = backup_create($err);
-      
       if ($file) {
         $info = 'Backup creado exitosamente: ' . basename($file);
       } else {
         $error = 'Error al crear backup: ' . ($err ?: 'Error desconocido. Verificá los permisos y la configuración de la base de datos.');
       }
-    }
-
-    // Borrar backup
-    if ($accion === 'borrar') {
+    } elseif ($accion === 'borrar') {
       $file = (string)($_POST['file'] ?? '');
       $err = null;
-      
       if (backup_delete($file, $err)) {
         $info = 'Backup eliminado: ' . basename($file);
       } else {
         $error = 'Error al eliminar backup: ' . ($err ?: 'No se pudo borrar el archivo.');
       }
+    } elseif ($accion === 'restaurar') {
+      $file = (string)($_POST['file'] ?? '');
+      $err = null;
+      if (backup_restore($file, $err)) {
+        $info = 'Restauración completada: ' . basename($file);
+      } else {
+        $error = 'Error al restaurar backup: ' . ($err ?: 'No se pudo restaurar.');
+      }
+    } elseif ($accion === 'maintenance_off') {
+      $confirm = (string)($_POST['confirm'] ?? '');
+      if ($confirm !== 'SALIR') {
+        $error = 'Confirmación inválida. Escribí SALIR para desactivar mantenimiento.';
+      } else {
+        if (is_file($maintenanceFlag)) {
+          @unlink($maintenanceFlag);
+        }
+        $info = 'Mantenimiento desactivado.';
+      }
     }
   }
-  
+
   // Para AJAX requests, devolver JSON
   if (!empty($_POST['ajax'])) {
-    header('Content-Type: application/json');
+    if (ob_get_length()) { @ob_clean(); }
+    if (!headers_sent()) {
+      header('Content-Type: application/json; charset=utf-8');
+      header('Cache-Control: no-store');
+      header('X-Content-Type-Options: nosniff');
+    }
     echo json_encode([
       'success' => !$error,
       'message' => $error ?: $info,
       'items' => backup_list()
-    ]);
+    ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
   }
 }
@@ -93,6 +130,18 @@ require __DIR__ . '/partials/header.php';
       </form>
     </div>
   </div>
+
+  <?php if ($maintenanceActive): ?>
+    <div class="alert alert-err">
+      <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span><strong>Sistema en mantenimiento:</strong> se está restaurando un backup o quedó activo por error.
+      Podés esperar o <button type="button" class="btn btn-warning btn-sm" id="btnMaintenanceOff">Salir de mantenimiento</button></span>
+    </div>
+  <?php endif; ?>
 
   <?php if ($info): ?>
     <div class="alert alert-ok">
@@ -269,6 +318,14 @@ require __DIR__ . '/partials/header.php';
                 Descargar
               </a>
 
+              <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="<?= h($it['file']) ?>" title="Restaurar este backup">
+                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                Restaurar
+              </button>
+
               <form method="post" class="inline-form" onsubmit="return confirmarBorrado('<?= h($it['file']) ?>');">
                 <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="borrar">
@@ -294,7 +351,7 @@ require __DIR__ . '/partials/header.php';
 <div id="loadingOverlay" class="loading-overlay" style="display: none;">
   <div class="spinner-container">
     <div class="spinner"></div>
-    <p>Creando backup...</p>
+    <p id="loadingText">Creando backup...</p>
   </div>
 </div>
 

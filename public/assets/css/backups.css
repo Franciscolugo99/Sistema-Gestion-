@@ -354,6 +354,17 @@
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+
+.btn-warning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fdba74;
+}
+
+.btn-warning:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.45);
+}
 .btn-ghost {
   background: transparent;
   border-color: rgba(148, 163, 184, 0.15);

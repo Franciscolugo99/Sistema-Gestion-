@@ -127,3 +127,4 @@ storage/cache/
 .DS_Store
 Thumbs.db
 storage/restore.lock
+storage/restore.lock

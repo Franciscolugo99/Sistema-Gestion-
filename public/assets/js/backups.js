@@ -10,6 +10,7 @@
   const createBackupForm = document.getElementById('createBackupForm');
   const btnCrearBackup = document.getElementById('btnCrearBackup');
   const loadingOverlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
   const backupsTableBody = document.getElementById('backupsTableBody');
 
   // Inicialización
@@ -19,6 +20,23 @@
     if (createBackupForm) {
       createBackupForm.addEventListener('submit', handleCreateBackup);
     }
+
+    // Delegación de clicks (restore / mantenimiento)
+    document.addEventListener('click', (ev) => {
+      const restoreBtn = ev.target.closest('.btn-restore');
+      if (restoreBtn) {
+        ev.preventDefault();
+        const f = restoreBtn.getAttribute('data-file') || '';
+        if (f) handleRestoreBackup(f);
+        return;
+      }
+
+      const maintBtn = ev.target.closest('#btnMaintenanceOff');
+      if (maintBtn) {
+        ev.preventDefault();
+        handleMaintenanceOff();
+      }
+    });
 
     // Auto-hide alerts después de 5 segundos
     autoHideAlerts();
@@ -32,7 +50,7 @@
 
     // Deshabilitar botón y mostrar loading
     btnCrearBackup.disabled = true;
-    showLoading(true);
+    showLoading(true, 'Creando backup...');
 
     const formData = new FormData(createBackupForm);
     formData.append('ajax', '1');
@@ -74,10 +92,127 @@
     }
   }
 
+
+  /**
+   * Restaurar un backup existente (AJAX)
+   */
+  async function handleRestoreBackup(file) {
+    const fileSafe = String(file || '').trim();
+    if (!fileSafe) return;
+
+    const confirmWord = prompt(
+      `⚠️ RESTAURAR BACKUP
+
+Esto REEMPLAZA la base de datos actual por el contenido del backup:
+
+${fileSafe}
+
+Escribí RESTAURAR para continuar.`
+    );
+    if (confirmWord !== 'RESTAURAR') return;
+
+    const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+    if (!csrf) {
+      showAlert('error', 'CSRF faltante. Recargá la página e intentá de nuevo.');
+      return;
+    }
+
+    // Deshabilitar acciones principales
+    if (btnCrearBackup) btnCrearBackup.disabled = true;
+
+    showLoading(true, 'Restaurando backup... No cierres esta ventana.');
+
+    const formData = new FormData();
+    formData.append('csrf_token', csrf);
+    formData.append('accion', 'restaurar');
+    formData.append('file', fileSafe);
+    formData.append('ajax', '1');
+
+    try {
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      showLoading(false);
+
+      if (data.success) {
+        showAlert('success', data.message || 'Restauración completada');
+        // Mejor recargar: pueden cambiar datos/permisos
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        showAlert('error', data.message || 'Error al restaurar el backup');
+      }
+
+    } catch (error) {
+      console.error('Error al restaurar backup:', error);
+      showLoading(false);
+      showAlert('error', 'Error de conexión durante la restauración.');
+    } finally {
+      if (btnCrearBackup) btnCrearBackup.disabled = false;
+    }
+  }
+
+  /**
+   * Desactivar mantenimiento manualmente (si quedó activo)
+   */
+  async function handleMaintenanceOff() {
+    const confirmWord = prompt('Escribí SALIR para desactivar el modo mantenimiento.');
+    if (confirmWord !== 'SALIR') return;
+
+    const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+    if (!csrf) {
+      showAlert('error', 'CSRF faltante. Recargá la página e intentá de nuevo.');
+      return;
+    }
+
+    showLoading(true, 'Desactivando mantenimiento...');
+
+    const formData = new FormData();
+    formData.append('csrf_token', csrf);
+    formData.append('accion', 'maintenance_off');
+    formData.append('confirm', 'SALIR');
+    formData.append('ajax', '1');
+
+    try {
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      showLoading(false);
+
+      if (data.success) {
+        showAlert('success', data.message || 'Mantenimiento desactivado');
+        setTimeout(() => window.location.reload(), 600);
+      } else {
+        showAlert('error', data.message || 'No se pudo desactivar mantenimiento');
+      }
+
+    } catch (error) {
+      console.error('Error maintenance_off:', error);
+      showLoading(false);
+      showAlert('error', 'Error de conexión.');
+    }
+  }
+
   /**
    * Muestra/oculta el overlay de loading
    */
-  function showLoading(show) {
+  function showLoading(show, text) {
+    if (loadingText && typeof text === 'string' && text.trim() !== '') {
+      loadingText.textContent = text;
+    }
     if (loadingOverlay) {
       loadingOverlay.style.display = show ? 'flex' : 'none';
     }
@@ -170,6 +305,15 @@
               </svg>
               Descargar
             </a>
+
+            <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="${escapeHtml(item.file)}" title="Restaurar este backup">
+              <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+              Restaurar
+            </button>
+
             <form method="post" class="inline-form" onsubmit="return confirmarBorrado('${escapeHtml(item.file)}');">
               <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
               <input type="hidden" name="accion" value="borrar">
