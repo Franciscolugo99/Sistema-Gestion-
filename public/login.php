@@ -32,9 +32,10 @@ switch ($errorCode) {
   <title>FLUS · Iniciar sesión</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <link rel="stylesheet" href="assets/css/theme.css?v=1">
-  <link rel="stylesheet" href="assets/css/app.css?v=1">
-  <link rel="stylesheet" href="assets/css/login.css?v=1">
+<link rel="stylesheet" href="assets/css/theme.css?v=1">
+<link rel="stylesheet" href="assets/css/core.css?v=1">
+<link rel="stylesheet" href="assets/css/app.css?v=1">
+<link rel="stylesheet" href="assets/css/login.css?v=1">
 </head>
 
 <body data-theme="dark" class="page-login">

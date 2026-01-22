@@ -185,7 +185,9 @@ body[data-theme="light"] .login-form input[type="password"] {
   border-radius: 8px;
   padding: 6px 10px;
   border: 1px solid rgba(248, 113, 113, 0.6);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 /* estado apagándose */
@@ -219,7 +221,11 @@ body[data-theme="dark"].page-login,
 .page-login[data-theme="dark"] {
   background:
     radial-gradient(circle at top, rgba(56, 189, 248, 0.16), transparent 55%),
-    radial-gradient(circle at bottom, rgba(45, 212, 191, 0.18), transparent 60%),
+    radial-gradient(
+      circle at bottom,
+      rgba(45, 212, 191, 0.18),
+      transparent 60%
+    ),
     #020617;
 }
 
@@ -229,4 +235,14 @@ body[data-theme="light"].page-login,
   background:
     radial-gradient(circle at top, rgba(37, 99, 235, 0.08), transparent 55%),
     #f8fafc;
+}
+/* Asegura contraste dentro del login aunque falte algún CSS base */
+body.page-login {
+  color: var(--text, #eef2ff);
+}
+.page-login .login-card {
+  color: var(--text, #eef2ff);
+}
+.page-login .login-title {
+  color: var(--text-strong, #fff);
 }
