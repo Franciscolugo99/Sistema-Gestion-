@@ -374,7 +374,7 @@ if ($estado !== 'BORRADOR') {
     }
 
     /* =========================================================
-       3) Confirmar (impacta stock + movimientos)
+      3) Confirmar (impacta stock + movimientos)
     ========================================================= */
     if ($accion === 'confirmar') {
 
@@ -386,93 +386,146 @@ if ($estado !== 'BORRADOR') {
         try {
           $pdo->beginTransaction();
 
-          // Bloquear compra
+          // 1) Bloquear compra y traer datos necesarios
           $st = $pdo->prepare("SELECT estado, total_bruto, descuento_total FROM compras WHERE id = ? FOR UPDATE");
           $st->execute([$compraId]);
           $rowCompra = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-          $estado = (string)($rowCompra['estado'] ?? '');
 
+          if (!$rowCompra) {
+            throw new RuntimeException("Compra no encontrada.");
+          }
+
+          $estado = (string)($rowCompra['estado'] ?? '');
           $compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? 0.0);
           $compraDescuentoTotal = (float)($rowCompra['descuento_total'] ?? 0.0);
 
           if ($estado !== 'BORRADOR') {
-            throw new RuntimeException("La compra no está en BORRADOR.");
+            throw new RuntimeException("Solo se pueden confirmar compras en BORRADOR.");
           }
 
-          // Traer items
+          // 2) Traer ítems (incluye id/subtotal para prorrateo)
           $itSt = $pdo->prepare("
-            SELECT producto_id, cantidad, costo_unitario
+            SELECT id, producto_id, cantidad, costo_unitario, subtotal
             FROM compra_items
             WHERE compra_id = ?
+            ORDER BY id ASC
           ");
           $itSt->execute([$compraId]);
           $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-          if (!$items) throw new RuntimeException("La compra no tiene ítems.");
-
-          // Factor de prorrateo por descuento (descuento global sobre el total de la compra)
-          $brutoCalc = $compraTotalBruto;
-          if ($brutoCalc <= 0) {
-            foreach ($items as $it) {
-              $brutoCalc += ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
-            }
+          if (!$items) {
+            throw new RuntimeException("La compra no tiene ítems.");
           }
 
-          $factorDesc = 1.0;
-          if ($brutoCalc > 0 && $compraDescuentoTotal > 0) {
-            $factorDesc = max(0.0, ($brutoCalc - $compraDescuentoTotal) / $brutoCalc);
-          }
-
-
-
-          // Verificar que todos los productos existen y están activos
+          // 3) Verificar productos (existen + activos)
           $stCheckProd = $pdo->prepare("SELECT id, nombre, activo FROM productos WHERE id = ?");
           foreach ($items as $it) {
-            $stCheckProd->execute([$it['producto_id']]);
+            $pid = (int)$it['producto_id'];
+            $stCheckProd->execute([$pid]);
             $prod = $stCheckProd->fetch(PDO::FETCH_ASSOC);
             if (!$prod) {
-              throw new RuntimeException("El producto ID {$it['producto_id']} ya no existe en el sistema.");
+              throw new RuntimeException("El producto ID {$pid} ya no existe en el sistema.");
             }
-            if (!$prod['activo']) {
-              throw new RuntimeException("El producto '{$prod['nombre']}' está desactivado. Eliminalo de la compra o reactivá el producto.");
+            if (isset($prod['activo']) && (int)$prod['activo'] === 0) {
+              $nombre = (string)($prod['nombre'] ?? '');
+              throw new RuntimeException("El producto '{$nombre}' está desactivado. Eliminalo de la compra o reactivá el producto.");
             }
           }
 
-          // Impactar stock + movimientos
+          // 4) Prorratear descuento_total => compra_items.descuento
+          //    Base: suma de subtotales (si subtotal viene 0, usa qty*cu como fallback)
+          $base = 0.0;
+          foreach ($items as $it) {
+            $sub = (float)($it['subtotal'] ?? 0.0);
+            if ($sub <= 0) {
+              $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
+            }
+            $base += $sub;
+          }
+
+          // limpiar por consistencia
+          $pdo->prepare("UPDATE compra_items SET descuento = 0.00 WHERE compra_id = ?")->execute([$compraId]);
+
+          $descuentosByItemId = []; // id => descuento
+
+          if ($compraDescuentoTotal > 0 && $base > 0) {
+            $updDesc = $pdo->prepare("UPDATE compra_items SET descuento = :d WHERE id = :id");
+
+            $sum = 0.0;
+            $lastId = null;
+
+            foreach ($items as $it) {
+              $itemId = (int)$it['id'];
+              $sub = (float)($it['subtotal'] ?? 0.0);
+              if ($sub <= 0) {
+                $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
+              }
+
+              $lastId = $itemId;
+
+              $d = round(($sub / $base) * $compraDescuentoTotal, 2);
+              if ($d < 0) $d = 0.0;
+
+              $sum += $d;
+              $descuentosByItemId[$itemId] = $d;
+
+              $updDesc->execute([':d' => $d, ':id' => $itemId]);
+            }
+
+            // Ajuste por redondeo para que cierre exacto: SUM(descuento) == descuento_total
+            $diff = round($compraDescuentoTotal - $sum, 2);
+            if (abs($diff) >= 0.01 && $lastId !== null) {
+              $newLast = round(($descuentosByItemId[$lastId] ?? 0.0) + $diff, 2);
+              if ($newLast < 0) $newLast = 0.0; // safety
+              $pdo->prepare("UPDATE compra_items SET descuento = ? WHERE id = ?")->execute([$newLast, $lastId]);
+              $descuentosByItemId[$lastId] = $newLast;
+            }
+          }
+
+          // 5) Impactar stock + movimientos + costo (costo neto por ítem)
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
+
           $stMov = $pdo->prepare("
             INSERT INTO movimientos_stock
               (fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario)
             VALUES
               (NOW(), :pid, 'COMPRA', :qty, NULL, :compra_id, :com)
           ");
+
           $stUpdCosto = $pdo->prepare("UPDATE productos SET costo = :costo WHERE id = :pid");
 
           foreach ($items as $it) {
+            $itemId = (int)$it['id'];
             $pid = (int)$it['producto_id'];
             $qty = (float)$it['cantidad'];
             $cu  = (float)$it['costo_unitario'];
 
             if ($qty <= 0) continue;
 
+            // stock + movimiento
             $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
             $stMov->execute([
-              ':pid'      => $pid,
-              ':qty'      => $qty,
-              ':compra_id'=> $compraId,
-              ':com'      => "Compra #{$compraId}",
+              ':pid'       => $pid,
+              ':qty'       => $qty,
+              ':compra_id' => $compraId,
+              ':com'       => "Compra #{$compraId}",
             ]);
 
-            // Actualizar costo (prorrateado por descuento global si corresponde)
-            $cuAdj = round($cu * $factorDesc, 2);
+            // costo neto: (subtotal - descuento_item) / qty
+            $sub = (float)($it['subtotal'] ?? 0.0);
+            if ($sub <= 0) $sub = $qty * $cu;
+
+            $dItem = (float)($descuentosByItemId[$itemId] ?? 0.0);
+            $netItem = max(0.0, $sub - $dItem);
+
+            $cuAdj = round($netItem / $qty, 2);
             if ($cuAdj > 0) {
               $stUpdCosto->execute([':costo' => $cuAdj, ':pid' => $pid]);
             }
           }
 
-          // Confirmar compra
-          $pdo->prepare("UPDATE compras SET estado='CONFIRMADA' WHERE id=?")
-             ->execute([$compraId]);
+          // 6) Confirmar compra
+          $pdo->prepare("UPDATE compras SET estado='CONFIRMADA' WHERE id=?")->execute([$compraId]);
 
           $pdo->commit();
 
@@ -486,6 +539,7 @@ if ($estado !== 'BORRADOR') {
         }
       }
     }
+
 
     /* =========================================================
        4) Anular CONFIRMADA (opcional: revierte stock)
