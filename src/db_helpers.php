@@ -27,7 +27,7 @@ if (!function_exists('has_column')) {
             WHERE TABLE_SCHEMA = :s AND TABLE_NAME = :t AND COLUMN_NAME = :c
             LIMIT 1";
     $st = $pdo->prepare($sql);
-    $st->execute([':s' => $schema, ':t' => $table, ':t' => $table, ':c' => $column]);
+    $st->execute([':s' => $schema, ':t' => $table, ':c' => $column]);
     return (bool)$st->fetchColumn();
   }
 }

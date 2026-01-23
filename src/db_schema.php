@@ -4,6 +4,7 @@ declare(strict_types=1);
 /**
  * Helpers de esquema DB (FLUS)
  * - flus_table_exists()
+ * - flus_column_exists()
  * - flus_first_existing_column()
  */
 
@@ -28,11 +29,7 @@ function flus_table_exists(PDO $pdo, string $table, ?string $schema = null): boo
   if (array_key_exists($key, $memo)) return (bool)$memo[$key];
 
   $stmt = $pdo->prepare(
-    "SELECT 1
-       FROM information_schema.TABLES
-      WHERE TABLE_SCHEMA = ?
-        AND TABLE_NAME = ?
-      LIMIT 1"
+    "SELECT 1\n       FROM information_schema.TABLES\n      WHERE TABLE_SCHEMA = ?\n        AND TABLE_NAME = ?\n      LIMIT 1"
   );
   $stmt->execute([$schema, $table]);
 
@@ -41,31 +38,52 @@ function flus_table_exists(PDO $pdo, string $table, ?string $schema = null): boo
 }
 
 /**
- * Devuelve el primer nombre de columna que exista en la tabla, según orden de $candidates.
- * Si no existe ninguna, devuelve null.
+ * Cachea todas las columnas existentes para una tabla.
+ * @return array<string,true> set de columnas
  */
-function flus_first_existing_column(PDO $pdo, string $table, array $candidates, ?string $schema = null): ?string {
+function flus_columns_set(PDO $pdo, string $schema, string $table): array {
   static $colsMemo = [];
-
-  $schema = $schema ?: flus_current_db($pdo);
-  if ($schema === '') return null;
-  if (!$candidates) return null;
 
   $memoKey = spl_object_id($pdo) . '|' . $schema . '|' . $table;
   if (!isset($colsMemo[$memoKey])) {
-    // Cacheamos TODAS las columnas de esa tabla (por request)
     $stmt = $pdo->prepare(
-      "SELECT COLUMN_NAME
-         FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = ?
-          AND TABLE_NAME = ?"
+      "SELECT COLUMN_NAME\n         FROM information_schema.COLUMNS\n        WHERE TABLE_SCHEMA = ?\n          AND TABLE_NAME = ?"
     );
     $stmt->execute([$schema, $table]);
     $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
     $colsMemo[$memoKey] = array_fill_keys(array_map('strval', $cols), true);
   }
 
-  $set = $colsMemo[$memoKey];
+  return $colsMemo[$memoKey];
+}
+
+/**
+ * Verifica si existe una columna en la tabla.
+ */
+function flus_column_exists(PDO $pdo, string $table, string $column, ?string $schema = null): bool {
+  $schema = $schema ?: flus_current_db($pdo);
+  if ($schema === '') return false;
+
+  // Si la tabla no existe, devolvemos false sin consultar columnas
+  if (!flus_table_exists($pdo, $table, $schema)) return false;
+
+  $set = flus_columns_set($pdo, $schema, $table);
+  return isset($set[$column]);
+}
+
+/**
+ * Devuelve el primer nombre de columna que exista en la tabla, según orden de $candidates.
+ * Si no existe ninguna, devuelve null.
+ */
+function flus_first_existing_column(PDO $pdo, string $table, array $candidates, ?string $schema = null): ?string {
+  $schema = $schema ?: flus_current_db($pdo);
+  if ($schema === '') return null;
+  if (!$candidates) return null;
+
+  // Si la tabla no existe, evitamos consultas innecesarias
+  if (!flus_table_exists($pdo, $table, $schema)) return null;
+
+  $set = flus_columns_set($pdo, $schema, $table);
 
   foreach ($candidates as $col) {
     $col = (string)$col;
