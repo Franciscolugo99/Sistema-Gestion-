@@ -5,17 +5,28 @@
  */
 declare(strict_types=1);
 
-function flus_first_existing_column(PDO $pdo, string $table, array $candidates): ?string {
-    $dbName = $pdo->query('SELECT DATABASE()')->fetchColumn();
-    if (!$dbName) return null;
-    $in = implode(',', array_map(static fn($c) => $pdo->quote($c), $candidates));
-    $sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = :db AND TABLE_NAME = :tbl AND COLUMN_NAME IN ($in)
-            ORDER BY FIELD(COLUMN_NAME, $in) LIMIT 1";
-    $st = $pdo->prepare($sql);
-    $st->execute([':db'=>$dbName, ':tbl'=>$table]);
-    $col = $st->fetchColumn();
-    return $col ? (string)$col : null;
+// Evitar redeclare si el helper ya está cargado desde src/db_schema.php (bootstrap)
+if (!function_exists('flus_first_existing_column')) {
+    $schemaHelpers = dirname(__DIR__, 3) . '/src/db_schema.php'; // <root>/src/db_schema.php
+    if (is_file($schemaHelpers)) {
+        require_once $schemaHelpers;
+    }
+}
+
+// Fallback ultra-compat (instalaciones viejas / sin src/db_schema.php)
+if (!function_exists('flus_first_existing_column')) {
+    function flus_first_existing_column(PDO $pdo, string $table, array $candidates): ?string {
+        $dbName = $pdo->query('SELECT DATABASE()')->fetchColumn();
+        if (!$dbName) return null;
+        $in = implode(',', array_map(static fn($c) => $pdo->quote($c), $candidates));
+        $sql = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = :db AND TABLE_NAME = :tbl AND COLUMN_NAME IN ($in)
+                ORDER BY FIELD(COLUMN_NAME, $in) LIMIT 1";
+        $st = $pdo->prepare($sql);
+        $st->execute([':db' => $dbName, ':tbl' => $table]);
+        $col = $st->fetchColumn();
+        return $col ? (string)$col : null;
+    }
 }
 
 function kpis_categoria_condition(PDO $pdo, ?string $categoria, ?string $prodCatCol): string {

@@ -163,6 +163,15 @@ function setup_api_error_handlers(): void {
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store');
+        // Log detallado (no se expone al cliente)
+        try {
+            $msg = sprintf('[FLUS][API][EXCEPTION] %s: %s in %s:%d', get_class($e), $e->getMessage(), $e->getFile(), $e->getLine());
+            $trace = $e->getTraceAsString();
+            if (is_string($trace) && $trace !== '') {
+                $msg .= "\n" . substr($trace, 0, 4000);
+            }
+            error_log($msg);
+        } catch (Throwable $ignore) {}
         }
         $code = ($e instanceof PDOException) ? 503 : 500;
         http_response_code($code);
@@ -180,6 +189,13 @@ function setup_api_error_handlers(): void {
 
         $fatal = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
         if (!in_array((int)$e['type'], $fatal, true)) return;
+
+        // Log del error fatal (no se expone al cliente)
+        try {
+            $msg = sprintf('[FLUS][API][FATAL] %s in %s:%d', (string)($e['message'] ?? 'Fatal'), (string)($e['file'] ?? ''), (int)($e['line'] ?? 0));
+            error_log($msg);
+        } catch (Throwable $ignore) {}
+
 
         if (ob_get_length()) ob_clean();
         if (!headers_sent()) {

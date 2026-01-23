@@ -13,8 +13,14 @@ function flus_current_db(PDO $pdo): string {
   $id = spl_object_id($pdo);
 
   if (!isset($cache[$id])) {
-    $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
-    $cache[$id] = is_string($db) ? $db : '';
+    try {
+      $q = $pdo->query('SELECT DATABASE()');
+      $db = $q ? $q->fetchColumn() : '';
+      $cache[$id] = is_string($db) ? $db : '';
+    } catch (Throwable $e) {
+      // No romper por fallas de conexión/privilegios (p.ej. info_schema)
+      $cache[$id] = '';
+    }
   }
   return $cache[$id];
 }
@@ -28,13 +34,23 @@ function flus_table_exists(PDO $pdo, string $table, ?string $schema = null): boo
   $key = spl_object_id($pdo) . '|' . $schema . '|' . $table;
   if (array_key_exists($key, $memo)) return (bool)$memo[$key];
 
-  $stmt = $pdo->prepare(
-    "SELECT 1\n       FROM information_schema.TABLES\n      WHERE TABLE_SCHEMA = ?\n        AND TABLE_NAME = ?\n      LIMIT 1"
-  );
-  $stmt->execute([$schema, $table]);
-
-  $memo[$key] = (bool)$stmt->fetchColumn();
-  return (bool)$memo[$key];
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT 1
+       FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = ?
+        AND TABLE_NAME = ?
+      LIMIT 1"
+    );
+    if (!$stmt) { $memo[$key] = false; return false; }
+    $stmt->execute([$schema, $table]);
+    $memo[$key] = (bool)$stmt->fetchColumn();
+    return (bool)$memo[$key];
+  } catch (Throwable $e) {
+    // Sin privilegios sobre information_schema o fallo DB => asumir que no existe
+    $memo[$key] = false;
+    return false;
+  }
 }
 
 /**
@@ -46,12 +62,21 @@ function flus_columns_set(PDO $pdo, string $schema, string $table): array {
 
   $memoKey = spl_object_id($pdo) . '|' . $schema . '|' . $table;
   if (!isset($colsMemo[$memoKey])) {
-    $stmt = $pdo->prepare(
-      "SELECT COLUMN_NAME\n         FROM information_schema.COLUMNS\n        WHERE TABLE_SCHEMA = ?\n          AND TABLE_NAME = ?"
-    );
-    $stmt->execute([$schema, $table]);
-    $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
-    $colsMemo[$memoKey] = array_fill_keys(array_map('strval', $cols), true);
+    try {
+      $stmt = $pdo->prepare(
+        "SELECT COLUMN_NAME
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ?
+          AND TABLE_NAME = ?"
+      );
+      if (!$stmt) { $colsMemo[$memoKey] = []; return $colsMemo[$memoKey]; }
+      $stmt->execute([$schema, $table]);
+      $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+      $colsMemo[$memoKey] = array_fill_keys(array_map('strval', (array)$cols), true);
+    } catch (Throwable $e) {
+      // Sin privilegios o fallo DB => devolver vacío
+      $colsMemo[$memoKey] = [];
+    }
   }
 
   return $colsMemo[$memoKey];
