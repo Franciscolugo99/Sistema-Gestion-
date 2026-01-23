@@ -140,7 +140,7 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
       if (!in_array($method, $allowed, true)) {
         http_response_code(405);
         header('Allow: ' . implode(', ', $allowed));
-        die('Método no permitido.');
+        flus_abort(405, 'Método no permitido.');
       }
     };
     return $this;

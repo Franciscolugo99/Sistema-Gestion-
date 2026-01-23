@@ -24,7 +24,7 @@ $ventaId = (int)($_GET['venta_id'] ?? 0);
 if ($ventaId <= 0) $ventaId = (int)($_GET['id'] ?? 0);
 if ($ventaId <= 0) {
   http_response_code(400);
-  die('ID de venta inválido.');
+  flus_abort(400, 'ID de venta inválido.');
 }
 
 $paper = (string)($_GET['paper'] ?? '80');
@@ -148,7 +148,7 @@ $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$venta) {
   http_response_code(404);
-  die('Venta no encontrada.');
+  flus_abort(400, 'Venta no encontrada.');
 }
 
 /* =========================

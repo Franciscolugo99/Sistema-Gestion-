@@ -10,7 +10,7 @@ require_permission('editar_promos');
 // Solo POST (evita deletes por link / CSRF fácil)
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
-  die('Método no permitido');
+  flus_abort(400, 'Método no permitido');
 }
 
 // CSRF

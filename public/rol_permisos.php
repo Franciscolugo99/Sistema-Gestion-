@@ -19,7 +19,7 @@ if (function_exists('startSecureSession')) {
 $roleId = (int)($_GET['id'] ?? 0);
 if ($roleId <= 0) {
     http_response_code(400);
-    die('ID de rol inválido.');
+    flus_abort(400, 'ID de rol inválido.');
 }
 
 $stmt = $pdo->prepare("SELECT id, nombre, slug FROM roles WHERE id = ? LIMIT 1");
@@ -28,7 +28,7 @@ $role = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$role) {
     http_response_code(404);
-    die('Rol no encontrado.');
+    flus_abort(400, 'Rol no encontrado.');
 }
 
 /* ============================================================
