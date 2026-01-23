@@ -8,7 +8,7 @@ flus_session_start();
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
-\nrequire_once FLUS_ROOT . '/src/http_helpers.php';
+require_once FLUS_ROOT . '/src/http_helpers.php';
 // ✅ Modo mantenimiento (p.ej. durante restore de backups)
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
 if (!defined('FLUS_MAINTENANCE_BYPASS') && is_file($maintenanceFlag)) {
