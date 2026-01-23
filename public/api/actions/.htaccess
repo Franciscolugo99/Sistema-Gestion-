@@ -1,8 +1,18 @@
-# Bloquear acceso directo por HTTP a /api/actions/*.php
-# Estos archivos deben ejecutarse solo vía public/api/index.php (router)
+# public/api/actions/.htaccess
+Options -Indexes
+
+# Bloquear todo por defecto en esta carpeta
 <IfModule mod_authz_core.c>
   Require all denied
 </IfModule>
-<IfModule !mod_authz_core.c>
-  Deny from all
-</IfModule>
+
+# ✅ Whitelist SOLO de las actions que usa tu front
+<Files "anular_venta.php">
+  Require all granted
+</Files>
+<Files "promo_actualizar.php">
+  Require all granted
+</Files>
+<Files "promo_eliminar.php">
+  Require all granted
+</Files>
