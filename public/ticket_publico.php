@@ -13,8 +13,7 @@ $ts = (int)($_GET['ts'] ?? 0);
 $paper = in_array($_GET['paper'] ?? '80', ['58', '80']) ? $_GET['paper'] : '80';
 
 if ($id <= 0 || $token === '' || $ts <= 0 || !ctype_xdigit($token) || !in_array(strlen($token), [16, 32], true)) {
-  http_response_code(400);
-  die('Parámetros inválidos');
+  flus_abort(400, 'Parámetros inválidos');
 }
 
 /* =========================
@@ -55,8 +54,7 @@ function validateTicketToken(int $ventaId, int $ts, string $token): bool {
 }
 
 if (!validateTicketToken($id, $ts, $token)) {
-  http_response_code(403);
-  die('Token inválido o expirado');
+  flus_abort(403, 'Token inválido o expirado');
 }
 
 /* =========================
@@ -77,8 +75,7 @@ $stmt->execute([$id]);
 $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$venta) {
-  http_response_code(404);
-  die('Venta no encontrada');
+  flus_abort(404, 'Venta no encontrada');
 }
 
 /* =========================

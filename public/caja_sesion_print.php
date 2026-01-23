@@ -17,8 +17,7 @@ require_permission('ver_historial_caja');
 -------------------------------------------------------- */
 $sesion_id = sanitize_int($_GET['id'] ?? 0);
 if ($sesion_id <= 0) {
-  http_response_code(400);
-  die('ID de sesión inválido');
+  flus_abort(400, 'ID de sesión inválido');
 }
 
 $sesion = null;
@@ -39,8 +38,7 @@ try {
   $sesion = $stSesion->fetch(PDO::FETCH_ASSOC);
 
   if (!$sesion) {
-    http_response_code(404);
-    die('Sesión no encontrada');
+    flus_abort(404, 'Sesión no encontrada');
   }
 
   // Ventas + productos_count desde venta_items (TU DB)
@@ -75,8 +73,7 @@ try {
 
 } catch (PDOException $e) {
   error_log("Error en caja_sesion_print: " . $e->getMessage());
-  http_response_code(500);
-  die('Error al cargar los datos');
+  flus_abort(500, 'Error al cargar los datos');
 }
 
 /* --------------------------------------------------------

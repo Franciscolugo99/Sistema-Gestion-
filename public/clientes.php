@@ -34,8 +34,7 @@ if (($_GET['export'] ?? '') === 'csv' && $canEditClientes) {
 /* ========== TOGGLE ACTIVO ========== */
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['accion'] ?? '') === 'toggle_activo') {
     if (!$canEditClientes) {
-        http_response_code(403);
-        die('No tenés permisos.');
+        flus_abort(403, 'No tenés permisos.');
     }
 
     if (!csrf_verify($_POST['csrf_token'] ?? null)) {
@@ -56,8 +55,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['accion'
 /* ========== CREAR / EDITAR ========== */
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($_POST['accion'])) {
     if (!$canEditClientes) {
-        http_response_code(403);
-        die('No tenés permisos.');
+        flus_abort(403, 'No tenés permisos.');
     }
 
     if (!csrf_verify($_POST['csrf_token'] ?? null)) {
@@ -106,8 +104,7 @@ $editId = (int)($_GET['editar'] ?? 0);
 
 if ($editId > 0) {
     if (!$canEditClientes) {
-        http_response_code(403);
-        die('No tenés permisos.');
+        flus_abort(403, 'No tenés permisos.');
     }
     $editCliente = $controller->getById($editId);
 }
