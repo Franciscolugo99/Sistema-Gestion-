@@ -1,5 +1,5 @@
 <?php
-// public/stock.php
+// public/stock.php - FLUS v5.0 (Refactorizado - Consistente con Productos/Ventas)
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -38,14 +38,11 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
     $minPedido = $es_pesable ? 0.001 : 1;
     
     if ($stock <= 0) {
-        // Sin stock: pedir al menos el objetivo o el mínimo pedido
         return max($minPedido, $objetivo);
     }
     
-    // Con stock: calcular diferencia
     $faltante = $objetivo - $stock;
     
-    // Si ya tenemos suficiente, sugerir el mínimo pedido
     if ($faltante <= 0) {
         return $minPedido;
     }
@@ -54,12 +51,70 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
 }
 
 /* ============================
+   FUNCIÓN: Paginación numérica (consistente con ventas)
+============================ */
+function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
+    if ($totalPages <= 1) return '';
+    
+    unset($params['page']);
+    $html = '<div class="pagination">';
+    
+    if ($showInfo && $total > 0) {
+        $html .= '<span class="pagination-info">' . number_format($from) . '-' . number_format($to) . ' de ' . number_format($total) . '</span>';
+    }
+    
+    $html .= '<div class="pagination-btns">';
+    
+    // Anterior
+    if ($page > 1) {
+        $params['page'] = $page - 1;
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">‹</a>';
+    } else {
+        $html .= '<span class="pg-btn disabled">‹</span>';
+    }
+    
+    // Páginas numéricas
+    $start = max(1, $page - 2);
+    $end = min($totalPages, $page + 2);
+    
+    if ($start > 1) {
+        $params['page'] = 1;
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">1</a>';
+        if ($start > 2) $html .= '<span class="pg-ellipsis">…</span>';
+    }
+    
+    for ($i = $start; $i <= $end; $i++) {
+        $params['page'] = $i;
+        $html .= ($i === $page) 
+            ? '<span class="pg-btn active">' . $i . '</span>'
+            : '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $i . '</a>';
+    }
+    
+    if ($end < $totalPages) {
+        if ($end < $totalPages - 1) $html .= '<span class="pg-ellipsis">…</span>';
+        $params['page'] = $totalPages;
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $totalPages . '</a>';
+    }
+    
+    // Siguiente
+    if ($page < $totalPages) {
+        $params['page'] = $page + 1;
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">›</a>';
+    } else {
+        $html .= '<span class="pg-btn disabled">›</span>';
+    }
+    
+    $html .= '</div></div>';
+    return $html;
+}
+
+/* ============================
    CONFIG PÁGINA
 ============================ */
 $pageTitle      = "Stock";
 $currentSection = "stock";
-$extraCss       = ["assets/css/stock.css"];
-$extraJs        = ["assets/js/stock.js"];
+$extraCss       = ["assets/css/stock.css", "assets/css/stock-enhanced.css?v=1"];
+$extraJs        = ["assets/js/stock.js?v=5.0"];
 
 /* ============================
    TAB ACTIVO
@@ -167,7 +222,6 @@ if (isset($_GET['export'])) {
     $exportType = (string)$_GET['export'];
     if (!in_array($exportType, ['general', 'alertas'], true)) $exportType = 'general';
     
-    // Límite de exportación para evitar timeout
     $exportLimit = 10000;
 
     $filename = ($exportType === 'alertas') ? 'stock_alertas' : 'stock_general';
@@ -175,8 +229,6 @@ if (isset($_GET['export'])) {
     header('Content-Disposition: attachment; filename="' . $filename . '_' . date('Y-m-d') . '.csv"');
 
     $out = fopen('php://output', 'w');
-    
-    // BOM para Excel
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
     if ($exportType === 'alertas') {
@@ -264,6 +316,10 @@ if ($page > $totalPages) {
     $offset = ($page - 1) * $perPage;
 }
 
+// Calcular rango para paginación
+$fromRow = $totalFiltrados > 0 ? $offset + 1 : 0;
+$toRow = min($offset + $perPage, $totalFiltrados);
+
 /* ============================
    LISTADO PRINCIPAL
 ============================ */
@@ -306,6 +362,12 @@ if ($tab === 'alertas') {
     unset($p);
 }
 
+/* ============================
+   Params para paginación
+============================ */
+$queryParams = $_GET;
+unset($queryParams['page']);
+
 require __DIR__ . "/partials/header.php";
 ?>
 
@@ -319,7 +381,6 @@ require __DIR__ . "/partials/header.php";
 
     <div class="header-actions">
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
-      <!-- Ajuste masivo deshabilitado hasta implementación -->
       <button class="v-btn v-btn--outline btn-disabled" type="button" disabled title="Próximamente">
         Ajuste masivo
       </button>
@@ -369,17 +430,17 @@ require __DIR__ . "/partials/header.php";
 
     <div class="filters-grid">
       <input type="text" name="q"
-             placeholder="Buscar por código, nombre, marca..."
+             placeholder="🔍 Buscar por código, nombre, marca..."
              value="<?= h($buscar) ?>"
              class="filter-search">
 
       <?php if ($tab !== 'alertas'): ?>
       <select name="estado" class="filter-select">
         <option value="">Todos los estados</option>
-        <option value="ok" <?= $estado==='ok'?'selected':'' ?>>OK</option>
-        <option value="bajo" <?= $estado==='bajo'?'selected':'' ?>>Bajo</option>
-        <option value="sin" <?= $estado==='sin'?'selected':'' ?>>Sin stock</option>
-        <option value="inactivo" <?= $estado==='inactivo'?'selected':'' ?>>Inactivo</option>
+        <option value="ok" <?= $estado==='ok'?'selected':'' ?>>✅ OK</option>
+        <option value="bajo" <?= $estado==='bajo'?'selected':'' ?>>⚠️ Bajo</option>
+        <option value="sin" <?= $estado==='sin'?'selected':'' ?>>❌ Sin stock</option>
+        <option value="inactivo" <?= $estado==='inactivo'?'selected':'' ?>>🚫 Inactivo</option>
       </select>
       <?php endif; ?>
 
@@ -412,19 +473,41 @@ require __DIR__ . "/partials/header.php";
     </div>
   </form>
 
+  <!-- Filtros activos (NUEVO - consistente con ventas) -->
+  <?php 
+  $filtrosActivos = [];
+  if ($buscar) $filtrosActivos[] = ['key' => 'q', 'label' => "Búsqueda: $buscar"];
+  if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
+  if ($categoria) $filtrosActivos[] = ['key' => 'categoria', 'label' => "Categoría: $categoria"];
+  if ($proveedor) $filtrosActivos[] = ['key' => 'proveedor', 'label' => "Proveedor: $proveedor"];
+  ?>
+  <?php if ($filtrosActivos): ?>
+  <div class="filtros-activos">
+    <?php foreach ($filtrosActivos as $f): ?>
+      <span class="filtro-tag">
+        <?= h($f['label']) ?>
+        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">×</button>
+      </span>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+
   <div class="table-actions">
     <div class="results-info">
-      Mostrando <?= count($productos) ?> de <?= $totalFiltrados ?> productos
+      Mostrando <?= number_format($fromRow) ?>-<?= number_format($toRow) ?> de <?= number_format($totalFiltrados) ?> productos
     </div>
     <div class="action-buttons">
       <button type="button" class="v-btn v-btn--ghost btn-icon" onclick="StockManager.refreshPage()" title="Actualizar datos">
         ↻ Actualizar
       </button>
       <a href="<?= h(urlWith(['export' => $tab], 'stock.php')) ?>" class="v-btn v-btn--ghost btn-icon">
-        Exportar CSV
+        💾 Exportar CSV
       </a>
     </div>
   </div>
+
+  <!-- Paginación SUPERIOR (NUEVO) -->
+  <?= render_pagination($page, $totalPages, $queryParams, true, $totalFiltrados, $fromRow, $toRow) ?>
 
   <div class="table-wrapper" id="tablaStock">
     <table class="stock-table">
@@ -488,7 +571,6 @@ require __DIR__ . "/partials/header.php";
 
           <td class="t-center">
             <div class="action-btns">
-              <!-- ✎ Ajustar stock (abre modal) -->
               <button
                 type="button"
                 class="btn-icon btn-sm"
@@ -497,12 +579,13 @@ require __DIR__ . "/partials/header.php";
                   <?= (int)$p["id"] ?>,
                   <?= json_encode((string)($p["nombre"] ?? ""), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
                   <?= $esPesable ? "true" : "false" ?>,
+                  <?= json_encode($stockNum, JSON_UNESCAPED_UNICODE) ?>,
+                  <?= json_encode($stockMinNum, JSON_UNESCAPED_UNICODE) ?>,
                   <?= json_encode(format_qty_field($p, "stock"), JSON_UNESCAPED_UNICODE) ?>,
                   <?= json_encode(format_qty_field($p, "stock_minimo"), JSON_UNESCAPED_UNICODE) ?>
                 )'
               >✎</button>
 
-              <!-- 👁 Ver en Productos -->
               <a
                 class="btn-icon btn-sm"
                 title="Ver en Productos"
@@ -516,13 +599,8 @@ require __DIR__ . "/partials/header.php";
     </table>
   </div>
 
-  <?php if ($totalPages > 1): ?>
-    <div class="pager">
-      <a class="pager-btn <?= $page<=1?'disabled':'' ?>" href="<?= $page<=1 ? '#' : h(urlWith(['page'=>$page-1], 'stock.php')) ?>">← Anterior</a>
-      <div class="pager-mid">Página <?= (int)$page ?> de <?= (int)$totalPages ?></div>
-      <a class="pager-btn <?= $page>=$totalPages?'disabled':'' ?>" href="<?= $page>=$totalPages ? '#' : h(urlWith(['page'=>$page+1], 'stock.php')) ?>">Siguiente →</a>
-    </div>
-  <?php endif; ?>
+  <!-- Paginación INFERIOR -->
+  <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
 </div>
 
@@ -544,7 +622,6 @@ require __DIR__ . "/partials/header.php";
           <div id="ajuste_producto_nombre" class="producto-info"></div>
         </div>
         
-        <!-- Info de stock actual -->
         <div class="form-group">
           <div class="stock-info-row">
             <div class="stock-info-item">
@@ -606,6 +683,17 @@ require __DIR__ . "/partials/header.php";
   </div>
 </div>
 
+<!-- Toast Container -->
 <div id="toastContainer" class="toast-container"></div>
+
+<!-- Keyboard hints (NUEVO) -->
+<div class="keyboard-hints" id="keyboardHints">
+    <div class="keyboard-hints-item">
+        <kbd>Ctrl</kbd> + <kbd>K</kbd> = Buscar
+    </div>
+    <div class="keyboard-hints-item">
+        <kbd>Esc</kbd> = Cerrar
+    </div>
+</div>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>

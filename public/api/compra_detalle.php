@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 
-// FIX: Verificar login Y permisos
-require_login();
-require_permission('editar_stock');
-
 
 // FIX: Verificar login Y permisos
 require_login();
@@ -76,6 +72,12 @@ try {
   }, $items);
   
   // Respuesta
+  $bruto = (float)($compra['total_bruto'] ?? $compra['total'] ?? 0);
+  $descT = (float)($compra['descuento_total'] ?? 0);
+  $total = (float)($compra['total'] ?? 0);
+  $descTipo = (string)($compra['descuento_tipo'] ?? 'MONTO');
+  $descVal  = (float)($compra['descuento_valor'] ?? 0);
+
   echo json_encode([
     'id' => (int)$compra['id'],
     'fecha' => date('d/m/Y', strtotime($compra['fecha'])),
@@ -84,8 +86,16 @@ try {
     'nro_comp' => $compra['nro_comp'] ?? '',
     'obs' => $compra['obs'] ?? '',
     'estado' => $compra['estado'],
-    'total' => (float)$compra['total'],
-    'total_fmt' => '$' . number_format((float)$compra['total'], 2, ',', '.'),
+
+    'total_bruto' => $bruto,
+    'total_bruto_fmt' => '$' . number_format($bruto, 2, ',', '.'),
+    'descuento_total' => $descT,
+    'descuento_total_fmt' => '$' . number_format($descT, 2, ',', '.'),
+    'descuento_tipo' => $descTipo,
+    'descuento_valor' => $descVal,
+
+    'total' => $total,
+    'total_fmt' => '$' . number_format($total, 2, ',', '.'),
     'items' => $itemsFormatted
   ], JSON_UNESCAPED_UNICODE);
   

@@ -1186,3 +1186,63 @@ body.theme-light .detalle-info {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
+
+/* ============================================================================
+   TOTALES + DESCUENTO (FOOTER)
+============================================================================ */
+.compras-page .compras-table tfoot td {
+  background: rgba(2, 6, 23, 0.35);
+  border-top: 1px solid var(--c-border);
+}
+
+html[data-theme="light"] .compras-page .compras-table tfoot td,
+body[data-theme="light"] .compras-page .compras-table tfoot td,
+html.light .compras-page .compras-table tfoot td,
+body.light .compras-page .compras-table tfoot td,
+html.theme-light .compras-page .compras-table tfoot td,
+body.theme-light .compras-page .compras-table tfoot td {
+  background: rgba(241, 245, 249, 0.65);
+}
+
+.compras-page .discount-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.compras-page .discount-controls {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.compras-page .discount-controls select,
+.compras-page .discount-controls input {
+  height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 0.9rem !important;
+}
+
+.compras-page .discount-controls select {
+  width: 140px;
+}
+
+.compras-page .discount-controls input {
+  width: 120px;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .compras-page .discount-row {
+    justify-content: flex-start;
+  }
+  .compras-page .discount-controls select {
+    width: 100%;
+  }
+  .compras-page .discount-controls input {
+    width: 100%;
+  }
+}

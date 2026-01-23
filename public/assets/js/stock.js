@@ -1,34 +1,53 @@
 /* ============================================================================
-   FLUS - STOCK.JS (V2)
+   FLUS - STOCK.JS v5.0 (Refactorizado)
+   - Consistente con ProductosManager/VentasManager
+   - beforeunload cuando modal abierto
+   - Keyboard hints
+   - Filtros activos removibles
    - Actualización inline sin reload
    - Confirmación para ajustes grandes
-   - Muestra stock actual en modal
-   - Animaciones de feedback
-   - Sin toasts molestos al cargar
-   - Compatible con onclick="StockManager..."
 ============================================================================ */
 
 const StockManager = {
+  // ============================================
+  // ESTADO
+  // ============================================
   state: {
     currentIsPesable: false,
     currentProductoId: null,
     currentStockActual: 0,
-    pendingFormData: null, // Para confirmación de ajustes grandes
+    pendingFormData: null,
+    modalOpen: false, // Para beforeunload
   },
 
-  // Umbral para pedir confirmación (ajustes negativos mayores a esto)
-  CONFIRM_THRESHOLD: 50,
-  
-  // Key para sessionStorage (alertas mostradas)
-  ALERTS_SHOWN_KEY: 'stock_alerts_shown_session',
+  // ============================================
+  // CONFIGURACIÓN
+  // ============================================
+  config: {
+    CONFIRM_THRESHOLD: 50,
+    ALERTS_SHOWN_KEY: 'stock_alerts_shown_session',
+    TOAST_DURATION: 3500,
+  },
 
+  // ============================================
+  // INICIALIZACIÓN
+  // ============================================
   init() {
+    console.log('[StockManager] Inicializando v5.0...');
+
     this.setupEventListeners();
     this.setupKeyboardShortcuts();
     this.setupKPIClickFilters();
+    this.setupFiltrosRemove();
+    this.setupBeforeUnload();
     this.checkLowStockAlerts();
+
+    console.log('[StockManager] ✓ Inicialización completa');
   },
 
+  // ============================================
+  // EVENT LISTENERS
+  // ============================================
   setupEventListeners() {
     const limitSel = document.getElementById('limitSel');
     const filtersForm = document.getElementById('stockFilters');
@@ -39,14 +58,6 @@ const StockManager = {
       const pageInput = filtersForm.querySelector('input[name="page"]');
       if (pageInput) pageInput.value = '1';
       filtersForm.submit();
-    });
-
-    // ESC cierra modales
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        this.closeModal();
-        this.closeConfirmModal();
-      }
     });
 
     // Click fuera del modal cierra
@@ -81,17 +92,39 @@ const StockManager = {
     cantidadInput?.addEventListener('input', () => this.updateCantidadHint());
   },
 
+  // ============================================
+  // KEYBOARD SHORTCUTS
+  // ============================================
   setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
       // Ctrl/Cmd + K: Focus búsqueda
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        document.querySelector('input[name="q"]')?.focus();
+        const search = document.querySelector('input[name="q"]');
+        search?.focus();
+        search?.select();
+      }
+
+      // ESC: cerrar modales
+      if (e.key === 'Escape') {
+        this.closeModal();
+        this.closeConfirmModal();
       }
     });
+
+    // Mostrar keyboard hints brevemente al cargar
+    setTimeout(() => {
+      const hints = document.getElementById('keyboardHints');
+      if (hints) {
+        hints.classList.add('show');
+        setTimeout(() => hints.classList.remove('show'), 4000);
+      }
+    }, 1000);
   },
 
-  // Hacer que los KPIs sean clickeables para filtrar
+  // ============================================
+  // KPIs CLICKEABLES
+  // ============================================
   setupKPIClickFilters() {
     document.querySelectorAll('.stat-clickable').forEach(card => {
       card.style.cursor = 'pointer';
@@ -112,10 +145,54 @@ const StockManager = {
     });
   },
 
-  // Solo mostrar alertas una vez por sesión
+  // ============================================
+  // FILTROS REMOVIBLES (NUEVO)
+  // ============================================
+  setupFiltrosRemove() {
+    document.querySelectorAll('.filtro-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.dataset.filter;
+        const url = new URL(window.location.href);
+
+        switch (filter) {
+          case 'q':
+            url.searchParams.delete('q');
+            break;
+          case 'estado':
+            url.searchParams.delete('estado');
+            break;
+          case 'categoria':
+            url.searchParams.delete('categoria');
+            break;
+          case 'proveedor':
+            url.searchParams.delete('proveedor');
+            break;
+        }
+
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+      });
+    });
+  },
+
+  // ============================================
+  // BEFORE UNLOAD (NUEVO)
+  // ============================================
+  setupBeforeUnload() {
+    window.addEventListener('beforeunload', (e) => {
+      if (this.state.modalOpen) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
+  },
+
+  // ============================================
+  // ALERTAS DE STOCK BAJO
+  // ============================================
   checkLowStockAlerts() {
-    // Verificar si ya mostramos alertas en esta sesión
-    if (sessionStorage.getItem(this.ALERTS_SHOWN_KEY)) {
+    if (sessionStorage.getItem(this.config.ALERTS_SHOWN_KEY)) {
       return;
     }
 
@@ -127,15 +204,17 @@ const StockManager = {
 
     if (sin > 0) {
       this.showToast(`⚠️ Hay ${sin} producto${sin > 1 ? 's' : ''} sin stock`, 'warning', 5000);
-      sessionStorage.setItem(this.ALERTS_SHOWN_KEY, 'true');
+      sessionStorage.setItem(this.config.ALERTS_SHOWN_KEY, 'true');
     } else if (bajo > 0) {
       this.showToast(`ℹ️ Hay ${bajo} producto${bajo > 1 ? 's' : ''} con bajo stock`, 'info', 3500);
-      sessionStorage.setItem(this.ALERTS_SHOWN_KEY, 'true');
+      sessionStorage.setItem(this.config.ALERTS_SHOWN_KEY, 'true');
     }
   },
 
-  // --- Modal: abrir ---
-  quickAdjust(productoId, productoNombre, esPesable, stockActual, stockMinimo) {
+  // ============================================
+  // MODAL: ABRIR
+  // ============================================
+  quickAdjust(productoId, productoNombre, esPesable, stockActualRaw, stockMinimoRaw, stockActualDisplay, stockMinimoDisplay) {
     const modal = document.getElementById('modalAjusteStock');
     const form = document.getElementById('formAjusteStock');
 
@@ -143,7 +222,12 @@ const StockManager = {
 
     this.state.currentIsPesable = !!esPesable;
     this.state.currentProductoId = productoId;
-    this.state.currentStockActual = parseFloat(stockActual) || 0;
+    // Usar RAW para cálculos (evita problemas con formato local tipo "0,250")
+    const stockRawNum = (typeof stockActualRaw === 'number')
+      ? stockActualRaw
+      : parseFloat(String(stockActualRaw ?? '').replace(',', '.'));
+    this.state.currentStockActual = Number.isFinite(stockRawNum) ? stockRawNum : 0;
+    this.state.modalOpen = true; // Para beforeunload
 
     // Reset form
     form.reset();
@@ -163,7 +247,7 @@ const StockManager = {
 
       const small = document.createElement('small');
       small.className = 'text-muted';
-      small.textContent = this.state.currentIsPesable ? '(Pesable - KG)' : '(Por unidad)';
+      small.textContent = this.state.currentIsPesable ? ' (Pesable - KG)' : ' (Por unidad)';
 
       nameBox.appendChild(strong);
       nameBox.appendChild(small);
@@ -173,8 +257,11 @@ const StockManager = {
     const stockActualEl = document.getElementById('ajuste_stock_actual');
     const stockMinimoEl = document.getElementById('ajuste_stock_minimo');
     
-    if (stockActualEl) stockActualEl.textContent = stockActual ?? '-';
-    if (stockMinimoEl) stockMinimoEl.textContent = stockMinimo ?? '-';
+    const stockActualTxt = (stockActualDisplay ?? stockActualRaw ?? '-');
+    const stockMinTxt = (stockMinimoDisplay ?? stockMinimoRaw ?? '-');
+
+    if (stockActualEl) stockActualEl.textContent = stockActualTxt;
+    if (stockMinimoEl) stockMinimoEl.textContent = stockMinTxt;
 
     // Sync step/min según pesable
     this.syncCantidadInput();
@@ -189,16 +276,22 @@ const StockManager = {
     }, 100);
   },
 
+  // ============================================
+  // MODAL: CERRAR
+  // ============================================
   closeModal() {
     document.getElementById('modalAjusteStock')?.classList.remove('show');
     this.state.pendingFormData = null;
+    this.state.modalOpen = false; // Para beforeunload
   },
 
   closeConfirmModal() {
     document.getElementById('modalConfirmacion')?.classList.remove('show');
   },
 
-  // Ajusta min/step según si es pesable
+  // ============================================
+  // SYNC INPUT CANTIDAD
+  // ============================================
   syncCantidadInput() {
     const cantidadInput = document.getElementById('ajuste_cantidad');
     if (!cantidadInput) return;
@@ -214,7 +307,9 @@ const StockManager = {
     }
   },
 
-  // Mostrar preview del resultado
+  // ============================================
+  // PREVIEW RESULTADO
+  // ============================================
   updateCantidadHint() {
     const hintEl = document.getElementById('ajuste_cantidad_hint');
     if (!hintEl) return;
@@ -242,13 +337,15 @@ const StockManager = {
     }
   },
 
-  // --- Submit ---
+  // ============================================
+  // SUBMIT AJUSTE
+  // ============================================
   async submitAdjust(event) {
     event.preventDefault();
 
     const form = event.target;
 
-    // Validaciones front mínimas
+    // Validaciones front
     const tipo = (document.getElementById('ajuste_tipo')?.value || '').trim();
     const cantidadStr = (document.getElementById('ajuste_cantidad')?.value || '').trim();
     const cantidad = Number(cantidadStr);
@@ -278,7 +375,7 @@ const StockManager = {
       }
 
       // Pedir confirmación para ajustes grandes
-      if (cantidad >= this.CONFIRM_THRESHOLD) {
+      if (cantidad >= this.config.CONFIRM_THRESHOLD) {
         this.state.pendingFormData = new FormData(form);
         this.state.pendingFormData.append('action', 'ajustar');
         
@@ -292,11 +389,12 @@ const StockManager = {
       }
     }
 
-    // Ejecutar ajuste
     await this.executeAdjust(form);
   },
 
-  // Confirmar ajuste grande
+  // ============================================
+  // CONFIRMAR AJUSTE GRANDE
+  // ============================================
   async confirmarAjuste() {
     this.closeConfirmModal();
     
@@ -307,12 +405,13 @@ const StockManager = {
     this.state.pendingFormData = null;
   },
 
-  // Ejecutar el ajuste real
+  // ============================================
+  // EJECUTAR AJUSTE
+  // ============================================
   async executeAdjust(form, formData = null) {
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn?.textContent || 'Confirmar';
 
-    // Disable botón
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Procesando...';
@@ -330,7 +429,6 @@ const StockManager = {
         credentials: 'same-origin',
       });
 
-      // Parsear respuesta (puede venir HTML en errores)
       const text = await response.text();
       let data = null;
       try {
@@ -349,7 +447,7 @@ const StockManager = {
         throw new Error(msg);
       }
 
-      // Éxito - mostrar toast
+      // Éxito
       const extra = data.data || null;
       if (extra && (extra.stock_anterior !== undefined && extra.stock_nuevo !== undefined)) {
         this.showToast(
@@ -372,7 +470,6 @@ const StockManager = {
       console.error('Stock adjust error:', err);
       this.showToast(err?.message || 'Error al procesar la solicitud', 'error', 4500);
 
-      // Re-enable
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
@@ -380,11 +477,12 @@ const StockManager = {
     }
   },
 
-  // Actualizar la fila sin recargar la página
+  // ============================================
+  // ACTUALIZAR FILA IN-PLACE
+  // ============================================
   updateRowInPlace(data) {
     const row = document.querySelector(`tr[data-id="${data.producto_id}"]`);
     if (!row) {
-      // Si no encontramos la fila, hacer reload (fallback)
       window.location.href = window.location.href;
       return;
     }
@@ -425,20 +523,41 @@ const StockManager = {
       const nombre = data.producto_nombre || '';
       const esPesable = data.es_pesable ? 'true' : 'false';
       adjustBtn.setAttribute('onclick', 
-        `StockManager.quickAdjust(${data.producto_id}, ${JSON.stringify(nombre)}, ${esPesable}, ${JSON.stringify(data.stock_nuevo)}, ${JSON.stringify(data.stock_minimo)})`
+        `StockManager.quickAdjust(${data.producto_id}, ${JSON.stringify(nombre)}, ${esPesable}, ${JSON.stringify(data.stock_nuevo_raw)}, ${JSON.stringify(String(row.dataset.stockMinimo ?? '0'))}, ${JSON.stringify(data.stock_nuevo)}, ${JSON.stringify(data.stock_minimo)})`
       );
     }
 
-    // 7. Si estamos en "alertas" y el producto ya está OK, hacer fade-out
-    if (currentTab === 'alertas' && estadoNuevo === 'ok') {
+    // 7. Si el producto ya no corresponde a la vista/filtro actual, hacer fade-out
+    const params = new URLSearchParams(window.location.search);
+    const estadoFiltro = (currentTab !== 'alertas') ? (params.get('estado') || '') : '';
+
+    let shouldRemove = false;
+    let toastMsg = '';
+
+    if (currentTab === 'alertas') {
+      // En alertas solo deben quedar SIN y BAJO
+      if (!['sin', 'bajo'].includes(estadoNuevo)) {
+        shouldRemove = true;
+        toastMsg = (estadoNuevo === 'ok')
+          ? '✓ Producto movido a stock OK'
+          : '✓ Producto ya no está en alertas';
+      }
+    } else if (estadoFiltro) {
+      if (estadoNuevo !== estadoFiltro) {
+        shouldRemove = true;
+        toastMsg = '✓ Producto ya no coincide con el filtro';
+      }
+    }
+
+    if (shouldRemove) {
       row.classList.add('row-fading-out');
       setTimeout(() => {
         row.remove();
         this.updateResultsCount();
-        this.showToast('✓ Producto movido a stock OK', 'success', 2000);
+        if (toastMsg) this.showToast(toastMsg, 'success', 2000);
       }, 500);
     } else {
-      // Highlight temporal para feedback visual
+      // Highlight temporal
       row.classList.add('row-updated');
       setTimeout(() => row.classList.remove('row-updated'), 2500);
     }
@@ -450,7 +569,9 @@ const StockManager = {
     }
   },
 
-  // Actualizar contador de un KPI
+  // ============================================
+  // ACTUALIZAR KPIs
+  // ============================================
   updateKPICount(estado, delta) {
     const mapping = {
       'ok': '.stat-ok .stat-value',
@@ -468,13 +589,11 @@ const StockManager = {
       el.textContent = Math.max(0, current + delta);
     }
 
-    // También actualizar el badge de alertas en el tab
     if (estado === 'bajo' || estado === 'sin') {
       this.updateAlertBadge();
     }
   },
 
-  // Actualizar badge del tab de alertas
   updateAlertBadge() {
     const bajo = parseInt(document.querySelector('.stat-bajo .stat-value')?.textContent || '0', 10);
     const sin = parseInt(document.querySelector('.stat-sin .stat-value')?.textContent || '0', 10);
@@ -491,32 +610,47 @@ const StockManager = {
     }
   },
 
-  // Actualizar contador de resultados mostrados
   updateResultsCount() {
     const tbody = document.getElementById('stockTableBody');
     const resultsInfo = document.querySelector('.results-info');
-    
-    if (tbody && resultsInfo) {
-      const visibleRows = tbody.querySelectorAll('tr:not(.row-fading-out)').length;
-      const text = resultsInfo.textContent;
-      const match = text.match(/de (\d+) productos/);
-      
-      if (match) {
-        const total = parseInt(match[1], 10) - 1;
-        resultsInfo.textContent = `Mostrando ${visibleRows} de ${total} productos`;
-      }
+
+    if (!tbody || !resultsInfo) return;
+
+    const visibleRows = tbody.querySelectorAll('tr:not(.row-fading-out)').length;
+
+    // Si la página quedó vacía (último item removido), recargar es lo más seguro
+    if (visibleRows === 0) {
+      window.location.reload();
+      return;
     }
+
+    const text = (resultsInfo.textContent || '').trim();
+
+    // Formato esperado: "Mostrando X-Y de Z productos"
+    const m = text.match(/Mostrando\s+([\d,]+)\s*-\s*([\d,]+)\s+de\s+([\d,]+)\s+productos/i);
+    if (!m) return;
+
+    const from = parseInt(m[1].replace(/,/g, ''), 10);
+    const totalOld = parseInt(m[3].replace(/,/g, ''), 10);
+
+    const total = Math.max(0, totalOld - 1);
+    const to = Math.min(total, from + visibleRows - 1);
+
+    resultsInfo.textContent = `Mostrando ${from.toLocaleString()}-${to.toLocaleString()} de ${total.toLocaleString()} productos`;
   },
 
-  // Refrescar página manteniendo parámetros
+  // ============================================
+  // REFRESH PAGE
+  // ============================================
   refreshPage() {
-    // Limpiar flag de alertas para que se muestren de nuevo si hay cambios
-    sessionStorage.removeItem(this.ALERTS_SHOWN_KEY);
+    sessionStorage.removeItem(this.config.ALERTS_SHOWN_KEY);
     window.location.href = window.location.href;
   },
 
-  // --- Toast ---
-  showToast(message, type = 'info', duration = 3000) {
+  // ============================================
+  // TOAST SYSTEM
+  // ============================================
+  showToast(message, type = 'info', duration = null) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
 
@@ -537,14 +671,13 @@ const StockManager = {
     toast.appendChild(msg);
     container.appendChild(toast);
 
-    // Animar entrada
     requestAnimationFrame(() => toast.classList.add('toast-show'));
 
-    // Salida
+    const ms = duration ?? this.config.TOAST_DURATION;
     setTimeout(() => {
       toast.classList.remove('toast-show');
       setTimeout(() => toast.remove(), 250);
-    }, duration);
+    }, ms);
   },
 };
 

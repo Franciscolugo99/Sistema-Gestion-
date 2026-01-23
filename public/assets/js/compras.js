@@ -19,6 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const table = document.getElementById("itemsTable");
   const tbody = table?.querySelector("tbody");
   const totalLbl = document.getElementById("totalLbl");
+  const totalBrutoLbl = document.getElementById("totalBrutoLbl");
+  const descuentoTotalLbl = document.getElementById("descuentoTotalLbl");
+  const descuentoTipo = document.getElementById("descuentoTipo");
+  const descuentoValor = document.getElementById("descuentoValor");
 
   if (!tbody) return;
 
@@ -341,13 +345,53 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function recalcTotal() {
-    let total = 0;
-    tbody.querySelectorAll("tr[data-row='item']").forEach((tr) => {
-      total += Number(tr.dataset.subtotal || 0);
-    });
-    total = round2(total);
-    if (totalLbl) totalLbl.textContent = fmtMoney(total);
+  let bruto = 0;
+  tbody.querySelectorAll("tr[data-row='item']").forEach((tr) => {
+    bruto += Number(tr.dataset.subtotal || 0);
+  });
+  bruto = round2(bruto);
+
+  // Mostrar bruto
+  if (totalBrutoLbl) totalBrutoLbl.textContent = fmtMoney(bruto);
+
+  // Leer descuento
+  const tipo = (descuentoTipo?.value || "MONTO").toUpperCase();
+  let val = Number(descuentoValor?.value || 0);
+  if (!Number.isFinite(val)) val = 0;
+
+  // Clamp
+  if (val < 0) val = 0;
+
+  let desc = 0;
+  if (bruto > 0 && val > 0) {
+    if (tipo === "PORC") {
+      if (val > 100) val = 100;
+      desc = bruto * (val / 100);
+      if (descuentoValor) descuentoValor.max = "100";
+    } else {
+      if (val > bruto) val = bruto;
+      desc = val;
+      if (descuentoValor) descuentoValor.max = String(bruto);
+    }
+  } else {
+    if (descuentoValor) descuentoValor.max = tipo === "PORC" ? "100" : String(bruto);
   }
+
+  // Reflejar valor clamped (solo si se fue de rango)
+  if (descuentoValor) {
+    const curr = Number(descuentoValor.value || 0);
+    if (Number.isFinite(curr) && round2(curr) !== round2(val)) {
+      descuentoValor.value = String(round2(val));
+    }
+  }
+
+  desc = round2(desc);
+  const totalFinal = round2(Math.max(0, bruto - desc));
+
+  // Labels
+  if (descuentoTotalLbl) descuentoTotalLbl.textContent = "-" + fmtMoney(desc);
+  if (totalLbl) totalLbl.textContent = fmtMoney(totalFinal);
+}
 
   // FIX: resetForm ahora resetea correctamente el step/min del input
   function resetForm() {
@@ -778,6 +822,20 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+
+// Descuento: recalcular en vivo
+[descuentoTipo, descuentoValor].forEach((el) => {
+  if (!el) return;
+  el.addEventListener("input", () => {
+    hasUnsavedChanges = true;
+    recalcTotal();
+  });
+  el.addEventListener("change", () => {
+    hasUnsavedChanges = true;
+    recalcTotal();
+  });
+});
 
   if (form) {
     form.addEventListener("submit", (e) => {
