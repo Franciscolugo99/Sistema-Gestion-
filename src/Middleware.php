@@ -28,8 +28,7 @@ final class Middleware {
       json_error($message, $code);
     }
 
-    flus_abort(, (string));
-  }
+     flus_abort($code, $message);  }
 
   /**
    * Normaliza sesión vieja -> nueva
@@ -140,8 +139,7 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
       if (!in_array($method, $allowed, true)) {
         http_response_code(405);
         header('Allow: ' . implode(', ', $allowed));
-        flus_abort(405, 'Método no permitido.');
-      }
+     flus_abort($code, $message);    }
     };
     return $this;
   }
