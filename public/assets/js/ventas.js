@@ -1,58 +1,156 @@
-// ventas.js v4.1 - FLUS PRO (Corregido XSS + Autocomplete clientes)
-document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('ventasForm');
-  
+/* ============================================================================
+   FLUS - VENTAS.JS v5.0 (Refactorizado)
+   - Objeto único VentasManager (consistente con ProductosManager/StockManager)
+   - Sistema de Toasts (no más alert())
+   - KPIs clickeables
+   - Atajos de teclado completos
+   - Protección XSS
+   - Autocomplete clientes mejorado
+============================================================================ */
+
+const VentasManager = {
   // ============================================
-  // ESCAPE HTML - Prevenir XSS
+  // ESTADO
   // ============================================
-  function escapeHtml(text) {
+  state: {
+    chartsInitialized: false,
+    selectedClienteId: null,
+    searchTimeout: null,
+    paperSize: '80',
+  },
+
+  // ============================================
+  // CONFIGURACIÓN
+  // ============================================
+  config: {
+    PAPER_KEY: 'flus-paper',
+    DEBOUNCE_SEARCH_MS: 300,
+    TOAST_DURATION: 3500,
+  },
+
+  // ============================================
+  // INICIALIZACIÓN
+  // ============================================
+  init() {
+    console.log('[VentasManager] Inicializando...');
+
+    this.loadPaperSize();
+    this.bindPaperSelect();
+    this.bindChartsToggle();
+    this.bindAdvancedFilters();
+    this.bindClienteAutocomplete();
+    this.bindChipsRapidos();
+    this.bindFiltrosRemove();
+    this.bindKPIClicks();
+    this.bindPreviewModal();
+    this.bindTicketModal();
+    this.bindShareButtons();
+    this.bindKeyboardShortcuts();
+
+    console.log('[VentasManager] ✓ Inicialización completa');
+  },
+
+  // ============================================
+  // UTILIDADES
+  // ============================================
+  escapeHtml(text) {
     if (text == null) return '';
     const div = document.createElement('div');
     div.textContent = String(text);
     return div.innerHTML;
-  }
-  
+  },
+
+  // ============================================
+  // SISTEMA DE TOASTS
+  // ============================================
+  showToast(message, type = 'info', duration = null) {
+    const container = document.getElementById('toastContainer') || this.createToastContainer();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+    
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.textContent = icons[type] || icons.info;
+    
+    const msg = document.createElement('span');
+    msg.className = 'toast-message';
+    msg.textContent = String(message ?? '');
+    
+    toast.appendChild(icon);
+    toast.appendChild(msg);
+    container.appendChild(toast);
+    
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    const ms = duration ?? this.config.TOAST_DURATION;
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, ms);
+  },
+
+  createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+  },
+
   // ============================================
   // PAPER SIZE
   // ============================================
-  const paperSel = document.getElementById('paperSel');
-  const PAPER_KEY = 'flus-paper';
-  
-  function getPaper() {
-    try { return localStorage.getItem(PAPER_KEY) || '80'; } catch { return '80'; }
-  }
-  
-  function setPaper(v) {
-    try { localStorage.setItem(PAPER_KEY, v); } catch {}
-  }
-  
-  if (paperSel) {
-    paperSel.value = getPaper();
-    paperSel.addEventListener('change', () => setPaper(paperSel.value));
-  }
-  
+  loadPaperSize() {
+    try {
+      this.state.paperSize = localStorage.getItem(this.config.PAPER_KEY) || '80';
+    } catch {
+      this.state.paperSize = '80';
+    }
+  },
+
+  savePaperSize(value) {
+    this.state.paperSize = value;
+    try {
+      localStorage.setItem(this.config.PAPER_KEY, value);
+    } catch {}
+  },
+
+  bindPaperSelect() {
+    const paperSel = document.getElementById('paperSel');
+    if (!paperSel) return;
+
+    paperSel.value = this.state.paperSize;
+    paperSel.addEventListener('change', () => {
+      this.savePaperSize(paperSel.value);
+    });
+  },
+
   // ============================================
-  // CHARTS TOGGLE
+  // GRÁFICOS
   // ============================================
-  const btnCharts = document.getElementById('btnCharts');
-  const chartsPanel = document.getElementById('chartsPanel');
-  let chartsInit = false;
-  
-  if (btnCharts && chartsPanel) {
+  bindChartsToggle() {
+    const btnCharts = document.getElementById('btnCharts');
+    const chartsPanel = document.getElementById('chartsPanel');
+
+    if (!btnCharts || !chartsPanel) return;
+
     btnCharts.addEventListener('click', () => {
       chartsPanel.classList.toggle('hidden');
-      if (!chartsInit && !chartsPanel.classList.contains('hidden')) {
-        initCharts();
-        chartsInit = true;
+      if (!this.state.chartsInitialized && !chartsPanel.classList.contains('hidden')) {
+        this.initCharts();
+        this.state.chartsInitialized = true;
       }
     });
-  }
-  
-  function initCharts() {
+  },
+
+  initCharts() {
     if (typeof Chart === 'undefined' || !window.VENTAS_DATA) return;
-    
+
     const data = window.VENTAS_DATA;
-    
+
     // Chart ventas por día
     const ctxVentas = document.getElementById('chartVentas');
     if (ctxVentas && data.chartVentas.labels.length) {
@@ -77,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
-    
+
     // Chart medios de pago
     const ctxMedios = document.getElementById('chartMedios');
     if (ctxMedios && data.chartMedios.labels.length) {
@@ -100,70 +198,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
-  }
-  
+  },
+
   // ============================================
-  // ADVANCED FILTERS TOGGLE
+  // FILTROS AVANZADOS
   // ============================================
-  const btnMore = document.getElementById('btnMoreFilters');
-  const advFilters = document.getElementById('advancedFilters');
-  
-  if (btnMore && advFilters) {
-    // Check if any advanced filter is active
+  bindAdvancedFilters() {
+    const btnMore = document.getElementById('btnMoreFilters');
+    const advFilters = document.getElementById('advancedFilters');
+
+    if (!btnMore || !advFilters) return;
+
+    // Verificar si hay filtros avanzados activos
     const hasAdvanced = advFilters.querySelectorAll('input, select');
     let hasValue = false;
     hasAdvanced.forEach(el => {
       if (el.value) hasValue = true;
     });
     if (hasValue) advFilters.classList.remove('hidden');
-    
+
     btnMore.addEventListener('click', () => {
       advFilters.classList.toggle('hidden');
       btnMore.textContent = advFilters.classList.contains('hidden') ? '+ Filtros' : '- Filtros';
     });
-  }
-  
+  },
+
   // ============================================
-  // CLIENTE AUTOCOMPLETE
+  // AUTOCOMPLETE CLIENTES
   // ============================================
-  const clienteInput = document.getElementById('clienteSearch');
-  const clienteIdInput = document.getElementById('clienteIdHidden');
-  const clienteDropdown = document.getElementById('clienteDropdown');
-  
-  let searchTimeout = null;
-  let selectedClienteId = clienteIdInput?.value || null;
-  
-  if (clienteInput && clienteDropdown) {
+  bindClienteAutocomplete() {
+    const clienteInput = document.getElementById('clienteSearch');
+    const clienteIdInput = document.getElementById('clienteIdHidden');
+    const clienteDropdown = document.getElementById('clienteDropdown');
+    const btnClear = document.getElementById('btnClearCliente');
+
+    if (!clienteInput || !clienteDropdown) return;
+
+    this.state.selectedClienteId = clienteIdInput?.value || null;
+
     // Input handler con debounce
     clienteInput.addEventListener('input', () => {
       const q = clienteInput.value.trim();
-      
-      // Limpiar ID si se borra el texto
+
       if (q === '') {
         if (clienteIdInput) clienteIdInput.value = '';
-        selectedClienteId = null;
-        hideDropdown();
+        this.state.selectedClienteId = null;
+        this.hideClienteDropdown();
         return;
       }
-      
-      // Debounce
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => searchClientes(q), 300);
+
+      clearTimeout(this.state.searchTimeout);
+      this.state.searchTimeout = setTimeout(() => this.searchClientes(q), this.config.DEBOUNCE_SEARCH_MS);
     });
-    
+
     // Click fuera cierra dropdown
     document.addEventListener('click', (e) => {
       if (!clienteInput.contains(e.target) && !clienteDropdown.contains(e.target)) {
-        hideDropdown();
+        this.hideClienteDropdown();
       }
     });
-    
+
     // Keyboard navigation
     clienteInput.addEventListener('keydown', (e) => {
       const items = clienteDropdown.querySelectorAll('.cliente-item');
       const active = clienteDropdown.querySelector('.cliente-item.active');
       let idx = Array.from(items).indexOf(active);
-      
+
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         idx = Math.min(idx + 1, items.length - 1);
@@ -174,362 +274,483 @@ document.addEventListener('DOMContentLoaded', () => {
         items.forEach((it, i) => it.classList.toggle('active', i === idx));
       } else if (e.key === 'Enter' && active) {
         e.preventDefault();
-        selectCliente(active.dataset.id, active.dataset.nombre);
+        this.selectCliente(active.dataset.id, active.dataset.nombre);
       } else if (e.key === 'Escape') {
-        hideDropdown();
+        this.hideClienteDropdown();
       }
     });
-  }
-  
-  async function searchClientes(q) {
+
+    // Botón limpiar
+    if (btnClear) {
+      btnClear.addEventListener('click', () => {
+        clienteInput.value = '';
+        if (clienteIdInput) clienteIdInput.value = '';
+        this.state.selectedClienteId = null;
+        this.hideClienteDropdown();
+      });
+    }
+  },
+
+  async searchClientes(q) {
     if (q.length < 2) {
-      hideDropdown();
+      this.hideClienteDropdown();
       return;
     }
-    
+
     try {
       const res = await fetch(`api/ventas_api.php?action=buscar_clientes&q=${encodeURIComponent(q)}`);
       const data = await res.json();
-      
+
       if (data.success && data.clientes.length > 0) {
-        showDropdown(data.clientes);
+        this.showClienteDropdown(data.clientes);
       } else {
-        showDropdown([], 'No se encontraron clientes');
+        this.showClienteDropdown([], 'No se encontraron clientes');
       }
     } catch (e) {
       console.error('Error buscando clientes:', e);
-      hideDropdown();
+      this.hideClienteDropdown();
     }
-  }
-  
-  function showDropdown(clientes, emptyMsg = '') {
-    if (!clienteDropdown) return;
-    
+  },
+
+  showClienteDropdown(clientes, emptyMsg = '') {
+    const dropdown = document.getElementById('clienteDropdown');
+    if (!dropdown) return;
+
     if (clientes.length === 0) {
-      clienteDropdown.innerHTML = `<div class="cliente-empty">${escapeHtml(emptyMsg)}</div>`;
+      dropdown.innerHTML = `<div class="cliente-empty">${this.escapeHtml(emptyMsg)}</div>`;
     } else {
-      clienteDropdown.innerHTML = clientes.map((c, i) => `
+      dropdown.innerHTML = clientes.map((c, i) => `
         <div class="cliente-item ${i === 0 ? 'active' : ''}" 
              data-id="${c.id}" 
-             data-nombre="${escapeHtml(c.nombre)}">
-          <span class="cliente-nombre">${escapeHtml(c.nombre)}</span>
-          ${c.documento ? `<span class="cliente-doc">${escapeHtml(c.documento)}</span>` : ''}
+             data-nombre="${this.escapeHtml(c.nombre)}">
+          <span class="cliente-nombre">${this.escapeHtml(c.nombre)}</span>
+          ${c.documento ? `<span class="cliente-doc">${this.escapeHtml(c.documento)}</span>` : ''}
         </div>
       `).join('');
-      
+
       // Click en items
-      clienteDropdown.querySelectorAll('.cliente-item').forEach(item => {
+      dropdown.querySelectorAll('.cliente-item').forEach(item => {
         item.addEventListener('click', () => {
-          selectCliente(item.dataset.id, item.dataset.nombre);
+          this.selectCliente(item.dataset.id, item.dataset.nombre);
         });
       });
     }
-    
-    clienteDropdown.classList.add('show');
-  }
-  
-  function hideDropdown() {
-    if (clienteDropdown) {
-      clienteDropdown.classList.remove('show');
-    }
-  }
-  
-  function selectCliente(id, nombre) {
+
+    dropdown.classList.add('show');
+  },
+
+  hideClienteDropdown() {
+    const dropdown = document.getElementById('clienteDropdown');
+    if (dropdown) dropdown.classList.remove('show');
+  },
+
+  selectCliente(id, nombre) {
+    const clienteInput = document.getElementById('clienteSearch');
+    const clienteIdInput = document.getElementById('clienteIdHidden');
+
     if (clienteInput) clienteInput.value = nombre;
     if (clienteIdInput) clienteIdInput.value = id;
-    selectedClienteId = id;
-    hideDropdown();
-  }
-  
-  // Botón limpiar cliente
-  const btnClearCliente = document.getElementById('btnClearCliente');
-  if (btnClearCliente) {
-    btnClearCliente.addEventListener('click', () => {
-      if (clienteInput) clienteInput.value = '';
-      if (clienteIdInput) clienteIdInput.value = '';
-      selectedClienteId = null;
-    });
-  }
-  
+    this.state.selectedClienteId = id;
+
+    this.hideClienteDropdown();
+  },
+
   // ============================================
-  // DATE CHIPS
+  // CHIPS RÁPIDOS
   // ============================================
-  const desde = document.querySelector('input[name="desde"]');
-  const hasta = document.querySelector('input[name="hasta"]');
-  
-  function fmt(d) {
-    return d.toISOString().split('T')[0];
-  }
-  
-  document.querySelectorAll('.chip[data-range]').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const r = chip.dataset.range;
-      const now = new Date();
-      let d1 = new Date(now), d2 = new Date(now);
-      
-      switch (r) {
-        case 'today':
-          break;
-        case 'yesterday':
-          d1.setDate(d1.getDate() - 1);
-          d2.setDate(d2.getDate() - 1);
-          break;
-        case '7d':
-          d1.setDate(d1.getDate() - 6);
-          break;
-        case '30d':
-          d1.setDate(d1.getDate() - 29);
-          break;
-      }
-      
-      if (desde) desde.value = fmt(d1);
-      if (hasta) hasta.value = fmt(d2);
-      
-      const page = document.getElementById('hiddenPage');
-      if (page) page.value = '1';
-      
-      if (form) form.submit();
-    });
-  });
-  
-  // ============================================
-  // TIME CHIPS
-  // ============================================
-  const horaDesde = document.querySelector('input[name="hora_desde"]');
-  const horaHasta = document.querySelector('input[name="hora_hasta"]');
-  
-  document.querySelectorAll('.chip[data-hora]').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const [h1, h2] = chip.dataset.hora.split(',');
-      
-      if (horaDesde) horaDesde.value = h1;
-      if (horaHasta) horaHasta.value = h2;
-      
-      // Show advanced filters
-      if (advFilters) advFilters.classList.remove('hidden');
-      
-      const page = document.getElementById('hiddenPage');
-      if (page) page.value = '1';
-      
-      if (form) form.submit();
-    });
-  });
-  
-  // ============================================
-  // REMOVE FILTERS
-  // ============================================
-  document.querySelectorAll('.filtro-remove').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const filter = btn.dataset.filter;
-      const url = new URL(window.location.href);
-      
-      switch (filter) {
-        case 'medio':
-          url.searchParams.delete('medio');
-          break;
-        case 'estado':
-          url.searchParams.delete('estado');
-          break;
-        case 'fecha':
-          url.searchParams.delete('desde');
-          url.searchParams.delete('hasta');
-          break;
-        case 'hora':
-          url.searchParams.delete('hora_desde');
-          url.searchParams.delete('hora_hasta');
-          break;
-        case 'cliente':
-          url.searchParams.delete('cliente_id');
-          break;
-      }
-      
-      url.searchParams.set('page', '1');
-      window.location.href = url.toString();
-    });
-  });
-  
-  // ============================================
-  // PREVIEW MODAL (con escape XSS)
-  // ============================================
-  const previewModal = document.getElementById('previewModal');
-  const previewId = document.getElementById('previewId');
-  const previewBody = document.getElementById('previewBody');
-  const previewLink = document.getElementById('previewLink');
-  
-  document.querySelectorAll('[data-preview]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.preview;
-      if (!previewModal) return;
-      
-      previewModal.classList.remove('hidden');
-      previewId.textContent = id;
-      previewLink.href = `venta_detalle.php?id=${id}`;
-      previewBody.innerHTML = '<div class="loading">Cargando...</div>';
-      
-      try {
-        const res = await fetch(`api/ventas_api.php?action=venta_preview&id=${id}`);
-        const data = await res.json();
-        
-        if (data.success) {
-          const v = data.venta;
-          
-          // Construir items con escape XSS
-          const itemsHtml = (v.items || []).map(i => {
-            const cant = parseFloat(i.cantidad).toFixed(i.cantidad == Math.floor(i.cantidad) ? 0 : 2);
-            const subtotal = parseFloat(i.subtotal || i.precio * i.cantidad).toFixed(2);
-            return `<li>${escapeHtml(cant)}x ${escapeHtml(i.nombre)} - $${escapeHtml(subtotal)}</li>`;
-          }).join('');
-          
-          // Badge de estado
-          const estadoBadge = (v.estado === 'ANULADA') 
-            ? '<span class="badge-estado anulada">Anulada</span>'
-            : '<span class="badge-estado emitida">Emitida</span>';
-          
-          previewBody.innerHTML = `
-            <div style="display:grid; gap:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span><strong>Fecha:</strong> ${escapeHtml(v.fecha)}</span>
-                ${estadoBadge}
-              </div>
-              <div><strong>Cliente:</strong> ${escapeHtml(v.cliente || 'Consumidor Final')}</div>
-              <div><strong>Medio:</strong> <span class="badge-medio">${escapeHtml(v.medio_pago || 'N/A')}</span></div>
-              <hr style="border:none;border-top:1px solid var(--panel-border);">
-              <div><strong>Productos:</strong></div>
-              <ul style="margin:0; padding-left:20px; font-size:0.9rem;">
-                ${itemsHtml}
-              </ul>
-              <hr style="border:none;border-top:1px solid var(--panel-border);">
-              <div style="text-align:right; font-size:1.3rem; font-weight:700;">
-                Total: $${escapeHtml(parseFloat(v.total).toFixed(2))}
-              </div>
-            </div>
-          `;
-        } else {
-          previewBody.innerHTML = '<p style="color:#ef4444;">Error al cargar</p>';
+  bindChipsRapidos() {
+    const form = document.getElementById('ventasForm');
+    const desdeInput = document.querySelector('input[name="desde"]');
+    const hastaInput = document.querySelector('input[name="hasta"]');
+    const horaDesde = document.querySelector('input[name="hora_desde"]');
+    const horaHasta = document.querySelector('input[name="hora_hasta"]');
+    const advFilters = document.getElementById('advancedFilters');
+
+    // Chips de fecha
+    document.querySelectorAll('.chip[data-range]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const range = chip.dataset.range;
+        const today = new Date();
+        let desde, hasta;
+
+        switch (range) {
+          case 'today':
+            desde = hasta = this.formatDate(today);
+            break;
+          case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            desde = hasta = this.formatDate(yesterday);
+            break;
+          case '7d':
+            hasta = this.formatDate(today);
+            const d7 = new Date(today);
+            d7.setDate(d7.getDate() - 7);
+            desde = this.formatDate(d7);
+            break;
+          case '30d':
+            hasta = this.formatDate(today);
+            const d30 = new Date(today);
+            d30.setDate(d30.getDate() - 30);
+            desde = this.formatDate(d30);
+            break;
         }
-      } catch (e) {
-        previewBody.innerHTML = '<p style="color:#ef4444;">Error de conexión</p>';
-      }
+
+        if (desdeInput) desdeInput.value = desde;
+        if (hastaInput) hastaInput.value = hasta;
+
+        const page = document.getElementById('hiddenPage');
+        if (page) page.value = '1';
+
+        if (form) form.submit();
+      });
     });
-  });
-  
-  // Close preview
-  previewModal?.querySelectorAll('[data-close]').forEach(btn => {
-    btn.addEventListener('click', () => previewModal.classList.add('hidden'));
-  });
-  previewModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-    previewModal.classList.add('hidden');
-  });
-  
+
+    // Chips de hora
+    document.querySelectorAll('.chip[data-hora]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const [h1, h2] = chip.dataset.hora.split(',');
+
+        if (horaDesde) horaDesde.value = h1;
+        if (horaHasta) horaHasta.value = h2;
+
+        // Mostrar filtros avanzados
+        if (advFilters) advFilters.classList.remove('hidden');
+
+        const page = document.getElementById('hiddenPage');
+        if (page) page.value = '1';
+
+        if (form) form.submit();
+      });
+    });
+  },
+
+  formatDate(date) {
+    return date.toISOString().split('T')[0];
+  },
+
   // ============================================
-  // TICKET MODAL
+  // REMOVER FILTROS
   // ============================================
-  const ticketModal = document.getElementById('ticketModal');
-  const ticketId = document.getElementById('ticketId');
-  const ticketFrame = document.getElementById('ticketFrame');
-  const btnPrint = document.getElementById('btnPrintTicket');
-  
-  document.querySelectorAll('[data-ticket]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.ticket;
-      const paper = getPaper();
-      
-      if (!ticketModal) return;
-      
-      ticketModal.classList.remove('hidden');
-      ticketId.textContent = id;
-      ticketFrame.src = `ticket.php?id=${id}&paper=${paper}`;
+  bindFiltrosRemove() {
+    document.querySelectorAll('.filtro-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.dataset.filter;
+        const url = new URL(window.location.href);
+
+        switch (filter) {
+          case 'medio':
+            url.searchParams.delete('medio');
+            break;
+          case 'estado':
+            url.searchParams.delete('estado');
+            break;
+          case 'fecha':
+            url.searchParams.delete('desde');
+            url.searchParams.delete('hasta');
+            break;
+          case 'hora':
+            url.searchParams.delete('hora_desde');
+            url.searchParams.delete('hora_hasta');
+            break;
+          case 'cliente':
+            url.searchParams.delete('cliente_id');
+            break;
+        }
+
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+      });
     });
-  });
-  
-  // Print ticket
-  if (btnPrint) {
-    btnPrint.addEventListener('click', () => {
-      if (ticketFrame && ticketFrame.contentWindow) {
-        ticketFrame.contentWindow.print();
-      }
+  },
+
+  // ============================================
+  // KPIs CLICKEABLES
+  // ============================================
+  bindKPIClicks() {
+    // KPI cards clickeables
+    document.querySelectorAll('.vkpi-card[data-filter]').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const filterType = card.dataset.filter;
+        const filterValue = card.dataset.filterValue || '';
+        
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', '1');
+
+        switch (filterType) {
+          case 'estado':
+            url.searchParams.set('estado', filterValue);
+            break;
+          case 'medio':
+            url.searchParams.set('medio', filterValue);
+            break;
+          case 'fecha':
+            // Hoy
+            const today = this.formatDate(new Date());
+            url.searchParams.set('desde', today);
+            url.searchParams.set('hasta', today);
+            break;
+        }
+
+        window.location.href = url.toString();
+      });
     });
-  }
-  
-  // Close ticket
-  ticketModal?.querySelectorAll('[data-close]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      ticketModal.classList.add('hidden');
+
+    // Chips de medios de pago clickeables
+    document.querySelectorAll('.vkpi-chip[data-medio]').forEach(chip => {
+      chip.style.cursor = 'pointer';
+      chip.addEventListener('click', () => {
+        const medio = chip.dataset.medio;
+        const url = new URL(window.location.href);
+        url.searchParams.set('medio', medio);
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+      });
+    });
+  },
+
+  // ============================================
+  // MODAL PREVIEW
+  // ============================================
+  bindPreviewModal() {
+    const modal = document.getElementById('previewModal');
+    const previewId = document.getElementById('previewId');
+    const previewBody = document.getElementById('previewBody');
+    const previewLink = document.getElementById('previewLink');
+
+    if (!modal) return;
+
+    document.querySelectorAll('[data-preview]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.preview;
+
+        modal.classList.remove('hidden');
+        previewId.textContent = id;
+        previewLink.href = `venta_detalle.php?id=${id}`;
+        previewBody.innerHTML = '<div class="loading">Cargando...</div>';
+
+        try {
+          const res = await fetch(`api/ventas_api.php?action=venta_preview&id=${id}`);
+          const data = await res.json();
+
+          if (data.success) {
+            const v = data.venta;
+
+            // Construir items con escape XSS
+            const itemsHtml = (v.items || []).map(i => {
+              const cant = parseFloat(i.cantidad).toFixed(i.cantidad == Math.floor(i.cantidad) ? 0 : 2);
+              const subtotal = parseFloat(i.subtotal || i.precio * i.cantidad).toFixed(2);
+              return `<li>${this.escapeHtml(cant)}x ${this.escapeHtml(i.nombre)} - $${this.escapeHtml(subtotal)}</li>`;
+            }).join('');
+
+            // Badge de estado
+            const estadoBadge = (v.estado === 'ANULADA')
+              ? '<span class="badge-estado anulada">Anulada</span>'
+              : '<span class="badge-estado emitida">Emitida</span>';
+
+            previewBody.innerHTML = `
+              <div style="display:grid; gap:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <span><strong>Fecha:</strong> ${this.escapeHtml(v.fecha)}</span>
+                  ${estadoBadge}
+                </div>
+                <div><strong>Cliente:</strong> ${this.escapeHtml(v.cliente || 'Consumidor Final')}</div>
+                <div><strong>Medio:</strong> <span class="badge-medio">${this.escapeHtml(v.medio_pago || 'N/A')}</span></div>
+                <hr style="border:none;border-top:1px solid var(--panel-border);">
+                <div><strong>Productos:</strong></div>
+                <ul style="margin:0; padding-left:20px; font-size:0.9rem;">
+                  ${itemsHtml}
+                </ul>
+                <hr style="border:none;border-top:1px solid var(--panel-border);">
+                <div style="text-align:right; font-size:1.3rem; font-weight:700;">
+                  Total: $${this.escapeHtml(parseFloat(v.total).toFixed(2))}
+                </div>
+              </div>
+            `;
+          } else {
+            previewBody.innerHTML = '<p style="color:#ef4444;">Error al cargar</p>';
+          }
+        } catch (e) {
+          previewBody.innerHTML = '<p style="color:#ef4444;">Error de conexión</p>';
+        }
+      });
+    });
+
+    // Cerrar modal
+    modal.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => modal.classList.add('hidden'));
+    });
+    modal.querySelector('.modal-backdrop')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+  },
+
+  // ============================================
+  // MODAL TICKET
+  // ============================================
+  bindTicketModal() {
+    const modal = document.getElementById('ticketModal');
+    const ticketId = document.getElementById('ticketId');
+    const ticketFrame = document.getElementById('ticketFrame');
+    const btnPrint = document.getElementById('btnPrintTicket');
+
+    if (!modal) return;
+
+    document.querySelectorAll('[data-ticket]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.ticket;
+        const paper = this.state.paperSize;
+
+        modal.classList.remove('hidden');
+        ticketId.textContent = id;
+        ticketFrame.src = `ticket.php?id=${id}&paper=${paper}`;
+      });
+    });
+
+    // Print
+    if (btnPrint) {
+      btnPrint.addEventListener('click', () => {
+        if (ticketFrame && ticketFrame.contentWindow) {
+          ticketFrame.contentWindow.print();
+        }
+      });
+    }
+
+    // Cerrar
+    modal.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        ticketFrame.src = '';
+      });
+    });
+    modal.querySelector('.modal-backdrop')?.addEventListener('click', () => {
+      modal.classList.add('hidden');
       ticketFrame.src = '';
     });
-  });
-  ticketModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-    ticketModal.classList.add('hidden');
-    ticketFrame.src = '';
-  });
-  
+  },
+
   // ============================================
-  // SHARE TICKET (WhatsApp / Email)
+  // COMPARTIR TICKET
   // ============================================
-  document.querySelectorAll('[data-share]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.share;
-      const method = btn.dataset.method; // 'whatsapp' o 'email'
-      
-      if (method === 'whatsapp') {
-        const phone = prompt('Ingresá el número de WhatsApp (ej: 1155667788):');
-        if (!phone) return;
-        
-        try {
-          const res = await fetch('api/ventas_api.php?action=send_ticket_whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ venta_id: parseInt(id), phone })
-          });
-          const data = await res.json();
-          
-          if (data.success && data.url) {
-            window.open(data.url, '_blank');
-          } else {
-            alert(data.error || 'Error al generar link');
-          }
-        } catch (e) {
-          alert('Error de conexión');
+  bindShareButtons() {
+    document.querySelectorAll('[data-share]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.share;
+        const method = btn.dataset.method;
+
+        if (method === 'whatsapp') {
+          await this.shareWhatsApp(id);
+        } else if (method === 'email') {
+          await this.shareEmail(id);
         }
-      } else if (method === 'email') {
-        const email = prompt('Ingresá el email del cliente:');
-        if (!email) return;
-        
-        try {
-          const res = await fetch('api/ventas_api.php?action=send_ticket_email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ venta_id: parseInt(id), email })
-          });
-          const data = await res.json();
-          
-          if (data.success) {
-            alert(data.message);
-          } else {
-            alert(data.error || 'Error al enviar email');
-            if (data.fallback_url) {
-              if (confirm('¿Querés copiar el link del ticket?')) {
-                navigator.clipboard?.writeText(data.fallback_url);
-                alert('Link copiado al portapapeles');
-              }
-            }
+      });
+    });
+  },
+
+  async shareWhatsApp(ventaId) {
+    const phone = prompt('Ingresá el número de WhatsApp (ej: 1155667788):');
+    if (!phone) return;
+
+    try {
+      const res = await fetch('api/ventas_api.php?action=send_ticket_whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venta_id: parseInt(ventaId), phone })
+      });
+      const data = await res.json();
+
+      if (data.success && data.url) {
+        window.open(data.url, '_blank');
+        this.showToast('Abriendo WhatsApp...', 'success');
+      } else {
+        this.showToast(data.error || 'Error al generar link', 'error');
+      }
+    } catch (e) {
+      this.showToast('Error de conexión', 'error');
+    }
+  },
+
+  async shareEmail(ventaId) {
+    const email = prompt('Ingresá el email del cliente:');
+    if (!email) return;
+
+    try {
+      const res = await fetch('api/ventas_api.php?action=send_ticket_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venta_id: parseInt(ventaId), email })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        this.showToast(data.message, 'success');
+      } else {
+        this.showToast(data.error || 'Error al enviar email', 'error');
+        if (data.fallback_url) {
+          if (confirm('¿Querés copiar el link del ticket?')) {
+            navigator.clipboard?.writeText(data.fallback_url);
+            this.showToast('Link copiado al portapapeles', 'success');
           }
-        } catch (e) {
-          alert('Error de conexión');
         }
       }
-    });
-  });
-  
-  // ============================================
-  // KEYBOARD SHORTCUTS
-  // ============================================
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      previewModal?.classList.add('hidden');
-      ticketModal?.classList.add('hidden');
-      if (ticketFrame) ticketFrame.src = '';
-      hideDropdown();
+    } catch (e) {
+      this.showToast('Error de conexión', 'error');
     }
-  });
-});
+  },
+
+  // ============================================
+  // ATAJOS DE TECLADO
+  // ============================================
+  bindKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Ctrl+K: Focus búsqueda
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const search = document.querySelector('input[name="venta_id"]');
+        search?.focus();
+        search?.select();
+      }
+
+      // Ctrl+E: Toggle export o gráficos
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        const btnCharts = document.getElementById('btnCharts');
+        btnCharts?.click();
+      }
+
+      // Escape: Cerrar modales
+      if (e.key === 'Escape') {
+        document.getElementById('previewModal')?.classList.add('hidden');
+        const ticketModal = document.getElementById('ticketModal');
+        if (ticketModal) {
+          ticketModal.classList.add('hidden');
+          document.getElementById('ticketFrame').src = '';
+        }
+        this.hideClienteDropdown();
+      }
+    });
+  },
+
+  // ============================================
+  // UTILIDAD: Refresh página
+  // ============================================
+  refreshPage() {
+    window.location.reload();
+  },
+
+  // ============================================
+  // UTILIDAD: Ir a página
+  // ============================================
+  goToPage(page) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    window.location.href = url.toString();
+  },
+};
+
+// Hacer global para compatibilidad
+window.VentasManager = VentasManager;
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', () => VentasManager.init());

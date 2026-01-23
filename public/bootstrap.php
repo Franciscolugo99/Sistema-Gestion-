@@ -63,6 +63,8 @@ require_once __DIR__ . '/auth.php';
 
 // core nuevo (safe)
 $coreHelpers    = FLUS_ROOT . '/src/helpers.php';
+$schemaHelpers = FLUS_ROOT . '/src/db_schema.php';
+if (file_exists($schemaHelpers)) require_once $schemaHelpers;
 $coreMiddleware = FLUS_ROOT . '/src/Middleware.php';
 $coreBase       = FLUS_ROOT . '/src/BaseController.php';
 

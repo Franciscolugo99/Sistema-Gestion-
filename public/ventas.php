@@ -1,5 +1,5 @@
 <?php
-// public/ventas.php - Módulo de Ventas FLUS v4.1 (Corregido para BD)
+// public/ventas.php - Módulo de Ventas FLUS v5.0 (Refactorizado - Consistente con Productos/Stock)
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
@@ -7,6 +7,11 @@ require_once __DIR__ . '/../src/db_helpers.php';
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
+
+/* =========================
+   Constantes
+========================= */
+const EXPORT_LIMIT = 10000;
 
 /* =========================
    Helpers
@@ -97,7 +102,8 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
 /* =========================
    Inicialización
 ========================= */
-$stats = ['cnt_hoy' => 0, 'sum_hoy' => 0, 'avg_hoy' => 0, 'cnt_ayer' => 0, 'sum_ayer' => 0, 'diff_ventas' => 0, 'diff_total' => 0, 'top_medio' => 'N/A', 'top_medio_pct' => 0, 'periodo_label' => 'Hoy'];
+$pdo = getPDO();
+$stats = ['cnt_hoy' => 0, 'sum_hoy' => 0, 'avg_hoy' => 0, 'cnt_ayer' => 0, 'sum_ayer' => 0, 'diff_ventas' => 0, 'diff_total' => 0, 'top_medio' => 'N/A', 'top_medio_pct' => 0, 'periodo_label' => 'Hoy', 'cnt_anuladas' => 0, 'sum_anuladas' => 0];
 $ventas = [];
 $totalRows = 0;
 $totalPages = 1;
@@ -210,6 +216,95 @@ if ($cliente_id > 0) {
 $whereSQL = implode(' AND ', $whereParts);
 
 /* =========================
+   EXPORT CSV (NUEVO - consistente con productos/stock)
+========================= */
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    // Determinar columna de descuento
+    if ($hasDescuentoMonto) {
+        $descuentoCol = 'v.descuento_monto';
+    } elseif ($hasDescuentoTotal) {
+        $descuentoCol = 'v.descuento_total';
+    } else {
+        $descuentoCol = '0';
+    }
+
+    $sqlExport = "
+        SELECT 
+            v.id,
+            v.fecha,
+            COALESCE(c.nombre, 'Consumidor Final') AS cliente,
+            v.total,
+            $descuentoCol AS descuento,
+            COALESCE(v.estado, 'EMITIDA') AS estado,
+            v.medio_pago
+        FROM ventas v
+        LEFT JOIN clientes c ON c.id = v.cliente_id
+        WHERE $whereSQL
+        ORDER BY v.id DESC
+        LIMIT " . EXPORT_LIMIT;
+
+    $stmtExp = $pdo->prepare($sqlExport);
+    $stmtExp->execute($params);
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="ventas_' . date('Y-m-d_His') . '.csv"');
+
+    $out = fopen('php://output', 'w');
+    // BOM UTF-8 para Excel
+    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+
+    // Header
+    fputcsv($out, ['ID', 'Fecha', 'Cliente', 'Total', 'Descuento', 'Estado', 'Medio Pago'], ';');
+
+    // Traer todo (evita N+1 al exportar)
+    $rows = $stmtExp->fetchAll(PDO::FETCH_ASSOC);
+
+    // Prefetch de medios reales (venta_pagos) en bloques
+    $mediosMap = [];
+    if ($hasVentaPagos && $rows) {
+        $ids = array_values(array_filter(array_map(static fn($r) => (int)($r['id'] ?? 0), $rows)));
+        $chunkSize = 1000;
+        for ($i = 0; $i < count($ids); $i += $chunkSize) {
+            $chunk = array_slice($ids, $i, $chunkSize);
+            if (!$chunk) continue;
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $stPagos = $pdo->prepare("SELECT venta_id, GROUP_CONCAT(DISTINCT UPPER(medio_pago) SEPARATOR '+') AS medios
+                                      FROM venta_pagos
+                                      WHERE venta_id IN ($placeholders)
+                                      GROUP BY venta_id");
+            $stPagos->execute($chunk);
+            while ($p = $stPagos->fetch(PDO::FETCH_ASSOC)) {
+                $vid = (int)($p['venta_id'] ?? 0);
+                $med = (string)($p['medios'] ?? '');
+                if ($vid > 0 && $med !== '') $mediosMap[$vid] = $med;
+            }
+        }
+    }
+
+    foreach ($rows as $row) {
+        // Si tiene venta_pagos, mostrar medios reales (ej: EFECTIVO+MP)
+        $medioPago = $row['medio_pago'] ?? 'N/A';
+        if ($hasVentaPagos) {
+            $vid = (int)($row['id'] ?? 0);
+            if ($vid > 0 && isset($mediosMap[$vid])) $medioPago = $mediosMap[$vid];
+        }
+
+        fputcsv($out, [
+            $row['id'],
+            $row['fecha'],
+            $row['cliente'],
+            number_format((float)($row['total'] ?? 0), 2, ',', ''),
+            number_format((float)($row['descuento'] ?? 0), 2, ',', ''),
+            $row['estado'],
+            $medioPago,
+        ], ';');
+    }
+
+fclose($out);
+    exit;
+}
+
+/* =========================
    KPIs - Respetan los filtros aplicados
 ========================= */
 $hayFiltros = $medio || $estado || $desde || $hasta || $hora_desde || $hora_hasta || $venta_id || $cliente_id;
@@ -228,6 +323,17 @@ try {
     $stats['cnt_hoy'] = (int)$rowFiltrado['cnt'];
     $stats['sum_hoy'] = (float)$rowFiltrado['sum'];
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
+    
+    // Anuladas en el período
+    $stAnuladas = $pdo->prepare("
+      SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+      FROM ventas v 
+      WHERE $whereSQL AND v.estado = 'ANULADA'
+    ");
+    $stAnuladas->execute($params);
+    $rowAnuladas = $stAnuladas->fetch(PDO::FETCH_ASSOC);
+    $stats['cnt_anuladas'] = (int)$rowAnuladas['cnt'];
+    $stats['sum_anuladas'] = (float)$rowAnuladas['sum'];
     
     // Determinar label del período
     if ($desde && $hasta) {
@@ -293,7 +399,7 @@ try {
     // Top medio de pago del período filtrado
     if ($hasVentaPagos) {
       $stMedio = $pdo->prepare("
-        SELECT UPPER(vp.medio_pago) as medio, COUNT(*) as cnt
+        SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
         FROM venta_pagos vp
         JOIN ventas v ON v.id = vp.venta_id
         WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
@@ -327,6 +433,13 @@ try {
     $stats['sum_hoy'] = (float)$rowHoy['sum'];
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
+    // Anuladas hoy
+    $stAnuladasHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND estado = 'ANULADA'");
+    $stAnuladasHoy->execute([$hoy]);
+    $rowAnuladasHoy = $stAnuladasHoy->fetch(PDO::FETCH_ASSOC);
+    $stats['cnt_anuladas'] = (int)$rowAnuladasHoy['cnt'];
+    $stats['sum_anuladas'] = (float)$rowAnuladasHoy['sum'];
+    
     $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
     $stAyer->execute([$ayer]);
     $rowAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
@@ -336,7 +449,7 @@ try {
     // Top medio de pago de hoy
     if ($hasVentaPagos) {
       $stMedio = $pdo->query("
-        SELECT UPPER(vp.medio_pago) as medio, COUNT(*) as cnt
+        SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
         FROM venta_pagos vp
         JOIN ventas v ON v.id = vp.venta_id
         WHERE DATE(v.fecha) = CURDATE() AND (v.estado IS NULL OR v.estado = 'EMITIDA')
@@ -511,10 +624,10 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css?v=4','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2'];
+$extraCss = ['assets/css/ventas.css?v=5','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2','assets/css/ventas-enhanced.css?v=1'];
 $extraJs = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
-  'assets/js/ventas.js?v=4.1',
+  'assets/js/ventas.js?v=5.0',
   'assets/js/ventas_kpis.js?v=2'
 ];
 
@@ -539,22 +652,32 @@ unset($queryParams['page']);
         <option value="80">80mm</option>
         <option value="58">58mm</option>
       </select>
-      <button id="btnCharts" class="btn-icon" title="Gráficos">📊</button>
-      <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary">💾 Exportar</a>
+      <button id="btnCharts" class="btn-icon" title="Gráficos (Ctrl+E)">📊</button>
+      <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary" title="Exportar CSV">💾 Exportar</a>
     </div>
   </div>
   
-<!-- KPIs (Operativos) -->
+<!-- KPIs (Operativos) - CLICKEABLES -->
 <section id="ventas-kpis" class="ventas-kpis">
   <div class="vkpi-grid">
-    <div class="vkpi-card">
-      <div class="vkpi-label">Tickets (emitidas)</div>
+    <div class="vkpi-card vkpi-clickable" data-filter="fecha" title="Filtrar por fecha">
+      <div class="vkpi-label">Tickets (<?= h($stats['periodo_label']) ?>)</div>
       <div class="vkpi-value" data-kpi="tickets"><?= number_format((int)($stats['cnt_hoy'] ?? 0)) ?></div>
+      <?php if ($stats['diff_ventas'] != 0): ?>
+        <div class="vkpi-diff <?= $stats['diff_ventas'] > 0 ? 'positive' : 'negative' ?>">
+          <?= $stats['diff_ventas'] > 0 ? '+' : '' ?><?= $stats['diff_ventas'] ?>% vs anterior
+        </div>
+      <?php endif; ?>
     </div>
 
-    <div class="vkpi-card">
+    <div class="vkpi-card vkpi-clickable" data-filter="estado" data-filter-value="EMITIDA" title="Ver solo emitidas">
       <div class="vkpi-label">Facturación (emitidas)</div>
       <div class="vkpi-value" data-kpi="facturacion"><?= money((float)($stats['sum_hoy'] ?? 0)) ?></div>
+      <?php if ($stats['diff_total'] != 0): ?>
+        <div class="vkpi-diff <?= $stats['diff_total'] > 0 ? 'positive' : 'negative' ?>">
+          <?= $stats['diff_total'] > 0 ? '+' : '' ?><?= $stats['diff_total'] ?>% vs anterior
+        </div>
+      <?php endif; ?>
     </div>
 
     <div class="vkpi-card">
@@ -562,22 +685,19 @@ unset($queryParams['page']);
       <div class="vkpi-value" data-kpi="ticket_promedio"><?= money((float)($stats['avg_hoy'] ?? 0)) ?></div>
     </div>
 
-    <div class="vkpi-card">
-      <div class="vkpi-label">Descuentos</div>
-      <div class="vkpi-value" data-kpi="descuentos"><?= money(0) ?></div>
-      <div class="vkpi-sub" data-kpi="desc_promos">Promos: <?= money(0) ?></div>
-    </div>
-
-    <div class="vkpi-card">
+    <div class="vkpi-card vkpi-clickable" data-filter="estado" data-filter-value="ANULADA" title="Ver solo anuladas">
       <div class="vkpi-label">Anuladas</div>
-      <div class="vkpi-value" data-kpi="anuladas">0</div>
-      <div class="vkpi-sub" data-kpi="monto_anulado"><?= money(0) ?></div>
+      <div class="vkpi-value vkpi-danger" data-kpi="anuladas"><?= (int)($stats['cnt_anuladas'] ?? 0) ?></div>
+      <div class="vkpi-sub" data-kpi="monto_anulado"><?= money((float)($stats['sum_anuladas'] ?? 0)) ?></div>
     </div>
-  </div>
 
-  <div class="vkpi-pagos">
-    <div class="vkpi-pagos-title">Pagos por medio</div>
-    <div class="vkpi-chips" data-kpi="pagos"></div>
+    <?php if ($stats['top_medio'] !== 'N/A'): ?>
+    <div class="vkpi-card vkpi-clickable" data-filter="medio" data-filter-value="<?= h($stats['top_medio']) ?>" title="Filtrar por <?= h($stats['top_medio']) ?>">
+      <div class="vkpi-label">Top Medio</div>
+      <div class="vkpi-value"><?= h($stats['top_medio']) ?></div>
+      <div class="vkpi-sub"><?= $stats['top_medio_pct'] ?>% de ventas</div>
+    </div>
+    <?php endif; ?>
   </div>
 </section>
 
@@ -705,6 +825,11 @@ unset($queryParams['page']);
   </div>
   <?php endif; ?>
 
+  <!-- Info de resultados -->
+  <div class="results-info">
+    Mostrando <?= number_format($fromRow) ?>-<?= number_format($toRow) ?> de <?= number_format($totalRows) ?> ventas
+  </div>
+
   <!-- Paginación superior -->
   <?= render_pagination($page, $totalPages, $queryParams, true, $totalRows, $fromRow, $toRow) ?>
 
@@ -818,6 +943,22 @@ unset($queryParams['page']);
       <iframe id="ticketFrame" src="" frameborder="0"></iframe>
     </div>
   </div>
+</div>
+
+<!-- Toast Container (NUEVO - consistente con productos/stock) -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- Keyboard hints -->
+<div class="keyboard-hints" id="keyboardHints">
+    <div class="keyboard-hints-item">
+        <kbd>Ctrl</kbd> + <kbd>K</kbd> = Buscar
+    </div>
+    <div class="keyboard-hints-item">
+        <kbd>Ctrl</kbd> + <kbd>E</kbd> = Gráficos
+    </div>
+    <div class="keyboard-hints-item">
+        <kbd>Esc</kbd> = Cerrar
+    </div>
 </div>
 
 <!-- Datos para JS -->
