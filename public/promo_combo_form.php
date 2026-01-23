@@ -41,11 +41,11 @@ if ($id > 0) {
 
   if (!$promo) {
     http_response_code(404);
-    die("Promo no encontrada.");
+    flus_abort(404, "Promo no encontrada.");
   }
   if ((string)$promo['tipo'] !== 'COMBO_FIJO') {
     http_response_code(400);
-    die("Esta promo no es de tipo combo fijo.");
+    flus_abort(400, "Esta promo no es de tipo combo fijo.");
   }
 
   // Cargar items del combo (columna correcta: cantidad_requerida)

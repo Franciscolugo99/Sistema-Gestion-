@@ -28,7 +28,7 @@ final class Middleware {
       json_error($message, $code);
     }
 
-    die($message);
+    flus_abort(, (string));
   }
 
   /**

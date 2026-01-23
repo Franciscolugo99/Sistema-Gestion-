@@ -20,7 +20,7 @@ function _legacy_has_table(PDO $pdo, string $table): bool {
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
   http_response_code(400);
-  die("ID inválido");
+  flus_abort(400, "ID inválido");
 }
 
 /* =========================
@@ -38,7 +38,7 @@ $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$venta) {
   http_response_code(404);
-  die("Venta no encontrada");
+  flus_abort(404, "Venta no encontrada");
 }
 
 /* =========================

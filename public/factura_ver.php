@@ -13,7 +13,7 @@ require_any_permission(['ver_facturacion','emitir_factura']);
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
   http_response_code(400);
-  die("ID de factura inválido");
+  flus_abort(400, "ID de factura inválido");
 }
 
 /* =========================
@@ -40,7 +40,7 @@ $factura = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$factura) {
   http_response_code(404);
-  die("Factura no encontrada");
+  flus_abort(404, "Factura no encontrada");
 }
 
 /* =========================
