@@ -2,6 +2,14 @@
 // public/login.php
 declare(strict_types=1);
 
+
+
+// Asegurar helper de versión (evita fatal en login)
+if (!function_exists("flus_version_label")) {
+  $vf = __DIR__ . "/../src/version.php";
+  if (is_file($vf)) require_once $vf;
+}
+
 require_once __DIR__ . '/bootstrap.php';
 
 
