@@ -124,6 +124,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $nroComp      = trim((string)($_POST['nro_comp'] ?? ''));
       $observacion  = trim((string)($_POST['observacion'] ?? ''));
 
+      // Descuento (opcional): MONTO ($) o PORC (%)
+      $descuentoTipo  = strtoupper(trim((string)($_POST['descuento_tipo'] ?? 'MONTO')));
+      $descuentoValor = parse_decimal((string)($_POST['descuento_valor'] ?? ''), 0.0);
+      if (!in_array($descuentoTipo, ['MONTO','PORC'], true)) $descuentoTipo = 'MONTO';
+      if ($descuentoValor < 0) $descuentoValor = 0.0;
+
       $prodIds = $_POST['producto_id'] ?? [];
       $cants   = $_POST['cantidad'] ?? [];
       $costos  = $_POST['costo_unitario'] ?? [];
@@ -196,10 +202,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           // Proveedor (buscar normalizado o crear - con protección contra duplicados)
           $proveedorId = getOrCreateProveedor($pdo, $proveedorTxt);
 
-          $totalNeto = $total;
-          $totalIva  = 0.0;
+          $totalBruto = $total;
 
-          if ($compraId > 0) {
+// Calcular descuento total (clamp)
+$descuentoTotal = 0.0;
+if ($totalBruto > 0 && $descuentoValor > 0) {
+  if ($descuentoTipo === 'PORC') {
+    if ($descuentoValor > 100) $descuentoValor = 100.0;
+    $descuentoTotal = $totalBruto * ($descuentoValor / 100.0);
+  } else { // MONTO
+    if ($descuentoValor > $totalBruto) $descuentoValor = $totalBruto;
+    $descuentoTotal = $descuentoValor;
+  }
+}
+
+$descuentoTotal = round($descuentoTotal, 2);
+$totalFinal = max(0.0, round($totalBruto - $descuentoTotal, 2));
+
+// Totales guardados
+$totalNeto = $totalFinal;
+$totalIva  = 0.0;
+$total     = $totalFinal;
+
+if ($compraId > 0) {
             // EDITAR: verificar que esté en BORRADOR
             $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
             $stCheck->execute([$compraId]);
@@ -218,6 +243,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 obs = :obs,
                 total_neto = :total_neto,
                 total_iva = :total_iva,
+                total_bruto = :total_bruto,
+                descuento_tipo = :descuento_tipo,
+                descuento_valor = :descuento_valor,
+                descuento_total = :descuento_total,
                 total = :total
               WHERE id = :id AND estado = 'BORRADOR'
             ");
@@ -229,6 +258,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               ':obs' => $observacion,
               ':total_neto' => $totalNeto,
               ':total_iva' => $totalIva,
+              ':total_bruto' => $totalBruto,
+              ':descuento_tipo' => $descuentoTipo,
+              ':descuento_valor' => $descuentoValor,
+              ':descuento_total' => $descuentoTotal,
               ':total' => $total,
             ]);
 
@@ -240,9 +273,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // CREAR nueva
             $stCompra = $pdo->prepare("
               INSERT INTO compras
-                (fecha, proveedor_id, tipo_comp, nro_comp, obs, estado, total_neto, total_iva, total)
+                (fecha, proveedor_id, tipo_comp, nro_comp, obs, estado, total_neto, total_iva, total_bruto, descuento_tipo, descuento_valor, descuento_total, total)
               VALUES
-                (CURDATE(), :proveedor_id, :tipo_comp, :nro_comp, :obs, 'BORRADOR', :total_neto, :total_iva, :total)
+                (CURDATE(), :proveedor_id, :tipo_comp, :nro_comp, :obs, 'BORRADOR', :total_neto, :total_iva, :total_bruto, :descuento_tipo, :descuento_valor, :descuento_total, :total)
             ");
             $stCompra->execute([
               ':proveedor_id' => $proveedorId,
@@ -251,6 +284,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               ':obs'          => $observacion,
               ':total_neto'   => $totalNeto,
               ':total_iva'    => $totalIva,
+              ':total_bruto'  => $totalBruto,
+              ':descuento_tipo' => $descuentoTipo,
+              ':descuento_valor' => $descuentoValor,
+              ':descuento_total' => $descuentoTotal,
               ':total'        => $total,
             ]);
 
@@ -305,9 +342,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           // Verificar estado
           $st = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
           $st->execute([$compraId]);
-          $estado = (string)($st->fetchColumn() ?: '');
+$rowCompra = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+$estado = (string)($rowCompra['estado'] ?? '');
 
-          if ($estado !== 'BORRADOR') {
+$compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? 0.0);
+$compraDescuentoTotal = (float)($rowCompra['descuento_total'] ?? 0.0);
+
+if ($estado !== 'BORRADOR') {
             throw new RuntimeException('Solo se pueden eliminar compras en BORRADOR.');
           }
 
@@ -346,9 +387,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $pdo->beginTransaction();
 
           // Bloquear compra
-          $st = $pdo->prepare("SELECT estado FROM compras WHERE id = ? FOR UPDATE");
+          $st = $pdo->prepare("SELECT estado, total_bruto, descuento_total FROM compras WHERE id = ? FOR UPDATE");
           $st->execute([$compraId]);
-          $estado = (string)($st->fetchColumn() ?: '');
+          $rowCompra = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+          $estado = (string)($rowCompra['estado'] ?? '');
+
+          $compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? 0.0);
+          $compraDescuentoTotal = (float)($rowCompra['descuento_total'] ?? 0.0);
 
           if ($estado !== 'BORRADOR') {
             throw new RuntimeException("La compra no está en BORRADOR.");
@@ -364,6 +409,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
           if (!$items) throw new RuntimeException("La compra no tiene ítems.");
+
+          // Factor de prorrateo por descuento (descuento global sobre el total de la compra)
+          $brutoCalc = $compraTotalBruto;
+          if ($brutoCalc <= 0) {
+            foreach ($items as $it) {
+              $brutoCalc += ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
+            }
+          }
+
+          $factorDesc = 1.0;
+          if ($brutoCalc > 0 && $compraDescuentoTotal > 0) {
+            $factorDesc = max(0.0, ($brutoCalc - $compraDescuentoTotal) / $brutoCalc);
+          }
+
+
 
           // Verificar que todos los productos existen y están activos
           $stCheckProd = $pdo->prepare("SELECT id, nombre, activo FROM productos WHERE id = ?");
@@ -403,9 +463,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               ':com'      => "Compra #{$compraId}",
             ]);
 
-            // Actualizar costo
-            if ($cu > 0) {
-              $stUpdCosto->execute([':costo' => $cu, ':pid' => $pid]);
+            // Actualizar costo (prorrateado por descuento global si corresponde)
+            $cuAdj = round($cu * $factorDesc, 2);
+            if ($cuAdj > 0) {
+              $stUpdCosto->execute([':costo' => $cuAdj, ':pid' => $pid]);
             }
           }
 
@@ -747,7 +808,37 @@ require __DIR__ . "/partials/header.php";
               </tr>
             <?php endif; ?>
           </tbody>
-          <tfoot>
+<tfoot>
+            <tr>
+              <td colspan="3" class="right"><strong>BRUTO</strong></td>
+              <td class="right"><strong id="totalBrutoLbl">$0,00</strong></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="3" class="right">
+                <div class="discount-row">
+                  <strong>DESCUENTO</strong>
+                  <div class="discount-controls">
+                    <select id="descuentoTipo" name="descuento_tipo" title="Tipo de descuento">
+                      <option value="MONTO" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'MONTO') ? 'selected' : '' ?>>$ Monto</option>
+                      <option value="PORC" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'PORC') ? 'selected' : '' ?>>% Porcentaje</option>
+                    </select>
+                    <input
+                      id="descuentoValor"
+                      name="descuento_valor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value="<?= $editMode ? h((string)($compraEdit['descuento_valor'] ?? 0)) : '0' ?>"
+                      placeholder="0"
+                      autocomplete="off"
+                    >
+                  </div>
+                </div>
+              </td>
+              <td class="right"><strong id="descuentoTotalLbl">-$0,00</strong></td>
+              <td></td>
+            </tr>
             <tr>
               <td colspan="3" class="right"><strong>TOTAL</strong></td>
               <td class="right"><strong id="totalLbl">$0,00</strong></td>
@@ -1037,6 +1128,14 @@ function verDetalle(id) {
       html += `
             </tbody>
             <tfoot>
+              <tr>
+                <td colspan="3" class="right"><strong>BRUTO</strong></td>
+                <td class="right"><strong>${data.total_bruto_fmt}</strong></td>
+              </tr>
+              <tr>
+                <td colspan="3" class="right"><strong>DESCUENTO</strong></td>
+                <td class="right"><strong>-${data.descuento_total_fmt}</strong></td>
+              </tr>
               <tr>
                 <td colspan="3" class="right"><strong>TOTAL</strong></td>
                 <td class="right"><strong>${data.total_fmt}</strong></td>
