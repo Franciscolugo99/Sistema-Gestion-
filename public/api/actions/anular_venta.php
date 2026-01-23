@@ -5,7 +5,6 @@ if (!function_exists('getPDO')) { require_once __DIR__ . '/../../../src/db_helpe
 $pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
 if (!$pdo instanceof PDO) { http_response_code(500); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'error'=>'PDO no disponible']); exit; }
 if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../_csrf_guard.php'; csrf_require(['methods'=>['POST','PUT','DELETE']]);
 
 /**
  * API action: anular_venta
