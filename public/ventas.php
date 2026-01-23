@@ -8,6 +8,12 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
 
+// TZ: asegurar que "Hoy" coincida con Argentina/Mendoza (evita desfasajes)
+if (function_exists('date_default_timezone_set')) {
+  @date_default_timezone_set('America/Argentina/Mendoza');
+}
+
+
 /* =========================
    Constantes
 ========================= */
