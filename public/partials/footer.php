@@ -6,27 +6,63 @@ $extraJs  = $extraJs  ?? [];
 $inlineJs = $inlineJs ?? '';
 $env      = $env ?? 'prod';
 
-// Cache-busting real por archivo (evita "no hace nada" por caché)
+// Cache-busting real por archivo (evita “no hace nada” por caché)
 $appJsPath = __DIR__ . '/../assets/js/app.js'; // public/partials -> public/assets/js/app.js
 $appVer    = file_exists($appJsPath) ? (string)filemtime($appJsPath) : '1';
 
-// Version general para otros assets (podés dejarlo así)
+// Version general para otros assets
 $ver = ($env === 'dev') ? (string)time() : '1.0.0';
 
-// ✅ Version (fallback por si algún entrypoint no incluyó bootstrap)
+// ✅ Version (fallback por si algún entrypoint no incluyó bootstrap/version)
 if (!defined('FLUS_VERSION') || !function_exists('flus_version_label')) {
   $verFile = __DIR__ . '/../../src/version.php'; // public/partials -> src/version.php
   if (is_file($verFile)) require_once $verFile;
 }
 
+// ✅ Licencia (widget + datos para “Copiar info”)
+require_once __DIR__ . '/license_widget.php';
+
 $serverSw = (string)($_SERVER['SERVER_SOFTWARE'] ?? 'N/A');
-$tz = (string)date_default_timezone_get();
+$tz       = (string)date_default_timezone_get();
+
+// Resumen de licencia para el texto “Copiar info”
+$licPlan = 'N/D'; $licVence = 'N/D'; $licDias = 'N/D'; $licEstado = 'N/D';
+$licPaths = [
+  __DIR__ . '/../storage/license.json',
+  __DIR__ . '/../../storage/license.json',
+];
+foreach ($licPaths as $p) {
+  if (is_file($p)) {
+    $j = json_decode((string)file_get_contents($p), true);
+    if (is_array($j)) {
+      $licPlan = (string)($j['plan'] ?? 'N/D');
+      $expStr  = $j['expires_at'] ?? null;
+      if ($expStr) {
+        try {
+          $hoy   = new DateTime('today');
+          $vence = new DateTime((string)$expStr);
+          $diff  = (int)$hoy->diff($vence)->format('%r%a');
+          $licDias   = (string)$diff;
+          $licEstado = ($diff < 0) ? 'vencida' : (($diff <= 7) ? 'por vencer' : 'activa');
+          $licVence  = $vence->format('Y-m-d');
+        } catch (Throwable $e) {
+          $licVence = (string)$expStr;
+        }
+      }
+    }
+    break;
+  }
+}
+
 $aboutText =
-  flus_version_label() . "\n" .
+  (function_exists('flus_version_label') ? flus_version_label() : 'FLUS') . "\n" .
   "Build: " . (defined('FLUS_BUILD') ? FLUS_BUILD : 'N/A') . "\n" .
   "PHP: " . PHP_VERSION . "\n" .
   "Server: " . $serverSw . "\n" .
-  "Timezone: " . $tz;
+  "Timezone: " . $tz . "\n" .
+  "Licencia: " . $licPlan . " (" . $licEstado . ")\n" .
+  "Vence: " . $licVence . "\n" .
+  "Dias restantes: " . $licDias;
 ?>
 
 </div> <!-- /.root container-global -->
@@ -44,7 +80,7 @@ $aboutText =
     aria-controls="flusAboutModal"
     title="Acerca de FLUS"
   >
-    <?= htmlspecialchars(flus_version_label(), ENT_QUOTES, 'UTF-8') ?>
+    <?= htmlspecialchars(function_exists('flus_version_label') ? flus_version_label() : 'FLUS', ENT_QUOTES, 'UTF-8') ?>
   </a>
 </div>
 
@@ -55,13 +91,12 @@ $aboutText =
   <div class="flus-modal__card" role="document">
     <div class="flus-modal__header">
       <h3 id="flusAboutTitle" class="flus-modal__title">Acerca de FLUS</h3>
-
       <button type="button" class="flus-icon-btn" data-close-flus-about aria-label="Cerrar">✕</button>
     </div>
 
     <div class="flus-modal__body">
       <div class="flus-about__version">
-        <?= htmlspecialchars(flus_version_label(), ENT_QUOTES, 'UTF-8') ?>
+        <?= htmlspecialchars(function_exists('flus_version_label') ? flus_version_label() : 'FLUS', ENT_QUOTES, 'UTF-8') ?>
       </div>
 
       <div class="flus-about__grid">
@@ -69,6 +104,11 @@ $aboutText =
         <div class="flus-about__row"><span>PHP</span><b><?= htmlspecialchars(PHP_VERSION, ENT_QUOTES, 'UTF-8') ?></b></div>
         <div class="flus-about__row"><span>Server</span><b><?= htmlspecialchars($serverSw, ENT_QUOTES, 'UTF-8') ?></b></div>
         <div class="flus-about__row"><span>Timezone</span><b><?= htmlspecialchars($tz, ENT_QUOTES, 'UTF-8') ?></b></div>
+      </div>
+
+      <!-- Tarjeta de Licencia -->
+      <div class="flus-about__license" style="margin-top:12px;">
+        <?= flus_license_widget(); ?>
       </div>
 
       <!-- texto para copiar (soporte) -->
@@ -88,6 +128,38 @@ $aboutText =
 
 <!-- JS base del sistema (SIN caché vieja) -->
 <script src="assets/js/app.js?v=<?= htmlspecialchars($appVer, ENT_QUOTES, 'UTF-8') ?>"></script>
+<?php
+// Fallback: si el <meta csrf> no está, exponemos el token desde PHP
+require_once __DIR__ . '/../api/_csrf_guard.php';
+$__csrf = csrf_token();
+?>
+<script>
+(function () {
+  var meta = document.querySelector('meta[name="csrf-token"]');
+  var token = (meta && meta.content) || <?= json_encode($__csrf, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
+
+  // Hacelo disponible globalmente
+  window.CSRF_TOKEN = token;
+
+  // Parchear fetch para inyectar header si falta
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    init = init || {};
+    init.headers = init.headers || {};
+    if (!('X-CSRF-Token' in init.headers)) {
+      init.headers['X-CSRF-Token'] = token;
+    }
+    return _fetch(input, init);
+  };
+
+  // Si usás jQuery, inyectar por ajaxSetup
+  if (window.jQuery && jQuery.ajaxSetup) {
+    jQuery.ajaxSetup({ headers: {'X-CSRF-Token': token} });
+  }
+})();
+</script>
+
+<script src="assets/js/csrf.js?v=<?= htmlspecialchars($appVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <!-- JS adicionales por página -->
 <?php foreach ($extraJs as $src): ?>

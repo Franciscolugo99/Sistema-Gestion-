@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../_csrf_guard.php'; csrf_require(['methods'=>['POST','PUT','DELETE']]);
 // public/api/actions/promo_eliminar.php
 require_login_json();
 require_perm_json('editar_promos');

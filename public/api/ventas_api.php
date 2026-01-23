@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
+require_once __DIR__ . '/secure_actions_guard.php';
 
 /* =========================
    Helpers de consistencia
@@ -27,6 +28,11 @@ function hasVentaPagos(PDO $pdo): bool {
   }
   return $cache;
 }
+require_once __DIR__ . '/kpis_categoria_helper.php';
+
+$categoria  = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim((string)$_GET['categoria']) : null;
+$prodCatCol = flus_first_existing_column($pdo, 'productos', ['categoria','rubro','familia']);
+$catFilter  = kpis_categoria_condition($pdo, $categoria, $prodCatCol);
 
 /**
  * Generar token seguro para tickets públicos

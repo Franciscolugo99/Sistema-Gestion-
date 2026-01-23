@@ -8,6 +8,7 @@ define('FLUS_API_CONTEXT', true);
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/_csrf_guard.php'; csrf_require(['methods'=>['POST','PUT','DELETE']]);
 require_once FLUS_ROOT . '/src/api_helpers.php';
 setup_api_error_handlers();
 

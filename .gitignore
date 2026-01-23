@@ -130,3 +130,10 @@ storage/restore.lock
 storage/restore.lock
 snippets/
 snippets/
+
+# FLUS local
+/backups-csrf/
+/cookies.txt
+/storage/license.json
+*.bak
+*.tmp

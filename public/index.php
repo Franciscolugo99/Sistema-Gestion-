@@ -1,9 +1,9 @@
 <?php
 // public/index.php
 declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 require_login();
-
 
 $pageTitle      = 'Inicio - Sistema Kiosco (FLUS)';
 $currentSection = 'inicio';
@@ -13,24 +13,28 @@ $extraCss       = ['assets/css/index.css'];
 /* =========================================================
    Helpers locales
 ========================================================= */
+if (!function_exists('h')) {
+  function h(string $v): string {
+    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+  }
+}
+
 function is_private_or_local_ip(string $ip): bool {
   if (!filter_var($ip, FILTER_VALIDATE_IP)) return false;
-
-  // Devuelve FALSE si es privada/reservada (por flags NO_PRIV/NO_RES)
+  // Devuelve TRUE si es privada o reservada
   return !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
 }
 
 function is_local_host(string $host): bool {
   $host = strtolower(trim($host));
-  if ($host === '' ) return false;
+  if ($host === '') return false;
   if ($host === 'localhost' || $host === '127.0.0.1') return true;
-  if (str_ends_with($host, '.local')) return true;
+  if (function_exists('str_ends_with') && str_ends_with($host, '.local')) return true;
   return false;
 }
 
 /* =========================================================
-   Módulos del inicio
-   - perm: si lo seteás, se filtra por user_has_permission()
+   Módulos del inicio (filtrables por permiso)
 ========================================================= */
 $modules = [
   [
@@ -58,7 +62,7 @@ $modules = [
     'tag'        => 'Control de inventario',
     'tag_class'  => 'tag-orange',
     'card_class' => 'index-card',
-    'perm'       => 'editar_stock', // (si en tu DB existe, lo activás)
+    'perm'       => 'editar_stock',
   ],
   [
     'href'       => 'movimientos.php',
@@ -90,9 +94,9 @@ $modules = [
 ];
 
 /* =========================================================
-   Filtrar por permisos (si el módulo define 'perm')
+   Filtrar módulos por permisos definidos
 ========================================================= */
-$modules = array_values(array_filter($modules, function(array $m): bool {
+$modules = array_values(array_filter($modules, static function(array $m): bool {
   if (empty($m['perm'])) return true;
   return function_exists('user_has_permission') ? user_has_permission((string)$m['perm']) : false;
 }));
@@ -102,15 +106,13 @@ $modules = array_values(array_filter($modules, function(array $m): bool {
 ========================================================= */
 $host = (string)($_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? ''));
 $ip   = (string)($_SERVER['REMOTE_ADDR'] ?? '');
-
 $isLocal = is_local_host($host) || is_private_or_local_ip($ip);
 
 $statusLabel    = $isLocal ? 'Servidor local activo' : 'Servidor remoto';
 $statusDotClass = $isLocal ? 'status-dot status-dot-ok' : 'status-dot status-dot-remote';
 
-require __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/partials/header.php';
 ?>
-
 <div class="index-panel">
 
   <header class="index-header">
@@ -148,4 +150,4 @@ require __DIR__ . '/partials/header.php';
 
 </div>
 
-<?php require __DIR__ . '/partials/footer.php'; ?>
+<?php require_once __DIR__ . '/partials/footer.php';

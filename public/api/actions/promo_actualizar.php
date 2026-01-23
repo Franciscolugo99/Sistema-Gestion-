@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../_csrf_guard.php'; csrf_require(['methods'=>['POST','PUT','DELETE']]);
 // public/api/actions/promo_actualizar.php
 
 // Carga el bootstrap de API (define $pdo, helpers json_ok/json_fail, auth, csrf, etc.)
