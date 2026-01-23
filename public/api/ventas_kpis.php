@@ -1,22 +1,44 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../../src/db_helpers.php';
-
-/**
- * public/api/ventas_kpis.php - FLUS (2026) ✅
- * KPIs operativos del módulo Ventas (Emitidas/Anuladas) + Pagos por medio.
- *
- * Motivo: en muchas instalaciones /api/actions/* está bloqueado por .htaccess (403),
- * por eso este endpoint vive en /api/ (mismo nivel que ventas_api.php).
- */
-
 require_once __DIR__ . '/../bootstrap.php';
 if (function_exists('require_login')) { require_login(); }
 if (function_exists('require_permission')) { require_permission('ver_reportes'); }
 
+require_once __DIR__ . '/kpis_categoria_helper.php';
+require_once __DIR__ . '/../../src/db_helpers.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+/**
+ * Obtiene y cachea el filtro de categoría cuando se usa (lazy).
+ */
+function __catFilter(PDO $pdo): string {
+  static $cache = null;
+  if ($cache !== null) return $cache;
+  $categoria  = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim((string)$_GET['categoria']) : null;
+  $prodCatCol = flus_first_existing_column($pdo, 'productos', ['categoria','rubro','familia']);
+  $cache      = kpis_categoria_condition($pdo, $categoria, $prodCatCol);
+  return $cache;
+}
+
+/**
+ * Inserta $catFilter en un SQL dado (antes de GROUP BY si existe; si no, al WHERE).
+ * Solo actúa si la consulta toca la tabla ventas.
+ */
+function apply_catfilter_to_sql(string $sql, string $catFilter): string {
+  if ($catFilter === '') return $sql;
+  if (!preg_match('/\b(?:FROM|JOIN)\s+ventas\b/i', $sql)) { return $sql; }
+
+  if (preg_match('/\sGROUP\s+BY/i', $sql)) {
+    return preg_replace('/\sGROUP\s+BY/i', ' AND ' . $catFilter . ' GROUP BY', $sql, 1);
+  }
+  if (preg_match('/\sWHERE\s/i', $sql)) {
+    return preg_replace('/\sWHERE\s/i', ' WHERE ' . $catFilter . ' AND ', $sql, 1);
+  }
+  return $sql . ' WHERE ' . $catFilter;
+}
 
 function json_out(array $payload, int $code = 200): void {
   http_response_code($code);
@@ -36,23 +58,6 @@ function safe_time(?string $s): ?string {
   return preg_match('/^\d{2}:\d{2}$/', $s) ? $s : null;
 }
 
-function _legacy_has_table(PDO $pdo, string $table): bool {
-  static $cache = [];
-  if (isset($cache[$table])) return $cache[$table];
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-  $st->execute([$table]);
-  return $cache[$table] = (bool)$st->fetchColumn();
-}
-
-function _legacy_has_column(PDO $pdo, string $table, string $column): bool {
-  static $cache = [];
-  $key = $table.'.'.$column;
-  if (isset($cache[$key])) return $cache[$key];
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
-  $st->execute([$table, $column]);
-  return $cache[$key] = (bool)$st->fetchColumn();
-}
-
 $pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
 if (!$pdo instanceof PDO) {
   json_out(['ok' => false, 'error' => 'PDO no disponible'], 500);
@@ -70,11 +75,11 @@ $cliente_id = (isset($_GET['cliente_id']) && ctype_digit((string)$_GET['cliente_
 $hora_desde = safe_time($_GET['hora_desde'] ?? null);
 $hora_hasta = safe_time($_GET['hora_hasta'] ?? null);
 
-$hasVentaPagos = has_table($pdo, 'venta_pagos');
+$hasVentaPagos  = has_table($pdo, 'venta_pagos');
 $hasVentaPromos = has_table($pdo, 'venta_promos');
 
-$allowedMedios = ['EFECTIVO','MP','DEBITO','CREDITO','TRANSFERENCIA','MODO','QR']; // flexible
-$allowedEstados = ['EMITIDA','ANULADA'];
+$allowedMedios   = ['EFECTIVO','MP','DEBITO','CREDITO','TRANSFERENCIA','MODO','QR'];
+$allowedEstados  = ['EMITIDA','ANULADA'];
 
 /* =========================
    WHERE dinámico (respeta filtros de la tabla)
@@ -82,7 +87,7 @@ $allowedEstados = ['EMITIDA','ANULADA'];
 $whereParts = ['1=1'];
 $params = [];
 
-// Medio (si no es permitido, se ignora)
+// Medio
 if ($medio !== '' && in_array($medio, $allowedMedios, true)) {
   if ($hasVentaPagos) {
     $whereParts[] = "EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.venta_id = v.id AND UPPER(vp.medio_pago) = :medio)";
@@ -121,7 +126,7 @@ if ($hasta) {
   $params[':hasta'] = $hasta . " 23:59:59";
 }
 
-// Horario (soporta rango cruzado)
+// Horario
 if ($hora_desde && $hora_hasta) {
   $minD = ((int)substr($hora_desde, 0, 2)) * 60 + (int)substr($hora_desde, 3, 2);
   $minH = ((int)substr($hora_hasta, 0, 2)) * 60 + (int)substr($hora_hasta, 3, 2);
@@ -140,7 +145,7 @@ if ($hora_desde && $hora_hasta) {
   $params[':hora_hasta'] = $hora_hasta . ":59";
 }
 
-// Si no hay filtros de ningún tipo, default: HOY (para coincidir con tu UI actual)
+// Default a HOY si no hay ningún filtro
 $hayAlguno = ($medio !== '' || $estado !== '' || $desde || $hasta || $hora_desde || $hora_hasta || ($venta_id !== '' && ctype_digit($venta_id)) || $cliente_id > 0);
 if (!$hayAlguno) {
   $whereParts[] = "DATE(v.fecha) = CURDATE()";
@@ -167,70 +172,79 @@ if ($hasDescuentoTotal && $hasDescuentoMonto) {
 ========================= */
 try {
   // Emitidas
-  $st = $pdo->prepare("
+  $sql = "
     SELECT
       COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN 1 ELSE 0 END),0) AS tickets,
       COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN v.total ELSE 0 END),0) AS facturacion,
       COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN $descExpr ELSE 0 END),0) AS descuentos
     FROM ventas v
     WHERE $whereSQL
-  ");
+  ";
+  $sql = apply_catfilter_to_sql($sql, __catFilter($pdo));
+  $st  = $pdo->prepare($sql);
   $st->execute($params);
   $k = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 
-  $tickets = (int)($k['tickets'] ?? 0);
-  $facturacion = (float)($k['facturacion'] ?? 0);
-  $descuentos = (float)($k['descuentos'] ?? 0);
-  $ticket_prom = $tickets > 0 ? ($facturacion / $tickets) : 0.0;
+  $tickets       = (int)($k['tickets'] ?? 0);
+  $facturacion   = (float)($k['facturacion'] ?? 0);
+  $descuentos    = (float)($k['descuentos'] ?? 0);
+  $ticket_prom   = $tickets > 0 ? ($facturacion / $tickets) : 0.0;
 
   // Anuladas
-  $stA = $pdo->prepare("
+  $sqlA = "
     SELECT
       COALESCE(SUM(CASE WHEN v.estado='ANULADA' THEN 1 ELSE 0 END),0) AS anuladas,
       COALESCE(SUM(CASE WHEN v.estado='ANULADA' THEN v.total ELSE 0 END),0) AS monto_anulado
     FROM ventas v
     WHERE $whereSQL
-  ");
+  ";
+  $sqlA = apply_catfilter_to_sql($sqlA, __catFilter($pdo));
+  $stA  = $pdo->prepare($sqlA);
   $stA->execute($params);
   $a = $stA->fetch(PDO::FETCH_ASSOC) ?: [];
 
-  $anuladas = (int)($a['anuladas'] ?? 0);
+  $anuladas      = (int)($a['anuladas'] ?? 0);
   $monto_anulado = (float)($a['monto_anulado'] ?? 0);
 
-  // Descuento promos
+  // Descuento promos (si existe venta_promos)
   $desc_promos = 0.0;
   if ($hasVentaPromos) {
-    $stP = $pdo->prepare("
+    $sqlP = "
       SELECT COALESCE(SUM(vp.descuento_monto),0) AS desc_promos
       FROM venta_promos vp
       JOIN ventas v ON v.id = vp.venta_id
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
-    ");
+    ";
+    $sqlP = apply_catfilter_to_sql($sqlP, __catFilter($pdo));
+    $stP  = $pdo->prepare($sqlP);
     $stP->execute($params);
     $desc_promos = (float)($stP->fetchColumn() ?: 0);
   }
 
   // Pagos por medio (solo emitidas)
-  $pagos = [];
   if ($hasVentaPagos) {
-    $stM = $pdo->prepare("
+    $sqlM = "
       SELECT UPPER(p.medio_pago) AS medio, COALESCE(SUM(p.monto),0) AS total
       FROM venta_pagos p
       JOIN ventas v ON v.id = p.venta_id
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
       GROUP BY UPPER(p.medio_pago)
       ORDER BY total DESC
-    ");
+    ";
+    $sqlM = apply_catfilter_to_sql($sqlM, __catFilter($pdo));
+    $stM  = $pdo->prepare($sqlM);
     $stM->execute($params);
     $pagos = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
   } else {
-    $stM = $pdo->prepare("
+    $sqlM = "
       SELECT UPPER(v.medio_pago) AS medio, COALESCE(SUM(v.total),0) AS total
       FROM ventas v
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
       GROUP BY UPPER(v.medio_pago)
       ORDER BY total DESC
-    ");
+    ";
+    $sqlM = apply_catfilter_to_sql($sqlM, __catFilter($pdo));
+    $stM  = $pdo->prepare($sqlM);
     $stM->execute($params);
     $pagos = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
@@ -238,18 +252,18 @@ try {
   json_out([
     'ok' => true,
     'kpis' => [
-      'tickets' => $tickets,
-      'facturacion' => $facturacion,
+      'tickets'         => $tickets,
+      'facturacion'     => $facturacion,
       'ticket_promedio' => $ticket_prom,
-      'descuentos' => $descuentos,
-      'desc_promos' => $desc_promos,
-      'anuladas' => $anuladas,
-      'monto_anulado' => $monto_anulado,
+      'descuentos'      => $descuentos,
+      'desc_promos'     => $desc_promos,
+      'anuladas'        => $anuladas,
+      'monto_anulado'   => $monto_anulado,
     ],
     'pagos' => array_map(static function($r){
       return [
         'medio_pago' => (string)($r['medio'] ?? 'OTRO'),
-        'total' => (float)($r['total'] ?? 0),
+        'total'      => (float)($r['total'] ?? 0),
       ];
     }, $pagos),
   ]);
