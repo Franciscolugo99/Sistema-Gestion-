@@ -161,9 +161,10 @@
     if (ctxCat && data.categorias) {
       const categorias = data.categorias;
       const labels = categorias.map((c) => truncate(c.categoria, 12));
-      const values = categorias.map((c) => c.total);
+      // Back-end devuelve {inversion} (InventarioAnalisis.php). Algunos builds viejos devolvían {total}.
+      const values = categorias.map((c) => Number(c.inversion ?? c.total ?? 0));
       const total = values.reduce((a, b) => a + b, 0);
-      const percentages = values.map((v) => ((v / total) * 100).toFixed(1));
+      const percentages = total > 0 ? values.map((v) => ((v / total) * 100).toFixed(1)) : values.map(() => '0.0');
 
       const colors = getColorPalette();
 
@@ -192,7 +193,7 @@
               callbacks: {
                 label: function (context) {
                   const value = context.raw;
-                  const pct = ((value / total) * 100).toFixed(1);
+                  const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                   return `${pct}% (${formatMoney(value)})`;
                 }
               }
@@ -209,13 +210,15 @@
     if (ctxProv && data.proveedores) {
       const proveedores = data.proveedores.slice(0, 8);
 
+      const valuesProv = proveedores.map((p) => Number(p.inversion ?? p.total ?? 0));
+
       charts.proveedores = new Chart(ctxProv, {
         type: 'bar',
         data: {
           labels: proveedores.map((p) => truncate(p.proveedor, 10)),
           datasets: [{
             label: 'Inversión',
-            data: proveedores.map((p) => p.total),
+            data: valuesProv,
             backgroundColor: '#3b82f6',
             borderRadius: 8,
           }]
@@ -269,7 +272,8 @@
           labels: data.tendencia.map((d) => d.fecha),
           datasets: [{
             label: 'Ventas',
-            data: data.tendencia.map((d) => d.total),
+            // Back-end devuelve {total_vendido} (InventarioAnalisis.php). Algunos builds viejos devolvían {total}.
+            data: data.tendencia.map((d) => Number(d.total_vendido ?? d.total ?? 0)),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.10)',
             tension: 0.4,

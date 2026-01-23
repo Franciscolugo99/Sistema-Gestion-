@@ -154,6 +154,8 @@ $extraCss = [
     'assets/css/inventario_ayuda.css'
 ];
 $extraJs = [
+    // Chart.js (mismo CDN que Dashboard/Ventas). Necesario para los gráficos de este módulo.
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
     'assets/js/inventario_analisis.js',
     'assets/js/inventario_ayuda.js'
 ];
