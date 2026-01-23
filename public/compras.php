@@ -6,6 +6,65 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('editar_stock');
 
+
+// ✅ Compatibilidad de esquema (evita 1054 Unknown column en instalaciones viejas)
+require_once FLUS_ROOT . '/src/db_helpers.php';
+
+/**
+ * Intenta asegurar columnas nuevas usadas por Compras.
+ * Si no puede (permisos), el módulo sigue funcionando con fallback.
+ */
+function flus_compras_ensure_schema(PDO $pdo): void {
+  try {
+    if (has_table($pdo, 'compras')) {
+      if (!has_column($pdo, 'compras', 'total_neto')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN total_neto DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+      if (!has_column($pdo, 'compras', 'total_iva')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN total_iva DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+      if (!has_column($pdo, 'compras', 'total_bruto')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN total_bruto DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+      if (!has_column($pdo, 'compras', 'descuento_tipo')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_tipo VARCHAR(10) NOT NULL DEFAULT 'MONTO'");
+      }
+      if (!has_column($pdo, 'compras', 'descuento_valor')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_valor DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+      if (!has_column($pdo, 'compras', 'descuento_total')) {
+        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_total DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+
+      // Backfill suave para DBs viejas (si se agregaron columnas recién)
+      if (has_column($pdo, 'compras', 'total_bruto') && has_column($pdo, 'compras', 'total')) {
+        $pdo->exec("UPDATE compras SET total_bruto = total WHERE total_bruto = 0 AND total <> 0");
+      }
+      if (has_column($pdo, 'compras', 'total_neto') && has_column($pdo, 'compras', 'total')) {
+        $pdo->exec("UPDATE compras SET total_neto = total WHERE total_neto = 0 AND total <> 0");
+      }
+    }
+
+    if (has_table($pdo, 'compra_items')) {
+      if (!has_column($pdo, 'compra_items', 'descuento')) {
+        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
+    }
+  } catch (Throwable $e) {
+    // No rompemos la pantalla por schema (fallback en queries)
+  }
+}
+
+flus_compras_ensure_schema($pdo);
+
+$HAS_COMPRAS_TOTAL_NETO      = has_column($pdo, 'compras', 'total_neto');
+$HAS_COMPRAS_TOTAL_IVA       = has_column($pdo, 'compras', 'total_iva');
+$HAS_COMPRAS_TOTAL_BRUTO     = has_column($pdo, 'compras', 'total_bruto');
+$HAS_COMPRAS_DESCUENTO_TIPO  = has_column($pdo, 'compras', 'descuento_tipo');
+$HAS_COMPRAS_DESCUENTO_VALOR = has_column($pdo, 'compras', 'descuento_valor');
+$HAS_COMPRAS_DESCUENTO_TOTAL = has_column($pdo, 'compras', 'descuento_total');
+$HAS_COMPRA_ITEMS_DESCUENTO  = has_column($pdo, 'compra_items', 'descuento');
+
 $msg = '';
 $msgType = 'info';
 $savedFlag = (string)($_GET['saved'] ?? '');
@@ -234,64 +293,70 @@ if ($compraId > 0) {
               throw new RuntimeException('Solo se pueden editar compras en BORRADOR.');
             }
 
-            // Actualizar compra
-            $stUpd = $pdo->prepare("
-              UPDATE compras SET
-                proveedor_id = :proveedor_id,
-                tipo_comp = :tipo_comp,
-                nro_comp = :nro_comp,
-                obs = :obs,
-                total_neto = :total_neto,
-                total_iva = :total_iva,
-                total_bruto = :total_bruto,
-                descuento_tipo = :descuento_tipo,
-                descuento_valor = :descuento_valor,
-                descuento_total = :descuento_total,
-                total = :total
-              WHERE id = :id AND estado = 'BORRADOR'
-            ");
-            $stUpd->execute([
+            
+            // Actualizar compra (compat: columnas opcionales)
+            $set = [
+              "proveedor_id = :proveedor_id",
+              "tipo_comp = :tipo_comp",
+              "nro_comp = :nro_comp",
+              "obs = :obs",
+            ];
+
+            $paramsUpd = [
               ':id' => $compraId,
               ':proveedor_id' => $proveedorId,
               ':tipo_comp' => $tipoComp,
               ':nro_comp' => $nroComp,
               ':obs' => $observacion,
-              ':total_neto' => $totalNeto,
-              ':total_iva' => $totalIva,
-              ':total_bruto' => $totalBruto,
-              ':descuento_tipo' => $descuentoTipo,
-              ':descuento_valor' => $descuentoValor,
-              ':descuento_total' => $descuentoTotal,
               ':total' => $total,
-            ]);
+            ];
+
+            if ($HAS_COMPRAS_TOTAL_NETO)      { $set[] = "total_neto = :total_neto";           $paramsUpd[':total_neto'] = $totalNeto; }
+            if ($HAS_COMPRAS_TOTAL_IVA)       { $set[] = "total_iva = :total_iva";             $paramsUpd[':total_iva'] = $totalIva; }
+            if ($HAS_COMPRAS_TOTAL_BRUTO)     { $set[] = "total_bruto = :total_bruto";         $paramsUpd[':total_bruto'] = $totalBruto; }
+            if ($HAS_COMPRAS_DESCUENTO_TIPO)  { $set[] = "descuento_tipo = :descuento_tipo";   $paramsUpd[':descuento_tipo'] = $descuentoTipo; }
+            if ($HAS_COMPRAS_DESCUENTO_VALOR) { $set[] = "descuento_valor = :descuento_valor"; $paramsUpd[':descuento_valor'] = $descuentoValor; }
+            if ($HAS_COMPRAS_DESCUENTO_TOTAL) { $set[] = "descuento_total = :descuento_total"; $paramsUpd[':descuento_total'] = $descuentoTotal; }
+
+            $set[] = "total = :total";
+
+            $sqlUpd = "UPDATE compras SET
+  " . implode(",
+  ", $set) . "
+WHERE id = :id AND estado = 'BORRADOR'";
+            $stUpd = $pdo->prepare($sqlUpd);
+            $stUpd->execute($paramsUpd);
 
             // Borrar items viejos
             $pdo->prepare("DELETE FROM compra_items WHERE compra_id = ?")
                ->execute([$compraId]);
 
           } else {
-            // CREAR nueva
-            $stCompra = $pdo->prepare("
-              INSERT INTO compras
-                (fecha, proveedor_id, tipo_comp, nro_comp, obs, estado, total_neto, total_iva, total_bruto, descuento_tipo, descuento_valor, descuento_total, total)
-              VALUES
-                (CURDATE(), :proveedor_id, :tipo_comp, :nro_comp, :obs, 'BORRADOR', :total_neto, :total_iva, :total_bruto, :descuento_tipo, :descuento_valor, :descuento_total, :total)
-            ");
-            $stCompra->execute([
-              ':proveedor_id' => $proveedorId,
-              ':tipo_comp'    => $tipoComp,
-              ':nro_comp'     => $nroComp,
-              ':obs'          => $observacion,
-              ':total_neto'   => $totalNeto,
-              ':total_iva'    => $totalIva,
-              ':total_bruto'  => $totalBruto,
-              ':descuento_tipo' => $descuentoTipo,
-              ':descuento_valor' => $descuentoValor,
-              ':descuento_total' => $descuentoTotal,
-              ':total'        => $total,
-            ]);
+            
+// CREAR nueva (compat: columnas opcionales)
+$cols = ['fecha','proveedor_id','tipo_comp','nro_comp','obs','estado','total'];
+$vals = ['CURDATE()',':proveedor_id',':tipo_comp',':nro_comp',':obs',"'BORRADOR'",':total'];
 
-            $compraId = (int)$pdo->lastInsertId();
+$paramsIns = [
+  ':proveedor_id' => $proveedorId,
+  ':tipo_comp'    => $tipoComp,
+  ':nro_comp'     => $nroComp,
+  ':obs'          => $observacion,
+  ':total'        => $total,
+];
+
+if ($HAS_COMPRAS_TOTAL_NETO)      { $cols[] = 'total_neto';      $vals[] = ':total_neto';      $paramsIns[':total_neto'] = $totalNeto; }
+if ($HAS_COMPRAS_TOTAL_IVA)       { $cols[] = 'total_iva';       $vals[] = ':total_iva';       $paramsIns[':total_iva'] = $totalIva; }
+if ($HAS_COMPRAS_TOTAL_BRUTO)     { $cols[] = 'total_bruto';     $vals[] = ':total_bruto';     $paramsIns[':total_bruto'] = $totalBruto; }
+if ($HAS_COMPRAS_DESCUENTO_TIPO)  { $cols[] = 'descuento_tipo';  $vals[] = ':descuento_tipo';  $paramsIns[':descuento_tipo'] = $descuentoTipo; }
+if ($HAS_COMPRAS_DESCUENTO_VALOR) { $cols[] = 'descuento_valor'; $vals[] = ':descuento_valor'; $paramsIns[':descuento_valor'] = $descuentoValor; }
+if ($HAS_COMPRAS_DESCUENTO_TOTAL) { $cols[] = 'descuento_total'; $vals[] = ':descuento_total'; $paramsIns[':descuento_total'] = $descuentoTotal; }
+
+$sqlIns = "INSERT INTO compras (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
+$stCompra = $pdo->prepare($sqlIns);
+$stCompra->execute($paramsIns);
+
+$compraId = (int)$pdo->lastInsertId();
           }
 
           // Insertar items
@@ -387,7 +452,13 @@ if ($estado !== 'BORRADOR') {
           $pdo->beginTransaction();
 
           // 1) Bloquear compra y traer datos necesarios
-          $st = $pdo->prepare("SELECT estado, total_bruto, descuento_total FROM compras WHERE id = ? FOR UPDATE");
+
+$colsLock = ['estado'];
+// total_bruto puede no existir en DBs viejas: usamos total como fallback
+$colsLock[] = $HAS_COMPRAS_TOTAL_BRUTO ? 'total_bruto' : 'total';
+if ($HAS_COMPRAS_DESCUENTO_TOTAL) $colsLock[] = 'descuento_total';
+
+$st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM compras WHERE id = ? FOR UPDATE");
           $st->execute([$compraId]);
           $rowCompra = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -396,7 +467,7 @@ if ($estado !== 'BORRADOR') {
           }
 
           $estado = (string)($rowCompra['estado'] ?? '');
-          $compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? 0.0);
+          $compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? ($rowCompra['total'] ?? 0.0));
           $compraDescuentoTotal = (float)($rowCompra['descuento_total'] ?? 0.0);
 
           if ($estado !== 'BORRADOR') {
@@ -443,46 +514,48 @@ if ($estado !== 'BORRADOR') {
             $base += $sub;
           }
 
-          // limpiar por consistencia
-          $pdo->prepare("UPDATE compra_items SET descuento = 0.00 WHERE compra_id = ?")->execute([$compraId]);
+$descuentosByItemId = []; // id => descuento
 
-          $descuentosByItemId = []; // id => descuento
+if ($HAS_COMPRA_ITEMS_DESCUENTO) {
+  // limpiar por consistencia
+  $pdo->prepare("UPDATE compra_items SET descuento = 0.00 WHERE compra_id = ?")->execute([$compraId]);
 
-          if ($compraDescuentoTotal > 0 && $base > 0) {
-            $updDesc = $pdo->prepare("UPDATE compra_items SET descuento = :d WHERE id = :id");
+  if ($compraDescuentoTotal > 0 && $base > 0) {
+    $updDesc = $pdo->prepare("UPDATE compra_items SET descuento = :d WHERE id = :id");
 
-            $sum = 0.0;
-            $lastId = null;
+    $sum = 0.0;
+    $lastId = null;
 
-            foreach ($items as $it) {
-              $itemId = (int)$it['id'];
-              $sub = (float)($it['subtotal'] ?? 0.0);
-              if ($sub <= 0) {
-                $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
-              }
+    foreach ($items as $it) {
+      $itemId = (int)$it['id'];
+      $sub = (float)($it['subtotal'] ?? 0.0);
+      if ($sub <= 0) {
+        $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
+      }
 
-              $lastId = $itemId;
+      $lastId = $itemId;
 
-              $d = round(($sub / $base) * $compraDescuentoTotal, 2);
-              if ($d < 0) $d = 0.0;
+      $d = round(($sub / $base) * $compraDescuentoTotal, 2);
+      if ($d < 0) $d = 0.0;
 
-              $sum += $d;
-              $descuentosByItemId[$itemId] = $d;
+      $sum += $d;
+      $descuentosByItemId[$itemId] = $d;
 
-              $updDesc->execute([':d' => $d, ':id' => $itemId]);
-            }
+      $updDesc->execute([':d' => $d, ':id' => $itemId]);
+    }
 
-            // Ajuste por redondeo para que cierre exacto: SUM(descuento) == descuento_total
-            $diff = round($compraDescuentoTotal - $sum, 2);
-            if (abs($diff) >= 0.01 && $lastId !== null) {
-              $newLast = round(($descuentosByItemId[$lastId] ?? 0.0) + $diff, 2);
-              if ($newLast < 0) $newLast = 0.0; // safety
-              $pdo->prepare("UPDATE compra_items SET descuento = ? WHERE id = ?")->execute([$newLast, $lastId]);
-              $descuentosByItemId[$lastId] = $newLast;
-            }
-          }
+    // Ajuste por redondeo para que cierre exacto: SUM(descuento) == descuento_total
+    $diff = round($compraDescuentoTotal - $sum, 2);
+    if (abs($diff) >= 0.01 && $lastId !== null) {
+      $newLast = round(($descuentosByItemId[$lastId] ?? 0.0) + $diff, 2);
+      if ($newLast < 0) $newLast = 0.0; // safety
+      $pdo->prepare("UPDATE compra_items SET descuento = ? WHERE id = ?")->execute([$newLast, $lastId]);
+      $descuentosByItemId[$lastId] = $newLast;
+    }
+  }
+}
 
-          // 5) Impactar stock + movimientos + costo (costo neto por ítem)
+// 5) Impactar stock + movimientos + costo (costo neto por ítem)
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
 
           $stMov = $pdo->prepare("

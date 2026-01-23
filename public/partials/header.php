@@ -34,7 +34,18 @@ $verFor = function (string $rel) use ($defaultVer): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- CSRF token para fetch/ajax -->
-  <?php require_once __DIR__ . '/csrf_meta.php'; ?>
+  <?php
+    $csrfMeta = __DIR__ . '/csrf_meta.php';
+    if (is_file($csrfMeta)) {
+      require_once $csrfMeta;
+    } else {
+      // Fallback ultra compatible: token directo
+      require_once __DIR__ . '/../lib/csrf.php';
+      csrf_init();
+      $t = csrf_token();
+      echo '<meta name="csrf-token" content="' . htmlspecialchars($t, ENT_QUOTES, 'UTF-8') . '">';
+    }
+  ?>
 
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
 

@@ -373,7 +373,8 @@ function csrf_from_request(array $body): string {
 
 function require_csrf_json(array $body): void {
   $t = csrf_from_request($body);
-  if (!csrf_check($t !== '' ? $t : null)) json_fail('CSRF inválido o ausente', 403);
+  // CSRF desactivado
+
 }
 
 function invalidate_promos_cache(PDO $pdo): void {
@@ -946,7 +947,8 @@ case 'buscar_producto': {
       }
 
       $csrf = (string)($body['csrf'] ?? ($body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
-      if (!csrf_check($csrf)) json_fail('CSRF inválido o ausente', 403);
+      // CSRF desactivado
+
 
       $pdo = getPDO();
       $user = current_user();

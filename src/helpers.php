@@ -221,8 +221,31 @@ if (!function_exists('flus_url')) {
 if (!function_exists('csrf_init')) {
   function csrf_init(): void {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+    // Token en sesión (primario)
     if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
       $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    // ✅ Robustez: además, “double submit cookie” para evitar des-sync de sesión
+    // (Ej: instalaciones/paths raros donde API y páginas terminan con sesiones distintas).
+    // - Cookie HttpOnly (no la necesita leer JS; el token se lee del <meta>)
+    // - Solo la seteamos en contexto HTML para no ensuciar respuestas de API.
+    if (!defined('FLUS_CSRF_COOKIE')) {
+      define('FLUS_CSRF_COOKIE', 'FLUS_CSRF');
+    }
+
+    if (!defined('FLUS_API_CONTEXT') && !headers_sent()) {
+      $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['SERVER_PORT'] ?? '') == 443);
+
+      @setcookie(FLUS_CSRF_COOKIE, (string)$_SESSION['csrf_token'], [
+        'expires'  => 0,
+        'path'     => '/',
+        'secure'   => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+      ]);
     }
   }
 }
@@ -243,10 +266,20 @@ if (!function_exists('csrf_verify')) {
     csrf_init();
     if (!$token) return false;
 
-    $sess = (string)($_SESSION['csrf_token'] ?? '');
-    if ($sess === '') return false;
+    $token = (string)$token;
 
-    $valid = hash_equals($sess, (string)$token);
+    // 1) sesión (normal)
+    $sess = (string)($_SESSION['csrf_token'] ?? '');
+    $valid = ($sess !== '') && hash_equals($sess, $token);
+
+    // 2) fallback cookie (double submit)
+    if (!$valid) {
+      $cookieName = defined('FLUS_CSRF_COOKIE') ? (string)FLUS_CSRF_COOKIE : 'FLUS_CSRF';
+      $c = (string)($_COOKIE[$cookieName] ?? '');
+      if ($c !== '') {
+        $valid = hash_equals($c, $token);
+      }
+    }
 
     if ($valid && $regenerate) {
       $_SESSION['csrf_token'] = bin2hex(random_bytes(32));

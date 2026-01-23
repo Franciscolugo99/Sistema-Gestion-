@@ -683,6 +683,9 @@ function backup_restore(string $file, ?string &$err = null): bool {
     $proc = null;
     $pipes = [];
 
+    $defaultsFile = null; // temp defaults-extra-file for mysql
+
+
     // Meta de mantenimiento (se completa al iniciar)
     $meta = [
         'active' => true,
@@ -819,6 +822,9 @@ function backup_restore(string $file, ?string &$err = null): bool {
         }
 
         if (is_resource($proc)) @proc_close($proc);
+
+        // Borrar archivo temporal de credenciales (si se creó)
+        flus_mysql_delete_defaults_file($defaultsFile);
 
         // Si salió OK, o si nunca llegó a importar, quitar mantenimiento.
         // Si falló habiendo importado, dejamos el flag para evitar operar en estado incierto.

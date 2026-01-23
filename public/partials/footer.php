@@ -126,40 +126,8 @@ $aboutText =
   </div>
 </div>
 
-<!-- JS base del sistema (SIN caché vieja) -->
+<!-- JS base del sistema -->
 <script src="assets/js/app.js?v=<?= htmlspecialchars($appVer, ENT_QUOTES, 'UTF-8') ?>"></script>
-<?php
-// Fallback: si el <meta csrf> no está, exponemos el token desde PHP
-require_once __DIR__ . '/../api/_csrf_guard.php';
-$__csrf = csrf_token();
-?>
-<script>
-(function () {
-  var meta = document.querySelector('meta[name="csrf-token"]');
-  var token = (meta && meta.content) || <?= json_encode($__csrf, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
-
-  // Hacelo disponible globalmente
-  window.CSRF_TOKEN = token;
-
-  // Parchear fetch para inyectar header si falta
-  var _fetch = window.fetch;
-  window.fetch = function(input, init) {
-    init = init || {};
-    init.headers = init.headers || {};
-    if (!('X-CSRF-Token' in init.headers)) {
-      init.headers['X-CSRF-Token'] = token;
-    }
-    return _fetch(input, init);
-  };
-
-  // Si usás jQuery, inyectar por ajaxSetup
-  if (window.jQuery && jQuery.ajaxSetup) {
-    jQuery.ajaxSetup({ headers: {'X-CSRF-Token': token} });
-  }
-})();
-</script>
-
-<script src="assets/js/csrf.js?v=<?= htmlspecialchars($appVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <!-- JS adicionales por página -->
 <?php foreach ($extraJs as $src): ?>
@@ -174,11 +142,11 @@ $__csrf = csrf_token();
 <?php endforeach; ?>
 
 <!-- Inline JS específico (opcional) -->
-<?php if ($inlineJs): ?>
+<?php if (!empty($inlineJs)) { ?>
   <script>
   <?= $inlineJs ?>
   </script>
-<?php endif; ?>
+<?php } ?>
 
 </body>
 </html>

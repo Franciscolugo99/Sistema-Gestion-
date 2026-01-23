@@ -36,9 +36,38 @@
   // ============================================
   // CSRF token global para fetch (una sola vez)
   // ============================================
+  function __flusReadCookie(name) {
+    try {
+      var parts = ("; " + document.cookie).split("; " + name + "=");
+      if (parts.length === 2) return parts.pop().split(";").shift() || "";
+    } catch (e) {}
+    return "";
+  }
+
+  // CSRF token: meta -> window.CSRF_TOKEN -> cookie fallback
   if (!window.getCsrfToken) {
     window.getCsrfToken = function () {
-      return document.querySelector('meta[name="csrf-token"]')?.content || "";
+      try {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        var t = (meta && meta.content) ? String(meta.content).trim() : "";
+        if (t) return t;
+
+        t = (window.CSRF_TOKEN != null) ? String(window.CSRF_TOKEN).trim() : "";
+        if (t) return t;
+
+        // Compat con csrf.js
+        if (typeof window.flusCsrfToken === 'function') {
+          t = String(window.flusCsrfToken() || "").trim();
+          if (t) return t;
+        }
+
+        // Cookies comunes (si existieran)
+        t = __flusReadCookie('FLUS_CSRF') || __flusReadCookie('XSRF-TOKEN') || "";
+        try { t = decodeURIComponent(t); } catch (e) {}
+        return String(t || "").trim();
+      } catch (e) {
+        return "";
+      }
     };
   }
 
@@ -183,13 +212,21 @@
     const p = (window.location.pathname || "").toLowerCase();
     if (p.endsWith("/login.php") || p.endsWith("/terminal_select.php") || p.includes("/login")) return;
 
+    // En Caja sí necesitamos terminal; en el resto de módulos no queremos molestar.
+    const isCajaPage = (p.endsWith("/caja.php") || p.includes("/caja_"));
+
     let stopped = false;
 
     const ping = async () => {
       if (stopped) return false;
 
       const CSRF = (window.getCsrfToken && window.getCsrfToken()) || "";
-      if (!CSRF) return false;
+      // Si por alguna razón la página no tiene token (o todavía no cargó el <meta>),
+      // no spamear toasts: detenemos el heartbeat en esta vista.
+      if (!CSRF) {
+        stopped = true;
+        return true;
+      }
 
       try {
         const r = await fetch("api/index.php?action=terminal_heartbeat", {
@@ -206,13 +243,15 @@
 
         if (r.status === 401) {
           stopped = true;
-          return false;
+          // Sesión expirada: no mostrar "servidor sin respuesta".
+          return true;
         }
 
         if (r.status === 403) {
           stopped = true;
           window.location.reload();
-          return false;
+          // Ya estamos recargando para refrescar CSRF/session.
+          return true;
         }
 
         if (r.status === 409) {
@@ -221,17 +260,28 @@
           let j = null;
           try { j = await r.json(); } catch (_) {}
 
-          if (j && (j.error === "NO_TERMINAL" || j.error === "LOCK_NOT_OWNED")) {
+          // Si no hay terminal seleccionada:
+          // - En Caja => redirigir a selección de terminal
+          // - En otros módulos => detener heartbeat sin molestar
+          if (j && j.error === "NO_TERMINAL") {
+            if (isCajaPage) {
+              window.location.href = "terminal_select.php?next=caja.php";
+              return true;
+            }
+            return true;
+          }
+
+          if (j && j.error === "LOCK_NOT_OWNED") {
             window.location.href = "terminal_select.php?next=caja.php";
-            return false;
+            return true;
           }
 
           if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
             window.location.href = "logout.php?reason=locked";
-            return false;
+            return true;
           }
 
-          return false;
+          return true;
         }
 
 

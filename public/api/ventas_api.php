@@ -193,22 +193,45 @@ try {
     // =============================================
     case 'venta_preview':
       require_login();
-      
+
       $id = (int)($_GET['id'] ?? 0);
       if ($id <= 0) {
         success_fail('ID inválido', 400);
       }
 
-      // Venta
-      $stmt = $pdo->prepare("
-        SELECT 
-          v.*,
-          COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre
-        FROM ventas v
-        LEFT JOIN clientes c ON c.id = v.cliente_id
-        WHERE v.id = ?
-        LIMIT 1
-      ");
+      // ====== Robustez de esquema (instalaciones viejas) ======
+      // Columnas posibles en ventas
+      $vTotalCol  = function_exists('flus_first_existing_column') ? (flus_first_existing_column($pdo, 'ventas', ['total','total_final','monto_total','importe_total']) ?? 'total') : 'total';
+      $vFechaCol  = function_exists('flus_first_existing_column') ? (flus_first_existing_column($pdo, 'ventas', ['fecha','fecha_hora','created_at','fecha_venta']) ?? 'fecha') : 'fecha';
+      $vEstadoCol = function_exists('flus_first_existing_column') ? (flus_first_existing_column($pdo, 'ventas', ['estado','status']) ?? 'estado') : 'estado';
+      $vMedioCol  = function_exists('flus_first_existing_column') ? (flus_first_existing_column($pdo, 'ventas', ['medio_pago','metodo_pago','forma_pago','pago']) ?? 'medio_pago') : 'medio_pago';
+      $vCliIdCol  = function_exists('flus_first_existing_column') ? (flus_first_existing_column($pdo, 'ventas', ['cliente_id','id_cliente','clienteID']) ?: null) : null;
+
+      // Helper local: columnas de una tabla
+      $colsOf = function (string $table) use ($pdo): array {
+        try {
+          $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
+          if (!$db) return [];
+          $st = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?");
+          $st->execute([(string)$db, $table]);
+          $cols = $st->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
+          return array_map('strval', $cols);
+        } catch (Throwable $e) { return []; }
+      };
+
+      $tableExists = function (string $table) use ($pdo): bool {
+        try {
+          if (function_exists('flus_table_exists')) return (bool)flus_table_exists($pdo, $table);
+          $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
+          if (!$db) return false;
+          $st = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1");
+          $st->execute([(string)$db, $table]);
+          return (bool)$st->fetchColumn();
+        } catch (Throwable $e) { return false; }
+      };
+
+      // Venta (sin JOIN para no romper si falta clientes)
+      $stmt = $pdo->prepare("SELECT v.* FROM ventas v WHERE v.id = ? LIMIT 1");
       $stmt->execute([$id]);
       $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -216,42 +239,119 @@ try {
         success_fail('Venta no encontrada', 404);
       }
 
-      // Items
-      $stmt = $pdo->prepare("
-        SELECT 
-          vi.cantidad,
-          vi.precio,
-          vi.subtotal,
-          p.nombre
-        FROM venta_items vi
-        JOIN productos p ON p.id = vi.producto_id
-        WHERE vi.venta_id = ?
-        ORDER BY vi.id ASC
-      ");
-      $stmt->execute([$id]);
-      $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      // Cliente (opcional)
+      $clienteNombre = 'Consumidor Final';
+      try {
+        $cid = ($vCliIdCol && isset($venta[$vCliIdCol])) ? (int)$venta[$vCliIdCol] : 0;
+        if ($cid > 0 && $tableExists('clientes')) {
+          $cNameCol = function_exists('flus_first_existing_column')
+            ? (flus_first_existing_column($pdo, 'clientes', ['nombre','razon_social','nombre_completo','apellido_nombre']) ?: null)
+            : 'nombre';
+          if ($cNameCol) {
+            $stc = $pdo->prepare("SELECT `{$cNameCol}` FROM clientes WHERE id = ? LIMIT 1");
+            $stc->execute([$cid]);
+            $n = $stc->fetchColumn();
+            if (is_string($n) && trim($n) !== '') $clienteNombre = $n;
+          }
+        }
+      } catch (Throwable $e) {
+        // no romper preview por cliente
+      }
+
+      // Items (tolerante a columnas)
+      $items = [];
+      try {
+        $viCols = $colsOf('venta_items');
+        $pick = function(array $cands, ?string $fallback = null) use ($viCols): ?string {
+          foreach ($cands as $c) if (in_array($c, $viCols, true)) return $c;
+          return $fallback;
+        };
+
+        $viVentaCol = $pick(['venta_id','id_venta','ventaId'], 'venta_id');
+        $viProdCol  = $pick(['producto_id','id_producto','productoId'], null);
+        $viQtyCol   = $pick(['cantidad','qty','cant','unidades'], 'cantidad');
+        $viPriceCol = $pick(['precio','precio_unitario','precioUnitario','unit_price'], 'precio');
+        $viSubCol   = $pick(['subtotal','importe','total','monto'], 'subtotal');
+        $viNameCol  = $pick(['nombre','producto_nombre','descripcion'], null);
+        $viIdCol    = $pick(['id','item_id','id_item'], null);
+
+        $orderSql = $viIdCol ? " ORDER BY vi.`{$viIdCol}` ASC" : "";
+
+        if ($viProdCol && $tableExists('productos')) {
+          $nameExpr = $viNameCol ? "COALESCE(p.nombre, vi.`{$viNameCol}`)" : "p.nombre";
+          $sql = "
+            SELECT
+              vi.`{$viQtyCol}` AS cantidad,
+              vi.`{$viPriceCol}` AS precio,
+              vi.`{$viSubCol}` AS subtotal,
+              {$nameExpr} AS nombre
+            FROM venta_items vi
+            LEFT JOIN productos p ON p.id = vi.`{$viProdCol}`
+            WHERE vi.`{$viVentaCol}` = ?
+            {$orderSql}
+          ";
+          $sti = $pdo->prepare($sql);
+          $sti->execute([$id]);
+          $items = $sti->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } else {
+          // Sin join a productos
+          $nameExpr = $viNameCol ? "vi.`{$viNameCol}`" : "''";
+          $sql = "
+            SELECT
+              vi.`{$viQtyCol}` AS cantidad,
+              vi.`{$viPriceCol}` AS precio,
+              vi.`{$viSubCol}` AS subtotal,
+              {$nameExpr} AS nombre
+            FROM venta_items vi
+            WHERE vi.`{$viVentaCol}` = ?
+            {$orderSql}
+          ";
+          $sti = $pdo->prepare($sql);
+          $sti->execute([$id]);
+          $items = $sti->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+      } catch (Throwable $e) {
+        $items = []; // no romper preview por items
+      }
 
       // Medio de pago real (si hay venta_pagos)
-      $medioPago = $venta['medio_pago'] ?? 'N/A';
-      if (hasVentaPagos($pdo)) {
-        $stPagos = $pdo->prepare("
-          SELECT GROUP_CONCAT(DISTINCT UPPER(medio_pago) SEPARATOR '+') as medios
-          FROM venta_pagos WHERE venta_id = ?
-        ");
-        $stPagos->execute([$id]);
-        $medios = $stPagos->fetchColumn();
-        if ($medios) $medioPago = $medios;
+      $medioPago = $venta[$vMedioCol] ?? ($venta['medio_pago'] ?? 'N/A');
+      try {
+        if (hasVentaPagos($pdo)) {
+          // detectar columna posible en venta_pagos
+          $vpCols = $colsOf('venta_pagos');
+          $mpCol = null;
+          foreach (['medio_pago','metodo_pago','forma_pago'] as $c) {
+            if (in_array($c, $vpCols, true)) { $mpCol = $c; break; }
+          }
+          if ($mpCol) {
+            $stPagos = $pdo->prepare("
+              SELECT GROUP_CONCAT(DISTINCT UPPER(`{$mpCol}`) SEPARATOR '+') as medios
+              FROM venta_pagos WHERE venta_id = ?
+            ");
+            $stPagos->execute([$id]);
+            $medios = $stPagos->fetchColumn();
+            if ($medios) $medioPago = $medios;
+          }
+        }
+      } catch (Throwable $e) {
+        // no romper preview por pagos
       }
+
+      // Campos principales con fallback
+      $fecha  = $venta[$vFechaCol]  ?? ($venta['fecha'] ?? '');
+      $total  = isset($venta[$vTotalCol]) ? (float)$venta[$vTotalCol] : (float)($venta['total'] ?? 0);
+      $estado = $venta[$vEstadoCol] ?? ($venta['estado'] ?? 'EMITIDA');
 
       json_response([
         'success' => true,
         'venta' => [
           'id' => (int)$venta['id'],
-          'fecha' => $venta['fecha'],
-          'cliente' => $venta['cliente_nombre'],
-          'total' => (float)$venta['total'],
+          'fecha' => $fecha,
+          'cliente' => $clienteNombre,
+          'total' => $total,
           'medio_pago' => $medioPago,
-          'estado' => $venta['estado'] ?? 'EMITIDA',
+          'estado' => $estado ?: 'EMITIDA',
           'items' => $items,
         ],
       ]);
