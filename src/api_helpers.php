@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 // Evitar redefinición
 if (defined('FLUS_API_HELPERS_LOADED')) return;
-define('FLUS_API_HELPERS_LOADED', true);
-
+\nrequire_once __DIR__ . '/http_helpers.php';
 /**
  * Respuesta JSON exitosa
  */
