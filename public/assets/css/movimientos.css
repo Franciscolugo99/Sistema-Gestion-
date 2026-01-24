@@ -107,6 +107,13 @@
   border-left: 3px solid #6366f1;
 }
 
+.row-anulacion-venta {
+  border-left: 3px solid #a78bfa;
+}
+.row-anulacion-compra {
+  border-left: 3px solid #fb7185;
+}
+
 /* Badge minimal */
 .mov-badge {
   padding: 4px 8px;

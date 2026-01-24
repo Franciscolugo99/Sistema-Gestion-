@@ -7,7 +7,24 @@ require_login();
 require_permission('ver_movimientos');
 
 
+
 $pdo = getPDO();
+
+// Detectar columnas opcionales (para no romper instalaciones viejas)
+$hasRefVenta  = false;
+$hasRefCompra = false;
+try {
+  $st = $pdo->query("SHOW COLUMNS FROM movimientos_stock LIKE 'referencia_venta_id'");
+  $hasRefVenta = (bool)$st->fetch();
+} catch (Throwable $e) { $hasRefVenta = false; }
+try {
+  $st = $pdo->query("SHOW COLUMNS FROM movimientos_stock LIKE 'referencia_compra_id'");
+  $hasRefCompra = (bool)$st->fetch();
+} catch (Throwable $e) { $hasRefCompra = false; }
+
+$selRefVenta  = $hasRefVenta  ? "m.referencia_venta_id"  : "NULL";
+$selRefCompra = $hasRefCompra ? "m.referencia_compra_id" : "NULL";
+
 
 /* =========================================================
    HELPERS
@@ -21,14 +38,42 @@ function tipoNorm(string $s): string {
 }
 
 /** Signo “esperado” por tipo (para normalizar visualmente) */
+
+/**
+ * Tipo para mostrar (compat):
+ * - Si DB tiene enum viejo ANULACION y queremos diferenciar compra/venta => miramos referencia_*.
+ * - Si tipo viene vacío (ENUM inválido guardado como 0), inferimos por comentario.
+ */
+function tipoDisplayFromRow(string $tipoRaw, $refVenta, $refCompra, ?string $comentario): string {
+  $t = tipoNorm($tipoRaw);
+  $com = (string)$comentario;
+
+  if ($t === '' && $com !== '') {
+    if (stripos($com, 'anulación compra') === 0) $t = 'ANULACION';
+    if (stripos($com, 'anulación venta') === 0)  $t = 'ANULACION';
+  }
+
+  if ($t === 'ANULACION') {
+    if (!empty($refCompra)) return 'ANULACION_COMPRA';
+    if (!empty($refVenta))  return 'ANULACION_VENTA';
+    // Si no hay refs, intentamos por comentario
+    if (stripos($com, 'anulación compra') === 0) return 'ANULACION_COMPRA';
+    if (stripos($com, 'anulación venta') === 0)  return 'ANULACION_VENTA';
+    return 'ANULACION';
+  }
+
+  if ($t === 'DEVOLUCION' || $t === 'DEVOLUCIÓN') return 'DEVOLUCION';
+  return $t;
+}
+
 function tipoSign(string $tipo): int {
   $t = tipoNorm($tipo);
 
   // Restan stock
-  if (in_array($t, ['VENTA', 'AJUSTE_NEGATIVO'], true)) return -1;
+  if (in_array($t, ['VENTA', 'AJUSTE_NEGATIVO', 'ANULACION_COMPRA'], true)) return -1;
 
   // Suman stock
-  if (in_array($t, ['COMPRA', 'AJUSTE_POSITIVO', 'ANULACION', 'DEVOLUCION'], true)) return 1;
+  if (in_array($t, ['COMPRA', 'AJUSTE_POSITIVO', 'ANULACION', 'ANULACION_VENTA', 'DEVOLUCION'], true)) return 1;
 
   return 1;
 }
@@ -41,8 +86,15 @@ function prettyQtyByTipo(float $cantidad, string $tipo, int $esPesable, ?string 
   $unidadVenta = strtoupper(trim((string)$unidadVenta));
   $signTipo = tipoSign($tipo);
 
-  // normalizamos visualmente (aunque en DB haya quedado positivo en una VENTA)
-  $qtyNorm = abs($cantidad) * $signTipo;
+  // Normalización visual:
+  // - Para VENTA/COMPRA/AJUSTES usamos abs() + signo por tipo.
+  // - Para ANULACION preservamos el signo real (porque compra anulada viene negativa, venta anulada positiva).
+  $t = tipoNorm($tipo);
+  if ($t === 'ANULACION' || $t === 'ANULACION_COMPRA' || $t === 'ANULACION_VENTA') {
+    $qtyNorm = (float)$cantidad; // preservar signo
+  } else {
+    $qtyNorm = abs($cantidad) * $signTipo;
+  }
 
   $unitMap = [
     'UNIDAD' => 'u',
@@ -89,7 +141,7 @@ $export = ((string)($_GET['export'] ?? '')) === 'csv';
 /* =========================================================
    WHERE
 ========================================================= */
-$allowedTipos = ['VENTA','COMPRA','AJUSTE_POSITIVO','AJUSTE_NEGATIVO','ANULACION','DEVOLUCION'];
+$allowedTipos = ['VENTA','COMPRA','AJUSTE_POSITIVO','AJUSTE_NEGATIVO','ANULACION','ANULACION_VENTA','ANULACION_COMPRA','DEVOLUCION'];
 
 $whereParts = ['1=1'];
 $params = [];
@@ -100,10 +152,26 @@ if ($productoId > 0) {
 }
 
 if ($tipo !== '' && in_array($tipo, $allowedTipos, true)) {
-  if ($tipo === 'ANULACION') {
-    $whereParts[] = "(UPPER(TRIM(m.tipo)) = 'ANULACION' OR UPPER(TRIM(m.tipo)) = 'ANULACIÓN')";
+  // Normalizamos alias / compatibilidad con ENUM viejo:
+  // En DB el enum real es 'ANULACION' (sin sufijos). Distinguimos compra/venta por referencia_*.
+  if ($tipo === 'ANULACION_COMPRA') {
+    $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÓN'))";
+    if ($hasRefCompra) {
+      $whereParts[] = "m.referencia_compra_id IS NOT NULL";
+    } else {
+      $whereParts[] = "m.comentario LIKE 'Anulación compra%'";
+    }
+  } elseif ($tipo === 'ANULACION_VENTA') {
+    $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÓN'))";
+    if ($hasRefVenta) {
+      $whereParts[] = "m.referencia_venta_id IS NOT NULL";
+    } else {
+      $whereParts[] = "m.comentario LIKE 'Anulación venta%'";
+    }
+  } elseif ($tipo === 'ANULACION') {
+    $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÓN'))";
   } elseif ($tipo === 'DEVOLUCION') {
-    $whereParts[] = "(UPPER(TRIM(m.tipo)) = 'DEVOLUCION' OR UPPER(TRIM(m.tipo)) = 'DEVOLUCIÓN')";
+    $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('DEVOLUCION','DEVOLUCIÓN'))";
   } else {
     $whereParts[] = "UPPER(TRIM(m.tipo)) = :tipo";
     $params[':tipo'] = $tipo;
@@ -129,7 +197,7 @@ if ($export) {
   header('Content-Disposition: attachment; filename="movimientos_' . date('Ymd_His') . '.csv"');
 
   $out = fopen('php://output','w');
-  fputcsv($out, ['id','fecha','producto','codigo','tipo','cantidad_raw','cantidad_norm','comentario'], ';');
+  fputcsv($out, ['id','fecha','producto','codigo','tipo','cantidad_raw','cantidad_norm','ref_venta','ref_compra','comentario'], ';');
 
   $sqlCsv = "
     SELECT
@@ -140,6 +208,8 @@ if ($export) {
       p.unidad_venta,
       UPPER(TRIM(m.tipo)) AS tipo,
       m.cantidad,
+      {$selRefVenta}  AS referencia_venta_id,
+      {$selRefCompra} AS referencia_compra_id,
       m.comentario
     FROM movimientos_stock m
     JOIN productos p ON p.id = m.producto_id
@@ -150,10 +220,19 @@ if ($export) {
   $st->execute($params);
 
   while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-    [$qtyNorm] = prettyQtyByTipo((float)$r['cantidad'], (string)$r['tipo'], (int)$r['es_pesable'], (string)$r['unidad_venta']);
+    $tipoDisp = tipoDisplayFromRow(
+      (string)($r['tipo'] ?? ''),
+      $r['referencia_venta_id'] ?? null,
+      $r['referencia_compra_id'] ?? null,
+      (string)($r['comentario'] ?? '')
+    );
+    [$qtyNorm] = prettyQtyByTipo((float)$r['cantidad'], $tipoDisp, (int)$r['es_pesable'], (string)$r['unidad_venta']);
     fputcsv($out, [
       $r['id'], $r['fecha'], $r['producto'], $r['codigo'],
-      $r['tipo'], $r['cantidad'], $qtyNorm, $r['comentario']
+      $tipoDisp, $r['cantidad'], $qtyNorm,
+      $r['referencia_venta_id'] ?? null,
+      $r['referencia_compra_id'] ?? null,
+      $r['comentario']
     ], ';');
   }
   exit;
@@ -184,7 +263,8 @@ $sqlList = "
     p.unidad_venta,
     UPPER(TRIM(m.tipo)) AS tipo,
     m.cantidad,
-    m.referencia_venta_id,
+    {$selRefVenta}  AS referencia_venta_id,
+    {$selRefCompra} AS referencia_compra_id,
     m.comentario
   FROM movimientos_stock m
   JOIN productos p ON p.id = m.producto_id
@@ -217,9 +297,13 @@ $stats = $pdo->query("
     SUM(UPPER(TRIM(tipo))='VENTA') AS ventas,
     SUM(UPPER(TRIM(tipo))='COMPRA') AS compras,
     SUM(UPPER(TRIM(tipo)) IN ('AJUSTE_POSITIVO','AJUSTE_NEGATIVO')) AS ajustes,
-    SUM(UPPER(TRIM(tipo)) IN ('DEVOLUCION','DEVOLUCIÓN')) AS devoluciones
+    SUM(UPPER(TRIM(tipo)) IN ('DEVOLUCION','DEVOLUCIÓN')) AS devoluciones,
+    SUM(
+      UPPER(TRIM(tipo)) IN ('ANULACION','ANULACIÓN')
+      OR ((tipo='' OR tipo IS NULL) AND comentario LIKE 'Anulación%')
+    ) AS anulaciones
   FROM movimientos_stock
-")->fetch() ?: ['total'=>0,'ventas'=>0,'compras'=>0,'ajustes'=>0,'devoluciones'=>0];
+")->fetch() ?: ['total'=>0,'ventas'=>0,'compras'=>0,'ajustes'=>0,'devoluciones'=>0,'anulaciones'=>0];
 
 /* =========================================================
    HEADER
@@ -237,7 +321,7 @@ require __DIR__ . "/partials/header.php";
   <header class="page-header">
     <div>
       <h1 class="page-title">Movimientos</h1>
-      <p class="page-sub">Registro de ventas, compras, ajustes y devoluciones.</p>
+      <p class="page-sub">Registro de ventas, compras, ajustes, anulaciones y devoluciones.</p>
     </div>
 
     <div>
@@ -253,6 +337,7 @@ require __DIR__ . "/partials/header.php";
     <div class="stat-card"><div class="stat-label">Compras</div><div class="stat-value"><?= (int)$stats['compras'] ?></div></div>
     <div class="stat-card"><div class="stat-label">Ajustes</div><div class="stat-value"><?= (int)$stats['ajustes'] ?></div></div>
     <div class="stat-card"><div class="stat-label">Devoluciones</div><div class="stat-value"><?= (int)$stats['devoluciones'] ?></div></div>
+    <div class="stat-card"><div class="stat-label">Anulaciones</div><div class="stat-value"><?= (int)$stats['anulaciones'] ?></div></div>
   </div>
 
   <form method="get" class="filters" id="movFilters">
@@ -302,26 +387,33 @@ require __DIR__ . "/partials/header.php";
           <th class="t-right">Cantidad</th>
           <th>Tipo</th>
           <th>Ref. venta</th>
+          <th>Ref. compra</th>
           <th>Comentario</th>
         </tr>
       </thead>
       <tbody>
 
         <?php if (!$movs): ?>
-          <tr><td colspan="6" class="empty-cell">No se encontraron movimientos.</td></tr>
+          <tr><td colspan="7" class="empty-cell">No se encontraron movimientos.</td></tr>
         <?php else: foreach ($movs as $m): ?>
 
           <?php
             $rawQty = (float)($m['cantidad'] ?? 0);
+            $tipoDisp = tipoDisplayFromRow(
+              (string)($m['tipo'] ?? ''),
+              $m['referencia_venta_id'] ?? null,
+              $m['referencia_compra_id'] ?? null,
+              (string)($m['comentario'] ?? '')
+            );
             [$qtyNorm, $signChar, $pretty, $unit, $dirLabel] = prettyQtyByTipo(
               $rawQty,
-              (string)($m['tipo'] ?? ''),
+              $tipoDisp,
               (int)($m['es_pesable'] ?? 0),
               (string)($m['unidad_venta'] ?? 'UNIDAD')
             );
           ?>
 
-          <tr>
+          <tr class="<?= h('row-' . strtolower(str_replace('_','-', (string)$tipoDisp))) ?>">
             <td class="mono"><?= h((string)$m['fecha']) ?></td>
 
             <td>
@@ -336,11 +428,17 @@ require __DIR__ . "/partials/header.php";
               <span class="muted">(<?= h($dirLabel) ?>)</span>
             </td>
 
-            <td><?= h((string)$m['tipo']) ?></td>
+            <td><?= h((string)$tipoDisp) ?></td>
 
             <td>
               <?php if (!empty($m['referencia_venta_id'])): ?>
                 <a href="venta_detalle.php?id=<?= (int)$m['referencia_venta_id'] ?>">#<?= (int)$m['referencia_venta_id'] ?></a>
+              <?php endif; ?>
+            </td>
+
+            <td>
+              <?php if (!empty($m['referencia_compra_id'])): ?>
+                #<?= (int)$m['referencia_compra_id'] ?>
               <?php endif; ?>
             </td>
 

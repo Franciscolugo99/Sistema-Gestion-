@@ -24,71 +24,118 @@
   opacity: .75;
 }
 
+/* ===== KPIs / resumen ===== */
+.hist-kpis {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.hkpi {
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  padding: 14px 14px 12px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.10);
+}
+
+.hkpi-label {
+  font-size: .78rem;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  opacity: .75;
+}
+
+.hkpi-value {
+  margin-top: 10px;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.hkpi-sub {
+  margin-top: 6px;
+  font-size: .85rem;
+  opacity: .65;
+}
+
+/* ===== Filtros ===== */
 .hist-filters {
   margin-top: 16px;
 }
 
 .filter-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(170px, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
   align-items: end;
 }
 
-@media (max-width: 980px) {
-  .filter-row {
-    grid-template-columns: repeat(2, minmax(170px, 1fr));
-  }
-  .filter-actions {
-    grid-column: 1 / -1;
-  }
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-group label {
+.field .label {
+  display: block;
   font-size: .78rem;
-  letter-spacing: .12em;
+  letter-spacing: .10em;
   text-transform: uppercase;
-  color: var(--muted);
+  opacity: .75;
+  margin-bottom: 6px;
 }
 
-.filter-group input,
-.filter-group select {
+.field select,
+.field input[type="date"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.field-inline {
+  grid-column: span 2;
+}
+
+.toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  color: var(--text);
-  outline: none;
 }
 
-.filter-group input:focus,
-.filter-group select:focus {
-  border-color: rgba(0, 180, 216, .55);
-  box-shadow: 0 0 0 4px rgba(0, 180, 216, .12);
+.toggle input {
+  transform: translateY(1px);
+}
+
+.toggle span {
+  font-size: .92rem;
+  opacity: .85;
 }
 
 .filter-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  align-items: center;
 }
 
+.btn-sm {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+/* ===== Tabla ===== */
 .hist-summary {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(0,180,216,.12), rgba(0,200,150,.10));
-  border: 1px solid rgba(255,255,255,.08);
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: .9;
 }
 
-/* Wrapper con scroll horizontal real */
 .hist-table-wrapper {
   margin-top: 14px;
   border-radius: 16px;
@@ -98,32 +145,16 @@
   box-shadow: 0 10px 30px rgba(0,0,0,.12);
 }
 
-/* Tabla */
 .hist-table {
   width: 100%;
-  min-width: 1180px; /* clave: fuerza scroll si hay muchas columnas */
-  border-collapse: separate;
-  border-spacing: 0;
+  min-width: 880px;
+  border-collapse: collapse; /* usa estilos globales de tabla */
 }
 
 .hist-table thead th {
   position: sticky;
   top: 0;
   z-index: 3;
-  background: rgba(10, 16, 24, .92);
-  color: #fff;
-  font-size: .78rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 12px 12px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-  white-space: nowrap;
-}
-
-.hist-table tbody td {
-  padding: 12px 12px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  vertical-align: middle;
 }
 
 .hist-table tbody tr:hover td {
@@ -139,16 +170,18 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-.nowrap {
-  white-space: nowrap;
-}
+.nowrap { white-space: nowrap; }
+
+.t-right { text-align: right; }
+.t-left { text-align: left; }
+.t-center { text-align: center; }
 
 /* Marca de sesión abierta */
 .row-open td {
   background: rgba(255, 220, 120, .10);
 }
 
-/* Pills */
+/* Pills (reusa la idea actual pero sin romper tema) */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -166,47 +199,19 @@
   border-color: rgba(255, 196, 0, .25);
 }
 
-.pill-zero {
-  background: rgba(255,255,255,.06);
-}
+.pill-zero { background: rgba(255,255,255,.06); }
+.pill-pos  { background: rgba(0, 200, 150, .16); border-color: rgba(0, 200, 150, .28); }
+.pill-neg  { background: rgba(239, 68, 68, .16); border-color: rgba(239, 68, 68, .28); }
 
-.pill-pos {
-  background: rgba(0, 200, 150, .16);
-  border-color: rgba(0, 200, 150, .28);
-}
-
-.pill-neg {
-  background: rgba(255, 80, 80, .16);
-  border-color: rgba(255, 80, 80, .28);
-}
-
-/* Acciones sticky a la derecha */
-.col-actions {
-  position: sticky;
-  right: 0;
-  z-index: 4;
-  background: inherit;
-  min-width: 120px;
-}
-
-.hist-table thead .col-actions {
-  background: rgba(10, 16, 24, .96);
-  z-index: 6;
-}
-
-.hist-table tbody .col-actions {
-  background: rgba(15, 22, 32, .65);
-  backdrop-filter: blur(6px);
-  border-left: 1px solid rgba(255,255,255,.08);
-}
+/* Acciones */
+.col-actions { width: 170px; }
 
 .actions {
   display: inline-flex;
+  align-items: center;
   gap: 8px;
-  justify-content: center;
 }
 
-/* Botoncitos ícono */
 .btn-icon {
   display: inline-flex;
   align-items: center;
@@ -214,10 +219,11 @@
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.06);
+  border: 1px solid var(--btn-secondary-border);
+  background: var(--btn-secondary-bg);
+  color: var(--text);
   text-decoration: none;
-  transition: transform .08s ease, background .12s ease, border-color .12s ease;
+  transition: transform .08s ease, background .12s ease, border-color .12s ease, color .12s ease;
 }
 
 .btn-icon:hover {
@@ -226,18 +232,75 @@
   border-color: rgba(0,180,216,.35);
 }
 
-/* Utilidades */
-.t-right { text-align: right; }
-.t-center { text-align: center; }
-.t-left { text-align: left; }
-
-/* Scrollbar más “pro” */
-.hist-table-wrapper::-webkit-scrollbar { height: 10px; width: 10px; }
-.hist-table-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,.12);
-  border-radius: 999px;
+/* Fila detalle */
+.row-details td {
+  padding: 0;
+  border-bottom: 1px solid var(--panel-border);
 }
-.hist-table-wrapper::-webkit-scrollbar-track {
-  background: rgba(255,255,255,.06);
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+
+.detail-block {
+  border-radius: 14px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255,255,255,.04);
+  padding: 12px;
+}
+
+.detail-title {
+  font-size: .78rem;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  opacity: .75;
+  margin-bottom: 10px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px dashed rgba(255,255,255,.10);
+}
+
+.detail-row:first-of-type { border-top: 0; }
+
+.detail-row span { opacity: .75; }
+.detail-row strong { font-weight: 800; }
+
+
+
+/* Badges (para que "Filtros activos" se vea consistente) */
+.badge {
+  display: inline-flex;
+  padding: 4px 10px;
   border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 800;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+}
+.badge-info {
+  background: rgba(0, 190, 255, .12);
+  border-color: rgba(0, 190, 255, .22);
+  color: rgba(0, 190, 255, 1);
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .hist-kpis { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .field-inline { grid-column: span 1; }
+  .details-grid { grid-template-columns: 1fr; }
+  .col-actions { width: 140px; }
+}
+
+@media (max-width: 520px) {
+  .hist-panel { padding: 14px; }
+  .hist-title { font-size: 1.25rem; }
 }
