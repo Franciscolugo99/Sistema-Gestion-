@@ -1223,6 +1223,36 @@ require_once __DIR__ . '/partials/header.php';
             </div>
         </form>
 
+        <!-- Filtros activos (chips con ×) - se renderiza por JS -->
+        <div id="filtrosActivos" class="filtros-activos" style="display:none;"></div>
+
+        <div id="paginationContainerTop">
+            <?php if ($totalFiltrados > 0 && $totalPages > 1): ?>
+                <div class="pagination">
+                    <div class="pagination-info">
+                        Mostrando <?= $totalFiltrados ? ($offset + 1) : 0 ?> – <?= min($offset + $perPage, $totalFiltrados) ?>
+                        de <?= $totalFiltrados ?> productos
+                    </div>
+
+                    <div class="pagination-pages">
+                        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                            <?php
+                                $paramsUrl         = $_GET;
+                                $paramsUrl['page'] = $i;
+                                $paramsUrl = productos_clean_qs($paramsUrl);
+                                $paramsUrl['sort'] = $sort;
+                                $paramsUrl['dir']  = $dir;
+                                $url = 'productos.php?' . http_build_query($paramsUrl);
+                            ?>
+                            <a href="<?= h($url) ?>" class="page-btn <?= $i === $page ? 'active' : '' ?>">
+                                <?= $i ?>
+                            </a>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+
         <div class="table-wrapper" id="tableWrapper">
             <table class="productos-table" data-sort="<?= h($sort) ?>" data-dir="<?= h($dir) ?>">
                 <thead>

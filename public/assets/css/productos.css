@@ -1426,3 +1426,59 @@
 .productos-page .edit-grid .pesable-units-container {
     grid-column: 1 / -1;
 }
+
+/* =============================================================================
+   Active Filters (chips con ×) - coherencia con Ventas
+============================================================================= */
+.filtros-activos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -6px 0 14px;
+}
+
+.filtro-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--p-primary);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.filtro-tag.is-clearall {
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--p-text);
+    border: 1px solid var(--p-border);
+}
+
+.filtro-remove {
+    background: rgba(255, 255, 255, 0.28);
+    border: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.filtro-tag.is-clearall .filtro-remove {
+    background: rgba(148, 163, 184, 0.22);
+    color: var(--p-text);
+}
+
+.filtro-remove:hover {
+    background: rgba(255, 255, 255, 0.42);
+}
+
+.filtro-tag.is-clearall .filtro-remove:hover {
+    background: rgba(148, 163, 184, 0.34);
+}

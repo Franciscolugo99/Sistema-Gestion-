@@ -44,6 +44,8 @@ const ProductosManager = {
         this.bindMainForm();
         this.bindEditForm();
         this.bindFilters();
+        this.bindActiveFilters();
+        this.renderActiveFilters();
         this.bindTableSort();
         this.bindPagination();
         this.bindHistory();
@@ -219,6 +221,7 @@ const ProductosManager = {
                 }
 
                 if (pageInput) pageInput.value = '1';
+                this.renderActiveFilters();
                 this.updateList({ history: 'push', force: true });
             });
         });
@@ -992,6 +995,7 @@ const ProductosManager = {
                 this.state.searchTimer = setTimeout(() => {
 
                     if (pageInput) pageInput.value = '1';
+                    this.renderActiveFilters();
                     this.updateList({ history: 'replace', force: true });
                 }, this.config.DEBOUNCE_SEARCH_MS);
             });
@@ -999,17 +1003,26 @@ const ProductosManager = {
 
         estadoSelect?.addEventListener('change', () => {
             if (pageInput) pageInput.value = '1';
+            // Si el usuario cambia a INACTIVOS, stock_filter deja de tener sentido => lo limpiamos
+            const sf = document.getElementById('stockFilterInput');
+            if (estadoSelect && estadoSelect.value === 'inactivos' && sf && sf.value) {
+                sf.value = '';
+                this.showToast('Se quitó el filtro de stock (solo aplica a activos)', 'info', 2200);
+            }
+            this.renderActiveFilters();
             this.updateList({ history: 'push', force: true });
         });
 
         limitSelect?.addEventListener('change', () => {
             if (pageInput) pageInput.value = '1';
+            this.renderActiveFilters();
             this.updateList({ history: 'push', force: true });
         });
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (pageInput) pageInput.value = '1';
+            this.renderActiveFilters();
             this.updateList({ history: 'push', force: true });
         });
 
@@ -1022,8 +1035,102 @@ const ProductosManager = {
             if (sf) sf.value = '';
             if (pageInput) pageInput.value = '1';
 
+            this.renderActiveFilters();
             this.updateList({ history: 'push', force: true });
         });
+    },
+
+
+    // ============================================
+    // FILTROS ACTIVOS (chips con ×) - como Ventas
+    // ============================================
+    bindActiveFilters() {
+        const container = document.getElementById('filtrosActivos');
+        if (!container) return;
+
+        if (container.dataset.bound === '1') return;
+        container.dataset.bound = '1';
+
+        container.addEventListener('click', (e) => {
+            const btn = e.target.closest('button.filtro-remove');
+            if (!btn) return;
+
+            const key = btn.dataset.filter || '';
+            if (!key) return;
+
+            e.preventDefault();
+            this.clearFilter(key);
+            this.renderActiveFilters();
+            this.updateList({ history: 'push', force: true });
+        });
+    },
+
+    clearFilter(key) {
+        const searchInput = document.getElementById('searchInput');
+        const estadoSelect = document.getElementById('estadoSelect');
+        const stockFilterInput = document.getElementById('stockFilterInput');
+        const pageInput = document.getElementById('pageInput');
+
+        const k = String(key || '').toLowerCase();
+
+        if (k === 'q' || k === 'all') {
+            if (searchInput) searchInput.value = '';
+        }
+        if (k === 'estado' || k === 'all') {
+            if (estadoSelect) estadoSelect.value = '';
+        }
+        if (k === 'stock_filter' || k === 'stockfilter' || k === 'all') {
+            if (stockFilterInput) stockFilterInput.value = '';
+        }
+
+        if (pageInput) pageInput.value = '1';
+    },
+
+    renderActiveFilters() {
+        const container = document.getElementById('filtrosActivos');
+        if (!container) return;
+
+        const q = (document.getElementById('searchInput')?.value || '').trim();
+        const estado = (document.getElementById('estadoSelect')?.value || '').trim();
+        const sf = (document.getElementById('stockFilterInput')?.value || '').trim();
+
+        const items = [];
+
+        if (q) items.push({ key: 'q', label: `Buscar: ${q}` });
+
+        if (estado === 'activos') items.push({ key: 'estado', label: 'Estado: Solo activos' });
+        else if (estado === 'inactivos') items.push({ key: 'estado', label: 'Estado: Solo inactivos' });
+
+        if (sf === 'sin') items.push({ key: 'stock_filter', label: 'Stock: Sin stock' });
+        else if (sf === 'bajo') items.push({ key: 'stock_filter', label: 'Stock: Stock bajo' });
+
+        container.innerHTML = '';
+
+        if (items.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // Chip de "limpiar todo" (soluciona el caso de que el link PHP no exista en AJAX)
+        items.push({ key: 'all', label: 'Limpiar filtros', clearAll: true });
+
+        items.forEach((it) => {
+            const tag = document.createElement('span');
+            tag.className = 'filtro-tag' + (it.clearAll ? ' is-clearall' : '');
+            tag.appendChild(document.createTextNode(it.label));
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'filtro-remove';
+            btn.dataset.filter = it.key;
+            btn.setAttribute('aria-label', it.clearAll ? 'Limpiar todos los filtros' : `Quitar ${it.label}`);
+            btn.textContent = '×';
+
+            tag.appendChild(btn);
+            container.appendChild(tag);
+        });
+
+        container.style.display = 'flex';
     },
 
     bindTableSort() {
@@ -1064,20 +1171,36 @@ const ProductosManager = {
         const btn = document.getElementById('btnExportCSV');
         if (!btn) return;
 
-        btn.addEventListener('click', () => {
-            const url = new URL(window.location.href);
-            url.searchParams.set('exportCSV', '1');
-            
-            // Mantener filtros actuales
-            const q = document.getElementById('searchInput')?.value || '';
-            const estado = document.getElementById('estadoSelect')?.value || '';
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
 
-            if (q) url.searchParams.set('q', q);
-            if (estado) url.searchParams.set('estado', estado);
+            const params = new URLSearchParams();
 
-            // Descargar
-            window.location.href = url.toString();
-            this.showToast('Exportando productos...', 'info', 2000);
+            // Mantener mismos filtros/orden/limit que la lista
+            const searchInput = document.getElementById('searchInput');
+            const estadoSelect = document.getElementById('estadoSelect');
+            const stockFilterInput = document.getElementById('stockFilterInput');
+            const sortInput = document.getElementById('sortInput');
+            const dirInput = document.getElementById('dirInput');
+            const limitSelect = document.getElementById('limitSelect');
+
+            const q = (searchInput?.value || '').trim();
+            const estado = (estadoSelect?.value || '').trim();
+            const stockFilter = (stockFilterInput?.value || '').trim();
+            const sort = (sortInput?.value || '').trim();
+            const dir = (dirInput?.value || '').trim();
+            const limit = (limitSelect?.value || '').trim();
+
+            if (q) params.set('q', q);
+            if (estado) params.set('estado', estado);
+            if (stockFilter) params.set('stock_filter', stockFilter);
+            if (sort) params.set('sort', sort);
+            if (dir) params.set('dir', dir);
+            if (limit) params.set('limit', limit);
+
+            params.set('exportCSV', '1');
+
+            window.location.href = 'productos.php?' + params.toString();
         });
     },
 
@@ -1354,6 +1477,8 @@ const ProductosManager = {
 
             const pag = document.getElementById('paginationContainer');
             if (pag) pag.innerHTML = data.pagination_html || '';
+            const pagTop = document.getElementById('paginationContainerTop');
+            if (pagTop) pagTop.innerHTML = data.pagination_html || '';
 
             const meta = data.meta || {};
 
@@ -1370,6 +1495,8 @@ const ProductosManager = {
             if (limitSelect) limitSelect.value = String(meta.limit || limitSelect.value || '20');
             if (estadoSelect) estadoSelect.value = String(meta.estado || '');
             if (stockFilterInput) stockFilterInput.value = String(meta.stock_filter || '');
+
+            this.renderActiveFilters();
 
             this.updateSortIndicators(sortInput?.value || meta.sort || 'nombre', dirInput?.value || meta.dir || 'ASC');
 
@@ -1403,25 +1530,32 @@ const ProductosManager = {
     },
 
     bindPagination() {
-        const container = document.getElementById('paginationContainer');
-        if (!container) return;
+        const containers = [
+            document.getElementById('paginationContainerTop'),
+            document.getElementById('paginationContainer')
+        ].filter(Boolean);
 
-        container.addEventListener('click', (e) => {
+        if (containers.length === 0) return;
+
+        const onClick = (e) => {
             const a = e.target.closest('a.page-btn');
             if (!a) return;
 
             e.preventDefault();
             const u = new URL(a.href, window.location.origin);
             this.applySearchParamsToForm(u.searchParams);
-
+            this.renderActiveFilters();
             this.updateList({ history: 'push', force: true });
-        });
+        };
+
+        containers.forEach((c) => c.addEventListener('click', onClick));
     },
 
     bindHistory() {
         window.addEventListener('popstate', () => {
             const sp = new URLSearchParams(window.location.search);
             this.applySearchParamsToForm(sp);
+            this.renderActiveFilters();
             this.updateList({ history: false, force: true });
         });
     },
