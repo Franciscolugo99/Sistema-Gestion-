@@ -150,6 +150,7 @@
   function decorateCards(container){
     const cards = $all('.vkpi-card', container);
     for (const card of cards){
+      if (card.hasAttribute('data-filter')) continue;
       // Accesibilidad + foco
       card.setAttribute('tabindex','0');
       card.setAttribute('role','button');
@@ -204,7 +205,7 @@
     if (s.includes('DEB')) return 'DEBITO';
     if (s.includes('CRED')) return 'CREDITO';
     if (s.includes('EFE')) return 'EFECTIVO';
-    if (s === 'QR' || s.includes('QR')) return 'MP';
+    if (s === 'QR' || s.includes('QR')) return 'QR';
     return s;
   }
 
@@ -230,6 +231,7 @@
     // KPIs clickeables
     const cards = $all('.vkpi-card', container);
     for (const card of cards){
+      if (card.hasAttribute('data-filter')) continue;
       const act = (card.dataset.action || '').toString();
       const handler = () => {
         if (act === 'emitidas') applyFilter({estado:'EMITIDA'});

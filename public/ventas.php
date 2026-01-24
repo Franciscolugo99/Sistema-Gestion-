@@ -127,6 +127,10 @@ $hasTerminalId = has_column($pdo, 'ventas', 'terminal_id');
 $hasDescuentoMonto = has_column($pdo, 'ventas', 'descuento_monto');
 $hasDescuentoTotal = has_column($pdo, 'ventas', 'descuento_total');
 
+// Columna de descuento (compat: descuento_monto / descuento_total / ninguno)
+$descuentoCol = $hasDescuentoMonto ? 'v.descuento_monto' : ($hasDescuentoTotal ? 'v.descuento_total' : '0');
+
+
 /* =========================
    Limpiar filtros
 ========================= */
@@ -164,8 +168,8 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $whereParts = ['1=1'];
 $params = [];
 
-$allowedMedios = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO'];
-if ($medio && in_array($medio, $allowedMedios)) {
+$allowedMedios = ['EFECTIVO','MP','DEBITO','CREDITO','TRANSFERENCIA','MODO','QR'];
+if ($medio && in_array($medio, $allowedMedios, true)) {
   if ($hasVentaPagos) {
     $whereParts[] = "EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.venta_id = v.id AND UPPER(vp.medio_pago) = :medio)";
   } else {
@@ -366,7 +370,7 @@ try {
       $wherePartsAnterior = ['1=1'];
       $paramsAnterior = [];
       
-      if ($medio && in_array($medio, $allowedMedios)) {
+      if ($medio && in_array($medio, $allowedMedios, true)) {
         if ($hasVentaPagos) {
           $wherePartsAnterior[] = "EXISTS (SELECT 1 FROM venta_pagos vp WHERE vp.venta_id = v.id AND UPPER(vp.medio_pago) = :medio)";
         } else {
@@ -554,36 +558,49 @@ $toRow = min($offset + $perPage, $totalRows);
 /* =========================
    Query principal - Detectar columnas dinámicamente
 ========================= */
-$vendedorCol = 'v.usuario_id';
-try {
-  $check = $pdo->query("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ventas' AND COLUMN_NAME = 'vendedor_id' LIMIT 1");
-  if ($check->fetchColumn()) $vendedorCol = 'COALESCE(v.usuario_id, v.vendedor_id)';
-} catch (Exception $e) {}
+// Vendedor (compat: usuario_id / user_id / vendedor_id)
+$hasUsuarioId  = has_column($pdo, 'ventas', 'usuario_id');
+$hasUserId     = has_column($pdo, 'ventas', 'user_id');
+$hasVendedorId = has_column($pdo, 'ventas', 'vendedor_id');
 
-// Determinar columna de descuento
-if ($hasDescuentoMonto) {
-  $descuentoCol = 'v.descuento_monto';
-} elseif ($hasDescuentoTotal) {
-  $descuentoCol = 'v.descuento_total';
-} else {
-  $descuentoCol = '0';
+$vendedorExpr = 'NULL';
+if ($hasUsuarioId && $hasVendedorId) {
+  $vendedorExpr = 'COALESCE(v.usuario_id, v.vendedor_id)';
+} elseif ($hasUsuarioId) {
+  $vendedorExpr = 'v.usuario_id';
+} elseif ($hasUserId) {
+  $vendedorExpr = 'v.user_id';
+} elseif ($hasVendedorId) {
+  $vendedorExpr = 'v.vendedor_id';
 }
 
-// Determinar si tiene terminal
+$joinVendedor = (has_table($pdo, 'users') && $vendedorExpr !== 'NULL')
+  ? "LEFT JOIN users u ON u.id = {$vendedorExpr}"
+  : '';
+
+$vendedorSelect = ($joinVendedor !== '')
+  ? 'u.username AS vendedor_username,'
+  : 'NULL AS vendedor_username,';
+
+$terminalJoin = $hasTerminalId ? "LEFT JOIN terminales t ON t.id = v.terminal_id" : '';
 $terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
-$terminalJoin = $hasTerminalId ? 'LEFT JOIN terminales t ON t.id = v.terminal_id' : '';
+
 
 $sql = "
   SELECT v.id, v.fecha, v.total, v.estado, v.medio_pago, v.cliente_id,
          $descuentoCol AS descuento_monto,
          $terminalSelect
          c.nombre AS cliente_nombre,
-         u.username AS vendedor_username,
+         $vendedorSelect
          (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
-         (SELECT GROUP_CONCAT(p.nombre SEPARATOR ', ') FROM venta_items vi JOIN productos p ON p.id = vi.producto_id WHERE vi.venta_id = v.id LIMIT 3) AS productos_resumen
+         (SELECT SUBSTRING_INDEX(GROUP_CONCAT(p.nombre SEPARATOR ', '), ', ', 3)
+          FROM venta_items vi
+          JOIN productos p ON p.id = vi.producto_id
+          WHERE vi.venta_id = v.id
+         ) AS productos_resumen
   FROM ventas v
   LEFT JOIN clientes c ON c.id = v.cliente_id
-  LEFT JOIN users u ON u.id = $vendedorCol
+  $joinVendedor
   $terminalJoin
   WHERE $whereSQL
   ORDER BY v.id DESC
@@ -740,11 +757,20 @@ unset($queryParams['page']);
         <div class="filtro-group">
           <select name="medio">
             <option value="">Medio: Todos</option>
-            <option value="EFECTIVO" <?= $medio === 'EFECTIVO' ? 'selected' : '' ?>>💵 Efectivo</option>
-            <option value="MP" <?= $medio === 'MP' ? 'selected' : '' ?>>📱 MP</option>
-            <option value="DEBITO" <?= $medio === 'DEBITO' ? 'selected' : '' ?>>💳 Débito</option>
-            <option value="CREDITO" <?= $medio === 'CREDITO' ? 'selected' : '' ?>>💳 Crédito</option>
+            <option value="EFECTIVO" <?= $medio === 'EFECTIVO' ? 'selected' : '' ?>>Efectivo</option>
+            <option value="MP" <?= $medio === 'MP' ? 'selected' : '' ?>>MP</option>
+            <option value="DEBITO" <?= $medio === 'DEBITO' ? 'selected' : '' ?>>Debito</option>
+            <option value="CREDITO" <?= $medio === 'CREDITO' ? 'selected' : '' ?>>Credito</option>
+            <option value="TRANSFERENCIA" <?= $medio === 'TRANSFERENCIA' ? 'selected' : '' ?>>Transferencia</option>
+            <option value="MODO" <?= $medio === 'MODO' ? 'selected' : '' ?>>Modo</option>
+            <option value="QR" <?= $medio === 'QR' ? 'selected' : '' ?>>QR</option>
           </select>
+
+
+
+
+
+
         </div>
         
         <div class="filtro-group">
