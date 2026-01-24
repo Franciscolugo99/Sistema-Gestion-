@@ -629,7 +629,12 @@ case 'buscar_producto': {
       ";
 
       $stmt = $pdo->prepare($sql);
-      $stmt->execute([$like, $like, $q, $start, $start]);
+      $ok = $stmt->execute([$like, $like, $q, $start, $start]);
+
+        if (!$ok) {
+          $e = $stmt->errorInfo();
+          json_fail("buscar_productos SQL execute falló: " . ($e[2] ?? "sin detalle"), 500);
+        }
 
       $productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
