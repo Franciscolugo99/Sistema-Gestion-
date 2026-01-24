@@ -8,6 +8,47 @@ define('FLUS_API_CONTEXT', true);
 
 require_once __DIR__ . '/../lib/root.php';
 
+// FLUS_FAST_BP_TOP_V1: hotfix autocompletado Caja
+if (($_GET['action'] ?? '') === 'buscar_productos') {
+  require_once FLUS_ROOT . '/src/config.php';
+  require_once FLUS_ROOT . '/src/db_helpers.php';
+  header('Content-Type: application/json; charset=utf-8');
+  header('Cache-Control: no-store');
+  $q = trim((string)($_GET['q'] ?? ''));
+  if ($q === '' || (function_exists('mb_strlen') ? mb_strlen($q) : strlen($q)) < 2) {
+    echo json_encode(['ok'=>true,'productos'=>[]], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+  }
+  $limit = (int)($_GET['limit'] ?? 10);
+  $limit = max(1, min($limit, 20));
+  $pdo = getPDO();
+  $like  = $pdo->quote('%'.$q.'%');
+  $start = $pdo->quote($q.'%');
+  $exact = $pdo->quote($q);
+  $sql = "SELECT id,codigo,nombre,precio,stock,es_pesable,unidad_venta
+          FROM productos
+          WHERE activo=1 AND (codigo LIKE {$like} OR nombre LIKE {$like})
+          ORDER BY CASE
+            WHEN codigo = {$exact} THEN 0
+            WHEN codigo LIKE {$start} THEN 1
+            WHEN nombre LIKE {$start} THEN 2
+            ELSE 3 END,
+            nombre ASC
+          LIMIT {$limit}";
+  $rs = $pdo->query($sql);
+  $productos = $rs ? ($rs->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+  foreach ($productos as &$p) {
+    $p['precio'] = (float)($p['precio'] ?? 0);
+    $p['stock'] = (float)($p['stock'] ?? 0);
+    $p['es_pesable'] = ((int)($p['es_pesable'] ?? 0) === 1);
+    $p['unidad_venta'] = ($p['unidad_venta'] ?? '') ?: 'UNIDAD';
+  }
+  unset($p);
+  echo json_encode(['ok'=>true,'productos'=>$productos], JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);
+  exit;
+}
+
+
 // ✅ Modo mantenimiento: bloquear API mientras se restaura la DB
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
 if (is_file($maintenanceFlag)) {
