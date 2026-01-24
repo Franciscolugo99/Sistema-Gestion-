@@ -276,7 +276,8 @@ if ($horaDesdeSql) {
   $fromStart = $from . " " . $horaDesdeSql . ":00";
 }
 if ($horaHastaSql) {
-  $toEnd = $to . " " . $horaHastaSql . ":59";
+  // Incluimos TODO el minuto final: usamos [from, toEnd) con toEnd = horaHasta + 1 minuto
+  $toEnd = (new DateTime($to . " " . $horaHastaSql . ":00"))->modify('+1 minute')->format('Y-m-d H:i:s');
 }
 
 
@@ -712,10 +713,15 @@ if ($hasVentaPromos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
     ");
     $stmt->execute([$fromStart, $toEnd]);
     $promociones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $totalDescuentosPromos = (float)array_sum(array_map(
-      fn($r) => (float)($r['descuento_total'] ?? 0),
-      $promociones
-    ));
+    // Total real de descuentos en el período (no solo top 5)
+    $stmtTotal = $pdo->prepare("
+      SELECT COALESCE(SUM(vp.`{$vpDesc}`),0)
+      FROM venta_promos vp
+      JOIN ventas v ON v.id = vp.`{$vpVentaId}`
+      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+    " );
+    $stmtTotal->execute([$fromStart, $toEnd]);
+    $totalDescuentosPromos = (float)$stmtTotal->fetchColumn();
   }
 }
 
@@ -942,7 +948,7 @@ if ($hasProductos && $prodNombreCol && $prodStockCol && $prodMinCol && $prodActi
 $productosDormidos = [];
 $capitalDormido = 0.0;
 
-if ($hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msFechaCol) {
+if ($hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msTipoCol && $msFechaCol) {
   $fechaLimiteDormido = (new DateTime('today'))->modify("-{$diasSinMovimiento} days")->format('Y-m-d H:i:s');
   $catCondDormidos = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
   $precioCol = $prodPrecioCol ?: ($prodCostoCol ?: null);

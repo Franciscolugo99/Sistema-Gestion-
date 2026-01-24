@@ -75,15 +75,37 @@ $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00
 $categoriaFiltro = trim($_GET['categoria'] ?? '');
 
 // Filtros de hora
-$horaDesde = isset($_GET['hora_desde']) && preg_match('/^\d{2}:\d{2}$/', $_GET['hora_desde']) ? $_GET['hora_desde'] : null;
-$horaHasta = isset($_GET['hora_hasta']) && preg_match('/^\d{2}:\d{2}$/', $_GET['hora_hasta']) ? $_GET['hora_hasta'] : null;
+$horaDesde = isset($_GET['hora_desde']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', (string)$_GET['hora_desde']) ? (string)$_GET['hora_desde'] : null;
+$horaHasta = isset($_GET['hora_hasta']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', (string)$_GET['hora_hasta']) ? (string)$_GET['hora_hasta'] : null;
+$horaDesdeAmpm = isset($_GET['hora_desde_ampm']) ? strtoupper(trim((string)$_GET['hora_desde_ampm'])) : 'AUTO';
+$horaHastaAmpm = isset($_GET['hora_hasta_ampm']) ? strtoupper(trim((string)$_GET['hora_hasta_ampm'])) : 'AUTO';
+
+function flus_time_to_24h_export(string $hhmm, string $ampm): string {
+  $ampm = strtoupper($ampm);
+  if ($ampm !== 'AM' && $ampm !== 'PM') return $hhmm;
+
+  [$h, $m] = array_map('intval', explode(':', $hhmm, 2));
+  // Si ya está en 13..23, ignoramos AM/PM
+  if ($h >= 13) return $hhmm;
+
+  if ($h === 12) {
+    $h = ($ampm === 'AM') ? 0 : 12;
+  } elseif ($h >= 1 && $h <= 11) {
+    if ($ampm === 'PM') $h += 12;
+  }
+  return sprintf('%02d:%02d', $h, $m);
+}
+
+$horaDesdeSql = $horaDesde ? flus_time_to_24h_export($horaDesde, $horaDesdeAmpm) : null;
+$horaHastaSql = $horaHasta ? flus_time_to_24h_export($horaHasta, $horaHastaAmpm) : null;
 
 // Aplicar filtros de hora a las fechas
-if ($horaDesde) {
-  $fromStart = $from . " " . $horaDesde . ":00";
+if ($horaDesdeSql) {
+  $fromStart = $from . " " . $horaDesdeSql . ":00";
 }
-if ($horaHasta) {
-  $toEnd = $to . " " . $horaHasta . ":59";
+if ($horaHastaSql) {
+  // Incluimos TODO el minuto final: usamos [from, toEnd) con toEnd = horaHasta + 1 minuto
+  $toEnd = (new DateTime($to . " " . $horaHastaSql . ":00"))->modify('+1 minute')->format('Y-m-d H:i:s');
 }
 
 /* =========================
