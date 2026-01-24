@@ -13,9 +13,11 @@
     if (!row) return;
 
     var expanded = btn.getAttribute('aria-expanded') === 'true';
-    btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-    btn.textContent = expanded ? '▾' : '▴';
-    row.hidden = expanded;
+    var nextExpanded = !expanded;
+    btn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+    // Mantener una etiqueta consistente (evita que quede solo la flecha)
+    btn.textContent = nextExpanded ? 'Menos ▴' : 'Más ▾';
+    row.hidden = !nextExpanded;
   }
 
   document.addEventListener('click', function (ev) {
