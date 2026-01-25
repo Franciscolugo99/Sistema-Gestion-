@@ -21,8 +21,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const totalLbl = document.getElementById("totalLbl");
   const totalBrutoLbl = document.getElementById("totalBrutoLbl");
   const descuentoTotalLbl = document.getElementById("descuentoTotalLbl");
+  const descuentoItemsLbl = document.getElementById("descuentoItemsLbl");
   const descuentoTipo = document.getElementById("descuentoTipo");
   const descuentoValor = document.getElementById("descuentoValor");
+
+  const itemDescTipo = document.getElementById("itemDescTipo");
+  const itemDescValor = document.getElementById("itemDescValor");
 
   if (!tbody) return;
 
@@ -340,56 +344,96 @@ document.addEventListener("DOMContentLoaded", () => {
   function addEmptyRowIfNeeded() {
     if (!tbody.querySelector("tr[data-row='item']")) {
       tbody.innerHTML =
-        '<tr class="empty-row"><td colspan="5" class="empty-cell">Todavía no agregaste ítems.</td></tr>';
+        '<tr class="empty-row"><td colspan="6" class="empty-cell">Todavía no agregaste ítems.</td></tr>';
     }
   }
 
   function recalcTotal() {
   let bruto = 0;
+  let descItems = 0;
+
+  // Recalcular por fila (por si cambió qty/costo en edición)
   tbody.querySelectorAll("tr[data-row='item']").forEach((tr) => {
-    bruto += Number(tr.dataset.subtotal || 0);
+    const subtotal = round2(Number(tr.dataset.subtotal || 0));
+    bruto += subtotal;
+
+    // Descuento por ítem (tipo/valor guardado en hidden)
+    const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
+    const hVal  = tr.querySelector('input[name="item_descuento_valor[]"]');
+
+    const tipo = String(hTipo?.value || "MONTO").toUpperCase();
+    let val = Number(hVal?.value || 0);
+    if (!Number.isFinite(val) || val < 0) val = 0;
+
+    let dMonto = 0;
+    if (subtotal > 0 && val > 0) {
+      if (tipo === "PORC") {
+        if (val > 100) val = 100;
+        dMonto = subtotal * (val / 100);
+      } else {
+        if (val > subtotal) val = subtotal;
+        dMonto = val;
+      }
+    }
+
+    dMonto = round2(dMonto);
+
+    // Reflejar clamp en hidden
+    if (hVal && round2(Number(hVal.value || 0)) !== round2(val)) {
+      hVal.value = String(round2(val));
+    }
+
+    tr.dataset.descItemMonto = String(dMonto);
+
+    // Pintar celda descuento
+    const descCell = tr.querySelector(".desc-item-cell");
+    if (descCell) {
+      descCell.textContent = dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0);
+    }
+
+    descItems += dMonto;
   });
+
   bruto = round2(bruto);
+  descItems = round2(descItems);
 
-  // Mostrar bruto
+  const baseGlobal = round2(Math.max(0, bruto - descItems));
+
   if (totalBrutoLbl) totalBrutoLbl.textContent = fmtMoney(bruto);
+  if (descuentoItemsLbl) descuentoItemsLbl.textContent = "-" + fmtMoney(descItems);
 
-  // Leer descuento
-  const tipo = (descuentoTipo?.value || "MONTO").toUpperCase();
-  let val = Number(descuentoValor?.value || 0);
-  if (!Number.isFinite(val)) val = 0;
+  // Descuento global (sobre baseGlobal)
+  const tipoG = (descuentoTipo?.value || "MONTO").toUpperCase();
+  let valG = Number(descuentoValor?.value || 0);
+  if (!Number.isFinite(valG) || valG < 0) valG = 0;
 
-  // Clamp
-  if (val < 0) val = 0;
-
-  let desc = 0;
-  if (bruto > 0 && val > 0) {
-    if (tipo === "PORC") {
-      if (val > 100) val = 100;
-      desc = bruto * (val / 100);
+  let descG = 0;
+  if (baseGlobal > 0 && valG > 0) {
+    if (tipoG === "PORC") {
+      if (valG > 100) valG = 100;
+      descG = baseGlobal * (valG / 100);
       if (descuentoValor) descuentoValor.max = "100";
     } else {
-      if (val > bruto) val = bruto;
-      desc = val;
-      if (descuentoValor) descuentoValor.max = String(bruto);
+      if (valG > baseGlobal) valG = baseGlobal;
+      descG = valG;
+      if (descuentoValor) descuentoValor.max = String(baseGlobal);
     }
   } else {
-    if (descuentoValor) descuentoValor.max = tipo === "PORC" ? "100" : String(bruto);
+    if (descuentoValor) descuentoValor.max = tipoG === "PORC" ? "100" : String(baseGlobal);
   }
 
-  // Reflejar valor clamped (solo si se fue de rango)
+  // Reflejar clamp global
   if (descuentoValor) {
     const curr = Number(descuentoValor.value || 0);
-    if (Number.isFinite(curr) && round2(curr) !== round2(val)) {
-      descuentoValor.value = String(round2(val));
+    if (Number.isFinite(curr) && round2(curr) !== round2(valG)) {
+      descuentoValor.value = String(round2(valG));
     }
   }
 
-  desc = round2(desc);
-  const totalFinal = round2(Math.max(0, bruto - desc));
+  descG = round2(descG);
+  const totalFinal = round2(Math.max(0, baseGlobal - descG));
 
-  // Labels
-  if (descuentoTotalLbl) descuentoTotalLbl.textContent = "-" + fmtMoney(desc);
+  if (descuentoTotalLbl) descuentoTotalLbl.textContent = "-" + fmtMoney(descG);
   if (totalLbl) totalLbl.textContent = fmtMoney(totalFinal);
 }
 
@@ -398,6 +442,8 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedProduct = null;
     searchInput.value = "";
     inCost.value = "0";
+    if (itemDescTipo) itemDescTipo.value = "MONTO";
+    if (itemDescValor) itemDescValor.value = "0";
     unitLbl.textContent = "Unidad: UNIDAD";
     
     // Limpiar UI pesable
@@ -634,7 +680,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================================
      CREAR/ELIMINAR FILAS
   ============================================================================ */
-  function createNewRow(product, qty, cost) {
+  function createNewRow(product, qty, cost, dTipo = 'MONTO', dVal = 0) {
     removeEmptyRow();
 
     qty = Number(qty);
@@ -646,12 +692,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     const subtotal = round2(qty * cost);
+
+    // Descuento por ítem
+    dTipo = String(dTipo || "MONTO").toUpperCase();
+    if (dTipo !== "PORC" && dTipo !== "MONTO") dTipo = "MONTO";
+    dVal = Number(dVal);
+    if (!Number.isFinite(dVal) || dVal < 0) dVal = 0;
+
+    let dMonto = 0;
+    if (subtotal > 0 && dVal > 0) {
+      if (dTipo === "PORC") {
+        if (dVal > 100) dVal = 100;
+        dMonto = subtotal * (dVal / 100);
+      } else {
+        if (dVal > subtotal) dVal = subtotal;
+        dMonto = dVal;
+      }
+    }
+    dMonto = round2(dMonto);
+
     const rowId = autoIdCounter++;
 
     const tr = document.createElement("tr");
     tr.dataset.row = "item";
     tr.dataset.rowId = String(rowId);
     tr.dataset.subtotal = String(subtotal);
+    tr.dataset.descItemMonto = String(dMonto);
     tr.classList.add("fade-in");
 
     tr.innerHTML = `
@@ -667,6 +733,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="cell-value">${fmtMoney(cost)}</span>
         <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
       </td>
+      <td class="right desc-item-cell">${dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0)}</td>
       <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
       <td class="center">
         <button type="button" class="btn-icon" title="Editar" data-action="edit">
@@ -679,6 +746,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <input type="hidden" name="producto_id[]" value="${product.id}">
         <input type="hidden" name="cantidad[]" value="${qty}">
         <input type="hidden" name="costo_unitario[]" value="${cost}">
+        <input type="hidden" name="item_descuento_tipo[]" value="${dTipo}">
+        <input type="hidden" name="item_descuento_valor[]" value="${dVal}">
       </td>
     `;
 
@@ -724,6 +793,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const qty = parseFloat(inQty.value || 0);
     const cost = parseFloat(inCost.value || 0);
 
+    const dTipo = String(itemDescTipo?.value || 'MONTO').toUpperCase();
+    let dVal = parseFloat(itemDescValor?.value || 0);
+    if (!Number.isFinite(dVal) || dVal < 0) dVal = 0;
+
     // Validaciones básicas
     if (!(qty > 0)) {
       showToast("La cantidad debe ser mayor a 0", "warning");
@@ -759,7 +832,7 @@ document.addEventListener("DOMContentLoaded", () => {
         () => {
           // Sumar en la primer ocurrencia
           const tr = tbody.querySelector(`tr[data-row-id="${existing.rowId}"]`);
-          if (!tr) return createNewRow(selectedProduct, qty, cost);
+          if (!tr) return createNewRow(selectedProduct, qty, cost, dTipo, dVal);
 
           const hiddenQty = tr.querySelector(`input[name="cantidad[]"]`);
           const hiddenCost = tr.querySelector(`input[name="costo_unitario[]"]`);
@@ -796,7 +869,7 @@ document.addEventListener("DOMContentLoaded", () => {
           showToast("Item actualizado", "success");
         },
         () => {
-          createNewRow(selectedProduct, qty, cost);
+          createNewRow(selectedProduct, qty, cost, dTipo, dVal);
         },
         "Sumar",
         "Agregar nueva línea"
@@ -804,7 +877,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    createNewRow(selectedProduct, qty, cost);
+    createNewRow(selectedProduct, qty, cost, dTipo, dVal);
   }
 
   /* ============================================================================
@@ -860,6 +933,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const productId = parseInt(stub.dataset.productoId);
       const qty = parseFloat(stub.dataset.cantidad);
       const cost = parseFloat(stub.dataset.costo);
+      const descTipo = (stub.dataset.descTipo || 'MONTO').toUpperCase();
+      const descValRaw = parseFloat(stub.dataset.descValor || '0');
+      const descVal = Number.isFinite(descValRaw) ? descValRaw : 0;
+
       const esPesable = parseInt(stub.dataset.esPesable);
       const unidad = stub.dataset.unidad;
       const nombre = stub.dataset.nombre;
@@ -879,12 +956,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   
       const subtotal = round2(qty * cost);
+      let dMonto = 0;
+      let dVal = descVal;
+      if (dVal < 0) dVal = 0;
+      if (subtotal > 0 && dVal > 0) {
+        if (descTipo === 'PORC') {
+          if (dVal > 100) dVal = 100;
+          dMonto = subtotal * (dVal / 100);
+        } else {
+          if (dVal > subtotal) dVal = subtotal;
+          dMonto = dVal;
+        }
+      }
+      dMonto = round2(dMonto);
+
       const rowId = autoIdCounter++;
       
       const tr = document.createElement("tr");
       tr.dataset.row = "item";
       tr.dataset.rowId = String(rowId);
       tr.dataset.subtotal = String(subtotal);
+      tr.dataset.descItemMonto = String(dMonto);
       
       tr.innerHTML = `
         <td>
@@ -899,6 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="cell-value">${fmtMoney(cost)}</span>
           <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
         </td>
+        <td class="right desc-item-cell">${dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0)}</td>
         <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
         <td class="center">
           <button type="button" class="btn-icon" title="Editar" data-action="edit">
@@ -911,6 +1004,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <input type="hidden" name="producto_id[]" value="${productId}">
           <input type="hidden" name="cantidad[]" value="${qty}">
           <input type="hidden" name="costo_unitario[]" value="${cost}">
+          <input type="hidden" name="item_descuento_tipo[]" value="${descTipo}">
+          <input type="hidden" name="item_descuento_valor[]" value="${dVal}">
         </td>
       `;
       

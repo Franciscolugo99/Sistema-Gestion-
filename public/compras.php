@@ -49,6 +49,12 @@ function flus_compras_ensure_schema(PDO $pdo): void {
       if (!has_column($pdo, 'compra_items', 'descuento')) {
         $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento DECIMAL(12,2) NOT NULL DEFAULT 0");
       }
+      if (!has_column($pdo, 'compra_items', 'descuento_tipo')) {
+        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento_tipo VARCHAR(10) NOT NULL DEFAULT 'MONTO'");
+      }
+      if (!has_column($pdo, 'compra_items', 'descuento_porc')) {
+        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento_porc DECIMAL(12,2) NOT NULL DEFAULT 0");
+      }
     }
   } catch (Throwable $e) {
     // No rompemos la pantalla por schema (fallback en queries)
@@ -63,7 +69,9 @@ $HAS_COMPRAS_TOTAL_BRUTO     = has_column($pdo, 'compras', 'total_bruto');
 $HAS_COMPRAS_DESCUENTO_TIPO  = has_column($pdo, 'compras', 'descuento_tipo');
 $HAS_COMPRAS_DESCUENTO_VALOR = has_column($pdo, 'compras', 'descuento_valor');
 $HAS_COMPRAS_DESCUENTO_TOTAL = has_column($pdo, 'compras', 'descuento_total');
-$HAS_COMPRA_ITEMS_DESCUENTO  = has_column($pdo, 'compra_items', 'descuento');
+$HAS_COMPRA_ITEMS_DESCUENTO       = has_column($pdo, 'compra_items', 'descuento');
+$HAS_COMPRA_ITEMS_DESCUENTO_TIPO  = has_column($pdo, 'compra_items', 'descuento_tipo');
+$HAS_COMPRA_ITEMS_DESCUENTO_PORC  = has_column($pdo, 'compra_items', 'descuento_porc');
 
 $msg = '';
 $msgType = 'info';
@@ -193,6 +201,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cants   = $_POST['cantidad'] ?? [];
       $costos  = $_POST['costo_unitario'] ?? [];
 
+      // Descuento por ítem (opcional): MONTO ($) o PORC (%)
+      $itemDescTipos  = $_POST['item_descuento_tipo'] ?? [];
+      $itemDescValores = $_POST['item_descuento_valor'] ?? [];
+
       if ($proveedorTxt === '') {
         $msg = 'Proveedor es obligatorio.';
         $msgType = 'warning';
@@ -240,11 +252,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $sub = $qty * $cu;
           $total += $sub;
 
+          // Descuento por ítem (clamp)
+          $dTipo = strtoupper(trim((string)($itemDescTipos[$i] ?? 'MONTO')));
+          if (!in_array($dTipo, ['MONTO','PORC'], true)) $dTipo = 'MONTO';
+          $dVal  = parse_decimal((string)($itemDescValores[$i] ?? ''), 0.0);
+          if ($dVal < 0) $dVal = 0.0;
+
+          $dMonto = 0.0;
+          $dPorc  = 0.0;
+
+          if ($sub > 0 && $dVal > 0) {
+            if ($dTipo === 'PORC') {
+              if ($dVal > 100) $dVal = 100.0;
+              $dPorc  = $dVal;
+              $dMonto = $sub * ($dPorc / 100.0);
+            } else { // MONTO
+              if ($dVal > $sub) $dVal = $sub;
+              $dMonto = $dVal;
+              $dPorc  = 0.0;
+            }
+          }
+
+          $dMonto = round($dMonto, 2);
+
           $items[] = [
             'producto_id'    => $pid,
             'cantidad'       => $qty,
             'costo_unitario' => $cu,
-            'subtotal'       => $sub
+            'subtotal'       => $sub,
+
+            'descuento_tipo'  => $dTipo,
+            'descuento_valor' => $dVal,    // % o monto según tipo
+            'descuento_porc'  => $dPorc,   // % real (0 si MONTO)
+            'descuento_monto' => $dMonto,  // $ real (0 si no aplica)
           ];
         }
 
@@ -263,20 +303,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           $totalBruto = $total;
 
-// Calcular descuento total (clamp)
+// Total descuento por ítems
+$descItemsTotal = 0.0;
+foreach ($items as $it) {
+  $descItemsTotal += (float)($it['descuento_monto'] ?? 0.0);
+}
+$descItemsTotal = round($descItemsTotal, 2);
+
+// Base para descuento global: bruto - descuentos por ítem
+$baseGlobal = max(0.0, round($totalBruto - $descItemsTotal, 2));
+
+// Calcular descuento global total (clamp) SOBRE baseGlobal
 $descuentoTotal = 0.0;
-if ($totalBruto > 0 && $descuentoValor > 0) {
+if ($baseGlobal > 0 && $descuentoValor > 0) {
   if ($descuentoTipo === 'PORC') {
     if ($descuentoValor > 100) $descuentoValor = 100.0;
-    $descuentoTotal = $totalBruto * ($descuentoValor / 100.0);
+    $descuentoTotal = $baseGlobal * ($descuentoValor / 100.0);
   } else { // MONTO
-    if ($descuentoValor > $totalBruto) $descuentoValor = $totalBruto;
+    if ($descuentoValor > $baseGlobal) $descuentoValor = $baseGlobal;
     $descuentoTotal = $descuentoValor;
   }
 }
 
 $descuentoTotal = round($descuentoTotal, 2);
-$totalFinal = max(0.0, round($totalBruto - $descuentoTotal, 2));
+$totalFinal = max(0.0, round($baseGlobal - $descuentoTotal, 2));
 
 // Totales guardados
 $totalNeto = $totalFinal;
@@ -360,22 +410,42 @@ $compraId = (int)$pdo->lastInsertId();
           }
 
           // Insertar items
+          // Insertar items (compat: columnas opcionales de descuento por ítem)
+          $colsIt = ['compra_id','producto_id','cantidad','costo_unitario','subtotal','comentario'];
+          if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsIt[] = 'descuento'; }
+          if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsIt[] = 'descuento_tipo'; }
+          if ($HAS_COMPRA_ITEMS_DESCUENTO_PORC) { $colsIt[] = 'descuento_porc'; }
+
+          $phIt = array_map(fn($c) => ':' . $c, $colsIt);
+
           $stItem = $pdo->prepare("
             INSERT INTO compra_items
-              (compra_id, producto_id, cantidad, costo_unitario, subtotal, comentario)
+              (" . implode(', ', $colsIt) . ")
             VALUES
-              (:compra_id, :producto_id, :cantidad, :costo_unitario, :subtotal, :comentario)
+              (" . implode(', ', $phIt) . ")
           ");
 
           foreach ($items as $it) {
-            $stItem->execute([
+            $paramsItem = [
               ':compra_id'      => $compraId,
               ':producto_id'    => $it['producto_id'],
               ':cantidad'       => $it['cantidad'],
               ':costo_unitario' => $it['costo_unitario'],
               ':subtotal'       => $it['subtotal'],
               ':comentario'     => '',
-            ]);
+            ];
+
+            if ($HAS_COMPRA_ITEMS_DESCUENTO) {
+              $paramsItem[':descuento'] = (float)($it['descuento_monto'] ?? 0.0);
+            }
+            if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) {
+              $paramsItem[':descuento_tipo'] = (string)($it['descuento_tipo'] ?? 'MONTO');
+            }
+            if ($HAS_COMPRA_ITEMS_DESCUENTO_PORC) {
+              $paramsItem[':descuento_porc'] = (float)($it['descuento_porc'] ?? 0.0);
+            }
+
+            $stItem->execute($paramsItem);
           }
 
           $pdo->commit();
@@ -474,9 +544,14 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             throw new RuntimeException("Solo se pueden confirmar compras en BORRADOR.");
           }
 
-          // 2) Traer ítems (incluye id/subtotal para prorrateo)
+          // 2) Traer ítems (compat: columnas opcionales)
+          $colsItSel = ['id','producto_id','cantidad','costo_unitario','subtotal'];
+          if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsItSel[] = 'descuento'; }
+          if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsItSel[] = 'descuento_tipo'; }
+          if ($HAS_COMPRA_ITEMS_DESCUENTO_PORC) { $colsItSel[] = 'descuento_porc'; }
+
           $itSt = $pdo->prepare("
-            SELECT id, producto_id, cantidad, costo_unitario, subtotal
+            SELECT " . implode(', ', $colsItSel) . "
             FROM compra_items
             WHERE compra_id = ?
             ORDER BY id ASC
@@ -503,59 +578,82 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-          // 4) Prorratear descuento_total => compra_items.descuento
-          //    Base: suma de subtotales (si subtotal viene 0, usa qty*cu como fallback)
-          $base = 0.0;
+          // 4) Calcular descuento por ítem (guardado) y prorratear descuento global (compras.descuento_total)
+          $baseNet = 0.0;
+          $netByItemId = []; // id => neto (después de desc ítem)
+          $dItemByItemId = []; // id => desc ítem ($)
+
           foreach ($items as $it) {
+            $itemId = (int)($it['id'] ?? 0);
+            $qty = (float)($it['cantidad'] ?? 0.0);
+            $cu  = (float)($it['costo_unitario'] ?? 0.0);
+
             $sub = (float)($it['subtotal'] ?? 0.0);
-            if ($sub <= 0) {
-              $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
+            if ($sub <= 0) $sub = $qty * $cu;
+
+            // Descuento por ítem: preferir tipo/porc si existe, si no usar descuento (monto)
+            $dItem = 0.0;
+            if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO && isset($it['descuento_tipo'])) {
+              $t = strtoupper((string)$it['descuento_tipo']);
+              if ($t === 'PORC') {
+                $porc = (float)($it['descuento_porc'] ?? 0.0);
+                if ($porc < 0) $porc = 0.0;
+                if ($porc > 100) $porc = 100.0;
+                $dItem = $sub * ($porc / 100.0);
+              } else { // MONTO (o desconocido)
+                $monto = (float)($it['descuento'] ?? 0.0);
+                if ($monto < 0) $monto = 0.0;
+                if ($monto > $sub) $monto = $sub;
+                $dItem = $monto;
+              }
+            } elseif ($HAS_COMPRA_ITEMS_DESCUENTO && isset($it['descuento'])) {
+              $monto = (float)$it['descuento'];
+              if ($monto < 0) $monto = 0.0;
+              if ($monto > $sub) $monto = $sub;
+              $dItem = $monto;
             }
-            $base += $sub;
+
+            $dItem = round($dItem, 2);
+
+            $net = max(0.0, round($sub - $dItem, 2));
+            $baseNet += $net;
+
+            $dItemByItemId[$itemId] = $dItem;
+            $netByItemId[$itemId] = $net;
           }
 
-$descuentosByItemId = []; // id => descuento
+          $baseNet = round($baseNet, 2);
 
-if ($HAS_COMPRA_ITEMS_DESCUENTO) {
-  // limpiar por consistencia
-  $pdo->prepare("UPDATE compra_items SET descuento = 0.00 WHERE compra_id = ?")->execute([$compraId]);
+          // Prorratear descuento global por neto (post-desc ítem)
+          $dGlobalByItemId = []; // id => desc global ($)
+          if ($compraDescuentoTotal > 0 && $baseNet > 0) {
+            $sum = 0.0;
+            $lastId = null;
 
-  if ($compraDescuentoTotal > 0 && $base > 0) {
-    $updDesc = $pdo->prepare("UPDATE compra_items SET descuento = :d WHERE id = :id");
+            foreach ($items as $it) {
+              $itemId = (int)($it['id'] ?? 0);
+              $lastId = $itemId;
 
-    $sum = 0.0;
-    $lastId = null;
+              $net = (float)($netByItemId[$itemId] ?? 0.0);
+              $d = round(($net / $baseNet) * $compraDescuentoTotal, 2);
+              if ($d < 0) $d = 0.0;
 
-    foreach ($items as $it) {
-      $itemId = (int)$it['id'];
-      $sub = (float)($it['subtotal'] ?? 0.0);
-      if ($sub <= 0) {
-        $sub = ((float)$it['cantidad']) * ((float)$it['costo_unitario']);
-      }
+              $sum += $d;
+              $dGlobalByItemId[$itemId] = $d;
+            }
 
-      $lastId = $itemId;
-
-      $d = round(($sub / $base) * $compraDescuentoTotal, 2);
-      if ($d < 0) $d = 0.0;
-
-      $sum += $d;
-      $descuentosByItemId[$itemId] = $d;
-
-      $updDesc->execute([':d' => $d, ':id' => $itemId]);
-    }
-
-    // Ajuste por redondeo para que cierre exacto: SUM(descuento) == descuento_total
-    $diff = round($compraDescuentoTotal - $sum, 2);
-    if (abs($diff) >= 0.01 && $lastId !== null) {
-      $newLast = round(($descuentosByItemId[$lastId] ?? 0.0) + $diff, 2);
-      if ($newLast < 0) $newLast = 0.0; // safety
-      $pdo->prepare("UPDATE compra_items SET descuento = ? WHERE id = ?")->execute([$newLast, $lastId]);
-      $descuentosByItemId[$lastId] = $newLast;
-    }
-  }
-}
+            // Ajuste por redondeo para que cierre exacto: SUM(desc_global) == descuento_total
+            $diff = round($compraDescuentoTotal - $sum, 2);
+            if (abs($diff) >= 0.01 && $lastId !== null) {
+              $newLast = round(($dGlobalByItemId[$lastId] ?? 0.0) + $diff, 2);
+              if ($newLast < 0) $newLast = 0.0;
+              if ($newLast > (float)($netByItemId[$lastId] ?? 0.0)) $newLast = (float)($netByItemId[$lastId] ?? 0.0);
+              $dGlobalByItemId[$lastId] = $newLast;
+            }
+          }
 
 // 5) Impactar stock + movimientos + costo (costo neto por ítem)
+
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
 
           $stMov = $pdo->prepare("
@@ -588,8 +686,10 @@ if ($HAS_COMPRA_ITEMS_DESCUENTO) {
             $sub = (float)($it['subtotal'] ?? 0.0);
             if ($sub <= 0) $sub = $qty * $cu;
 
-            $dItem = (float)($descuentosByItemId[$itemId] ?? 0.0);
-            $netItem = max(0.0, $sub - $dItem);
+            $dItem = (float)($dItemByItemId[$itemId] ?? 0.0);
+            $dGlob = (float)($dGlobalByItemId[$itemId] ?? 0.0);
+
+            $netItem = max(0.0, $sub - $dItem - $dGlob);
 
             $cuAdj = round($netItem / $qty, 2);
             if ($cuAdj > 0) {
@@ -896,6 +996,17 @@ require __DIR__ . "/partials/header.php";
         </div>
 
         <div class="field">
+          <label>🏷️ Desc. ítem</label>
+          <div class="inline-controls">
+            <select id="itemDescTipo" title="Tipo de descuento por ítem">
+              <option value="MONTO">$ Monto</option>
+              <option value="PORC">% Porcentaje</option>
+            </select>
+            <input id="itemDescValor" type="number" step="0.01" min="0" value="0" autocomplete="off" placeholder="0">
+          </div>
+        </div>
+
+        <div class="field">
           <label>&nbsp;</label>
           <button type="button" class="btn btn-primary" id="btnAddItem">
             ➕ Agregar
@@ -910,6 +1021,7 @@ require __DIR__ . "/partials/header.php";
               <th>Producto</th>
               <th class="right">Cantidad</th>
               <th class="right">Costo unitario</th>
+              <th class="right">Desc. ítem</th>
               <th class="right">Subtotal</th>
               <th class="center">Acciones</th>
             </tr>
@@ -921,6 +1033,8 @@ require __DIR__ . "/partials/header.php";
                     data-producto-id="<?= (int)$it['producto_id'] ?>"
                     data-cantidad="<?= (float)$it['cantidad'] ?>"
                     data-costo="<?= (float)$it['costo_unitario'] ?>"
+                    data-desc-tipo="<?= h(strtoupper((string)($it['descuento_tipo'] ?? 'MONTO'))) ?>"
+                    data-desc-valor="<?= (float)(((strtoupper((string)($it['descuento_tipo'] ?? 'MONTO'))) === 'PORC') ? ($it['descuento_porc'] ?? 0) : ($it['descuento'] ?? 0)) ?>"
                     data-es-pesable="<?= (int)$it['es_pesable'] ?>"
                     data-unidad="<?= h((string)$it['unidad_venta']) ?>"
                     data-nombre="<?= h((string)$it['nombre']) ?>"
@@ -929,7 +1043,7 @@ require __DIR__ . "/partials/header.php";
               <?php endforeach; ?>
             <?php else: ?>
               <tr class="empty-row">
-                <td colspan="5" class="empty-cell">
+                <td colspan="6" class="empty-cell">
                   Todavía no agregaste ítems. Buscá un producto arriba para comenzar.
                 </td>
               </tr>
@@ -937,12 +1051,17 @@ require __DIR__ . "/partials/header.php";
           </tbody>
 <tfoot>
             <tr>
-              <td colspan="3" class="right"><strong>BRUTO</strong></td>
+              <td colspan="4" class="right"><strong>BRUTO</strong></td>
               <td class="right"><strong id="totalBrutoLbl">$0,00</strong></td>
               <td></td>
             </tr>
             <tr>
-              <td colspan="3" class="right">
+              <td colspan="4" class="right"><strong>DESC. ÍTEMS</strong></td>
+              <td class="right"><strong id="descuentoItemsLbl">-$0,00</strong></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td colspan="4" class="right">
                 <div class="discount-row">
                   <strong>DESCUENTO</strong>
                   <div class="discount-controls">
@@ -967,7 +1086,7 @@ require __DIR__ . "/partials/header.php";
               <td></td>
             </tr>
             <tr>
-              <td colspan="3" class="right"><strong>TOTAL</strong></td>
+              <td colspan="4" class="right"><strong>TOTAL</strong></td>
               <td class="right"><strong id="totalLbl">$0,00</strong></td>
               <td></td>
             </tr>
@@ -1232,6 +1351,7 @@ function verDetalle(id) {
                 <th>Producto</th>
                 <th class="right">Cantidad</th>
                 <th class="right">Costo Unit.</th>
+                <th class="right">Desc. ítem</th>
                 <th class="right">Subtotal</th>
               </tr>
             </thead>
@@ -1247,6 +1367,7 @@ function verDetalle(id) {
             </td>
             <td class="right">${it.cantidad_fmt}</td>
             <td class="right">${it.costo_fmt}</td>
+            <td class="right">${it.desc_item_fmt}</td>
             <td class="right"><strong>${it.subtotal_fmt}</strong></td>
           </tr>
         `;
@@ -1256,15 +1377,19 @@ function verDetalle(id) {
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3" class="right"><strong>BRUTO</strong></td>
+                <td colspan="4" class="right"><strong>BRUTO</strong></td>
                 <td class="right"><strong>${data.total_bruto_fmt}</strong></td>
               </tr>
               <tr>
-                <td colspan="3" class="right"><strong>DESCUENTO</strong></td>
+                <td colspan="4" class="right"><strong>DESC. ÍTEMS</strong></td>
+                <td class="right"><strong>-${data.descuento_items_total_fmt}</strong></td>
+              </tr>
+              <tr>
+                <td colspan="4" class="right"><strong>DESCUENTO GLOBAL</strong></td>
                 <td class="right"><strong>-${data.descuento_total_fmt}</strong></td>
               </tr>
               <tr>
-                <td colspan="3" class="right"><strong>TOTAL</strong></td>
+                <td colspan="4" class="right"><strong>TOTAL</strong></td>
                 <td class="right"><strong>${data.total_fmt}</strong></td>
               </tr>
             </tfoot>

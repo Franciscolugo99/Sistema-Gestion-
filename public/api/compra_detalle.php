@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
-require_once FLUS_ROOT . '/src/db_helpers.php';
+
+
+// FIX: Verificar login Y permisos
 require_login();
 require_permission('editar_stock');
 
@@ -14,6 +16,7 @@ if ($id <= 0) {
 }
 
 try {
+  // Traer compra
   $st = $pdo->prepare("
     SELECT 
       c.*,
@@ -26,27 +29,17 @@ try {
   $compra = $st->fetch(PDO::FETCH_ASSOC);
   
   if (!$compra) {
-    json_response(['error' => 'Compra no encontrada'], 404);
-  }
+  json_response(['error' => 'Compra no encontrada'], 404);
+}
   
-  $itemFields = "ci.*, p.nombre, p.codigo, p.es_pesable, p.unidad_venta";
-  
-  $hasDescuento = has_column($pdo, 'compra_items', 'descuento');
-  $hasDescuentoTipo = has_column($pdo, 'compra_items', 'descuento_tipo');
-  $hasDescuentoPorc = has_column($pdo, 'compra_items', 'descuento_porc');
-  
-  if ($hasDescuento) {
-    $itemFields .= ", ci.descuento";
-  }
-  if ($hasDescuentoTipo) {
-    $itemFields .= ", ci.descuento_tipo";
-  }
-  if ($hasDescuentoPorc) {
-    $itemFields .= ", ci.descuento_porc";
-  }
-  
+  // Traer items
   $stItems = $pdo->prepare("
-    SELECT $itemFields
+    SELECT 
+      ci.*,
+      p.nombre,
+      p.codigo,
+      p.es_pesable,
+      p.unidad_venta
     FROM compra_items ci
     JOIN productos p ON p.id = ci.producto_id
     WHERE ci.compra_id = ?
@@ -55,55 +48,79 @@ try {
   $stItems->execute([$id]);
   $items = $stItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
   
-  $totalDescuentoItems = 0.0;
-  $itemsFormatted = array_map(function($it) use (&$totalDescuentoItems, $hasDescuento, $hasDescuentoTipo, $hasDescuentoPorc) {
+  // Formatear items
+    // Formatear items (incluye descuento por ítem)
+  $itemsFormatted = array_map(function($it) {
     $isPesable = (int)$it['es_pesable'] === 1 || 
                  in_array(strtoupper($it['unidad_venta'] ?? 'UNIDAD'), ['KG','G','LT','ML']);
-    
+
     $qty = (float)$it['cantidad'];
     $qtyFmt = $isPesable 
       ? number_format($qty, 3, ',', '.') 
       : number_format($qty, 0, ',', '.');
-    
-    $itemDesc = 0.0;
-    $itemDescFmt = null;
-    
-    if ($hasDescuento && isset($it['descuento'])) {
-      $itemDesc = (float)$it['descuento'];
-      $totalDescuentoItems += $itemDesc;
-      
-      if ($itemDesc > 0) {
-        if ($hasDescuentoTipo && isset($it['descuento_tipo']) && $it['descuento_tipo'] === 'PORC') {
-          $descPorc = $hasDescuentoPorc && isset($it['descuento_porc']) ? (float)$it['descuento_porc'] : 0;
-          $itemDescFmt = number_format($descPorc, 2, ',', '.') . '%';
-        } else {
-          $itemDescFmt = '$' . number_format($itemDesc, 2, ',', '.');
-        }
+
+    $cu = (float)($it['costo_unitario'] ?? 0);
+    $subtotal = (float)($it['subtotal'] ?? ($qty * $cu));
+
+    // Descuento por ítem (si existe)
+    $tipoItem = strtoupper((string)($it['descuento_tipo'] ?? 'MONTO'));
+    if (!in_array($tipoItem, ['MONTO','PORC'], true)) $tipoItem = 'MONTO';
+
+    $porc = (float)($it['descuento_porc'] ?? 0);
+    $monto = (float)($it['descuento'] ?? 0);
+
+    if ($porc < 0) $porc = 0;
+    if ($porc > 100) $porc = 100;
+    if ($monto < 0) $monto = 0;
+
+    $descItem = 0.0;
+    if ($subtotal > 0) {
+      if ($tipoItem === 'PORC') {
+        $descItem = $subtotal * ($porc / 100.0);
+      } else {
+        if ($monto > $subtotal) $monto = $subtotal;
+        $descItem = $monto;
       }
     }
-    
+    $descItem = round($descItem, 2);
+
+    $descValor = ($tipoItem === 'PORC') ? $porc : $monto;
+
     return [
       'producto_id' => (int)$it['producto_id'],
       'nombre' => $it['nombre'],
       'codigo' => $it['codigo'],
       'cantidad' => $qty,
       'cantidad_fmt' => $qtyFmt . ' ' . ($it['unidad_venta'] ?? 'UNIDAD'),
-      'costo_unitario' => (float)$it['costo_unitario'],
-      'costo_fmt' => '$' . number_format((float)$it['costo_unitario'], 2, ',', '.'),
-      'descuento_item' => $itemDesc,
-      'descuento_fmt' => $itemDescFmt,
-      'subtotal' => (float)$it['subtotal'],
-      'subtotal_fmt' => '$' . number_format((float)$it['subtotal'], 2, ',', '.'),
+      'costo_unitario' => $cu,
+      'costo_fmt' => '$' . number_format($cu, 2, ',', '.'),
+      'desc_item' => $descItem,
+      'desc_item_fmt' => ($descItem > 0 ? '-$' : '$') . number_format($descItem, 2, ',', '.'),
+      'desc_item_tipo' => $tipoItem,
+      'desc_item_valor' => $descValor,
+      'subtotal' => $subtotal,
+      'subtotal_fmt' => '$' . number_format($subtotal, 2, ',', '.'),
     ];
   }, $items);
   
-  $bruto = (float)($compra['total_bruto'] ?? $compra['total'] ?? 0);
-  $descTotal = (float)($compra['descuento_total'] ?? 0);
+  // Respuesta
+  $brutoItems = 0.0;
+  $descItemsTotal = 0.0;
+  foreach ($itemsFormatted as $itf) {
+    $brutoItems += (float)($itf['subtotal'] ?? 0.0);
+    $descItemsTotal += (float)($itf['desc_item'] ?? 0.0);
+  }
+  $brutoItems = round($brutoItems, 2);
+  $descItemsTotal = round($descItemsTotal, 2);
+
+  // Bruto preferir compras.total_bruto si existe, si no recalcular por items
+  $bruto = (float)($compra['total_bruto'] ?? $brutoItems ?? $compra['total'] ?? 0);
+
+  // Descuento global (compras.descuento_total)
+  $descT = (float)($compra['descuento_total'] ?? 0);
   $total = (float)($compra['total'] ?? 0);
   $descTipo = (string)($compra['descuento_tipo'] ?? 'MONTO');
   $descVal  = (float)($compra['descuento_valor'] ?? 0);
-  
-  $descGlobal = $descTotal - $totalDescuentoItems;
 
   echo json_encode([
     'id' => (int)$compra['id'],
@@ -116,16 +133,10 @@ try {
 
     'total_bruto' => $bruto,
     'total_bruto_fmt' => '$' . number_format($bruto, 2, ',', '.'),
-    
-    'descuento_items' => $totalDescuentoItems,
-    'descuento_items_fmt' => '$' . number_format($totalDescuentoItems, 2, ',', '.'),
-    
-    'descuento_global' => $descGlobal,
-    'descuento_global_fmt' => '$' . number_format($descGlobal, 2, ',', '.'),
-    
-    'descuento_total' => $descTotal,
-    'descuento_total_fmt' => '$' . number_format($descTotal, 2, ',', '.'),
-    
+    'descuento_items_total' => $descItemsTotal,
+    'descuento_items_total_fmt' => '$' . number_format($descItemsTotal, 2, ',', '.'),
+    'descuento_total' => $descT,
+    'descuento_total_fmt' => '$' . number_format($descT, 2, ',', '.'),
     'descuento_tipo' => $descTipo,
     'descuento_valor' => $descVal,
 
