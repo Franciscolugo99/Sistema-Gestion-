@@ -141,3 +141,6 @@ NUL
 
 # Flags locales (no commitear)
 storage/audit.disabled
+
+# Flags locales (no commitear)
+storage/audit.disabled
