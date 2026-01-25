@@ -138,3 +138,6 @@ snippets/
 *.bak
 *.tmp
 NUL
+
+# Flags locales (no commitear)
+storage/audit.disabled
