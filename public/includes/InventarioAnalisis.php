@@ -180,6 +180,110 @@ class InventarioAnalisis
         return (int)$stmt->fetchColumn();
     }
 
+
+/**
+ * Cuenta total de productos SIN costo (para paginación)
+ * - Se consideran "sin costo" cuando (costo IS NULL OR costo <= 0) y stock > 0
+ */
+public function contarProductosSinCosto(array $filtros = []): int
+{
+    $where = "activo = 1 AND stock > 0 AND (costo IS NULL OR costo <= 0)";
+    $params = [];
+
+    if (!empty($filtros['categoria'])) {
+        $where .= " AND categoria = :categoria";
+        $params[':categoria'] = $filtros['categoria'];
+    }
+    if (!empty($filtros['proveedor_id'])) {
+        $where .= " AND proveedor_id = :proveedor_id";
+        $params[':proveedor_id'] = (int)$filtros['proveedor_id'];
+    }
+    if (!empty($filtros['busqueda'])) {
+        $where .= " AND (nombre LIKE :busq OR codigo LIKE :busq2)";
+        $params[':busq'] = '%' . $filtros['busqueda'] . '%';
+        $params[':busq2'] = '%' . $filtros['busqueda'] . '%';
+    }
+
+    $sql = "SELECT COUNT(*) FROM productos WHERE {$where}";
+    $stmt = $this->pdo->prepare($sql);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->execute();
+
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Lista productos SIN costo para cargarlo rápido desde Inventario -> Costos
+ */
+public function getProductosSinCosto(int $limit = 50, array $filtros = []): array
+{
+    $where = "p.activo = 1 AND p.stock > 0 AND (p.costo IS NULL OR p.costo <= 0)";
+    $params = [];
+
+    if (!empty($filtros['categoria'])) {
+        $where .= " AND p.categoria = :categoria";
+        $params[':categoria'] = $filtros['categoria'];
+    }
+    if (!empty($filtros['proveedor_id'])) {
+        $where .= " AND p.proveedor_id = :proveedor_id";
+        $params[':proveedor_id'] = (int)$filtros['proveedor_id'];
+    }
+    if (!empty($filtros['busqueda'])) {
+        $where .= " AND (p.nombre LIKE :busq OR p.codigo LIKE :busq2)";
+        $params[':busq'] = '%' . $filtros['busqueda'] . '%';
+        $params[':busq2'] = '%' . $filtros['busqueda'] . '%';
+    }
+
+    $limitSql = $limit > 0 ? "LIMIT {$limit}" : "";
+
+    $sql = "
+        SELECT
+            p.id,
+            p.codigo,
+            p.nombre,
+            p.categoria,
+            p.stock,
+            p.stock_minimo,
+            p.costo,
+            p.precio,
+            p.es_pesable,
+            p.unidad_venta,
+            COALESCE(pv.nombre, '-') as proveedor
+        FROM productos p
+        LEFT JOIN proveedores pv ON pv.id = p.proveedor_id
+        WHERE {$where}
+        ORDER BY (p.stock * p.precio) DESC, p.nombre ASC
+        {$limitSql}
+    ";
+
+    $stmt = $this->pdo->prepare($sql);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Actualiza el costo de un producto (acción rápida desde el tab Costos)
+ */
+public function actualizarCostoProducto(int $productoId, float $costo): bool
+{
+    if ($productoId <= 0) return false;
+
+    $stmt = $this->pdo->prepare("UPDATE productos SET costo = :costo WHERE id = :id");
+    $stmt->execute([
+        ':costo' => $costo,
+        ':id' => $productoId,
+    ]);
+
+    return $stmt->rowCount() > 0;
+}
+
+
     /**
      * Obtiene productos "parados" (sin venta en X días) CON FILTROS
      */

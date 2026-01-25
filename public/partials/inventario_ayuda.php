@@ -202,7 +202,7 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
             'icono' => '⚠️',
             'titulo' => $resumen['productos_sin_costo'] . ' productos sin costo cargado',
             'descripcion' => 'No podemos calcular el margen real sin conocer el costo.',
-            'link' => 'productos.php',
+            'link' => '?tab=costos',
             'accion' => 'Cargar costos'
         ];
     }

@@ -499,3 +499,56 @@ code{
   .inv-main-grid, .inv-grid-2col{ grid-template-columns:1fr; }
   .inv-table-scroll, .inv-table-full{ max-height:none; overflow:visible; }
 }
+
+
+/* ========== Tab Costos (carga rápida) ========== */
+.inv-card-footnote-link{
+  display:inline-block;
+  text-decoration:none;
+  cursor:pointer;
+}
+.inv-card-footnote-link:hover{
+  text-decoration:underline;
+}
+
+.inv-prod-meta{
+  font-size:.7rem;
+  color: var(--inv-muted);
+  margin-top:1px;
+}
+
+.inv-inline-form{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.inv-input-cost{
+  width:92px;
+  padding:6px 8px;
+  border:1px solid var(--inv-border);
+  border-radius:10px;
+  background: var(--inv-bg-card);
+  color: var(--inv-text);
+}
+
+.inv-alert{
+  margin:10px 0;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid var(--inv-border);
+  background: var(--inv-bg-card);
+  color: var(--inv-text);
+}
+.inv-alert.ok{ border-color: var(--inv-card-success); }
+.inv-alert.err{ border-color: var(--inv-card-danger); }
+
+.inv-table-footer{
+  margin-top:10px;
+  padding:10px 12px;
+  border-top:1px solid var(--inv-border);
+  font-size:.8rem;
+}
+

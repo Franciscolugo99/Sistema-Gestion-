@@ -77,10 +77,74 @@ if (!isset($pdo)) {
 ============================================================================ */
 $analisis = new InventarioAnalisis($pdo);
 
+
+// Permisos específicos
+$canEditarProductos = flus__has_perm('editar_productos');
+
+// CSRF token (para POST del tab Costos)
+$csrfToken = function_exists('csrf_token') ? csrf_token() : '';
+
+/* ============================================================================
+   POST: cargar costo rápido (tab Costos)
+============================================================================ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_costo') {
+    // Validar permisos
+    if (!$canEditarProductos) {
+        http_response_code(403);
+        echo "Acceso denegado";
+        exit;
+    }
+
+    // Validar CSRF
+    if (!function_exists('csrf_verify') || !csrf_verify($_POST['csrf_token'] ?? null)) {
+        http_response_code(403);
+        echo "CSRF inválido";
+        exit;
+    }
+
+    $productoId = (int)($_POST['producto_id'] ?? 0);
+    $costoRaw   = trim((string)($_POST['costo'] ?? ''));
+
+    if ($productoId <= 0 || $costoRaw === '') {
+        $qs = $_GET;
+        unset($qs['costos_type'], $qs['costos_msg']);
+        $qs['tab'] = 'costos';
+        $qs['costos_type'] = 'err';
+        $qs['costos_msg'] = 'Datos inválidos.';
+        header('Location: ?' . http_build_query($qs));
+        exit;
+    }
+
+    // Parseo robusto (acepta "1.234,56" o "1234.56")
+    $costo = function_exists('parse_money_ar') ? parse_money_ar($costoRaw) : (float)$costoRaw;
+
+    if (!is_finite($costo) || $costo <= 0) {
+        $qs = $_GET;
+        unset($qs['costos_type'], $qs['costos_msg']);
+        $qs['tab'] = 'costos';
+        $qs['costos_type'] = 'err';
+        $qs['costos_msg'] = 'El costo debe ser mayor a 0.';
+        header('Location: ?' . http_build_query($qs));
+        exit;
+    }
+
+    $ok = $analisis->actualizarCostoProducto($productoId, $costo);
+
+    $qs = $_GET;
+    unset($qs['costos_type'], $qs['costos_msg']);
+    $qs['tab'] = 'costos';
+    $qs['costos_type'] = $ok ? 'ok' : 'err';
+    $qs['costos_msg']  = $ok ? 'Costo guardado.' : 'No se pudo guardar el costo.';
+    header('Location: ?' . http_build_query($qs));
+    exit;
+}
+
+
 // Límites configurables
 $limitTop = min(500, max(10, (int)($_GET['limit_top'] ?? 25)));
 $limitParados = min(500, max(10, (int)($_GET['limit_parados'] ?? 25)));
 $limitRotacion = min(500, max(10, (int)($_GET['limit_rotacion'] ?? 25)));
+$limitCostos = min(500, max(10, (int)($_GET['limit_costos'] ?? 50)));
 $diasParados = max(7, (int)($_GET['dias_parados'] ?? 30));
 
 // Filtros
@@ -109,6 +173,11 @@ $proximosAgotarse = [];
 $topVendidos = [];
 $tendencia = [];
 
+
+$productosSinCosto = [];
+$totalSinCosto = 0;
+
+
 if ($tabActivo === 'resumen' || $tabActivo === 'inversion') {
     $topInversion = $analisis->getTopInversion($limitTop, $filtros);
 }
@@ -118,6 +187,12 @@ if ($tabActivo === 'resumen' || $tabActivo === 'parados') {
 if ($tabActivo === 'resumen' || $tabActivo === 'rotacion') {
     $rotacion = $analisis->getRotacion(30, $limitRotacion);
 }
+
+if ($tabActivo === 'costos') {
+    $productosSinCosto = $analisis->getProductosSinCosto($limitCostos, $filtros);
+    $totalSinCosto = $analisis->contarProductosSinCosto($filtros);
+}
+
 if ($tabActivo === 'resumen' || $tabActivo === 'alertas') {
     $stockBajo = $analisis->getStockBajo();
     $proximosAgotarse = $analisis->getProximosAgotarse(7, 20);
@@ -192,6 +267,7 @@ require __DIR__ . '/partials/header.php';
         <a href="?tab=resumen" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">📊 Resumen</a>
         <a href="?tab=inversion" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">💰 Inversión</a>
         <a href="?tab=rotacion" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">🔄 Rotación</a>
+        <a href="?tab=costos" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">💲 Costos</a>
         <a href="?tab=parados" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">😴 Parados</a>
         <a href="?tab=alertas" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">⚠️ Alertas</a>
         <a href="?tab=ventas" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">📈 Ventas</a>
@@ -209,9 +285,9 @@ require __DIR__ . '/partials/header.php';
                 </span>
             </div>
             <?php if ((int)$resumen['productos_sin_costo'] > 0): ?>
-                <div class="inv-card-footnote" title="Productos sin costo cargado">
+                <a href="?tab=costos" class="inv-card-footnote inv-card-footnote-link" title="Productos sin costo cargado">
                     ⚠️ <?= $resumen['productos_sin_costo'] ?> sin costo
-                </div>
+                </a>
             <?php endif; ?>
         </div>
 
@@ -281,7 +357,7 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <!-- Filtros (para tabs que lo necesitan) -->
-    <?php if (in_array($tabActivo, ['inversion', 'parados', 'rotacion'])): ?>
+    <?php if (in_array($tabActivo, ['inversion', 'parados', 'rotacion', 'costos'])): ?>
     <div class="panel inv-filters-panel">
         <form method="get" class="inv-filters">
             <input type="hidden" name="tab" value="<?= htmlspecialchars($tabActivo) ?>">
@@ -318,14 +394,30 @@ require __DIR__ . '/partials/header.php';
 
             <div class="inv-filter-group">
                 <label>📊 Mostrar</label>
-                <select name="limit_top" class="inv-filter-select" onchange="this.form.submit()">
-                    <option value="25" <?= $limitTop == 25 ? 'selected' : '' ?>>25 productos</option>
-                    <option value="50" <?= $limitTop == 50 ? 'selected' : '' ?>>50 productos</option>
-                    <option value="100" <?= $limitTop == 100 ? 'selected' : '' ?>>100 productos</option>
-                    <option value="200" <?= $limitTop == 200 ? 'selected' : '' ?>>200 productos</option>
-                    <option value="500" <?= $limitTop == 500 ? 'selected' : '' ?>>Todos (máx 500)</option>
+                <?php
+                    $limitField = 'limit_top';
+                    $limitValue = $limitTop;
+
+                    if ($tabActivo === 'parados') {
+                        $limitField = 'limit_parados';
+                        $limitValue = $limitParados;
+                    } elseif ($tabActivo === 'rotacion') {
+                        $limitField = 'limit_rotacion';
+                        $limitValue = $limitRotacion;
+                    } elseif ($tabActivo === 'costos') {
+                        $limitField = 'limit_costos';
+                        $limitValue = $limitCostos;
+                    }
+                ?>
+                <select name="<?= $limitField ?>" class="inv-filter-select" onchange="this.form.submit()">
+                    <option value="25" <?= $limitValue == 25 ? 'selected' : '' ?>>25 productos</option>
+                    <option value="50" <?= $limitValue == 50 ? 'selected' : '' ?>>50 productos</option>
+                    <option value="100" <?= $limitValue == 100 ? 'selected' : '' ?>>100 productos</option>
+                    <option value="200" <?= $limitValue == 200 ? 'selected' : '' ?>>200 productos</option>
+                    <option value="500" <?= $limitValue == 500 ? 'selected' : '' ?>>Todos (máx 500)</option>
                 </select>
             </div>
+
 
             <button type="submit" class="btn btn-primary">Filtrar</button>
             <a href="?tab=<?= $tabActivo ?>" class="btn btn-secondary">Limpiar</a>
@@ -756,7 +848,91 @@ require __DIR__ . '/partials/header.php';
         </div>
     </div>
 
-    <?php elseif ($tabActivo === 'alertas'): ?>
+    
+<?php elseif ($tabActivo === 'costos'): ?>
+<!-- ==================== TAB COSTOS ==================== -->
+<div class="panel inv-table-panel">
+    <div class="panel-header">
+        <h2 class="panel-title">💲 Productos sin costo cargado</h2>
+        <div class="panel-actions">
+            <span class="inv-muted">Total: <?= (int)$totalSinCosto ?></span>
+        </div>
+    </div>
+
+    <?php if (!empty($_GET['costos_msg'])): ?>
+        <div class="inv-alert <?= (($_GET['costos_type'] ?? '') === 'ok') ? 'ok' : 'err' ?>">
+            <?= htmlspecialchars((string)$_GET['costos_msg'], ENT_QUOTES, 'UTF-8') ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if (!$canEditarProductos): ?>
+        <div class="inv-alert err">No tenés permiso para editar productos (permiso: <strong>editar_productos</strong>).</div>
+    <?php endif; ?>
+
+    <div class="inv-table-wrap">
+        <table class="inv-table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Proveedor</th>
+                    <th class="text-center">Stock</th>
+                    <th class="text-right">Precio</th>
+                    <th class="text-right">Cargar costo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($productosSinCosto as $p): ?>
+                <tr>
+                    <td>
+                        <div class="inv-prod-name"><?= htmlspecialchars((string)($p['nombre'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="inv-prod-meta">
+                            <?= htmlspecialchars((string)($p['codigo'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
+                            <?php if (!empty($p['categoria'])): ?>
+                                · <?= htmlspecialchars((string)$p['categoria'], ENT_QUOTES, 'UTF-8') ?>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                    <td><?= htmlspecialchars((string)($p['proveedor'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td class="text-center">
+                        <?= $fmtQty($p['stock'] ?? 0, (int)($p['es_pesable'] ?? 0)) ?>
+                        <span class="inv-muted"><?= htmlspecialchars((string)($p['unidad_venta'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                    </td>
+                    <td class="text-right"><?= $fmtMoney($p['precio'] ?? 0) ?></td>
+                    <td class="text-right">
+                        <?php if ($canEditarProductos): ?>
+                        <form method="post" class="inv-inline-form">
+                            <input type="hidden" name="action" value="set_costo">
+                            <input type="hidden" name="producto_id" value="<?= (int)($p['id'] ?? 0) ?>">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="text" name="costo" class="inv-input-cost" placeholder="0,00" inputmode="decimal" required>
+                            <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                            <a href="productos.php?editar=<?= (int)($p['id'] ?? 0) ?>" class="btn btn-sm btn-secondary">Abrir</a>
+                        </form>
+                        <?php else: ?>
+                            <span class="inv-muted">—</span>
+                            <a href="productos.php?editar=<?= (int)($p['id'] ?? 0) ?>" class="btn btn-sm btn-secondary">Abrir</a>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+
+                <?php if (empty($productosSinCosto)): ?>
+                <tr>
+                    <td colspan="5" class="text-center text-success">✅ No hay productos sin costo (con stock) para estos filtros.</td>
+                </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($totalSinCosto > count($productosSinCosto)): ?>
+        <div class="inv-table-footer inv-muted">
+            Mostrando <?= (int)count($productosSinCosto) ?> de <?= (int)$totalSinCosto ?>. Ajustá “Mostrar” o filtrá para encontrar más rápido.
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php elseif ($tabActivo === 'alertas'): ?>
     <!-- ==================== TAB ALERTAS ==================== -->
     <div class="inv-grid-2col">
         <!-- Stock Bajo -->

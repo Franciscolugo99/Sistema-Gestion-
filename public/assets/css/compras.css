@@ -351,11 +351,11 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   ITEMS GRID
+   ITEMS GRID - ACTUALIZADO PARA DESCUENTOS POR ITEM
 ============================================================================ */
 .compras-page .items-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
   gap: 14px;
   align-items: end;
   background: rgba(56, 189, 248, 0.05);
@@ -1032,6 +1032,66 @@ body.theme-light .detalle-info {
 }
 
 /* ============================================================================
+   DESCUENTOS POR ITEM - ESTILOS ESPECÍFICOS
+============================================================================ */
+/* Campo de descuento por item en formulario */
+.compras-page .item-discount-field {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.compras-page .item-discount-field select {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.compras-page .item-discount-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Columna de descuento en tabla */
+.compras-page .compras-table .discount-col {
+  min-width: 100px;
+  max-width: 140px;
+}
+
+/* Editable cell para descuento */
+.compras-page .editable-cell[data-field='descuento'] .cell-value {
+  color: var(--c-warning);
+  font-weight: 600;
+}
+
+/* Estilo para descuentos en porcentaje */
+.compras-page .discount-percent {
+  color: var(--c-warning);
+}
+
+/* Estilo para descuentos en monto */
+.compras-page .discount-money {
+  color: var(--c-success);
+}
+
+/* Label de descuento de items en totales */
+.compras-page #descuentoItemsLbl {
+  color: var(--c-warning);
+  font-weight: 700;
+}
+
+/* Responsive para items grid con descuentos */
+@media (max-width: 980px) {
+  .compras-page .items-grid {
+    grid-template-columns: 1fr 0.8fr 0.8fr;
+  }
+  
+  /* Ocultar descuento por item en pantallas medianas */
+  .compras-page .items-grid > div:nth-child(4) {
+    display: none;
+  }
+}
+
+/* ============================================================================
    RESPONSIVE
 ============================================================================ */
 @media (max-width: 980px) {
@@ -1048,6 +1108,12 @@ body.theme-light .detalle-info {
   .compras-page .page-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  /* Ocultar columna de descuento en tabla en tablets */
+  .compras-page .compras-table th:nth-child(4),
+  .compras-page .compras-table td:nth-child(4) {
+    display: none;
   }
 }
 
