@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
-
+require_once FLUS_ROOT . '/src/db_helpers.php';
 require_login();
 require_permission('editar_stock');
 
