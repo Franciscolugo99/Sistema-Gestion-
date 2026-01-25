@@ -1,10 +1,8 @@
 # =========================================================
 # FLUS / Kiosco - .gitignore (XAMPP + PHP)
-# =========================================================
 
 # -------------------------
 # Sistema / editor
-# -------------------------
 .DS_Store
 Thumbs.db
 Desktop.ini
@@ -12,37 +10,24 @@ Desktop.ini
 *.swo
 .vscode/
 .idea/
-
-# -------------------------
 # Logs / temporales
-# -------------------------
 *.log
 *.tmp
 tmp/
 cache/
 logs/
-
-# -------------------------
 # Dependencias
-# -------------------------
 /vendor/          # Composer
 /node_modules/    # Node
-
-# -------------------------
 # Variables de entorno / secretos
-# -------------------------
 .env
 .env.*
 *.key
 *.pem
 *.pfx
-
 # Si tenés un config local con credenciales, descomentá:
 # /src/config.php
-
-# -------------------------
 # Backups / dumps / exports
-# -------------------------
 *.sql
 *.sqlite
 *.sqlite3
@@ -50,46 +35,28 @@ logs/
 *.rar
 *.7z
 *.bak
-
-# -------------------------
 # Storage del sistema (NO subir datos)
-# -------------------------
 /storage/logs/
 /storage/backups/
-
 # Mantener carpeta storage en repo (creá storage/.gitkeep)
 /storage/.gitkeep
-
 # Permitir el .htaccess dentro de storage
 !/storage/.htaccess
-
-# -------------------------
 # Uploads (si son archivos subidos por usuarios)
-# -------------------------
 /public/uploads/
-
-# -------------------------
 # Imágenes de productos (subidas por usuario)
-# -------------------------
 /public/img/productos/
 !/public/img/productos/.gitkeep
 /uploads/
-
 # Si querés versionar un .gitkeep dentro de uploads (opcional):
 # !/public/uploads/.gitkeep
 # !/uploads/.gitkeep
-
-# -------------------------
 # Archivos locales / notas
-# -------------------------
 *.local
 *.local.*
-
 /src/config.php
 public/_debug_dashboard_schema.php
-
 codigo_completo.txt
-
 d
 public/img/*
 !public/img/.htaccess
@@ -100,47 +67,26 @@ public/img/productos/*
 # Backups locales
 *.bak_*
 public/_csrf_token.php
-
 *.bak3
 qa!
-
 # --- FLUS: caches locales ---
 public/api/actions/.productos_schema_cache.json
-
 # --- FLUS: vendor local (opcional; dejar fuera por defecto) ---
 public/assets/vendor/
-
 # Logs/cache típicos
 storage/logs/
 storage/cache/
-*.log
 *.backup
-
 # --- backups / temporales ---
-*.backup
-*.bak
 *~
 *.old
-*.tmp
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-storage/restore.lock
 storage/restore.lock
 snippets/
-snippets/
-
 # FLUS local
 /backups-csrf/
 /cookies.txt
 /storage/license.json
-*.bak
-*.tmp
 NUL
-
 # Flags locales (no commitear)
 storage/audit.disabled
-
-# Flags locales (no commitear)
-storage/audit.disabled
+tools/
