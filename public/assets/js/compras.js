@@ -1,10 +1,17 @@
 /**
- * COMPRAS.JS - Versión corregida con todos los fixes
- * Fixes aplicados:
- * - resetForm() ahora resetea step/min del input cantidad
- * - enableEditMode() usa AbortController para manejo correcto de listeners
- * - Agregado beforeunload para prevenir pérdida de datos
- * - Mejorado feedback de carga en autocomplete
+ * COMPRAS.JS - Versión mejorada (segura) con edición de descuentos por ítem
+ *
+ * Incluye:
+ * - ✅ Edición de descuentos por ítem en borradores (modal)
+ * - ✅ Vista previa de subtotal (con descuento por ítem)
+ * - ✅ Modo "Agregar Rápido" (toggle UI)
+ * - ✅ Indicadores visuales (badge / celda descuento)
+ * - ✅ Debounce en descuento global
+ *
+ * Fixes de seguridad/robustez:
+ * - ✅ Mitigación XSS: NO se inyectan nombres/códigos sin escapar
+ * - ✅ Modal sin listeners colgados (AbortController + closeModal centralizado)
+ * - ✅ Indicadores sincronizados desde recalcTotal()
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -35,6 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let itemsAdded = [];
   let autoIdCounter = Date.now();
   let hasUnsavedChanges = false;
+  let quickAddMode = false;
 
   /* ============================================================================
      CONSTANTES Y UTILS
@@ -43,7 +51,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const MAX_COST = 9999999;
 
   const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
   const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
   function fmtMoney(n) {
     return (
@@ -77,6 +95,27 @@ document.addEventListener("DOMContentLoaded", () => {
         });
   }
 
+  function normalizeDiscount(tipo, valor, subtotal) {
+    const t =
+      String(tipo || "MONTO").toUpperCase() === "PORC" ? "PORC" : "MONTO";
+    let v = Number(valor || 0);
+    if (!Number.isFinite(v) || v < 0) v = 0;
+
+    let monto = 0;
+    if (subtotal > 0 && v > 0) {
+      if (t === "PORC") {
+        if (v > 100) v = 100;
+        monto = subtotal * (v / 100);
+      } else {
+        if (v > subtotal) v = subtotal;
+        monto = v;
+      }
+    }
+    monto = round2(monto);
+    v = round2(v);
+    return { tipo: t, valor: v, monto };
+  }
+
   /* ============================================================================
      PRODUCTOS PESABLES - UX MEJORADA
   ============================================================================ */
@@ -84,62 +123,72 @@ document.addEventListener("DOMContentLoaded", () => {
     const pes = isPesable(product);
     inQty.step = pes ? "0.001" : "1";
     inQty.min = pes ? "0.001" : "1";
-    if (!inQty.value || Number(inQty.value) <= 0)
+    if (!inQty.value || Number(inQty.value) <= 0) {
       inQty.value = pes ? "1.000" : "1";
-  }
-
-  function updatePesableUI(product) {
-    const isPes = isPesable(product);
-    
-    // Limpiar UI previa
-    const existingBadge = qtyFieldContainer.querySelector('.badge-pesable');
-    const existingHelp = qtyFieldContainer.querySelector('.help-pesable');
-    if (existingBadge) existingBadge.remove();
-    if (existingHelp) existingHelp.remove();
-    
-    inQty.classList.remove('input-pesable');
-    inQty.removeEventListener('input', validatePesableInput);
-    
-    if (isPes) {
-      // Badge visual
-      const badge = document.createElement('span');
-      badge.className = 'badge-pesable';
-      badge.innerHTML = `⚖️ ${product.unidad}`;
-      qtyFieldContainer.querySelector('label').appendChild(badge);
-      
-      // Placeholder dinámico
-      const unidadLower = product.unidad.toLowerCase();
-      inQty.placeholder = `Ej: 2.500 (${unidadLower})`;
-      inQty.classList.add('input-pesable');
-      
-      // Ayuda contextual
-      const help = document.createElement('div');
-      help.className = 'help-pesable';
-      help.innerHTML = `
-        <strong>💡 Producto pesable:</strong> 
-        Ingresá el peso con 3 decimales.
-        <br>Ejemplo: <code>1.500</code> = 1.5 ${unidadLower}
-      `;
-      qtyFieldContainer.appendChild(help);
-      
-      // Validación en tiempo real
-      inQty.addEventListener('input', validatePesableInput);
-      
-    } else {
-      inQty.placeholder = 'Cantidad (unidades enteras)';
     }
   }
 
   function validatePesableInput(e) {
     const val = e.target.value;
     const num = parseFloat(val);
-    
+
     if (val && !isNaN(num)) {
-      const parts = val.split('.');
+      const parts = String(val).split(".");
       if (parts[1] && parts[1].length > 3) {
         e.target.value = num.toFixed(3);
-        showToast('Máximo 3 decimales para productos pesables', 'info');
+        showToast("Máximo 3 decimales para productos pesables", "info");
       }
+    }
+  }
+
+  function updatePesableUI(product) {
+    const isPes = isPesable(product);
+
+    // Limpiar UI previa
+    const existingBadge = qtyFieldContainer.querySelector(".badge-pesable");
+    const existingHelp = qtyFieldContainer.querySelector(".help-pesable");
+    if (existingBadge) existingBadge.remove();
+    if (existingHelp) existingHelp.remove();
+
+    inQty.classList.remove("input-pesable");
+    inQty.removeEventListener("input", validatePesableInput);
+
+    if (isPes) {
+      // Badge visual
+      const badge = document.createElement("span");
+      badge.className = "badge-pesable";
+      badge.textContent = `⚖️ ${String(product?.unidad || "").toUpperCase()}`;
+      qtyFieldContainer.querySelector("label")?.appendChild(badge);
+
+      // Placeholder dinámico
+      const unidadLower = String(product?.unidad || "").toLowerCase();
+      inQty.placeholder = `Ej: 2.500 (${unidadLower})`;
+      inQty.classList.add("input-pesable");
+
+      // Ayuda contextual (sin innerHTML para evitar XSS)
+      const help = document.createElement("div");
+      help.className = "help-pesable";
+      const strong = document.createElement("strong");
+      strong.textContent = "💡 Producto pesable: ";
+      const span = document.createElement("span");
+      span.textContent = "Ingresá el peso con 3 decimales.";
+      const br = document.createElement("br");
+      const txt = document.createTextNode("Ejemplo: ");
+      const code = document.createElement("code");
+      code.textContent = "1.500";
+      const txt2 = document.createTextNode(` = 1.5 ${unidadLower}`);
+      help.appendChild(strong);
+      help.appendChild(span);
+      help.appendChild(br);
+      help.appendChild(txt);
+      help.appendChild(code);
+      help.appendChild(txt2);
+      qtyFieldContainer.appendChild(help);
+
+      // Validación en tiempo real
+      inQty.addEventListener("input", validatePesableInput);
+    } else {
+      inQty.placeholder = "Cantidad (unidades enteras)";
     }
   }
 
@@ -156,8 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Limpiar nombre (quitar "(COD)" pero preservar paréntesis en nombre real)
       const rawText = opt.textContent.trim();
-      // Solo quitar el último paréntesis si parece ser código
-      const cleanName = rawText.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      const cleanName = rawText.replace(/\s*\([^)]+\)\s*$/, "").trim();
 
       productosData.push({
         id: parseInt(opt.value, 10),
@@ -173,12 +221,26 @@ document.addEventListener("DOMContentLoaded", () => {
   loadProducts();
 
   /* ============================================================================
-     AUTOCOMPLETE MEJORADO
+     AUTOCOMPLETE MEJORADO (SEGURO)
   ============================================================================ */
   function highlightMatch(text, query) {
-    const safe = escapeRegExp(query);
-    const regex = new RegExp(`(${safe})`, "gi");
-    return String(text).replace(regex, "<mark>$1</mark>");
+    const str = String(text ?? "");
+    const q = String(query ?? "");
+    if (!q) return escapeHtml(str);
+
+    const re = new RegExp(escapeRegExp(q), "gi");
+    let out = "";
+    let last = 0;
+
+    for (const m of str.matchAll(re)) {
+      const start = m.index ?? 0;
+      const end = start + String(m[0]).length;
+      out += escapeHtml(str.slice(last, start));
+      out += "<mark>" + escapeHtml(str.slice(start, end)) + "</mark>";
+      last = end;
+    }
+    out += escapeHtml(str.slice(last));
+    return out;
   }
 
   function selectProduct(id) {
@@ -189,7 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
     searchInput.value = product.nombre;
     suggestionsBox.classList.remove("active");
 
-    // Aplicar reglas y UI para pesables
     applyQtyInputRules(product);
     updatePesableUI(product);
 
@@ -202,8 +263,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     unitLbl.textContent = `Unidad: ${product.unidad}`;
 
+    updateSubtotalPreview();
+
     inQty.focus();
-    inQty.select();
+    inQty.select?.();
   }
 
   if (searchInput && suggestionsBox) {
@@ -211,11 +274,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let isSearchActive = false;
 
     searchInput.addEventListener("input", (e) => {
-      // Invalidar selección previa
       selectedProduct = null;
       unitLbl.textContent = "Unidad: UNIDAD";
       updatePesableUI({ esPesable: 0, unidad: "UNIDAD" });
       applyQtyInputRules({ esPesable: 0, unidad: "UNIDAD" });
+      updateSubtotalPreview();
 
       clearTimeout(debounceTimer);
       const query = e.target.value.trim().toLowerCase();
@@ -228,17 +291,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       isSearchActive = true;
-      
-      // FIX: Mostrar feedback de carga inmediato
-      suggestionsBox.innerHTML = '<div class="suggestion-item loading-item">🔍 Buscando...</div>';
+      suggestionsBox.innerHTML =
+        '<div class="suggestion-item loading-item">🔍 Buscando...</div>';
       suggestionsBox.classList.add("active");
-      
+
       debounceTimer = setTimeout(() => {
         const filtered = productosData
           .filter(
             (p) =>
               p.nombre.toLowerCase().includes(query) ||
-              p.codigo.toLowerCase().includes(query)
+              String(p.codigo || "")
+                .toLowerCase()
+                .includes(query),
           )
           .slice(0, 8);
 
@@ -250,23 +314,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         suggestionsBox.innerHTML = filtered
-          .map(
-            (p) => `
-            <div class="suggestion-item" data-id="${p.id}">
-              <div class="sug-main">
-                <strong>${highlightMatch(p.nombre, query)}</strong>
-                <span class="sug-code">${p.codigo}</span>
+          .map((p) => {
+            const nameHtml = highlightMatch(p.nombre, query);
+            const codeHtml = escapeHtml(p.codigo || "");
+            const priceHtml =
+              p.ultimoCosto > 0
+                ? `<div class="sug-price">Último: ${fmtMoney(p.ultimoCosto)}</div>`
+                : "";
+            return `
+              <div class="suggestion-item" data-id="${p.id}">
+                <div class="sug-main">
+                  <strong>${nameHtml}</strong>
+                  <span class="sug-code">${codeHtml}</span>
+                </div>
+                ${priceHtml}
               </div>
-              ${
-                p.ultimoCosto > 0
-                  ? `<div class="sug-price">Último: ${fmtMoney(
-                      p.ultimoCosto
-                    )}</div>`
-                  : ""
-              }
-            </div>
-          `
-          )
+            `;
+          })
           .join("");
 
         suggestionsBox.classList.add("active");
@@ -294,10 +358,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     searchInput.addEventListener("keydown", (e) => {
       const items = suggestionsBox.querySelectorAll(
-        ".suggestion-item[data-id]"
+        ".suggestion-item[data-id]",
       );
       if (!items.length) {
-        // Enter sin sugerencias - prevenir si búsqueda activa
         if (e.key === "Enter" && isSearchActive) {
           e.preventDefault();
           return;
@@ -306,7 +369,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const active = suggestionsBox.querySelector(
-        ".suggestion-item.keyboard-active"
+        ".suggestion-item.keyboard-active",
       );
       let index = active ? Array.from(items).indexOf(active) : -1;
 
@@ -314,13 +377,13 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         index = Math.min(index + 1, items.length - 1);
         items.forEach((item, i) =>
-          item.classList.toggle("keyboard-active", i === index)
+          item.classList.toggle("keyboard-active", i === index),
         );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         index = Math.max(index - 1, 0);
         items.forEach((item, i) =>
-          item.classList.toggle("keyboard-active", i === index)
+          item.classList.toggle("keyboard-active", i === index),
         );
       } else if (e.key === "Enter") {
         e.preventDefault();
@@ -332,6 +395,64 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  /* ============================================================================
+     VISTA PREVIA SUBTOTAL CON DESCUENTO (por ítem actual)
+  ============================================================================ */
+  function updateSubtotalPreview() {
+    const existingPreview = document.getElementById("subtotalPreview");
+    if (existingPreview) existingPreview.remove();
+
+    if (!selectedProduct) return;
+    if (!btnAdd || !btnAdd.parentElement) return;
+
+    const qty = parseFloat(inQty.value || 0);
+    const cost = parseFloat(inCost.value || 0);
+    const dTipo = String(itemDescTipo?.value || "MONTO").toUpperCase();
+    const dVal = parseFloat(itemDescValor?.value || 0);
+
+    if (qty <= 0 || cost < 0) return;
+
+    const subtotal = round2(qty * cost);
+    const norm = normalizeDiscount(dTipo, dVal, subtotal);
+    const final = round2(subtotal - norm.monto);
+
+    const preview = document.createElement("div");
+    preview.id = "subtotalPreview";
+    preview.className = "subtotal-preview";
+
+    if (norm.monto > 0) {
+      preview.innerHTML = `
+        <div class="preview-line">
+          <span>Subtotal bruto:</span>
+          <span>${fmtMoney(subtotal)}</span>
+        </div>
+        <div class="preview-line discount">
+          <span>Descuento:</span>
+          <span>-${fmtMoney(norm.monto)}</span>
+        </div>
+        <div class="preview-line total">
+          <span>Subtotal neto:</span>
+          <span>${fmtMoney(final)}</span>
+        </div>
+      `;
+    } else {
+      preview.innerHTML = `
+        <div class="preview-line total">
+          <span>Subtotal:</span>
+          <span>${fmtMoney(subtotal)}</span>
+        </div>
+      `;
+    }
+
+    btnAdd.parentElement.appendChild(preview);
+  }
+
+  [inQty, inCost, itemDescTipo, itemDescValor].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("input", updateSubtotalPreview);
+    el.addEventListener("change", updateSubtotalPreview);
+  });
 
   /* ============================================================================
      MANEJO DE FILAS
@@ -348,96 +469,87 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function syncRowDiscountVisual(tr, hasDiscount) {
+    const descCell = tr.querySelector(".desc-item-cell");
+    if (descCell) descCell.classList.toggle("has-discount", !!hasDiscount);
+
+    const badge = tr.querySelector(".item-discount-badge");
+    if (badge) badge.hidden = !hasDiscount;
+  }
+
+  /* ============================================================================
+     RECALCULO TOTALES (incluye sync visual)
+  ============================================================================ */
+  let recalcDebounceTimer;
   function recalcTotal() {
-  let bruto = 0;
-  let descItems = 0;
+    let bruto = 0;
+    let descItems = 0;
 
-  // Recalcular por fila (por si cambió qty/costo en edición)
-  tbody.querySelectorAll("tr[data-row='item']").forEach((tr) => {
-    const subtotal = round2(Number(tr.dataset.subtotal || 0));
-    bruto += subtotal;
+    tbody.querySelectorAll("tr[data-row='item']").forEach((tr) => {
+      const subtotal = round2(Number(tr.dataset.subtotal || 0));
+      bruto += subtotal;
 
-    // Descuento por ítem (tipo/valor guardado en hidden)
-    const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
-    const hVal  = tr.querySelector('input[name="item_descuento_valor[]"]');
+      const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
+      const hVal = tr.querySelector('input[name="item_descuento_valor[]"]');
 
-    const tipo = String(hTipo?.value || "MONTO").toUpperCase();
-    let val = Number(hVal?.value || 0);
-    if (!Number.isFinite(val) || val < 0) val = 0;
+      const tipo = String(hTipo?.value || "MONTO").toUpperCase();
+      const valRaw = Number(hVal?.value || 0);
 
-    let dMonto = 0;
-    if (subtotal > 0 && val > 0) {
-      if (tipo === "PORC") {
-        if (val > 100) val = 100;
-        dMonto = subtotal * (val / 100);
-      } else {
-        if (val > subtotal) val = subtotal;
-        dMonto = val;
+      const norm = normalizeDiscount(tipo, valRaw, subtotal);
+
+      // Normalizar hidden value si hace falta (clamp)
+      if (hTipo && hTipo.value !== norm.tipo) hTipo.value = norm.tipo;
+      if (hVal && round2(Number(hVal.value || 0)) !== round2(norm.valor)) {
+        hVal.value = String(norm.valor);
+      }
+
+      tr.dataset.descItemMonto = String(norm.monto);
+
+      const descCell = tr.querySelector(".desc-item-cell");
+      if (descCell) {
+        descCell.textContent =
+          norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0);
+      }
+
+      // Sync visual
+      syncRowDiscountVisual(tr, norm.monto > 0);
+
+      descItems += norm.monto;
+    });
+
+    bruto = round2(bruto);
+    descItems = round2(descItems);
+
+    const baseGlobal = round2(Math.max(0, bruto - descItems));
+
+    if (totalBrutoLbl) totalBrutoLbl.textContent = fmtMoney(bruto);
+    if (descuentoItemsLbl)
+      descuentoItemsLbl.textContent = "-" + fmtMoney(descItems);
+
+    // Descuento global
+    const tipoG = String(descuentoTipo?.value || "MONTO").toUpperCase();
+    const valGRaw = Number(descuentoValor?.value || 0);
+    const normG = normalizeDiscount(tipoG, valGRaw, baseGlobal);
+
+    // Ajustar max del input
+    if (descuentoValor) {
+      descuentoValor.max = normG.tipo === "PORC" ? "100" : String(baseGlobal);
+      const curr = Number(descuentoValor.value || 0);
+      if (Number.isFinite(curr) && round2(curr) !== round2(normG.valor)) {
+        descuentoValor.value = String(normG.valor);
       }
     }
-
-    dMonto = round2(dMonto);
-
-    // Reflejar clamp en hidden
-    if (hVal && round2(Number(hVal.value || 0)) !== round2(val)) {
-      hVal.value = String(round2(val));
+    if (descuentoTipo && descuentoTipo.value !== normG.tipo) {
+      descuentoTipo.value = normG.tipo;
     }
 
-    tr.dataset.descItemMonto = String(dMonto);
+    const totalFinal = round2(Math.max(0, baseGlobal - normG.monto));
 
-    // Pintar celda descuento
-    const descCell = tr.querySelector(".desc-item-cell");
-    if (descCell) {
-      descCell.textContent = dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0);
-    }
-
-    descItems += dMonto;
-  });
-
-  bruto = round2(bruto);
-  descItems = round2(descItems);
-
-  const baseGlobal = round2(Math.max(0, bruto - descItems));
-
-  if (totalBrutoLbl) totalBrutoLbl.textContent = fmtMoney(bruto);
-  if (descuentoItemsLbl) descuentoItemsLbl.textContent = "-" + fmtMoney(descItems);
-
-  // Descuento global (sobre baseGlobal)
-  const tipoG = (descuentoTipo?.value || "MONTO").toUpperCase();
-  let valG = Number(descuentoValor?.value || 0);
-  if (!Number.isFinite(valG) || valG < 0) valG = 0;
-
-  let descG = 0;
-  if (baseGlobal > 0 && valG > 0) {
-    if (tipoG === "PORC") {
-      if (valG > 100) valG = 100;
-      descG = baseGlobal * (valG / 100);
-      if (descuentoValor) descuentoValor.max = "100";
-    } else {
-      if (valG > baseGlobal) valG = baseGlobal;
-      descG = valG;
-      if (descuentoValor) descuentoValor.max = String(baseGlobal);
-    }
-  } else {
-    if (descuentoValor) descuentoValor.max = tipoG === "PORC" ? "100" : String(baseGlobal);
+    if (descuentoTotalLbl)
+      descuentoTotalLbl.textContent = "-" + fmtMoney(normG.monto);
+    if (totalLbl) totalLbl.textContent = fmtMoney(totalFinal);
   }
 
-  // Reflejar clamp global
-  if (descuentoValor) {
-    const curr = Number(descuentoValor.value || 0);
-    if (Number.isFinite(curr) && round2(curr) !== round2(valG)) {
-      descuentoValor.value = String(round2(valG));
-    }
-  }
-
-  descG = round2(descG);
-  const totalFinal = round2(Math.max(0, baseGlobal - descG));
-
-  if (descuentoTotalLbl) descuentoTotalLbl.textContent = "-" + fmtMoney(descG);
-  if (totalLbl) totalLbl.textContent = fmtMoney(totalFinal);
-}
-
-  // FIX: resetForm ahora resetea correctamente el step/min del input
   function resetForm() {
     selectedProduct = null;
     searchInput.value = "";
@@ -445,21 +557,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (itemDescTipo) itemDescTipo.value = "MONTO";
     if (itemDescValor) itemDescValor.value = "0";
     unitLbl.textContent = "Unidad: UNIDAD";
-    
+
     // Limpiar UI pesable
-    const existingBadge = qtyFieldContainer.querySelector('.badge-pesable');
-    const existingHelp = qtyFieldContainer.querySelector('.help-pesable');
+    const existingBadge = qtyFieldContainer.querySelector(".badge-pesable");
+    const existingHelp = qtyFieldContainer.querySelector(".help-pesable");
     if (existingBadge) existingBadge.remove();
     if (existingHelp) existingHelp.remove();
-    inQty.classList.remove('input-pesable');
-    inQty.placeholder = '';
-    
-    // FIX: Resetear input cantidad a valores por defecto (unidades enteras)
+    inQty.classList.remove("input-pesable");
+    inQty.placeholder = "";
+
+    // Resetear input cantidad (fix: step/min)
     inQty.step = "1";
     inQty.min = "1";
     inQty.value = "1";
-    inQty.removeEventListener('input', validatePesableInput);
-    
+    inQty.removeEventListener("input", validatePesableInput);
+
+    // Limpiar preview
+    const preview = document.getElementById("subtotalPreview");
+    if (preview) preview.remove();
+
+    // En modo rápido, devolvé foco a búsqueda
     searchInput.focus();
   }
 
@@ -488,17 +605,17 @@ document.addEventListener("DOMContentLoaded", () => {
     onConfirm,
     onCancel = null,
     confirmText = "Confirmar",
-    cancelText = "Cancelar"
+    cancelText = "Cancelar",
   ) {
     const modal = document.createElement("div");
     modal.className = "modal-overlay compras-modal-overlay";
 
     modal.innerHTML = `
       <div class="modal-box">
-        <p class="modal-message">${msg}</p>
+        <p class="modal-message">${escapeHtml(msg)}</p>
         <div class="modal-actions">
-          <button class="btn btn-secondary js-cancel">${cancelText}</button>
-          <button class="btn btn-primary js-confirm">${confirmText}</button>
+          <button type="button" class="btn btn-secondary js-cancel">${escapeHtml(cancelText)}</button>
+          <button type="button" class="btn btn-primary js-confirm">${escapeHtml(confirmText)}</button>
         </div>
       </div>
     `;
@@ -510,12 +627,12 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => modal.remove(), 180);
     };
 
-    modal.querySelector(".js-confirm").addEventListener("click", () => {
+    modal.querySelector(".js-confirm")?.addEventListener("click", () => {
       onConfirm && onConfirm();
       close();
     });
 
-    modal.querySelector(".js-cancel").addEventListener("click", () => {
+    modal.querySelector(".js-cancel")?.addEventListener("click", () => {
       onCancel && onCancel();
       close();
     });
@@ -529,14 +646,201 @@ document.addEventListener("DOMContentLoaded", () => {
       (e) => {
         if (e.key === "Escape") close();
       },
-      { once: true }
+      { once: true },
     );
   }
 
   /* ============================================================================
-     EDICIÓN INLINE - FIX: Usar AbortController para manejo correcto de listeners
+     EDITAR DESCUENTO POR ÍTEM (MODAL SEGURO)
   ============================================================================ */
-  
+  function openDiscountEditor(tr, product) {
+    const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
+    const hVal = tr.querySelector('input[name="item_descuento_valor[]"]');
+
+    const currentTipo = String(hTipo?.value || "MONTO").toUpperCase();
+    const currentVal = parseFloat(hVal?.value || 0);
+
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay compras-modal-overlay";
+
+    // Render seguro (nombre/código escapados)
+    modal.innerHTML = `
+      <div class="modal-box discount-editor-modal">
+        <div class="modal-header">
+          <h3>✏️ Editar descuento</h3>
+          <button type="button" class="btn-close js-close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="product-info">
+            <strong>${escapeHtml(product?.nombre || "")}</strong>
+            <span class="product-code">${escapeHtml(product?.codigo || "")}</span>
+          </div>
+
+          <div class="discount-form">
+            <div class="field">
+              <label>Tipo de descuento</label>
+              <select id="editDescTipo" class="form-input">
+                <option value="MONTO" ${currentTipo === "MONTO" ? "selected" : ""}>💵 Monto fijo ($)</option>
+                <option value="PORC" ${currentTipo === "PORC" ? "selected" : ""}>📊 Porcentaje (%)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Valor</label>
+              <input
+                type="number"
+                id="editDescValor"
+                class="form-input"
+                step="0.01"
+                min="0"
+                value="${Number.isFinite(currentVal) ? currentVal : 0}"
+                placeholder="0.00"
+              >
+            </div>
+
+            <div class="discount-preview" id="discountPreview"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary js-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary js-save">💾 Guardar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add("active"), 10);
+
+    const controller = new AbortController();
+    const { signal } = controller;
+    let closed = false;
+
+    const closeModal = () => {
+      if (closed) return;
+      closed = true;
+      controller.abort();
+      modal.classList.remove("active");
+      setTimeout(() => modal.remove(), 160);
+    };
+
+    const editTipoSelect = modal.querySelector("#editDescTipo");
+    const editValorInput = modal.querySelector("#editDescValor");
+    const previewDiv = modal.querySelector("#discountPreview");
+    const btnSave = modal.querySelector(".js-save");
+    const btnCancel = modal.querySelector(".js-cancel");
+    const btnClose = modal.querySelector(".js-close");
+
+    const getRowSubtotal = () => {
+      const qty = parseFloat(
+        tr.querySelector('input[name="cantidad[]"]')?.value || 0,
+      );
+      const cost = parseFloat(
+        tr.querySelector('input[name="costo_unitario[]"]')?.value || 0,
+      );
+      return round2(qty * cost);
+    };
+
+    function updateDiscountPreview() {
+      const subtotal = getRowSubtotal();
+      const tipo = editTipoSelect?.value || "MONTO";
+      const val = parseFloat(editValorInput?.value || 0);
+
+      const norm = normalizeDiscount(tipo, val, subtotal);
+      const final = round2(subtotal - norm.monto);
+
+      if (!previewDiv) return;
+
+      if (norm.monto > 0) {
+        previewDiv.innerHTML = `
+          <div class="preview-row">
+            <span>Subtotal bruto:</span>
+            <span>${fmtMoney(subtotal)}</span>
+          </div>
+          <div class="preview-row discount">
+            <span>Descuento:</span>
+            <span>-${fmtMoney(norm.monto)}</span>
+          </div>
+          <div class="preview-row total">
+            <span>Subtotal neto:</span>
+            <span>${fmtMoney(final)}</span>
+          </div>
+        `;
+      } else {
+        previewDiv.innerHTML = `
+          <div class="preview-row muted">
+            <span>Sin descuento</span>
+            <span>${fmtMoney(subtotal)}</span>
+          </div>
+        `;
+      }
+    }
+
+    editTipoSelect?.addEventListener("change", updateDiscountPreview, {
+      signal,
+    });
+    editValorInput?.addEventListener("input", updateDiscountPreview, {
+      signal,
+    });
+    updateDiscountPreview();
+
+    btnSave?.addEventListener(
+      "click",
+      () => {
+        const subtotal = getRowSubtotal();
+        const tipo = editTipoSelect?.value || "MONTO";
+        const val = parseFloat(editValorInput?.value || 0);
+        const norm = normalizeDiscount(tipo, val, subtotal);
+
+        if (hTipo) hTipo.value = norm.tipo;
+        if (hVal) hVal.value = String(norm.valor);
+
+        hasUnsavedChanges = true;
+        recalcTotal();
+
+        tr.classList.add("highlight-update");
+        setTimeout(() => tr.classList.remove("highlight-update"), 450);
+
+        closeModal();
+        showToast("Descuento actualizado", "success");
+      },
+      { signal },
+    );
+
+    btnCancel?.addEventListener("click", closeModal, { signal });
+    btnClose?.addEventListener("click", closeModal, { signal });
+
+    modal.addEventListener(
+      "click",
+      (e) => {
+        if (e.target === modal) closeModal();
+      },
+      { signal },
+    );
+
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key === "Escape") closeModal();
+        if (
+          e.key === "Enter" &&
+          (document.activeElement === editValorInput ||
+            document.activeElement === editTipoSelect)
+        ) {
+          // Enter dentro del modal = guardar
+          e.preventDefault();
+          btnSave?.click();
+        }
+      },
+      { signal },
+    );
+
+    editValorInput?.focus();
+    editValorInput?.select?.();
+  }
+
+  /* ============================================================================
+     EDICIÓN INLINE (cantidad / costo)
+  ============================================================================ */
   function enableEditMode(tr, product) {
     const qtyCell = tr.querySelector(".editable-cell[data-field='cantidad']");
     const costCell = tr.querySelector(".editable-cell[data-field='costo']");
@@ -548,10 +852,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!valueSpan || !editInput) return;
 
       const field = cell.dataset.field;
-      const hiddenName = field === "cantidad" ? "cantidad[]" : "costo_unitario[]";
+      const hiddenName =
+        field === "cantidad" ? "cantidad[]" : "costo_unitario[]";
       const hiddenInput = tr.querySelector(`input[name="${hiddenName}"]`);
 
-      // Ajustes de step/min (importante para evitar stepMismatch en type=number)
       if (field === "cantidad") {
         const pes = isPesable(product);
         editInput.step = pes ? "0.001" : "1";
@@ -561,7 +865,6 @@ document.addEventListener("DOMContentLoaded", () => {
         editInput.min = "0";
       }
 
-      // Sincronizar valor del editor con el hidden real (source of truth)
       if (hiddenInput) editInput.value = hiddenInput.value;
 
       const openEditor = () => {
@@ -576,27 +879,26 @@ document.addEventListener("DOMContentLoaded", () => {
         editInput.style.display = "none";
       };
 
-      // Abrir editor
       openEditor();
 
-      // Focus SOLO en cantidad (primero)
       if (idx === 0) {
         editInput.focus();
         editInput.select?.();
       }
 
-      // FIX: Usar AbortController para limpiar listeners correctamente
       const controller = new AbortController();
       let hasClosed = false;
 
       const validateValue = (fieldName, v) => {
         if (fieldName === "cantidad") {
           if (!(v > 0)) return "Cantidad inválida";
-          if (v > MAX_QTY) return `Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`;
+          if (v > MAX_QTY)
+            return `Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`;
         }
         if (fieldName === "costo") {
           if (v < 0) return "Costo inválido";
-          if (v > MAX_COST) return `Costo muy alto (máx: ${fmtMoney(MAX_COST)})`;
+          if (v > MAX_COST)
+            return `Costo muy alto (máx: ${fmtMoney(MAX_COST)})`;
         }
         return "";
       };
@@ -605,28 +907,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const newValue = parseFloat(editInput.value || 0);
         const err = validateValue(field, newValue);
 
-        // Si es inválido, NO cerrar: permitir corrección inmediata
         if (err) {
           showToast(err, "warning");
-          // re-enfocar para corregir
           editInput.focus();
           editInput.select?.();
           return false;
         }
 
-        // Update hidden (lo que realmente se envía)
         if (hiddenInput) hiddenInput.value = newValue;
 
-        // Update UI (span)
         valueSpan.textContent =
           field === "cantidad" ? fmtQty(newValue, product) : fmtMoney(newValue);
 
-        // Recalc subtotal
         const qtyVal = parseFloat(
-          tr.querySelector(`input[name="cantidad[]"]`).value || 0
+          tr.querySelector(`input[name="cantidad[]"]`)?.value || 0,
         );
         const costVal = parseFloat(
-          tr.querySelector(`input[name="costo_unitario[]"]`).value || 0
+          tr.querySelector(`input[name="costo_unitario[]"]`)?.value || 0,
         );
         const newSubtotal = round2(qtyVal * costVal);
 
@@ -644,7 +941,6 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const cancelEdit = () => {
-        // Volver al valor original (hidden real)
         if (hiddenInput) editInput.value = hiddenInput.value;
         closeEditor();
         hasClosed = true;
@@ -657,7 +953,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (hasClosed) return;
           commitValue();
         },
-        { signal: controller.signal }
+        { signal: controller.signal },
       );
 
       editInput.addEventListener(
@@ -671,16 +967,15 @@ document.addEventListener("DOMContentLoaded", () => {
             cancelEdit();
           }
         },
-        { signal: controller.signal }
+        { signal: controller.signal },
       );
     });
   }
 
-
   /* ============================================================================
      CREAR/ELIMINAR FILAS
   ============================================================================ */
-  function createNewRow(product, qty, cost, dTipo = 'MONTO', dVal = 0) {
+  function createNewRow(product, qty, cost, dTipo = "MONTO", dVal = 0) {
     removeEmptyRow();
 
     qty = Number(qty);
@@ -688,28 +983,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const pes = isPesable(product);
     const qtyStep = pes ? "0.001" : "1";
-    const qtyMin  = pes ? "0.001" : "1";
-
+    const qtyMin = pes ? "0.001" : "1";
 
     const subtotal = round2(qty * cost);
-
-    // Descuento por ítem
-    dTipo = String(dTipo || "MONTO").toUpperCase();
-    if (dTipo !== "PORC" && dTipo !== "MONTO") dTipo = "MONTO";
-    dVal = Number(dVal);
-    if (!Number.isFinite(dVal) || dVal < 0) dVal = 0;
-
-    let dMonto = 0;
-    if (subtotal > 0 && dVal > 0) {
-      if (dTipo === "PORC") {
-        if (dVal > 100) dVal = 100;
-        dMonto = subtotal * (dVal / 100);
-      } else {
-        if (dVal > subtotal) dVal = subtotal;
-        dMonto = dVal;
-      }
-    }
-    dMonto = round2(dMonto);
+    const norm = normalizeDiscount(dTipo, dVal, subtotal);
 
     const rowId = autoIdCounter++;
 
@@ -717,13 +994,19 @@ document.addEventListener("DOMContentLoaded", () => {
     tr.dataset.row = "item";
     tr.dataset.rowId = String(rowId);
     tr.dataset.subtotal = String(subtotal);
-    tr.dataset.descItemMonto = String(dMonto);
+    tr.dataset.descItemMonto = String(norm.monto);
     tr.classList.add("fade-in");
+
+    const safeName = escapeHtml(product?.nombre || "");
+    const safeCode = escapeHtml(product?.codigo || "");
 
     tr.innerHTML = `
       <td>
-        <div class="item-name">${product.nombre}</div>
-        <div class="item-code">${product.codigo}</div>
+        <div class="item-name">
+          <span class="item-name-text">${safeName}</span>
+          <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>🏷️ Con descuento</span>
+        </div>
+        <div class="item-code">${safeCode}</div>
       </td>
       <td class="right editable-cell" data-field="cantidad">
         <span class="cell-value">${fmtQty(qty, product)}</span>
@@ -733,29 +1016,32 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="cell-value">${fmtMoney(cost)}</span>
         <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
       </td>
-      <td class="right desc-item-cell">${dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0)}</td>
+      <td class="right desc-item-cell ${norm.monto > 0 ? "has-discount" : ""}">
+        ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}
+      </td>
       <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
       <td class="center">
-        <button type="button" class="btn-icon" title="Editar" data-action="edit">
-          ✏️
-        </button>
-        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">
-          🗑️
-        </button>
+        <button type="button" class="btn-icon" title="Editar cantidad/costo" data-action="edit">✏️</button>
+        <button type="button" class="btn-icon" title="Editar descuento" data-action="edit-discount">🏷️</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">🗑️</button>
 
         <input type="hidden" name="producto_id[]" value="${product.id}">
         <input type="hidden" name="cantidad[]" value="${qty}">
         <input type="hidden" name="costo_unitario[]" value="${cost}">
-        <input type="hidden" name="item_descuento_tipo[]" value="${dTipo}">
-        <input type="hidden" name="item_descuento_valor[]" value="${dVal}">
+        <input type="hidden" name="item_descuento_tipo[]" value="${norm.tipo}">
+        <input type="hidden" name="item_descuento_valor[]" value="${norm.valor}">
       </td>
     `;
 
-    tr.querySelector("[data-action='edit']").addEventListener("click", () =>
-      enableEditMode(tr, product)
+    tr.querySelector("[data-action='edit']")?.addEventListener("click", () =>
+      enableEditMode(tr, product),
     );
-    tr.querySelector("[data-action='delete']").addEventListener("click", () =>
-      deleteRow(tr, rowId)
+    tr.querySelector("[data-action='edit-discount']")?.addEventListener(
+      "click",
+      () => openDiscountEditor(tr, product),
+    );
+    tr.querySelector("[data-action='delete']")?.addEventListener("click", () =>
+      deleteRow(tr, rowId),
     );
 
     tbody.appendChild(tr);
@@ -781,7 +1067,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     AGREGAR ITEM (con validaciones mejoradas)
+     AGREGAR ITEM
   ============================================================================ */
   function addItem() {
     if (!selectedProduct) {
@@ -793,11 +1079,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const qty = parseFloat(inQty.value || 0);
     const cost = parseFloat(inCost.value || 0);
 
-    const dTipo = String(itemDescTipo?.value || 'MONTO').toUpperCase();
+    const dTipo = String(itemDescTipo?.value || "MONTO").toUpperCase();
     let dVal = parseFloat(itemDescValor?.value || 0);
     if (!Number.isFinite(dVal) || dVal < 0) dVal = 0;
 
-    // Validaciones básicas
     if (!(qty > 0)) {
       showToast("La cantidad debe ser mayor a 0", "warning");
       inQty.focus();
@@ -808,10 +1093,11 @@ document.addEventListener("DOMContentLoaded", () => {
       inCost.focus();
       return;
     }
-
-    // Validaciones de rangos
     if (qty > MAX_QTY) {
-      showToast(`Cantidad muy alta (máximo: ${MAX_QTY.toLocaleString()})`, "warning");
+      showToast(
+        `Cantidad muy alta (máximo: ${MAX_QTY.toLocaleString()})`,
+        "warning",
+      );
       inQty.focus();
       return;
     }
@@ -821,38 +1107,38 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Producto duplicado
     const existing = itemsAdded.find(
-      (it) => it.productId === selectedProduct.id
+      (it) => it.productId === selectedProduct.id,
     );
-    
+
     if (existing) {
       showConfirm(
         "Este producto ya está en la lista. ¿Sumar cantidad en la línea existente?",
         () => {
-          // Sumar en la primer ocurrencia
           const tr = tbody.querySelector(`tr[data-row-id="${existing.rowId}"]`);
           if (!tr) return createNewRow(selectedProduct, qty, cost, dTipo, dVal);
 
           const hiddenQty = tr.querySelector(`input[name="cantidad[]"]`);
           const hiddenCost = tr.querySelector(`input[name="costo_unitario[]"]`);
 
-          const newQty = parseFloat(hiddenQty.value || 0) + qty;
-          
-          // Validar nueva cantidad
+          const newQty = parseFloat(hiddenQty?.value || 0) + qty;
+
           if (newQty > MAX_QTY) {
-            showToast(`La suma superaría el máximo permitido (${MAX_QTY.toLocaleString()})`, "warning");
+            showToast(
+              `La suma superaría el máximo permitido (${MAX_QTY.toLocaleString()})`,
+              "warning",
+            );
             return;
           }
 
-          hiddenQty.value = newQty;
-          hiddenCost.value = cost;
+          if (hiddenQty) hiddenQty.value = newQty;
+          if (hiddenCost) hiddenCost.value = cost;
 
           tr.querySelector(
-            ".editable-cell[data-field='cantidad'] .cell-value"
+            ".editable-cell[data-field='cantidad'] .cell-value",
           ).textContent = fmtQty(newQty, selectedProduct);
           tr.querySelector(
-            ".editable-cell[data-field='costo'] .cell-value"
+            ".editable-cell[data-field='costo'] .cell-value",
           ).textContent = fmtMoney(cost);
 
           const newSubtotal = round2(newQty * cost);
@@ -872,7 +1158,7 @@ document.addEventListener("DOMContentLoaded", () => {
           createNewRow(selectedProduct, qty, cost, dTipo, dVal);
         },
         "Sumar",
-        "Agregar nueva línea"
+        "Agregar nueva línea",
       );
       return;
     }
@@ -896,19 +1182,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-
-// Descuento: recalcular en vivo
-[descuentoTipo, descuentoValor].forEach((el) => {
-  if (!el) return;
-  el.addEventListener("input", () => {
-    hasUnsavedChanges = true;
-    recalcTotal();
+  // Debounce en descuento global
+  [descuentoTipo, descuentoValor].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      hasUnsavedChanges = true;
+      clearTimeout(recalcDebounceTimer);
+      recalcDebounceTimer = setTimeout(recalcTotal, 150);
+    });
+    el.addEventListener("change", () => {
+      hasUnsavedChanges = true;
+      recalcTotal();
+    });
   });
-  el.addEventListener("change", () => {
-    hasUnsavedChanges = true;
-    recalcTotal();
-  });
-});
 
   if (form) {
     form.addEventListener("submit", (e) => {
@@ -917,71 +1203,89 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast("Agregá al menos 1 ítem a la compra", "warning");
         return;
       }
-      // Si se envía el form, desactivar la advertencia de salida
       hasUnsavedChanges = false;
     });
   }
 
   /* ============================================================================
+     MODO AGREGAR RÁPIDO (UI TOGGLE)
+  ============================================================================ */
+  function createQuickAddToggle() {
+    const toggleContainer = document.createElement("div");
+    toggleContainer.className = "quick-add-toggle";
+    toggleContainer.innerHTML = `
+      <label class="toggle-label">
+        <input type="checkbox" id="quickAddCheckbox">
+        <span class="toggle-text">⚡ Modo agregar rápido</span>
+        <span class="toggle-hint">(mantener búsqueda activa)</span>
+      </label>
+    `;
+
+    const itemsGrid = document.querySelector(".items-grid");
+    if (itemsGrid) {
+      itemsGrid.insertAdjacentElement("beforebegin", toggleContainer);
+
+      const checkbox = document.getElementById("quickAddCheckbox");
+      checkbox?.addEventListener("change", (e) => {
+        quickAddMode = !!e.target.checked;
+        if (quickAddMode) {
+          showToast("⚡ Modo rápido activado", "info");
+        }
+      });
+    }
+  }
+  createQuickAddToggle();
+
+  /* ============================================================================
      CARGAR ITEMS EN MODO EDICIÓN
   ============================================================================ */
-  const preloadedItems = tbody.querySelectorAll('.preloaded-item');
+  const preloadedItems = tbody.querySelectorAll(".preloaded-item");
   if (preloadedItems.length > 0) {
     removeEmptyRow();
-    
-    preloadedItems.forEach(stub => {
+
+    preloadedItems.forEach((stub) => {
       const productId = parseInt(stub.dataset.productoId);
       const qty = parseFloat(stub.dataset.cantidad);
       const cost = parseFloat(stub.dataset.costo);
-      const descTipo = (stub.dataset.descTipo || 'MONTO').toUpperCase();
-      const descValRaw = parseFloat(stub.dataset.descValor || '0');
+      const descTipo = String(stub.dataset.descTipo || "MONTO").toUpperCase();
+      const descValRaw = parseFloat(stub.dataset.descValor || "0");
       const descVal = Number.isFinite(descValRaw) ? descValRaw : 0;
 
       const esPesable = parseInt(stub.dataset.esPesable);
       const unidad = stub.dataset.unidad;
       const nombre = stub.dataset.nombre;
       const codigo = stub.dataset.codigo;
-      
+
       const productMock = {
         id: productId,
         nombre: nombre,
         codigo: codigo,
         esPesable: esPesable,
-        unidad: unidad
+        unidad: unidad,
       };
 
       const pes2 = isPesable(productMock);
       const qtyStep2 = pes2 ? "0.001" : "1";
-      const qtyMin2  = pes2 ? "0.001" : "1";
+      const qtyMin2 = pes2 ? "0.001" : "1";
 
-  
       const subtotal = round2(qty * cost);
-      let dMonto = 0;
-      let dVal = descVal;
-      if (dVal < 0) dVal = 0;
-      if (subtotal > 0 && dVal > 0) {
-        if (descTipo === 'PORC') {
-          if (dVal > 100) dVal = 100;
-          dMonto = subtotal * (dVal / 100);
-        } else {
-          if (dVal > subtotal) dVal = subtotal;
-          dMonto = dVal;
-        }
-      }
-      dMonto = round2(dMonto);
+      const norm = normalizeDiscount(descTipo, descVal, subtotal);
 
       const rowId = autoIdCounter++;
-      
+
       const tr = document.createElement("tr");
       tr.dataset.row = "item";
       tr.dataset.rowId = String(rowId);
       tr.dataset.subtotal = String(subtotal);
-      tr.dataset.descItemMonto = String(dMonto);
-      
+      tr.dataset.descItemMonto = String(norm.monto);
+
       tr.innerHTML = `
         <td>
-          <div class="item-name">${nombre}</div>
-          <div class="item-code">${codigo}</div>
+          <div class="item-name">
+            <span class="item-name-text">${escapeHtml(nombre)}</span>
+            <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>🏷️ Con descuento</span>
+          </div>
+          <div class="item-code">${escapeHtml(codigo)}</div>
         </td>
         <td class="right editable-cell" data-field="cantidad">
           <span class="cell-value">${fmtQty(qty, productMock)}</span>
@@ -991,48 +1295,52 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="cell-value">${fmtMoney(cost)}</span>
           <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
         </td>
-        <td class="right desc-item-cell">${dMonto > 0 ? "-" + fmtMoney(dMonto) : fmtMoney(0)}</td>
+        <td class="right desc-item-cell ${norm.monto > 0 ? "has-discount" : ""}">
+          ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}
+        </td>
         <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
         <td class="center">
-          <button type="button" class="btn-icon" title="Editar" data-action="edit">
-            ✏️
-          </button>
-          <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">
-            🗑️
-          </button>
+          <button type="button" class="btn-icon" title="Editar cantidad/costo" data-action="edit">✏️</button>
+          <button type="button" class="btn-icon" title="Editar descuento" data-action="edit-discount">🏷️</button>
+          <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">🗑️</button>
 
           <input type="hidden" name="producto_id[]" value="${productId}">
           <input type="hidden" name="cantidad[]" value="${qty}">
           <input type="hidden" name="costo_unitario[]" value="${cost}">
-          <input type="hidden" name="item_descuento_tipo[]" value="${descTipo}">
-          <input type="hidden" name="item_descuento_valor[]" value="${dVal}">
+          <input type="hidden" name="item_descuento_tipo[]" value="${norm.tipo}">
+          <input type="hidden" name="item_descuento_valor[]" value="${norm.valor}">
         </td>
       `;
-      
-      tr.querySelector("[data-action='edit']").addEventListener("click", () =>
-        enableEditMode(tr, productMock)
+
+      tr.querySelector("[data-action='edit']")?.addEventListener("click", () =>
+        enableEditMode(tr, productMock),
       );
-      tr.querySelector("[data-action='delete']").addEventListener("click", () =>
-        deleteRow(tr, rowId)
+      tr.querySelector("[data-action='edit-discount']")?.addEventListener(
+        "click",
+        () => openDiscountEditor(tr, productMock),
       );
-      
+      tr.querySelector("[data-action='delete']")?.addEventListener(
+        "click",
+        () => deleteRow(tr, rowId),
+      );
+
       tbody.appendChild(tr);
       itemsAdded.push({ rowId, productId });
-      
+
       stub.remove();
     });
-    
+
     recalcTotal();
   }
 
   /* ============================================================================
-     FIX: PREVENIR PÉRDIDA DE DATOS - beforeunload
+     PREVENIR PÉRDIDA DE DATOS
   ============================================================================ */
-  window.addEventListener('beforeunload', (e) => {
+  window.addEventListener("beforeunload", (e) => {
     if (hasUnsavedChanges && itemsAdded.length > 0) {
       e.preventDefault();
-      e.returnValue = ''; // Necesario para Chrome
-      return ''; // Necesario para otros navegadores
+      e.returnValue = "";
+      return "";
     }
   });
 

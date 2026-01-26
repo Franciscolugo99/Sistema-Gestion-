@@ -765,12 +765,6 @@ unset($queryParams['page']);
             <option value="MODO" <?= $medio === 'MODO' ? 'selected' : '' ?>>Modo</option>
             <option value="QR" <?= $medio === 'QR' ? 'selected' : '' ?>>QR</option>
           </select>
-
-
-
-
-
-
         </div>
         
         <div class="filtro-group">

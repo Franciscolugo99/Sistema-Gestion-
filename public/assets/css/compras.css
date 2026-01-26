@@ -199,11 +199,12 @@ body.theme-light .compras-page {
 }
 
 @keyframes pulseGlow {
-  0%, 100% { 
+  0%,
+  100% {
     opacity: 1;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
   }
-  50% { 
+  50% {
     opacity: 0.85;
     box-shadow: 0 2px 12px rgba(245, 158, 11, 0.5);
   }
@@ -235,7 +236,7 @@ body.theme-light .compras-page {
   background: rgba(245, 158, 11, 0.2);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-weight: 700;
   color: #ea580c;
 }
@@ -365,17 +366,16 @@ body.theme-light .compras-page {
   margin: 20px 0;
 }
 
-
 /* Inline controls (select + input) */
-.compras-page .inline-controls{
-  display:flex;
-  gap:10px;
-  align-items:center;
+.compras-page .inline-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
-.compras-page .inline-controls select{
+.compras-page .inline-controls select {
   width: 130px;
 }
-.compras-page .inline-controls input{
+.compras-page .inline-controls input {
   flex: 1;
   min-width: 120px;
 }
@@ -514,7 +514,11 @@ body.theme-light .compras-page {
 }
 
 .compras-page .btn-primary {
-  background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--c-primary) 0%,
+    var(--c-primary-dark) 100%
+  );
   color: #fff;
   box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
 }
@@ -765,7 +769,7 @@ body.theme-light .compras-page {
   --c-surface-2: rgba(2, 6, 23, 0.96);
   --c-border: rgba(148, 163, 184, 0.22);
   --c-text: #e5e7eb;
-  
+
   background: var(--c-surface);
   border: 1.5px solid var(--c-border);
   border-radius: 16px;
@@ -996,8 +1000,12 @@ body.theme-light .detalle-info {
 }
 
 @keyframes fadeInModal {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes scaleInModal {
@@ -1042,8 +1050,13 @@ body.theme-light .detalle-info {
 }
 
 @keyframes highlightPulse {
-  0%, 100% { background: transparent; }
-  50% { background: rgba(34, 197, 94, 0.15); }
+  0%,
+  100% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(34, 197, 94, 0.15);
+  }
 }
 
 /* ============================================================================
@@ -1059,7 +1072,7 @@ body.theme-light .detalle-info {
   .compras-page .items-grid .field-wide {
     grid-column: 1 / -1;
   }
-  
+
   .compras-page .page-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1072,19 +1085,19 @@ body.theme-light .detalle-info {
     max-width: 95%;
     max-height: 92vh;
   }
-  
+
   .modal-box.modal-detalle {
     max-width: 98%;
   }
-  
+
   .modal-header {
     padding-right: 40px;
   }
-  
+
   .modal-header h3 {
     font-size: 1.2rem;
   }
-  
+
   .btn-close {
     top: 16px;
     right: 16px;
@@ -1092,17 +1105,17 @@ body.theme-light .detalle-info {
     height: 32px;
     font-size: 1.1rem;
   }
-  
+
   .detalle-info {
     grid-template-columns: 1fr;
     gap: 10px;
     padding: 14px;
   }
-  
+
   .modal-actions {
     flex-direction: column-reverse;
   }
-  
+
   .modal-actions .btn {
     width: 100%;
     justify-content: center;
@@ -1131,13 +1144,13 @@ body.theme-light .detalle-info {
   .compras-page .filters-right {
     flex-direction: column;
   }
-  
+
   .toast {
     left: 16px;
     right: 16px;
     bottom: 16px;
   }
-  
+
   .modal-box {
     margin: 16px;
   }
@@ -1147,17 +1160,17 @@ body.theme-light .detalle-info {
   .modal-overlay {
     padding: 10px;
   }
-  
+
   .modal-box {
     padding: 16px;
     border-radius: 12px;
   }
-  
+
   .modal-body .compras-table thead th {
     font-size: 0.7rem;
     padding: 10px 8px;
   }
-  
+
   .modal-body .compras-table tbody td {
     padding: 10px 8px;
     font-size: 0.85rem;
@@ -1259,5 +1272,206 @@ body.theme-light .compras-page .compras-table tfoot td {
   }
   .compras-page .discount-controls input {
     width: 100%;
+  }
+}
+/* ============================================================================
+   MEJORAS UI (Compras)
+   Pegá este bloque AL FINAL de: public/assets/css/compras.css
+============================================================================ */
+
+/* Vista previa de subtotal */
+.compras-page .subtotal-preview {
+  background: var(--c-surface-2);
+  border: 1.5px solid var(--c-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  animation: slideIn 0.2s ease;
+}
+
+.compras-page .subtotal-preview .preview-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 0.92rem;
+}
+
+.compras-page .subtotal-preview .preview-line.discount {
+  color: var(--c-warning);
+  font-weight: 700;
+}
+
+.compras-page .subtotal-preview .preview-line.total {
+  padding-top: 10px;
+  margin-top: 6px;
+  border-top: 1px solid var(--c-border);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--c-primary);
+}
+
+/* Modo agregar rápido */
+.compras-page .quick-add-toggle {
+  margin: 20px 0;
+  padding: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.08),
+    rgba(168, 85, 247, 0.08)
+  );
+  border: 1.5px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+}
+
+.compras-page .quick-add-toggle .toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.compras-page .quick-add-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--c-primary);
+}
+
+.compras-page .quick-add-toggle .toggle-text {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.compras-page .quick-add-toggle .toggle-hint {
+  font-size: 0.82rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+/* Badge de descuento en ítems */
+.compras-page .item-discount-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  margin-left: 8px;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+}
+
+.compras-page .compras-table .desc-item-cell.has-discount {
+  color: var(--c-warning);
+  font-weight: 800;
+}
+
+/* Modal de edición de descuento */
+.compras-page .discount-editor-modal {
+  max-width: 480px;
+}
+
+.compras-page .discount-editor-modal .product-info {
+  background: var(--c-surface-2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compras-page .discount-editor-modal .product-info strong {
+  font-size: 1.05rem;
+}
+
+.compras-page .discount-editor-modal .product-code {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  font-family: "Courier New", monospace;
+}
+
+.compras-page .discount-editor-modal .discount-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.compras-page .discount-editor-modal .field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.compras-page .discount-editor-modal .field label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+.compras-page .discount-editor-modal .form-input {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-input);
+  color: var(--c-text);
+  outline: none;
+  font-size: 0.95rem;
+  transition: all 0.18s ease;
+}
+
+.compras-page .discount-editor-modal .form-input:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.compras-page .discount-editor-modal .discount-preview {
+  background: var(--c-surface-2);
+  border: 1.5px solid var(--c-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 6px;
+}
+
+.compras-page .discount-editor-modal .preview-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.9rem;
+}
+
+.compras-page .discount-editor-modal .preview-row.discount {
+  color: var(--c-warning);
+  font-weight: 700;
+}
+
+.compras-page .discount-editor-modal .preview-row.total {
+  padding-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid var(--c-border);
+  font-weight: 900;
+  font-size: 1rem;
+  color: var(--c-primary);
+}
+
+.compras-page .discount-editor-modal .preview-row.muted {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Animación de entrada suave */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

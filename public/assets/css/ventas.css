@@ -573,6 +573,9 @@
 .badge-mp { background: #dbeafe; color: #1e40af; }
 .badge-debito { background: #fef3c7; color: #92400e; }
 .badge-credito { background: #ede9fe; color: #5b21b6; }
+.badge-transferencia { background: #d1fae5; color: #047857; }
+.badge-modo { background: #fce7f3; color: #9d174d; }
+.badge-qr { background: #e0f2fe; color: #0369a1; }
 .badge-mixto { background: linear-gradient(135deg, #fef3c7, #ede9fe); color: #5b21b6; }
 .badge-n\/a, .badge- { background: #f1f5f9; color: #64748b; }
 
@@ -767,6 +770,10 @@
 [data-theme="dark"] .badge-mp { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
 [data-theme="dark"] .badge-debito { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
 [data-theme="dark"] .badge-credito { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+[data-theme="dark"] .badge-transferencia { background: rgba(4, 120, 87, 0.2); color: #6ee7b7; }
+[data-theme="dark"] .badge-modo { background: rgba(157, 23, 77, 0.2); color: #f9a8d4; }
+[data-theme="dark"] .badge-qr { background: rgba(3, 105, 161, 0.2); color: #7dd3fc; }
+[data-theme="dark"] .badge-mixto { background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(139, 92, 246, 0.2)); color: #c4b5fd; }
 
 /* ============================================
    RESPONSIVE
@@ -815,4 +822,122 @@
   .charts-panel { display: none !important; }
   
   .ventas-tabla { font-size: 0.8rem; }
+}
+
+/* ============================================
+   RESULTS INFO
+============================================ */
+.results-info {
+  font-size: 0.85rem;
+  color: var(--muted);
+  padding: 8px 0;
+}
+
+/* ============================================
+   KEYBOARD HINTS
+============================================ */
+.keyboard-hints {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  opacity: 0.7;
+  transition: opacity 0.3s;
+  z-index: 100;
+}
+
+.keyboard-hints:hover {
+  opacity: 1;
+}
+
+.keyboard-hints-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.keyboard-hints kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-soft);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 768px) {
+  .keyboard-hints {
+    display: none;
+  }
+}
+
+/* ============================================
+   TOAST CONTAINER (Para consistencia)
+============================================ */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  border-left: 4px solid #22c55e;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.toast-info {
+  border-left: 4px solid #0ea5e9;
+}
+
+.toast-icon {
+  font-size: 1.1rem;
+}
+
+.toast-success .toast-icon { color: #22c55e; }
+.toast-error .toast-icon { color: #ef4444; }
+.toast-warning .toast-icon { color: #f59e0b; }
+.toast-info .toast-icon { color: #0ea5e9; }
+
+.toast-message {
+  font-size: 0.9rem;
 }

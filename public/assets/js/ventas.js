@@ -319,14 +319,18 @@ const VentasManager = {
     if (clientes.length === 0) {
       dropdown.innerHTML = `<div class="cliente-empty">${this.escapeHtml(emptyMsg)}</div>`;
     } else {
-      dropdown.innerHTML = clientes.map((c, i) => `
+      dropdown.innerHTML = clientes.map((c, i) => {
+        // Escape seguro para atributos HTML
+        const safeNombre = this.escapeHtml(c.nombre || '').replace(/"/g, '&quot;');
+        return `
         <div class="cliente-item ${i === 0 ? 'active' : ''}" 
              data-id="${c.id}" 
-             data-nombre="${this.escapeHtml(c.nombre)}">
+             data-nombre="${safeNombre}">
           <span class="cliente-nombre">${this.escapeHtml(c.nombre)}</span>
           ${c.documento ? `<span class="cliente-doc">${this.escapeHtml(c.documento)}</span>` : ''}
         </div>
-      `).join('');
+      `;
+      }).join('');
 
       // Click en items
       dropdown.querySelectorAll('.cliente-item').forEach(item => {
