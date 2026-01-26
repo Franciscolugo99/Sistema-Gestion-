@@ -40,6 +40,7 @@ if ($currentSection === '') {
     'ventas.php'              => 'ventas',
     'venta_detalle.php'       => 'ventas',
     'compras.php'             => 'compras',
+    'proveedores.php'         => 'proveedores',
     'caja_historial.php'      => 'caja_historial',
     'caja_sesion_detalle.php' => 'caja_historial',
     'caja_sesion_print.php'   => 'caja_historial',
@@ -92,6 +93,7 @@ $canInventario  = $canProductos || $canStock;
 $canMovimientos = $can('ver_movimientos');
 $canVentas      = $can('ver_reportes')     || $can('realizar_ventas');
 $canCompras     = $can('editar_stock')     || $can('ver_costos') || $can('editar_productos');
+$canProveedores = $can('ver_proveedores')  || $can('editar_proveedores');
 $canHistCaja    = $can('ver_historial_caja');
 $canPromos      = $can('editar_promos');
 $canClientes    = $can('ver_clientes')     || $can('editar_clientes');
@@ -192,6 +194,14 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
            class="nav-pill <?= $currentSection === 'compras' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'compras' ? 'page' : 'false' ?>">
           🛍️ Compras
+        </a>
+      <?php endif; ?>
+
+      <?php if ($canProveedores): ?>
+        <a href="proveedores.php"
+           class="nav-pill <?= $currentSection === 'proveedores' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'proveedores' ? 'page' : 'false' ?>">
+          🏭 Proveedores
         </a>
       <?php endif; ?>
 

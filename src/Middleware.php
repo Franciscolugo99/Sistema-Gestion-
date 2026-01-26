@@ -26,9 +26,21 @@ final class Middleware {
 
     if (self::wants_json() && function_exists('json_error')) {
       json_error($message, $code);
+      exit;
     }
 
-     flus_abort($code, $message);  }
+    if (function_exists('flus_abort')) {
+      flus_abort($code, $message);
+      exit;
+    }
+
+    if (!headers_sent()) {
+      header('Content-Type: text/plain; charset=UTF-8');
+      header('Cache-Control: no-store');
+    }
+    echo $message;
+    exit;
+  }
 
   /**
    * Normaliza sesión vieja -> nueva
@@ -139,7 +151,8 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
       if (!in_array($method, $allowed, true)) {
         http_response_code(405);
         header('Allow: ' . implode(', ', $allowed));
-     flus_abort($code, $message);    }
+        self::abort(405, 'Método no permitido');
+      }
     };
     return $this;
   }
