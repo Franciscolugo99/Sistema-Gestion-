@@ -9,6 +9,106 @@ require_permission('editar_productos');
 $pdo = getPDO();
 $msg = "";
 
+
+/* ================================
+   PROVEEDORES (integración v3.2.2)
+================================ */
+
+/**
+ * Evita INFORMATION_SCHEMA (algunas instalaciones tienen permisos limitados).
+ */
+function flus_has_column(PDO $pdo, string $table, string $column): bool {
+    try {
+        $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $st->execute([$column]);
+        return (bool)$st->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function flus_has_table(PDO $pdo, string $table): bool {
+    try {
+        $st = $pdo->prepare("SHOW TABLES LIKE ?");
+        $st->execute([$table]);
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function flus_norm_name(string $s): string {
+    $s = trim(preg_replace('/\s+/', ' ', $s) ?? $s);
+    return $s;
+}
+
+/**
+ * Busca proveedor por id (si existe). Devuelve [id, nombre] o null.
+ */
+function flus_get_proveedor_by_id(PDO $pdo, int $id): ?array {
+    if ($id <= 0) return null;
+    try {
+        $st = $pdo->prepare("SELECT id, nombre FROM proveedores WHERE id = ? LIMIT 1");
+        $st->execute([$id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        return $row ? ['id' => (int)$row['id'], 'nombre' => (string)$row['nombre']] : null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Busca por nombre (case-insensitive) o crea. Devuelve id.
+ */
+function flus_get_or_create_proveedor(PDO $pdo, string $nombre): int {
+    $nombre = flus_norm_name($nombre);
+    if ($nombre === '') return 0;
+
+    // Buscar por nombre (case-insensitive)
+    try {
+        $st = $pdo->prepare("SELECT id, nombre FROM proveedores WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1");
+        $st->execute([$nombre]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row && (int)$row['id'] > 0) {
+            return (int)$row['id'];
+        }
+    } catch (Throwable $e) {
+        // seguir
+    }
+
+    // Crear
+    try {
+        $st = $pdo->prepare("INSERT INTO proveedores (nombre, activo) VALUES (?, 1)");
+        $st->execute([$nombre]);
+        return (int)$pdo->lastInsertId();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+
+
+
+$FLUS_HAS_PROVEEDORES = flus_has_table($pdo, 'proveedores');
+$FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_has_column($pdo, 'productos', 'proveedor_id');
+
+// Lista de proveedores para autocomplete.
+// Nota: en algunas instalaciones hay permisos limitados sobre information_schema;
+// por eso intentamos la query directa aunque el helper de schema falle.
+$proveedoresList = [];
+$__provQueryOk = false;
+try {
+    $st = $pdo->query("SELECT id, nombre FROM proveedores WHERE activo = 1 ORDER BY nombre");
+    $proveedoresList = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $__provQueryOk = true;
+} catch (Throwable $e) {
+    $proveedoresList = [];
+}
+// Si el helper falló por permisos (information_schema) pero la query funcionó, consideramos la tabla existente
+if (!$FLUS_HAS_PROVEEDORES && $__provQueryOk) {
+    $FLUS_HAS_PROVEEDORES = true;
+}
+
 /* ================================
    CONSTANTES
 ================================ */
@@ -510,7 +610,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
         $nombre    = trim((string)($_POST['nombre'] ?? ''));
         $categoria = trim((string)($_POST['categoria'] ?? ''));
         $marca     = trim((string)($_POST['marca'] ?? ''));
-        $proveedor = trim((string)($_POST['proveedor'] ?? ''));
+        $proveedor = flus_norm_name((string)($_POST['proveedor'] ?? ''));
+        $proveedorIdInput = (int)($_POST['proveedor_id'] ?? 0);
+
+        // Integración Proveedores: preferir ID si viene de autocomplete.
+        $proveedorId = 0;
+        if ($FLUS_HAS_PROVEEDORES && $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
+            if ($proveedorIdInput > 0) {
+                $pr = flus_get_proveedor_by_id($pdo, $proveedorIdInput);
+                if ($pr) {
+                    $proveedorId = (int)$pr['id'];
+                    $proveedor = flus_norm_name((string)$pr['nombre']);
+                }
+            }
+
+            if ($proveedorId <= 0 && $proveedor !== '') {
+                $proveedorId = flus_get_or_create_proveedor($pdo, $proveedor);
+                $pr2 = flus_get_proveedor_by_id($pdo, $proveedorId);
+                if ($pr2) {
+                    $proveedor = flus_norm_name((string)$pr2['nombre']);
+                }
+            }
+
+            // Permitir producto sin proveedor
+            if ($proveedor === '') $proveedorId = 0;
+        } else {
+            // Compatibilidad: instalaciones sin proveedor_id
+            $proveedorId = 0;
+        }
 
         $ivaRaw = (string)($_POST['iva'] ?? '');
         $iva    = ($ivaRaw === '') ? null : (float)$ivaRaw;
@@ -618,46 +745,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
         }
 
         if ($msg === '') {
+            $provIdForDb = ($proveedorId > 0) ? $proveedorId : null;
+
             if ($id) {
-                $stmt = $pdo->prepare("
-                    UPDATE productos SET
-                        codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, iva = ?,
-                        precio = ?, costo = ?, stock = ?, stock_minimo = ?,
-                        es_pesable = ?, unidad_venta = ?,
-                        activo = ?, imagen = ?
-                    WHERE id = ?
-                ");
-                $stmt->execute([
-                    $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
-                    $precio, $costo, $stock, $stockMinimo,
-                    $esPesable, $unidadVenta,
-                    $activo, $imagenNombre, $id
-                ]);
-                
+                if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
+                    $stmt = $pdo->prepare("
+                        UPDATE productos SET
+                            codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, proveedor_id = ?, iva = ?,
+                            precio = ?, costo = ?, stock = ?, stock_minimo = ?,
+                            es_pesable = ?, unidad_venta = ?,
+                            activo = ?, imagen = ?
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([
+                        $codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva,
+                        $precio, $costo, $stock, $stockMinimo,
+                        $esPesable, $unidadVenta,
+                        $activo, $imagenNombre, $id
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        UPDATE productos SET
+                            codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, iva = ?,
+                            precio = ?, costo = ?, stock = ?, stock_minimo = ?,
+                            es_pesable = ?, unidad_venta = ?,
+                            activo = ?, imagen = ?
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([
+                        $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
+                        $precio, $costo, $stock, $stockMinimo,
+                        $esPesable, $unidadVenta,
+                        $activo, $imagenNombre, $id
+                    ]);
+                }
+
                 $savedId = $id;
                 $savedAction = 'updated';
             } else {
                 $stockInicial = $stock;
 
-                $stmt = $pdo->prepare("
-                    INSERT INTO productos
-                        (codigo, nombre, categoria, marca, proveedor, iva,
-                         precio, costo, stock, stock_minimo, stock_inicial,
-                         es_pesable, unidad_venta,
-                         activo, imagen)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([
-                    $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
-                    $precio, $costo, $stock, $stockMinimo, $stockInicial,
-                    $esPesable, $unidadVenta,
-                    $activo, $imagenNombre
-                ]);
-                
+                if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO productos
+                            (codigo, nombre, categoria, marca, proveedor, proveedor_id, iva,
+                             precio, costo, stock, stock_minimo, stock_inicial,
+                             es_pesable, unidad_venta,
+                             activo, imagen)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva,
+                        $precio, $costo, $stock, $stockMinimo, $stockInicial,
+                        $esPesable, $unidadVenta,
+                        $activo, $imagenNombre
+                    ]);
+                } else {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO productos
+                            (codigo, nombre, categoria, marca, proveedor, iva,
+                             precio, costo, stock, stock_minimo, stock_inicial,
+                             es_pesable, unidad_venta,
+                             activo, imagen)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
+                        $precio, $costo, $stock, $stockMinimo, $stockInicial,
+                        $esPesable, $unidadVenta,
+                        $activo, $imagenNombre
+                    ]);
+                }
+
                 $savedId = (int)$pdo->lastInsertId();
                 $savedAction = 'created';
             }
-            
+
             if ($isAjax) {
                 // Obtener producto actualizado
                 $stmtGet = $pdo->prepare("SELECT * FROM productos WHERE id = ? LIMIT 1");
@@ -743,6 +906,7 @@ if (isset($_GET['editar']) && isset($_GET['ajax'])) {
         'categoria' => $editProducto['categoria'],
         'marca' => $editProducto['marca'],
         'proveedor' => $editProducto['proveedor'],
+        'proveedor_id' => (int)($editProducto['proveedor_id'] ?? 0),
         'iva' => $editProducto['iva'],
         'precio' => $editProducto['precio'],
         'costo' => $editProducto['costo'],
@@ -1028,12 +1192,30 @@ require_once __DIR__ . '/partials/header.php';
                         <label>Marca</label>
                         <input name="marca" list="marcas-list" autocomplete="off" value="<?= h($editProducto['marca'] ?? '') ?>">
                         <datalist id="marcas-list"></datalist>
+                        <!-- Proveedores (datos precargados para autocomplete) -->
+                        <select id="proveedoresData" style="display:none;">
+                            <option value="">--</option>
+                            <?php foreach ($proveedoresList as $pr): ?>
+                                <option value="<?= (int)$pr['id'] ?>"><?= h((string)$pr['nombre']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+
                     </div>
 
                     <div class="pf-field pf-field-wide">
                         <label>Proveedor</label>
-                        <input name="proveedor" list="proveedores-list" autocomplete="off" value="<?= h($editProducto['proveedor'] ?? '') ?>">
-                        <datalist id="proveedores-list"></datalist>
+
+                        <div class="search-wrapper prov-autocomplete">
+                            <input id="proveedorBuscar" name="proveedor" autocomplete="off"
+                                   placeholder="Buscar proveedor…"
+                                   value="<?= h($editProducto['proveedor'] ?? '') ?>">
+                            <div id="proveedorSuggestions" class="suggestions-box"></div>
+                        </div>
+
+                        <input type="hidden" name="proveedor_id" id="proveedorId"
+                               value="<?= (int)($editProducto['proveedor_id'] ?? 0) ?>">
+
+                        <div class="field-help">Escribí y elegí (Enter). Si no existe, se creará al guardar.</div>
                     </div>
 
                     <div class="pf-field">
@@ -1350,8 +1532,14 @@ require_once __DIR__ . '/partials/header.php';
 
                 <div class="edit-field">
                     <label>Proveedor</label>
-                    <input name="proveedor" list="proveedores-list-edit" autocomplete="off">
-                    <datalist id="proveedores-list-edit"></datalist>
+
+                    <div class="search-wrapper prov-autocomplete">
+                        <input id="proveedorBuscarEdit" name="proveedor" autocomplete="off" placeholder="Buscar proveedor…">
+                        <div id="proveedorSuggestionsEdit" class="suggestions-box"></div>
+                    </div>
+
+                    <input type="hidden" name="proveedor_id" id="proveedorIdEdit" value="0">
+                    <div class="field-help">Escribí y elegí (Enter). Si no existe, se creará al guardar.</div>
                 </div>
 
                 <div class="edit-field">

@@ -619,6 +619,7 @@ const ProductosManager = {
         setVal('categoria', producto.categoria);
         setVal('marca', producto.marca);
         setVal('proveedor', producto.proveedor);
+        setVal('proveedor_id', producto.proveedor_id);
         setVal('iva', producto.iva);
         setVal('precio', producto.precio);
         setVal('costo', producto.costo);
@@ -824,6 +825,7 @@ const ProductosManager = {
             setVal('categoria', producto.categoria);
             setVal('marca', producto.marca);
             setVal('proveedor', producto.proveedor);
+        setVal('proveedor_id', producto.proveedor_id);
             setVal('iva', producto.iva);
             setVal('precio', producto.precio);
             setVal('costo', producto.costo);
@@ -1316,8 +1318,7 @@ const ProductosManager = {
         const fields = [
             { name: 'categoria', list: 'categorias-list', listEdit: 'categorias-list-edit' },
             { name: 'marca', list: 'marcas-list', listEdit: 'marcas-list-edit' },
-            { name: 'proveedor', list: 'proveedores-list', listEdit: 'proveedores-list-edit' },
-        ];
+            ];
 
         fields.forEach(({ name, list, listEdit }) => {
             document.querySelectorAll(`input[name="${name}"]`).forEach(input => {
@@ -1325,6 +1326,9 @@ const ProductosManager = {
                 input.addEventListener('focus', () => this.loadAutocomplete(name, datalistId), { once: true });
             });
         });
+
+        // Proveedores: autocomplete con dropdown (no datalist)
+        this.bindProveedorAutocomplete();
     },
 
     async loadAutocomplete(field, datalistId) {
@@ -1342,6 +1346,133 @@ const ProductosManager = {
         } catch (e) {
             console.warn('[ProductosManager] Autocomplete error:', e);
         }
+    },
+
+
+    bindProveedorAutocomplete() {
+        const select = document.getElementById('proveedoresData');
+        if (!select) return;
+
+        const proveedores = Array.from(select.options)
+            .filter(o => o.value && o.textContent)
+            .map(o => {
+                const nombre = (o.textContent || '').trim();
+                return {
+                    id: parseInt(o.value, 10),
+                    nombre,
+                    norm: nombre.toLowerCase(),
+                };
+            })
+            .filter(p => p.id > 0 && p.nombre);
+
+        const setup = (input, hidden, box) => {
+            if (!input || !hidden || !box) return;
+
+            let idx = -1;
+            let filtered = [];
+
+            const close = () => {
+                box.classList.remove('active');
+                box.innerHTML = '';
+                idx = -1;
+                filtered = [];
+            };
+
+            const render = () => {
+                if (!filtered.length) {
+                    close();
+                    return;
+                }
+                box.innerHTML = filtered.map(p =>
+                    `<div class="suggestion-item" data-id="${p.id}">${this.escapeHtml(p.nombre)}</div>`
+                ).join('');
+                box.classList.add('active');
+                idx = -1;
+            };
+
+            const clearActive = () => {
+                box.querySelectorAll('.suggestion-item').forEach(el => el.classList.remove('keyboard-active'));
+            };
+
+            const setActive = (i) => {
+                const items = Array.from(box.querySelectorAll('.suggestion-item'));
+                if (!items.length) return;
+                const next = Math.max(0, Math.min(i, items.length - 1));
+                clearActive();
+                items[next].classList.add('keyboard-active');
+                items[next].scrollIntoView({ block: 'nearest' });
+                idx = next;
+            };
+
+            const choose = (p) => {
+                input.value = p.nombre;
+                hidden.value = String(p.id);
+                close();
+            };
+
+            const syncExact = () => {
+                const q = (input.value || '').trim().toLowerCase();
+                if (!q) return;
+                const hit = proveedores.find(p => p.norm === q);
+                if (hit) choose(hit);
+            };
+
+            input.addEventListener('input', () => {
+                hidden.value = '0';
+                const q = (input.value || '').trim().toLowerCase();
+                if (q.length < 2) {
+                    close();
+                    return;
+                }
+                filtered = proveedores.filter(p => p.norm.includes(q)).slice(0, 10);
+                render();
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (!box.classList.contains('active')) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActive(idx + 1);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActive(idx - 1);
+                } else if (e.key === 'Enter') {
+                    if (idx >= 0 && filtered[idx]) {
+                        e.preventDefault();
+                        choose(filtered[idx]);
+                    } else {
+                        // si escribió exacto, enganchar
+                        syncExact();
+                    }
+                } else if (e.key === 'Escape') {
+                    close();
+                }
+            });
+
+            box.addEventListener('mousedown', (e) => {
+                const item = e.target.closest('.suggestion-item');
+                if (!item) return;
+                const id = parseInt(item.getAttribute('data-id') || '0', 10);
+                const p = proveedores.find(x => x.id === id);
+                if (p) choose(p);
+            });
+
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    syncExact();
+                    close();
+                }, 120);
+            });
+
+            document.addEventListener('click', (e) => {
+                const wrap = input.closest('.search-wrapper') || input.parentElement;
+                if (wrap && !wrap.contains(e.target)) close();
+            });
+        };
+
+        setup(document.getElementById('proveedorBuscar'), document.getElementById('proveedorId'), document.getElementById('proveedorSuggestions'));
+        setup(document.getElementById('proveedorBuscarEdit'), document.getElementById('proveedorIdEdit'), document.getElementById('proveedorSuggestionsEdit'));
     },
 
     // ============================================
