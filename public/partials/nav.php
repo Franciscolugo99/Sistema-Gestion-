@@ -48,6 +48,13 @@ if ($currentSection === '') {
     'promo_form.php'          => 'promos',
     'promo_combo_form.php'    => 'promos',
     'clientes.php'            => 'clientes',
+
+    // ✅ NUEVO: Cuenta Corriente
+    // Ajustá estos nombres si tus archivos se llaman distinto
+    'cuenta_corriente.php'          => 'cuenta_corriente',
+    'cuenta_corriente_cliente.php'  => 'cuenta_corriente',
+    'cuenta_corriente_print.php'    => 'cuenta_corriente',
+
     'facturacion.php'         => 'facturacion',
     'factura_nueva.php'       => 'facturacion',
     'factura_ver.php'         => 'facturacion',
@@ -98,6 +105,13 @@ $canHistCaja    = $can('ver_historial_caja');
 $canPromos      = $can('editar_promos');
 $canClientes    = $can('ver_clientes')     || $can('editar_clientes');
 $canFacturacion = $can('ver_facturacion')  || $can('emitir_factura') || $can('administrar_config');
+
+// ✅ NUEVO: Cuenta Corriente (elegí el criterio que querés)
+// Opción simple (recomendada): visible si puede ver clientes y cuenta corriente
+$canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
+
+// Si querés que aparezca también si tiene permisos operativos, podés usar esto en lugar de lo anterior:
+// $canCuentaCorriente = $can('ver_cuenta_corriente') || $can('registrar_pago_cc') || $can('registrar_cargo_cc');
 
 $showAdminMenu =
   $can('administrar_config') ||
@@ -226,6 +240,15 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
            class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'clientes' ? 'page' : 'false' ?>">
           👥 Clientes
+        </a>
+      <?php endif; ?>
+
+      <!-- ✅ NUEVO: Cuenta Corriente -->
+      <?php if ($canCuentaCorriente): ?>
+        <a href="cuenta_corriente.php"
+           class="nav-pill <?= $currentSection === 'cuenta_corriente' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'cuenta_corriente' ? 'page' : 'false' ?>">
+          🧮 Cuenta Corriente
         </a>
       <?php endif; ?>
 
@@ -384,7 +407,6 @@ if (adminMenuBtn && adminMenuPop) {
     }
   });
 }
-
 
 })();
 </script>
