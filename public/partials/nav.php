@@ -327,6 +327,8 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
 </nav>
 
 <script>
+(() => {
+  'use strict';
 // ============================================================================
 // NAVBAR INTERACTIVA
 // ============================================================================
@@ -383,34 +385,6 @@ if (adminMenuBtn && adminMenuPop) {
   });
 }
 
-// Theme toggle
-const themeToggle = document.getElementById('toggleTheme');
-const THEME_KEY = 'kiosco-theme';
 
-function applyTheme(isDark) {
-  document.documentElement.classList.toggle('dark', isDark);
-  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
-}
-
-// Cargar tema guardado
-const savedTheme = localStorage.getItem(THEME_KEY);
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const isDark = savedTheme ? savedTheme === 'dark' : prefersDark;
-
-if (themeToggle) {
-  themeToggle.checked = isDark;
-  applyTheme(isDark);
-
-  themeToggle.addEventListener('change', (e) => {
-    applyTheme(e.target.checked);
-  });
-}
-
-// Listener para cambios del sistema
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  if (!localStorage.getItem(THEME_KEY)) {
-    applyTheme(e.matches);
-    if (themeToggle) themeToggle.checked = e.matches;
-  }
-});
+})();
 </script>

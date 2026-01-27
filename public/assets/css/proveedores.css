@@ -2,6 +2,52 @@
    PROVEEDORES MODULE - FLUS v1.0
    ========================================================================== */
 
+/* === FLUS theme aliases (para que Proveedores respete theme.css) === */
+/* === FLUS theme aliases (para que Proveedores respete theme.css) === */
+.proveedores-page,
+.drawer{
+  --card-bg: var(--panel);
+  --input-bg: var(--panel);
+  --border-color: var(--panel-border);
+
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --text-muted: var(--muted);
+
+  --primary-color: var(--accent-blue);
+  --success-color: var(--accent-green);
+  --danger-color: var(--accent-red, #ef4444);
+
+  --hover-bg: rgba(15,23,42,.04);
+
+  --info-bg: rgba(56,189,248,.16);
+  --info-text: var(--text);
+
+  --success-bg: rgba(34,197,94,.16);
+  --success-text: var(--text);
+
+  --muted-bg: rgba(148,163,184,.12);
+
+  --danger-bg: rgba(239,68,68,.14);
+  --danger-border: rgba(239,68,68,.35);
+  --danger-text: #dc2626;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+body[data-theme="dark"] .proveedores-page,
+body[data-theme="dark"] .drawer{
+  --hover-bg: rgba(148,163,184,.10);
+  --muted-bg: rgba(148,163,184,.10);
+
+  --info-text: #bfdbfe;
+  --success-text: #bbf7d0;
+  --danger-text: #fecaca;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
+}
+
+
 /* ---------- Page Layout ---------- */
 .proveedores-page {
   max-width: 1400px;
@@ -18,6 +64,7 @@
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.08));
+  border: 1px solid var(--border-color, #e5e7eb);
 }
 
 /* ---------- Page Header ---------- */
@@ -90,7 +137,7 @@
 .search-input:focus {
   outline: none;
   border-color: var(--primary-color, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .filters select {
@@ -141,6 +188,7 @@
   padding: 0.875rem 0.5rem;
   border-bottom: 1px solid var(--border-color, #e5e7eb);
   vertical-align: middle;
+  color: var(--text-primary, #1f2937);
 }
 
 .prov-table tr:hover {
@@ -190,9 +238,11 @@
 }
 
 .wa-link {
+  display: inline-block;
   margin-left: 0.5rem;
   text-decoration: none;
   font-size: 1rem;
+  transition: transform .12s ease;
 }
 
 .wa-link:hover {
@@ -365,6 +415,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-left: 1px solid var(--border-color, #e5e7eb);
 }
 
 .drawer.is-open {
@@ -422,6 +473,7 @@
   padding: 1rem;
   background: var(--info-bg, #eff6ff);
   border-radius: 10px;
+  border: 1px solid var(--border-color, #e5e7eb);
 }
 
 .stat-item {
@@ -502,7 +554,7 @@
 .prov-field textarea:focus {
   outline: none;
   border-color: var(--primary-color, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .prov-field textarea {
@@ -618,110 +670,64 @@
   .proveedores-page {
     padding: 0 0.5rem;
   }
-  
+
   .page-header {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .page-actions {
     justify-content: flex-end;
   }
-  
+
   .filters {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .filters-left {
     flex-direction: column;
   }
-  
+
   .search-input {
     min-width: 100%;
   }
-  
+
   .filters-right {
     text-align: right;
   }
-  
+
   .prov-table th,
   .prov-table td {
     padding: 0.625rem 0.375rem;
     font-size: 0.85rem;
   }
-  
+
   .drawer {
     max-width: 100%;
   }
-  
+
   .prov-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .prov-field-wide {
     grid-column: 1;
   }
-  
+
   .edit-stats {
     grid-template-columns: 1fr;
     gap: 0.5rem;
   }
-  
+
   .stat-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     text-align: left;
   }
-  
+
   .pager {
     flex-wrap: wrap;
   }
-}
-
-/* ==========================================================================
-   DARK MODE
-   ========================================================================== */
-
-[data-theme="dark"] .prov-list-panel,
-.dark .prov-list-panel {
-  background: var(--card-bg-dark, #1f2937);
-}
-
-[data-theme="dark"] .prov-table tr:hover,
-.dark .prov-table tr:hover {
-  background: var(--hover-bg-dark, #374151);
-}
-
-[data-theme="dark"] .drawer,
-.dark .drawer {
-  background: var(--card-bg-dark, #1f2937);
-}
-
-[data-theme="dark"] .edit-stats,
-.dark .edit-stats {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-[data-theme="dark"] .prov-field input,
-[data-theme="dark"] .prov-field select,
-[data-theme="dark"] .prov-field textarea,
-.dark .prov-field input,
-.dark .prov-field select,
-.dark .prov-field textarea {
-  background: var(--input-bg-dark, #374151);
-  border-color: var(--border-color-dark, #4b5563);
-  color: var(--text-primary-dark, #f9fafb);
-}
-
-[data-theme="dark"] .section-title,
-.dark .section-title {
-  border-color: var(--border-color-dark, #4b5563);
-}
-
-[data-theme="dark"] .prov-form-errors,
-.dark .prov-form-errors {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
 }

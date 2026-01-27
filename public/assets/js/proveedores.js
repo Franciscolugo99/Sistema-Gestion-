@@ -102,29 +102,26 @@
   });
 
   // ========== CUIT Formatting ==========
-  
+
   const cuitInput = form?.querySelector('input[name="cuit"]');
   if (cuitInput) {
-    cuitInput.addEventListener('input', function(e) {
-      let value = this.value.replace(/\D/g, '');
-      
-      if (value.length > 11) {
-        value = value.slice(0, 11);
+    cuitInput.addEventListener('input', function() {
+      // Solo dígitos, máximo 11
+      const digits = this.value.replace(/\D/g, '').slice(0, 11);
+
+      // Formato: XX-XXXXXXXX-X
+      if (digits.length <= 2) {
+        this.value = digits;
+      } else if (digits.length <= 10) {
+        this.value = `${digits.slice(0, 2)}-${digits.slice(2)}`;
+      } else {
+        this.value = `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
       }
-      
-      // Formatear XX-XXXXXXXX-X
-      if (value.length > 2) {
-        value = value.slice(0, 2) + '-' + value.slice(2);
-      }
-      if (value.length > 11) {
-        value = value.slice(0, 11) + '-' + value.slice(11);
-      }
-      
-      this.value = value;
     });
   }
 
   // ========== WhatsApp Formatting ==========
+
   
   const waInput = form?.querySelector('input[name="whatsapp"]');
   if (waInput) {
