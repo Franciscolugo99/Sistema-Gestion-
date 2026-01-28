@@ -1,137 +1,147 @@
 <?php
 declare(strict_types=1);
 // public/api/actions/buscar_productos.php
-// FIX definitivo autocompletado Caja
-// - Búsqueda case-insensitive (funciona incluso si la tabla/campos están en collation *_bin)
-// - Busca por: codigo, nombre, marca, categoria, proveedor (si existen)
-// - Por defecto filtra activo=1 (si existe). Si no encuentra nada, reintenta SIN filtro activo.
-// - Devuelve siempre {ok:true, productos:[...]}. Si debug=1 agrega debug con SQL/errores.
+// VERSIÓN ULTRA-ROBUSTA - Detecta columnas disponibles
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$debug = (($_GET['debug'] ?? '') === '1');
-
 $respond = function(array $payload): void {
-  http_response_code(200);
-  echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-  exit;
+    http_response_code(200);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
 };
 
 $q = trim((string)($_GET['q'] ?? ''));
-$len = function_exists('mb_strlen') ? mb_strlen($q) : strlen($q);
-if ($q === '' || $len < 2) {
-  $respond(['ok' => true, 'productos' => []]);
+if ($q === '' || strlen($q) < 2) {
+    $respond(['ok' => true, 'productos' => []]);
 }
 
 $limit = (int)($_GET['limit'] ?? 10);
 $limit = max(1, min($limit, 20));
 
 try {
-  require_once __DIR__ . '/../../lib/root.php';
-  require_once FLUS_ROOT . '/src/config.php';
-  require_once FLUS_ROOT . '/src/db_helpers.php';
+    require_once __DIR__ . '/../../lib/root.php';
+    require_once FLUS_ROOT . '/src/config.php';
+    require_once FLUS_ROOT . '/src/db_helpers.php';
 
-  if (!function_exists('getPDO')) {
-    $respond(['ok' => true, 'productos' => [], 'debug' => $debug ? ['error' => 'getPDO_missing'] : null]);
-  }
-
-  $pdo = getPDO();
-
-  // Detectar columnas existentes
-  $cols = [];
-  try {
-    $stCols = $pdo->query("SHOW COLUMNS FROM productos");
-    $rows = $stCols ? $stCols->fetchAll(PDO::FETCH_ASSOC) : [];
-    foreach ($rows as $r) {
-      $f = (string)($r['Field'] ?? '');
-      if ($f !== '') $cols[$f] = true;
+    if (!function_exists('getPDO')) {
+        $respond(['ok' => false, 'error' => 'getPDO_missing', 'productos' => []]);
     }
-  } catch (Throwable $e) {
-    $respond(['ok' => true, 'productos' => [], 'debug' => $debug ? ['error' => 'show_columns_failed', 'msg' => $e->getMessage()] : null]);
-  }
 
-  $has = fn(string $c): bool => isset($cols[$c]);
+    $pdo = getPDO();
 
-  $searchCols = [];
-  foreach (['codigo','nombre','marca','categoria','proveedor'] as $c) {
-    if ($has($c)) $searchCols[] = $c;
-  }
-  if (!$searchCols) {
-    $respond(['ok' => true, 'productos' => [], 'debug' => $debug ? ['error' => 'no_search_cols'] : null]);
-  }
+    // Detectar columnas existentes
+    $stCols = $pdo->query("SHOW COLUMNS FROM productos");
+    $cols = [];
+    while ($row = $stCols->fetch(PDO::FETCH_ASSOC)) {
+        $cols[] = $row['Field'];
+    }
 
-  // Normalizar query a minúsculas
-  $qLower = function_exists('mb_strtolower') ? mb_strtolower($q, 'UTF-8') : strtolower($q);
-  $like = '%' . $qLower . '%';
+    // Verificar qué columnas tenemos disponibles
+    $hasCol = function($name) use ($cols) {
+        return in_array($name, $cols, true);
+    };
 
-  // Campos de salida (tu esquema los tiene)
-  $select = "id, codigo, nombre, precio, stock, es_pesable, unidad_venta";
-  if ($has('activo')) $select .= ", activo";
+    // Construir lista de columnas donde buscar
+    $searchCols = ['codigo', 'nombre'];
+    if ($hasCol('marca')) $searchCols[] = 'marca';
+    if ($hasCol('categoria')) $searchCols[] = 'categoria';
+    if ($hasCol('proveedor')) $searchCols[] = 'proveedor';
 
-  // WHERE OR con LOWER() para case-insensitive incluso con collation binaria
-  $ors = [];
-  foreach ($searchCols as $c) {
-    // COALESCE por si NULL
-    $ors[] = "LOWER(COALESCE(`{$c}`,'')) LIKE :like";
-  }
-  $orSql = '(' . implode(' OR ', $ors) . ')';
+    // Normalizar query a minúsculas
+    $qLower = mb_strtolower($q, 'UTF-8');
+    $like = '%' . $qLower . '%';
+    
+    // Construir WHERE con las columnas disponibles
+    $whereParts = [];
+    foreach ($searchCols as $col) {
+        $whereParts[] = "LOWER(COALESCE(`$col`, '')) LIKE ?";
+    }
+    $whereClause = '(' . implode(' OR ', $whereParts) . ')';
 
-  $order = "ORDER BY CASE
-      WHEN `codigo` = :exact THEN 0
-      WHEN `codigo` LIKE :start THEN 1
-      WHEN `nombre` LIKE :start THEN 2
-      ELSE 3 END,
-      `nombre` ASC";
+    // Construir SELECT con columnas opcionales
+    $selectParts = ['id', 'codigo', 'nombre', 'precio', 'stock'];
+    if ($hasCol('es_pesable')) {
+        $selectParts[] = 'COALESCE(es_pesable, 0) as es_pesable';
+    } else {
+        $selectParts[] = '0 as es_pesable';
+    }
+    if ($hasCol('unidad_venta')) {
+        $selectParts[] = "COALESCE(unidad_venta, 'UNIDAD') as unidad_venta";
+    } else {
+        $selectParts[] = "'UNIDAD' as unidad_venta";
+    }
+    if ($hasCol('activo')) {
+        $selectParts[] = 'COALESCE(activo, 1) as activo';
+    } else {
+        $selectParts[] = '1 as activo';
+    }
+    $selectClause = implode(', ', $selectParts);
 
-  $params = [
-    ':like' => $like,
-    ':exact' => $q,
-    ':start' => $q . '%',
-  ];
+    // Construir ORDER BY
+    $orderClause = "ORDER BY 
+        CASE 
+            WHEN LOWER(`codigo`) = ? THEN 0
+            WHEN LOWER(`codigo`) LIKE ? THEN 1
+            WHEN LOWER(`nombre`) LIKE ? THEN 2
+            ELSE 3 
+        END,
+        `nombre` ASC";
 
-  $sql1 = "SELECT {$select} FROM productos WHERE {$orSql}";
-  if ($has('activo')) $sql1 .= " AND activo = 1";
-  $sql1 .= " {$order} LIMIT {$limit}";
+    // SQL completo (con filtro activo si la columna existe)
+    $sql = "SELECT $selectClause FROM productos WHERE $whereClause";
+    if ($hasCol('activo')) {
+        $sql .= " AND activo = 1";
+    }
+    $sql .= " $orderClause LIMIT ?";
 
-  $st = $pdo->prepare($sql1);
-  $st->execute($params);
-  $productos = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    // Preparar parámetros
+    $params = [];
+    // Primero todos los LIKE (uno por cada columna de búsqueda)
+    foreach ($searchCols as $col) {
+        $params[] = $like;
+    }
+    // Luego los del ORDER BY
+    $params[] = $qLower;      // codigo exacto
+    $params[] = $qLower.'%';  // codigo starts with
+    $params[] = $qLower.'%';  // nombre starts with
+    $params[] = $limit;       // limit
 
-  // Si no hubo resultados y existe activo, reintentar sin filtro activo
-  $sql2 = null;
-  if (!$productos && $has('activo')) {
-    $sql2 = "SELECT {$select} FROM productos WHERE {$orSql} {$order} LIMIT {$limit}";
-    $st2 = $pdo->prepare($sql2);
-    $st2->execute($params);
-    $productos = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
-  }
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $productos = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-  foreach ($productos as &$p) {
-    $p['id'] = (int)($p['id'] ?? 0);
-    $p['codigo'] = (string)($p['codigo'] ?? '');
-    $p['nombre'] = (string)($p['nombre'] ?? '');
-    $p['precio'] = (float)($p['precio'] ?? 0);
-    $p['stock'] = (float)($p['stock'] ?? 0);
-    $p['es_pesable'] = ((int)($p['es_pesable'] ?? 0) === 1);
-    $p['unidad_venta'] = ($p['unidad_venta'] ?? '') ?: 'UNIDAD';
-    if (isset($p['activo'])) $p['activo'] = ((int)$p['activo'] === 1);
-  }
-  unset($p);
+    // Si no encontró nada y existe columna activo, reintentar sin filtro
+    if (empty($productos) && $hasCol('activo')) {
+        $sql2 = "SELECT $selectClause FROM productos WHERE $whereClause $orderClause LIMIT ?";
+        $st2 = $pdo->prepare($sql2);
+        $st2->execute($params); // Mismos parámetros
+        $productos = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 
-  $out = ['ok' => true, 'productos' => $productos];
-  if ($debug) {
-    $out['debug'] = [
-      'q' => $q,
-      'qLower' => $qLower,
-      'searchCols' => $searchCols,
-      'sql1' => $sql1,
-      'sql2' => $sql2,
-      'count' => count($productos),
-    ];
-  }
-  $respond($out);
+    // Normalizar tipos de datos
+    foreach ($productos as &$p) {
+        $p['id'] = (int)($p['id'] ?? 0);
+        $p['codigo'] = (string)($p['codigo'] ?? '');
+        $p['nombre'] = (string)($p['nombre'] ?? '');
+        $p['precio'] = (float)($p['precio'] ?? 0);
+        $p['stock'] = (float)($p['stock'] ?? 0);
+        $p['es_pesable'] = ((int)($p['es_pesable'] ?? 0) === 1);
+        $p['unidad_venta'] = (string)($p['unidad_venta'] ?: 'UNIDAD');
+        $p['activo'] = ((int)($p['activo'] ?? 1) === 1);
+    }
+    unset($p);
+
+    $respond(['ok' => true, 'productos' => $productos]);
 
 } catch (Throwable $e) {
-  $respond(['ok' => true, 'productos' => [], 'debug' => $debug ? ['error' => 'exception', 'msg' => $e->getMessage()] : null]);
+    error_log("Error en buscar_productos: " . $e->getMessage());
+    
+    $respond([
+        'ok' => false,
+        'error' => 'exception',
+        'mensaje' => $e->getMessage(),
+        'productos' => []
+    ]);
 }
