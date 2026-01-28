@@ -436,6 +436,225 @@ body.no-scroll {
 }
 
 /* ----------------------------------------------------------
+   CUENTA CORRIENTE - Estadísticas
+---------------------------------------------------------- */
+
+.cli-cc-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+  padding: 0 2px;
+}
+
+.cc-stat-card {
+  background: var(--panel, rgba(15, 23, 42, 0.65));
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
+  border-radius: 14px;
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.cc-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-main, var(--text, #e5e7eb));
+  line-height: 1.1;
+}
+
+.cc-stat-value.cc-stat-money {
+  font-size: 1.5rem;
+  color: #f59e0b;
+}
+
+.cc-stat-label {
+  font-size: 0.82rem;
+  color: var(--muted, #94a3b8);
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cc-stat-card.cc-stat-warning {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.cc-stat-card.cc-stat-warning .cc-stat-value {
+  color: #ef4444;
+}
+
+/* ----------------------------------------------------------
+   CUENTA CORRIENTE - Celda en tabla
+---------------------------------------------------------- */
+
+.cc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cc-saldo {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.cc-limite {
+  font-size: 0.82rem;
+  color: var(--muted, #94a3b8);
+}
+
+.cc-cell.cc-ok .cc-saldo {
+  color: #22c55e;
+}
+
+.cc-cell.cc-deuda .cc-saldo {
+  color: #f59e0b;
+}
+
+.cc-cell.cc-excedido .cc-saldo {
+  color: #ef4444;
+}
+
+.tag-danger {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.tag-sm {
+  font-size: 0.72rem;
+  padding: 2px 6px;
+}
+
+.btn-mini-cc {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.btn-mini-cc:hover {
+  background: rgba(56, 189, 248, 0.22);
+}
+
+/* ----------------------------------------------------------
+   CUENTA CORRIENTE - Sección en formulario
+---------------------------------------------------------- */
+
+.cli-cc-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--panel-border, rgba(148, 163, 184, 0.25));
+}
+
+.cli-cc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.cli-cc-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main, var(--text, #e5e7eb));
+}
+
+.cli-cc-config {
+  background: rgba(56, 189, 248, 0.04);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.cli-cc-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 600px) {
+  .cli-cc-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.input-with-prefix {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.input-with-prefix .input-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 12px;
+  background: var(--input-bg, rgba(2, 6, 23, 0.14));
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  color: var(--muted, #94a3b8);
+  font-weight: 600;
+}
+
+.input-with-prefix input {
+  border-radius: 0 12px 12px 0 !important;
+  flex: 1;
+}
+
+.cli-cc-info {
+  background: var(--panel, rgba(15, 23, 42, 0.5));
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.cc-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.cc-info-row:last-of-type {
+  border-bottom: none;
+}
+
+.cc-info-label {
+  font-size: 0.85rem;
+  color: var(--muted, #94a3b8);
+}
+
+.cc-info-value {
+  font-weight: 600;
+  color: var(--text-main, var(--text, #e5e7eb));
+}
+
+.cc-info-value.cc-value-deuda {
+  color: #f59e0b;
+}
+
+.cc-info-value.cc-value-excedido {
+  color: #ef4444;
+}
+
+.cc-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.cc-actions .btn-sm {
+  font-size: 0.85rem;
+  padding: 8px 14px;
+}
+
+/* ----------------------------------------------------------
    Responsive
 ---------------------------------------------------------- */
 
@@ -454,5 +673,13 @@ body.no-scroll {
   .filters select {
     width: 100%;
     min-width: unset;
+  }
+  
+  .cli-cc-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .cc-stat-value {
+    font-size: 1.4rem;
   }
 }
