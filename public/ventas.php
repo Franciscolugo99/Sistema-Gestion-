@@ -22,32 +22,6 @@ const EXPORT_LIMIT = 10000;
 /* =========================
    Helpers
 ========================= */
-function _legacy_has_table(PDO $pdo, string $table): bool {
-  static $cache = [];
-  if (!isset($cache[$table])) {
-    $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-    $st->execute([$table]);
-    $cache[$table] = (bool)$st->fetchColumn();
-  }
-  return $cache[$table];
-}
-
-function _legacy_has_column(PDO $pdo, string $table, string $column): bool {
-  static $cache = [];
-  $key = "$table.$column";
-  if (!isset($cache[$key])) {
-    $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
-    $st->execute([$table, $column]);
-    $cache[$key] = (bool)$st->fetchColumn();
-  }
-  return $cache[$key];
-}
-
-function has_view(PDO $pdo, string $view): bool {
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-  $st->execute([$view]);
-  return (bool)$st->fetchColumn();
-}
 
 /* Paginación numérica */
 function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {

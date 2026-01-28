@@ -46,17 +46,6 @@ if (!function_exists('fmt_qty_ticket')) {
   }
 }
 
-function _legacy_has_table(PDO $pdo, string $table): bool {
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-  $st->execute([$table]);
-  return (bool)$st->fetchColumn();
-}
-
-function _legacy_has_col(PDO $pdo, string $table, string $col): bool {
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1");
-  $st->execute([$table, $col]);
-  return (bool)$st->fetchColumn();
-}
 
 /**
  * Normaliza unidad (para lógica)

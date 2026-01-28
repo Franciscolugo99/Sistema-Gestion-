@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+
+// Schema helpers (cache + compat)
+$__flus_schema_helpers = __DIR__ . '/db_schema.php';
+if (is_file($__flus_schema_helpers)) require_once $__flus_schema_helpers;
 /**
  * src/api_helpers.php
  * Funciones helper centralizadas para todas las APIs
@@ -108,13 +112,24 @@ function get_table_columns(PDO $pdo, string $table): array {
     static $cache = [];
     if (isset($cache[$table])) return $cache[$table];
 
+    // Preferir helpers cacheados del core (db_schema.php)
+    if (function_exists('flus_current_db') && function_exists('flus_columns_set')) {
+        $schema = (string)flus_current_db($pdo);
+        if ($schema !== '') {
+            $set = flus_columns_set($pdo, $schema, $table);
+            $cache[$table] = array_keys($set);
+            return $cache[$table];
+        }
+    }
+
+    // Fallback clásico (INFORMATION_SCHEMA)
     $st = $pdo->prepare("
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
     ");
     $st->execute([$table]);
-    $cache[$table] = $st->fetchAll(PDO::FETCH_COLUMN);
+    $cache[$table] = $st->fetchAll(PDO::FETCH_COLUMN) ?: [];
     return $cache[$table];
 }
 
@@ -122,6 +137,11 @@ function get_table_columns(PDO $pdo, string $table): array {
  * Verificar si una columna existe en tabla
  */
 function has_col(PDO $pdo, string $table, string $col): bool {
+    // Preferir helper core
+    if (function_exists('flus_column_exists')) {
+        return (bool)flus_column_exists($pdo, $table, $col);
+    }
+
     $cols = get_table_columns($pdo, $table);
     return in_array($col, $cols, true);
 }
