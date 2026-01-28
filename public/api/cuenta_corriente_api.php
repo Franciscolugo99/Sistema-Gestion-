@@ -22,7 +22,7 @@ $cc = new CuentaCorrienteController($pdo);
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 // Usuario actual (se usa en varias acciones)
-$usuarioId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
+$usuarioId = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['usuario_id'] ?? ($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0)));
 $cajaId = (int)($_SESSION['caja_id'] ?? 0) ?: null;
 $terminalId = (int)($_SESSION['terminal_id'] ?? 0) ?: null;
 

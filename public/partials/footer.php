@@ -27,32 +27,43 @@ $tz       = (string)date_default_timezone_get();
 
 // Resumen de licencia para el texto “Copiar info”
 $licPlan = 'N/D'; $licVence = 'N/D'; $licDias = 'N/D'; $licEstado = 'N/D';
-$licPaths = [
-  __DIR__ . '/../storage/license.json',
-  __DIR__ . '/../../storage/license.json',
-];
-foreach ($licPaths as $p) {
-  if (is_file($p)) {
-    $j = json_decode((string)file_get_contents($p), true);
-    if (is_array($j)) {
-      $licPlan = (string)($j['plan'] ?? 'N/D');
-      $expStr  = $j['expires_at'] ?? null;
-      if ($expStr) {
-        try {
-          $hoy   = new DateTime('today');
-          $vence = new DateTime((string)$expStr);
-          $diff  = (int)$hoy->diff($vence)->format('%r%a');
-          $licDias   = (string)$diff;
-          $licEstado = ($diff < 0) ? 'vencida' : (($diff <= 7) ? 'por vencer' : 'activa');
-          $licVence  = $vence->format('Y-m-d');
-        } catch (Throwable $e) {
-          $licVence = (string)$expStr;
+
+// Preferimos el estado calculado por bootstrap
+if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE)) {
+  $licPlan   = (string)(FLUS_LICENSE['plan_label'] ?? FLUS_LICENSE['plan'] ?? 'N/D');
+  $licVence  = (string)(FLUS_LICENSE['valid_until'] ?? 'N/D');
+  $licDias   = (string)(FLUS_LICENSE['days_left'] ?? 'N/D');
+  $licEstado = (string)(FLUS_LICENSE['status_label'] ?? FLUS_LICENSE['status'] ?? 'N/D');
+} else {
+  // Fallback: leer license.json (compat)
+  $licPaths = [
+    __DIR__ . '/../storage/license.json',
+    __DIR__ . '/../../storage/license.json',
+  ];
+  foreach ($licPaths as $p) {
+    if (is_file($p)) {
+      $j = json_decode((string)file_get_contents($p), true);
+      if (is_array($j)) {
+        $licPlan = (string)($j['plan'] ?? 'N/D');
+        $expStr  = $j['expires_at'] ?? ($j['valid_until'] ?? null);
+        if ($expStr) {
+          try {
+            $hoy   = new DateTime('today');
+            $vence = new DateTime((string)$expStr);
+            $diff  = (int)$hoy->diff($vence)->format('%r%a');
+            $licDias   = (string)$diff;
+            $licEstado = ($diff < 0) ? 'vencida' : (($diff <= 7) ? 'por vencer' : 'activa');
+            $licVence  = $vence->format('Y-m-d');
+          } catch (Throwable $e) {
+            $licVence = (string)$expStr;
+          }
         }
       }
+      break;
     }
-    break;
   }
 }
+
 
 $aboutText =
   (function_exists('flus_version_label') ? flus_version_label() : 'FLUS') . "\n" .

@@ -8,7 +8,8 @@ require_once __DIR__ . '/../../includes/AfipApi.php';
 header('Content-Type: application/json; charset=utf-8');
 
 // Solo usuarios autenticados
-if (!isset($_SESSION['usuario_id']) && !isset($_SESSION['user']['id'])) {
+$uid = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['usuario_id'] ?? ($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0)));
+if ($uid <= 0) {
     http_response_code(401);
     echo json_encode(['success' => false, 'error' => 'No autenticado'], JSON_UNESCAPED_UNICODE);
     exit;

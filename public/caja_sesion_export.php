@@ -7,6 +7,9 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_historial_caja');
 
+if (function_exists('flus_require_feature')) { flus_require_feature('exports'); }
+
+
 $sesion_id = sanitize_int($_GET['id'] ?? 0);
 
 if ($sesion_id <= 0) {

@@ -19,10 +19,7 @@ try {
   $tid = (int)($_SESSION['terminal_id'] ?? 0);
   // ✅ FIX v2.1.2: terminal_cookie_id() no existe, usar solo session
   
-  $uid = 0;
-  if (isset($_SESSION['user']) && is_array($_SESSION['user'])) {
-    $uid = (int)($_SESSION['user']['id'] ?? 0);
-  }
+  $uid = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
 
   if ($tid > 0 && $uid > 0) {
     // ✅ FIX v2.1.2: terminal_lock_release acepta 3 parámetros, no 4

@@ -102,7 +102,7 @@ class ClienteController
             return false;
         }
         
-        $userId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
+        $userId = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['usuario_id'] ?? ($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0)));
         
         // Verificar si existe updated_by
         if ($this->hasColumn('updated_by')) {
@@ -267,7 +267,7 @@ class ClienteController
         }
         
         // Campo de auditoría
-        $userId = (int)($_SESSION['usuario_id'] ?? $_SESSION['user']['id'] ?? 0);
+        $userId = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['usuario_id'] ?? ($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0)));
         $userIdValue = $userId > 0 ? $userId : null;
         
         if ($isUpdate && $this->hasColumn('updated_by')) {

@@ -23,7 +23,7 @@ if (!function_exists('flus__has_perm')) {
         if (function_exists('user_has_permission')) {
             try { return (bool) user_has_permission($perm); } catch (Throwable $e) {}
         }
-        $perms = $_SESSION['permissions'] ?? ($_SESSION['permisos'] ?? []);
+        $perms = function_exists('session_permissions') ? session_permissions() : ($_SESSION['permissions'] ?? ($_SESSION['permisos'] ?? []));
         if (is_array($perms) && in_array($perm, $perms, true)) return true;
         if (function_exists('tienePermiso')) {
             try { return (bool) tienePermiso($perm); } catch (Throwable $e) { return false; }

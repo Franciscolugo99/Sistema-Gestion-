@@ -9,6 +9,13 @@ require_once __DIR__ . '/lib/install_guard.php';
 require_once FLUS_ROOT . '/src/config.php';
 require_once __DIR__ . '/lib/terminal.php';
 
+// ✅ Sesión unificada (compat legacy)
+$sessionHelper = FLUS_ROOT . '/src/session_user.php';
+if (is_file($sessionHelper)) {
+  require_once $sessionHelper;
+  if (function_exists('flus_session_normalize_user')) flus_session_normalize_user();
+}
+
 /* ============================================================================
    AUTH/DB DIAGNOSTICS (bulletproof)
 ============================================================================ */
@@ -34,7 +41,7 @@ function auth_issue_get(): array {
 }
 
 function auth_log(string $msg, string $level = 'info', array $ctx = []): void {
-  $uid = (int)($_SESSION['user']['id'] ?? 0);
+  $uid = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
   $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
   $ctxStr = $ctx ? ' ' . json_encode($ctx, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) : '';
   $line = "[AUTH][$level] uid={$uid} uri={$uri} {$msg}{$ctxStr}";
@@ -146,12 +153,18 @@ function flus_get_pdo_diag(): ?PDO {
 ============================================================================ */
 
 function current_user(): ?array {
+  if (function_exists('session_user')) {
+    return session_user();
+  }
   return isset($_SESSION['user']) && is_array($_SESSION['user'])
     ? $_SESSION['user']
     : null;
 }
 
 function is_logged_in(): bool {
+  if (function_exists('session_user_id')) {
+    return session_user_id() > 0;
+  }
   return current_user() !== null;
 }
 

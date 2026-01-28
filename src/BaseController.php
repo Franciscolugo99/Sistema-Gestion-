@@ -14,8 +14,9 @@ abstract class BaseController {
 
   private function loadUser(): void {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+    if (function_exists('flus_session_normalize_user')) flus_session_normalize_user();
 
-    // Si existe tu sistema viejo:
+    // Si existe tu sistema viejo...
     if (function_exists('current_user')) {
       $u = current_user();
       if (is_array($u) && !empty($u['id'])) {

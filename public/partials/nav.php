@@ -19,7 +19,7 @@ $can = function (string $perm) use ($user): bool {
   if (function_exists('user_has_permission')) {
     return user_has_permission($perm);
   }
-  $perms = $_SESSION['permissions'] ?? ($user['permissions'] ?? []);
+  $perms = function_exists('session_permissions') ? session_permissions() : ($_SESSION['permissions'] ?? ($user['permissions'] ?? []));
   if (!is_array($perms)) $perms = [];
   return in_array($perm, $perms, true);
 };
@@ -314,6 +314,9 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
             <?php if ($can('administrar_config')): ?>
               <a role="menuitem" href="configuracion.php" tabindex="0">
                 <span class="menu-icon">🛠</span> Configuración
+              </a>
+              <a role="menuitem" href="licencia.php" tabindex="0">
+                <span class="menu-icon">🔑</span> Licencia
               </a>
               <a role="menuitem" href="terminales.php" tabindex="0">
                 <span class="menu-icon">🧾</span> Terminales

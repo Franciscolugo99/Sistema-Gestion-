@@ -5,6 +5,13 @@ require_once __DIR__ . '/lib/root.php';
 
 require_once __DIR__ . '/lib/session.php';
 flus_session_start();
+
+// ✅ Sesión unificada (compat legacy)
+$sessionHelper = FLUS_ROOT . '/src/session_user.php';
+if (is_file($sessionHelper)) {
+  require_once $sessionHelper;
+  if (function_exists('flus_session_normalize_user')) flus_session_normalize_user();
+}
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
@@ -55,6 +62,20 @@ if (!defined('FLUS_MAINTENANCE_BYPASS') && is_file($maintenanceFlag)) {
 
 
 define('APP_BOOTSTRAPPED', true);
+
+// ✅ Licencias (enforcement central)
+$licFile = FLUS_ROOT . '/src/license.php';
+if (is_file($licFile)) {
+  require_once $licFile;
+  if (function_exists('flus_license_status')) {
+    $lic = flus_license_status();
+    if (!defined('FLUS_LICENSE')) define('FLUS_LICENSE', $lic);
+    if (!defined('FLUS_LIMITED')) define('FLUS_LIMITED', (bool)($lic['limited'] ?? false));
+    if (!defined('FLUS_PLAN')) define('FLUS_PLAN', (string)($lic['plan'] ?? 'NONE'));
+  }
+}
+
+
 
 // compatibilidad (lo que ya usa el sistema)
 require_once __DIR__ . '/lib/helpers.php';
@@ -119,4 +140,3 @@ try {
   exit;
 }
 $user = current_user();
-

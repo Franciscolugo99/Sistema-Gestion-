@@ -17,7 +17,7 @@ require_login();
 // Permiso: preferir sesión (no depender de DB si está en restauración)
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-$hasPerm = in_array('gestionar_backups', $_SESSION['permissions'] ?? [], true);
+$hasPerm = function_exists('session_has_permission') ? session_has_permission('gestionar_backups') : in_array('gestionar_backups', $_SESSION['permissions'] ?? [], true);
 if (!$hasPerm && function_exists('user_has_permission')) {
   $hasPerm = user_has_permission('gestionar_backups');
 }

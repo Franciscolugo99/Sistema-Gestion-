@@ -49,23 +49,40 @@ final class Middleware {
    * - $_SESSION['user']['id'] / ['user_id'] / ['usuario_id']
    */
   private static function normalizeSession(): void {
+    // Preferir helper unificado si está disponible
+    if (function_exists('flus_session_normalize_user')) {
+      flus_session_normalize_user();
+      return;
+    }
+
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
     // user_id directo
-    if (!empty($_SESSION['user_id'])) return;
-
-    // formatos legacy
-    $u = $_SESSION['user'] ?? null;
-    if (is_array($u)) {
-      $id = $u['id'] ?? $u['user_id'] ?? $u['usuario_id'] ?? null;
-      if ($id !== null && $id !== '') {
-        $_SESSION['user_id'] = (int)$id;
+    if (empty($_SESSION['user_id'])) {
+      // formatos legacy
+      $u = $_SESSION['user'] ?? null;
+      if (is_array($u)) {
+        $id = $u['id'] ?? $u['user_id'] ?? $u['usuario_id'] ?? null;
+        if ($id !== null && $id !== '') {
+          $_SESSION['user_id'] = (int)$id;
+        }
       }
 
-      // permisos legacy si vienen adentro de user
-      if (empty($_SESSION['permissions'])) {
-        $perms = $u['permissions'] ?? $u['permisos'] ?? [];
-        if (is_array($perms)) $_SESSION['permissions'] = $perms;
+      if (empty($_SESSION['user_id']) && !empty($_SESSION['usuario_id'])) {
+        $_SESSION['user_id'] = (int)$_SESSION['usuario_id'];
+      }
+    }
+
+    // permisos legacy
+    if (empty($_SESSION['permissions'])) {
+      if (isset($_SESSION['permisos']) && is_array($_SESSION['permisos'])) {
+        $_SESSION['permissions'] = $_SESSION['permisos'];
+      } else {
+        $u = $_SESSION['user'] ?? null;
+        if (is_array($u)) {
+          $perms = $u['permissions'] ?? $u['permisos'] ?? [];
+          if (is_array($perms)) $_SESSION['permissions'] = $perms;
+        }
       }
     }
   }
@@ -75,6 +92,7 @@ final class Middleware {
    */
 public function requireAuth(?string $redirectTo = 'login.php'): self {
   $this->checks[] = function() use ($redirectTo) {
+    self::normalizeSession();
     // Si existe tu auth.php, usalo como fuente de verdad
     if (self::wants_json()) {
       if (function_exists('require_login_json')) {
@@ -91,9 +109,9 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
     // Fallback si por algún motivo no existe auth.php
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-    $logged =
-      (!empty($_SESSION['user']) && is_array($_SESSION['user'])) ||
-      (!empty($_SESSION['user_id'])); // compat vieja
+    $logged = function_exists('session_user_id')
+      ? (session_user_id() > 0)
+      : ((!empty($_SESSION['user']) && is_array($_SESSION['user'])) || (!empty($_SESSION['user_id'])));
 
     if (!$logged) {
       if ($redirectTo && !self::wants_json()) {
@@ -108,6 +126,7 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
 }
   public function permission(string $permission): self {
   $this->checks[] = function() use ($permission) {
+    self::normalizeSession();
     // 1) Preferir DB (tu user_has_permission de auth.php)
     if (function_exists('user_has_permission')) {
       if (!user_has_permission($permission)) {
@@ -118,7 +137,7 @@ public function requireAuth(?string $redirectTo = 'login.php'): self {
 
     // 2) Fallback: permisos en sesión (si existieran)
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-    $userPerms = $_SESSION['permissions'] ?? [];
+    $userPerms = function_exists('session_permissions') ? session_permissions() : ($_SESSION['permissions'] ?? []);
     if (!is_array($userPerms)) $userPerms = [];
 
     if (!in_array($permission, $userPerms, true)) {
