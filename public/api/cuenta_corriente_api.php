@@ -26,6 +26,40 @@ $usuarioId = function_exists('session_user_id') ? session_user_id() : (int)($_SE
 $cajaId = (int)($_SESSION['caja_id'] ?? 0) ?: null;
 $terminalId = (int)($_SESSION['terminal_id'] ?? 0) ?: null;
 
+$usuarioNombre = '';
+if (function_exists('current_user')) {
+    $u = current_user();
+    if (is_array($u)) $usuarioNombre = (string)($u['username'] ?? '');
+}
+if ($usuarioNombre === '' && $usuarioId > 0) {
+    try {
+        $stU = $pdo->prepare("SELECT username FROM users WHERE id = ? LIMIT 1");
+        $stU->execute([$usuarioId]);
+        $usuarioNombre = (string)($stU->fetchColumn() ?? '');
+    } catch (Throwable $e) {
+        $usuarioNombre = '';
+    }
+}
+
+// Resolver caja abierta por terminal (no dependemos de $_SESSION['caja_id'])
+if ($terminalId) {
+    try {
+        $stC = $pdo->prepare("
+            SELECT id FROM caja_sesiones
+            WHERE terminal_id = ?
+              AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stC->execute([$terminalId]);
+        $tmpCaja = (int)($stC->fetchColumn() ?? 0);
+        if ($tmpCaja > 0) $cajaId = $tmpCaja;
+    } catch (Throwable $e) {
+        // no-op
+    }
+}
+
+
 try {
     switch ($action) {
         
@@ -74,6 +108,21 @@ try {
             $referencia = trim($_POST['referencia'] ?? '') ?: null;
             $concepto = trim($_POST['concepto'] ?? '') ?: null;
             
+
+
+            $fromCaja = ((int)($_POST['from_caja'] ?? 0) === 1);
+            if ($fromCaja) {
+                // Desde Caja: por ahora SOLO EFECTIVO (para no romper cierre de caja)
+                if ($medioPago !== 'EFECTIVO') {
+                    throw new Exception('Desde Caja: solo EFECTIVO por ahora');
+                }
+                if (($terminalId ?? 0) <= 0) {
+                    throw new Exception('Terminal no identificada');
+                }
+                if (($cajaId ?? 0) <= 0) {
+                    throw new Exception('No hay caja abierta en esta terminal');
+                }
+            }
             if ($clienteId <= 0) {
                 throw new Exception('Cliente inválido');
             }
@@ -92,10 +141,13 @@ try {
                 $usuarioId,
                 $referencia,
                 $concepto,
-                ['caja_id' => $cajaId, 'terminal_id' => $terminalId]
-            );
-            
-            echo json_encode($result);
+                [
+                    'caja_id' => $cajaId,
+                    'terminal_id' => $terminalId,
+                    'usuario_nombre' => $usuarioNombre,
+                    'registrar_caja_mov' => $fromCaja,
+                ]
+            );echo json_encode($result);
             break;
             
         // ═══════════════════════════════════════════════════════════════

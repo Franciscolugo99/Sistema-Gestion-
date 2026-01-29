@@ -6,6 +6,28 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+// ✅ Unificar comportamiento API + exigir login/permisos (evita exponer catálogo sin sesión)
+if (!defined('FLUS_API_CONTEXT')) define('FLUS_API_CONTEXT', true);
+require_once __DIR__ . '/../../bootstrap.php';
+
+$fail = function(int $code, string $error, array $extra = []): void {
+    http_response_code($code);
+    echo json_encode(['ok'=>false,'error'=>$error] + $extra, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+};
+
+if (function_exists('require_login_json')) {
+    require_login_json();
+} else {
+    if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
+    $uid = (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
+    if ($uid <= 0) $fail(401, 'No autenticado');
+}
+
+if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+    $fail(403, 'No autorizado');
+}
+
 $respond = function(array $payload): void {
     http_response_code(200);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);

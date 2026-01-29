@@ -1183,3 +1183,64 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected{
   background: rgba(34,211,238,.14);
   outline: 1px solid rgba(34,211,238,.25);
 }
+
+
+/* =========================
+   Cuenta Corriente (Caja)
+========================= */
+.cc-wrap{
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  background: rgba(0,0,0,.08);
+}
+.cc-wrap .cc-row{
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+#ccClienteBuscar{
+  width: 100%;
+}
+.cc-info{
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: .9;
+}
+
+
+
+/* =====================
+   CC: Cobro en Caja
+===================== */
+.caja-panel .cc-tools-row{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:10px;
+}
+
+.caja-panel .btn-cc-cobro{
+  background: transparent;
+  color: var(--text);
+  border: 2px solid rgba(59, 130, 246, 0.65);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.caja-panel .btn-cc-cobro:hover{
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.9);
+  transform: translateY(-1px);
+}
+
+.caja-panel .modal .muted{
+  opacity:.8;
+  font-size:.9rem;
+  margin-top:6px;
+}

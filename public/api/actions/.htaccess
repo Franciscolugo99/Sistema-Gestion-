@@ -1,7 +1,11 @@
-Options -Indexes
+# Bloquea el acceso directo a actions/*
+# Deben ejecutarse solo via public/api/index.php
+
 <IfModule mod_authz_core.c>
-  Require all granted
+  Require all denied
 </IfModule>
+
 <IfModule !mod_authz_core.c>
-  Allow from all
+  Order allow,deny
+  Deny from all
 </IfModule>

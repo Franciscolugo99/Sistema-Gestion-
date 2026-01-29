@@ -64,6 +64,10 @@ $extraJs = [
 $canModPrecio = (function_exists('user_has_permission') && user_has_permission('caja_modificar_precio'))
   ? 'true'
   : 'false';
+
+$canCC = (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc'))
+  ? 'true'
+  : 'false';
 $csrf = csrf_token(); // ✅ usa tu helper central
 
 // 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
@@ -74,6 +78,7 @@ $csrf = csrf_token(); // ✅ usa tu helper central
       'window.getCsrfToken = function(){ return ' . json_encode($csrf) . '; };' .
       'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
       'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
+      'window.FLUS_PERMS.registrar_cargo_cc = ' . $canCC . ';' .
     '</script>';
 
 
@@ -367,6 +372,9 @@ if ($cajaSesion) {
           <option value="MP">Mercado Pago</option>
           <option value="DEBITO">Débito</option>
           <option value="CREDITO">Crédito</option>
+          <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
+            <option value="CC">Cuenta Corriente</option>
+          <?php endif; ?>
         </select>
 
         <div class="total-label-inline">Monto</div>
@@ -380,6 +388,9 @@ if ($cajaSesion) {
           <option value="MP">Mercado Pago</option>
           <option value="DEBITO">Débito</option>
           <option value="CREDITO">Crédito</option>
+          <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
+            <option value="CC">Cuenta Corriente</option>
+          <?php endif; ?>
         </select>
 
         <div class="total-label-inline">Monto</div>
@@ -400,7 +411,17 @@ if ($cajaSesion) {
             <div class="total-label-inline">Vuelto</div>
             <div class="total-vuelto" id="lblVuelto">$0,00</div>
             </div>
+    
+    <!-- Cuenta Corriente (solo si se elige CC en algún pago) -->
+    <div id="ccWrap" class="cc-wrap is-hidden">
+      <div class="total-label-inline">Cliente (Cuenta Corriente)</div>
+      <div class="cc-row">
+        <input type="text" id="ccClienteBuscar" placeholder="Buscar cliente (nombre / teléfono / CUIT)" autocomplete="off">
+        <input type="hidden" id="ccClienteId" value="">
+      </div>
+      <div id="ccClienteInfo" class="cc-info"></div>
     </div>
+</div>
 
 
     <!-- Botones principales -->

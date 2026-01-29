@@ -1,11 +1,7 @@
 <?php
-// public/api/cliente_consultar_cuit.php
-// Stub de compatibilidad: redirige a /api/actions/cliente_consultar_cuit.php
-
 declare(strict_types=1);
+// public/api/cliente_consultar_cuit.php
+// Proxy interno: ejecuta el action sin exponer /api/actions/* (bloqueado por htaccess)
 
-$qs = $_SERVER['QUERY_STRING'] ?? '';
-$target = 'actions/cliente_consultar_cuit.php' . ($qs ? ('?' . $qs) : '');
-
-header('Location: ' . $target, true, 302);
+require_once __DIR__ . '/actions/cliente_consultar_cuit.php';
 exit;

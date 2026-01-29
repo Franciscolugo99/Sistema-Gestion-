@@ -262,7 +262,7 @@
   // - Solo si el CUIT es válido.
   // - Pide confirmación si ya hay nombre cargado.
   if (cuitInput) {
-    const AFIP_ENDPOINT = "api/actions/cliente_consultar_cuit.php";
+    const AFIP_ENDPOINT = "api/cliente_consultar_cuit.php";
     let lastAfipCuit = "";
     let afipInFlight = false;
 

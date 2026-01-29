@@ -1,6 +1,30 @@
 <?php
 declare(strict_types=1);
 
+// ✅ Unificar comportamiento API + exigir login/permisos (evita exponer KPIs sin sesión)
+if (!defined('FLUS_API_CONTEXT')) define('FLUS_API_CONTEXT', true);
+require_once __DIR__ . '/../../bootstrap.php';
+
+if (function_exists('require_login_json')) {
+  require_login_json();
+} else {
+  if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
+  $uid = (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
+  if ($uid <= 0) {
+    http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok'=>false,'error'=>'No autenticado'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    exit;
+  }
+}
+
+if (function_exists('user_has_permission') && !user_has_permission('ver_reportes')) {
+  http_response_code(403);
+  header('Content-Type: application/json; charset=utf-8');
+  echo json_encode(['ok'=>false,'error'=>'No autorizado'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  exit;
+}
+
 require_once __DIR__ . '/../../../src/db_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');

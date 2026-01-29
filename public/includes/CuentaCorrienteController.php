@@ -384,7 +384,32 @@ class CuentaCorrienteController
             $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
             $stUpd->execute([$saldoPosterior, $clienteId]);
             
-            $this->pdo->commit();
+            
+            // (Opcional) Registrar ingreso en caja si el pago se hizo desde Caja (solo EFECTIVO)
+            $cajaMovId = null;
+            if (!empty($extras['registrar_caja_mov']) && strtoupper($medioPago) === 'EFECTIVO') {
+                $cajaId = (int)($extras['caja_id'] ?? 0);
+                if ($cajaId > 0) {
+                    $usrName = (string)($extras['usuario_nombre'] ?? ('user#' . $usuarioId));
+                    $usrName = mb_substr($usrName, 0, 100);
+                    $cliName = (string)($cliente['nombre'] ?? '');
+                    $cliName = mb_substr($cliName, 0, 80);
+
+                    $conceptoCaja = "Cobro CC";
+                    if ($cliName !== '') $conceptoCaja .= " - {$cliName}";
+                    $conceptoCaja .= " (#{$clienteId})";
+                    if ($referencia) $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
+
+                    $stCaja = $this->pdo->prepare("
+                        INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro)
+                        VALUES (?, 'ingreso', ?, ?, ?)
+                    ");
+                    $stCaja->execute([$cajaId, $conceptoCaja, $monto, $usrName]);
+                    $cajaMovId = (int)$this->pdo->lastInsertId();
+                }
+            }
+
+$this->pdo->commit();
             
             return [
                 'success' => true,
@@ -429,7 +454,7 @@ class CuentaCorrienteController
         try {
             // Bloquear cliente
             $stLock = $this->pdo->prepare("
-                SELECT cc_habilitado, cc_saldo FROM clientes WHERE id = ? FOR UPDATE
+                SELECT cc_habilitado, cc_saldo, nombre FROM clientes WHERE id = ? FOR UPDATE
             ");
             $stLock->execute([$clienteId]);
             $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
@@ -481,6 +506,7 @@ class CuentaCorrienteController
                 'movimiento_id' => $movimientoId,
                 'saldo_anterior' => $saldoAnterior,
                 'saldo_posterior' => $saldoPosterior,
+                'caja_movimiento_id' => $cajaMovId,
             ];
             
         } catch (Throwable $e) {

@@ -8,12 +8,6 @@ define('FLUS_API_CONTEXT', true);
 
 require_once __DIR__ . '/../lib/root.php';
 
-// Buscar productos (autocompletado Caja)
-if (($_GET['action'] ?? '') === 'buscar_productos') {
-  require_once __DIR__ . '/actions/buscar_productos.php';
-  exit;
-}
-
 
 // ✅ Modo mantenimiento: bloquear API mientras se restaura la DB
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
@@ -379,9 +373,15 @@ function csrf_from_request(array $body): string {
 }
 
 function require_csrf_json(array $body): void {
-  $t = csrf_from_request($body);
-  // CSRF desactivado
+  $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+  if ($method === 'GET' || $method === 'HEAD' || $method === 'OPTIONS') return;
 
+  $t = csrf_from_request($body);
+
+  // ✅ CSRF obligatorio para requests con sesión (POST/PUT/PATCH/DELETE)
+  if ($t === '' || !function_exists('csrf_verify') || !csrf_verify($t)) {
+    json_fail('CSRF', 419, ['hint' => 'Token CSRF inválido o ausente. Recargá la página e intentá de nuevo.']);
+  }
 }
 
 function invalidate_promos_cache(PDO $pdo): void {
@@ -413,13 +413,31 @@ if ($action !== '' && !preg_match('/^[a-z0-9_]+$/i', $action)) {
 
 $__actionFile = __DIR__ . '/actions/' . $action . '.php';
 if ($action !== '' && is_file($__actionFile)) {
-  
+
+  // ✅ Seguridad por defecto para endpoints actions/*
+  // - Permitimos sin login SOLO endpoints explícitos de diagnóstico/compat.
+  $authFree = ['_csrf_check'];
+
+  if (!in_array($action, $authFree, true)) {
+    require_login_json();
+
+    // Permisos puntuales (evita exponer catálogo desde afuera)
+    if ($action === 'buscar_productos') {
+      require_perm_json('realizar_ventas');
+    }
+
+    // CSRF para cualquier acción state-changing
+    if ($method !== 'GET') {
+      require_csrf_json($body);
+    }
+  }
+
   //  Asegurar PDO antes de ejecutar el action
   if (!isset($pdo) && function_exists('getPDO')) {
     $pdo = getPDO();
   }
 
-require $__actionFile;
+  require $__actionFile;
   exit;
 }
 
