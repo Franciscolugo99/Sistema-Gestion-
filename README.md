@@ -2,9 +2,19 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Versión:** 2.3.0  
+**Versión:** 2.3.1  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
+
+---
+
+## 🆕 Novedades v2.3.1 (2026-01-28)
+
+- ✅ Correcciones de estabilidad en endpoints (p. ej. `strict_types` en acciones PHP).
+- ✅ Ajustes y refactors menores en APIs: **cuenta corriente**, **inventario**, **clientes**.
+- ✅ Mejoras de consistencia en exportaciones (sesión de caja / dashboard).
+
+> Ver [CHANGELOG.md](CHANGELOG.md) para el detalle y el histórico.
 
 ---
 
@@ -181,6 +191,21 @@ curl http://localhost/flus/public/api/index.php?action=health
 
 ## 🔄 Upgrade desde versiones anteriores
 
+### Desde v2.3.0 a v2.3.1
+
+1. **Backup recomendado** (BD + carpeta `storage/`)
+2. **Reemplazar archivos**
+   - Conservar `src/config.php`
+   - **No pisar `storage/`** (logs, backups, uploads, locks, etc.)
+3. **Migraciones**
+   - Esta versión es principalmente de mantenimiento. Si tu branch incluyó cambios de BD, agregá y documentá un script `scripts/upgrade_v231.sql`.
+4. **Verificación rápida**
+   - Caja / Productos: búsqueda y autocompletado
+   - Inventario: consultas principales
+   - Reportes / exportaciones: generar CSV sin errores
+
+---
+
 ### Desde v2.2.x a v2.3.0
 
 1. **Backup obligatorio** (BD + carpeta `storage/`)
@@ -219,3 +244,9 @@ mysql -u root -p kiosco < scripts/upgrade_v220.sql
 4. **Verificar**
 - Entrar al sistema y probar crear/eliminar un producto que esté en un combo
 - Si funciona sin errores, el upgrade fue exitoso
+
+## 🧭 Roadmap corto (WIP)
+
+- Licencias: en **Acerca de** mostrar plan/vencimiento/días restantes leyendo `storage/license.json` (pendiente).
+- Documentar upgrade SQL por versión (un archivo por release cuando aplique).
+

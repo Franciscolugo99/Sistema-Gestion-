@@ -1,5 +1,41 @@
 # CHANGELOG - FLUS
 
+## [Unreleased]
+
+- Licencias: en el modal **Acerca de** mostrar plan (mensual/anual/perpetua), fecha de vencimiento y días restantes leyendo `storage/license.json` (pendiente).
+- Documentar (si corresponde) cualquier migración SQL nueva como `scripts/upgrade_v231.sql` o similar.
+
+---
+## [2.3.1] - 2026-01-28
+
+### 🧩 Mantenimiento / robustez
+
+- Correcciones para evitar errores fatales por `declare(strict_types=1)` fuera de la primera línea en algunos endpoints.
+- Ajustes y refactors menores en APIs relacionadas a **productos**, **cuenta corriente**, **inventario** y **clientes** (sin cambios funcionales grandes).
+- Mejoras de consistencia en exportaciones (p. ej. reportes / sesiones de caja / dashboard).
+
+### 🎛️ UX / UI
+
+- Ajustes visuales menores en navegación/partials (menú, footer).
+- Widget/licencia: mejoras de presentación (sin cambiar el modelo de licencia).
+
+### 📁 Archivos modificados (resumen)
+
+| Archivo | Cambio |
+|---------|--------|
+| `public/api/actions/buscar_productos.php` | Fix de `strict_types` + ajustes menores |
+| `public/api/cuenta_corriente_api.php` | Ajustes/refactor menores |
+| `public/api/inventario_api.php` | Ajustes/refactor menores |
+| `public/api/actions/cliente_consultar_cuit.php` | Ajustes menores |
+| `public/caja_sesion_export.php` | Ajustes de exportación |
+| `public/dashboard_export.php` | Ajustes de exportación |
+| `public/auth.php` | Ajustes menores |
+| `public/bootstrap.php` | Ajustes menores |
+| `public/partials/nav.php` | Ajustes UI |
+| `public/partials/footer.php` | Ajustes UI |
+| `public/partials/license_widget.php` | Ajustes UI |
+
+---
 ## [2.3.0] - 2026-01-22
 
 ### ✨ Ventas - módulo avanzado (Historial / Reportes)
