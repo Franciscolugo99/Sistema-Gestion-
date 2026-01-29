@@ -6,7 +6,7 @@
 - Documentar (si corresponde) cualquier migración SQL nueva como `scripts/upgrade_v231.sql` o similar.
 
 ---
-## [2.3.1] - 2026-01-28
+### [2.3.1] - 2026-01-28
 
 ### 🧩 Mantenimiento / robustez
 

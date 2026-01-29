@@ -189,7 +189,7 @@ curl http://localhost/flus/public/api/index.php?action=health
 
 ---
 
-## 🔄 Upgrade desde versiones anteriores
+### 🔄 Upgrade desde versiones anteriores
 
 ### Desde v2.3.0 a v2.3.1
 
