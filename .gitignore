@@ -94,3 +94,6 @@ public/_db_check.php
 tools/
 FLUS_PATCH_compras_desc_item.patch
 storage/license_state.json
+
+# Estado local de licencia (no versionar)
+storage/license_state.json
