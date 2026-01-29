@@ -11,15 +11,22 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## 🆕 Novedades v3.2.2 (build 2026-01-29)
 
-- ✅ **Hardening P0**: contrato JSON estándar (`ok/error`), CSRF reforzado, base portable (views sin DEFINER, limpieza FKs duplicadas).
-- ✅ **Migraciones P1**: runner `scripts/migrate.php` + carpeta `migrations/` (idempotente).
-- ✅ **Operación**:
-  - **Health / Diagnóstico** (paquete ZIP) desde `diagnostico.php` + `api/system_api.php`.
-  - **Backups**: create/list/validate/restore por API (con auditoría).
-- ✅ **Nuevos módulos (P2)**:
-  - **Inventario físico (conteo)**: `inventario_fisico.php` + ajustes de stock con movimientos.
-  - **Historial de precios / ajustes masivos**: `precios_historial.php`.
-  - **Reposición sugerida**: `reposicion.php` (stock bajo / cantidad óptima / export CSV).
+### Funcionalidades
+- ✅ **Diagnóstico** exportable en ZIP (soporte / troubleshooting).
+- ✅ **Inventario físico (conteo)** + aplicación de ajustes con movimientos de stock.
+- ✅ **Reposición sugerida** (stock bajo / sugerencias) + export CSV.
+- ✅ **Historial de precios / ajustes masivos**.
+- ✅ **System API**: endpoints para operación/soporte (health/diagnóstico/backups) y para módulos nuevos (inventario/reposición/precios).
+
+### Base / Seguridad / Migrations
+- ✅ **Hardening P0**: contrato JSON estándar (`ok/error`) + CSRF reforzado en APIs.
+- ✅ **Migraciones P1**: runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
+- ✅ **BD portable**: views sin `DEFINER` y limpieza de inconsistencias (FKs duplicadas).
+
+### Repo / mantenimiento
+- ✅ Se **ignora** el estado local de licencia (no se versiona).
+- ✅ Se versionan las migraciones SQL (`migrations/*.sql`).
+- ✅ Refactor de alineación entre scripts API/UI + install + helpers.
 
 > Nota: los permisos de acceso se alinearon a slugs existentes (`ver_stock`, `editar_stock`, `editar_productos`, `gestionar_backups`, `ver_reportes`).
 
@@ -30,7 +37,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - PHP 8.0+
 - MySQL/MariaDB
 - Apache/Nginx
-- Extensiones PHP típicas: pdo_mysql, json, mbstring, zip
+- Extensiones PHP típicas: `pdo_mysql`, `json`, `mbstring`, `zip`
 
 ---
 
@@ -48,7 +55,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 ## Migraciones (upgrade)
 
 - Las migraciones son **idempotentes**: podés correr `php scripts/migrate.php` varias veces.
-- Si migrás una instalación vieja: primero backup, luego migrate, luego smoke test.
+- Si actualizás una instalación vieja: **backup → migrate → smoke test**.
 
 ---
 
@@ -59,6 +66,5 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Productos: búsqueda + edición básica
 - Stock / movimientos
 - Backups: crear + validar
-- Diagnóstico: generar paquete
+- Diagnóstico: generar paquete ZIP
 - Inventario físico: crear sesión + conteo + cerrar + aplicar ajustes
-
