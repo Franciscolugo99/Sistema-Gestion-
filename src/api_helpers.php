@@ -102,6 +102,7 @@ function norm_medio_pago(string $m): string {
     if ($m === 'MP' || str_contains($m, 'MERCADO')) return 'MP';
     if ($m === 'DEBITO' || str_contains($m, 'DEB')) return 'DEBITO';
     if ($m === 'CREDITO' || str_contains($m, 'CRED')) return 'CREDITO';
+    if ($m === 'CC' || str_contains($m, 'CUENTA')) return 'CC';
     return 'EFECTIVO';
 }
 

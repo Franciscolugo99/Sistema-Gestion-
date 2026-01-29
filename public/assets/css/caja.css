@@ -1244,3 +1244,97 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected{
   font-size:.9rem;
   margin-top:6px;
 }
+
+/* =====================
+   CC: Cliente Info y Dropdown mejorado
+===================== */
+.cc-cliente-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--card-bg, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.cc-cliente-nombre {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.cc-cliente-detalle {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.cc-cliente-detalle strong {
+  color: var(--accent-green, #22c55e);
+}
+
+.cc-advertencia {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 8px;
+  color: #b45309;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .cc-advertencia {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .cc-cliente-info {
+  background: var(--card-bg-dark, #1e293b);
+  border-color: var(--border-color-dark, #334155);
+}
+
+.cc-dropdown {
+  background: var(--bg, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+[data-theme="dark"] .cc-dropdown {
+  background: var(--bg-dark, #0f172a);
+  border-color: var(--border-color-dark, #334155);
+}
+
+.cc-dropdown .autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  transition: background 0.1s;
+}
+
+.cc-dropdown .autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.cc-dropdown .autocomplete-item:hover,
+.cc-dropdown .autocomplete-item.selected {
+  background: var(--accent-bg, rgba(59, 130, 246, 0.08));
+}
+
+.cc-dropdown .ac-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.cc-dropdown .ac-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.cc-dropdown .ac-meta strong {
+  color: var(--accent-green, #22c55e);
+}

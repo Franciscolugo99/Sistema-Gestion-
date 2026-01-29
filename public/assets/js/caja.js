@@ -659,6 +659,278 @@ function medioEsEfectivo() {
 
 
   // =========================
+  // CUENTA CORRIENTE (CC)
+  // =========================
+  const ccWrap = document.getElementById("ccWrap");
+  const ccInputBuscar = document.getElementById("ccClienteBuscar");
+  const ccInputId = document.getElementById("ccClienteId");
+  const ccInfo = document.getElementById("ccClienteInfo");
+  
+  let ccDropdown = null;
+  let ccResults = [];
+  let ccSelectedIdx = -1;
+  let ccAbort = null;
+  let ccClienteSeleccionado = null;
+
+  // Verificar si algún pago usa CC
+  function tieneCC() {
+    const m1 = String(selMedio?.value || "").toUpperCase();
+    if (m1 === "CC") return true;
+    if (splitActivo()) {
+      const m2 = String(selMedio2?.value || "").toUpperCase();
+      if (m2 === "CC") return true;
+    }
+    return false;
+  }
+
+  // Calcular monto total en CC
+  function montoEnCC() {
+    let total = 0;
+    const m1 = String(selMedio?.value || "").toUpperCase();
+    const a1 = parseMonto(inputPagado?.value || "0");
+    if (m1 === "CC" && a1 > 0) total += a1;
+    
+    if (splitActivo()) {
+      const m2 = String(selMedio2?.value || "").toUpperCase();
+      const a2 = parseMonto(inputPagado2?.value || "0");
+      if (m2 === "CC" && a2 > 0) total += a2;
+    }
+    return total;
+  }
+
+  // Mostrar/ocultar panel CC
+  function actualizarVisibilidadCC() {
+    if (!ccWrap) return;
+    if (tieneCC()) {
+      ccWrap.classList.remove("is-hidden");
+    } else {
+      ccWrap.classList.add("is-hidden");
+      // Limpiar cliente al ocultar
+      limpiarClienteCC();
+    }
+  }
+
+  function limpiarClienteCC() {
+    if (ccInputBuscar) ccInputBuscar.value = "";
+    if (ccInputId) ccInputId.value = "";
+    if (ccInfo) ccInfo.innerHTML = "";
+    ccClienteSeleccionado = null;
+    ocultarDropdownCC();
+  }
+
+  // Dropdown autocompletado CC
+  function crearDropdownCC() {
+    if (ccDropdown || !ccInputBuscar) return;
+    ccDropdown = document.createElement("div");
+    ccDropdown.className = "autocomplete-dropdown cc-dropdown";
+    ccDropdown.style.cssText = "position:absolute;display:none;z-index:99999;max-height:250px;overflow-y:auto;";
+    ccInputBuscar.parentElement.style.position = "relative";
+    ccInputBuscar.parentElement.appendChild(ccDropdown);
+  }
+
+  function ocultarDropdownCC() {
+    if (ccDropdown) ccDropdown.style.display = "none";
+    ccResults = [];
+    ccSelectedIdx = -1;
+  }
+
+  function escHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  }
+
+  function renderDropdownCC() {
+    if (!ccDropdown || !ccResults.length) return ocultarDropdownCC();
+    
+    ccDropdown.innerHTML = ccResults.map((c, i) => {
+      const sel = i === ccSelectedIdx ? "selected" : "";
+      const saldo = Number(c.cc_saldo || 0).toFixed(2);
+      const limite = Number(c.cc_limite || 0).toFixed(2);
+      const disp = Number(c.cc_disponible || 0).toFixed(2);
+      return `
+        <div class="autocomplete-item ${sel}" data-idx="${i}">
+          <div class="ac-title">${escHtml(c.nombre)}</div>
+          <div class="ac-meta">
+            ${c.cuit ? 'CUIT: ' + escHtml(c.cuit) + ' · ' : ''}
+            Tel: ${escHtml(c.telefono || '-')} · 
+            Disponible: <strong>$${disp}</strong> (Saldo: $${saldo} / Límite: $${limite})
+          </div>
+        </div>`;
+    }).join("");
+    
+    // Posicionar
+    const rect = ccInputBuscar.getBoundingClientRect();
+    const parentRect = ccInputBuscar.parentElement.getBoundingClientRect();
+    ccDropdown.style.top = (rect.bottom - parentRect.top + 2) + "px";
+    ccDropdown.style.left = "0";
+    ccDropdown.style.width = "100%";
+    ccDropdown.style.display = "block";
+  }
+
+  function seleccionarClienteCC(idx) {
+    const c = ccResults[idx];
+    if (!c) return;
+    
+    ccClienteSeleccionado = c;
+    if (ccInputBuscar) ccInputBuscar.value = c.nombre || "";
+    if (ccInputId) ccInputId.value = String(c.id || "");
+    
+    // Mostrar info del cliente
+    const disp = Number(c.cc_disponible || 0).toFixed(2);
+    const saldo = Number(c.cc_saldo || 0).toFixed(2);
+    const limite = Number(c.cc_limite || 0).toFixed(2);
+    
+    if (ccInfo) {
+      ccInfo.innerHTML = `
+        <div class="cc-cliente-info">
+          <span class="cc-cliente-nombre">${escHtml(c.nombre)}</span>
+          <span class="cc-cliente-detalle">
+            Disponible: <strong>$${disp}</strong> · Saldo actual: $${saldo} · Límite: $${limite}
+          </span>
+        </div>`;
+    }
+    
+    ocultarDropdownCC();
+    
+    // Validar disponibilidad
+    validarDisponibilidadCC();
+  }
+
+  async function buscarClientesCC(q) {
+    q = String(q || "").trim();
+    if (q.length < 2) return ocultarDropdownCC();
+    
+    crearDropdownCC();
+    if (ccAbort) ccAbort.abort();
+    ccAbort = new AbortController();
+    
+    try {
+      const res = await fetch(`api/index.php?action=buscar_clientes_cc&q=${encodeURIComponent(q)}`, {
+        signal: ccAbort.signal,
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+      const data = await res.json();
+      
+      if (data?.ok && Array.isArray(data.clientes)) {
+        ccResults = data.clientes;
+        ccSelectedIdx = -1;
+        renderDropdownCC();
+      } else {
+        ocultarDropdownCC();
+      }
+    } catch (e) {
+      if (e?.name !== "AbortError") console.warn("Error buscando clientes CC:", e);
+      ocultarDropdownCC();
+    }
+  }
+
+  async function validarDisponibilidadCC() {
+    if (!ccClienteSeleccionado) return { ok: true };
+    
+    const monto = montoEnCC();
+    if (monto <= 0) return { ok: true };
+    
+    try {
+      const res = await fetch(`api/index.php?action=verificar_cc&cliente_id=${ccClienteSeleccionado.id}&monto=${monto}`, {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+      const data = await res.json();
+      
+      if (!data?.ok) {
+        return { ok: false, error: data?.error || "Error verificando CC" };
+      }
+      
+      if (!data.habilitado) {
+        return { ok: false, error: "Cliente sin CC habilitada" };
+      }
+      
+      if (!data.puede_comprar) {
+        return { ok: false, error: data.mensaje || "Excede límite de crédito", excede: true };
+      }
+      
+      // Si excede pero puede autorizar, mostrar advertencia
+      if (data.excede && data.puede_autorizar) {
+        if (ccInfo) {
+          ccInfo.innerHTML += `<div class="cc-advertencia">⚠️ ${escHtml(data.mensaje)}</div>`;
+        }
+      }
+      
+      return { ok: true, data };
+    } catch (e) {
+      console.error("Error validando CC:", e);
+      return { ok: false, error: "Error de conexión al validar CC" };
+    }
+  }
+
+  // Eventos CC
+  if (ccInputBuscar) {
+    let ccDebounce = null;
+    
+    ccInputBuscar.addEventListener("input", () => {
+      clearTimeout(ccDebounce);
+      // Si cambia el texto, limpiar cliente seleccionado
+      if (ccClienteSeleccionado && ccInputBuscar.value !== ccClienteSeleccionado.nombre) {
+        ccClienteSeleccionado = null;
+        if (ccInputId) ccInputId.value = "";
+        if (ccInfo) ccInfo.innerHTML = "";
+      }
+      ccDebounce = setTimeout(() => buscarClientesCC(ccInputBuscar.value), 200);
+    });
+    
+    ccInputBuscar.addEventListener("keydown", (e) => {
+      if (!ccDropdown || ccDropdown.style.display === "none") return;
+      
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        ccSelectedIdx = Math.min(ccSelectedIdx + 1, ccResults.length - 1);
+        renderDropdownCC();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        ccSelectedIdx = Math.max(ccSelectedIdx - 1, 0);
+        renderDropdownCC();
+      } else if (e.key === "Enter") {
+        if (ccSelectedIdx >= 0) {
+          e.preventDefault();
+          seleccionarClienteCC(ccSelectedIdx);
+        }
+      } else if (e.key === "Escape") {
+        ocultarDropdownCC();
+      }
+    });
+    
+    ccInputBuscar.addEventListener("blur", () => {
+      setTimeout(() => {
+        if (!ccDropdown?.matches(":hover")) ocultarDropdownCC();
+      }, 150);
+    });
+  }
+
+  // Click en dropdown CC
+  document.addEventListener("mousedown", (e) => {
+    if (!ccDropdown) return;
+    const item = e.target.closest(".autocomplete-item");
+    if (item && ccDropdown.contains(item)) {
+      e.preventDefault();
+      const idx = parseInt(item.dataset.idx, 10);
+      if (Number.isFinite(idx)) seleccionarClienteCC(idx);
+    }
+  });
+
+  // Función helper para obtener cliente CC actual
+  function getClienteCC() {
+    if (!tieneCC()) return null;
+    if (!ccClienteSeleccionado) return null;
+    return {
+      id: ccClienteSeleccionado.id,
+      nombre: ccClienteSeleccionado.nombre
+    };
+  }
+
+  // Inicializar visibilidad CC
+  setTimeout(() => actualizarVisibilidadCC(), 0);
+
+  // =========================
   // STORAGE
   // =========================
   function guardarEstado() {
@@ -1847,6 +2119,23 @@ function medioEsEfectivo() {
         return mostrarMensaje("error", "El pago no alcanza");
       }
 
+      // ✅ VALIDACIÓN CUENTA CORRIENTE
+      if (tieneCC()) {
+        const clienteCC = getClienteCC();
+        if (!clienteCC || !clienteCC.id) {
+          return mostrarMensaje("error", "Seleccioná un cliente para la cuenta corriente");
+        }
+        
+        // Validar disponibilidad
+        mostrarMensaje("info", "Verificando crédito disponible...");
+        const validacionCC = await validarDisponibilidadCC();
+        limpiarMensaje();
+        
+        if (!validacionCC.ok) {
+          return mostrarMensaje("error", validacionCC.error || "Error validando cuenta corriente");
+        }
+      }
+
       const vuelto = Math.max(totalPag - totalUI, 0);
       const efectivo = efectivoPagado(pagos);
 
@@ -1893,6 +2182,14 @@ function medioEsEfectivo() {
       fd.append("pagos", JSON.stringify(pagos));
       fd.append("medio_pago", medioCompat);
       fd.append("monto_pagado", String(Number(totalPag.toFixed(2))));
+      
+      // ✅ Cliente para Cuenta Corriente
+      if (tieneCC()) {
+        const clienteCC = getClienteCC();
+        if (clienteCC && clienteCC.id) {
+          fd.append("cc_cliente_id", String(clienteCC.id));
+        }
+      }
 
       const data = await fetchJson(`${API_VENTA}?action=registrar_venta`, {
         method: "POST",
@@ -1913,6 +2210,10 @@ function medioEsEfectivo() {
       if (selMedio) selMedio.value = "EFECTIVO";
       if (inputPagado) inputPagado.value = "";
       setSplitActivo(false);
+      
+      // ✅ Limpiar cliente CC
+      limpiarClienteCC();
+      actualizarVisibilidadCC();
 
       ajustarPagoSegunMedio();
       actualizarVistaInmediata();
@@ -1927,7 +2228,12 @@ function medioEsEfectivo() {
       )}&paper=${getPaper()}&autoprint=1`;
       document.body.appendChild(iframe);
 
-      mostrarMensaje("success", `✓ Venta #${ventaId} registrada correctamente`);
+      // ✅ Mostrar mensaje con info de CC si corresponde
+      let msgExtra = "";
+      if (data.cc && data.cc.cliente_nombre) {
+        msgExtra = ` · Cargado a CC de ${data.cc.cliente_nombre}`;
+      }
+      mostrarMensaje("success", `✓ Venta #${ventaId} registrada correctamente${msgExtra}`);
     } catch (e) {
       console.error("Error registrar venta:", e);
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
@@ -1952,6 +2258,11 @@ function medioEsEfectivo() {
     descGlobal = null;
     localStorage.removeItem(STORAGE_KEY);
     if (inputPagado) inputPagado.value = "";
+    
+    // ✅ Limpiar cliente CC
+    limpiarClienteCC();
+    actualizarVisibilidadCC();
+    
     actualizarVistaInmediata();
     inputCodigo?.focus?.();
   }
@@ -1989,12 +2300,14 @@ function medioEsEfectivo() {
 
 
   selMedio?.addEventListener("change", () => {
+    actualizarVisibilidadCC();
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
   });
 
   selMedio2?.addEventListener("change", () => {
+    actualizarVisibilidadCC();
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
