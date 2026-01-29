@@ -68,6 +68,12 @@ if ($currentSection === '') {
     'roles.php'               => 'roles',
     'rol_permisos.php'        => 'roles',
     'terminales.php'          => 'configuracion',
+
+    // Nuevos módulos P1/P2
+    'diagnostico.php'         => 'diagnostico',
+    'inventario_fisico.php'   => 'inventario_fisico',
+    'precios_historial.php'   => 'precios_historial',
+    'reposicion.php'          => 'reposicion',
   ];
 
   if (isset($map[$file])) $currentSection = $map[$file];
@@ -113,13 +119,20 @@ $canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
 // Si querés que aparezca también si tiene permisos operativos, podés usar esto en lugar de lo anterior:
 // $canCuentaCorriente = $can('ver_cuenta_corriente') || $can('registrar_pago_cc') || $can('registrar_cargo_cc');
 
+// Nuevos módulos P1/P2
+$canInventarioFisico = $can('editar_stock');
+$canPreciosHistorial = $can('editar_productos');
+$canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
+$canDiagnostico      = $can('gestionar_backups');
+
 $showAdminMenu =
   $can('administrar_config') ||
   $can('administrar_usuarios') ||
   $can('ver_auditoria') ||
-  $can('gestionar_backups');
+  $can('gestionar_backups') ||
+  $canDiagnostico;
 
-$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles'], true);
+$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles','diagnostico'], true);
 
 ?>
 
@@ -170,6 +183,15 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
         </a>
       <?php endif; ?>
 
+      <!-- Historial de Precios -->
+      <?php if ($canPreciosHistorial): ?>
+        <a href="precios_historial.php"
+           class="nav-pill <?= $currentSection === 'precios_historial' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'precios_historial' ? 'page' : 'false' ?>">
+          💲 Precios
+        </a>
+      <?php endif; ?>
+
       <?php if ($canStock): ?>
         <a href="stock.php"
            class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>"
@@ -184,6 +206,24 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
            class="nav-pill <?= $currentSection === 'inventario_analisis' ? 'active' : '' ?>"
            aria-current="<?= $currentSection === 'inventario_analisis' ? 'page' : 'false' ?>">
           📦 Inventario
+        </a>
+      <?php endif; ?>
+
+      <!-- Inventario Físico (conteo) -->
+      <?php if ($canInventarioFisico): ?>
+        <a href="inventario_fisico.php"
+           class="nav-pill <?= $currentSection === 'inventario_fisico' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'inventario_fisico' ? 'page' : 'false' ?>">
+          📝 Conteo Físico
+        </a>
+      <?php endif; ?>
+
+      <!-- Reposición Sugerida -->
+      <?php if ($canReposicion): ?>
+        <a href="reposicion.php"
+           class="nav-pill <?= $currentSection === 'reposicion' ? 'active' : '' ?>"
+           aria-current="<?= $currentSection === 'reposicion' ? 'page' : 'false' ?>">
+          📦 Reposición
         </a>
       <?php endif; ?>
 
@@ -332,6 +372,12 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
             <?php if ($can('gestionar_backups')): ?>
               <a role="menuitem" href="backups.php" tabindex="0">
                 <span class="menu-icon">💾</span> Backups
+              </a>
+            <?php endif; ?>
+
+            <?php if ($canDiagnostico): ?>
+              <a role="menuitem" href="diagnostico.php" tabindex="0">
+                <span class="menu-icon">🔧</span> Diagnóstico
               </a>
             <?php endif; ?>
           </div>
