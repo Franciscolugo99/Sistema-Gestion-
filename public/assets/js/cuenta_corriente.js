@@ -130,7 +130,7 @@
       const response = await fetch(`api/cuenta_corriente_api.php?action=buscar_clientes&q=${encodeURIComponent(query)}`);
       const data = await response.json();
 
-      if (data.success && data.clientes.length > 0) {
+      if (data.ok && data.clientes.length > 0) {
         clienteSearchResults.innerHTML = data.clientes.map(c => `
           <div class="cliente-result-item" 
                data-id="${c.id}" 
@@ -205,7 +205,7 @@
 
       const result = await response.json();
 
-      if (result.success) {
+      if (result.ok || result.success) {
         showToast('Pago registrado correctamente', 'success');
         closeDrawer();
         setTimeout(() => location.reload(), 500);
@@ -257,7 +257,7 @@
       
       const result = await response.json();
       
-      if (result.success) {
+      if (result.ok || result.success) {
         showToast('Movimiento reversado correctamente', 'success');
         setTimeout(() => location.reload(), 500);
       } else {
@@ -290,7 +290,7 @@
       });
       const result = await response.json();
       
-      if (result.success) {
+      if (result.ok || result.success) {
         if (result.corregido) {
           showToast(`Saldo corregido: $${formatMoney(result.saldo_anterior)} → $${formatMoney(result.saldo_calculado)}`, 'success');
         } else {
@@ -381,7 +381,7 @@
       
       const result = await response.json();
       
-      if (result.success) {
+      if (result.ok || result.success) {
         showToast('Ajuste registrado correctamente', 'success');
         closeDrawerAjuste();
         setTimeout(() => location.reload(), 500);

@@ -301,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const res = await fetch(`api/index.php?action=venta_preview&id=${ventaId}`);
           const data = await res.json();
 
-          if (data.success) {
+          if (data.ok || data.success) {
             showPreviewModal(data.venta);
           } else {
             showToast(data.message || "Error al cargar", "error");
@@ -378,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const data = await res.json();
 
-          if (data.success) {
+          if (data.ok || data.success) {
             showToast("Mensaje enviado por WhatsApp", "success");
           } else {
             showToast(data.message || "Error al enviar", "error");
@@ -407,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const data = await res.json();
 
-          if (data.success) {
+          if (data.ok || data.success) {
             showToast("Ticket enviado por email", "success");
           } else {
             showToast(data.message || "Error al enviar", "error");

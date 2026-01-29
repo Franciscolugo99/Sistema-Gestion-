@@ -675,7 +675,7 @@ const ProductosManager = {
 
             const data = await res.json().catch(() => null);
 
-            if (!res.ok || !data?.success) {
+            if (!res.ok || !(data?.ok ?? data?.success)) {
                 throw new Error(data?.message || 'Error al guardar');
             }
 
@@ -926,7 +926,7 @@ const ProductosManager = {
 
             const data = await res.json().catch(() => null);
 
-            if (!res.ok || !data?.success) {
+            if (!res.ok || !(data?.ok ?? data?.success)) {
                 throw new Error(data?.message || 'Error al cambiar estado');
             }
 

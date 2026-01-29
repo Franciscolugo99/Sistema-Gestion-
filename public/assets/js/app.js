@@ -127,7 +127,9 @@
         throw new Error("Respuesta no es JSON (posible warning/HTML en backend).");
       }
 
-      if (!res.ok || !data?.ok) {
+      const _ok = (data && (data.ok === true || data.success === true));
+
+      if (!res.ok || !_ok) {
         const msg = data?.error || `HTTP ${res.status}`;
         const err = new Error(msg);
         err.status = res.status;

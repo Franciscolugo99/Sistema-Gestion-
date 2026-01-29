@@ -542,7 +542,7 @@ const VentasManager = {
           const res = await fetch(`api/ventas_api.php?action=venta_preview&id=${id}`);
           const data = await res.json();
 
-          if (data.success) {
+          if (data.ok || data.success) {
             const v = data.venta;
 
             // Construir items con escape XSS
@@ -691,7 +691,7 @@ const VentasManager = {
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (data.ok || data.success) {
         this.showToast(data.message, 'success');
       } else {
         this.showToast(data.error || 'Error al enviar email', 'error');

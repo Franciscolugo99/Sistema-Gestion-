@@ -13,6 +13,11 @@ function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8')
 $msg = '';
 $err = '';
 
+$schemaReady = false;
+$schemaMsg = '';
+$schemaErr = '';
+$schemaLog = [];
+
 $defaults = [
   'db_host' => '127.0.0.1',
   'db_port' => '3306',
@@ -118,12 +123,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
       @mkdir(FLUS_ROOT . '/tmp', 0775, true);
       @mkdir(__DIR__ . '/img/productos', 0775, true);
 
-      header('Location: login.php?installed=1');
+      header('Location: install.php?step=schema');
       exit;
 
     } catch (Throwable $e) {
       $err = 'No se pudo conectar a la DB o escribir config.php. Detalle: ' . $e->getMessage();
     }
+  }
+}
+
+
+// =============================
+// PASO 2: crear estructura DB
+// =============================
+$step = trim((string)($_GET['step'] ?? ''));
+
+if (is_file($cfgFile)) {
+  try {
+    // Cargar credenciales + PDO desde config.php
+    require_once $cfgFile;
+    $pdo = $GLOBALS['pdo'] ?? null;
+    if (!$pdo instanceof PDO) throw new RuntimeException('No se pudo inicializar PDO. Revisá src/config.php.');
+
+    // Detectar si la DB está vacía (sin tablas)
+    $dbEmpty = true;
+    $st = $pdo->query('SHOW TABLES');
+    if ($st) {
+      $rows = $st->fetchAll(PDO::FETCH_NUM);
+      foreach ($rows as $r) {
+        if (!empty($r[0])) { $dbEmpty = false; break; }
+      }
+    }
+
+    // Detectar schema mínimo (tabla ventas)
+    $schemaReady = false;
+    if (!$dbEmpty) {
+      $chk = $pdo->query("SHOW TABLES LIKE 'ventas'");
+      $schemaReady = (bool)($chk && $chk->fetchColumn());
+    }
+
+    if ($dbEmpty) {
+      $schemaMsg = '✅ Config OK. La base de datos está vacía: podés crear la estructura.';
+    } elseif ($schemaReady) {
+      $schemaMsg = '✅ Estructura detectada. Ya podés ir a login.';
+    } else {
+      $schemaErr = '⚠️ La base de datos no está vacía pero no se detectó el esquema esperado. Recomendado: revisar DB_NAME o usar el runner CLI scripts/migrate.php.';
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'create_schema') {
+      if (!$dbEmpty) {
+        throw new RuntimeException('La base de datos no está vacía. No se puede inicializar desde install.php.');
+      }
+
+      require_once FLUS_ROOT . '/src/migrations_runner.php';
+      $res = flus_apply_migrations($pdo, FLUS_ROOT . '/migrations', false);
+
+      $schemaLog[] = 'Migraciones aplicadas: ' . count($res['applied']);
+
+      // Crear usuario admin (recomendado)
+      $adminNombre = trim((string)($_POST['admin_nombre'] ?? 'Administrador'));
+      $adminEmail  = trim((string)($_POST['admin_email']  ?? 'admin@local'));
+      $adminUser   = trim((string)($_POST['admin_user']   ?? 'admin'));
+      $adminPass   = (string)($_POST['admin_pass'] ?? '');
+
+      if ($adminPass === '' || strlen($adminPass) < 6) {
+        throw new RuntimeException('La contraseña del admin debe tener al menos 6 caracteres.');
+      }
+
+      $hash = password_hash($adminPass, PASSWORD_DEFAULT);
+
+      // Insertar admin si no existe
+      $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+      $stmt->execute([$adminUser]);
+      $exists = (int)$stmt->fetchColumn() > 0;
+
+      if (!$exists) {
+        $ins = $pdo->prepare("INSERT INTO users (nombre, email, username, password_hash, role_id, activo) VALUES (?,?,?,?,1,1)");
+        $ins->execute([$adminNombre, $adminEmail, $adminUser, $hash]);
+        $schemaLog[] = "Usuario admin creado: {$adminUser}";
+      } else {
+        $schemaLog[] = "Usuario admin ya existía: {$adminUser}";
+      }
+
+      $schemaReady = true;
+      $schemaMsg = '✅ Estructura creada. Ya podés ir a login.';
+    }
+
+  } catch (Throwable $e) {
+    $schemaErr = $e->getMessage();
   }
 }
 
@@ -189,7 +276,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
         <button class="btn" type="submit">Crear config.php</button>
       </form>
     <?php else: ?>
-      <p>Config encontrado. Ir a <a href="login.php">login</a>.</p>
+
+      <?php if ($schemaErr): ?>
+        <div class="msg err"><?=h($schemaErr)?></div>
+      <?php endif; ?>
+      <?php if ($schemaMsg): ?>
+        <div class="msg ok"><?=h($schemaMsg)?></div>
+      <?php endif; ?>
+
+      <?php if (!empty($schemaLog)): ?>
+        <div class="msg ok">
+          <strong>Detalle:</strong><br>
+          <?php foreach ($schemaLog as $l): ?>
+            • <?=h((string)$l)?><br>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!$schemaReady): ?>
+        <p>Si esta instalación es nueva, podés crear la estructura ejecutando las migraciones.</p>
+
+        <form method="post" autocomplete="off">
+          <input type="hidden" name="action" value="create_schema">
+
+          <h3 style="margin:10px 0 0 0">Usuario administrador</h3>
+
+          <label>Nombre</label>
+          <input name="admin_nombre" value="Administrador">
+
+          <label>Email</label>
+          <input name="admin_email" value="admin@local">
+
+          <div class="row">
+            <div>
+              <label>Usuario</label>
+              <input name="admin_user" value="admin">
+            </div>
+            <div>
+              <label>Contraseña</label>
+              <input name="admin_pass" type="password" placeholder="mínimo 6 caracteres">
+            </div>
+          </div>
+
+          <button class="btn" type="submit">Crear estructura</button>
+        </form>
+
+        <p style="margin-top:10px;color:#555">
+          Alternativa (CLI): <code>php scripts/migrate.php</code>
+        </p>
+
+      <?php else: ?>
+        <p>Listo. Ir a <a href="login.php">login</a>.</p>
+      <?php endif; ?>
+
     <?php endif; ?>
   </div>
 

@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json().catch(() => null);
 
-      if (!res.ok || !data?.success) {
+      if (!res.ok || !(data?.ok ?? data?.success)) {
         const msg = data?.error || data?.message || `Error (HTTP ${res.status})`;
         throw new Error(msg);
       }

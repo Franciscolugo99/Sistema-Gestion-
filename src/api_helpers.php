@@ -80,6 +80,68 @@ function json_response(array $data, int $code = 200): never {
     exit;
 }
 
+
+/**
+ * Requerir permiso (API JSON)
+ */
+if (!function_exists('require_perm_json')) {
+  function require_perm_json(string $perm): void {
+    if (!function_exists('user_has_permission') || !user_has_permission($perm)) {
+      json_fail('FORBIDDEN', 403, ['perm' => $perm]);
+    }
+  }
+}
+
+/**
+ * Extraer token CSRF desde headers/body
+ */
+if (!function_exists('flus_csrf_from_request')) {
+  function flus_csrf_from_request(array $body = []): string {
+    // Header primero
+    $h = '';
+    if (function_exists('getallheaders')) {
+      $headers = getallheaders();
+      if (is_array($headers)) {
+        foreach ($headers as $k => $v) {
+          if (strcasecmp((string)$k, 'X-CSRF-Token') === 0) {
+            $h = (string)$v;
+            break;
+          }
+        }
+      }
+    }
+    if ($h !== '') return trim($h);
+
+    // Body JSON / POST
+    foreach (['csrf_token','csrf','_csrf'] as $k) {
+      if (isset($body[$k]) && is_string($body[$k]) && $body[$k] !== '') return trim($body[$k]);
+      if (isset($_POST[$k]) && is_string($_POST[$k]) && $_POST[$k] !== '') return trim((string)$_POST[$k]);
+    }
+    return '';
+  }
+}
+
+/**
+ * Requerir CSRF (API JSON). Acepta body opcional.
+ */
+if (!function_exists('require_csrf_json')) {
+  function require_csrf_json(?array $body = null): void {
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (in_array($method, ['GET','HEAD','OPTIONS'], true)) return;
+
+    $payload = is_array($body) ? $body : [];
+    // Si viene vacío, intentar leer JSON (solo si existe helper)
+    if (!$payload && function_exists('api_read_json')) {
+      $tmp = api_read_json();
+      if (is_array($tmp)) $payload = $tmp;
+    }
+    $t = flus_csrf_from_request($payload);
+
+    if ($t === '' || !function_exists('csrf_verify') || !csrf_verify($t)) {
+      json_fail('CSRF', 419, ['hint' => 'Token CSRF inválido o ausente. Recargá la página e intentá de nuevo.']);
+    }
+  }
+}
 /**
  * Parsear número con formato argentino (1.234,56 -> 1234.56)
  */

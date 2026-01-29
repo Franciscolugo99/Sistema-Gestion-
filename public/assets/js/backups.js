@@ -71,7 +71,7 @@
       showLoading(false);
 
       // Mostrar resultado
-      if (data.success) {
+      if (data.ok || data.success) {
         showAlert('success', data.message || 'Backup creado exitosamente');
         
         // Actualizar tabla si hay items
@@ -141,7 +141,7 @@ Escribí RESTAURAR para continuar.`
       const data = await response.json();
       showLoading(false);
 
-      if (data.success) {
+      if (data.ok || data.success) {
         showAlert('success', data.message || 'Restauración completada');
         // Mejor recargar: pueden cambiar datos/permisos
         setTimeout(() => window.location.reload(), 800);
@@ -192,7 +192,7 @@ Escribí RESTAURAR para continuar.`
       const data = await response.json();
       showLoading(false);
 
-      if (data.success) {
+      if (data.ok || data.success) {
         showAlert('success', data.message || 'Mantenimiento desactivado');
         setTimeout(() => window.location.reload(), 600);
       } else {
