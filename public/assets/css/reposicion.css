@@ -1,0 +1,447 @@
+/* FLUS - Reposición Sugerida (reposicion.css)
+   - estilos separados de reposicion.php
+   - usa variables globales de theme.css (dark mode en body[data-theme="dark"])
+*/
+
+/* Constantes del módulo (no dependen del theme) */
+:root {
+  /* colores de estado */
+  --repo-danger: #ef4444;
+  --repo-warning: #f59e0b;
+  --repo-info: #3b82f6;
+  --repo-success: #10b981;
+
+  /* fondos (fallback) */
+  --repo-danger-bg: rgba(239, 68, 68, 0.12);
+  --repo-warning-bg: rgba(245, 158, 11, 0.12);
+  --repo-info-bg: rgba(59, 130, 246, 0.12);
+  --repo-success-bg: rgba(16, 185, 129, 0.12);
+
+  /* textos (fallback) */
+  --repo-danger-text: #7f1d1d;
+  --repo-warning-text: #78350f;
+  --repo-info-text: #1e3a8a;
+  --repo-success-text: #064e3b;
+}
+
+/* Aliases del módulo (mejor en body para seguir el esquema de theme.css) */
+body {
+  --card-bg: var(--panel, #ffffff);
+  --border-color: var(--panel-border, #e2e8f0);
+  --bg-light: var(--bg-alt, #e5edf7);
+  --primary: var(--accent-blue, #0ea5e9);
+  --text-muted: var(--muted, #6b7280);
+}
+
+/* Dark mode (en FLUS el atributo vive en el body) */
+body[data-theme="dark"] {
+  --repo-danger-bg: rgba(239, 68, 68, 0.16);
+  --repo-warning-bg: rgba(245, 158, 11, 0.16);
+  --repo-info-bg: rgba(59, 130, 246, 0.16);
+  --repo-success-bg: rgba(16, 185, 129, 0.16);
+
+  --repo-danger-text: #fecaca;
+  --repo-warning-text: #fde68a;
+  --repo-info-text: #bfdbfe;
+  --repo-success-text: #bbf7d0;
+}
+
+/* Mejoras si existe color-mix (aplica en light y dark) */
+@supports (background: color-mix(in srgb, white 10%, transparent)) {
+  body {
+    --repo-danger-bg: color-mix(
+      in srgb,
+      var(--repo-danger) 14%,
+      var(--card-bg)
+    );
+    --repo-warning-bg: color-mix(
+      in srgb,
+      var(--repo-warning) 14%,
+      var(--card-bg)
+    );
+    --repo-info-bg: color-mix(in srgb, var(--repo-info) 14%, var(--card-bg));
+    --repo-success-bg: color-mix(
+      in srgb,
+      var(--repo-success) 14%,
+      var(--card-bg)
+    );
+  }
+
+  /* pisa también en dark (misma especificidad que el override de arriba) */
+  body[data-theme="dark"] {
+    --repo-danger-bg: color-mix(
+      in srgb,
+      var(--repo-danger) 16%,
+      var(--card-bg)
+    );
+    --repo-warning-bg: color-mix(
+      in srgb,
+      var(--repo-warning) 16%,
+      var(--card-bg)
+    );
+    --repo-info-bg: color-mix(in srgb, var(--repo-info) 16%, var(--card-bg));
+    --repo-success-bg: color-mix(
+      in srgb,
+      var(--repo-success) 16%,
+      var(--card-bg)
+    );
+  }
+}
+
+.repo-inline-form {
+  display: inline-block;
+}
+
+/* Tabs */
+.repo-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.repo-tab {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.repo-tab:hover {
+  color: var(--text);
+}
+
+/* Mejor usar las variables de “pills” del tema si existen (más consistencia) */
+.repo-tab.active {
+  color: var(--nav-pill-active-text, var(--btn-primary-text, #fff));
+  background: var(
+    --nav-pill-active-bg,
+    var(
+      --btn-primary-bg,
+      linear-gradient(135deg, var(--accent-blue), var(--accent-green))
+    )
+  );
+  border-bottom-color: transparent;
+  border-radius: var(--radius-full, 9999px);
+}
+
+.repo-tab-icon {
+  margin-right: 0.5rem;
+  vertical-align: -2px;
+}
+
+.repo-tab .badge {
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.repo-tab .badge.danger {
+  background: var(--repo-danger-bg);
+  color: var(--repo-danger-text);
+}
+.repo-tab .badge.warning {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning-text);
+}
+
+/* KPIs */
+.stats-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full, 9999px);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.stat-pill-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md, 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-pill-icon.danger {
+  background: var(--repo-danger-bg);
+  color: var(--repo-danger);
+}
+.stat-pill-icon.warning {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning);
+}
+.stat-pill-icon.success {
+  background: var(--repo-success-bg);
+  color: var(--repo-success);
+}
+
+.stat-pill-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.stat-pill-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Alertas */
+.alert-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 1rem;
+  align-items: center;
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.alert-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-icon.sin-stock {
+  background: var(--repo-danger-bg);
+  color: var(--repo-danger);
+}
+.alert-icon.bajo-minimo {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning);
+}
+.alert-icon.reorden {
+  background: var(--repo-info-bg);
+  color: var(--repo-info);
+}
+
+.alert-info h4 {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.alert-info p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.alert-stock {
+  text-align: center;
+}
+.alert-stock-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.alert-stock-value.danger {
+  color: var(--repo-danger);
+}
+.alert-stock-value.warning {
+  color: var(--repo-warning);
+}
+.alert-stock-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.alert-action {
+  text-align: right;
+}
+.sugerido {
+  font-size: 0.875rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.repo-cost-muted {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Proveedores */
+.proveedor-section {
+  margin-bottom: 2rem;
+}
+
+.proveedor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--bg-light);
+  border-radius: var(--radius-md, 12px) var(--radius-md, 12px) 0 0;
+  border: 1px solid var(--border-color);
+  border-bottom: none;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.proveedor-name {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.proveedor-stats {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.proveedor-table {
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 var(--radius-md, 12px) var(--radius-md, 12px);
+  overflow: hidden;
+}
+
+.repo-table {
+  margin: 0;
+}
+
+/* Config */
+.config-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.config-product h4 {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.config-product p {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.config-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.config-form .form-group {
+  margin: 0;
+}
+.config-form label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.config-form input {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.repo-form-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+/* Search */
+.repo-searchbar {
+  margin-bottom: 1.5rem;
+}
+.repo-search-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.repo-search-input {
+  flex: 1;
+  max-width: 400px;
+  min-width: 220px;
+}
+
+/* Empty states */
+.repo-empty {
+  text-align: center;
+  color: var(--text-muted);
+}
+.repo-empty--lg {
+  padding: 3rem;
+}
+.repo-empty--md {
+  padding: 2rem;
+}
+
+.repo-empty-icon {
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.repo-empty-text {
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .config-form {
+    grid-template-columns: 1fr;
+  }
+  .repo-search-input {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .alert-card {
+    grid-template-columns: 40px 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .alert-stock,
+  .alert-action {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-left: 52px;
+    text-align: left;
+  }
+  .alert-action {
+    margin-top: 0.25rem;
+  }
+}
