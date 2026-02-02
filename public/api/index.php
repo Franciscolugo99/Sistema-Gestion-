@@ -45,6 +45,7 @@ require_once __DIR__ . '/../lib/csrf.php';
 require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
 require_once __DIR__ . '/../promos_logic.php';
+require_once __DIR__ . '/../includes/CuentaCorrienteController.php'; // ✅ CC
 
 // ✅ Configurar handlers de error para API
 setup_api_error_handlers();
@@ -965,6 +966,95 @@ case 'buscar_producto': {
       json_ok();
     }
 
+    /* =========================================================
+       CUENTA CORRIENTE - Buscar clientes con CC habilitada
+    ========================================================= */
+    case 'buscar_clientes_cc': {
+      require_login_json();
+      
+      $q = trim((string)($_GET['q'] ?? ''));
+      if (mb_strlen($q) < 2) {
+        json_ok(['clientes' => []]);
+      }
+      
+      $pdo = getPDO();
+      
+      $sql = "
+        SELECT id, nombre, cuit, telefono, cc_saldo, cc_limite,
+               (cc_limite - cc_saldo) AS cc_disponible
+        FROM clientes
+        WHERE activo = 1 
+          AND cc_habilitado = 1
+          AND (nombre LIKE :q OR telefono LIKE :q OR cuit LIKE :q)
+        ORDER BY cc_saldo DESC, nombre ASC
+        LIMIT 10
+      ";
+      $st = $pdo->prepare($sql);
+      $st->execute([':q' => '%' . $q . '%']);
+      $clientes = $st->fetchAll(PDO::FETCH_ASSOC);
+      
+      json_ok(['clientes' => $clientes]);
+    }
+
+    /* =========================================================
+       CUENTA CORRIENTE - Verificar disponibilidad de crédito
+    ========================================================= */
+    case 'verificar_cc': {
+      require_login_json();
+      
+      $clienteId = (int)($_GET['cliente_id'] ?? 0);
+      $monto = parse_num($_GET['monto'] ?? 0);
+      
+      if ($clienteId <= 0) {
+        json_fail('Cliente inválido', 400);
+      }
+      
+      $pdo = getPDO();
+      $ccCtrl = new CuentaCorrienteController($pdo);
+      
+      $cliente = $ccCtrl->getClienteCC($clienteId);
+      if (!$cliente) {
+        json_fail('Cliente no encontrado', 404);
+      }
+      
+      if (!($cliente['cc_habilitado'] ?? false)) {
+        json_ok([
+          'habilitado' => false,
+          'puede_comprar' => false,
+          'mensaje' => 'Cliente sin cuenta corriente habilitada'
+        ]);
+      }
+      
+      $saldo = (float)($cliente['cc_saldo'] ?? 0);
+      $limite = (float)($cliente['cc_limite'] ?? 0);
+      $disponible = $limite - $saldo;
+      $excede = ($saldo + $monto) > $limite;
+      
+      // Verificar si el usuario puede autorizar exceso
+      $puedeAutorizar = function_exists('user_has_permission') && user_has_permission('vender_excedido_cc');
+      
+      $puedeComprar = !$excede || $puedeAutorizar;
+      
+      $mensaje = '';
+      if ($excede) {
+        $mensaje = $puedeAutorizar 
+          ? "Excede límite por $" . number_format($monto - $disponible, 2, ',', '.') . " (autorizado)"
+          : "Excede límite. Disponible: $" . number_format($disponible, 2, ',', '.');
+      }
+      
+      json_ok([
+        'habilitado' => true,
+        'puede_comprar' => $puedeComprar,
+        'excede' => $excede,
+        'puede_autorizar' => $puedeAutorizar,
+        'saldo_actual' => $saldo,
+        'limite' => $limite,
+        'disponible' => $disponible,
+        'monto_solicitado' => $monto,
+        'mensaje' => $mensaje
+      ]);
+    }
+
 
     /* =========================================================
        VENTA (registrar_venta con split payments + promos + desc global)
@@ -1128,6 +1218,7 @@ case 'buscar_producto': {
         // SPLIT PAYMENTS (pagos[])
         // ===============================
         $pagosValidos = [];
+        $ccClienteId = (int)($body['cc_cliente_id'] ?? 0); // Cliente para pagos a CC
 
         if (is_array($pagosIn) && count($pagosIn) > 0) {
           foreach ($pagosIn as $p) {
@@ -1147,6 +1238,70 @@ case 'buscar_producto': {
           $pagosValidos[] = ['medio' => $medioLegacy, 'monto' => round($montoLegacy, 2)];
         }
 
+        // ═══════════════════════════════════════════════════════════════════════
+        // SEPARAR PAGOS CC DE PAGOS EN CAJA
+        // ═══════════════════════════════════════════════════════════════════════
+        $pagosCC = [];      // Pagos a Cuenta Corriente (no entran a caja)
+        $pagosCaja = [];    // Pagos reales que entran a caja
+        $montoCC = 0.0;     // Total cargado a CC
+        
+        foreach ($pagosValidos as $pg) {
+          if ($pg['medio'] === 'CC') {
+            $pagosCC[] = $pg;
+            $montoCC += (float)$pg['monto'];
+          } else {
+            $pagosCaja[] = $pg;
+          }
+        }
+        $montoCC = round($montoCC, 2);
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // VALIDACIÓN CC (si hay pagos a cuenta corriente)
+        // ═══════════════════════════════════════════════════════════════════════
+        $ccMovimientoId = null;
+        $ccInfo = null;
+        
+        if ($montoCC > 0) {
+          // Verificar que tenemos cliente
+          if ($ccClienteId <= 0) {
+            throw new RuntimeException('Debe seleccionar un cliente para pagar a Cuenta Corriente');
+          }
+          
+          // Verificar permiso
+          if (!function_exists('user_has_permission') || !user_has_permission('registrar_cargo_cc')) {
+            throw new RuntimeException('No tiene permiso para vender a Cuenta Corriente');
+          }
+          
+          // Verificar disponibilidad de crédito
+          $ccCtrl = new CuentaCorrienteController($pdo);
+          $ccCheck = $ccCtrl->verificarDisponibilidad($ccClienteId, $montoCC);
+          
+          if (!($ccCheck['ok'] ?? false)) {
+            // Verificar si puede autorizar exceso
+            $excede = $ccCheck['excede'] ?? false;
+            $puedeAutorizar = function_exists('user_has_permission') && user_has_permission('vender_excedido_cc');
+            
+            if ($excede && !$puedeAutorizar) {
+              $disponible = $ccCheck['disponible'] ?? 0;
+              throw new RuntimeException(
+                "El cliente excede su límite de crédito. Disponible: $" . number_format($disponible, 2, ',', '.')
+              );
+            }
+            // Si puede autorizar, continúa (el permiso actúa como autorización)
+          }
+          
+          // Obtener info del cliente para la respuesta
+          $ccCliente = $ccCtrl->getClienteCC($ccClienteId);
+          if ($ccCliente) {
+            $ccInfo = [
+              'cliente_id' => $ccClienteId,
+              'cliente_nombre' => $ccCliente['nombre'] ?? '',
+              'saldo_anterior' => (float)($ccCliente['cc_saldo'] ?? 0),
+              'monto_cargado' => $montoCC,
+            ];
+          }
+        }
+
         $totalPagado = 0.0;
         $tieneEfectivo = false;
         foreach ($pagosValidos as $pg) {
@@ -1160,18 +1315,37 @@ case 'buscar_producto': {
         }
 
         // Si NO hay efectivo, no permitimos sobrepago (no hay "vuelto" real)
+        // CC no da vuelto, así que solo cuenta efectivo real
+        $efectivoCaja = 0.0;
+        foreach ($pagosCaja as $pg) {
+          if ($pg['medio'] === 'EFECTIVO') $efectivoCaja += (float)$pg['monto'];
+        }
+        
         if (!$tieneEfectivo && $totalPagado > $totalNetoFinal + 0.01) {
           throw new RuntimeException('Sobrepago sin efectivo (no se puede dar vuelto)');
         }
 
-        $vuelto = $tieneEfectivo ? round(max(0.0, $totalPagado - $totalNetoFinal), 2) : 0.0;
+        $vuelto = ($efectivoCaja > 0) ? round(max(0.0, $totalPagado - $totalNetoFinal), 2) : 0.0;
+        
+        // Si hay vuelto, verificar que el efectivo en caja lo cubra
+        if ($vuelto > 0.009 && $efectivoCaja + 0.0001 < $vuelto) {
+          throw new RuntimeException('El vuelto supera el efectivo ingresado');
+        }
 
-        // Medio principal por compatibilidad (el de mayor monto)
-        usort($pagosValidos, fn($a,$b) => $b['monto'] <=> $a['monto']);
-        $medio = (string)$pagosValidos[0]['medio'];
+        // Medio principal por compatibilidad (el de mayor monto, excluyendo CC)
+        if (!empty($pagosCaja)) {
+          usort($pagosCaja, fn($a,$b) => $b['monto'] <=> $a['monto']);
+          $medio = (string)$pagosCaja[0]['medio'];
+        } else {
+          // Si todo es CC
+          $medio = 'CC';
+        }
         $montoPagado = $totalPagado;
 
-        $ventaId = insert_dynamic($pdo, 'ventas', [
+        // ═══════════════════════════════════════════════════════════════════════
+        // INSERTAR VENTA (con cliente_id y monto_cc)
+        // ═══════════════════════════════════════════════════════════════════════
+        $ventaData = [
           'user_id'         => ($userId > 0 ? $userId : null),
           'caja_id'         => $cajaId,
           'total'           => $totalNetoFinal,
@@ -1181,7 +1355,51 @@ case 'buscar_producto': {
           'monto_pagado'    => $montoPagado,
           'vuelto'          => $vuelto,
           'estado'          => 'EMITIDA',
-        ]);
+        ];
+        
+        // Agregar campos de CC si existen en la tabla
+        if ($ccClienteId > 0 && has_col($pdo, 'ventas', 'cliente_id')) {
+          $ventaData['cliente_id'] = $ccClienteId;
+        }
+        if ($montoCC > 0 && has_col($pdo, 'ventas', 'monto_cc')) {
+          $ventaData['monto_cc'] = $montoCC;
+        }
+        
+        $ventaId = insert_dynamic($pdo, 'ventas', $ventaData);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // REGISTRAR CARGO EN CUENTA CORRIENTE
+        // ═══════════════════════════════════════════════════════════════════════
+        if ($montoCC > 0 && $ccClienteId > 0) {
+          $ccCtrl = $ccCtrl ?? new CuentaCorrienteController($pdo);
+          
+          // Determinar si necesita autorización (el permiso actúa como auto-autorización)
+          $autorizadoPor = null;
+          if (($ccCheck['excede'] ?? false) && function_exists('user_has_permission') && user_has_permission('vender_excedido_cc')) {
+            $autorizadoPor = $userId;
+          }
+          
+          $ccResult = $ccCtrl->registrarCargo(
+            $ccClienteId,
+            $montoCC,
+            $userId,
+            $ventaId,  // FK a la venta
+            "Venta #{$ventaId}",
+            $autorizadoPor,
+            ['caja_id' => $cajaId, 'terminal_id' => $terminalId]
+          );
+          
+          if (!($ccResult['success'] ?? false)) {
+            throw new RuntimeException($ccResult['error'] ?? 'Error al registrar cargo en cuenta corriente');
+          }
+          
+          $ccMovimientoId = $ccResult['movimiento_id'] ?? null;
+          
+          // Actualizar ccInfo con el saldo posterior
+          if ($ccInfo) {
+            $ccInfo['saldo_posterior'] = $ccResult['saldo_posterior'] ?? null;
+          }
+        }
 
         // Guardar pagos múltiples (si existe tabla)
         if (
@@ -1189,9 +1407,24 @@ case 'buscar_producto': {
           has_col($pdo, 'venta_pagos', 'medio_pago') &&
           has_col($pdo, 'venta_pagos', 'monto')
         ) {
-          $stPago = $pdo->prepare("INSERT INTO venta_pagos (venta_id, medio_pago, monto) VALUES (?, ?, ?)");
+          // Verificar si tiene columnas de CC
+          $tieneColCC = has_col($pdo, 'venta_pagos', 'cc_cliente_id');
+          $tieneColCCMov = has_col($pdo, 'venta_pagos', 'cc_movimiento_id');
+          
           foreach ($pagosValidos as $pg) {
-            $stPago->execute([$ventaId, $pg['medio'], $pg['monto']]);
+            $insertPago = [
+              'venta_id' => $ventaId,
+              'medio_pago' => $pg['medio'],
+              'monto' => $pg['monto']
+            ];
+            
+            // Si es pago CC, agregar referencias
+            if ($pg['medio'] === 'CC') {
+              if ($tieneColCC) $insertPago['cc_cliente_id'] = $ccClienteId;
+              if ($tieneColCCMov) $insertPago['cc_movimiento_id'] = $ccMovimientoId;
+            }
+            
+            insert_dynamic($pdo, 'venta_pagos', $insertPago);
           }
         }
 
@@ -1266,8 +1499,11 @@ case 'buscar_producto': {
         // Totales generales de la venta (una sola vez)
         update_caja_venta_totales($pdo, $cajaId, $totalNetoFinal, $totalProductos);
 
-        // Totales por medio (split)
-        foreach ($pagosValidos as $pg) {
+        // ═══════════════════════════════════════════════════════════════════════
+        // TOTALES POR MEDIO (SOLO PAGOS QUE ENTRAN A CAJA - EXCLUYE CC)
+        // ═══════════════════════════════════════════════════════════════════════
+        // IMPORTANTE: Solo los pagos que NO son CC entran a los totales de caja
+        foreach ($pagosCaja as $pg) {
           update_caja_medio_delta($pdo, $cajaId, $pg['medio'], (float)$pg['monto']);
         }
 
@@ -1278,7 +1514,8 @@ case 'buscar_producto': {
 
         $pdo->commit();
 
-        json_ok([
+        // Preparar respuesta
+        $respuesta = [
           'venta_id'        => $ventaId,
           'total'           => $totalNetoFinal,
           'total_bruto'     => $totalBruto,
@@ -1289,7 +1526,15 @@ case 'buscar_producto': {
           'desc_global_monto' => $descGlobalMonto,
           'pagos' => $pagosValidos,
           'total_pagado' => $montoPagado,
-        ]);
+        ];
+        
+        // Agregar info de CC si corresponde
+        if ($montoCC > 0) {
+          $respuesta['monto_cc'] = $montoCC;
+          $respuesta['cc'] = $ccInfo;
+        }
+        
+        json_ok($respuesta);
 
       } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

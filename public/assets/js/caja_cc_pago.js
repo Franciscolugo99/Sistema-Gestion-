@@ -1,5 +1,5 @@
 // public/assets/js/caja_cc_pago.js
-// Cobro de Cuenta Corriente desde Caja (solo EFECTIVO)
+// Cobro de Cuenta Corriente desde Caja (múltiples medios de pago)
 // No toca el flujo de venta: agrega un modal independiente.
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputClienteId = document.getElementById("ccPagoClienteId");
   const info = document.getElementById("ccPagoInfo");
   const inMonto = document.getElementById("ccPagoMonto");
+  const inMedio = document.getElementById("ccPagoMedio");
   const inRef = document.getElementById("ccPagoRef");
   const btnCancel = document.getElementById("ccPagoCancel");
   const btnConfirm = document.getElementById("ccPagoConfirm");
@@ -42,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputClienteId) inputClienteId.value = "";
     if (info) info.textContent = "";
     if (inMonto) inMonto.value = "";
+    if (inMedio) inMedio.value = "EFECTIVO";
     if (inRef) inRef.value = "";
     hideDropdown();
     setTimeout(() => inputBuscar?.focus?.(), 0);
@@ -100,15 +102,22 @@ document.addEventListener("DOMContentLoaded", () => {
     dropdown.style.display = "block";
   }
 
+  let clienteSeleccionado = null;
+
   function selectClient(index) {
     const c = results[index];
     if (!c) return;
+    clienteSeleccionado = c;
     if (inputBuscar) inputBuscar.value = c.nombre || "";
     if (inputClienteId) inputClienteId.value = String(c.id || "");
     if (info) {
       const saldo = Number(c.cc_saldo || 0).toFixed(2);
       const lim = Number(c.cc_limite || 0).toFixed(2);
-      info.textContent = `Saldo actual: $${saldo} · Límite: $${lim}`;
+      info.innerHTML = `<strong>Saldo actual: $${saldo}</strong> · Límite: $${lim}`;
+    }
+    // Autocompletar monto con el saldo completo
+    if (inMonto && Number(c.cc_saldo || 0) > 0) {
+      inMonto.value = Number(c.cc_saldo).toFixed(2);
     }
     hideDropdown();
   }
@@ -142,7 +151,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // events autocomplete
   ensureDropdown();
 
-  inputBuscar?.addEventListener("input", () => searchClients(inputBuscar.value));
+  inputBuscar?.addEventListener("input", () => {
+    clienteSeleccionado = null;
+    searchClients(inputBuscar.value);
+  });
 
   inputBuscar?.addEventListener("keydown", (e) => {
     if (!dropdown || dropdown.style.display === "none") return;
@@ -182,20 +194,29 @@ document.addEventListener("DOMContentLoaded", () => {
   async function registrarPago() {
     const clienteId = Number(inputClienteId?.value || 0);
     const monto = Number(String(inMonto?.value || "0").replace(",", ".")) || 0;
+    const medioPago = String(inMedio?.value || "EFECTIVO").toUpperCase();
 
     if (!clienteId) return showMsg("error", "Seleccioná un cliente.");
     if (!(monto > 0)) return showMsg("error", "Ingresá un monto mayor a 0.");
+
+    // Validar que no exceda el saldo
+    if (clienteSeleccionado) {
+      const saldo = Number(clienteSeleccionado.cc_saldo || 0);
+      if (monto > saldo + 0.01) {
+        return showMsg("error", `El monto excede la deuda actual ($${saldo.toFixed(2)})`);
+      }
+    }
 
     btnConfirm.disabled = true;
     btnConfirm.textContent = "Procesando...";
 
     try {
       const fd = new FormData();
-      fd.append("action", "registrar_pago"); // compat
+      fd.append("action", "registrar_pago");
       fd.append("from_caja", "1");
       fd.append("cliente_id", String(clienteId));
       fd.append("monto", String(monto.toFixed(2)));
-      fd.append("medio_pago", "EFECTIVO");
+      fd.append("medio_pago", medioPago);
       const ref = String(inRef?.value || "").trim();
       if (ref) fd.append("referencia", ref);
       fd.append("concepto", "Cobro CC en Caja");

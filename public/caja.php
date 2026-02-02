@@ -58,6 +58,7 @@ $extraCss = [
 $extraJs = [
   'assets/js/caja.js',
   'assets/js/caja_terminal_modal.js',
+  'assets/js/caja_cc_pago.js',
 ];
 
 // Permisos para frontend (JS espera true/false)
@@ -224,6 +225,16 @@ if ($cajaSesion) {
 
   <div class="caja-topbar__actions">
     <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
+
+    <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
+    <button
+      type="button"
+      id="btnCobroCC"
+      class="btn btn-info btn-sm"
+      title="Cobrar deuda de Cuenta Corriente">
+      Cobrar CC
+    </button>
+    <?php endif; ?>
 
     <button
       type="button"
@@ -507,5 +518,51 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
     </form>
   </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MODAL: COBRAR CUENTA CORRIENTE
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
+<div id="modalCcPago" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="modalCcPagoTitle">
+  <div class="modal-content modal-content--md">
+    <h3 id="modalCcPagoTitle" class="modal-title">Cobrar Cuenta Corriente</h3>
+    
+    <div class="field">
+      <label for="ccPagoBuscar">Cliente</label>
+      <div style="position:relative;">
+        <input type="text" id="ccPagoBuscar" placeholder="Buscar cliente (nombre / teléfono / CUIT)" autocomplete="off">
+        <input type="hidden" id="ccPagoClienteId" value="">
+      </div>
+      <div id="ccPagoInfo" class="cc-info" style="margin-top:4px;font-size:0.9em;color:#666;"></div>
+    </div>
+    
+    <div class="field">
+      <label for="ccPagoMonto">Monto a cobrar</label>
+      <input type="number" id="ccPagoMonto" min="0.01" step="0.01" placeholder="0,00">
+    </div>
+    
+    <div class="field">
+      <label for="ccPagoMedio">Medio de pago</label>
+      <select id="ccPagoMedio">
+        <option value="EFECTIVO">Efectivo</option>
+        <option value="TRANSFERENCIA">Transferencia</option>
+        <option value="MP">Mercado Pago</option>
+        <option value="DEBITO">Débito</option>
+        <option value="CREDITO">Crédito</option>
+      </select>
+    </div>
+    
+    <div class="field">
+      <label for="ccPagoRef">Referencia (opcional)</label>
+      <input type="text" id="ccPagoRef" placeholder="Nro. de transferencia, etc.">
+    </div>
+    
+    <div class="modal-buttons">
+      <button type="button" id="ccPagoCancel" class="btn-cancel">Cancelar</button>
+      <button type="button" id="ccPagoConfirm" class="btn-confirm">Registrar pago</button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

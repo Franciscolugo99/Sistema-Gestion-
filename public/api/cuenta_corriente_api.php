@@ -112,10 +112,7 @@ try {
 
             $fromCaja = ((int)($_POST['from_caja'] ?? 0) === 1);
             if ($fromCaja) {
-                // Desde Caja: por ahora SOLO EFECTIVO (para no romper cierre de caja)
-                if ($medioPago !== 'EFECTIVO') {
-                    throw new Exception('Desde Caja: solo EFECTIVO por ahora');
-                }
+                // Desde Caja: soportamos todos los medios de pago
                 if (($terminalId ?? 0) <= 0) {
                     throw new Exception('Terminal no identificada');
                 }

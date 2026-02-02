@@ -384,32 +384,7 @@ class CuentaCorrienteController
             $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
             $stUpd->execute([$saldoPosterior, $clienteId]);
             
-            
-            // (Opcional) Registrar ingreso en caja si el pago se hizo desde Caja (solo EFECTIVO)
-            $cajaMovId = null;
-            if (!empty($extras['registrar_caja_mov']) && strtoupper($medioPago) === 'EFECTIVO') {
-                $cajaId = (int)($extras['caja_id'] ?? 0);
-                if ($cajaId > 0) {
-                    $usrName = (string)($extras['usuario_nombre'] ?? ('user#' . $usuarioId));
-                    $usrName = mb_substr($usrName, 0, 100);
-                    $cliName = (string)($cliente['nombre'] ?? '');
-                    $cliName = mb_substr($cliName, 0, 80);
-
-                    $conceptoCaja = "Cobro CC";
-                    if ($cliName !== '') $conceptoCaja .= " - {$cliName}";
-                    $conceptoCaja .= " (#{$clienteId})";
-                    if ($referencia) $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
-
-                    $stCaja = $this->pdo->prepare("
-                        INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro)
-                        VALUES (?, 'ingreso', ?, ?, ?)
-                    ");
-                    $stCaja->execute([$cajaId, $conceptoCaja, $monto, $usrName]);
-                    $cajaMovId = (int)$this->pdo->lastInsertId();
-                }
-            }
-
-$this->pdo->commit();
+            $this->pdo->commit();
             
             return [
                 'success' => true,
@@ -427,7 +402,16 @@ $this->pdo->commit();
     }
     
     /**
-     * Registra un PAGO del cliente
+     * Registra un PAGO del cliente (reduce su deuda)
+     * 
+     * @param int $clienteId
+     * @param float $monto Monto positivo a pagar
+     * @param string $medioPago EFECTIVO, TRANSFERENCIA, MP, DEBITO, CREDITO, CHEQUE
+     * @param int $usuarioId Quién registra
+     * @param string|null $referencia Número de transferencia, etc.
+     * @param string|null $concepto
+     * @param array $extras [caja_id, terminal_id, ip, registrar_caja_mov, usuario_nombre]
+     * @return array ['success' => bool, 'error' => string|null, ...]
      */
     public function registrarPago(
         int $clienteId,
@@ -465,15 +449,29 @@ $this->pdo->commit();
             }
             
             $saldoAnterior = (float)$cliente['cc_saldo'];
+            
+            // Validar que no se pague más de lo que debe (opcional: permitir saldo a favor)
+            // Por ahora: NO permitimos sobrepago
+            if ($monto > $saldoAnterior + 0.01) {
+                $this->pdo->rollBack();
+                return [
+                    'success' => false, 
+                    'error' => 'El monto excede la deuda actual ($' . number_format($saldoAnterior, 2, ',', '.') . ')'
+                ];
+            }
+            
             $saldoPosterior = $saldoAnterior - $monto;
             
-            // Insertar movimiento
+            // Insertar movimiento CC
             $stMov = $this->pdo->prepare("
                 INSERT INTO cuenta_corriente_movimientos 
                   (cliente_id, tipo, estado, monto, saldo_anterior, saldo_posterior,
                    medio_pago, referencia, concepto, created_by, caja_id, terminal_id, ip_address)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
+            
+            $cajaId = (int)($extras['caja_id'] ?? 0) ?: null;
+            $terminalId = (int)($extras['terminal_id'] ?? 0) ?: null;
             
             $stMov->execute([
                 $clienteId,
@@ -486,12 +484,46 @@ $this->pdo->commit();
                 $referencia,
                 $concepto ?? 'Pago de cuenta',
                 $usuarioId,
-                $extras['caja_id'] ?? null,
-                $extras['terminal_id'] ?? null,
+                $cajaId,
+                $terminalId,
                 $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
             ]);
             
             $movimientoId = (int)$this->pdo->lastInsertId();
+            
+            // ═══════════════════════════════════════════════════════════════
+            // REGISTRAR MOVIMIENTO DE CAJA (cuando se cobra desde Caja)
+            // ═══════════════════════════════════════════════════════════════
+            $cajaMovId = null;
+            
+            if (!empty($extras['registrar_caja_mov']) && $cajaId > 0) {
+                $usrName = (string)($extras['usuario_nombre'] ?? ('user#' . $usuarioId));
+                $usrName = mb_substr($usrName, 0, 100);
+                $cliName = (string)($cliente['nombre'] ?? '');
+                $cliName = mb_substr($cliName, 0, 80);
+                
+                $conceptoCaja = "Cobro CC";
+                if ($cliName !== '') $conceptoCaja .= " - {$cliName}";
+                $conceptoCaja .= " (#{$clienteId})";
+                if ($referencia) $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
+                
+                // Insertar en caja_movimientos
+                $stCaja = $this->pdo->prepare("
+                    INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, cc_movimiento_id)
+                    VALUES (?, 'ingreso', ?, ?, ?, ?)
+                ");
+                $stCaja->execute([$cajaId, $conceptoCaja, $monto, $usrName, $movimientoId]);
+                $cajaMovId = (int)$this->pdo->lastInsertId();
+                
+                // Actualizar referencia en el movimiento CC
+                $stUpdRef = $this->pdo->prepare("
+                    UPDATE cuenta_corriente_movimientos SET caja_movimiento_id = ? WHERE id = ?
+                ");
+                $stUpdRef->execute([$cajaMovId, $movimientoId]);
+                
+                // Actualizar totales de caja_sesiones según el medio de pago
+                $this->actualizarTotalesCaja($cajaId, $medioPago, $monto);
+            }
             
             // Actualizar cliente
             $stUpd = $this->pdo->prepare("
@@ -513,6 +545,47 @@ $this->pdo->commit();
             $this->pdo->rollBack();
             error_log("CuentaCorrienteController::registrarPago ERROR: " . $e->getMessage());
             return ['success' => false, 'error' => 'Error interno al registrar pago'];
+        }
+    }
+    
+    /**
+     * Actualiza totales de caja_sesiones según medio de pago
+     * @internal
+     */
+    private function actualizarTotalesCaja(int $cajaId, string $medioPago, float $monto): void
+    {
+        $campo = 'total_efectivo';
+        $m = strtoupper(trim($medioPago));
+        
+        switch ($m) {
+            case 'MP':
+                $campo = 'total_mp';
+                break;
+            case 'DEBITO':
+                $campo = 'total_debito';
+                break;
+            case 'CREDITO':
+                $campo = 'total_credito';
+                break;
+            case 'TRANSFERENCIA':
+                // Si no hay columna específica, suma a efectivo (o crear una)
+                // Por defecto sumamos a efectivo ya que es dinero real
+                $campo = 'total_efectivo';
+                break;
+            default:
+                $campo = 'total_efectivo';
+        }
+        
+        // Verificar que la columna existe
+        try {
+            $stCheck = $this->pdo->query("SHOW COLUMNS FROM caja_sesiones LIKE '{$campo}'");
+            if ($stCheck->fetch()) {
+                $sql = "UPDATE caja_sesiones SET {$campo} = COALESCE({$campo}, 0) + ? WHERE id = ?";
+                $st = $this->pdo->prepare($sql);
+                $st->execute([$monto, $cajaId]);
+            }
+        } catch (Throwable $e) {
+            error_log("actualizarTotalesCaja: columna {$campo} no existe o error: " . $e->getMessage());
         }
     }
     
