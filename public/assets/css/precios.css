@@ -1,0 +1,1212 @@
+/**
+ * FLUS - Módulo de Gestión de Precios
+ * Estilos para historial, herramientas masivas y análisis de márgenes
+ * 
+ * @version 2.0.0
+ */
+
+/* ============================================
+   VARIABLES LOCALES
+============================================ */
+.precios-module {
+  --precios-success: #059669;
+  --precios-success-bg: #d1fae5;
+  --precios-danger: #dc2626;
+  --precios-danger-bg: #fee2e2;
+  --precios-warning: #d97706;
+  --precios-warning-bg: #fef3c7;
+  --precios-info: #2563eb;
+  --precios-info-bg: #dbeafe;
+
+  /* Fallback tokens para compatibilidad (si el theme global no define variables) */
+  --p-card-bg: var(--card-bg, #ffffff);
+  --p-bg-light: var(--bg-light, #f3f4f6);
+  --p-border: var(--border-color, rgba(0, 0, 0, 0.12));
+  --p-border-light: var(--border-light, rgba(0, 0, 0, 0.06));
+  --p-text: var(--text-primary, #111827);
+  --p-muted: var(--text-muted, #6b7280);
+  --p-input-bg: var(--input-bg, #ffffff);
+
+  --p-hover: rgba(0, 0, 0, 0.04);
+
+  --p-tooltip-bg: rgba(17, 24, 39, 0.96);
+  --p-tooltip-text: #ffffff;
+  --p-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .precios-module {
+  --p-card-bg: var(--card-bg, #0b1220);
+  --p-bg-light: var(--bg-light, rgba(255, 255, 255, 0.06));
+  --p-border: var(--border-color, rgba(255, 255, 255, 0.12));
+  --p-border-light: var(--border-light, rgba(255, 255, 255, 0.08));
+  --p-text: var(--text-primary, #e5e7eb);
+  --p-muted: var(--text-muted, #9ca3af);
+  --p-input-bg: var(--input-bg, rgba(255, 255, 255, 0.06));
+
+  --p-tooltip-bg: rgba(243, 244, 246, 0.96);
+  --p-tooltip-text: #0b1220;
+  --p-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================
+   TABS DE NAVEGACIÓN
+============================================ */
+.precio-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--p-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.precio-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.precio-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--p-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.precio-tab:hover {
+  color: var(--primary);
+  background: var(--p-bg-light);
+}
+
+.precio-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.precio-tab .icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   LAYOUT PRINCIPAL - HERRAMIENTAS
+============================================ */
+.precios-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .precios-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   PANEL DE CATEGORÍAS (SIDEBAR IZQUIERDO)
+============================================ */
+.categorias-panel {
+  background: var(--p-card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.categorias-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--p-bg-light);
+  border-bottom: 1px solid var(--p-border);
+}
+
+.categorias-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.categorias-search {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.categorias-search input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  padding-left: 2.5rem;
+  border: 1px solid var(--p-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--p-input-bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E")
+    no-repeat 0.75rem center;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.categorias-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.categorias-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Acordeón de categoría */
+.categoria-item {
+  border-bottom: 1px solid var(--p-border-light);
+}
+
+.categoria-item:last-child {
+  border-bottom: none;
+}
+
+.categoria-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.categoria-header:hover {
+  background: var(--p-hover);
+}
+
+.categoria-toggle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--p-muted);
+  transition: transform 0.2s;
+}
+
+.categoria-item.expanded .categoria-toggle {
+  transform: rotate(90deg);
+}
+
+.categoria-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.categoria-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.categoria-nombre {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--p-text);
+}
+
+.categoria-count {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  background: var(--p-bg-light);
+  padding: 0.125rem 0.5rem;
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+/* Productos dentro de categoría */
+.categoria-productos {
+  display: none;
+  padding: 0 0 0.5rem 0;
+  background: var(--p-bg-light);
+}
+
+.categoria-item.expanded .categoria-productos {
+  display: block;
+}
+
+.producto-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem 0.625rem 3rem;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.producto-row:hover {
+  background: var(--p-hover);
+}
+
+.producto-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.producto-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.producto-codigo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-muted);
+}
+
+.producto-nombre {
+  font-size: 0.8125rem;
+  color: var(--p-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.producto-precios {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.producto-precio {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--primary);
+}
+
+.producto-costo {
+  font-size: 0.6875rem;
+  color: var(--p-muted);
+}
+
+.producto-margen {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.producto-margen.ok {
+  background: var(--precios-success-bg);
+  color: var(--precios-success);
+}
+
+.producto-margen.bajo {
+  background: var(--precios-warning-bg);
+  color: var(--precios-warning);
+}
+
+.producto-margen.negativo {
+  background: var(--precios-danger-bg);
+  color: var(--precios-danger);
+}
+
+/* ============================================
+   PANEL DE HERRAMIENTAS (SIDEBAR DERECHO)
+============================================ */
+.herramientas-panel {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tool-card {
+  background: var(--p-card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--p-bg-light);
+  border-bottom: 1px solid var(--p-border);
+}
+
+.tool-card-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.tool-card-header .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+}
+
+.tool-card-body {
+  padding: 1.25rem;
+}
+
+.tool-card .form-group {
+  margin-bottom: 1rem;
+}
+
+.tool-card .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.tool-card label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.tool-card .form-control {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--p-border);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--p-input-bg);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.tool-card .form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.input-with-suffix {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.input-with-suffix input {
+  width: 100px;
+}
+
+.input-with-suffix span {
+  color: var(--p-muted);
+  font-size: 0.875rem;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  margin-top: 0.25rem;
+}
+
+/* Selección counter */
+.selection-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--precios-info-bg);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.selection-counter .count {
+  font-weight: 600;
+  color: var(--precios-info);
+}
+
+.selection-counter .clear-btn {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.selection-counter .clear-btn:hover {
+  color: var(--precios-danger);
+}
+
+/* Preview de cambios */
+.preview-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--p-border);
+}
+
+.preview-section h4 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+}
+
+.preview-list {
+  max-height: 150px;
+  overflow-y: auto;
+  font-size: 0.8125rem;
+}
+
+.preview-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.375rem 0;
+  border-bottom: 1px dashed var(--p-border-light);
+}
+
+.preview-item:last-child {
+  border-bottom: none;
+}
+
+.preview-item .nombre {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 0.5rem;
+}
+
+.preview-item .precios {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.preview-item .old {
+  color: var(--p-muted);
+  text-decoration: line-through;
+}
+
+.preview-item .arrow {
+  color: var(--p-muted);
+}
+
+.preview-item .new {
+  font-weight: 600;
+  color: var(--precios-success);
+}
+
+.preview-item .new.increase {
+  color: var(--precios-danger);
+}
+
+/* ============================================
+   BOTONES
+============================================ */
+.btn-apply {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-apply.primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-apply.primary:hover {
+  background: var(--primary-dark, #1d4ed8);
+}
+
+.btn-apply.primary:disabled {
+  background: var(--p-border);
+  cursor: not-allowed;
+}
+
+.btn-apply .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============================================
+   HISTORIAL DE CAMBIOS
+============================================ */
+.historial-list {
+  background: var(--card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.historial-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--p-muted);
+}
+
+.historial-empty .icon {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.hist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--p-border-light);
+  transition: background 0.15s;
+}
+
+.hist-item:hover {
+  background: var(--p-bg-light);
+}
+
+.hist-item:last-child {
+  border-bottom: none;
+}
+
+.hist-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hist-icon.up {
+  background: var(--precios-danger-bg);
+  color: var(--precios-danger);
+}
+
+.hist-icon.down {
+  background: var(--precios-success-bg);
+  color: var(--precios-success);
+}
+
+.hist-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.hist-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.hist-product {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--p-text);
+  margin-bottom: 0.25rem;
+}
+
+.hist-product .codigo {
+  font-weight: 400;
+  color: var(--p-muted);
+  font-size: 0.8125rem;
+}
+
+.hist-change {
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.hist-change .old-price {
+  color: var(--p-muted);
+  text-decoration: line-through;
+}
+
+.hist-change .new-price {
+  font-weight: 600;
+}
+
+.hist-change .diff {
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hist-change .diff.up {
+  background: var(--precios-danger-bg);
+  color: var(--precios-danger);
+}
+
+.hist-change .diff.down {
+  background: var(--precios-success-bg);
+  color: var(--precios-success);
+}
+
+.hist-meta {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  margin-top: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.hist-meta .motivo {
+  font-style: italic;
+}
+
+.hist-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.hist-badge.venta {
+  background: var(--precios-info-bg);
+  color: var(--precios-info);
+}
+
+.hist-badge.costo {
+  background: var(--precios-warning-bg);
+  color: var(--precios-warning);
+}
+
+/* ============================================
+   ESTADÍSTICAS DE MÁRGENES
+============================================ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--p-card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.stat-value.danger {
+  color: var(--precios-danger);
+}
+.stat-value.warning {
+  color: var(--precios-warning);
+}
+.stat-value.success {
+  color: var(--precios-success);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--p-muted);
+  margin-top: 0.375rem;
+}
+
+.stat-card .icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 0.5rem;
+  opacity: 0.6;
+}
+
+/* ============================================
+   TABLA DE MÁRGENES BAJOS
+============================================ */
+.margenes-table {
+  background: var(--card-bg);
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.margenes-table .table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--p-bg-light);
+  border-bottom: 1px solid var(--p-border);
+}
+
+.margenes-table .table-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.margenes-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.margenes-filter input {
+  width: 70px;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--p-border);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.margen-bar {
+  height: 8px;
+  background: var(--p-bg-light);
+  border-radius: 4px;
+  overflow: hidden;
+  width: 80px;
+}
+
+.margen-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.margen-bar-fill.danger {
+  background: var(--precios-danger);
+}
+.margen-bar-fill.warning {
+  background: var(--precios-warning);
+}
+.margen-bar-fill.success {
+  background: var(--precios-success);
+}
+
+/* ============================================
+   AYUDA CONTEXTUAL
+============================================ */
+.help-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--p-bg-light);
+  border: 1px solid var(--p-border);
+  color: var(--p-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  cursor: help;
+  margin-left: 0.5rem;
+}
+
+.help-tooltip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.75rem;
+  background: var(--p-tooltip-bg);
+  color: var(--p-tooltip-text);
+  font-size: 0.75rem;
+  font-weight: 400;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s,
+    visibility 0.2s;
+  z-index: 10000;
+  max-width: 250px;
+  white-space: normal;
+  text-align: center;
+  box-shadow: var(--p-shadow);
+}
+
+.help-tooltip::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--p-tooltip-bg);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s,
+    visibility 0.2s;
+  z-index: 10001;
+}
+
+.help-tooltip:hover::before,
+.help-tooltip:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+.help-tooltip:hover::after,
+.help-tooltip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============================================
+   LOADING STATES
+============================================ */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+[data-theme="dark"] .loading-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--p-border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--p-bg-light) 25%,
+    var(--p-border) 50%,
+    var(--p-bg-light) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================
+   ALERTAS Y MENSAJES
+============================================ */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.alert .icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.alert-ok {
+  background: var(--precios-success-bg);
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.alert-err {
+  background: var(--precios-danger-bg);
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.alert-warn {
+  background: var(--precios-warning-bg);
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.alert-info {
+  background: var(--precios-info-bg);
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+/* ============================================
+   RESPONSIVE
+============================================ */
+@media (max-width: 768px) {
+  .precios-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .herramientas-panel {
+    position: static;
+    order: -1;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hist-item {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hist-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .precio-tabs {
+    gap: 0;
+  }
+
+  .precio-tab {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mejoras adicionales (ayuda/atajos) */
+.tool-card-help {
+  background: var(--p-bg-light);
+  border-style: dashed;
+}
+
+/* =========================================================
+   FORCE WHITE TEXT (DARK) - Categorías / Productos
+   Pegar al FINAL de precios.css
+========================================================= */
+
+html[data-theme="dark"] .precios-module .categorias-panel,
+body[data-theme="dark"] .precios-module .categorias-panel {
+  color: #fff !important;
+}
+
+/* Texto principal (categorías y filas) */
+html[data-theme="dark"] .precios-module .categoria-header,
+html[data-theme="dark"] .precios-module .categoria-nombre,
+html[data-theme="dark"] .precios-module .producto-row,
+html[data-theme="dark"] .precios-module .producto-nombre,
+html[data-theme="dark"] .precios-module .producto-codigo,
+html[data-theme="dark"] .precios-module .producto-precio,
+body[data-theme="dark"] .precios-module .categoria-header,
+body[data-theme="dark"] .precios-module .categoria-nombre,
+body[data-theme="dark"] .precios-module .producto-row,
+body[data-theme="dark"] .precios-module .producto-nombre,
+body[data-theme="dark"] .precios-module .producto-codigo,
+body[data-theme="dark"] .precios-module .producto-precio {
+  color: #fff !important;
+  opacity: 1 !important; /* por si venía “apagado” */
+  filter: none !important; /* por si había algún filtro raro */
+}
+
+/* Texto secundario (conteo, costo, etc.) */
+html[data-theme="dark"] .precios-module .categoria-count,
+html[data-theme="dark"] .precios-module .producto-costo,
+body[data-theme="dark"] .precios-module .categoria-count,
+body[data-theme="dark"] .precios-module .producto-costo {
+  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 1 !important;
+}
+
+/* Iconito flecha + SVG dentro de headers */
+html[data-theme="dark"] .precios-module .categoria-header svg,
+html[data-theme="dark"] .precios-module .categoria-toggle,
+body[data-theme="dark"] .precios-module .categoria-header svg,
+body[data-theme="dark"] .precios-module .categoria-toggle {
+  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 1 !important;
+}
+
+/* Placeholder del buscador dentro de categorías */
+html[data-theme="dark"] .precios-module #searchProductos::placeholder,
+body[data-theme="dark"] .precios-module #searchProductos::placeholder {
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+/* =========================================================
+   FIX CONTRASTE (DARK) - Historial + Selección de productos
+   Pegar AL FINAL de precios.css
+========================================================= */
+
+/* ---------- SELECTION COUNTER (1 producto seleccionado) ---------- */
+html[data-theme="dark"] .precios-module .selection-counter,
+body[data-theme="dark"] .precios-module .selection-counter {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-theme="dark"] .precios-module .selection-counter #selectionCount,
+body[data-theme="dark"] .precios-module .selection-counter #selectionCount {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
+html[data-theme="dark"] .precios-module .selection-counter .clear-btn,
+body[data-theme="dark"] .precios-module .selection-counter .clear-btn {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-decoration: underline !important;
+  opacity: 1 !important;
+}
+
+/* ---------- RESALTAR PRODUCTO SELECCIONADO (CHECKED) ---------- */
+/* (Chrome soporta :has, así que te funciona) */
+html[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked),
+body[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked) {
+  background: rgba(56, 189, 248, 0.12) !important; /* celestito suave */
+  border-color: rgba(56, 189, 248, 0.28) !important;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.18) !important;
+}
+
+html[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked)
+  .producto-nombre,
+html[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked)
+  .producto-codigo,
+body[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked)
+  .producto-nombre,
+body[data-theme="dark"]
+  .precios-module
+  label.producto-row:has(input[type="checkbox"]:checked)
+  .producto-codigo {
+  color: #fff !important;
+  opacity: 1 !important;
+}
+
+/* Opcional: resaltar categoría completa cuando el checkbox de categoría está checked */
+html[data-theme="dark"]
+  .precios-module
+  .categoria-header:has(.categoria-checkbox:checked),
+body[data-theme="dark"]
+  .precios-module
+  .categoria-header:has(.categoria-checkbox:checked) {
+  background: rgba(56, 189, 248, 0.08) !important;
+}
+
+/* ---------- HISTORIAL (DARK): más legible y con mejor fondo ---------- */
+html[data-theme="dark"] .precios-module .historial-list,
+body[data-theme="dark"] .precios-module .historial-list {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-item,
+body[data-theme="dark"] .precios-module .hist-item {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-product,
+body[data-theme="dark"] .precios-module .hist-product {
+  color: #fff !important;
+  opacity: 1 !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-product .codigo,
+body[data-theme="dark"] .precios-module .hist-product .codigo {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-meta,
+body[data-theme="dark"] .precios-module .hist-meta {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-change .old-price,
+body[data-theme="dark"] .precios-module .hist-change .old-price {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+html[data-theme="dark"] .precios-module .hist-change .new-price,
+body[data-theme="dark"] .precios-module .hist-change .new-price {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
+/* Badge tipo VENTA/COSTO un poco más contrastado en dark */
+html[data-theme="dark"] .precios-module .hist-badge,
+body[data-theme="dark"] .precios-module .hist-badge {
+  background: rgba(59, 130, 246, 0.22) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}

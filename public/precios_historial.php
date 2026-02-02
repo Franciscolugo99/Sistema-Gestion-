@@ -1,5 +1,19 @@
 <?php
 // public/precios_historial.php - Historial de Precios FLUS
+/**
+ * FLUS - Gestión de Precios v2.0
+ * Historial de cambios, herramientas masivas y análisis de márgenes
+ * 
+ * Mejoras:
+ * - Vista por categorías con acordeones colapsables
+ * - CSS y JS separados en archivos externos
+ * - Búsqueda asíncrona con debounce
+ * - Preview de cambios en tiempo real
+ * - Ayudas contextuales y tooltips
+ * - Paginación y lazy loading preparado
+ * 
+ * @version 2.0.0
+ */
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -13,40 +27,50 @@ if (!user_has_permission('editar_productos')) {
 
 require_once __DIR__ . '/../src/precio_historial.php';
 
-// Asegurar tablas existen
 $pdo = getPDO();
 precio_ensure_tables($pdo);
 
+// CSRF
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-$pageTitle = 'Historial de Precios - FLUS';
+// ============================================
+// CONFIGURACIÓN DE PÁGINA
+// ============================================
+$pageTitle = 'Gestión de Precios - FLUS';
 $currentSection = 'precios_historial';
-$extraCss = [];
-$extraJs = [];
+$extraCss = ['assets/css/precios.css'];
+$extraJs = ['assets/js/precios.js'];
 
 $info = null;
 $error = null;
 
 // Vista actual
-$vista = (string)($_GET['v'] ?? 'historial'); // historial | herramientas | margenes
+$vista = $_GET['v'] ?? 'historial';
+$vistaValida = in_array($vista, ['historial', 'herramientas', 'margenes']);
+if (!$vistaValida) {
+    $vista = 'historial';
+}
 
-// Manejo de acciones POST
+// ============================================
+// PROCESAR ACCIONES POST
+// ============================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = (string)($_POST['csrf_token'] ?? '');
+    $token = $_POST['csrf_token'] ?? '';
     
     if (!hash_equals($_SESSION['csrf_token'], $token)) {
-        $error = 'Token CSRF inválido.';
+        $error = 'Token CSRF inválido. Recargá la página.';
     } else {
-        $accion = (string)($_POST['accion'] ?? '');
+        $accion = $_POST['accion'] ?? '';
         
+        // Ajuste masivo por porcentaje
         if ($accion === 'ajuste_masivo') {
             $porcentaje = (float)($_POST['porcentaje'] ?? 0);
-            $tipo = (string)($_POST['tipo_precio'] ?? 'precio');
-            $redondeo = (string)($_POST['redondeo'] ?? 'NINGUNO');
-            $motivo = trim((string)($_POST['motivo'] ?? 'Ajuste masivo'));
-            $productoIds = array_filter(array_map('intval', explode(',', (string)($_POST['producto_ids'] ?? ''))));
+            $tipo = in_array($_POST['tipo_precio'] ?? '', ['VENTA', 'COSTO']) ? $_POST['tipo_precio'] : 'VENTA';
+            $redondeo = $_POST['redondeo'] ?? 'NINGUNO';
+            $motivo = trim($_POST['motivo'] ?? '') ?: "Ajuste masivo {$porcentaje}%";
+            $productoIds = array_filter(array_map('intval', explode(',', $_POST['producto_ids'] ?? '')));
             
             if ($porcentaje == 0) {
                 $error = 'El porcentaje no puede ser 0.';
@@ -55,16 +79,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $result = precio_ajuste_masivo_porcentaje($productoIds, $porcentaje, $tipo, $redondeo, $motivo);
                 if ($result['actualizados'] > 0) {
-                    $info = "Ajuste aplicado: {$result['actualizados']} productos actualizados.";
+                    $info = "✓ Ajuste aplicado: {$result['actualizados']} producto(s) actualizado(s).";
+                    if (!empty($result['errores'])) {
+                        $info .= ' Con algunos errores: ' . implode(', ', array_slice($result['errores'], 0, 3));
+                    }
                 } else {
-                    $error = 'No se actualizó ningún producto.';
+                    $error = 'No se actualizó ningún producto.' . 
+                        (!empty($result['errores']) ? ' Errores: ' . implode(', ', $result['errores']) : '');
                 }
             }
-        } elseif ($accion === 'aplicar_margen') {
+        }
+        
+        // Aplicar margen sobre costo
+        elseif ($accion === 'aplicar_margen') {
             $margen = (float)($_POST['margen'] ?? 0);
-            $redondeo = (string)($_POST['redondeo'] ?? 'NINGUNO');
-            $motivo = trim((string)($_POST['motivo'] ?? 'Aplicar margen'));
-            $productoIds = array_filter(array_map('intval', explode(',', (string)($_POST['producto_ids'] ?? ''))));
+            $redondeo = $_POST['redondeo'] ?? 'NINGUNO';
+            $motivo = trim($_POST['motivo'] ?? '') ?: "Margen sobre costo {$margen}%";
+            $productoIds = array_filter(array_map('intval', explode(',', $_POST['producto_ids'] ?? '')));
             
             if ($margen <= 0) {
                 $error = 'El margen debe ser mayor a 0.';
@@ -72,31 +103,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Seleccioná al menos un producto.';
             } else {
                 $result = precio_aplicar_margen($productoIds, $margen, $redondeo, $motivo);
-                $actualizados = (int)($result['actualizados'] ?? 0);
+                $actualizados = $result['actualizados'] ?? 0;
                 if ($actualizados > 0) {
-                    $info = "Margen aplicado: $actualizados productos actualizados.";
+                    $info = "✓ Margen aplicado: {$actualizados} producto(s) actualizado(s).";
                 } else {
-                    $error = 'No se actualizó ningún producto.';
+                    $error = 'No se actualizó ningún producto.' .
+                        (!empty($result['errores']) ? ' Errores: ' . implode(', ', $result['errores']) : '');
                 }
             }
         }
     }
 }
 
-// Cargar datos según vista
-// (PDO ya inicializado arriba)
+// ============================================
+// CARGAR DATOS SEGÚN VISTA
+// ============================================
 
-// Para historial: últimos cambios
+// Detectar columna de categoría
+$catCol = 'categoria';
+foreach (['categoria', 'rubro', 'familia'] as $col) {
+    try {
+        $check = $pdo->prepare("SHOW COLUMNS FROM productos LIKE ?");
+        $check->execute([$col]);
+        if ($check->fetch()) {
+            $catCol = $col;
+            break;
+        }
+    } catch (Throwable $e) {
+        continue;
+    }
+}
+
+// VISTA: HISTORIAL
 $historial = [];
+$productoFiltro = null;
 if ($vista === 'historial') {
     $productoId = (int)($_GET['pid'] ?? 0);
     
     if ($productoId > 0) {
+        // Historial de un producto específico
+        $stmtProd = $pdo->prepare("SELECT codigo, nombre FROM productos WHERE id = ?");
+        $stmtProd->execute([$productoId]);
+        $productoFiltro = $stmtProd->fetch(PDO::FETCH_ASSOC);
+        
         $historial = precio_get_historial($productoId, null, 50);
     } else {
         // Últimos cambios globales
         $stmt = $pdo->query("
-            SELECT h.*, p.codigo, p.nombre as producto_nombre, u.nombre as usuario_nombre
+            SELECT 
+                h.*, 
+                p.codigo, 
+                p.nombre as producto_nombre, 
+                u.nombre as usuario_nombre
             FROM producto_precios_hist h
             LEFT JOIN productos p ON h.producto_id = p.id
             LEFT JOIN users u ON h.user_id = u.id
@@ -107,25 +165,41 @@ if ($vista === 'historial') {
     }
 }
 
-// Para herramientas: lista de productos
-$productos = [];
+// VISTA: HERRAMIENTAS
+$categorias = [];
 if ($vista === 'herramientas') {
-    $buscar = trim((string)($_GET['q'] ?? ''));
-    $query = "SELECT id, codigo, nombre, precio, costo, stock FROM productos WHERE activo = 1";
-    $params = [];
+    $sql = "
+        SELECT 
+            p.id, p.codigo, p.nombre, p.precio, p.costo, p.stock,
+            COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categoría') as categoria,
+            CASE 
+                WHEN p.costo > 0 THEN ROUND(((p.precio - p.costo) / p.costo) * 100, 2)
+                ELSE NULL
+            END as margen_pct
+        FROM productos p
+        WHERE p.activo = 1
+        ORDER BY categoria ASC, p.nombre ASC
+    ";
     
-    if ($buscar) {
-        $query .= " AND (codigo LIKE :q OR nombre LIKE :q)";
-        $params['q'] = "%$buscar%";
-    }
-    
-    $query .= " ORDER BY nombre LIMIT 200";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
+    $stmt = $pdo->query($sql);
     $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Agrupar por categoría
+    foreach ($productos as $p) {
+        $cat = $p['categoria'];
+        if (!isset($categorias[$cat])) {
+            $categorias[$cat] = [
+                'nombre' => $cat,
+                'productos' => [],
+                'count' => 0
+            ];
+        }
+        $categorias[$cat]['productos'][] = $p;
+        $categorias[$cat]['count']++;
+    }
 }
 
-// Para márgenes: estadísticas y productos con margen bajo
+// VISTA: MÁRGENES
 $estadisticas = null;
 $margenBajo = [];
 if ($vista === 'margenes') {
@@ -134,187 +208,17 @@ if ($vista === 'margenes') {
     $margenBajo = precio_productos_margen_bajo($umbral, 100);
 }
 
+// ============================================
+// RENDER
+// ============================================
 require __DIR__ . '/partials/header.php';
 ?>
 
-<style>
-.precio-tabs {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid var(--border-color, #e5e7eb);
-}
-.precio-tab {
-    padding: 0.75rem 1.25rem;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-}
-.precio-tab:hover { color: var(--primary); }
-.precio-tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-}
-
-.hist-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-light);
-}
-.hist-item:last-child { border-bottom: none; }
-.hist-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-.hist-icon.up { background: #d1fae5; color: #059669; }
-.hist-icon.down { background: #fee2e2; color: #dc2626; }
-.hist-content { flex: 1; }
-.hist-product {
-    font-weight: 600;
-    font-size: 0.9375rem;
-}
-.hist-change {
-    font-size: 0.875rem;
-    margin-top: 0.25rem;
-}
-.hist-meta {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-}
-.hist-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-.hist-badge.up { background: #d1fae5; color: #065f46; }
-.hist-badge.down { background: #fee2e2; color: #991b1b; }
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-.stat-card {
-    background: var(--card-bg, #fff);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.25rem;
-    text-align: center;
-}
-.stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-}
-.stat-value.danger { color: #dc2626; }
-.stat-value.warning { color: #d97706; }
-.stat-value.success { color: #059669; }
-.stat-label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-}
-
-.tool-card {
-    background: var(--card-bg, #fff);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-.tool-card h3 {
-    margin: 0 0 1rem 0;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.product-selector {
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-.product-selector-header {
-    padding: 0.75rem 1rem;
-    background: var(--bg-light);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    position: sticky;
-    top: 0;
-}
-.product-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-light);
-    cursor: pointer;
-}
-.product-item:hover { background: var(--bg-light); }
-.product-item:last-child { border-bottom: none; }
-.product-item input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-}
-.product-info { flex: 1; }
-.product-code { font-weight: 600; font-size: 0.875rem; }
-.product-name { font-size: 0.8125rem; color: var(--text-muted); }
-.product-prices {
-    text-align: right;
-    font-size: 0.8125rem;
-}
-.product-prices .precio { font-weight: 600; color: var(--primary); }
-.product-prices .costo { color: var(--text-muted); }
-
-.margen-row {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
-    gap: 1rem;
-    align-items: center;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--border-light);
-}
-.margen-bar {
-    height: 8px;
-    background: var(--bg-light);
-    border-radius: 4px;
-    overflow: hidden;
-    width: 100px;
-}
-.margen-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-}
-.margen-bar-fill.danger { background: #dc2626; }
-.margen-bar-fill.warning { background: #d97706; }
-.margen-bar-fill.success { background: #059669; }
-</style>
-
-<div class="panel">
+<div class="panel precios-module">
     <div class="panel-head">
         <div>
             <h1>Gestión de Precios</h1>
-            <p class="panel-subtitle">Historial de cambios y herramientas de actualización masiva</p>
+            <p class="panel-subtitle">Historial de cambios, ajustes masivos y análisis de márgenes</p>
         </div>
     </div>
 
@@ -324,7 +228,7 @@ require __DIR__ . '/partials/header.php';
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
-            <span><?= h($info) ?></span>
+            <span><?= htmlspecialchars($info) ?></span>
         </div>
     <?php endif; ?>
 
@@ -335,344 +239,461 @@ require __DIR__ . '/partials/header.php';
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <span><?= h($error) ?></span>
+            <span><?= htmlspecialchars($error) ?></span>
         </div>
     <?php endif; ?>
 
-    <!-- Tabs -->
-    <div class="precio-tabs">
+    <!-- TABS -->
+    <nav class="precio-tabs">
         <a href="?v=historial" class="precio-tab <?= $vista === 'historial' ? 'active' : '' ?>">
-            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem; vertical-align: -2px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
             </svg>
             Historial
         </a>
         <a href="?v=herramientas" class="precio-tab <?= $vista === 'herramientas' ? 'active' : '' ?>">
-            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem; vertical-align: -2px;">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
             </svg>
             Herramientas
         </a>
         <a href="?v=margenes" class="precio-tab <?= $vista === 'margenes' ? 'active' : '' ?>">
-            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem; vertical-align: -2px;">
-                <line x1="12" y1="20" x2="12" y2="10"/>
-                <line x1="18" y1="20" x2="18" y2="4"/>
-                <line x1="6" y1="20" x2="6" y2="16"/>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
             </svg>
-            Análisis de Márgenes
+            Márgenes
         </a>
-    </div>
+    </nav>
 
+    <!-- ============================================
+         VISTA: HISTORIAL
+    ============================================ -->
     <?php if ($vista === 'historial'): ?>
-    <!-- Historial de cambios -->
-    <div class="tool-card">
-        <?php if (empty($historial)): ?>
-            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                <p>No hay cambios de precio registrados</p>
+        
+        <?php if ($productoFiltro): ?>
+            <div class="alert alert-info" style="margin-bottom: 1rem;">
+                <span>Mostrando historial de: <strong><?= htmlspecialchars($productoFiltro['codigo'] . ' - ' . $productoFiltro['nombre']) ?></strong></span>
+                <a href="?v=historial" style="margin-left: auto; color: inherit;">Ver todos</a>
             </div>
-        <?php else: ?>
-            <?php foreach ($historial as $h): ?>
-            <div class="hist-item">
-                <div class="hist-icon <?= (float)$h['diferencia'] >= 0 ? 'up' : 'down' ?>">
-                    <?php if ((float)$h['diferencia'] >= 0): ?>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="18 15 12 9 6 15"/>
-                        </svg>
-                    <?php else: ?>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
-                    <?php endif; ?>
-                </div>
-                <div class="hist-content">
-                    <div class="hist-product">
-                        <?= h($h['codigo'] ?? '') ?> - <?= h($h['producto_nombre'] ?? 'Producto #'.$h['producto_id']) ?>
-                    </div>
-                    <div class="hist-change">
-                        <span style="color: var(--text-muted);"><?= h($h['tipo']) ?>:</span>
-                        $<?= number_format((float)$h['precio_anterior'], 2) ?> → 
-                        <strong>$<?= number_format((float)$h['precio_nuevo'], 2) ?></strong>
-                        <span class="hist-badge <?= (float)$h['diferencia'] >= 0 ? 'up' : 'down' ?>">
-                            <?= (float)$h['diferencia'] >= 0 ? '+' : '' ?><?= number_format((float)$h['diferencia_pct'], 1) ?>%
-                        </span>
-                    </div>
-                    <div class="hist-meta">
-                        <?= h(date('d/m/Y H:i', strtotime($h['created_at']))) ?>
-                        <?php if (!empty($h['usuario_nombre'])): ?>
-                            • <?= h($h['usuario_nombre']) ?>
-                        <?php endif; ?>
-                        <?php if (!empty($h['motivo'])): ?>
-                            • <?= h($h['motivo']) ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <?php endforeach; ?>
         <?php endif; ?>
-    </div>
-
-    <?php elseif ($vista === 'herramientas'): ?>
-    <!-- Herramientas de actualización -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-        <!-- Ajuste por porcentaje -->
-        <div class="tool-card">
-            <h3>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="19" y1="5" x2="5" y2="19"/>
-                    <circle cx="6.5" cy="6.5" r="2.5"/>
-                    <circle cx="17.5" cy="17.5" r="2.5"/>
-                </svg>
-                Ajuste por Porcentaje
-            </h3>
-            <form method="post" id="formAjustePorcentaje">
-                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-                <input type="hidden" name="accion" value="ajuste_masivo">
-                <input type="hidden" name="producto_ids" id="productoIdsAjuste">
-                
-                <div class="form-group">
-                    <label>Porcentaje de ajuste</label>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <input type="number" name="porcentaje" step="0.1" class="form-control" placeholder="Ej: 10 o -5" required style="width: 120px;">
-                        <span>%</span>
-                    </div>
-                    <small class="text-muted">Positivo para aumentar, negativo para disminuir</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Aplicar a</label>
-                    <select name="tipo_precio" class="form-control">
-                        <option value="precio">Precio de venta</option>
-                        <option value="costo">Costo</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Redondeo</label>
-                    <select name="redondeo" class="form-control">
-                        <option value="NINGUNO">Sin redondeo</option>
-                        <option value="ENTERO">Entero más cercano</option>
-                        <option value="5">Múltiplo de 5</option>
-                        <option value="10">Múltiplo de 10</option>
-                        <option value="50">Múltiplo de 50</option>
-                        <option value="100">Múltiplo de 100</option>
-                        <option value="990">Psicológico (X90/X99)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Motivo</label>
-                    <input type="text" name="motivo" class="form-control" placeholder="Ej: Ajuste inflación enero">
-                </div>
-                
-                <button type="submit" class="btn btn-primary" onclick="return validarSeleccion('productoIdsAjuste')">
-                    Aplicar Ajuste
-                </button>
-            </form>
-        </div>
-
-        <!-- Aplicar margen sobre costo -->
-        <div class="tool-card">
-            <h3>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="1" x2="12" y2="23"/>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                Aplicar Margen sobre Costo
-            </h3>
-            <form method="post" id="formAplicarMargen">
-                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-                <input type="hidden" name="accion" value="aplicar_margen">
-                <input type="hidden" name="producto_ids" id="productoIdsMargen">
-                
-                <div class="form-group">
-                    <label>Margen deseado</label>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <input type="number" name="margen" step="0.1" min="0" class="form-control" placeholder="Ej: 30" required style="width: 120px;">
-                        <span>%</span>
-                    </div>
-                    <small class="text-muted">Precio = Costo × (1 + Margen/100)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Redondeo</label>
-                    <select name="redondeo" class="form-control">
-                        <option value="NINGUNO">Sin redondeo</option>
-                        <option value="ENTERO">Entero más cercano</option>
-                        <option value="10">Múltiplo de 10</option>
-                        <option value="50">Múltiplo de 50</option>
-                        <option value="990">Psicológico (X90/X99)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label>Motivo</label>
-                    <input type="text" name="motivo" class="form-control" placeholder="Ej: Normalizar márgenes">
-                </div>
-                
-                <button type="submit" class="btn btn-primary" onclick="return validarSeleccion('productoIdsMargen')">
-                    Aplicar Margen
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Selector de productos -->
-    <div class="tool-card">
-        <h3>Seleccionar Productos</h3>
         
-        <form method="get" style="margin-bottom: 1rem;">
-            <input type="hidden" name="v" value="herramientas">
-            <div style="display: flex; gap: 0.5rem;">
-                <input type="text" name="q" value="<?= h($_GET['q'] ?? '') ?>" class="form-control" placeholder="Buscar por código o nombre..." style="flex: 1;">
-                <button type="submit" class="btn btn-ghost">Buscar</button>
-            </div>
-        </form>
-        
-        <div class="product-selector">
-            <div class="product-selector-header">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                    <span>Seleccionar todos</span>
-                </label>
-                <span id="selectedCount" style="color: var(--text-muted); font-size: 0.875rem;">0 seleccionados</span>
-            </div>
-            
-            <?php if (empty($productos)): ?>
-                <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
-                    <?= !empty($_GET['q']) ? 'No se encontraron productos' : 'Ingresá un término de búsqueda' ?>
+        <div class="historial-list">
+            <?php if (empty($historial)): ?>
+                <div class="historial-empty">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <p>No hay cambios de precios registrados.</p>
+                    <p style="font-size: 0.8125rem;">Los cambios aparecerán acá cuando modifiques precios desde las herramientas o el módulo de productos.</p>
                 </div>
             <?php else: ?>
-                <?php foreach ($productos as $p): ?>
-                <label class="product-item">
-                    <input type="checkbox" class="product-checkbox" value="<?= $p['id'] ?>" onchange="updateSelection()">
-                    <div class="product-info">
-                        <div class="product-code"><?= h($p['codigo']) ?></div>
-                        <div class="product-name"><?= h($p['nombre']) ?></div>
+                <?php foreach ($historial as $h): 
+                    $diferencia = (float)($h['diferencia'] ?? 0);
+                    $isUp = $diferencia > 0;
+                    $fecha = isset($h['created_at']) ? date('d/m/Y H:i', strtotime($h['created_at'])) : '';
+                    $fechaISO = $h['created_at'] ?? '';
+                ?>
+                <div class="hist-item" data-tipo="<?= htmlspecialchars($h['tipo'] ?? 'VENTA') ?>" data-fecha="<?= htmlspecialchars(substr($fechaISO, 0, 10)) ?>">
+                    <div class="hist-icon <?= $isUp ? 'up' : 'down' ?>">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <?php if ($isUp): ?>
+                                <polyline points="18 15 12 9 6 15"/>
+                            <?php else: ?>
+                                <polyline points="6 9 12 15 18 9"/>
+                            <?php endif; ?>
+                        </svg>
                     </div>
-                    <div class="product-prices">
-                        <div class="precio">$<?= number_format((float)$p['precio'], 2) ?></div>
-                        <div class="costo">Costo: $<?= number_format((float)$p['costo'], 2) ?></div>
+                    <div class="hist-content">
+                        <div class="hist-product">
+                            <?= htmlspecialchars($h['producto_nombre'] ?? $h['nombre'] ?? 'Producto') ?>
+                            <span class="codigo">(<?= htmlspecialchars($h['codigo'] ?? '') ?>)</span>
+                        </div>
+                        <div class="hist-change">
+                            <span class="old-price">$<?= number_format((float)($h['precio_anterior'] ?? 0), 2, ',', '.') ?></span>
+                            <span>→</span>
+                            <span class="new-price">$<?= number_format((float)($h['precio_nuevo'] ?? 0), 2, ',', '.') ?></span>
+                            <span class="diff <?= $isUp ? 'up' : 'down' ?>">
+                                <?= $isUp ? '+' : '' ?><?= number_format($diferencia, 2, ',', '.') ?>
+                                <?php if (!empty($h['diferencia_pct'])): ?>
+                                    (<?= $isUp ? '+' : '' ?><?= number_format((float)$h['diferencia_pct'], 1) ?>%)
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="hist-meta">
+                            <span class="hist-badge <?= strtolower($h['tipo'] ?? 'venta') ?>"><?= htmlspecialchars($h['tipo'] ?? 'VENTA') ?></span>
+                            <span><?= $fecha ?></span>
+                            <?php if (!empty($h['usuario_nombre'] ?? $h['user_nombre'])): ?>
+                                <span>por <?= htmlspecialchars($h['usuario_nombre'] ?? $h['user_nombre']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($h['motivo'])): ?>
+                                <span class="motivo">"<?= htmlspecialchars($h['motivo']) ?>"</span>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                </label>
+                </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
-    </div>
 
-    <script>
-    function toggleSelectAll() {
-        const checked = document.getElementById('selectAll').checked;
-        document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = checked);
-        updateSelection();
-    }
-    
-    function updateSelection() {
-        const selected = [...document.querySelectorAll('.product-checkbox:checked')].map(cb => cb.value);
-        document.getElementById('selectedCount').textContent = selected.length + ' seleccionados';
-        document.getElementById('productoIdsAjuste').value = selected.join(',');
-        document.getElementById('productoIdsMargen').value = selected.join(',');
-    }
-    
-    function validarSeleccion(inputId) {
-        const ids = document.getElementById(inputId).value;
-        if (!ids) {
-            alert('Seleccioná al menos un producto');
-            return false;
-        }
-        return confirm('¿Aplicar cambios a ' + ids.split(',').length + ' productos?');
-    }
-    </script>
+    <!-- ============================================
+         VISTA: HERRAMIENTAS
+    ============================================ -->
+    <?php elseif ($vista === 'herramientas'): ?>
+        
+        <div class="precios-layout">
+            <!-- Panel izquierdo: Categorías y productos -->
+            <div class="categorias-panel">
+                <div class="categorias-header">
+                    <h3>
+                        <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Productos por Categoría
+                    </h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" id="expandAllBtn" class="btn btn-ghost btn-sm" title="Expandir todo (Ctrl+Shift+E)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="7 13 12 18 17 13"/>
+                                <polyline points="7 6 12 11 17 6"/>
+                            </svg>
+                        </button>
+                        <button type="button" id="collapseAllBtn" class="btn btn-ghost btn-sm" title="Colapsar todo (Ctrl+Shift+C)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="17 11 12 6 7 11"/>
+                                <polyline points="17 18 12 13 7 18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="categorias-search">
+                    <input type="text" id="searchProductos" placeholder="Buscar por código o nombre..." autocomplete="off">
+                </div>
+                
+                <div class="categorias-list">
+                    <?php if (empty($categorias)): ?>
+                        <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                            No hay productos activos.
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($categorias as $cat): ?>
+                        <div class="categoria-item">
+                            <div class="categoria-header">
+                                <span class="categoria-toggle">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                </span>
+                                <input type="checkbox" class="categoria-checkbox" title="Seleccionar toda la categoría">
+                                <div class="categoria-info">
+                                    <span class="categoria-nombre"><?= htmlspecialchars($cat['nombre']) ?></span>
+                                </div>
+                                <span class="categoria-count"><?= $cat['count'] ?></span>
+                            </div>
+                            <div class="categoria-productos">
+                                <?php foreach ($cat['productos'] as $p): 
+                                    $margenRaw = $p['margen_pct'] ?? null;
+                                $margen = ($margenRaw === null || $margenRaw === '') ? null : (float)$margenRaw;
+                                $margenClass = $margen === null ? '' : ($margen < 0 ? 'negativo' : ($margen < 15 ? 'bajo' : 'ok'));
+                                ?>
+                                <label class="producto-row" 
+                                       data-codigo="<?= htmlspecialchars($p['codigo']) ?>"
+                                       data-nombre="<?= htmlspecialchars($p['nombre']) ?>"
+                                       data-precio="<?= $p['precio'] ?>"
+                                       data-costo="<?= $p['costo'] ?>">
+                                    <input type="checkbox" value="<?= $p['id'] ?>">
+                                    <div class="producto-info">
+                                        <div class="producto-codigo"><?= htmlspecialchars($p['codigo']) ?></div>
+                                        <div class="producto-nombre"><?= htmlspecialchars($p['nombre']) ?></div>
+                                    </div>
+                                    <div class="producto-precios">
+                                        <div class="producto-precio">$<?= number_format((float)$p['precio'], 2, ',', '.') ?></div>
+                                        <?php if ((float)$p['costo'] > 0): ?>
+                                            <div class="producto-costo">Costo: $<?= number_format((float)$p['costo'], 2, ',', '.') ?></div>
+                                            <?php if ($margen !== null): ?>
+                                                <div class="producto-margen <?= $margenClass ?>"><?= number_format((float)$margen, 1, ',', '.') ?>%</div>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
 
+            <!-- Panel derecho: Herramientas -->
+            <div class="herramientas-panel">
+                
+                <!-- Contador de selección -->
+                <div class="selection-counter" style="display: none;">
+                    <span><span id="selectionCount">0</span> producto(s) seleccionado(s)</span>
+                    <button type="button" id="clearSelectionBtn" class="clear-btn">Limpiar</button>
+                </div>
+
+                <!-- Ajuste Masivo -->
+                <div class="tool-card">
+                    <div class="tool-card-header">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                        <h3>Ajuste por Porcentaje</h3>
+                        <span class="help-tooltip" data-tip="Aumentá o disminuí precios aplicando un porcentaje. Ej: +10% para aumentar, -5% para disminuir." tabindex="0" aria-label="Ayuda">?</span>
+                    </div>
+                    <div class="tool-card-body">
+                        <form method="post" id="formAjusteMasivo">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <input type="hidden" name="accion" value="ajuste_masivo">
+                            <input type="hidden" name="producto_ids" id="productoIds">
+                            
+                            <div class="form-group">
+                                <label>Porcentaje de ajuste</label>
+                                <div class="input-with-suffix">
+                                    <input type="number" name="porcentaje" id="porcentajeInput" step="0.1" class="form-control" placeholder="Ej: 10 o -5" required>
+                                    <span>%</span>
+                                </div>
+                                <p class="form-hint">Usá valores negativos para disminuir</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Aplicar a</label>
+                                <select name="tipo_precio" class="form-control">
+                                    <option value="VENTA">Precio de Venta</option>
+                                    <option value="COSTO">Costo</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>
+                                    Redondeo
+                                    <span class="help-tooltip" data-tip="El redondeo se aplica después del ajuste. 'Psicológico' redondea a X90 o X990." tabindex="0" aria-label="Ayuda">?</span>
+                                </label>
+                                <select name="redondeo" id="redondeoSelect" class="form-control">
+                                    <option value="NINGUNO">Sin redondeo</option>
+                                    <option value="ENTERO">Entero más cercano</option>
+                                    <option value="10" selected>Múltiplo de 10</option>
+                                    <option value="50">Múltiplo de 50</option>
+                                    <option value="100">Múltiplo de 100</option>
+                                    <option value="990">Psicológico (X90/X990)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Motivo (opcional)</label>
+                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Ajuste por inflación marzo">
+                            </div>
+                            
+                            <!-- Preview -->
+                            <div class="preview-section">
+                                <h4>Vista previa</h4>
+                                <div class="preview-list" id="previewList">
+                                    <p class="text-muted" style="text-align: center; padding: 1rem;">Seleccioná productos y un porcentaje</p>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-apply primary" disabled>
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Aplicar Ajuste
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Aplicar Margen -->
+                <div class="tool-card">
+                    <div class="tool-card-header">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                        <h3>Margen sobre Costo</h3>
+                        <span class="help-tooltip" data-tip="Calculá el precio de venta basándote en el costo. Precio = Costo × (1 + Margen/100). Solo funciona en productos con costo cargado." tabindex="0" aria-label="Ayuda">?</span>
+                    </div>
+                    <div class="tool-card-body">
+                        <form method="post" id="formAplicarMargen">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <input type="hidden" name="accion" value="aplicar_margen">
+                            <input type="hidden" name="producto_ids" id="productoIdsMargen">
+                            
+                            <div class="form-group">
+                                <label>Margen deseado</label>
+                                <div class="input-with-suffix">
+                                    <input type="number" name="margen" id="margenInput" step="0.1" min="0" class="form-control" placeholder="Ej: 30" required>
+                                    <span>%</span>
+                                </div>
+                                <p class="form-hint">Si el costo es $100 y el margen 30%, el precio será $130</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Redondeo</label>
+                                <select name="redondeo" class="form-control">
+                                    <option value="NINGUNO">Sin redondeo</option>
+                                    <option value="ENTERO">Entero más cercano</option>
+                                    <option value="10" selected>Múltiplo de 10</option>
+                                    <option value="50">Múltiplo de 50</option>
+                                    <option value="100">Múltiplo de 100</option>
+                                    <option value="990">Psicológico (X90/X990)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Motivo (opcional)</label>
+                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Normalizar márgenes">
+                            </div>
+                            
+                            <button type="submit" class="btn-apply primary" disabled>
+                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Aplicar Margen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Ayuda rápida -->
+                <div class="tool-card tool-card-help">
+                    <div class="tool-card-body" style="padding: 1rem;">
+                        <p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0;">
+                            <strong>Atajos:</strong> Ctrl+A = Seleccionar todo · Esc = Limpiar · Ctrl+Shift+E = Expandir · Ctrl+Shift+C = Colapsar
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        // Sincronizar producto_ids entre los dos formularios
+        document.getElementById('productoIds').addEventListener('change', function() {
+            document.getElementById('productoIdsMargen').value = this.value;
+        });
+        // Observer para mantener sincronizado
+        const observer = new MutationObserver(function() {
+            document.getElementById('productoIdsMargen').value = document.getElementById('productoIds').value;
+        });
+        observer.observe(document.getElementById('productoIds'), { attributes: true, attributeFilter: ['value'] });
+        </script>
+
+    <!-- ============================================
+         VISTA: MÁRGENES
+    ============================================ -->
     <?php elseif ($vista === 'margenes'): ?>
-    <!-- Análisis de márgenes -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-value"><?= number_format($estadisticas['total_productos'] ?? 0) ?></div>
-            <div class="stat-label">Productos Activos</div>
+        
+        <!-- Estadísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($estadisticas['total_productos'] ?? 0) ?></div>
+                <div class="stat-label">Productos Activos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($estadisticas['con_costo_definido'] ?? 0) ?></div>
+                <div class="stat-label">Con Costo Definido</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value success"><?= number_format($estadisticas['margen_promedio'] ?? 0, 1) ?>%</div>
+                <div class="stat-label">Margen Promedio</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value danger"><?= $estadisticas['productos_con_perdida'] ?? 0 ?></div>
+                <div class="stat-label">Con Pérdida</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value warning"><?= $estadisticas['productos_margen_bajo'] ?? 0 ?></div>
+                <div class="stat-label">Margen &lt;20%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($estadisticas['margen_minimo'] ?? 0, 1) ?>%</div>
+                <div class="stat-label">Margen Mínimo</div>
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-value success"><?= number_format(($estadisticas['margen_promedio'] ?? 0), 1) ?>%</div>
-            <div class="stat-label">Margen Promedio</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value danger"><?= $estadisticas['con_perdida'] ?? 0 ?></div>
-            <div class="stat-label">Con Pérdida</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value warning"><?= $estadisticas['margen_bajo'] ?? 0 ?></div>
-            <div class="stat-label">Margen Bajo (&lt;15%)</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value"><?= number_format(($estadisticas['margen_min'] ?? 0), 1) ?>%</div>
-            <div class="stat-label">Margen Mínimo</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-value"><?= number_format(($estadisticas['margen_max'] ?? 0), 1) ?>%</div>
-            <div class="stat-label">Margen Máximo</div>
-        </div>
-    </div>
 
-    <!-- Filtro de umbral -->
-    <div class="tool-card">
-        <h3>Productos con Margen Bajo</h3>
-        
-        <form method="get" style="margin-bottom: 1rem;">
-            <input type="hidden" name="v" value="margenes">
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <label>Mostrar productos con margen menor a:</label>
-                <input type="number" name="umbral" value="<?= h($_GET['umbral'] ?? 15) ?>" step="1" class="form-control" style="width: 80px;">
-                <span>%</span>
-                <button type="submit" class="btn btn-ghost">Filtrar</button>
+        <!-- Productos con margen bajo -->
+        <div class="margenes-table">
+            <div class="table-header">
+                <h3>
+                    <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem; vertical-align: -3px;">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Productos con Margen Bajo
+                </h3>
+                <form method="get" class="margenes-filter">
+                    <input type="hidden" name="v" value="margenes">
+                    <label>Mostrar con margen menor a</label>
+                    <input type="number" name="umbral" id="umbralInput" value="<?= htmlspecialchars($_GET['umbral'] ?? '15') ?>" step="1" min="0" max="100">
+                    <span>%</span>
+                    <button type="submit" class="btn btn-ghost btn-sm">Filtrar</button>
+                </form>
             </div>
-        </form>
-        
-        <?php if (empty($margenBajo)): ?>
-            <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
-                <p>No hay productos con margen inferior al <?= h($_GET['umbral'] ?? 15) ?>%</p>
-            </div>
-        <?php else: ?>
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th class="t-right">Costo</th>
-                            <th class="t-right">Precio</th>
-                            <th class="t-right">Margen</th>
-                            <th>Indicador</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($margenBajo as $p): ?>
-                        <tr>
-                            <td>
-                                <div class="product-code"><?= h($p['codigo']) ?></div>
-                                <div class="product-name"><?= h($p['nombre']) ?></div>
-                            </td>
-                            <td class="t-right">$<?= number_format((float)$p['costo'], 2) ?></td>
-                            <td class="t-right">$<?= number_format((float)$p['precio'], 2) ?></td>
-                            <td class="t-right">
-                                <?php 
+            
+            <?php if (empty($margenBajo)): ?>
+                <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 1rem; opacity: 0.5;">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <p>¡Excelente! No hay productos con margen inferior al <?= htmlspecialchars($_GET['umbral'] ?? '15') ?>%</p>
+                </div>
+            <?php else: ?>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="t-right">Costo</th>
+                                <th class="t-right">Precio</th>
+                                <th class="t-right">Margen</th>
+                                <th style="width: 100px;">Indicador</th>
+                                <th style="width: 80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($margenBajo as $p): 
                                 $margen = (float)$p['margen_pct'];
                                 $clase = $margen < 0 ? 'danger' : ($margen < 10 ? 'warning' : 'success');
-                                ?>
-                                <span class="stat-value <?= $clase ?>" style="font-size: 0.875rem;">
-                                    <?= number_format($margen, 1) ?>%
-                                </span>
-                            </td>
-                            <td>
-                                <div class="margen-bar">
-                                    <div class="margen-bar-fill <?= $clase ?>" style="width: <?= max(0, min(100, $margen)) ?>%;"></div>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </div>
+                                $barWidth = max(0, min(100, $margen + 10)); // +10 para que negativos tengan algo de barra
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="producto-codigo"><?= htmlspecialchars($p['codigo']) ?></div>
+                                    <div class="producto-nombre"><?= htmlspecialchars($p['nombre']) ?></div>
+                                </td>
+                                <td class="t-right">$<?= number_format((float)$p['costo'], 2, ',', '.') ?></td>
+                                <td class="t-right">$<?= number_format((float)$p['precio'], 2, ',', '.') ?></td>
+                                <td class="t-right">
+                                    <span class="stat-value <?= $clase ?>" style="font-size: 0.875rem;">
+                                        <?= number_format((float)$margen, 1, ',', '.') ?>%
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="margen-bar">
+                                        <div class="margen-bar-fill <?= $clase ?>" style="width: <?= $barWidth ?>%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="?v=historial&pid=<?= $p['id'] ?>" class="btn btn-ghost btn-sm" title="Ver historial">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <polyline points="12 6 12 12 16 14"/>
+                                        </svg>
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
 
     <?php endif; ?>
 </div>
