@@ -941,3 +941,48 @@
 .toast-message {
   font-size: 0.9rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ESTILOS CUENTA CORRIENTE (CC)
+═══════════════════════════════════════════════════════════════ */
+.col-cc {
+  min-width: 80px;
+}
+
+.badge-cc {
+  display: inline-block;
+  padding: 0.2em 0.5em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.badge-cc-full {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.badge-cc-mixto {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+/* Dark mode */
+[data-theme="dark"] .badge-cc-full {
+  background: #78350f;
+  color: #fef3c7;
+  border-color: #b45309;
+}
+
+[data-theme="dark"] .badge-cc-mixto {
+  background: #1e3a8a;
+  color: #dbeafe;
+  border-color: #3b82f6;
+}
+
+.col-total small.text-muted {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}

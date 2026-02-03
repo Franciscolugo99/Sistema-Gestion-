@@ -100,6 +100,7 @@ $hasVentasCompleto = has_view($pdo, 'v_ventas_completo');
 $hasTerminalId = has_column($pdo, 'ventas', 'terminal_id');
 $hasDescuentoMonto = has_column($pdo, 'ventas', 'descuento_monto');
 $hasDescuentoTotal = has_column($pdo, 'ventas', 'descuento_total');
+$hasMontoCC = has_column($pdo, 'ventas', 'monto_cc');
 
 // Columna de descuento (compat: descuento_monto / descuento_total / ninguno)
 $descuentoCol = $hasDescuentoMonto ? 'v.descuento_monto' : ($hasDescuentoTotal ? 'v.descuento_total' : '0');
@@ -410,11 +411,15 @@ try {
     $hoy = date('Y-m-d');
     $ayer = date('Y-m-d', strtotime('-1 day'));
     
-    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    // Ventas de hoy (total facturado y total que entró a caja)
+    $selectMontoCCHoy = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
+    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCHoy FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
     $stHoy->execute([$hoy]);
     $rowHoy = $stHoy->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_hoy'] = (int)$rowHoy['cnt'];
     $stats['sum_hoy'] = (float)$rowHoy['sum'];
+    $stats['sum_cc_hoy'] = (float)$rowHoy['sum_cc'];
+    $stats['sum_caja_hoy'] = $stats['sum_hoy'] - $stats['sum_cc_hoy']; // Lo que entró a caja
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
     // Anuladas hoy
@@ -424,11 +429,15 @@ try {
     $stats['cnt_anuladas'] = (int)$rowAnuladasHoy['cnt'];
     $stats['sum_anuladas'] = (float)$rowAnuladasHoy['sum'];
     
-    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    // Ventas de ayer
+    $selectMontoCCAyer = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
+    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCAyer FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
     $stAyer->execute([$ayer]);
     $rowAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_ayer'] = (int)$rowAyer['cnt'];
     $stats['sum_ayer'] = (float)$rowAyer['sum'];
+    $stats['sum_cc_ayer'] = (float)$rowAyer['sum_cc'];
+    $stats['sum_caja_ayer'] = $stats['sum_ayer'] - $stats['sum_cc_ayer'];
     
     // Top medio de pago de hoy
     if ($hasVentaPagos) {
@@ -558,12 +567,14 @@ $vendedorSelect = ($joinVendedor !== '')
 
 $terminalJoin = $hasTerminalId ? "LEFT JOIN terminales t ON t.id = v.terminal_id" : '';
 $terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
+$montoCCSelect = $hasMontoCC ? 'COALESCE(v.monto_cc, 0) AS monto_cc,' : '0 AS monto_cc,';
 
 
 $sql = "
   SELECT v.id, v.fecha, v.total, v.estado, v.medio_pago, v.cliente_id,
          $descuentoCol AS descuento_monto,
          $terminalSelect
+         $montoCCSelect
          c.nombre AS cliente_nombre,
          $vendedorSelect
          (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
@@ -621,7 +632,7 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css?v=5','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2','assets/css/ventas-enhanced.css?v=1'];
+$extraCss = ['assets/css/ventas.css?v=6','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2','assets/css/ventas-enhanced.css?v=1'];
 $extraJs = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   'assets/js/ventas.js?v=5.0',
@@ -845,6 +856,9 @@ unset($queryParams['page']);
           <th>Medio</th>
           <th>Estado</th>
           <th class="text-right">Total</th>
+          <?php if ($hasMontoCC): ?>
+          <th class="text-right" title="Monto a Cuenta Corriente">CC</th>
+          <?php endif; ?>
           <th class="text-center">Acciones</th>
         </tr>
       </thead>
@@ -853,7 +867,12 @@ unset($queryParams['page']);
         <?php foreach ($ventas as $v): 
           $esAnulada = strtoupper($v['estado'] ?? '') === 'ANULADA';
           $medioMostrar = $hasVentaPagos ? ($v['medio_real'] ?? 'N/A') : ($v['medio_pago'] ?: 'N/A');
+          $montoCC = (float)($v['monto_cc'] ?? 0);
+          $totalVenta = (float)($v['total'] ?? 0);
+          // Determinar si es venta mixta (parte efectivo/otro + parte CC)
           $esMixto = strpos($medioMostrar, '+') !== false;
+          $esMixtoCC = ($montoCC > 0 && $montoCC < $totalVenta);
+          $es100CC = ($montoCC > 0 && abs($montoCC - $totalVenta) < 0.01);
         ?>
         <tr class="<?= $esAnulada ? 'row-anulada' : '' ?>">
           <td class="col-id"><?= (int)$v['id'] ?></td>
@@ -885,7 +904,21 @@ unset($queryParams['page']);
               <span class="descuento-tag">-<?= money($v['descuento_monto']) ?></span>
             <?php endif; ?>
             <?= money($v['total']) ?>
+            <?php if ($esMixtoCC): ?>
+              <small class="text-muted d-block" title="Entró a caja">(<?= money($totalVenta - $montoCC) ?> caja)</small>
+            <?php endif; ?>
           </td>
+          <?php if ($hasMontoCC): ?>
+          <td class="col-cc text-right">
+            <?php if ($es100CC): ?>
+              <span class="badge-cc badge-cc-full" title="100% Cuenta Corriente"><?= money($montoCC) ?></span>
+            <?php elseif ($esMixtoCC): ?>
+              <span class="badge-cc badge-cc-mixto" title="Venta mixta"><?= money($montoCC) ?></span>
+            <?php else: ?>
+              <span class="text-muted">-</span>
+            <?php endif; ?>
+          </td>
+          <?php endif; ?>
           <td class="col-acciones text-center">
             <button class="btn-action" data-preview="<?= (int)$v['id'] ?>" title="Vista previa">👁️</button>
             <button class="btn-action" data-ticket="<?= (int)$v['id'] ?>" title="Ver ticket">🧾</button>

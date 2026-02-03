@@ -57,7 +57,10 @@
   background: var(--input-bg);
   color: var(--input-text);
   font-size: 0.95rem;
-  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s,
+    background 0.12s;
 }
 
 .caja-panel input:focus,
@@ -163,7 +166,10 @@
   font-size: 0.78rem;
   cursor: pointer;
   background: transparent;
-  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.06s ease;
+  transition:
+    background 0.12s ease,
+    box-shadow 0.12s ease,
+    transform 0.06s ease;
   margin-left: 6px;
   white-space: nowrap;
 }
@@ -366,7 +372,9 @@
   gap: 8px;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 .caja-panel .msg-visible {
   opacity: 1;
@@ -537,8 +545,9 @@
   border: 1px solid var(--panel-border);
   background: rgba(15, 23, 42, 0.06);
   font-size: 0.72rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
 }
 
 /* =====================
@@ -866,18 +875,18 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   }
 }
 /* Cobrar: que siempre sea “primary” visible */
-.btn-cobrar{
+.btn-cobrar {
   background: linear-gradient(135deg, #22c55e, #4ade80);
   color: #022c22;
   box-shadow: 0 16px 40px rgba(34, 197, 94, 0.35);
   border-radius: 14px;
 }
-.btn-cobrar:hover{
+.btn-cobrar:hover {
   filter: brightness(1.04);
   transform: translateY(-1px);
   box-shadow: 0 18px 48px rgba(34, 197, 94, 0.45);
 }
-.btn-cobrar:active{
+.btn-cobrar:active {
   transform: translateY(0);
 }
 
@@ -1040,12 +1049,13 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   filter: brightness(1.08);
 }
 
-
 /* ============================================================================
    SPLIT PAYMENT (Pago con 2 medios)
    - Mantiene compatibilidad con UI existente
 ============================================================================ */
-.is-hidden { display: none !important; }
+.is-hidden {
+  display: none !important;
+}
 
 .pagos-row .field-small select,
 .pagos-row .field-small input {
@@ -1099,9 +1109,11 @@ body[data-theme="light"] .caja-panel .caja-topbar {
    - Sin estilos pisados
 ========================= */
 
-.caja-panel .caja-scan-card { overflow: visible !important; }
+.caja-panel .caja-scan-card {
+  overflow: visible !important;
+}
 
-#sugerencias-dropdown.autocomplete-dropdown{
+#sugerencias-dropdown.autocomplete-dropdown {
   box-sizing: border-box;
   z-index: 99999 !important;
 
@@ -1114,13 +1126,14 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   /* look (usa variables si existen) */
   background: var(--panel, var(--bg-secondary, #ffffff));
   color: var(--text, var(--text-primary, #0f172a));
-  border: 1px solid var(--border, var(--border-color, rgba(148,163,184,.35)));
+  border: 1px solid
+    var(--border, var(--border-color, rgba(148, 163, 184, 0.35)));
   border-radius: 14px;
-  box-shadow: 0 18px 45px rgba(0,0,0,.18);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
 }
 
 /* items */
-#sugerencias-dropdown .autocomplete-item{
+#sugerencias-dropdown .autocomplete-item {
   padding: 10px 12px;
   border-radius: 10px;
   cursor: pointer;
@@ -1128,26 +1141,26 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   opacity: 1 !important;
 }
 
-#sugerencias-dropdown .autocomplete-item + .autocomplete-item{
+#sugerencias-dropdown .autocomplete-item + .autocomplete-item {
   margin-top: 6px;
 }
 
 /* hover / selected */
 #sugerencias-dropdown .autocomplete-item:hover,
-#sugerencias-dropdown .autocomplete-item.selected{
-  background: var(--hover-bg, rgba(59,130,246,.12));
-  outline: 1px solid rgba(59,130,246,.25);
+#sugerencias-dropdown .autocomplete-item.selected {
+  background: var(--hover-bg, rgba(59, 130, 246, 0.12));
+  outline: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 /* texto */
-#sugerencias-dropdown .ac-title{
+#sugerencias-dropdown .ac-title {
   font-weight: 800;
   font-size: 14px;
   line-height: 1.2;
   color: inherit !important;
 }
 
-#sugerencias-dropdown .ac-meta{
+#sugerencias-dropdown .ac-meta {
   margin-top: 3px;
   font-size: 12px;
   line-height: 1.2;
@@ -1156,22 +1169,26 @@ body[data-theme="light"] .caja-panel .caja-topbar {
 }
 
 /* scrollbar discreta */
-#sugerencias-dropdown::-webkit-scrollbar{ width: 10px; }
-#sugerencias-dropdown::-webkit-scrollbar-thumb{
-  background: rgba(100,116,139,.35);
+#sugerencias-dropdown::-webkit-scrollbar {
+  width: 10px;
+}
+#sugerencias-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-#sugerencias-dropdown::-webkit-scrollbar-track{ background: transparent; }
+#sugerencias-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
 
 /* modo oscuro: más contraste (si tu sistema usa data-theme/html.dark/body.dark) */
 :root[data-theme="dark"] #sugerencias-dropdown,
 html.dark #sugerencias-dropdown,
-body.dark #sugerencias-dropdown{
+body.dark #sugerencias-dropdown {
   background: var(--panel, #0b1220);
-  border-color: rgba(148,163,184,.22);
-  box-shadow: 0 18px 45px rgba(0,0,0,.55);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
 }
 
 :root[data-theme="dark"] #sugerencias-dropdown .autocomplete-item:hover,
@@ -1179,49 +1196,46 @@ body.dark #sugerencias-dropdown{
 html.dark #sugerencias-dropdown .autocomplete-item:hover,
 html.dark #sugerencias-dropdown .autocomplete-item.selected,
 body.dark #sugerencias-dropdown .autocomplete-item:hover,
-body.dark #sugerencias-dropdown .autocomplete-item.selected{
-  background: rgba(34,211,238,.14);
-  outline: 1px solid rgba(34,211,238,.25);
+body.dark #sugerencias-dropdown .autocomplete-item.selected {
+  background: rgba(34, 211, 238, 0.14);
+  outline: 1px solid rgba(34, 211, 238, 0.25);
 }
-
 
 /* =========================
    Cuenta Corriente (Caja)
 ========================= */
-.cc-wrap{
+.cc-wrap {
   margin-top: 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  background: rgba(0,0,0,.08);
+  background: rgba(0, 0, 0, 0.08);
 }
-.cc-wrap .cc-row{
+.cc-wrap .cc-row {
   position: relative;
   display: flex;
   gap: 8px;
   align-items: center;
 }
-#ccClienteBuscar{
+#ccClienteBuscar {
   width: 100%;
 }
-.cc-info{
+.cc-info {
   margin-top: 6px;
   font-size: 12px;
-  opacity: .9;
+  opacity: 0.9;
 }
-
-
 
 /* =====================
    CC: Cobro en Caja
 ===================== */
-.caja-panel .cc-tools-row{
-  display:flex;
-  justify-content:flex-end;
-  margin-top:10px;
+.caja-panel .cc-tools-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
-.caja-panel .btn-cc-cobro{
+.caja-panel .btn-cc-cobro {
   background: transparent;
   color: var(--text);
   border: 2px solid rgba(59, 130, 246, 0.65);
@@ -1233,16 +1247,16 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected{
   transition: 0.2s ease;
 }
 
-.caja-panel .btn-cc-cobro:hover{
+.caja-panel .btn-cc-cobro:hover {
   background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.9);
   transform: translateY(-1px);
 }
 
-.caja-panel .modal .muted{
-  opacity:.8;
-  font-size:.9rem;
-  margin-top:6px;
+.caja-panel .modal .muted {
+  opacity: 0.8;
+  font-size: 0.9rem;
+  margin-top: 6px;
 }
 
 /* =====================
@@ -1299,7 +1313,7 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected{
   background: var(--bg, #fff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme="dark"] .cc-dropdown {
@@ -1337,4 +1351,210 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected{
 
 .cc-dropdown .ac-meta strong {
   color: var(--accent-green, #22c55e);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL COBRAR CUENTA CORRIENTE (fuera de .caja-panel)
+═══════════════════════════════════════════════════════════════ */
+#modalCcPago {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+}
+
+#modalCcPago.hidden {
+  display: none !important;
+}
+
+#modalCcPago .modal-content {
+  width: 420px;
+  max-width: 92vw;
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--panel, #1e293b);
+  color: var(--text, #f1f5f9);
+  border: 1px solid var(--panel-border, #334155);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+#modalCcPago .modal-title {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .field {
+  margin-bottom: 16px;
+}
+
+#modalCcPago .field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+}
+
+#modalCcPago .field input,
+#modalCcPago .field select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--input-border, #475569);
+  background: var(--input-bg, #0f172a);
+  color: var(--text, #f1f5f9);
+  font-size: 0.95rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+#modalCcPago .field input:focus,
+#modalCcPago .field select:focus {
+  outline: none;
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+#modalCcPago .cc-info {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+#modalCcPago .cc-info:empty {
+  display: none;
+}
+
+#modalCcPago .modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--panel-border, #334155);
+}
+
+#modalCcPago .btn-cancel,
+#modalCcPago .btn-confirm {
+  min-width: 120px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+#modalCcPago .btn-cancel {
+  background: transparent;
+  border: 1px solid var(--panel-border, #475569);
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+#modalCcPago .btn-confirm {
+  background: var(--success, #22c55e);
+  color: #fff;
+}
+
+#modalCcPago .btn-confirm:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+
+#modalCcPago .btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Autocomplete dropdown */
+#modalCcPago .autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--panel, #1e293b);
+  border: 1px solid var(--panel-border, #334155);
+  border-radius: 8px;
+  margin-top: 4px;
+  z-index: 10000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+#modalCcPago .autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel-border, #334155);
+}
+
+#modalCcPago .autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+#modalCcPago .autocomplete-item:hover,
+#modalCcPago .autocomplete-item.selected {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+#modalCcPago .autocomplete-item .ac-title {
+  font-weight: 600;
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .autocomplete-item .ac-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+/* Light mode */
+[data-theme="light"] #modalCcPago {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] #modalCcPago .modal-content {
+  background: #fff;
+  color: #1e293b;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] #modalCcPago .modal-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] #modalCcPago .field label {
+  color: #64748b;
+}
+
+[data-theme="light"] #modalCcPago .field input,
+[data-theme="light"] #modalCcPago .field select {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="light"] #modalCcPago .btn-cancel {
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] #modalCcPago .btn-cancel:hover {
+  background: #f1f5f9;
 }

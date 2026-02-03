@@ -22,105 +22,24 @@ function table_exists(PDO $pdo, string $table): bool {
   return (bool)$st->fetchColumn();
 }
 
-function column_exists(PDO $pdo, string $table, string $column): bool {
-  $st = $pdo->prepare("
-    SELECT 1
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = ?
-      AND COLUMN_NAME = ?
-    LIMIT 1
-  ");
-  $st->execute([$table, $column]);
-  return (bool)$st->fetchColumn();
-}
+function col_exists(PDO $pdo, string $table, string $column): bool
+{
+    // Evita inyección si alguien pasa nombres raros
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) return false;
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) return false;
 
-function flus_norm_medio(?string $m): string {
-  $m = strtoupper(trim((string)$m));
-  if ($m === '' || $m === 'EFECTIVO' || $m === 'CASH') return 'EFECTIVO';
-  if ($m === 'MERCADOPAGO') return 'MP';
-  if ($m === 'DEBIT') return 'DEBITO';
-  if ($m === 'CREDIT') return 'CREDITO';
-  return $m;
-}
-
-/**
- * Resumen de movimientos por medio:
- * retorna:
- * [
- *   'EFECTIVO' => ['ingresos'=>x, 'egresos'=>y, 'neto'=>x-y],
- *   'MP' => ...
- * ]
- * Si NO existe caja_movimientos.medio_pago => todo se toma como EFECTIVO (compat).
- */
-function flus_mov_resumen_por_medio(PDO $pdo, int $cajaId): array {
-  $base = [
-    'EFECTIVO' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'MP' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'DEBITO' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'CREDITO' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'TRANSFERENCIA' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'MODO' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-    'QR' => ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0],
-  ];
-
-  $hasMedio = false;
-  try {
-    $stCol = $pdo->query("
-      SELECT COUNT(*)
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'caja_movimientos'
-        AND COLUMN_NAME = 'medio_pago'
-    ");
-    $hasMedio = ((int)$stCol->fetchColumn() > 0);
-  } catch (Throwable $e) {
-    $hasMedio = false;
-  }
-
-  if ($hasMedio) {
     $st = $pdo->prepare("
-      SELECT
-        UPPER(COALESCE(medio_pago,'EFECTIVO')) AS medio,
-        COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
-        COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
-      FROM caja_movimientos
-      WHERE caja_id = ?
-      GROUP BY UPPER(COALESCE(medio_pago,'EFECTIVO'))
+        SELECT 1
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+        LIMIT 1
     ");
-    $st->execute([$cajaId]);
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-      $m = flus_norm_medio($r['medio'] ?? 'EFECTIVO');
-      if (!isset($base[$m])) {
-        $base[$m] = ['ingresos' => 0.0, 'egresos' => 0.0, 'neto' => 0.0];
-      }
-      $ing = (float)($r['ingresos'] ?? 0);
-      $egr = (float)($r['egresos'] ?? 0);
-      $base[$m]['ingresos'] += $ing;
-      $base[$m]['egresos'] += $egr;
-      $base[$m]['neto'] += ($ing - $egr);
-    }
-    return $base;
-  }
-
-  // compat legacy (sin medio_pago): todo EFECTIVO
-  $st = $pdo->prepare("
-    SELECT
-      COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
-      COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
-    FROM caja_movimientos
-    WHERE caja_id = ?
-  ");
-  $st->execute([$cajaId]);
-  $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
-  $ing = (float)($row['ingresos'] ?? 0);
-  $egr = (float)($row['egresos'] ?? 0);
-  $base['EFECTIVO']['ingresos'] = $ing;
-  $base['EFECTIVO']['egresos'] = $egr;
-  $base['EFECTIVO']['neto'] = $ing - $egr;
-
-  return $base;
+    $st->execute([$table, $column]);
+    return (bool)$st->fetchColumn();
 }
+
 
 $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
 
@@ -163,20 +82,22 @@ $usernameCaja  = (string)($caja['username'] ?? '—');
 $fechaApertura = (string)($caja['fecha_apertura'] ?? '');
 
 /* ----------------------------------------------------
-   3) RESUMEN DE VENTAS DEL TURNO (solo EMITIDA/NULL)
-      ✅ Split payments: usar venta_pagos si existe.
+   3) TOTALES POR MEDIO DE PAGO
+   
+   ⚠️ CRÍTICO: Usar los valores ya acumulados en caja_sesiones
+   (incluyen ventas + cobros CC del turno).
+   NO recalcular desde ventas porque eso pierde los cobros CC.
 ---------------------------------------------------- */
-$porMedio = [
-  'EFECTIVO' => 0.0,
-  'MP' => 0.0,
-  'DEBITO' => 0.0,
-  'CREDITO' => 0.0,
-  'TRANSFERENCIA' => 0.0,
-  'MODO' => 0.0,
-  'QR' => 0.0,
-];
 
-// ✅ Total ventas SIEMPRE desde ventas.total (no desde pagos)
+// Totales por medio YA ACUMULADOS en caja_sesiones (fuente de verdad)
+$totEfectivo     = (float)($caja['total_efectivo'] ?? 0);
+$totMp           = (float)($caja['total_mp'] ?? 0);
+$totDebito       = (float)($caja['total_debito'] ?? 0);
+$totCredito      = (float)($caja['total_credito'] ?? 0);
+$hasTransferCol  = col_exists($pdo, 'caja_sesiones', 'total_transferencia');
+$totTransferencia = $hasTransferCol ? (float)($caja['total_transferencia'] ?? 0) : 0;
+
+// Total ventas (para mostrar, no para calcular caja)
 $stmt = $pdo->prepare("
   SELECT COALESCE(SUM(total),0)
   FROM ventas
@@ -186,68 +107,18 @@ $stmt = $pdo->prepare("
 $stmt->execute([$cajaId]);
 $totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
 
-// ¿Existe tabla de pagos?
-$hasVentaPagos = table_exists($pdo, 'venta_pagos');
-
-$usoPagos = false;
-$totalVuelto = 0.0;
-
-if ($hasVentaPagos) {
-  // Sumatoria por medio desde venta_pagos (join a ventas del turno)
-  $stP = $pdo->prepare("
-    SELECT vp.medio_pago, COALESCE(SUM(vp.monto),0) AS total
-    FROM ventas v
-    JOIN venta_pagos vp ON vp.venta_id = v.id
-    WHERE v.caja_id = ?
-      AND (v.estado IS NULL OR v.estado = 'EMITIDA')
-    GROUP BY vp.medio_pago
-  ");
-  $stP->execute([$cajaId]);
-  $rows = $stP->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-  if ($rows) {
-    $usoPagos = true;
-    foreach ($rows as $row) {
-      $medio = flus_norm_medio((string)($row['medio_pago'] ?? ''));
-      $total = (float)($row['total'] ?? 0);
-      if (isset($porMedio[$medio])) {
-        $porMedio[$medio] = round($total, 2);
-      }
-    }
-
-    // ✅ Vuelto: restar del EFECTIVO para tener efectivo neto real
-    $stV = $pdo->prepare("
-      SELECT COALESCE(SUM(vuelto),0)
-      FROM ventas
-      WHERE caja_id = ?
-        AND (estado IS NULL OR estado = 'EMITIDA')
-    ");
-    $stV->execute([$cajaId]);
-    $totalVuelto = (float)($stV->fetchColumn() ?: 0.0);
-
-    if ($totalVuelto > 0.00001) {
-      $porMedio['EFECTIVO'] = round(max(0.0, $porMedio['EFECTIVO'] - $totalVuelto), 2);
-    }
-  }
-}
-
-if (!$usoPagos) {
-  // Fallback legacy: cuando NO hay venta_pagos o no hay filas cargadas
-  $stL = $pdo->prepare("
-    SELECT medio_pago, COALESCE(SUM(total),0) AS total
+// Total vendido a CC (informativo)
+$hasMontoCC = col_exists($pdo, 'ventas', 'monto_cc');
+$totalVentasCC = 0.0;
+if ($hasMontoCC) {
+  $stmt = $pdo->prepare("
+    SELECT COALESCE(SUM(monto_cc),0)
     FROM ventas
     WHERE caja_id = ?
       AND (estado IS NULL OR estado = 'EMITIDA')
-    GROUP BY medio_pago
   ");
-  $stL->execute([$cajaId]);
-  foreach ($stL->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $medio = flus_norm_medio((string)($row['medio_pago'] ?? ''));
-    $total = (float)($row['total'] ?? 0);
-    if (isset($porMedio[$medio])) {
-      $porMedio[$medio] = round($total, 2);
-    }
-  }
+  $stmt->execute([$cajaId]);
+  $totalVentasCC = (float)($stmt->fetchColumn() ?: 0.0);
 }
 
 // Ítems vendidos del turno (solo EMITIDA/NULL)
@@ -273,27 +144,73 @@ $stmt->execute([$cajaId]);
 $totalAnulaciones = (int)($stmt->fetchColumn() ?: 0);
 
 /* ----------------------------------------------------
-   3.1) MOVIMIENTOS DE CAJA (por medio si existe medio_pago)
-   ✅ saldoSistema SOLO efectivo
+   3.1) MOVIMIENTOS MANUALES DE CAJA (SOLO EFECTIVO)
+   
+   ⚠️ CRÍTICO: Excluir cobros de CC (ya están en totales)
+   y solo contar movimientos manuales en EFECTIVO.
 ---------------------------------------------------- */
-$movResumen = flus_mov_resumen_por_medio($pdo, $cajaId);
 
-$movIngresosEfe = (float)($movResumen['EFECTIVO']['ingresos'] ?? 0.0);
-$movEgresosEfe  = (float)($movResumen['EFECTIVO']['egresos'] ?? 0.0);
-$movNetoEfe     = (float)($movResumen['EFECTIVO']['neto'] ?? 0.0);
+// Detectar columnas para filtrado
+$hasCCMovCol = col_exists($pdo, 'caja_movimientos', 'cc_movimiento_id');
+$hasMedioPagoMovCol = col_exists($pdo, 'caja_movimientos', 'medio_pago');
 
-// ✅ Efectivo esperado (neto real)
-$saldoSistema = $saldoInicial + $porMedio['EFECTIVO'] + $movNetoEfe;
+// Construir WHERE para excluir cobros CC y filtrar solo efectivo
+$whereMovEfectivo = "caja_id = ?";
 
-// Totales “esperados” por medio (informativo)
-$esperadoPorMedio = [
-  'EFECTIVO' => $saldoSistema,
-  'MP' => (float)$porMedio['MP'] + (float)($movResumen['MP']['neto'] ?? 0.0),
-  'DEBITO' => (float)$porMedio['DEBITO'] + (float)($movResumen['DEBITO']['neto'] ?? 0.0),
-  'CREDITO' => (float)$porMedio['CREDITO'] + (float)($movResumen['CREDITO']['neto'] ?? 0.0),
-  'TRANSFERENCIA' => (float)$porMedio['TRANSFERENCIA'] + (float)($movResumen['TRANSFERENCIA']['neto'] ?? 0.0),
-  'MODO' => (float)$porMedio['MODO'] + (float)($movResumen['MODO']['neto'] ?? 0.0),
-  'QR' => (float)$porMedio['QR'] + (float)($movResumen['QR']['neto'] ?? 0.0),
+if ($hasCCMovCol) {
+  // Excluir movimientos que son cobros de CC
+  $whereMovEfectivo .= " AND (cc_movimiento_id IS NULL OR cc_movimiento_id = 0)";
+}
+
+if ($hasMedioPagoMovCol) {
+  // Solo efectivo o movimientos viejos sin medio_pago asignado
+  $whereMovEfectivo .= " AND (medio_pago IS NULL OR UPPER(medio_pago) = 'EFECTIVO')";
+}
+
+$stmt = $pdo->prepare("
+  SELECT
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
+  FROM caja_movimientos
+  WHERE {$whereMovEfectivo}
+");
+$stmt->execute([$cajaId]);
+$rowMov = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$movEfectivoIngresos = (float)($rowMov['ingresos'] ?? 0);
+$movEfectivoEgresos  = (float)($rowMov['egresos']  ?? 0);
+
+// Totales de TODOS los movimientos (para mostrar en UI)
+$stmt = $pdo->prepare("
+  SELECT
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
+    COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
+  FROM caja_movimientos
+  WHERE caja_id = ?
+");
+$stmt->execute([$cajaId]);
+$rowMovAll = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$movIngresos = (float)($rowMovAll['ingresos'] ?? 0);
+$movEgresos  = (float)($rowMovAll['egresos']  ?? 0);
+
+/* ----------------------------------------------------
+   3.2) SALDO SISTEMA (EFECTIVO ESPERADO)
+   
+   Fórmula correcta:
+   = saldo_inicial
+   + total_efectivo (ya incluye ventas efectivo neto + cobros CC efectivo)
+   + movimientos manuales efectivo (ingresos - egresos)
+   
+   ⚠️ NO incluye transferencias, MP, débito, crédito, ni cobros CC por otros medios
+---------------------------------------------------- */
+$saldoSistema = $saldoInicial + $totEfectivo + $movEfectivoIngresos - $movEfectivoEgresos;
+
+// Para compatibilidad con la UI que muestra $porMedio
+$porMedio = [
+  'EFECTIVO'      => $totEfectivo,
+  'MP'            => $totMp,
+  'DEBITO'        => $totDebito,
+  'CREDITO'       => $totCredito,
+  'TRANSFERENCIA' => $totTransferencia,
 ];
 
 /* ----------------------------------------------------
@@ -338,60 +255,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errores[] = 'No se pudo cerrar la caja: ya estaba cerrada.';
           } else {
 
-            // Update dinámico (compat si faltan columnas nuevas)
-            $setParts = [
-              "fecha_cierre = NOW()",
-              "saldo_sistema = ?",
-              "saldo_declarado = ?",
-              "diferencia = ?",
-              "notas = ?",
-              "total_ventas = ?",
-              "total_efectivo = ?",
-              "total_mp = ?",
-              "total_debito = ?",
-              "total_credito = ?",
-              "total_productos = ?",
-              "total_anulaciones = ?",
-            ];
+            // ═══════════════════════════════════════════════════════════════
+            // UPDATE DE CIERRE
+            // 
+            // ⚠️ CRÍTICO: NO pisamos total_efectivo, total_mp, etc.
+            // porque ya fueron acumulados correctamente durante el turno
+            // (incluyen ventas + cobros de CC).
+            // 
+            // Solo actualizamos: fecha_cierre, saldo_sistema, saldo_declarado,
+            // diferencia, notas, total_ventas, total_productos, total_anulaciones.
+            // ═══════════════════════════════════════════════════════════════
+            
+            $stUpd = $pdo->prepare("
+              UPDATE caja_sesiones
+              SET
+                fecha_cierre      = NOW(),
+                saldo_sistema     = ?,
+                saldo_declarado   = ?,
+                diferencia        = ?,
+                notas             = ?,
+                total_ventas      = ?,
+                total_productos   = ?,
+                total_anulaciones = ?
+              WHERE id = ?
+                AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
+            ");
 
-            $params = [
+            $stUpd->execute([
               $saldoSistema,
               $saldoDeclarado,
               $diferencia,
               $notas,
               $totalVentas,
-              $porMedio['EFECTIVO'],
-              $porMedio['MP'],
-              $porMedio['DEBITO'],
-              $porMedio['CREDITO'],
               $itemsVendidos,
               $totalAnulaciones,
-            ];
-
-            if (column_exists($pdo, 'caja_sesiones', 'total_transferencia')) {
-              $setParts[] = "total_transferencia = ?";
-              $params[] = $porMedio['TRANSFERENCIA'];
-            }
-            if (column_exists($pdo, 'caja_sesiones', 'total_modo')) {
-              $setParts[] = "total_modo = ?";
-              $params[] = $porMedio['MODO'];
-            }
-            if (column_exists($pdo, 'caja_sesiones', 'total_qr')) {
-              $setParts[] = "total_qr = ?";
-              $params[] = $porMedio['QR'];
-            }
-
-            $sqlUpd = "
-              UPDATE caja_sesiones
-              SET " . implode(",\n                  ", $setParts) . "
-              WHERE id = ?
-                AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
-            ";
-
-            $params[] = $cajaId;
-
-            $stUpd = $pdo->prepare($sqlUpd);
-            $stUpd->execute($params);
+              $cajaId,
+            ]);
 
             if ($stUpd->rowCount() === 0) {
               $pdo->rollBack();
@@ -412,21 +311,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ----------------------------------------------------
-   5) SI YA ESTÁ CERRADA, USAR DATOS GUARDADOS (snapshot)
+   5) SI YA ESTÁ CERRADA, USAR DATOS GUARDADOS
 ---------------------------------------------------- */
 if (!$abierta) {
   if ($caja['saldo_sistema'] !== null) $saldoSistema = (float)$caja['saldo_sistema'];
   $saldoDeclarado = ($caja['saldo_declarado'] !== null) ? (float)$caja['saldo_declarado'] : 0.0;
   $diferencia     = ($caja['diferencia'] !== null) ? (float)$caja['diferencia'] : 0.0;
-
-  // snapshot de totales guardados (si están)
-  if (isset($caja['total_efectivo'])) $porMedio['EFECTIVO'] = (float)$caja['total_efectivo'];
-  if (isset($caja['total_mp'])) $porMedio['MP'] = (float)$caja['total_mp'];
-  if (isset($caja['total_debito'])) $porMedio['DEBITO'] = (float)$caja['total_debito'];
-  if (isset($caja['total_credito'])) $porMedio['CREDITO'] = (float)$caja['total_credito'];
-  if (isset($caja['total_transferencia'])) $porMedio['TRANSFERENCIA'] = (float)$caja['total_transferencia'];
-  if (isset($caja['total_modo'])) $porMedio['MODO'] = (float)$caja['total_modo'];
-  if (isset($caja['total_qr'])) $porMedio['QR'] = (float)$caja['total_qr'];
 }
 
 /* ----------------------------------------------------
@@ -475,17 +365,17 @@ require __DIR__ . '/partials/header.php';
         </li>
 
         <li class="cierre-row">
-          <span>Ventas en efectivo (neto)</span>
+          <span>Total Efectivo (ventas + cobros CC)</span>
           <span class="mono"><?= money_ar($porMedio['EFECTIVO']) ?></span>
         </li>
 
-        <li class="cierre-row">
-          <span>Mov. efectivo ingreso</span>
-          <span class="mono"><?= money_ar($movIngresosEfe) ?></span>
+        <li class="cierre-row cierre-row-simple">
+          <span>Mov. manuales efectivo (ingreso)</span>
+          <span class="mono"><?= money_ar($movEfectivoIngresos) ?></span>
         </li>
-        <li class="cierre-row">
-          <span>Mov. efectivo egreso</span>
-          <span class="mono"><?= money_ar($movEgresosEfe) ?></span>
+        <li class="cierre-row cierre-row-simple">
+          <span>Mov. manuales efectivo (egreso)</span>
+          <span class="mono"><?= money_ar($movEfectivoEgresos) ?></span>
         </li>
 
         <li class="cierre-row">
@@ -493,54 +383,24 @@ require __DIR__ . '/partials/header.php';
           <span class="mono"><?= money_ar($porMedio['MP']) ?></span>
         </li>
         <li class="cierre-row">
-          <span>Mov. MP (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['MP']['neto'] ?? 0)) ?></span>
-        </li>
-
-        <li class="cierre-row">
           <span>Total Débito</span>
           <span class="mono"><?= money_ar($porMedio['DEBITO']) ?></span>
         </li>
-        <li class="cierre-row">
-          <span>Mov. Débito (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['DEBITO']['neto'] ?? 0)) ?></span>
-        </li>
-
         <li class="cierre-row">
           <span>Total Crédito</span>
           <span class="mono"><?= money_ar($porMedio['CREDITO']) ?></span>
         </li>
         <li class="cierre-row">
-          <span>Mov. Crédito (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['CREDITO']['neto'] ?? 0)) ?></span>
-        </li>
-
-        <li class="cierre-row">
           <span>Total Transferencia</span>
           <span class="mono"><?= money_ar($porMedio['TRANSFERENCIA']) ?></span>
         </li>
-        <li class="cierre-row">
-          <span>Mov. Transferencia (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['TRANSFERENCIA']['neto'] ?? 0)) ?></span>
-        </li>
 
-        <li class="cierre-row">
-          <span>Total MODO</span>
-          <span class="mono"><?= money_ar($porMedio['MODO']) ?></span>
+        <?php if ($totalVentasCC > 0): ?>
+        <li class="cierre-row" style="border-top: 1px dashed var(--border-color, #444); padding-top: 8px; margin-top: 8px;">
+          <span>📋 Ventas a Cuenta Corriente</span>
+          <span class="mono" style="color: var(--warning-color, #fbbf24);"><?= money_ar($totalVentasCC) ?></span>
         </li>
-        <li class="cierre-row">
-          <span>Mov. MODO (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['MODO']['neto'] ?? 0)) ?></span>
-        </li>
-
-        <li class="cierre-row">
-          <span>Total QR</span>
-          <span class="mono"><?= money_ar($porMedio['QR']) ?></span>
-        </li>
-        <li class="cierre-row">
-          <span>Mov. QR (neto)</span>
-          <span class="mono"><?= money_ar((float)($movResumen['QR']['neto'] ?? 0)) ?></span>
-        </li>
+        <?php endif; ?>
 
         <li class="cierre-row cierre-row-simple">
           <span>Ítems vendidos (cantidad)</span>
@@ -558,38 +418,11 @@ require __DIR__ . '/partials/header.php';
       <div class="cierre-total-label">Efectivo esperado (sistema)</div>
       <div class="cierre-total-amount"><?= money_ar($saldoSistema) ?></div>
       <div class="cierre-total-sub">
-        Saldo inicial + efectivo neto + mov. efectivo netos
-      </div>
-
-      <div class="cierre-total-extra">
-        <div class="cierre-total-line">
-          <span>Esperado MP</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['MP'] ?? 0)) ?></span>
-        </div>
-        <div class="cierre-total-line">
-          <span>Esperado Débito</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['DEBITO'] ?? 0)) ?></span>
-        </div>
-        <div class="cierre-total-line">
-          <span>Esperado Crédito</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['CREDITO'] ?? 0)) ?></span>
-        </div>
-        <div class="cierre-total-line">
-          <span>Esperado Transferencia</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['TRANSFERENCIA'] ?? 0)) ?></span>
-        </div>
-        <div class="cierre-total-line">
-          <span>Esperado MODO</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['MODO'] ?? 0)) ?></span>
-        </div>
-        <div class="cierre-total-line">
-          <span>Esperado QR</span>
-          <span class="mono"><?= money_ar((float)($esperadoPorMedio['QR'] ?? 0)) ?></span>
-        </div>
+        Saldo inicial + efectivo acumulado + mov. manuales efectivo
       </div>
 
       <?php if (!$abierta): ?>
-        <div class="cierre-total-extra" style="margin-top: 10px;">
+        <div class="cierre-total-extra">
           <div class="cierre-total-line">
             <span>Saldo contado por el cajero</span>
             <span class="mono"><?= money_ar((float)($saldoDeclarado ?? 0)) ?></span>

@@ -90,8 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ------------------------------
 // GET: listar últimos movimientos + totales
 // ------------------------------
+
+// Verificar si existe columna medio_pago (compatibilidad)
+$hasMedioPagoCol = false;
+try {
+  $stCheck = $pdo->query("SHOW COLUMNS FROM caja_movimientos LIKE 'medio_pago'");
+  $hasMedioPagoCol = (bool)$stCheck->fetch();
+} catch (Throwable $e) {}
+
+$selectMedio = $hasMedioPagoCol ? ', medio_pago' : '';
+
 $stList = $pdo->prepare("
-  SELECT id, tipo, concepto, monto, fecha, usuario_registro
+  SELECT id, tipo, concepto, monto, fecha, usuario_registro{$selectMedio}
   FROM caja_movimientos
   WHERE caja_id = ?
   ORDER BY fecha DESC, id DESC
@@ -174,6 +184,9 @@ require __DIR__ . '/partials/header.php';
           <tr>
             <th>Fecha</th>
             <th>Tipo</th>
+            <?php if ($hasMedioPagoCol): ?>
+            <th>Medio</th>
+            <?php endif; ?>
             <th>Concepto</th>
             <th class="t-right">Monto</th>
             <th>Usuario</th>
@@ -185,10 +198,14 @@ require __DIR__ . '/partials/header.php';
               $t = strtoupper((string)($m['tipo'] ?? 'INGRESO'));
               $pill = ($t === 'EGRESO') ? 'pill-danger' : 'pill-success';
               $lbl  = ($t === 'EGRESO') ? '− Egreso' : '+ Ingreso';
+              $medio = strtoupper(trim((string)($m['medio_pago'] ?? '')));
             ?>
             <tr>
               <td class="mono"><?= h(format_datetime_ar($m['fecha'] ?? null)) ?></td>
               <td><span class="pill <?= $pill ?>"><?= h($lbl) ?></span></td>
+              <?php if ($hasMedioPagoCol): ?>
+              <td><?= $medio ? h($medio) : '<span class="muted">—</span>' ?></td>
+              <?php endif; ?>
               <td><?= h((string)($m['concepto'] ?? '—')) ?></td>
               <td class="t-right"><?= money_ar($m['monto'] ?? 0) ?></td>
               <td><?= h((string)($m['usuario_registro'] ?? '—')) ?></td>

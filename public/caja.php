@@ -52,7 +52,7 @@ $pageTitle      = 'Caja';
 $currentSection = 'caja';
 
 $extraCss = [
-  'assets/css/caja.css',
+  'assets/css/caja.css?v=2.3.4',
 ];
 
 $extraJs = [

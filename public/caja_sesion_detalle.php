@@ -318,6 +318,15 @@ require __DIR__ . '/partials/header.php';
           </span>
           <strong><?= money_ar($sesion['total_credito'] ?? 0) ?></strong>
         </div>
+        <?php if (isset($sesion['total_transferencia'])): ?>
+        <div class="metodo-item">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            Transferencia
+          </span>
+          <strong><?= money_ar($sesion['total_transferencia'] ?? 0) ?></strong>
+        </div>
+        <?php endif; ?>
       </div>
 
       <div class="resumen-stats">

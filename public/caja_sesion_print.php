@@ -216,6 +216,12 @@ $difClass = $dif > 0.00001 ? 'positivo' : ($dif < -0.00001 ? 'negativo' : 'neutr
       <span class="metodo-label">💳 Crédito</span>
       <span class="metodo-value"><?= money_ar($sesion['total_credito'] ?? 0) ?></span>
     </div>
+    <?php if (isset($sesion['total_transferencia'])): ?>
+    <div class="metodo-item">
+      <span class="metodo-label">🏦 Transferencia</span>
+      <span class="metodo-value"><?= money_ar($sesion['total_transferencia'] ?? 0) ?></span>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 

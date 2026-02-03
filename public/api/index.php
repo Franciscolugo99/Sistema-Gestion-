@@ -83,13 +83,43 @@ function update_caja_venta_totales(PDO $pdo, int $cajaId, float $importe, float 
 function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $delta): void {
   if ($cajaId <= 0) return;
 
-  $campo = 'total_efectivo';
   $m = strtoupper(trim($medio));
-  if ($m === 'MP') $campo = 'total_mp';
-  elseif ($m === 'DEBITO') $campo = 'total_debito';
-  elseif ($m === 'CREDITO') $campo = 'total_credito';
+  
+  // Mapeo estricto: cada medio a su columna correspondiente
+  // CRÍTICO: TRANSFERENCIA NO debe ir a total_efectivo
+  switch ($m) {
+    case 'EFECTIVO':
+      $campo = 'total_efectivo';
+      break;
+    case 'MP':
+    case 'MERCADOPAGO':
+      $campo = 'total_mp';
+      break;
+    case 'DEBITO':
+      $campo = 'total_debito';
+      break;
+    case 'CREDITO':
+      $campo = 'total_credito';
+      break;
+    case 'TRANSFERENCIA':
+    case 'TRANSFER':
+      $campo = 'total_transferencia';
+      break;
+    case 'CC':
+      // Cuenta Corriente NO suma a ningún total de caja
+      // (la plata entra cuando se cobra, no cuando se vende)
+      return;
+    default:
+      // Medio no soportado - loggear pero no romper
+      error_log("update_caja_medio_delta: Medio de pago no soportado '{$medio}'");
+      return;
+  }
 
-  if (!has_col($pdo, 'caja_sesiones', $campo)) return;
+  // Verificar que la columna existe (compatibilidad instalaciones viejas)
+  if (!has_col($pdo, 'caja_sesiones', $campo)) {
+    error_log("update_caja_medio_delta: Columna {$campo} no existe en caja_sesiones");
+    return;
+  }
 
   $sql = "UPDATE caja_sesiones
           SET {$campo} = GREATEST(COALESCE({$campo},0) + :d, 0)
@@ -972,6 +1002,16 @@ case 'buscar_producto': {
     case 'buscar_clientes_cc': {
       require_login_json();
       
+      // Requiere al menos uno de estos permisos para acceder a datos CC
+      if (function_exists('user_has_permission')) {
+        $tienePermiso = user_has_permission('registrar_cargo_cc') 
+                     || user_has_permission('registrar_pago_cc') 
+                     || user_has_permission('ver_cuenta_corriente');
+        if (!$tienePermiso) {
+          json_fail('No autorizado para acceder a cuentas corrientes', 403);
+        }
+      }
+      
       $q = trim((string)($_GET['q'] ?? ''));
       if (mb_strlen($q) < 2) {
         json_ok(['clientes' => []]);
@@ -1001,6 +1041,16 @@ case 'buscar_producto': {
     ========================================================= */
     case 'verificar_cc': {
       require_login_json();
+      
+      // Requiere al menos uno de estos permisos para acceder a datos CC
+      if (function_exists('user_has_permission')) {
+        $tienePermiso = user_has_permission('registrar_cargo_cc') 
+                     || user_has_permission('registrar_pago_cc') 
+                     || user_has_permission('ver_cuenta_corriente');
+        if (!$tienePermiso) {
+          json_fail('No autorizado para acceder a cuentas corrientes', 403);
+        }
+      }
       
       $clienteId = (int)($_GET['cliente_id'] ?? 0);
       $monto = parse_num($_GET['monto'] ?? 0);
@@ -1066,8 +1116,8 @@ case 'buscar_producto': {
         json_fail('No autorizado', 403);
       }
 
-      $csrf = (string)($body['csrf'] ?? ($body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')));
-      // CSRF desactivado
+      // ✅ CSRF obligatorio para registrar ventas
+      require_csrf_json($body);
 
 
       $pdo = getPDO();
