@@ -136,20 +136,23 @@
 
       const ok = data && (data.ok === true || data.success === true);
       const clientes = Array.isArray(data?.clientes) ? data.clientes : [];
+
       if (ok && clientes.length > 0) {
-        clienteSearchResults.innerHTML = data.clientes
-          .map(
-            (c) => `
-          <div class="cliente-result-item" 
-               data-id="${c.id}" 
-               data-nombre="${escapeHtml(c.nombre)}" 
-               data-saldo="${c.cc_saldo}">
-            <strong>${escapeHtml(c.nombre)}</strong>
-            <span style="float:right;color:#ef4444;">$${formatMoney(c.cc_saldo)}</span>
-          </div>
-        `,
-          )
+        clienteSearchResults.innerHTML = clientes
+          .map((c) => {
+            const saldo = parseFloat(c.cc_saldo ?? c.saldo ?? 0) || 0;
+            return `
+              <div class="cliente-result-item"
+                  data-id="${c.id}"
+                  data-nombre="${escapeHtml(c.nombre)}"
+                  data-saldo="${saldo}">
+                <strong>${escapeHtml(c.nombre)}</strong>
+                <span style="float:right;color:#ef4444;">$${formatMoney(saldo)}</span>
+              </div>
+            `;
+          })
           .join("");
+
         clienteSearchResults.classList.add("active");
       } else {
         clienteSearchResults.innerHTML =
