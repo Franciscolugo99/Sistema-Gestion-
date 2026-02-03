@@ -305,7 +305,13 @@ class CuentaCorrienteController
             return ['success' => false, 'error' => 'Usuario inválido'];
         }
         
-        $this->pdo->beginTransaction();
+        // ═══════════════════════════════════════════════════════════════
+        // SOPORTE TRANSACCIÓN EXTERNA (para llamadas desde registrar_venta)
+        // ═══════════════════════════════════════════════════════════════
+        $ownTransaction = !$this->pdo->inTransaction();
+        if ($ownTransaction) {
+            $this->pdo->beginTransaction();
+        }
         
         try {
             // ═══════════════════════════════════════════════════════════════
@@ -321,12 +327,12 @@ class CuentaCorrienteController
             $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
             
             if (!$cliente) {
-                $this->pdo->rollBack();
+                if ($ownTransaction) $this->pdo->rollBack();
                 return ['success' => false, 'error' => 'Cliente no encontrado'];
             }
             
             if (!$cliente['cc_habilitado']) {
-                $this->pdo->rollBack();
+                if ($ownTransaction) $this->pdo->rollBack();
                 return ['success' => false, 'error' => 'El cliente no tiene cuenta corriente habilitada'];
             }
             
@@ -339,7 +345,7 @@ class CuentaCorrienteController
             // VALIDAR LÍMITE (estricto por defecto)
             // ═══════════════════════════════════════════════════════════════
             if ($excede && $autorizadoPor === null) {
-                $this->pdo->rollBack();
+                if ($ownTransaction) $this->pdo->rollBack();
                 $disponible = max(0, $limite - $saldoAnterior);
                 return [
                     'success' => false,
@@ -384,7 +390,9 @@ class CuentaCorrienteController
             $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
             $stUpd->execute([$saldoPosterior, $clienteId]);
             
-            $this->pdo->commit();
+            if ($ownTransaction) {
+                $this->pdo->commit();
+            }
             
             return [
                 'success' => true,
@@ -395,7 +403,9 @@ class CuentaCorrienteController
             ];
             
         } catch (Throwable $e) {
-            $this->pdo->rollBack();
+            if ($ownTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("CuentaCorrienteController::registrarCargo ERROR: " . $e->getMessage());
             return ['success' => false, 'error' => 'Error interno al registrar cargo'];
         }
@@ -433,7 +443,13 @@ class CuentaCorrienteController
             return ['success' => false, 'error' => 'Medio de pago inválido'];
         }
         
-        $this->pdo->beginTransaction();
+        // ═══════════════════════════════════════════════════════════════
+        // SOPORTE TRANSACCIÓN EXTERNA (para llamadas desde otros procesos)
+        // ═══════════════════════════════════════════════════════════════
+        $ownTransaction = !$this->pdo->inTransaction();
+        if ($ownTransaction) {
+            $this->pdo->beginTransaction();
+        }
         
         try {
             // Bloquear cliente
@@ -444,7 +460,7 @@ class CuentaCorrienteController
             $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
             
             if (!$cliente) {
-                $this->pdo->rollBack();
+                if ($ownTransaction) $this->pdo->rollBack();
                 return ['success' => false, 'error' => 'Cliente no encontrado'];
             }
             
@@ -453,7 +469,7 @@ class CuentaCorrienteController
             // Validar que no se pague más de lo que debe (opcional: permitir saldo a favor)
             // Por ahora: NO permitimos sobrepago
             if ($monto > $saldoAnterior + 0.01) {
-                $this->pdo->rollBack();
+                if ($ownTransaction) $this->pdo->rollBack();
                 return [
                     'success' => false, 
                     'error' => 'El monto excede la deuda actual ($' . number_format($saldoAnterior, 2, ',', '.') . ')'
@@ -507,12 +523,30 @@ class CuentaCorrienteController
                 $conceptoCaja .= " (#{$clienteId})";
                 if ($referencia) $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
                 
-                // Insertar en caja_movimientos
-                $stCaja = $this->pdo->prepare("
-                    INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, cc_movimiento_id)
-                    VALUES (?, 'ingreso', ?, ?, ?, ?)
-                ");
-                $stCaja->execute([$cajaId, $conceptoCaja, $monto, $usrName, $movimientoId]);
+                // Verificar si existe columna medio_pago (compatibilidad)
+                $hasMedioPagoCol = false;
+                try {
+                    $stCheck = $this->pdo->query("SHOW COLUMNS FROM caja_movimientos LIKE 'medio_pago'");
+                    $hasMedioPagoCol = (bool)$stCheck->fetch();
+                } catch (Throwable $e) {
+                    // Ignorar
+                }
+                
+                // Insertar en caja_movimientos CON medio_pago para arqueo correcto
+                if ($hasMedioPagoCol) {
+                    $stCaja = $this->pdo->prepare("
+                        INSERT INTO caja_movimientos (caja_id, tipo, medio_pago, concepto, monto, usuario_registro, cc_movimiento_id)
+                        VALUES (?, 'ingreso', ?, ?, ?, ?, ?)
+                    ");
+                    $stCaja->execute([$cajaId, $medioPago, $conceptoCaja, $monto, $usrName, $movimientoId]);
+                } else {
+                    // Fallback para instalaciones sin la columna
+                    $stCaja = $this->pdo->prepare("
+                        INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, cc_movimiento_id)
+                        VALUES (?, 'ingreso', ?, ?, ?, ?)
+                    ");
+                    $stCaja->execute([$cajaId, $conceptoCaja, $monto, $usrName, $movimientoId]);
+                }
                 $cajaMovId = (int)$this->pdo->lastInsertId();
                 
                 // Actualizar referencia en el movimiento CC
@@ -531,7 +565,9 @@ class CuentaCorrienteController
             ");
             $stUpd->execute([$saldoPosterior, $clienteId]);
             
-            $this->pdo->commit();
+            if ($ownTransaction) {
+                $this->pdo->commit();
+            }
             
             return [
                 'success' => true,
@@ -542,7 +578,9 @@ class CuentaCorrienteController
             ];
             
         } catch (Throwable $e) {
-            $this->pdo->rollBack();
+            if ($ownTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("CuentaCorrienteController::registrarPago ERROR: " . $e->getMessage());
             return ['success' => false, 'error' => 'Error interno al registrar pago'];
         }
@@ -554,11 +592,16 @@ class CuentaCorrienteController
      */
     private function actualizarTotalesCaja(int $cajaId, string $medioPago, float $monto): void
     {
-        $campo = 'total_efectivo';
         $m = strtoupper(trim($medioPago));
         
+        // Mapeo estricto: cada medio a su columna correspondiente
+        // CRÍTICO: TRANSFERENCIA NO debe ir a total_efectivo
         switch ($m) {
+            case 'EFECTIVO':
+                $campo = 'total_efectivo';
+                break;
             case 'MP':
+            case 'MERCADOPAGO':
                 $campo = 'total_mp';
                 break;
             case 'DEBITO':
@@ -568,24 +611,27 @@ class CuentaCorrienteController
                 $campo = 'total_credito';
                 break;
             case 'TRANSFERENCIA':
-                // Si no hay columna específica, suma a efectivo (o crear una)
-                // Por defecto sumamos a efectivo ya que es dinero real
-                $campo = 'total_efectivo';
+            case 'TRANSFER':
+                $campo = 'total_transferencia';
                 break;
             default:
-                $campo = 'total_efectivo';
+                // Medio no reconocido - loggear y no actualizar
+                error_log("actualizarTotalesCaja: Medio de pago no soportado '{$medioPago}'");
+                return;
         }
         
-        // Verificar que la columna existe
+        // Verificar que la columna existe (compatibilidad instalaciones viejas)
         try {
             $stCheck = $this->pdo->query("SHOW COLUMNS FROM caja_sesiones LIKE '{$campo}'");
             if ($stCheck->fetch()) {
                 $sql = "UPDATE caja_sesiones SET {$campo} = COALESCE({$campo}, 0) + ? WHERE id = ?";
                 $st = $this->pdo->prepare($sql);
                 $st->execute([$monto, $cajaId]);
+            } else {
+                error_log("actualizarTotalesCaja: columna {$campo} no existe en caja_sesiones");
             }
         } catch (Throwable $e) {
-            error_log("actualizarTotalesCaja: columna {$campo} no existe o error: " . $e->getMessage());
+            error_log("actualizarTotalesCaja: Error actualizando {$campo}: " . $e->getMessage());
         }
     }
     

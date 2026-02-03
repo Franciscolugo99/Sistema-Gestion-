@@ -65,33 +65,51 @@ try {
         
         // ═══════════════════════════════════════════════════════════════
         // BUSCAR CLIENTES (para autocompletar)
-        // ═══════════════════════════════════════════════════════════════
+                // ═══════════════════════════════════════════════════════════════
         case 'buscar_clientes':
             require_permission('ver_cuenta_corriente');
-            
-            $q = trim($_GET['q'] ?? '');
-            if (strlen($q) < 2) {
+
+            $q = trim((string)($_GET['q'] ?? ''));
+            if (mb_strlen($q) < 2) {
                 echo json_encode(['success' => true, 'clientes' => []]);
                 exit;
             }
-            
+            $like = '%' . addcslashes($q, "%_") . '%';
+
             $sql = "
-                SELECT id, nombre, telefono, cc_saldo, cc_limite
-                FROM clientes
-                WHERE activo = 1 
-                  AND cc_habilitado = 1
-                  AND cc_saldo > 0
-                  AND (nombre LIKE :q OR telefono LIKE :q OR cuit LIKE :q)
-                ORDER BY nombre ASC
-                LIMIT 10
+            SELECT
+                c.id,
+                c.nombre,
+                c.telefono,
+                COALESCE(m.saldo_posterior, 0) AS cc_saldo,
+                c.cc_limite
+            FROM clientes c
+            LEFT JOIN (
+                SELECT m1.cliente_id, m1.saldo_posterior
+                FROM cuenta_corriente_movimientos m1
+                INNER JOIN (
+                SELECT cliente_id, MAX(id) AS max_id
+                FROM cuenta_corriente_movimientos
+                WHERE estado = 'ACTIVO'
+                GROUP BY cliente_id
+                ) t ON t.cliente_id = m1.cliente_id AND t.max_id = m1.id
+            ) m ON m.cliente_id = c.id
+            WHERE c.activo = 1
+                AND c.cc_habilitado = 1
+                AND COALESCE(m.saldo_posterior, 0) > 0
+                AND (c.nombre LIKE ? OR c.telefono LIKE ? OR c.cuit LIKE ?)
+            ORDER BY c.nombre ASC
+            LIMIT 10
             ";
+
             $st = $pdo->prepare($sql);
-            $st->execute([':q' => '%' . $q . '%']);
-            $clientes = $st->fetchAll(PDO::FETCH_ASSOC);
-            
+            $st->execute([$like, $like, $like]);
+            $clientes = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
             echo json_encode(['success' => true, 'clientes' => $clientes]);
             break;
-            
+
+
         // ═══════════════════════════════════════════════════════════════
         // REGISTRAR PAGO
         // ═══════════════════════════════════════════════════════════════
