@@ -2,6 +2,7 @@
 declare(strict_types=1);
 // public/api/actions/buscar_productos.php
 // VERSIÓN ULTRA-ROBUSTA - Detecta columnas disponibles
+// FIX: MariaDB/PDO 1064 por LIMIT con placeholder (se fuerza LIMIT como int inline)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -40,7 +41,7 @@ if ($q === '' || strlen($q) < 2) {
 }
 
 $limit = (int)($_GET['limit'] ?? 10);
-$limit = max(1, min($limit, 20));
+$limit = max(1, min($limit, 20)); // clamp seguro
 
 try {
     require_once __DIR__ . '/../../lib/root.php';
@@ -74,7 +75,7 @@ try {
     // Normalizar query a minúsculas
     $qLower = mb_strtolower($q, 'UTF-8');
     $like = '%' . $qLower . '%';
-    
+
     // Construir WHERE con las columnas disponibles
     $whereParts = [];
     foreach ($searchCols as $col) {
@@ -84,30 +85,34 @@ try {
 
     // Construir SELECT con columnas opcionales
     $selectParts = ['id', 'codigo', 'nombre', 'precio', 'stock'];
+
     if ($hasCol('es_pesable')) {
         $selectParts[] = 'COALESCE(es_pesable, 0) as es_pesable';
     } else {
         $selectParts[] = '0 as es_pesable';
     }
+
     if ($hasCol('unidad_venta')) {
         $selectParts[] = "COALESCE(unidad_venta, 'UNIDAD') as unidad_venta";
     } else {
         $selectParts[] = "'UNIDAD' as unidad_venta";
     }
+
     if ($hasCol('activo')) {
         $selectParts[] = 'COALESCE(activo, 1) as activo';
     } else {
         $selectParts[] = '1 as activo';
     }
+
     $selectClause = implode(', ', $selectParts);
 
     // Construir ORDER BY
-    $orderClause = "ORDER BY 
-        CASE 
+    $orderClause = "ORDER BY
+        CASE
             WHEN LOWER(`codigo`) = ? THEN 0
             WHEN LOWER(`codigo`) LIKE ? THEN 1
             WHEN LOWER(`nombre`) LIKE ? THEN 2
-            ELSE 3 
+            ELSE 3
         END,
         `nombre` ASC";
 
@@ -116,19 +121,18 @@ try {
     if ($hasCol('activo')) {
         $sql .= " AND activo = 1";
     }
-    $sql .= " $orderClause LIMIT ?";
 
-    // Preparar parámetros
+    // FIX: no usar placeholder para LIMIT (en algunos MariaDB+PDO se rompe como LIMIT '8')
+    $sql .= " $orderClause LIMIT " . (int)$limit;
+
+    // Parámetros (sin limit)
     $params = [];
-    // Primero todos los LIKE (uno por cada columna de búsqueda)
     foreach ($searchCols as $col) {
         $params[] = $like;
     }
-    // Luego los del ORDER BY
     $params[] = $qLower;      // codigo exacto
     $params[] = $qLower.'%';  // codigo starts with
     $params[] = $qLower.'%';  // nombre starts with
-    $params[] = $limit;       // limit
 
     $st = $pdo->prepare($sql);
     $st->execute($params);
@@ -136,9 +140,9 @@ try {
 
     // Si no encontró nada y existe columna activo, reintentar sin filtro
     if (empty($productos) && $hasCol('activo')) {
-        $sql2 = "SELECT $selectClause FROM productos WHERE $whereClause $orderClause LIMIT ?";
+        $sql2 = "SELECT $selectClause FROM productos WHERE $whereClause $orderClause LIMIT " . (int)$limit;
         $st2 = $pdo->prepare($sql2);
-        $st2->execute($params); // Mismos parámetros
+        $st2->execute($params); // mismos parámetros (sin limit)
         $productos = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -159,7 +163,7 @@ try {
 
 } catch (Throwable $e) {
     error_log("Error en buscar_productos: " . $e->getMessage());
-    
+
     $respond([
         'ok' => false,
         'error' => 'exception',
