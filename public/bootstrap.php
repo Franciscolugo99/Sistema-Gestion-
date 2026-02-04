@@ -77,6 +77,114 @@ if (is_file($licFile)) {
 
 
 
+
+
+// ✅ LICENCIA: bloqueo total tras gracia (y trial si no hay licencia)
+if (!defined('FLUS_LICENSE_GRACE_DAYS')) define('FLUS_LICENSE_GRACE_DAYS', 3);
+if (!defined('FLUS_LICENSE_TRIAL_DAYS')) define('FLUS_LICENSE_TRIAL_DAYS', 3);
+
+if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE) && function_exists('flus_is_api_context')) {
+  $licStatus = (string)(FLUS_LICENSE['status'] ?? '');
+  $daysLeft  = FLUS_LICENSE['days_left'] ?? null; // int|null (puede ser negativo)
+
+  $graceDays = (int)FLUS_LICENSE_GRACE_DAYS;
+  $trialDays = (int)FLUS_LICENSE_TRIAL_DAYS;
+
+  $locked = false;
+  $lockReason = '';
+
+  // Expirada: gracia N días, luego bloqueo
+  if ($licStatus === 'expired') {
+    $overdue = 0;
+    if (is_int($daysLeft) || is_numeric($daysLeft)) {
+      $dl = (int)$daysLeft;
+      $overdue = ($dl < 0) ? (-$dl) : 0;
+    }
+    if ($overdue > $graceDays) { // día 4 si grace=3
+      $locked = true;
+      $lockReason = 'GRACE_EXCEEDED';
+    }
+  }
+
+  // Sin licencia: trial N días desde primer uso, luego bloqueo
+  if (!$locked && $licStatus === 'missing' && function_exists('flus_license_state_load') && function_exists('flus_license_state_save')) {
+    $st = flus_license_state_load();
+    $ts = (int)($st['trial_start_ts'] ?? 0);
+    if ($ts <= 0) {
+      $ts = time();
+      $st['trial_start_ts'] = $ts;
+      $st['trial_start_at'] = date('c', $ts);
+      flus_license_state_save($st);
+    }
+    $elapsed = (int)floor((time() - $ts) / 86400);
+    if ($elapsed >= $trialDays) {
+      $locked = true;
+      $lockReason = 'TRIAL_EXPIRED';
+    }
+  }
+
+  // Inválida / reloj modificado / etc: bloqueo inmediato
+  if (!$locked && $licStatus !== 'active' && $licStatus !== 'bypass' && $licStatus !== 'expired' && $licStatus !== 'missing') {
+    $locked = true;
+    $lockReason = strtoupper($licStatus !== '' ? $licStatus : 'LOCKED');
+  }
+
+  // Si está locked, solo permitimos: login, login_process, licencia, logout y assets estáticos
+  if ($locked) {
+    if (!defined('FLUS_LICENSE_LOCKED')) define('FLUS_LICENSE_LOCKED', true);
+    if (!defined('FLUS_LICENSE_LOCK_REASON')) define('FLUS_LICENSE_LOCK_REASON', $lockReason);
+
+    $uriPath = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    $base    = strtolower(basename($uriPath));
+
+    $isAsset = (bool)preg_match('~\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|map)$~i', $uriPath)
+      || str_contains($uriPath, '/assets/');
+
+    $allowed = $isAsset || in_array($base, [
+      'login.php',
+      'login_process.php',
+      'licencia.php',
+      'logout.php',
+    ], true);
+
+    if (!$allowed) {
+      // API: JSON 402
+      if (flus_is_api_context()) {
+        if (!headers_sent()) {
+          header('Content-Type: application/json; charset=utf-8');
+          header('Cache-Control: no-store');
+        }
+        if (ob_get_length()) { @ob_clean(); }
+        http_response_code(402);
+        echo json_encode([
+          'ok' => false,
+          'error' => 'LICENSE_LOCKED',
+          'reason' => $lockReason,
+          'grace_days' => $graceDays,
+          'trial_days' => $trialDays,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+      }
+
+      // HTML: redirigir a licencia (vía login si no está autenticado)
+      $baseDir    = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+      $licenseUrl = $baseDir . '/licencia.php?locked=1&reason=' . urlencode($lockReason);
+
+      // Si hay helper de auth, lo usamos; si no, fallback por sesión
+      $isAuthed = function_exists('isAuthenticated') ? isAuthenticated() : !empty($_SESSION['user_id']);
+
+      if (!$isAuthed) {
+        $loginUrl = $baseDir . '/login.php?next=' . urlencode($licenseUrl);
+        header('Location: ' . $loginUrl);
+        exit;
+      }
+
+      header('Location: ' . $licenseUrl);
+      exit;
+    }
+  }
+}
+
 // compatibilidad (lo que ya usa el sistema)
 require_once __DIR__ . '/lib/helpers.php';
 require_once __DIR__ . '/auth.php';
