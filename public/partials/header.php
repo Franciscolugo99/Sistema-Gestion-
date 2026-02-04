@@ -20,6 +20,10 @@ $inlineCss       = $inlineCss ?? '';
 $bodyClass       = $bodyClass ?? '';
 $extraHead       = $extraHead ?? '';
 
+// CSS Extended: aliases opt-in (ver docs/CSS_MIGRATION_GUIDE.md)
+// Opciones: '' (nada), 'aliases' (todos), 'productos', 'roles', 'compras', o combinados
+$cssExtended     = $cssExtended ?? '';
+
 // Helper para versionar por mtime (cache-busting real)
 $verFor = function (string $rel) use ($defaultVer): string {
   $fs = __DIR__ . '/../' . ltrim($rel, '/'); // desde public/partials -> public/...
@@ -51,9 +55,11 @@ $verFor = function (string $rel) use ($defaultVer): string {
 
   <!-- CSS base global -->
   <link rel="stylesheet" href="assets/css/theme.css?v=<?= htmlspecialchars($verFor('assets/css/theme.css'), ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="stylesheet" href="assets/css/theme-extended.css?v=<?= htmlspecialchars($verFor('assets/css/theme-extended.css'), ENT_QUOTES, 'UTF-8') ?>">
   <link rel="stylesheet" href="assets/css/core.css?v=<?= htmlspecialchars($verFor('assets/css/core.css'), ENT_QUOTES, 'UTF-8') ?>">
   <link rel="stylesheet" href="assets/css/app.css?v=<?= htmlspecialchars($verFor('assets/css/app.css'), ENT_QUOTES, 'UTF-8') ?>">
   <link rel="stylesheet" href="assets/css/components.css?v=<?= htmlspecialchars($verFor('assets/css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="stylesheet" href="assets/css/utilities.css?v=<?= htmlspecialchars($verFor('assets/css/utilities.css'), ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- CSS específico de página -->
   <?php foreach ($extraCss as $href): ?>
@@ -77,6 +83,7 @@ $verFor = function (string $rel) use ($defaultVer): string {
 
 <body
   data-theme="<?= htmlspecialchars($theme, ENT_QUOTES, 'UTF-8') ?>"
+  <?php if ($cssExtended): ?>data-css-extended="<?= htmlspecialchars($cssExtended, ENT_QUOTES, 'UTF-8') ?>"<?php endif; ?>
   class="<?= htmlspecialchars($bodyClass, ENT_QUOTES, 'UTF-8') ?>"
 >
   <?php require_once __DIR__ . '/nav.php'; ?>

@@ -1,0 +1,573 @@
+/* ============================================================================
+   FLUS - UTILITIES.CSS
+   
+   PROPÓSITO: Clases utilitarias reutilizables
+   CARGA: Después de theme-extended.css
+   
+   Estas clases son OPCIONALES - úsalas en HTML nuevo o cuando refactorices.
+   No afectan nada existente porque son clases nuevas con prefijo u-.
+   
+   ⚠️  REGLAS DE USO (para evitar un mini-Tailwind caótico):
+   
+   1. LÍMITE DE 6 UTILIDADES POR ELEMENTO
+      Si necesitás más de 6 clases u-* en un elemento, creá una clase semántica.
+      
+      ❌ MAL:  <div class="u-flex u-justify-between u-items-center u-gap-3 u-p-4 u-rounded-lg u-shadow-md u-bg-success">
+      ✅ BIEN: <div class="toolbar">  (y definís .toolbar en el CSS del módulo)
+   
+   2. SOLO LAYOUT Y SPACING
+      Las utilidades son para: flex, grid, gap, margin, padding, display, position.
+      NO uses utilidades para: colores, sombras complejas, bordes decorativos.
+      Esas cosas van en clases de componente para mantener consistencia visual.
+   
+   3. PROTOTIPADO → COMPONENTE
+      Usá utilidades para prototipar rápido, pero si el patrón se repite 3+ veces,
+      extraelo a una clase semántica en el CSS del módulo.
+   
+   4. NO EXTENDER ESTE ARCHIVO
+      Este archivo está "cerrado". Si necesitás una utilidad que no existe,
+      probablemente debería ser una clase de componente, no una utilidad.
+   
+============================================================================ */
+
+/* ============================================================================
+   [1] FLEXBOX UTILITIES
+============================================================================ */
+.u-flex {
+  display: flex;
+}
+.u-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+.u-flex-wrap {
+  flex-wrap: wrap;
+}
+.u-flex-1 {
+  flex: 1;
+}
+.u-flex-auto {
+  flex: auto;
+}
+.u-flex-none {
+  flex: none;
+}
+
+/* Justify */
+.u-justify-start {
+  justify-content: flex-start;
+}
+.u-justify-end {
+  justify-content: flex-end;
+}
+.u-justify-center {
+  justify-content: center;
+}
+.u-justify-between {
+  justify-content: space-between;
+}
+.u-justify-around {
+  justify-content: space-around;
+}
+
+/* Align */
+.u-items-start {
+  align-items: flex-start;
+}
+.u-items-end {
+  align-items: flex-end;
+}
+.u-items-center {
+  align-items: center;
+}
+.u-items-stretch {
+  align-items: stretch;
+}
+
+/* Combinaciones comunes */
+.u-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.u-between-center {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.u-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   [2] SPACING UTILITIES (usando variables de theme.css)
+============================================================================ */
+
+/* Gap */
+.u-gap-1 {
+  gap: var(--space-1, 6px);
+}
+.u-gap-2 {
+  gap: var(--space-2, 10px);
+}
+.u-gap-3 {
+  gap: var(--space-3, 14px);
+}
+.u-gap-4 {
+  gap: var(--space-4, 18px);
+}
+.u-gap-5 {
+  gap: var(--space-5, 24px);
+}
+.u-gap-6 {
+  gap: var(--space-6, 30px);
+}
+
+/* Margin top */
+.u-mt-0 {
+  margin-top: 0;
+}
+.u-mt-1 {
+  margin-top: var(--space-1, 6px);
+}
+.u-mt-2 {
+  margin-top: var(--space-2, 10px);
+}
+.u-mt-3 {
+  margin-top: var(--space-3, 14px);
+}
+.u-mt-4 {
+  margin-top: var(--space-4, 18px);
+}
+.u-mt-5 {
+  margin-top: var(--space-5, 24px);
+}
+
+/* Margin bottom */
+.u-mb-0 {
+  margin-bottom: 0;
+}
+.u-mb-1 {
+  margin-bottom: var(--space-1, 6px);
+}
+.u-mb-2 {
+  margin-bottom: var(--space-2, 10px);
+}
+.u-mb-3 {
+  margin-bottom: var(--space-3, 14px);
+}
+.u-mb-4 {
+  margin-bottom: var(--space-4, 18px);
+}
+.u-mb-5 {
+  margin-bottom: var(--space-5, 24px);
+}
+
+/* Padding */
+.u-p-0 {
+  padding: 0;
+}
+.u-p-1 {
+  padding: var(--space-1, 6px);
+}
+.u-p-2 {
+  padding: var(--space-2, 10px);
+}
+.u-p-3 {
+  padding: var(--space-3, 14px);
+}
+.u-p-4 {
+  padding: var(--space-4, 18px);
+}
+.u-p-5 {
+  padding: var(--space-5, 24px);
+}
+
+/* ============================================================================
+   [3] TEXT UTILITIES
+============================================================================ */
+.u-text-xs {
+  font-size: var(--text-xs, 0.75rem);
+}
+.u-text-sm {
+  font-size: var(--text-sm, 0.875rem);
+}
+.u-text-base {
+  font-size: var(--text-base, 1rem);
+}
+.u-text-lg {
+  font-size: var(--text-lg, 1.125rem);
+}
+.u-text-xl {
+  font-size: var(--text-xl, 1.25rem);
+}
+.u-text-2xl {
+  font-size: var(--text-2xl, 1.5rem);
+}
+
+.u-text-left {
+  text-align: left;
+}
+.u-text-center {
+  text-align: center;
+}
+.u-text-right {
+  text-align: right;
+}
+
+.u-font-normal {
+  font-weight: 400;
+}
+.u-font-medium {
+  font-weight: 500;
+}
+.u-font-semibold {
+  font-weight: 600;
+}
+.u-font-bold {
+  font-weight: 700;
+}
+.u-font-black {
+  font-weight: 900;
+}
+
+.u-uppercase {
+  text-transform: uppercase;
+}
+.u-lowercase {
+  text-transform: lowercase;
+}
+.u-capitalize {
+  text-transform: capitalize;
+}
+
+.u-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Colores de texto semánticos - REMOVIDOS
+   Los colores son apariencia, no layout. Usá clases de componente:
+   .status-success, .price-discount, .error-message, etc.
+*/
+.u-text-muted {
+  color: var(--muted);
+} /* Este sí porque es muy genérico */
+
+/* ============================================================================
+   [4] DISPLAY UTILITIES
+============================================================================ */
+.u-hidden {
+  display: none;
+}
+.u-block {
+  display: block;
+}
+.u-inline {
+  display: inline;
+}
+.u-inline-block {
+  display: inline-block;
+}
+.u-inline-flex {
+  display: inline-flex;
+}
+.u-grid {
+  display: grid;
+}
+
+/* Visibility */
+.u-invisible {
+  visibility: hidden;
+}
+.u-visible {
+  visibility: visible;
+}
+
+/* Responsive hidden (ejemplos) */
+@media (max-width: 768px) {
+  .u-hidden-mobile {
+    display: none;
+  }
+}
+@media (min-width: 769px) {
+  .u-hidden-desktop {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   [5] BORDER RADIUS UTILITIES
+============================================================================ */
+.u-rounded-none {
+  border-radius: 0;
+}
+.u-rounded-sm {
+  border-radius: var(--radius-sm, 8px);
+}
+.u-rounded-md {
+  border-radius: var(--radius-md, 12px);
+}
+.u-rounded-lg {
+  border-radius: var(--radius-lg, 16px);
+}
+.u-rounded-xl {
+  border-radius: var(--radius-xl, 20px);
+}
+.u-rounded-full {
+  border-radius: var(--radius-full, 999px);
+}
+
+/* ============================================================================
+   [6] SHADOW UTILITIES - REMOVIDO
+   
+   Las sombras son parte de la "apariencia" del componente, no del layout.
+   Usá clases semánticas (.card, .panel, .dropdown) que ya tienen sombras definidas.
+============================================================================ */
+
+/* ============================================================================
+   [7] WIDTH/HEIGHT UTILITIES
+============================================================================ */
+.u-w-full {
+  width: 100%;
+}
+.u-w-auto {
+  width: auto;
+}
+.u-h-full {
+  height: 100%;
+}
+.u-h-auto {
+  height: auto;
+}
+.u-min-h-screen {
+  min-height: 100vh;
+}
+
+/* Max widths */
+.u-max-w-sm {
+  max-width: var(--max-width-sm, 640px);
+}
+.u-max-w-md {
+  max-width: var(--max-width-md, 768px);
+}
+.u-max-w-lg {
+  max-width: var(--max-width-lg, 1024px);
+}
+.u-max-w-xl {
+  max-width: var(--max-width-xl, 1280px);
+}
+.u-max-w-2xl {
+  max-width: var(--max-width-2xl, 1400px);
+}
+.u-max-w-full {
+  max-width: 100%;
+}
+
+/* ============================================================================
+   [8] POSITION UTILITIES
+============================================================================ */
+.u-relative {
+  position: relative;
+}
+.u-absolute {
+  position: absolute;
+}
+.u-fixed {
+  position: fixed;
+}
+.u-sticky {
+  position: sticky;
+}
+
+.u-inset-0 {
+  inset: 0;
+}
+.u-top-0 {
+  top: 0;
+}
+.u-right-0 {
+  right: 0;
+}
+.u-bottom-0 {
+  bottom: 0;
+}
+.u-left-0 {
+  left: 0;
+}
+
+/* ============================================================================
+   [9] OVERFLOW UTILITIES
+============================================================================ */
+.u-overflow-auto {
+  overflow: auto;
+}
+.u-overflow-hidden {
+  overflow: hidden;
+}
+.u-overflow-visible {
+  overflow: visible;
+}
+.u-overflow-x-auto {
+  overflow-x: auto;
+}
+.u-overflow-y-auto {
+  overflow-y: auto;
+}
+
+/* ============================================================================
+   [10] CURSOR UTILITIES
+============================================================================ */
+.u-cursor-pointer {
+  cursor: pointer;
+}
+.u-cursor-default {
+  cursor: default;
+}
+.u-cursor-not-allowed {
+  cursor: not-allowed;
+}
+.u-cursor-grab {
+  cursor: grab;
+}
+
+/* ============================================================================
+   [11] TRANSITION UTILITIES
+============================================================================ */
+.u-transition {
+  transition: var(--transition-all);
+}
+.u-transition-fast {
+  transition: all var(--transition-fast);
+}
+.u-transition-slow {
+  transition: all var(--transition-slow);
+}
+.u-transition-colors {
+  transition: var(--transition-colors);
+}
+.u-transition-transform {
+  transition: var(--transition-transform);
+}
+.u-transition-none {
+  transition: none;
+}
+
+/* ============================================================================
+   [12] INTERACTION UTILITIES
+============================================================================ */
+.u-select-none {
+  user-select: none;
+}
+.u-select-text {
+  user-select: text;
+}
+.u-select-all {
+  user-select: all;
+}
+
+.u-pointer-events-none {
+  pointer-events: none;
+}
+.u-pointer-events-auto {
+  pointer-events: auto;
+}
+
+/* ============================================================================
+   [13] Z-INDEX UTILITIES (usando variables)
+============================================================================ */
+.u-z-base {
+  z-index: var(--z-base, 1);
+}
+.u-z-elevated {
+  z-index: var(--z-elevated, 10);
+}
+.u-z-dropdown {
+  z-index: var(--z-dropdown, 1000);
+}
+.u-z-sticky {
+  z-index: var(--z-sticky, 1100);
+}
+.u-z-drawer {
+  z-index: var(--z-drawer, 2000);
+}
+.u-z-overlay {
+  z-index: var(--z-overlay, 3000);
+}
+.u-z-modal {
+  z-index: var(--z-modal, 4001);
+}
+.u-z-toast {
+  z-index: var(--z-toast, 9000);
+}
+.u-z-max {
+  z-index: var(--z-max, 9999);
+}
+
+/* ============================================================================
+   [14] HOVER EFFECTS
+   
+   Nota: .u-bg-success, .u-bg-warning, etc fueron REMOVIDOS intencionalmente.
+   Los backgrounds de estado son parte de la apariencia del componente.
+   Usá clases semánticas: .alert-success, .badge-warning, .status-danger
+============================================================================ */
+
+/* Hover effects - estos SÍ son layout/interacción */
+.u-hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.u-hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Focus visible - accesibilidad */
+.u-focus-ring:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   [15] COMPONENTES UTILITARIOS
+============================================================================ */
+
+/* Divider horizontal */
+.u-divider {
+  height: 1px;
+  background: var(--panel-border);
+  margin: var(--space-3, 14px) 0;
+}
+
+/* Divider vertical */
+.u-divider-v {
+  width: 1px;
+  background: var(--panel-border);
+  margin: 0 var(--space-2, 10px);
+  align-self: stretch;
+}
+
+/* Spacer flexible */
+.u-spacer {
+  flex: 1;
+}
+
+/* Screen reader only */
+.u-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   FIN DE UTILITIES.CSS
+============================================================================ */

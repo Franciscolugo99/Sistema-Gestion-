@@ -1,0 +1,224 @@
+/* ============================================================================
+   FLUS - THEME-EXTENDED.CSS
+   
+   PROPÓSITO: Extender el sistema de variables de theme.css
+   CARGA: Después de theme.css, antes de los módulos
+   
+   ⚠️  IMPORTANTE - NIVELES DE IMPACTO:
+   
+   [SEGURO]     Variables nuevas que no existían → no afectan nada existente
+   [OPT-IN]     Aliases que requieren data-css-extended en <body>
+   [INTENCIONAL] color-scheme → cambia controles nativos del browser
+   
+============================================================================ */
+
+/* ============================================================================
+   [1] VARIABLES RGB - Para usar con alpha/transparencias
+   
+   IMPACTO: SEGURO - Son variables nuevas, no existían antes
+   USO: background: rgba(var(--accent-cyan-rgb), 0.1);
+============================================================================ */
+:root {
+  /* Colores de acento en RGB */
+  --accent-cyan-rgb: 34, 211, 238;
+  --accent-green-rgb: 34, 197, 94;
+  --accent-blue-rgb: 14, 165, 233;
+
+  /* Estados en RGB */
+  --success-rgb: 34, 197, 94;
+  --warning-rgb: 245, 158, 11;
+  --danger-rgb: 239, 68, 68;
+  --info-rgb: 14, 165, 233;
+
+  /* Neutros en RGB */
+  --white-rgb: 255, 255, 255;
+  --black-rgb: 0, 0, 0;
+  --slate-rgb: 148, 163, 184;
+}
+
+/* ============================================================================
+   [2] TIMING - Transiciones estandarizadas
+   
+   IMPACTO: SEGURO - Son variables nuevas
+============================================================================ */
+:root {
+  --duration-fast: 0.15s;
+  --duration-normal: 0.2s;
+  --duration-slow: 0.3s;
+  --duration-slower: 0.4s;
+
+  /* Easings */
+  --ease-default: ease;
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Transiciones predefinidas */
+  --transition-fast: var(--duration-fast) var(--ease-default);
+  --transition-normal: var(--duration-normal) var(--ease-default);
+  --transition-slow: var(--duration-slow) var(--ease-default);
+  --transition-colors:
+    color var(--duration-normal), background var(--duration-normal),
+    border-color var(--duration-normal);
+  --transition-transform: transform var(--duration-fast) var(--ease-out);
+  --transition-all: all var(--duration-normal) var(--ease-default);
+}
+
+/* ============================================================================
+   [3] Z-INDEX SCALE COMPLETA
+   
+   IMPACTO: SEGURO - Variables nuevas (las de theme.css se mantienen)
+============================================================================ */
+:root {
+  --z-negative: -1;
+  --z-base: 1;
+  --z-elevated: 10;
+  --z-sticky-content: 100;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-drawer: 2000;
+  --z-drawer-backdrop: 1999;
+  --z-overlay: 3000;
+  /* --z-modal-backdrop: 4000;  ← Ya existe en theme.css */
+  /* --z-modal: 4001;           ← Ya existe en theme.css */
+  --z-popover: 5000;
+  --z-tooltip: 6000;
+  /* --z-toast: 9999;           ← Ya existe en theme.css */
+  --z-max: 9999;
+}
+
+/* ============================================================================
+   [4] COLORES SEMÁNTICOS ADICIONALES
+   
+   IMPACTO: SEGURO - Variables nuevas
+============================================================================ */
+:root {
+  /* Fondos de estado (para badges, alerts, etc) */
+  --success-bg: rgba(var(--success-rgb), 0.1);
+  --warning-bg: rgba(var(--warning-rgb), 0.1);
+  --danger-bg: rgba(var(--danger-rgb), 0.1);
+  --info-bg: rgba(var(--info-rgb), 0.1);
+
+  /* Bordes de estado */
+  --success-border: rgba(var(--success-rgb), 0.3);
+  --warning-border: rgba(var(--warning-rgb), 0.3);
+  --danger-border: rgba(var(--danger-rgb), 0.3);
+  --info-border: rgba(var(--info-rgb), 0.3);
+
+  /* Focus ring para accesibilidad */
+  --focus-ring: rgba(var(--accent-cyan-rgb), 0.4);
+}
+
+/* ============================================================================
+   [5] UTILIDADES DE LAYOUT
+   
+   IMPACTO: SEGURO - Variables nuevas
+============================================================================ */
+:root {
+  --max-width-sm: 640px;
+  --max-width-md: 768px;
+  --max-width-lg: 1024px;
+  --max-width-xl: 1280px;
+  --max-width-2xl: 1400px;
+  --max-width-full: 100%;
+}
+
+/* ============================================================================
+   [6] ALIASES - OPT-IN
+   
+   IMPACTO: OPT-IN - Solo se activan con data-css-extended="aliases"
+   
+   ACTIVACIÓN: <body data-theme="dark" data-css-extended="aliases">
+   
+   Estos aliases mapean variables locales de módulos (--p-primary, --card-bg)
+   a las variables globales de theme.css. Útil para unificar gradualmente.
+============================================================================ */
+
+/* === Aliases para productos.css === */
+body[data-css-extended~="aliases"],
+body[data-css-extended~="productos"] {
+  --p-primary: var(--accent-cyan);
+  --p-primary-2: var(--accent-blue);
+  --p-accent: #a78bfa;
+  --p-success: var(--success);
+  --p-warning: var(--warning);
+  --p-danger: var(--danger);
+  --p-text: var(--text);
+  --p-muted: var(--muted);
+  --p-surface: var(--panel);
+  --p-surface-2: var(--bg-alt);
+  --p-border: var(--panel-border);
+  --p-shadow: var(--panel-shadow);
+}
+
+/* === Aliases para roles.css === */
+body[data-css-extended~="aliases"],
+body[data-css-extended~="roles"] {
+  --card-bg: var(--panel);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --border-color: var(--panel-border);
+  --primary-color: var(--accent-blue);
+  --success-color: var(--success);
+  --danger-color: var(--danger);
+  --warning-color: var(--warning);
+  --hover-bg: rgba(var(--slate-rgb), 0.08);
+}
+
+/* === Aliases para compras.css === */
+body[data-css-extended~="aliases"],
+body[data-css-extended~="compras"] {
+  --c-primary: #8b5cf6;
+  --c-primary-rgb: 139, 92, 246;
+}
+
+/* === Aliases genéricos === */
+body[data-css-extended~="aliases"] {
+  --color-text: var(--text);
+  --color-text-muted: var(--muted);
+  --color-bg: var(--bg);
+  --color-surface: var(--panel);
+  --color-border: var(--panel-border);
+  --hover-overlay: rgba(var(--white-rgb), 0.06);
+  --active-overlay: rgba(var(--white-rgb), 0.1);
+}
+
+/* Dark mode ajustes para aliases */
+body[data-theme="dark"][data-css-extended~="aliases"] {
+  --hover-bg: rgba(var(--slate-rgb), 0.12);
+  --hover-overlay: rgba(var(--white-rgb), 0.08);
+  --active-overlay: rgba(var(--white-rgb), 0.14);
+}
+
+/* ============================================================================
+   [7] COLOR-SCHEME - INTENCIONAL
+   
+   IMPACTO: INTENCIONAL - Cambia el aspecto de controles nativos del browser
+   (scrollbars, inputs date/time, selects nativos, etc.)
+   
+   Esto es DESEADO para que los controles nativos respeten el tema.
+   Si no lo querés, comentá esta sección.
+============================================================================ */
+
+/* Indicar al browser el esquema de color preferido */
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Asegurar que inputs de fecha/hora usen el tema correcto */
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="time"],
+[data-theme="dark"] input[type="datetime-local"],
+[data-theme="dark"] input[type="month"],
+[data-theme="dark"] input[type="week"] {
+  color-scheme: dark;
+}
+
+/* ============================================================================
+   FIN DE THEME-EXTENDED.CSS
+============================================================================ */
