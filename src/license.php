@@ -79,9 +79,28 @@ if (!function_exists('flus_license_state_load')) {
 if (!function_exists('flus_license_state_save')) {
   function flus_license_state_save(array $state): void {
     $path = flus_license_state_file_path();
-    @file_put_contents($path, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    // Escritura atómica (evita estados corruptos si el proceso se corta a mitad de escritura)
+    $tmp = $path . '.tmp';
+    $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) return;
+
+    @file_put_contents($tmp, $json, LOCK_EX);
+    if (@rename($tmp, $path)) {
+      return;
+    }
+
+    // Windows puede fallar si el destino existe
+    @unlink($path);
+    if (@rename($tmp, $path)) {
+      return;
+    }
+
+    // Fallback final (no atómico, pero evita perder estado)
+    @file_put_contents($path, $json, LOCK_EX);
+    @unlink($tmp);
   }
 }
+
 
 if (!function_exists('flus_license_normalize')) {
   function flus_license_normalize(array $lic): array {
@@ -288,6 +307,7 @@ if (!function_exists('flus_license_status')) {
         'days_left' => null,
         'limited' => false,
         'reason' => null,
+        'clock_warning' => null,
       ];
     }
 
@@ -300,82 +320,131 @@ if (!function_exists('flus_license_status')) {
     $skew = defined('FLUS_LICENSE_CLOCK_SKEW_SEC') ? (int)FLUS_LICENSE_CLOCK_SKEW_SEC : 300; // 5 min
     $maxForward = defined('FLUS_LICENSE_MAX_FORWARD_SEC') ? (int)FLUS_LICENSE_MAX_FORWARD_SEC : 86400; // 24h
 
-    $clockRollback = ($last > 0 && ($nowTs + $skew) < $last);
-    $clockForwardJump = ($last > 0 && ($nowTs - $last) > $maxForward);
+    // --- Reloj: WARNING (no bloqueo) + tiempo efectivo (anti-trampa sin downtime) ---
+    $clockWarning   = null;
+    $effectiveNowTs = $nowTs;
 
-    // Solo actualiza el estado si el reloj parece coherente
-    if (!$clockRollback && !$clockForwardJump) {
-      if ($nowTs > $last) {
-        $state['last_seen_ts'] = $nowTs;
-        $state['last_seen_at'] = date('c', $nowTs);
-        flus_license_state_save($state);
+    if ($last > 0) {
+      if (($nowTs + $skew) < $last) {
+        $clockWarning   = 'CLOCK_ROLLBACK';
+        $effectiveNowTs = $last; // no “ganar días” atrasando reloj
+      } elseif (($nowTs - $last) > $maxForward) {
+        $clockWarning   = 'CLOCK_FORWARD_JUMP';
+        $effectiveNowTs = $last + $maxForward; // clamp para no “quemar” licencias
       }
     }
 
+    // --- Persistencia del estado (sin pegajosidad) ---
+    $changed = false;
+
+    // 1) actualizar last_seen (coherente) o clamp forward-jump
+    if ($last === 0) {
+      // primer arranque: inicializa
+      $state['last_seen_ts'] = $nowTs;
+      $state['last_seen_at'] = date('c', $nowTs);
+      $changed = true;
+    } else {
+      if ($clockWarning === null) {
+        if ($nowTs > $last) {
+          $state['last_seen_ts'] = $nowTs;
+          $state['last_seen_at'] = date('c', $nowTs);
+          $changed = true;
+        }
+      } elseif ($clockWarning === 'CLOCK_FORWARD_JUMP') {
+        if ($effectiveNowTs > $last) {
+          $state['last_seen_ts'] = $effectiveNowTs;
+          $state['last_seen_at'] = date('c', $effectiveNowTs);
+          $changed = true;
+        }
+      }
+      // CLOCK_ROLLBACK: NO movemos last_seen_ts
+    }
+
+    // 2) guardar warning para diagnóstico / auto-limpiar
+    $prevWarn = (string)($state['clock_warning'] ?? '');
+    if ($clockWarning === null) {
+      if (isset($state['clock_warning']) || isset($state['clock_warning_at']) || isset($state['clock_warning_ts'])) {
+        unset($state['clock_warning'], $state['clock_warning_at'], $state['clock_warning_ts']);
+        $changed = true;
+      }
+    } else {
+      if ($prevWarn !== $clockWarning) {
+        $state['clock_warning'] = $clockWarning;
+        $state['clock_warning_ts'] = $nowTs;
+        $state['clock_warning_at'] = date('c', $nowTs);
+        $changed = true;
+      }
+    }
+
+    if ($changed) {
+      flus_license_state_save($state);
+    }
+
+    // --- Licencia ---
     $licRaw = flus_license_load();
     if (!$licRaw) {
       return [
-        'status' => ($clockRollback || $clockForwardJump) ? 'clock_rollback' : 'missing',
-        'status_label' => ($clockRollback || $clockForwardJump) ? 'reloj modificado' : 'sin licencia',
+        'status' => 'missing',
+        'status_label' => 'sin licencia',
         'plan' => 'NONE',
         'plan_label' => 'N/D',
         'valid_until' => null,
         'days_left' => null,
         'limited' => true,
-        'reason' => $clockRollback ? 'CLOCK_ROLLBACK' : ($clockForwardJump ? 'CLOCK_FORWARD_JUMP' : 'LICENSE_MISSING'),
+        'reason' => 'LICENSE_MISSING',
+        'clock_warning' => $clockWarning,
       ];
     }
 
     $val = flus_license_validate_payload($licRaw);
     $lic = $val['license'];
 
-    // ^ mantengo $nowTs para no "brickear" por un salto forward; el lock lo decide clockRollback/clockForwardJump igualmente.
-
     if (!$val['ok']) {
       return [
-        'status' => ($clockRollback || $clockForwardJump) ? 'clock_rollback' : 'invalid',
-        'status_label' => ($clockRollback || $clockForwardJump) ? 'reloj modificado' : 'inválida',
+        'status' => 'invalid',
+        'status_label' => 'inválida',
         'plan' => (string)($lic['plan'] ?? 'NONE'),
         'plan_label' => (string)($lic['plan'] ?? 'N/D'),
         'valid_until' => (string)($lic['expires_at'] ?? null),
         'days_left' => null,
         'limited' => true,
-        'reason' => $clockRollback ? 'CLOCK_ROLLBACK' : ($clockForwardJump ? 'CLOCK_FORWARD_JUMP' : ('INVALID_' . (string)$val['error'])),
+        'reason' => ('INVALID_' . (string)$val['error']),
+        'clock_warning' => $clockWarning,
       ];
     }
 
-    $plan = (string)($lic['plan'] ?? 'BASIC');
-    $exp  = (string)($lic['expires_at'] ?? '');
+    $plan  = (string)($lic['plan'] ?? 'BASIC');
+    $exp   = (string)($lic['expires_at'] ?? '');
     $expTs = strtotime($exp . ' 23:59:59');
     if ($expTs === false) $expTs = 0;
-
-    // Para evitar “ganar días” moviendo el reloj hacia atrás, usamos como referencia el mayor entre ahora y el último instante visto.
-    $effectiveNowTs = ($last > 0) ? max($nowTs, $last) : $nowTs;
 
     $daysLeft = (int)floor(($expTs - $effectiveNowTs) / 86400);
 
     if ($expTs > 0 && $effectiveNowTs > $expTs) {
       return [
-        'status' => ($clockRollback || $clockForwardJump) ? 'clock_rollback' : 'expired',
-        'status_label' => ($clockRollback || $clockForwardJump) ? 'reloj modificado' : 'vencida',
+        'status' => 'expired',
+        'status_label' => 'vencida',
         'plan' => $plan,
         'plan_label' => $plan,
         'valid_until' => $exp,
-        'days_left' => ($clockRollback || $clockForwardJump) ? null : $daysLeft,
+        'days_left' => $daysLeft,
         'limited' => true,
-        'reason' => $clockRollback ? 'CLOCK_ROLLBACK' : ($clockForwardJump ? 'CLOCK_FORWARD_JUMP' : 'LICENSE_EXPIRED'),
+        'reason' => 'LICENSE_EXPIRED',
+        'clock_warning' => $clockWarning,
       ];
     }
 
     return [
-      'status' => ($clockRollback || $clockForwardJump) ? 'clock_rollback' : 'active',
-      'status_label' => ($clockRollback || $clockForwardJump) ? 'reloj modificado' : 'activa',
+      'status' => 'active',
+      'status_label' => 'activa',
       'plan' => $plan,
       'plan_label' => $plan,
       'valid_until' => $exp,
-      'days_left' => ($clockRollback || $clockForwardJump) ? null : $daysLeft,
-      'limited' => ($clockRollback || $clockForwardJump) ? true : false,
-      'reason' => $clockRollback ? 'CLOCK_ROLLBACK' : ($clockForwardJump ? 'CLOCK_FORWARD_JUMP' : null),
+      'days_left' => $daysLeft,
+      'limited' => false,
+      'reason' => null,
+      'clock_warning' => $clockWarning,
     ];
   }
 }
+
