@@ -406,54 +406,69 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
 // ============================================================================
 
 // Menú hamburguesa (mobile)
+// Menú hamburguesa (mobile)
 const hamburger = document.getElementById('navHamburger');
 const navMenu = document.getElementById('navMenu');
+
+let __scrollY = 0;
+
+function lockBodyScroll() {
+  // iOS-safe
+  __scrollY = window.scrollY || 0;
+  document.documentElement.classList.add('nav-open');
+
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${__scrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+
+function unlockBodyScroll() {
+  document.documentElement.classList.remove('nav-open');
+
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+
+  window.scrollTo(0, __scrollY);
+}
+
+function setNavOpen(open) {
+  hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  navMenu.classList.toggle('open', open);
+  hamburger.classList.toggle('active', open);
+
+  if (open) lockBodyScroll();
+  else unlockBodyScroll();
+}
 
 if (hamburger && navMenu) {
   hamburger.addEventListener('click', () => {
     const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
-    hamburger.setAttribute('aria-expanded', !isOpen);
-    navMenu.classList.toggle('open');
-    hamburger.classList.toggle('active');
+    setNavOpen(!isOpen);
   });
 
   // Cerrar al hacer clic fuera
   document.addEventListener('click', (e) => {
+    const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
+    if (!isOpen) return;
     if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
-      hamburger.setAttribute('aria-expanded', 'false');
-      navMenu.classList.remove('open');
-      hamburger.classList.remove('active');
-    }
-  });
-}
-
-// Menú dropdown admin
-const adminMenuBtn = document.querySelector('#adminMenu .nav-dropdown-btn');
-const adminMenuPop = document.querySelector('#adminMenu .nav-dropdown-menu');
-
-if (adminMenuBtn && adminMenuPop) {
-  adminMenuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = adminMenuBtn.getAttribute('aria-expanded') === 'true';
-    adminMenuBtn.setAttribute('aria-expanded', !isOpen);
-    adminMenuPop.classList.toggle('open');
-  });
-
-  // Cerrar al hacer clic fuera
-  document.addEventListener('click', (e) => {
-    if (!adminMenuBtn.contains(e.target) && !adminMenuPop.contains(e.target)) {
-      adminMenuBtn.setAttribute('aria-expanded', 'false');
-      adminMenuPop.classList.remove('open');
+      setNavOpen(false);
     }
   });
 
   // Cerrar con ESC
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && adminMenuPop.classList.contains('open')) {
-      adminMenuBtn.setAttribute('aria-expanded', 'false');
-      adminMenuPop.classList.remove('open');
-      adminMenuBtn.focus();
-    }
+    if (e.key === 'Escape') setNavOpen(false);
+  });
+
+  // Opcional: cerrar al tocar un link del menú (cuando navegás)
+  navMenu.addEventListener('click', (e) => {
+    const a = e.target.closest('a.nav-pill');
+    if (a) setNavOpen(false);
   });
 }
 
