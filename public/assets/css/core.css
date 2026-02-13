@@ -153,7 +153,7 @@ a {
   background: var(--nav-bg);
   border-bottom: 1px solid var(--nav-border);
   box-shadow: var(--nav-shadow);
-  
+
   transition: padding 0.2s ease;
 }
 
@@ -173,8 +173,10 @@ a {
   letter-spacing: 0.08em;
   color: var(--nav-pill-active-text, #38bdf8);
   text-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
-  
-  transition: transform 0.2s ease, color 0.2s ease;
+
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease;
 }
 
 .nav-brand:hover .nav-logo {
@@ -201,7 +203,9 @@ a {
   height: 2px;
   background: var(--nav-pill-text);
   border-radius: 2px;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease;
 }
 
 .nav-hamburger.active .hamburger-line:nth-child(1) {
@@ -258,11 +262,12 @@ a {
   background: var(--nav-pill-bg);
   color: var(--nav-pill-text);
 
-  transition: background 0.2s ease, 
-              color 0.2s ease, 
-              border-color 0.2s ease,
-              box-shadow 0.2s ease,
-              transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .nav-pill:hover {
@@ -282,6 +287,80 @@ a {
   box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
   font-weight: 600;
 }
+/* Bloquear scroll del fondo cuando el menú está abierto */
+html.nav-open,
+body.nav-open {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ===== MOBILE DRAWER ===== */
+@media (max-width: 900px) {
+  /* Mostrar hamburguesa */
+  .nav-hamburger {
+    display: flex;
+  }
+
+  /* El menú pasa a ser drawer */
+  .nav-menu-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100dvh;
+    width: min(88vw, 420px);
+    z-index: 2000;
+
+    background: var(--nav-bg);
+    border-left: 1px solid var(--nav-border);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    transform: translateX(105%);
+    transition: transform 0.22s ease;
+    will-change: transform;
+  }
+
+  .nav-menu-wrapper.open {
+    transform: translateX(0);
+  }
+
+  /* Importante: en mobile el listado NO tiene que wrappear */
+  .nav-left {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 10px;
+
+    padding: 14px;
+    overflow-y: auto; /* ✅ acá scrollea */
+    -webkit-overflow-scrolling: touch; /* iOS */
+    overscroll-behavior: contain; /* evita scroll al fondo */
+    touch-action: pan-y; /* swipe vertical dentro */
+  }
+
+  /* Parte de abajo fija (usuario/toggles) */
+  .nav-right {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    border-top: 1px solid var(--nav-border);
+    background: var(--nav-bg);
+  }
+
+  /* Pills full width para que sea cómodo en móvil */
+  .nav-pill {
+    width: 100%;
+    justify-content: flex-start;
+    white-space: normal;
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: 0.95rem;
+  }
+}
 
 /* ============================================================================
    BADGE CAJA (ESTADO)
@@ -298,7 +377,7 @@ a {
   border: 1px solid var(--badge-mode-border);
   background: var(--badge-mode-bg);
   color: var(--badge-mode-text);
-  
+
   transition: all 0.3s ease;
 }
 
@@ -308,8 +387,10 @@ a {
   border-radius: 999px;
   background: #94a3b8;
   box-shadow: 0 0 8px rgba(148, 163, 184, 0.6);
-  
-  transition: background 0.3s ease, box-shadow 0.3s ease;
+
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 /* Estado: Caja abierta */
@@ -338,13 +419,14 @@ a {
 }
 
 @keyframes pulse-badge {
-  0%, 100% { 
-    opacity: 1; 
-    transform: scale(1); 
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
-  50% { 
-    opacity: 0.7; 
-    transform: scale(1.1); 
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
   }
 }
 
@@ -353,7 +435,7 @@ a {
   .badge-text {
     display: none;
   }
-  
+
   .badge-mode {
     padding: 5px 8px;
   }
@@ -390,8 +472,10 @@ a {
   background: var(--toggle-track-bg);
   border: 1px solid var(--toggle-track-border);
   font-size: 0.75rem;
-  
-  transition: background 0.3s ease, border-color 0.3s ease;
+
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .toggle-icon {
@@ -461,10 +545,11 @@ a {
   text-decoration: none;
   user-select: none;
 
-  transition: background 0.2s ease, 
-              border-color 0.2s ease,
-              box-shadow 0.2s ease,
-              transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .nav-icon:hover {
@@ -498,10 +583,11 @@ a {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-10px);
-  transition: opacity 0.2s ease, 
-              transform 0.2s ease, 
-              visibility 0.2s ease;
-  
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    visibility 0.2s ease;
+
   z-index: 2000;
 }
 
@@ -522,7 +608,9 @@ a {
   font-size: 0.9rem;
   white-space: nowrap;
 
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 
 .nav-dropdown-menu a:hover {
@@ -549,11 +637,13 @@ a {
   gap: 10px;
   padding: 5px 10px 5px 12px;
   border-radius: 999px;
-  
+
   background: var(--nav-pill-bg);
   border: 1px solid var(--nav-pill-border);
-  
-  transition: background 0.2s ease, border-color 0.2s ease;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .nav-username {
@@ -572,11 +662,11 @@ a {
   text-decoration: none;
   font-size: 0.82rem;
   font-weight: 500;
-  
+
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.2);
-  
+
   transition: all 0.2s ease;
 }
 
@@ -612,24 +702,25 @@ a {
     top: 60px;
     left: 0;
     right: 0;
-    
+
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    
+
     background: var(--nav-bg);
     border-bottom: 1px solid var(--nav-border);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    
+
     max-height: 0;
     overflow: hidden;
-    
+
     opacity: 0;
     visibility: hidden;
-    
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.3s ease,
-                visibility 0.3s ease;
+
+    transition:
+      max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.3s ease,
+      visibility 0.3s ease;
   }
 
   .nav-menu-wrapper.open {
@@ -771,7 +862,10 @@ a {
   color: var(--logout-text);
   background: transparent;
 
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .logout-link:hover {
@@ -804,8 +898,12 @@ a {
   color: var(--btn-secondary-text);
   border-color: var(--btn-secondary-border);
 
-  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease,
-    box-shadow 0.18s ease, transform 0.12s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.12s ease;
 }
 
 /* PRIMARIO */
@@ -1098,7 +1196,7 @@ body[data-theme="light"] .toast {
 /* ============================================================================
    Version de FLus
 ============================================================================ */
-.flus-version-badge{
+.flus-version-badge {
   position: fixed;
   right: 12px;
   bottom: 10px;
@@ -1108,18 +1206,22 @@ body[data-theme="light"] .toast {
   border-radius: 999px;
   box-shadow: var(--shadow);
   z-index: 50;
-  opacity: .85;
+  opacity: 0.85;
 }
 
-.flus-version-link{
+.flus-version-link {
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 12px;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
 }
 
-.flus-version-badge:hover{ opacity: 1; }
-.flus-version-link:hover{ color: var(--text-primary); }
+.flus-version-badge:hover {
+  opacity: 1;
+}
+.flus-version-link:hover {
+  color: var(--text-primary);
+}
 /* ============================================================================
    FIN DEL CORE CSS
 ============================================================================ */
