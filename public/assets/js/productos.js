@@ -1280,6 +1280,169 @@ const ProductosManager = {
             hidden.value = val || 'UNIDAD';
         };
 
+        // ============================================
+        // CONVERSIÓN DE UNIDADES DE STOCK
+        // ============================================
+        const toNum = (v) => {
+            const s = String(v ?? '').trim().replace(',', '.');
+            const n = Number(s);
+            return Number.isFinite(n) ? n : 0;
+        };
+
+        // Convertir valor+unidad a base (gramos o mililitros)
+        const toBase = (val, unit) => {
+            val = toNum(val);
+            unit = String(unit || '').toUpperCase();
+            if (unit === 'KG') return { base: Math.round(val * 1000), baseUnit: 'g' };
+            if (unit === 'G')  return { base: Math.round(val), baseUnit: 'g' };
+            if (unit === 'LT') return { base: Math.round(val * 1000), baseUnit: 'ml' };
+            if (unit === 'ML') return { base: Math.round(val), baseUnit: 'ml' };
+            return { base: Math.round(val), baseUnit: '' };
+        };
+
+        // Convertir de base a unidad específica
+        const fromBase = (base, unit) => {
+            unit = String(unit || '').toUpperCase();
+            if (unit === 'KG') return (base / 1000);
+            if (unit === 'G')  return base;
+            if (unit === 'LT') return (base / 1000);
+            if (unit === 'ML') return base;
+            return base;
+        };
+
+        // Cómo FLUS guarda internamente según unidad_venta (precio)
+        const baseToLegacyStock = (base, unidadVenta) => {
+            unidadVenta = String(unidadVenta || 'UNIDAD').toUpperCase();
+            if (unidadVenta === 'KG' || unidadVenta === 'LT') return base / 1000;
+            if (unidadVenta === 'G'  || unidadVenta === 'ML') return base / 100;
+            return base;
+        };
+
+        // Actualizar UI de stock (selects, step, hints)
+        const updateStockUI = () => {
+            const isPes = !!toggle.checked;
+            const uVenta = String(hidden.value || 'UNIDAD').toUpperCase();
+
+            const stockInput = form?.querySelector('input[name="stock"]');
+            const stockMinInput = form?.querySelector('input[name="stock_minimo"]');
+            const sel1 = form?.querySelector('select[name="stock_unidad"]');
+            const sel2 = form?.querySelector('select[name="stock_min_unidad"]');
+            const helpEl = form?.querySelector('.js-stock-unit-help');
+
+            if (!stockInput || !stockMinInput || !sel1 || !sel2) return;
+
+            // Definir si es peso o volumen según unidad_venta (precio)
+            const isPeso = (uVenta === 'KG' || uVenta === 'G');
+            const isVol  = (uVenta === 'LT' || uVenta === 'ML');
+
+            const setOptions = (sel, allowed) => {
+                const cur = sel.value;
+                sel.querySelectorAll('option').forEach(op => {
+                    op.hidden = !allowed.includes(op.value);
+                });
+                if (!allowed.includes(cur)) sel.value = allowed[0];
+            };
+
+            // Si no es pesable, deshabilitar selects
+            if (!isPes) {
+                sel1.value = 'UNIDAD';
+                sel2.value = 'UNIDAD';
+                sel1.disabled = true;
+                sel2.disabled = true;
+                if (helpEl) helpEl.textContent = '';
+                stockInput.step = '1';
+                stockMinInput.step = '1';
+                return;
+            }
+
+            // Habilitar selects para pesables
+            sel1.disabled = false;
+            sel2.disabled = false;
+
+            // Permitir SOLO KG/G o LT/ML según tipo
+            if (isPeso) {
+                setOptions(sel1, ['KG', 'G']);
+                setOptions(sel2, ['KG', 'G']);
+            } else if (isVol) {
+                setOptions(sel1, ['LT', 'ML']);
+                setOptions(sel2, ['LT', 'ML']);
+            } else {
+                setOptions(sel1, ['KG', 'G']);
+                setOptions(sel2, ['KG', 'G']);
+            }
+
+            // Sincronizar selects (misma unidad)
+            sel2.value = sel1.value;
+
+            // Step según unidad elegida
+            const chosen = sel1.value;
+            const step = (chosen === 'KG' || chosen === 'LT') ? '0.001' : '1';
+            stockInput.step = step;
+            stockMinInput.step = step;
+
+            // Help: mostrar equivalencia
+            const stockVal = toNum(stockInput.value);
+            const b = toBase(stockVal, chosen);
+            const internal = baseToLegacyStock(b.base, uVenta);
+            
+            let helpText = '';
+            if (stockVal > 0) {
+                const uLabel = (b.baseUnit === 'g') ? `${b.base.toLocaleString('es-AR')} g` : `${b.base.toLocaleString('es-AR')} ml`;
+                helpText = `= ${uLabel}`;
+            }
+            if (helpEl) helpEl.textContent = helpText;
+        };
+
+        // Convertir valores cuando el usuario cambia de unidad
+        const convertOnUnitChange = (newUnit, sel) => {
+            const stockInput = form?.querySelector('input[name="stock"]');
+            const stockMinInput = form?.querySelector('input[name="stock_minimo"]');
+            const sel1 = form?.querySelector('select[name="stock_unidad"]');
+            const sel2 = form?.querySelector('select[name="stock_min_unidad"]');
+            if (!stockInput || !stockMinInput || !sel1 || !sel2) return;
+
+            const oldUnit = sel1.dataset.prevUnit || sel1.value;
+            
+            // Convertir valores actuales a la nueva unidad
+            const b1 = toBase(stockInput.value, oldUnit);
+            const b2 = toBase(stockMinInput.value, oldUnit);
+
+            const newStock = fromBase(b1.base, newUnit);
+            const newStockMin = fromBase(b2.base, newUnit);
+
+            // Formatear según si es KG/LT (decimales) o G/ML (enteros)
+            if (newUnit === 'KG' || newUnit === 'LT') {
+                stockInput.value = newStock.toFixed(3);
+                stockMinInput.value = newStockMin.toFixed(3);
+            } else {
+                stockInput.value = Math.round(newStock);
+                stockMinInput.value = Math.round(newStockMin);
+            }
+
+            sel1.dataset.prevUnit = newUnit;
+            sel2.value = newUnit;
+            updateStockUI();
+        };
+
+        // Listeners para los selects de unidad
+        const sel1 = form?.querySelector('select[name="stock_unidad"]');
+        const sel2 = form?.querySelector('select[name="stock_min_unidad"]');
+        
+        if (sel1) {
+            sel1.dataset.prevUnit = sel1.value;
+            sel1.addEventListener('change', () => convertOnUnitChange(sel1.value, sel1));
+        }
+        if (sel2) {
+            sel2.addEventListener('change', () => {
+                sel1.value = sel2.value;
+                convertOnUnitChange(sel2.value, sel2);
+            });
+        }
+
+        // Listener para actualizar help al escribir
+        const stockInput = form?.querySelector('input[name="stock"]');
+        stockInput?.addEventListener('input', updateStockUI);
+
         toggle.addEventListener('change', () => {
             if (toggle.checked) {
                 options.style.display = 'block';
@@ -1293,6 +1456,7 @@ const ProductosManager = {
                 syncHidden('UNIDAD');
             }
             updatePreview();
+            updateStockUI();
         });
 
         radios.forEach(radio => {
@@ -1300,6 +1464,7 @@ const ProductosManager = {
                 if (radio.checked) {
                     syncHidden(radio.value);
                     updatePreview();
+                    updateStockUI();
                 }
             });
         });
@@ -1309,6 +1474,7 @@ const ProductosManager = {
 
         // Init
         updatePreview();
+        updateStockUI();
     },
 
     // ============================================

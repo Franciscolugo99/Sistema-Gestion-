@@ -492,6 +492,47 @@ if (!function_exists('format_cantidad')) {
   }
 }
 
+if (!function_exists('format_stock_con_unidad')) {
+  /**
+   * Formatea stock/cantidad incluyendo la unidad para productos pesables.
+   * Ej: "75,000 kg", "20 ×100g", "1,500 L", "10 ×100ml", o solo "30" para unidades.
+   */
+  function format_stock_con_unidad(array $row, string $field = 'stock', int $decPesable = 3): string {
+    $valor = isset($row[$field]) ? (float)$row[$field] : 0.0;
+    $esPesable = is_pesable_row($row);
+    $unidad = strtoupper(trim($row['unidad_venta'] ?? 'UNIDAD'));
+    
+    // Formatear el número
+    $numFormateado = format_qty_ar($valor, $esPesable, $decPesable);
+    
+    // Si no es pesable, devolver solo el número
+    if (!$esPesable || $unidad === 'UNIDAD') {
+      return $numFormateado;
+    }
+    
+    // Determinar etiqueta de unidad
+    $etiqueta = '';
+    switch ($unidad) {
+      case 'KG':
+        $etiqueta = 'kg';
+        break;
+      case 'LT':
+        $etiqueta = 'L';
+        break;
+      case 'G':
+        $etiqueta = '×100g';
+        break;
+      case 'ML':
+        $etiqueta = '×100ml';
+        break;
+      default:
+        $etiqueta = strtolower($unidad);
+    }
+    
+    return $numFormateado . ' ' . $etiqueta;
+  }
+}
+
 if (!function_exists('url_with')) {
   /** Alias snake_case de urlWith() */
   function url_with(array $overrides = [], ?string $base = null): string {

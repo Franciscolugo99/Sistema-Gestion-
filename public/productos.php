@@ -232,7 +232,7 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
             </td>
 
             <td class="right">$<?= number_format($precio, 2, ',', '.') ?></td>
-            <td class="right"><?= h(format_cantidad($p, 'stock', 3)) ?></td>
+            <td class="right"><?= h(format_stock_con_unidad($p, 'stock', 3)) ?></td>
 
             <td class="center td-estado"><?= $tag ?></td>
 
@@ -645,14 +645,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
         $precio = (float)(parse_decimal((string)($_POST['precio'] ?? ''), 0.0) ?? 0.0);
         $costo  = parse_decimal(isset($_POST['costo']) ? (string)$_POST['costo'] : null, null);
 
-        $stock       = (float)(parse_decimal(isset($_POST['stock']) ? (string)$_POST['stock'] : null, 0.0) ?? 0.0);
-        $stockMinimo = (float)(parse_decimal(isset($_POST['stock_minimo']) ? (string)$_POST['stock_minimo'] : null, 0.0) ?? 0.0);
+        // Stock con conversión de unidad
+        $stockInput       = (float)(parse_decimal(isset($_POST['stock']) ? (string)$_POST['stock'] : null, 0.0) ?? 0.0);
+        $stockMinInput    = (float)(parse_decimal(isset($_POST['stock_minimo']) ? (string)$_POST['stock_minimo'] : null, 0.0) ?? 0.0);
+        $stockUnidadInput = strtoupper(trim((string)($_POST['stock_unidad'] ?? '')));
+        if ($stockUnidadInput === '' || $stockUnidadInput === 'UNIDAD') $stockUnidadInput = null;
 
         $activo = isset($_POST['activo']) ? 1 : 0;
 
         $esPesable   = isset($_POST['es_pesable']) ? 1 : 0;
         $unidadVenta = trim((string)($_POST['unidad_venta'] ?? 'UNIDAD'));
         if ($unidadVenta === '') $unidadVenta = 'UNIDAD';
+
+        // Convertir stock de la unidad del usuario a la unidad interna de FLUS
+        $stock = $stockInput;
+        $stockMinimo = $stockMinInput;
+        
+        if ($esPesable === 1 && $stockUnidadInput !== null) {
+            // Primero convertir a base (gramos o mililitros)
+            $stockBase = 0;
+            $stockMinBase = 0;
+            
+            if ($stockUnidadInput === 'KG') {
+                $stockBase = (int)round($stockInput * 1000);
+                $stockMinBase = (int)round($stockMinInput * 1000);
+            } elseif ($stockUnidadInput === 'G') {
+                $stockBase = (int)round($stockInput);
+                $stockMinBase = (int)round($stockMinInput);
+            } elseif ($stockUnidadInput === 'LT') {
+                $stockBase = (int)round($stockInput * 1000);
+                $stockMinBase = (int)round($stockMinInput * 1000);
+            } elseif ($stockUnidadInput === 'ML') {
+                $stockBase = (int)round($stockInput);
+                $stockMinBase = (int)round($stockMinInput);
+            }
+            
+            // Ahora convertir de base a la unidad interna de FLUS (según unidad_venta)
+            if ($unidadVenta === 'KG' || $unidadVenta === 'LT') {
+                // FLUS guarda en KG o LT directamente
+                $stock = $stockBase / 1000;
+                $stockMinimo = $stockMinBase / 1000;
+            } elseif ($unidadVenta === 'G' || $unidadVenta === 'ML') {
+                // FLUS guarda en unidades de 100g o 100ml
+                $stock = $stockBase / 100;
+                $stockMinimo = $stockMinBase / 100;
+            }
+        }
 
         // Sanitizar valores
         if ($precio < 0) $precio = 0;
@@ -1246,12 +1284,31 @@ require_once __DIR__ . '/partials/header.php';
 
                     <div class="pf-field">
                         <label>Stock</label>
-                        <input type="number" name="stock" step="0.001" min="0" value="<?= h($editProducto['stock'] ?? '0') ?>">
+                        <div class="stock-unit-row">
+                            <input type="number" name="stock" step="1" min="0" value="<?= h($editProducto['stock'] ?? '0') ?>">
+                            <select name="stock_unidad" class="stock-unit-select js-stock-unit-select" disabled>
+                                <option value="UNIDAD">UNID</option>
+                                <option value="KG">KG</option>
+                                <option value="G">G</option>
+                                <option value="LT">LT</option>
+                                <option value="ML">ML</option>
+                            </select>
+                        </div>
+                        <div class="field-help js-stock-unit-help" style="margin-top:6px;"></div>
                     </div>
 
                     <div class="pf-field">
                         <label>Stock mínimo</label>
-                        <input type="number" name="stock_minimo" step="0.001" min="0" value="<?= h($editProducto['stock_minimo'] ?? '0') ?>">
+                        <div class="stock-unit-row">
+                            <input type="number" name="stock_minimo" step="1" min="0" value="<?= h($editProducto['stock_minimo'] ?? '0') ?>">
+                            <select name="stock_min_unidad" class="stock-unit-select js-stock-unit-select-min" disabled>
+                                <option value="UNIDAD">UNID</option>
+                                <option value="KG">KG</option>
+                                <option value="G">G</option>
+                                <option value="LT">LT</option>
+                                <option value="ML">ML</option>
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Pesables -->
@@ -1564,12 +1621,31 @@ require_once __DIR__ . '/partials/header.php';
 
                 <div class="edit-field">
                     <label>Stock</label>
-                    <input name="stock" type="number" step="0.001" min="0">
+                    <div class="stock-unit-row">
+                        <input name="stock" type="number" step="1" min="0">
+                        <select name="stock_unidad" class="stock-unit-select js-stock-unit-select" disabled>
+                            <option value="UNIDAD">UNID</option>
+                            <option value="KG">KG</option>
+                            <option value="G">G</option>
+                            <option value="LT">LT</option>
+                            <option value="ML">ML</option>
+                        </select>
+                    </div>
+                    <div class="edit-help js-stock-unit-help" style="margin-top:6px;"></div>
                 </div>
 
                 <div class="edit-field">
                     <label>Stock mínimo</label>
-                    <input name="stock_minimo" type="number" step="0.001" min="0">
+                    <div class="stock-unit-row">
+                        <input name="stock_minimo" type="number" step="1" min="0">
+                        <select name="stock_min_unidad" class="stock-unit-select js-stock-unit-select-min" disabled>
+                            <option value="UNIDAD">UNID</option>
+                            <option value="KG">KG</option>
+                            <option value="G">G</option>
+                            <option value="LT">LT</option>
+                            <option value="ML">ML</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="edit-field edit-field-pesable">
