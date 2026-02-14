@@ -38,6 +38,7 @@ const VentasManager = {
     this.bindPaperSelect();
     this.bindChartsToggle();
     this.bindAdvancedFilters();
+    this.bindHoraAmpmSelects();
     this.bindClienteAutocomplete();
     this.bindChipsRapidos();
     this.bindFiltrosRemove();
@@ -224,6 +225,97 @@ const VentasManager = {
   },
 
   // ============================================
+  // SELECTORES HORA AM/PM
+  // ============================================
+  bindHoraAmpmSelects() {
+    const form = document.getElementById('ventasForm');
+    if (!form) return;
+
+    // Elementos para hora_desde
+    const horaDesdeHora = document.getElementById('horaDesdeHora');
+    const horaDesdeMin = document.getElementById('horaDesdeMin');
+    const horaDesdeAmpm = document.getElementById('horaDesdeAmpm');
+    const horaDesdeHidden = document.getElementById('horaDesdeHidden');
+
+    // Elementos para hora_hasta
+    const horaHastaHora = document.getElementById('horaHastaHora');
+    const horaHastaMin = document.getElementById('horaHastaMin');
+    const horaHastaAmpm = document.getElementById('horaHastaAmpm');
+    const horaHastaHidden = document.getElementById('horaHastaHidden');
+
+    // Cargar valores iniciales desde hidden inputs (formato 24h -> 12h AM/PM)
+    if (horaDesdeHidden?.value) {
+      this.loadAmpmFromTime(horaDesdeHidden.value, horaDesdeHora, horaDesdeMin, horaDesdeAmpm);
+    }
+    if (horaHastaHidden?.value) {
+      this.loadAmpmFromTime(horaHastaHidden.value, horaHastaHora, horaHastaMin, horaHastaAmpm);
+    }
+
+    // Actualizar hidden inputs cuando cambian los selects
+    const updateDesde = () => {
+      if (horaDesdeHidden) {
+        horaDesdeHidden.value = this.ampmToTime(horaDesdeHora?.value, horaDesdeMin?.value, horaDesdeAmpm?.value);
+      }
+    };
+    const updateHasta = () => {
+      if (horaHastaHidden) {
+        horaHastaHidden.value = this.ampmToTime(horaHastaHora?.value, horaHastaMin?.value, horaHastaAmpm?.value);
+      }
+    };
+
+    horaDesdeHora?.addEventListener('change', updateDesde);
+    horaDesdeMin?.addEventListener('change', updateDesde);
+    horaDesdeAmpm?.addEventListener('change', updateDesde);
+    horaHastaHora?.addEventListener('change', updateHasta);
+    horaHastaMin?.addEventListener('change', updateHasta);
+    horaHastaAmpm?.addEventListener('change', updateHasta);
+
+    // Asegurar que se actualicen antes de enviar el form
+    form.addEventListener('submit', () => {
+      updateDesde();
+      updateHasta();
+    });
+  },
+
+  // Convertir formato 24h (HH:MM) a selectores 12h AM/PM
+  loadAmpmFromTime(time24, horaSelect, minSelect, ampmSelect) {
+    if (!time24 || !horaSelect || !minSelect || !ampmSelect) return;
+    
+    const [h, m] = time24.split(':').map(Number);
+    
+    let hora12 = h % 12;
+    if (hora12 === 0) hora12 = 12;
+    const ampm = h < 12 ? 'AM' : 'PM';
+    
+    // Redondear minutos al más cercano disponible (00, 15, 30, 45)
+    const mins = ['00', '15', '30', '45'];
+    const minStr = String(m).padStart(2, '0');
+    const closestMin = mins.reduce((prev, curr) => 
+      Math.abs(parseInt(curr) - m) < Math.abs(parseInt(prev) - m) ? curr : prev
+    );
+    
+    horaSelect.value = hora12;
+    minSelect.value = closestMin;
+    ampmSelect.value = ampm;
+  },
+
+  // Convertir selectores 12h AM/PM a formato 24h (HH:MM)
+  ampmToTime(hora, min, ampm) {
+    if (!hora || hora === '') return '';
+    
+    let h = parseInt(hora);
+    const m = min || '00';
+    
+    if (ampm === 'PM' && h !== 12) {
+      h += 12;
+    } else if (ampm === 'AM' && h === 12) {
+      h = 0;
+    }
+    
+    return String(h).padStart(2, '0') + ':' + m;
+  },
+
+  // ============================================
   // AUTOCOMPLETE CLIENTES
   // ============================================
   bindClienteAutocomplete() {
@@ -366,8 +458,8 @@ const VentasManager = {
     const form = document.getElementById('ventasForm');
     const desdeInput = document.querySelector('input[name="desde"]');
     const hastaInput = document.querySelector('input[name="hasta"]');
-    const horaDesde = document.querySelector('input[name="hora_desde"]');
-    const horaHasta = document.querySelector('input[name="hora_hasta"]');
+    const horaDesdeHidden = document.getElementById('horaDesdeHidden');
+    const horaHastaHidden = document.getElementById('horaHastaHidden');
     const advFilters = document.getElementById('advancedFilters');
 
     // Chips de fecha
@@ -415,8 +507,21 @@ const VentasManager = {
       chip.addEventListener('click', () => {
         const [h1, h2] = chip.dataset.hora.split(',');
 
-        if (horaDesde) horaDesde.value = h1;
-        if (horaHasta) horaHasta.value = h2;
+        // Actualizar hidden inputs
+        if (horaDesdeHidden) horaDesdeHidden.value = h1;
+        if (horaHastaHidden) horaHastaHidden.value = h2;
+
+        // Actualizar selectores visuales AM/PM
+        this.loadAmpmFromTime(h1, 
+          document.getElementById('horaDesdeHora'),
+          document.getElementById('horaDesdeMin'),
+          document.getElementById('horaDesdeAmpm')
+        );
+        this.loadAmpmFromTime(h2, 
+          document.getElementById('horaHastaHora'),
+          document.getElementById('horaHastaMin'),
+          document.getElementById('horaHastaAmpm')
+        );
 
         // Mostrar filtros avanzados
         if (advFilters) advFilters.classList.remove('hidden');
@@ -454,10 +559,9 @@ const VentasManager = {
             url.searchParams.delete('estado');
             break;
           case 'fecha':
+            // Limpiar fecha y hora juntas (ahora son un rango combinado)
             url.searchParams.delete('desde');
             url.searchParams.delete('hasta');
-            break;
-          case 'hora':
             url.searchParams.delete('hora_desde');
             url.searchParams.delete('hora_hasta');
             break;

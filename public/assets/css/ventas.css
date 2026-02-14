@@ -366,6 +366,44 @@
   margin: 0 4px;
 }
 
+/* Selectores de hora AM/PM */
+.hora-ampm-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hora-ampm-group .hora-select {
+  width: 55px;
+  padding: 0 4px;
+}
+
+.hora-ampm-group .min-select {
+  width: 55px;
+  padding: 0 4px;
+}
+
+.hora-ampm-group .ampm-select {
+  width: 60px;
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.hora-ampm-group .hora-sep {
+  font-weight: bold;
+  color: var(--muted);
+}
+
+.hora-ampm-group select {
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 /* Active Filters */
 .filtros-activos {
   display: flex;

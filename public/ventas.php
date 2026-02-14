@@ -159,33 +159,40 @@ if ($estado === 'EMITIDA') {
   $whereParts[] = "v.estado = 'ANULADA'";
 }
 
+// Filtro de fecha+hora combinado (rango continuo)
+// Si hay hora, se combina con la fecha para hacer un rango datetime completo
+// Ej: 31/12/2025 8:00 AM hasta 01/01/2026 5:00 AM = rango continuo
 if ($desde) {
+  $horaInicio = $hora_desde ? $hora_desde . ':00' : '00:00:00';
   $whereParts[] = 'v.fecha >= :desde';
-  $params[':desde'] = $desde . ' 00:00:00';
+  $params[':desde'] = $desde . ' ' . $horaInicio;
 }
 if ($hasta) {
+  $horaFin = $hora_hasta ? $hora_hasta . ':59' : '23:59:59';
   $whereParts[] = 'v.fecha <= :hasta';
-  $params[':hasta'] = $hasta . ' 23:59:59';
+  $params[':hasta'] = $hasta . ' ' . $horaFin;
 }
 
-// Filtro horario con soporte para rangos cruzados
-if ($hora_desde && $hora_hasta) {
-  $minD = intval(substr($hora_desde, 0, 2)) * 60 + intval(substr($hora_desde, 3, 2));
-  $minH = intval(substr($hora_hasta, 0, 2)) * 60 + intval(substr($hora_hasta, 3, 2));
-  
-  if ($minH >= $minD) {
-    $whereParts[] = "TIME(v.fecha) BETWEEN :hora_desde AND :hora_hasta";
-  } else {
-    $whereParts[] = "(TIME(v.fecha) >= :hora_desde OR TIME(v.fecha) <= :hora_hasta)";
+// Si solo hay filtro de hora sin fechas, aplicar a cualquier día
+if (!$desde && !$hasta && ($hora_desde || $hora_hasta)) {
+  if ($hora_desde && $hora_hasta) {
+    $minD = intval(substr($hora_desde, 0, 2)) * 60 + intval(substr($hora_desde, 3, 2));
+    $minH = intval(substr($hora_hasta, 0, 2)) * 60 + intval(substr($hora_hasta, 3, 2));
+    
+    if ($minH >= $minD) {
+      $whereParts[] = "TIME(v.fecha) BETWEEN :hora_desde AND :hora_hasta";
+    } else {
+      $whereParts[] = "(TIME(v.fecha) >= :hora_desde OR TIME(v.fecha) <= :hora_hasta)";
+    }
+    $params[':hora_desde'] = $hora_desde . ':00';
+    $params[':hora_hasta'] = $hora_hasta . ':59';
+  } elseif ($hora_desde) {
+    $whereParts[] = "TIME(v.fecha) >= :hora_desde";
+    $params[':hora_desde'] = $hora_desde . ':00';
+  } elseif ($hora_hasta) {
+    $whereParts[] = "TIME(v.fecha) <= :hora_hasta";
+    $params[':hora_hasta'] = $hora_hasta . ':59';
   }
-  $params[':hora_desde'] = $hora_desde . ':00';
-  $params[':hora_hasta'] = $hora_hasta . ':59';
-} elseif ($hora_desde) {
-  $whereParts[] = "TIME(v.fecha) >= :hora_desde";
-  $params[':hora_desde'] = $hora_desde . ':00';
-} elseif ($hora_hasta) {
-  $whereParts[] = "TIME(v.fecha) <= :hora_hasta";
-  $params[':hora_hasta'] = $hora_hasta . ':59';
 }
 
 if ($venta_id && ctype_digit($venta_id)) {
@@ -770,12 +777,50 @@ unset($queryParams['page']);
       <div id="advancedFilters" class="filtros-advanced hidden">
         <div class="filtro-group">
           <label>🕐 Hora desde</label>
-          <input type="time" name="hora_desde" value="<?= h($hora_desde) ?>">
+          <div class="hora-ampm-group">
+            <select id="horaDesdeHora" class="hora-select">
+              <option value="">--</option>
+              <?php for ($h = 1; $h <= 12; $h++): ?>
+                <option value="<?= $h ?>"><?= $h ?></option>
+              <?php endfor; ?>
+            </select>
+            <span class="hora-sep">:</span>
+            <select id="horaDesdeMin" class="min-select">
+              <option value="00">00</option>
+              <option value="15">15</option>
+              <option value="30">30</option>
+              <option value="45">45</option>
+            </select>
+            <select id="horaDesdeAmpm" class="ampm-select">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          <input type="hidden" name="hora_desde" id="horaDesdeHidden" value="<?= h($hora_desde) ?>">
         </div>
         <div class="filtro-group">
           <label>🕐 Hora hasta</label>
-          <input type="time" name="hora_hasta" value="<?= h($hora_hasta) ?>">
-          <small>Soporta rangos nocturnos (22:00-06:00)</small>
+          <div class="hora-ampm-group">
+            <select id="horaHastaHora" class="hora-select">
+              <option value="">--</option>
+              <?php for ($h = 1; $h <= 12; $h++): ?>
+                <option value="<?= $h ?>"><?= $h ?></option>
+              <?php endfor; ?>
+            </select>
+            <span class="hora-sep">:</span>
+            <select id="horaHastaMin" class="min-select">
+              <option value="00">00</option>
+              <option value="15">15</option>
+              <option value="30">30</option>
+              <option value="45">45</option>
+            </select>
+            <select id="horaHastaAmpm" class="ampm-select">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+          <input type="hidden" name="hora_hasta" id="horaHastaHidden" value="<?= h($hora_hasta) ?>">
+          <small>La hora se combina con la fecha (ej: 31/12 8AM → 01/01 5AM)</small>
         </div>
         <div class="filtro-group filtro-cliente">
           <label>👤 Cliente</label>
@@ -821,8 +866,34 @@ unset($queryParams['page']);
   $filtrosActivos = [];
   if ($medio) $filtrosActivos[] = ['key' => 'medio', 'label' => "Medio: $medio"];
   if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
-  if ($desde || $hasta) $filtrosActivos[] = ['key' => 'fecha', 'label' => "Fecha: " . ($desde ?: '...') . " - " . ($hasta ?: '...')];
-  if ($hora_desde || $hora_hasta) $filtrosActivos[] = ['key' => 'hora', 'label' => "Horario: " . ($hora_desde ?: '00:00') . " - " . ($hora_hasta ?: '23:59')];
+  
+  // Mostrar fecha+hora combinados si ambos están presentes
+  if ($desde || $hasta || $hora_desde || $hora_hasta) {
+    $label = 'Rango: ';
+    
+    if ($desde) {
+      $label .= date('d/m/Y', strtotime($desde));
+      if ($hora_desde) {
+        $label .= ' ' . date('g:i A', strtotime("2000-01-01 $hora_desde"));
+      }
+    } else {
+      $label .= '...';
+    }
+    
+    $label .= ' → ';
+    
+    if ($hasta) {
+      $label .= date('d/m/Y', strtotime($hasta));
+      if ($hora_hasta) {
+        $label .= ' ' . date('g:i A', strtotime("2000-01-01 $hora_hasta"));
+      }
+    } else {
+      $label .= '...';
+    }
+    
+    $filtrosActivos[] = ['key' => 'fecha', 'label' => $label];
+  }
+  
   if ($cliente_id) $filtrosActivos[] = ['key' => 'cliente', 'label' => "Cliente: " . ($clienteNombre ?: "#$cliente_id")];
   ?>
   <?php if ($filtrosActivos): ?>
