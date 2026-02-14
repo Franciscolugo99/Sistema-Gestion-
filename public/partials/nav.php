@@ -471,6 +471,41 @@ if (hamburger && navMenu) {
     if (a) setNavOpen(false);
   });
 }
+// ============================================================================
+// DROPDOWN ADMIN (TUERCA)
+// ============================================================================
+const adminWrap = document.getElementById('adminMenu');
+if (adminWrap) {
+  const btn = adminWrap.querySelector('.nav-dropdown-btn');
+  const menu = adminWrap.querySelector('.nav-dropdown-menu');
+
+  const setAdminOpen = (open) => {
+    if (!btn || !menu) return;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    menu.classList.toggle('open', open);
+  };
+
+  if (btn && menu) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isOpen = btn.getAttribute('aria-expanded') === 'true';
+      setAdminOpen(!isOpen);
+    });
+
+    // click afuera => cerrar
+    document.addEventListener('click', (e) => {
+      const isOpen = btn.getAttribute('aria-expanded') === 'true';
+      if (!isOpen) return;
+      if (!adminWrap.contains(e.target)) setAdminOpen(false);
+    });
+
+    // ESC => cerrar
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setAdminOpen(false);
+    });
+  }
+}
 
 })();
 </script>
