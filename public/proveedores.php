@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 
 require_login();
-require_permission('ver_proveedores');
+require_any_permission(['ver_proveedores','editar_proveedores']);
 
 $pdo = getPDO();
 $canEdit = function_exists('user_has_permission') && user_has_permission('editar_proveedores');

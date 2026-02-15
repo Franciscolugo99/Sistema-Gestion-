@@ -6,7 +6,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/includes/ClienteController.php';
 
 require_login();
-require_permission('ver_clientes');
+require_any_permission(['ver_clientes','editar_clientes']);
 
 $pdo = getPDO();
 $controller = new ClienteController($pdo);

@@ -96,16 +96,19 @@ try {
 // Permisos
 $canDashboard   = $can('ver_reportes');
 $canCaja        = $can('realizar_ventas');
-$canProductos   = $can('editar_productos') || $can('ver_productos');
-$canStock       = $can('editar_stock')     || $can('ver_stock');
+// Productos: ABM (edición). Si querés "solo lectura", hacemos vista separada.
+$canProductos   = $can('editar_productos');
+// Stock: ajustes (edición)
+$canStock       = $can('editar_stock');
 
-// ✅ NUEVO: permiso Inventario (ajustable)
-// - Por defecto: si puede ver productos o stock, puede ver Inventario
-$canInventario  = $canProductos || $canStock;
+// Inventario: análisis/lectura (admite ver_stock o legacy stock)
+$canInventario  = $can('editar_stock') || $can('ver_stock') || $can('stock');
 
 $canMovimientos = $can('ver_movimientos');
-$canVentas      = $can('ver_reportes')     || $can('realizar_ventas');
-$canCompras     = $can('editar_stock')     || $can('ver_costos') || $can('editar_productos');
+// Ventas: reportes (no la caja)
+$canVentas      = $can('ver_reportes');
+// Compras: impacta stock => requiere stock (edición)
+$canCompras     = $can('editar_stock');
 $canProveedores = $can('ver_proveedores')  || $can('editar_proveedores');
 $canHistCaja    = $can('ver_historial_caja');
 $canPromos      = $can('editar_promos');
