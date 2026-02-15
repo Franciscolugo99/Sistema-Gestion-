@@ -585,7 +585,7 @@ if (!function_exists('config_get')) {
     }
 
     try {
-      $st = $pdo->prepare("SELECT valor FROM app_config WHERE clave = ? LIMIT 1");
+      $st = $pdo->prepare("SELECT v FROM app_config WHERE k = ? LIMIT 1");
       $st->execute([$k]);
       $val = $st->fetchColumn();
       $val = ($val === false) ? $default : (string)$val;
@@ -605,9 +605,9 @@ if (!function_exists('config_set')) {
 
     try {
       $st = $pdo->prepare("
-        INSERT INTO app_config (clave, valor)
+        INSERT INTO app_config (k, v)
         VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE valor = VALUES(valor)
+        ON DUPLICATE KEY UPDATE v = VALUES(v)
       ");
       $ok = $st->execute([$k, $v]);
 

@@ -6,6 +6,13 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_any_permission(['ver_facturacion','emitir_factura']);
 
+// Verificar si facturación está habilitada
+$facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+if (!$facturacionHabilitada) {
+  header('Location: index.php');
+  exit;
+}
+
 
 /** Fecha Y-m-d válida o '' */
 function validDateYmdStr(string $s): string {

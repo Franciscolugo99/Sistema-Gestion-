@@ -54,6 +54,16 @@ $fields = [
   ],
 ];
 
+// Campos tipo toggle/switch (separados para renderizar distinto)
+$toggleFields = [
+  'facturacion_habilitada' => [
+    'label'   => 'Módulo de Facturación',
+    'desc'    => 'Habilitar facturación electrónica AFIP/ARCA',
+    'hint'    => 'Activá esta opción si tu negocio emite comprobantes fiscales. Si no facturás, dejalo desactivado.',
+    'default' => '0',
+  ],
+];
+
 $errors = [];
 // Cargar valores actuales
 $values = [];
@@ -65,6 +75,13 @@ foreach ($fields as $k => $meta) {
     default         => '',
   };
   $values[$k] = (string)(config_get($pdo, $k, $default) ?? $default);
+}
+
+// Cargar valores de toggles
+$toggleValues = [];
+foreach ($toggleFields as $k => $meta) {
+  $default = $meta['default'] ?? '0';
+  $toggleValues[$k] = (string)(config_get($pdo, $k, $default) ?? $default);
 }
 
 // Guardar (POST)
@@ -118,7 +135,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ]);
         }
 
+        // Guardar toggles
+        foreach ($toggleFields as $k => $meta) {
+          $val = isset($_POST[$k]) ? '1' : '0';
+          $st->execute([
+            ':k'  => $k,
+            ':v'  => $val,
+            ':v2' => $val,
+          ]);
+          $toggleValues[$k] = $val;
+        }
+
         $pdo->commit();
+        
+        // Limpiar caché de config para que se relea
+        if (isset($GLOBALS['__app_config_cache'])) {
+          $GLOBALS['__app_config_cache'] = [];
+        }
 
         // Redirect para evitar re-POST y para que se refresque el cache de config_get()
         header('Location: configuracion.php?saved=1');
@@ -194,6 +227,36 @@ require __DIR__ . '/partials/header.php';
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
+    </div>
+
+    <!-- Módulos opcionales -->
+    <div class="config-section">
+      <h3 class="config-section-title">Módulos opcionales</h3>
+      <p class="config-section-desc">Activá o desactivá funcionalidades según las necesidades de tu negocio.</p>
+      
+      <div class="config-toggles">
+        <?php foreach ($toggleFields as $k => $meta): 
+          $isChecked = ($toggleValues[$k] ?? '0') === '1';
+        ?>
+          <div class="config-toggle-item">
+            <div class="config-toggle-info">
+              <label for="<?= h($k) ?>" class="config-toggle-label"><?= h($meta['label']) ?></label>
+              <span class="config-toggle-desc"><?= h($meta['desc']) ?></span>
+              <?php if (!empty($meta['hint'])): ?>
+                <span class="config-toggle-hint"><?= h($meta['hint']) ?></span>
+              <?php endif; ?>
+            </div>
+            <label class="config-switch">
+              <input type="checkbox" 
+                     id="<?= h($k) ?>" 
+                     name="<?= h($k) ?>" 
+                     value="1"
+                     <?= $isChecked ? 'checked' : '' ?>>
+              <span class="config-switch-slider"></span>
+            </label>
+          </div>
+        <?php endforeach; ?>
+      </div>
     </div>
 
     <div class="config-actions">

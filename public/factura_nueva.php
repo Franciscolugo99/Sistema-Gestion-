@@ -6,6 +6,13 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('emitir_factura');
 
+// Verificar si facturación está habilitada
+$facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+if (!$facturacionHabilitada) {
+  header('Location: index.php');
+  exit;
+}
+
 
 $pdo = getPDO();
 

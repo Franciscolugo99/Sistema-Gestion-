@@ -115,6 +115,13 @@ $canPromos      = $can('editar_promos');
 $canClientes    = $can('ver_clientes')     || $can('editar_clientes');
 $canFacturacion = $can('ver_facturacion')  || $can('emitir_factura') || $can('administrar_config');
 
+// Verificar si facturación está habilitada en configuración
+$facturacionHabilitada = true; // default
+if ($pdo instanceof PDO && function_exists('config_get')) {
+  $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+}
+$canFacturacion = $canFacturacion && $facturacionHabilitada;
+
 // ✅ NUEVO: Cuenta Corriente (elegí el criterio que querés)
 // Opción simple (recomendada): visible si puede ver clientes y cuenta corriente
 $canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
