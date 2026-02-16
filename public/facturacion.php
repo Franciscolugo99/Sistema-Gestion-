@@ -146,6 +146,18 @@ $pageTitle      = "Facturación";
 $currentSection = "facturacion";
 $extraCss       = ["assets/css/facturacion.css?v=1"];
 
+// Obtener modo actual de facturación
+$modoFacturacion = 'demo';
+try {
+    $stCfg = $pdo->query("SELECT modo FROM config_facturacion WHERE activo = 1 LIMIT 1");
+    $cfgRow = $stCfg->fetch(PDO::FETCH_ASSOC);
+    if ($cfgRow) {
+        $modoFacturacion = $cfgRow['modo'] ?? 'demo';
+    }
+} catch (Throwable $e) {
+    // ignorar
+}
+
 require __DIR__ . "/partials/header.php";
 ?>
 
@@ -155,10 +167,22 @@ require __DIR__ . "/partials/header.php";
     <header class="page-header">
       <div>
         <h1 class="page-title">Facturación</h1>
-        <p class="page-sub">Lista de facturas emitidas a partir de las ventas de caja.</p>
+        <p class="page-sub">
+          Lista de facturas emitidas a partir de las ventas de caja.
+          <?php if ($modoFacturacion === 'demo'): ?>
+            <span class="modo-badge modo-demo" title="Las facturas generadas no se envían a AFIP">🟡 Modo DEMO</span>
+          <?php else: ?>
+            <span class="modo-badge modo-prod" title="Conectado a AFIP">🟢 Producción</span>
+          <?php endif; ?>
+        </p>
       </div>
 
       <div class="promo-actions-top">
+        <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
+          <a href="facturacion_config.php" class="v-btn v-btn--outline" title="Configuración de facturación">
+            ⚙️ Configuración
+          </a>
+        <?php endif; ?>
         <a href="#!" class="v-btn v-btn--primary" style="opacity:.6;pointer-events:none;">
           + Nueva factura (próximamente)
         </a>
