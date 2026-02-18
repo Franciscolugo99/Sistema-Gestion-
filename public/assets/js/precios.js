@@ -22,6 +22,8 @@
     categorias: [],
     loading: false,
     currentView: "herramientas",
+    productosConPerdida: 0,
+    productosConMargenBajo: 0,
   };
 
   // ============================================
@@ -233,28 +235,50 @@
     if (state.selectedProducts.size === 0 || porcentaje === 0) {
       previewContainer.innerHTML =
         '<p class="text-muted" style="text-align: center; padding: 1rem;">Seleccioná productos y un porcentaje para ver la vista previa</p>';
+      // Ocultar alerta si existe
+      hidePreviewAlert();
       return;
     }
 
     let html = "";
     let count = 0;
+    let productosConPerdida = 0;
+    let productosConMargenBajo = 0;
 
     for (const [id, product] of state.selectedProducts) {
       if (count >= CONFIG.previewLimit) {
         const remaining = state.selectedProducts.size - CONFIG.previewLimit;
-        html += `<div class="preview-item" style="color: var(--text-muted); font-style: italic;">... y ${remaining} producto(s) más</div>`;
+        html += `<div class="preview-item" style="color: var(--pm-muted); font-style: italic;">... y ${remaining} producto(s) más</div>`;
         break;
       }
 
       const precioAnterior = product.precio;
+      const costo = product.costo || 0;
       let precioNuevo = precioAnterior * (1 + porcentaje / 100);
       precioNuevo = aplicarRedondeo(precioNuevo, redondeo);
 
       const isIncrease = precioNuevo > precioAnterior;
+      
+      // Calcular si quedará con pérdida o margen bajo
+      let alertClass = "";
+      let alertIcon = "";
+      if (costo > 0) {
+        if (precioNuevo < costo) {
+          productosConPerdida++;
+          alertClass = "preview-item--danger";
+          alertIcon = `<span class="preview-alert-icon" title="¡Quedará por debajo del costo!">⚠️</span>`;
+        } else {
+          const margenNuevo = ((precioNuevo - costo) / costo) * 100;
+          if (margenNuevo < 10) {
+            productosConMargenBajo++;
+            alertClass = "preview-item--warning";
+          }
+        }
+      }
 
       html += `
-                <div class="preview-item">
-                    <span class="nombre" title="${h(product.nombre)}">${h(product.nombre)}</span>
+                <div class="preview-item ${alertClass}">
+                    <span class="nombre" title="${h(product.nombre)}">${alertIcon}${h(product.nombre)}</span>
                     <span class="precios">
                         <span class="old">${formatCurrency(precioAnterior)}</span>
                         <span class="arrow">→</span>
@@ -266,6 +290,72 @@
     }
 
     previewContainer.innerHTML = html;
+    
+    // Mostrar alerta si hay productos con pérdida
+    showPreviewAlert(productosConPerdida, productosConMargenBajo);
+    
+    // Guardar estado para la confirmación
+    state.productosConPerdida = productosConPerdida;
+    state.productosConMargenBajo = productosConMargenBajo;
+  }
+  
+  function showPreviewAlert(conPerdida, conMargenBajo) {
+    let alertContainer = document.getElementById("previewAlertContainer");
+    
+    if (!alertContainer) {
+      // Crear contenedor de alertas si no existe
+      const previewSection = document.querySelector(".preview-section");
+      if (!previewSection) return;
+      
+      alertContainer = document.createElement("div");
+      alertContainer.id = "previewAlertContainer";
+      alertContainer.style.marginBottom = "0.75rem";
+      previewSection.insertBefore(alertContainer, previewSection.querySelector(".preview-list"));
+    }
+    
+    if (conPerdida === 0 && conMargenBajo === 0) {
+      alertContainer.innerHTML = "";
+      return;
+    }
+    
+    let html = "";
+    
+    if (conPerdida > 0) {
+      html += `
+        <div class="preview-alert preview-alert--danger">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span><strong>${conPerdida}</strong> producto(s) quedarán <strong>por debajo del costo</strong></span>
+        </div>
+      `;
+    }
+    
+    if (conMargenBajo > 0) {
+      html += `
+        <div class="preview-alert preview-alert--warning">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span><strong>${conMargenBajo}</strong> producto(s) tendrán margen menor al 10%</span>
+        </div>
+      `;
+    }
+    
+    alertContainer.innerHTML = html;
+  }
+  
+  function hidePreviewAlert() {
+    const alertContainer = document.getElementById("previewAlertContainer");
+    if (alertContainer) {
+      alertContainer.innerHTML = "";
+    }
+    state.productosConPerdida = 0;
+    state.productosConMargenBajo = 0;
   }
 
   function aplicarRedondeo(precio, tipo) {
@@ -370,9 +460,22 @@
 
     const count = state.selectedProducts.size;
     const action = porcentaje > 0 ? "aumentar" : "disminuir";
-    const msg = `¿Estás seguro de ${action} el precio de ${count} producto(s) en ${Math.abs(porcentaje)}%?`;
-
-    if (!confirm(msg)) return;
+    
+    // Verificar si hay productos que quedarán con pérdida
+    let msg = `¿Estás seguro de ${action} el precio de ${count} producto(s) en ${Math.abs(porcentaje)}%?`;
+    
+    if (state.productosConPerdida > 0) {
+      msg = `⚠️ ¡ATENCIÓN!\n\n${state.productosConPerdida} producto(s) quedarán VENDIENDO A PÉRDIDA (por debajo del costo).\n\n¿Estás SEGURO de que querés aplicar este ajuste?`;
+      
+      // Doble confirmación para pérdidas
+      if (!confirm(msg)) return;
+      if (!confirm("Esta acción generará pérdidas. ¿Confirmás que querés continuar?")) return;
+    } else if (state.productosConMargenBajo > 0) {
+      msg += `\n\n⚠️ Nota: ${state.productosConMargenBajo} producto(s) tendrán margen menor al 10%`;
+      if (!confirm(msg)) return;
+    } else {
+      if (!confirm(msg)) return;
+    }
 
     // Submit del form
     const form = e.target;
@@ -447,6 +550,7 @@
     const tipoFilter = document.getElementById("filtroTipo");
     const fechaDesde = document.getElementById("filtroFechaDesde");
     const fechaHasta = document.getElementById("filtroFechaHasta");
+    const clearBtn = document.getElementById("clearFiltersBtn");
 
     if (tipoFilter) {
       tipoFilter.addEventListener("change", applyHistorialFilters);
@@ -457,6 +561,24 @@
     if (fechaHasta) {
       fechaHasta.addEventListener("change", applyHistorialFilters);
     }
+    if (clearBtn) {
+      clearBtn.addEventListener("click", clearHistorialFilters);
+    }
+  }
+  
+  function clearHistorialFilters() {
+    const tipoFilter = document.getElementById("filtroTipo");
+    const fechaDesde = document.getElementById("filtroFechaDesde");
+    const fechaHasta = document.getElementById("filtroFechaHasta");
+    
+    if (tipoFilter) tipoFilter.value = "";
+    if (fechaDesde) fechaDesde.value = "";
+    if (fechaHasta) fechaHasta.value = "";
+    
+    // Mostrar todos los items
+    document.querySelectorAll(".hist-item").forEach((item) => {
+      item.style.display = "";
+    });
   }
 
   function applyHistorialFilters() {

@@ -1,18 +1,17 @@
 <?php
 // public/precios_historial.php - Historial de Precios FLUS
 /**
- * FLUS - Gestión de Precios v2.0
+ * FLUS - Gestión de Precios v3.0
  * Historial de cambios, herramientas masivas y análisis de márgenes
  * 
- * Mejoras:
- * - Vista por categorías con acordeones colapsables
- * - CSS y JS separados en archivos externos
- * - Búsqueda asíncrona con debounce
- * - Preview de cambios en tiempo real
- * - Ayudas contextuales y tooltips
- * - Paginación y lazy loading preparado
+ * Mejoras v3.0:
+ * - Filtros de historial visibles con UI intuitiva
+ * - Sistema de variables CSS unificado con tema global
+ * - Mejor UX en selección de productos
+ * - Responsive mejorado
+ * - Eliminación de código duplicado
  * 
- * @version 2.0.0
+ * @version 3.0.0
  */
 declare(strict_types=1);
 
@@ -79,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $result = precio_ajuste_masivo_porcentaje($productoIds, $porcentaje, $tipo, $redondeo, $motivo);
                 if ($result['actualizados'] > 0) {
-                    $info = "✓ Ajuste aplicado: {$result['actualizados']} producto(s) actualizado(s).";
+                    $info = "Ajuste aplicado: {$result['actualizados']} producto(s) actualizado(s).";
                     if (!empty($result['errores'])) {
                         $info .= ' Con algunos errores: ' . implode(', ', array_slice($result['errores'], 0, 3));
                     }
@@ -105,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $result = precio_aplicar_margen($productoIds, $margen, $redondeo, $motivo);
                 $actualizados = $result['actualizados'] ?? 0;
                 if ($actualizados > 0) {
-                    $info = "✓ Margen aplicado: {$actualizados} producto(s) actualizado(s).";
+                    $info = "Margen aplicado: {$actualizados} producto(s) actualizado(s).";
                 } else {
                     $error = 'No se actualizó ningún producto.' .
                         (!empty($result['errores']) ? ' Errores: ' . implode(', ', $result['errores']) : '');
@@ -244,21 +243,21 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <!-- TABS -->
-    <nav class="precio-tabs">
-        <a href="?v=historial" class="precio-tab <?= $vista === 'historial' ? 'active' : '' ?>">
+    <nav class="precio-tabs" role="tablist">
+        <a href="?v=historial" class="precio-tab <?= $vista === 'historial' ? 'active' : '' ?>" role="tab" aria-selected="<?= $vista === 'historial' ? 'true' : 'false' ?>">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
             </svg>
             Historial
         </a>
-        <a href="?v=herramientas" class="precio-tab <?= $vista === 'herramientas' ? 'active' : '' ?>">
+        <a href="?v=herramientas" class="precio-tab <?= $vista === 'herramientas' ? 'active' : '' ?>" role="tab" aria-selected="<?= $vista === 'herramientas' ? 'true' : 'false' ?>">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
             </svg>
             Herramientas
         </a>
-        <a href="?v=margenes" class="precio-tab <?= $vista === 'margenes' ? 'active' : '' ?>">
+        <a href="?v=margenes" class="precio-tab <?= $vista === 'margenes' ? 'active' : '' ?>" role="tab" aria-selected="<?= $vista === 'margenes' ? 'true' : 'false' ?>">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="1" x2="12" y2="23"/>
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
@@ -274,8 +273,40 @@ require __DIR__ . '/partials/header.php';
         
         <?php if ($productoFiltro): ?>
             <div class="alert alert-info" style="margin-bottom: 1rem;">
+                <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
                 <span>Mostrando historial de: <strong><?= htmlspecialchars($productoFiltro['codigo'] . ' - ' . $productoFiltro['nombre']) ?></strong></span>
-                <a href="?v=historial" style="margin-left: auto; color: inherit;">Ver todos</a>
+                <a href="?v=historial" style="margin-left: auto; color: inherit; text-decoration: underline;">Ver todos</a>
+            </div>
+        <?php else: ?>
+            <!-- Filtros de historial -->
+            <div class="historial-filters">
+                <div class="filter-group">
+                    <label for="filtroTipo">Tipo</label>
+                    <select id="filtroTipo">
+                        <option value="">Todos</option>
+                        <option value="VENTA">Precio Venta</option>
+                        <option value="COSTO">Costo</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filtroFechaDesde">Desde</label>
+                    <input type="date" id="filtroFechaDesde">
+                </div>
+                <div class="filter-group">
+                    <label for="filtroFechaHasta">Hasta</label>
+                    <input type="date" id="filtroFechaHasta">
+                </div>
+                <button type="button" class="filter-clear" id="clearFiltersBtn" title="Limpiar filtros">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Limpiar
+                </button>
             </div>
         <?php endif; ?>
         
@@ -353,7 +384,7 @@ require __DIR__ . '/partials/header.php';
                         </svg>
                         Productos por Categoría
                     </h3>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div class="btn-group">
                         <button type="button" id="expandAllBtn" class="btn btn-ghost btn-sm" title="Expandir todo (Ctrl+Shift+E)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="7 13 12 18 17 13"/>
@@ -375,7 +406,7 @@ require __DIR__ . '/partials/header.php';
                 
                 <div class="categorias-list">
                     <?php if (empty($categorias)): ?>
-                        <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                        <div style="padding: 2rem; text-align: center; color: var(--pm-muted);">
                             No hay productos activos.
                         </div>
                     <?php else: ?>
@@ -493,7 +524,7 @@ require __DIR__ . '/partials/header.php';
                             <div class="preview-section">
                                 <h4>Vista previa</h4>
                                 <div class="preview-list" id="previewList">
-                                    <p class="text-muted" style="text-align: center; padding: 1rem;">Seleccioná productos y un porcentaje</p>
+                                    <p style="text-align: center; padding: 1rem; color: var(--pm-muted); margin: 0;">Seleccioná productos y un porcentaje</p>
                                 </div>
                             </div>
                             
@@ -561,8 +592,8 @@ require __DIR__ . '/partials/header.php';
 
                 <!-- Ayuda rápida -->
                 <div class="tool-card tool-card-help">
-                    <div class="tool-card-body" style="padding: 1rem;">
-                        <p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0;">
+                    <div class="tool-card-body">
+                        <p>
                             <strong>Atajos:</strong> Ctrl+A = Seleccionar todo · Esc = Limpiar · Ctrl+Shift+E = Expandir · Ctrl+Shift+C = Colapsar
                         </p>
                     </div>
@@ -636,7 +667,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             
             <?php if (empty($margenBajo)): ?>
-                <div style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                <div style="padding: 3rem; text-align: center; color: var(--pm-muted);">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 1rem; opacity: 0.5;">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                         <polyline points="22 4 12 14.01 9 11.01"/>

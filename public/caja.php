@@ -476,6 +476,9 @@ if ($cajaSesion) {
           </select>
 
           <input id="modal-input" type="number" min="1" step="1">
+          
+          <!-- Alerta de stock dentro del modal -->
+          <div id="modal-stock-alert" class="modal-stock-alert hidden"></div>
         </div>
 
         <div class="modal-buttons">

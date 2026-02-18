@@ -385,11 +385,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalLabel = document.getElementById("modal-label");
   const modalInput = document.getElementById("modal-input");
   const modalDescTipo = document.getElementById("modal-desc-tipo");
+  const modalStockAlert = document.getElementById("modal-stock-alert");
   const btnConfirm = document.getElementById("modal-confirm");
   const btnCancel = document.getElementById("modal-cancel");
 
   let modalResolver = null;
   let modalIsInput = false;
+  let modalCurrentItem = null; // Item actual para validación de stock
 
   const optPrecio = modalDescTipo?.querySelector('option[value="precio"]');
 
@@ -1669,9 +1671,16 @@ function medioEsEfectivo() {
     return new Promise((resolve) => {
       modalResolver = resolve;
       modalIsInput = !!opt.input;
+      modalCurrentItem = opt.item || null; // Guardar item para validación
 
       modalTitulo.textContent = opt.titulo || "";
       modalTexto.textContent = opt.texto || "";
+
+      // Limpiar alerta de stock
+      if (modalStockAlert) {
+        modalStockAlert.classList.add("hidden");
+        modalStockAlert.innerHTML = "";
+      }
 
       if (modalDescTipo) {
         if (opt.showTipo) modalDescTipo.classList.remove("hidden");
@@ -1695,6 +1704,28 @@ function medioEsEfectivo() {
         if (opt.step != null) modalInput.step = String(opt.step);
 
         modalInput.value = opt.valorDefault ?? "";
+        
+        // Mostrar info de stock si es edición de cantidad
+        if (modalCurrentItem && opt.showStockInfo) {
+          const stock = Number(modalCurrentItem.stock) || 0;
+          const unidad = modalCurrentItem.unidadVenta || (modalCurrentItem.esPesable ? "KG" : "UNID");
+          const stockTxt = modalCurrentItem.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
+          
+          // Crear info de stock debajo del input
+          let stockInfoEl = document.getElementById("modal-stock-info-temp");
+          if (!stockInfoEl) {
+            stockInfoEl = document.createElement("div");
+            stockInfoEl.id = "modal-stock-info-temp";
+            stockInfoEl.className = "modal-stock-info";
+            modalInput.parentNode.insertBefore(stockInfoEl, modalInput.nextSibling);
+          }
+          stockInfoEl.innerHTML = `Stock disponible: <strong>${stockTxt} ${unidad}</strong>`;
+          stockInfoEl.style.display = "";
+        } else {
+          const stockInfoEl = document.getElementById("modal-stock-info-temp");
+          if (stockInfoEl) stockInfoEl.style.display = "none";
+        }
+        
         setTimeout(() => modalInput.focus(), 20);
       } else {
         modalInputArea.classList.add("hidden");
@@ -1703,12 +1734,99 @@ function medioEsEfectivo() {
       modal.classList.remove("hidden");
     });
   }
+  
+  // Validar stock en tiempo real dentro del modal
+  function validarStockEnModal() {
+    if (!modalCurrentItem || !modalStockAlert) return;
+    
+    const hasStock = modalCurrentItem.stock != null && modalCurrentItem.stock !== "";
+    if (!hasStock) return;
+    
+    const stock = Number(modalCurrentItem.stock) || 0;
+    const unidad = modalCurrentItem.unidadVenta || (modalCurrentItem.esPesable ? "KG" : "UNID");
+    const tol = modalCurrentItem.esPesable ? 0.01 : 0;
+    
+    let num;
+    const val = modalInput.value;
+    
+    if (modalCurrentItem.esPesable) {
+      num = parseCantPesableFlex(val, unidad);
+    } else {
+      num = parseFloat(String(val).replace(",", "."));
+      if (Number.isFinite(num)) num = Math.round(num);
+    }
+    
+    if (!Number.isFinite(num) || num <= 0) {
+      modalStockAlert.classList.add("hidden");
+      return;
+    }
+    
+    const stockTxt = modalCurrentItem.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
+    
+    if (num > stock + tol) {
+      // Stock insuficiente - mostrar error
+      modalStockAlert.className = "modal-stock-alert modal-stock-alert--error";
+      modalStockAlert.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>¡Stock insuficiente! Máximo disponible: <strong>${stockTxt} ${unidad}</strong></span>
+      `;
+      modalStockAlert.classList.remove("hidden");
+      
+      // Deshabilitar botón confirmar
+      if (btnConfirm) {
+        btnConfirm.disabled = true;
+        btnConfirm.style.opacity = "0.5";
+      }
+    } else if (num === stock) {
+      // Usando todo el stock - warning
+      modalStockAlert.className = "modal-stock-alert modal-stock-alert--warning";
+      modalStockAlert.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Usarás todo el stock disponible (${stockTxt} ${unidad})</span>
+      `;
+      modalStockAlert.classList.remove("hidden");
+      
+      // Habilitar botón
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        btnConfirm.style.opacity = "";
+      }
+    } else {
+      // Stock OK
+      modalStockAlert.classList.add("hidden");
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        btnConfirm.style.opacity = "";
+      }
+    }
+  }
+  
+  // Event listener para validación en tiempo real
+  modalInput?.addEventListener("input", validarStockEnModal);
 
   function cerrarModal(v) {
     modal.classList.add("hidden");
     if (modalResolver) modalResolver(v);
     modalResolver = null;
     modalIsInput = false;
+    modalCurrentItem = null;
+    
+    // Limpiar alerta y restaurar botón
+    if (modalStockAlert) {
+      modalStockAlert.classList.add("hidden");
+    }
+    if (btnConfirm) {
+      btnConfirm.disabled = false;
+      btnConfirm.style.opacity = "";
+    }
   }
 
   btnConfirm?.addEventListener("click", () => {
@@ -1842,6 +1960,10 @@ function medioEsEfectivo() {
         inputType: item.esPesable ? "text" : "number",
         min,
         step,
+        
+        // ✅ NUEVO: pasar item para validación de stock en tiempo real
+        item: item,
+        showStockInfo: true,
       }).then((val) => {
         if (val === false) return;
 

@@ -464,6 +464,68 @@
 }
 
 /* =====================
+   ALERTA DE STOCK EN MODAL
+===================== */
+.caja-panel .modal-stock-alert {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: modal-alert-shake 0.4s ease;
+}
+
+.caja-panel .modal-stock-alert.hidden {
+  display: none !important;
+}
+
+.caja-panel .modal-stock-alert--error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.caja-panel .modal-stock-alert--warning {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+}
+
+.caja-panel .modal-stock-alert--info {
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  color: #22d3ee;
+}
+
+.caja-panel .modal-stock-alert svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes modal-alert-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+/* Stock info debajo del input */
+.caja-panel .modal-stock-info {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.caja-panel .modal-stock-info strong {
+  color: var(--accent-cyan);
+}
+
+/* =====================
    APERTURA DE CAJA
 ===================== */
 .caja-panel .apertura-wrapper {
