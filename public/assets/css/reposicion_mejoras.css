@@ -1,0 +1,424 @@
+/* ============================================================
+   FLUS — reposicion_mejoras.css
+   Complementa reposicion.css con estilos para:
+   – Filtros avanzados
+   – Stats / resumen de estados
+   – Quick Order (checkboxes, quantity controls, totales)
+   – Badges con borde
+   – Empty states con icono
+   – Responsive + dark mode + print
+   ============================================================ */
+
+/* ────────────────────────────────────────────────────────────
+   FILTROS
+   ──────────────────────────────────────────────────────────── */
+.repo-filters {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.repo-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.repo-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 160px;
+}
+
+.repo-filter-group.repo-filter-search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.repo-filter-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.repo-filter-select,
+.repo-filter-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.repo-filter-select:focus,
+.repo-filter-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.repo-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ────────────────────────────────────────────────────────────
+   STATS — Resumen de estados
+   ──────────────────────────────────────────────────────────── */
+.repo-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.repo-stat {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.repo-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.repo-stat-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.repo-stat--danger  .repo-stat-value { color: var(--repo-danger); }
+.repo-stat--warning .repo-stat-value { color: var(--repo-warning); }
+.repo-stat--info    .repo-stat-value { color: var(--repo-info); }
+
+/* ────────────────────────────────────────────────────────────
+   PROVEEDOR ACTIONS — barra Quick Order
+   ──────────────────────────────────────────────────────────── */
+.proveedor-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-light);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0; /* flush contra la tabla */
+}
+
+.proveedor-actions .btn { margin: 0; }
+
+.btn-select-criticos { margin-right: auto; }
+
+.btn-generar-orden {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-generar-orden:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────────────────────
+   CHECKBOXES
+   ──────────────────────────────────────────────────────────── */
+.repo-check-all,
+.repo-check-item {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary);
+  vertical-align: middle;
+}
+
+.repo-check-all { margin-right: 0.4rem; }
+
+/* ────────────────────────────────────────────────────────────
+   QUANTITY CONTROLS
+   ──────────────────────────────────────────────────────────── */
+.repo-quantity-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.qty-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--bg-light);
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.1s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.qty-btn:hover  { background: var(--border-color); }
+.qty-btn:active { transform: scale(0.93); }
+
+.qty-input {
+  width: 60px;
+  padding: 0.25rem 0.4rem;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.qty-input:focus { outline: none; }
+
+/* Ocultar flechas nativas del number input */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-input[type="number"]             { -moz-appearance: textfield; }
+
+/* ────────────────────────────────────────────────────────────
+   ITEMS CRÍTICOS
+   ──────────────────────────────────────────────────────────── */
+.repo-item--critico {
+  background: var(--repo-danger-bg) !important;
+}
+
+.repo-item--critico td {
+  border-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+/* ────────────────────────────────────────────────────────────
+   TOTALES
+   ──────────────────────────────────────────────────────────── */
+.subtotal-item {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.proveedor-total { font-size: 0.9rem; }
+
+.repo-global-total {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  margin-top: 2rem;
+  background: var(--card-bg);
+  border: 2px solid var(--primary);
+  border-radius: 8px;
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────────── */
+.repo-muted {
+  display: block;
+  margin-top: .25rem;
+  font-size: .85rem;
+  opacity: .75;
+}
+
+/* ── Proveedor destino (grupo sin proveedor) ─────────────────────────── */
+.repo-proveedor-destino-wrap {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+}
+
+.repo-proveedor-destino-label {
+  font-weight: 600;
+  font-size: .9rem;
+}
+
+.repo-proveedor-destino {
+  min-width: 220px;
+}
+
+.repo-global-total-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.repo-global-total-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+}
+
+/* ────────────────────────────────────────────────────────────
+   BADGES con borde (complementan los del reposicion.css)
+   ──────────────────────────────────────────────────────────── */
+.badge-danger {
+  background: var(--repo-danger-bg);
+  color: var(--repo-danger);
+  border: 1px solid currentColor;
+}
+
+.badge-warning {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning);
+  border: 1px solid currentColor;
+}
+
+.badge-info {
+  background: var(--repo-info-bg);
+  color: var(--repo-info);
+  border: 1px solid currentColor;
+}
+
+/* ────────────────────────────────────────────────────────────
+   EMPTY STATES mejorados (icono centrado)
+   ──────────────────────────────────────────────────────────── */
+.repo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: var(--card-bg);
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.repo-empty--lg { padding: 4rem 2rem; }
+.repo-empty--md { padding: 2.5rem 1.5rem; }
+
+.repo-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.35;
+  margin-bottom: 1rem;
+}
+
+.repo-empty-text {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0.5rem 0;
+}
+
+.repo-empty-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  margin: 0.4rem 0 0;
+}
+
+/* ────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .repo-filter-form     { flex-direction: column; }
+  .repo-filter-group    { width: 100%; min-width: unset; }
+  .repo-filter-actions  { width: 100%; }
+  .repo-filter-actions .btn { flex: 1; }
+
+  .proveedor-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-select-criticos { margin-right: 0; }
+
+  .repo-quantity-control { width: 100%; }
+  .qty-input             { flex: 1; }
+
+  .repo-global-total {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+
+  .repo-stats { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 480px) {
+  .repo-stats { grid-template-columns: 1fr; }
+}
+
+/* ────────────────────────────────────────────────────────────
+   DARK MODE
+   ──────────────────────────────────────────────────────────── */
+body[data-theme="dark"] {
+  --bg-light: rgba(255, 255, 255, 0.03);
+}
+
+body[data-theme="dark"] .qty-btn {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme="dark"] .qty-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme="dark"] .repo-empty {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme="dark"] .proveedor-actions {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+body[data-theme="dark"] .repo-filter-select,
+body[data-theme="dark"] .repo-filter-input {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ────────────────────────────────────────────────────────────
+   PRINT
+   ──────────────────────────────────────────────────────────── */
+@media print {
+  .repo-filters,
+  .repo-tabs,
+  .repo-stats,
+  .proveedor-actions,
+  .repo-check-all,
+  .repo-check-item,
+  .qty-btn,
+  .btn,
+  .repo-global-total {
+    display: none !important;
+  }
+
+  .qty-input {
+    border: none;
+    background: transparent;
+  }
+
+  .repo-quantity-control {
+    border: none;
+    padding: 0;
+  }
+
+  .repo-item--critico {
+    background: #fff3f3 !important;
+  }
+}
