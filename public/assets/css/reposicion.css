@@ -358,7 +358,7 @@ body[data-theme="dark"] {
 
 .config-form {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
 
@@ -378,6 +378,7 @@ body[data-theme="dark"] {
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
+  grid-column: 1 / -1;
 }
 
 /* Search */
@@ -394,6 +395,31 @@ body[data-theme="dark"] {
   flex: 1;
   max-width: 400px;
   min-width: 220px;
+}
+
+.repo-search-select {
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.repo-search-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.repo-pager-info {
+  margin: 0.75rem 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.repo-pager {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1.25rem 0 0;
+  flex-wrap: wrap;
 }
 
 /* Empty states */

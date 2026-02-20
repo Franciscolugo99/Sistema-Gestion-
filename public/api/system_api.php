@@ -631,9 +631,107 @@ try {
             json_ok($data);
         }
         
-        case 'reposicion_config_set': {
+        
+        case 'reposicion_config_list': {
             require_login_json();
-            require_perm_json('editar_stock');
+            // Permiso: permitir a usuarios que puedan gestionar/editar stock
+            if (!function_exists('user_has_permission') || (!user_has_permission('gestionar_stock') && !user_has_permission('editar_stock'))) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'gestionar_stock|editar_stock']);
+            }
+
+            if (!function_exists('reposicion_ensure_tables')) {
+                json_fail('Módulo de reposición no disponible', 503);
+            }
+
+            $pdo = getPDO();
+            // Asegura tabla auxiliar (no toca datos; solo crea si falta)
+            reposicion_ensure_tables($pdo);
+
+            $q = trim((string)($_GET['q'] ?? ''));
+            $proveedorId = (int)($_GET['proveedor_id'] ?? 0);
+            if ($proveedorId <= 0) $proveedorId = 0;
+            $sinProveedor = !empty($_GET['sin_proveedor']);
+
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $limit = min(100, max(10, (int)($_GET['limit'] ?? 30)));
+            $offset = ($page - 1) * $limit;
+
+            // No cargar todo por defecto
+            if ($q === '' && !$proveedorId && !$sinProveedor) {
+                json_ok(['items' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false]);
+            }
+
+            if ($q !== '' && strlen($q) < 2) {
+                json_ok(['items' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false, 'q_too_short' => true]);
+            }
+
+            $where = "p.activo = 1";
+            $params = [];
+
+            if ($q !== '') {
+                $where .= " AND (p.codigo LIKE :q OR p.nombre LIKE :q)";
+                $params[':q'] = "%{$q}%";
+            }
+
+            if ($proveedorId) {
+                $where .= " AND COALESCE(p.proveedor_id, r.proveedor_id) = :prov";
+                $params[':prov'] = $proveedorId;
+            }
+
+            if ($sinProveedor) {
+                $where .= " AND COALESCE(p.proveedor_id, r.proveedor_id) IS NULL";
+            }
+
+            $countSql = "
+                SELECT COUNT(*)
+                FROM productos p
+                LEFT JOIN producto_reposicion r ON p.id = r.producto_id
+                WHERE {$where}
+            ";
+            $stmtC = $pdo->prepare($countSql);
+            $stmtC->execute($params);
+            $total = (int)$stmtC->fetchColumn();
+
+            $sql = "
+                SELECT
+                    p.id,
+                    p.codigo,
+                    p.nombre,
+                    p.stock,
+                    COALESCE(p.stock_minimo, r.stock_minimo) AS stock_minimo,
+                    COALESCE(p.punto_reorden, r.punto_reorden) AS punto_reorden,
+                    COALESCE(p.stock_maximo, r.stock_maximo) AS stock_maximo,
+                    COALESCE(p.proveedor_id, r.proveedor_id) AS proveedor_id,
+                    COALESCE(pv.nombre, pvr.nombre, 'Sin proveedor') AS proveedor_nombre
+                FROM productos p
+                LEFT JOIN producto_reposicion r ON p.id = r.producto_id
+                LEFT JOIN proveedores pv  ON p.proveedor_id = pv.id
+                LEFT JOIN proveedores pvr ON r.proveedor_id = pvr.id
+                WHERE {$where}
+                ORDER BY p.nombre
+                LIMIT {$limit} OFFSET {$offset}
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $hasMore = ($offset + count($items)) < $total;
+
+            json_ok([
+                'items' => $items,
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'has_more' => $hasMore,
+            ]);
+        }
+
+case 'reposicion_config_set': {
+            require_login_json();
+            // Permiso: permitir a usuarios que puedan gestionar/editar stock
+            if (!function_exists('user_has_permission') || (!user_has_permission('gestionar_stock') && !user_has_permission('editar_stock'))) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'gestionar_stock|editar_stock']);
+            }
             
             if ($method !== 'POST') json_fail('Método no permitido', 405);
             require_csrf_json();
