@@ -1455,3 +1455,45 @@
   animation: slideIn 0.3s ease;
   box-shadow: var(--pm-shadow-md);
 }
+/* ============================================
+   HERRAMIENTAS - MEJORAS 3000+ PRODUCTOS
+   Lazy load por categoría + búsqueda server-side
+   ============================================ */
+
+.categorias-list.is-loading {
+  opacity: 0.95;
+}
+
+.categorias-loading,
+.categorias-hint,
+.categorias-empty {
+  padding: 1rem;
+  border: 1px dashed var(--pm-border);
+  border-radius: 8px;
+  background: var(--pm-bg-card);
+  color: var(--pm-muted);
+  text-align: center;
+}
+
+.categoria-placeholder,
+.categoria-loading,
+.categoria-empty,
+.categoria-error {
+  padding: 0.75rem;
+  color: var(--pm-muted);
+  text-align: center;
+}
+
+.categoria-productos.is-loading {
+  opacity: 0.9;
+}
+
+.categoria-loadmore {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.categoria-loadmore .btn {
+  gap: 0.35rem;
+}

@@ -16,14 +16,18 @@
     previewLimit: 5,
     apiEndpoint: "api/precios_api.php",
   };
-
   const state = {
-    selectedProducts: new Map(), // id => {codigo, nombre, precio, costo}
+    selectedProducts: new Map(), // id => {id,categoria,codigo,nombre,precio,costo}
     categorias: [],
     loading: false,
     currentView: "herramientas",
     productosConPerdida: 0,
     productosConMargenBajo: 0,
+
+    // Herramientas: para evitar render masivo (3000+ productos)
+    defaultCategoriesHtml: "",
+    searchQuery: "",
+    searchMode: false,
   };
 
   // ============================================
@@ -91,14 +95,16 @@
   function toggleProductSelection(checkbox) {
     const id = parseInt(checkbox.value, 10);
     const row = checkbox.closest(".producto-row");
+    const categoria = (row?.dataset.cat || "").trim();
 
     if (checkbox.checked) {
       state.selectedProducts.set(id, {
         id: id,
-        codigo: row.dataset.codigo || "",
-        nombre: row.dataset.nombre || "",
-        precio: parseFloat(row.dataset.precio) || 0,
-        costo: parseFloat(row.dataset.costo) || 0,
+        categoria: categoria,
+        codigo: row?.dataset.codigo || "",
+        nombre: row?.dataset.nombre || "",
+        precio: parseFloat(row?.dataset.precio) || 0,
+        costo: parseFloat(row?.dataset.costo) || 0,
       });
     } else {
       state.selectedProducts.delete(id);
@@ -109,31 +115,107 @@
     updatePreview();
   }
 
-  function toggleCategorySelection(checkbox) {
+  async function toggleCategorySelection(checkbox) {
     const catItem = checkbox.closest(".categoria-item");
-    const productCheckboxes = catItem.querySelectorAll(
-      '.producto-row input[type="checkbox"]',
-    );
+    if (!catItem) return;
 
-    productCheckboxes.forEach((cb) => {
-      cb.checked = checkbox.checked;
-      const id = parseInt(cb.value, 10);
-      const row = cb.closest(".producto-row");
+    const catName = (catItem.dataset.cat || "").trim();
+    const isSearch = String(catItem.dataset.search || "0") === "1";
 
-      if (checkbox.checked) {
-        state.selectedProducts.set(id, {
-          id: id,
-          codigo: row.dataset.codigo || "",
-          nombre: row.dataset.nombre || "",
-          precio: parseFloat(row.dataset.precio) || 0,
-          costo: parseFloat(row.dataset.costo) || 0,
-        });
-      } else {
-        state.selectedProducts.delete(id);
+    // En modo búsqueda, seleccionamos/desseleccionamos SOLO lo visible
+    if (isSearch) {
+      const productCheckboxes = catItem.querySelectorAll(
+        '.producto-row input[type="checkbox"]',
+      );
+
+      productCheckboxes.forEach((cb) => {
+        cb.checked = checkbox.checked;
+        const id = parseInt(cb.value, 10);
+        const row = cb.closest(".producto-row");
+
+        if (checkbox.checked) {
+          state.selectedProducts.set(id, {
+            id: id,
+            categoria: (row?.dataset.cat || catName).trim(),
+            codigo: row?.dataset.codigo || "",
+            nombre: row?.dataset.nombre || "",
+            precio: parseFloat(row?.dataset.precio) || 0,
+            costo: parseFloat(row?.dataset.costo) || 0,
+          });
+        } else {
+          state.selectedProducts.delete(id);
+        }
+      });
+
+      updateSelectionUI();
+      updateCategoryCheckboxes();
+      updatePreview();
+      return;
+    }
+
+    // Modo normal: seleccionar toda la categoría sin renderizar todo
+    if (checkbox.checked) {
+      const total = parseInt(catItem.dataset.count || "0", 10) || 0;
+      if (total > 600) {
+        const ok = confirm(
+          `Vas a seleccionar ${total} productos de la categoría "${catName}". Puede tardar unos segundos. ¿Continuar?`,
+        );
+        if (!ok) {
+          checkbox.checked = false;
+          return;
+        }
       }
-    });
+
+      try {
+        const q = ""; // categoría completa
+        const url = buildHerramientasUrl({
+          ajax_categoria_ids: 1,
+          cat: catName,
+          q: q,
+          _ts: Date.now(),
+        });
+
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const data = await res.json();
+
+        if (!data || !data.success) {
+          throw new Error(data?.error || "Error al cargar la categoría");
+        }
+
+        (data.products || []).forEach((p) => {
+          if (!p || !p.id) return;
+          state.selectedProducts.set(parseInt(p.id, 10), {
+            id: parseInt(p.id, 10),
+            categoria: (p.categoria || catName).trim(),
+            codigo: p.codigo || "",
+            nombre: p.nombre || "",
+            precio: parseFloat(p.precio) || 0,
+            costo: parseFloat(p.costo) || 0,
+          });
+        });
+
+        // Sincronizar checkboxes visibles (si la categoría ya estaba cargada)
+        const container = catItem.querySelector(".categoria-productos");
+        if (container) syncCheckboxesFromState(container);
+      } catch (err) {
+        showAlert(err?.message || "No se pudo seleccionar la categoría", "warning");
+        checkbox.checked = false;
+        return;
+      }
+    } else {
+      // Deseleccionar todo lo que pertenezca a la categoría
+      for (const [id, p] of state.selectedProducts) {
+        if (((p?.categoria || "").trim() || "") === catName) {
+          state.selectedProducts.delete(id);
+        }
+      }
+
+      const container = catItem.querySelector(".categoria-productos");
+      if (container) syncCheckboxesFromState(container);
+    }
 
     updateSelectionUI();
+    updateCategoryCheckboxes();
     updatePreview();
   }
 
@@ -144,15 +226,19 @@
         cb.checked = select;
         const id = parseInt(cb.value, 10);
         const row = cb.closest(".producto-row");
+        const categoria = (row?.dataset.cat || "").trim();
 
         if (select) {
           state.selectedProducts.set(id, {
             id: id,
-            codigo: row.dataset.codigo || "",
-            nombre: row.dataset.nombre || "",
-            precio: parseFloat(row.dataset.precio) || 0,
-            costo: parseFloat(row.dataset.costo) || 0,
+            categoria: categoria,
+            codigo: row?.dataset.codigo || "",
+            nombre: row?.dataset.nombre || "",
+            precio: parseFloat(row?.dataset.precio) || 0,
+            costo: parseFloat(row?.dataset.costo) || 0,
           });
+        } else {
+          state.selectedProducts.delete(id);
         }
       });
 
@@ -201,22 +287,38 @@
     });
   }
 
+  function countSelectedByCategory(catName) {
+    let c = 0;
+    for (const [, p] of state.selectedProducts) {
+      if (((p?.categoria || "").trim() || "") === catName) c++;
+    }
+    return c;
+  }
+
   function updateCategoryCheckboxes() {
     document.querySelectorAll(".categoria-item").forEach((catItem) => {
       const catCheckbox = catItem.querySelector(".categoria-checkbox");
-      const productCheckboxes = catItem.querySelectorAll(
-        '.producto-row input[type="checkbox"]',
-      );
+      if (!catCheckbox) return;
 
-      if (productCheckboxes.length === 0) return;
+      const catName = (catItem.dataset.cat || "").trim();
+      const isSearch = String(catItem.dataset.search || "0") === "1";
 
-      const checkedCount = Array.from(productCheckboxes).filter(
-        (cb) => cb.checked,
-      ).length;
+      let total = 0;
+      let selected = 0;
 
-      catCheckbox.checked = checkedCount === productCheckboxes.length;
-      catCheckbox.indeterminate =
-        checkedCount > 0 && checkedCount < productCheckboxes.length;
+      if (isSearch) {
+        const productCheckboxes = catItem.querySelectorAll(
+          '.producto-row input[type="checkbox"]',
+        );
+        total = productCheckboxes.length;
+        selected = Array.from(productCheckboxes).filter((cb) => cb.checked).length;
+      } else {
+        total = parseInt(catItem.dataset.count || "0", 10) || 0;
+        selected = countSelectedByCategory(catName);
+      }
+
+      catCheckbox.checked = total > 0 && selected === total;
+      catCheckbox.indeterminate = selected > 0 && selected < total;
     });
   }
 
@@ -378,18 +480,146 @@
   }
 
   // ============================================
-  // ACORDEONES DE CATEGORÍAS
+  // ACORDEONES DE CATEGORÍAS + CARGA LAZY
   // ============================================
+
+  function buildHerramientasUrl(params = {}) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", "herramientas");
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === "") {
+        url.searchParams.delete(k);
+      } else {
+        url.searchParams.set(k, String(v));
+      }
+    });
+    return url.pathname + "?" + url.searchParams.toString();
+  }
+
+  function syncCheckboxesFromState(container) {
+    if (!container) return;
+    container
+      .querySelectorAll('.producto-row input[type="checkbox"]')
+      .forEach((cb) => {
+        const id = parseInt(cb.value, 10);
+        const selected = state.selectedProducts.has(id);
+        cb.checked = selected;
+
+        // Si está seleccionado pero faltan datos, los completamos desde el DOM
+        if (selected) {
+          const row = cb.closest(".producto-row");
+          const current = state.selectedProducts.get(id);
+          if (row && current) {
+            state.selectedProducts.set(id, {
+              ...current,
+              categoria: (current.categoria || row.dataset.cat || "").trim(),
+              codigo: current.codigo || row.dataset.codigo || "",
+              nombre: current.nombre || row.dataset.nombre || "",
+              precio: Number.isFinite(current.precio)
+                ? current.precio
+                : parseFloat(row.dataset.precio) || 0,
+              costo: Number.isFinite(current.costo)
+                ? current.costo
+                : parseFloat(row.dataset.costo) || 0,
+            });
+          }
+        }
+      });
+  }
+
+  async function loadCategoria(catItem, { append = false } = {}) {
+    const catName = (catItem?.dataset.cat || "").trim();
+    const container = catItem?.querySelector(".categoria-productos");
+    if (!catName || !container) return;
+
+    // Si estamos en modo búsqueda, no lazy-load (ya viene renderizado)
+    const isSearch = String(catItem.dataset.search || "0") === "1";
+    if (isSearch) return;
+
+    const offset = parseInt(container.dataset.offset || "0", 10) || 0;
+    const limit = 60;
+
+    // UI loading
+    container.classList.add("is-loading");
+    if (!append) {
+      container.innerHTML = '<div class="categoria-loading">Cargando…</div>';
+    } else {
+      const existingMore = container.querySelector(".categoria-loadmore");
+      if (existingMore) existingMore.remove();
+      container.insertAdjacentHTML(
+        "beforeend",
+        '<div class="categoria-loading">Cargando más…</div>',
+      );
+    }
+
+    try {
+      const url = buildHerramientasUrl({
+        ajax_categoria: 1,
+        cat: catName,
+        offset: offset,
+        limit: limit,
+        _ts: Date.now(),
+      });
+
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      const data = await res.json();
+
+      if (!data || !data.success) {
+        throw new Error(data?.error || "Error al cargar productos");
+      }
+
+      container.classList.remove("is-loading");
+
+      const html = data.html || "";
+      if (!append) {
+        container.innerHTML = html || '<div class="categoria-empty">Sin productos.</div>';
+      } else {
+        // quitar loading
+        container.querySelectorAll(".categoria-loading").forEach((el) => el.remove());
+        container.insertAdjacentHTML("beforeend", html);
+      }
+
+      container.dataset.loaded = "1";
+      container.dataset.offset = String(data.next_offset || 0);
+
+      // Load more
+      container.querySelectorAll(".categoria-loadmore").forEach((el) => el.remove());
+      if (data.has_more) {
+        const more = document.createElement("div");
+        more.className = "categoria-loadmore";
+        more.innerHTML =
+          '<button type="button" class="btn btn-ghost btn-sm btn-load-more">Cargar más</button>';
+        container.appendChild(more);
+      }
+
+      // Sync selection state
+      syncCheckboxesFromState(container);
+      updateCategoryCheckboxes();
+      updateSelectionUI();
+      updatePreview();
+    } catch (err) {
+      container.classList.remove("is-loading");
+      container.innerHTML =
+        '<div class="categoria-error">No se pudieron cargar productos. Probá de nuevo.</div>';
+      showAlert(err?.message || "No se pudieron cargar productos", "warning");
+    }
+  }
+
   function toggleCategoria(header) {
     const catItem = header.closest(".categoria-item");
+    if (!catItem) return;
+
     const isExpanded = catItem.classList.contains("expanded");
-
-    // Cerrar otros si se quiere comportamiento de acordeón
-    // document.querySelectorAll('.categoria-item.expanded').forEach(item => {
-    //     if (item !== catItem) item.classList.remove('expanded');
-    // });
-
     catItem.classList.toggle("expanded", !isExpanded);
+
+    // Al expandir por primera vez, cargamos el primer chunk
+    if (!isExpanded) {
+      const container = catItem.querySelector(".categoria-productos");
+      const isSearch = String(catItem.dataset.search || "0") === "1";
+      if (!isSearch && container && container.dataset.loaded !== "1") {
+        loadCategoria(catItem, { append: false });
+      }
+    }
   }
 
   function expandAll() {
@@ -405,39 +635,64 @@
   }
 
   // ============================================
-  // BÚSQUEDA DE PRODUCTOS
+  // BÚSQUEDA SERVER-SIDE (evita DOM enorme)
   // ============================================
-  const handleSearch = debounce(function (query) {
-    query = query.trim().toLowerCase();
+  const handleSearch = debounce(async function (query) {
+    const list = document.querySelector(".categorias-list");
+    if (!list) return;
 
-    document.querySelectorAll(".categoria-item").forEach((catItem) => {
-      const productos = catItem.querySelectorAll(".producto-row");
-      let visibleCount = 0;
+    query = String(query || "").trim();
+    state.searchQuery = query;
 
-      productos.forEach((row) => {
-        const codigo = (row.dataset.codigo || "").toLowerCase();
-        const nombre = (row.dataset.nombre || "").toLowerCase();
-        const matches =
-          query === "" || codigo.includes(query) || nombre.includes(query);
+    if (query.length === 0) {
+      // Restaurar vista base (solo headers)
+      if (state.defaultCategoriesHtml) {
+        list.innerHTML = state.defaultCategoriesHtml;
+      }
+      state.searchMode = false;
 
-        row.style.display = matches ? "" : "none";
-        if (matches) visibleCount++;
-      });
+      // Sincronizar checks según selección actual
+      syncCheckboxesFromState(list);
+      updateCategoryCheckboxes();
+      updateSelectionUI();
+      updatePreview();
+      return;
+    }
 
-      // Mostrar/ocultar categoría según si tiene productos visibles
-      catItem.style.display = visibleCount > 0 ? "" : "none";
+    if (query.length < 2) {
+      // Hint liviano
+      list.innerHTML =
+        '<div class="categorias-hint">Escribí al menos 2 caracteres para buscar.</div>';
+      return;
+    }
 
-      // Expandir categoría si tiene resultados de búsqueda
-      if (query !== "" && visibleCount > 0) {
-        catItem.classList.add("expanded");
+    state.searchMode = true;
+    list.classList.add("is-loading");
+    list.innerHTML = '<div class="categorias-loading">Buscando…</div>';
+
+    try {
+      const url = buildHerramientasUrl({ ajax_search: 1, q: query, _ts: Date.now() });
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      const data = await res.json();
+
+      if (!data || data.success === false) {
+        throw new Error(data?.error || "Error al buscar");
       }
 
-      // Actualizar contador de categoría
-      const countEl = catItem.querySelector(".categoria-count");
-      if (countEl && query !== "") {
-        countEl.textContent = visibleCount;
-      }
-    });
+      list.classList.remove("is-loading");
+      list.innerHTML = data.html || '<div class="categorias-empty">Sin resultados.</div>';
+
+      // Sincronizar checks según selección actual
+      syncCheckboxesFromState(list);
+      updateCategoryCheckboxes();
+      updateSelectionUI();
+      updatePreview();
+    } catch (err) {
+      list.classList.remove("is-loading");
+      list.innerHTML =
+        '<div class="categorias-empty">No se pudo completar la búsqueda.</div>';
+      showAlert(err?.message || "No se pudo buscar", "warning");
+    }
   }, CONFIG.debounceDelay);
 
   // ============================================
@@ -662,34 +917,58 @@
     const urlParams = new URLSearchParams(window.location.search);
     state.currentView = urlParams.get("v") || "historial";
 
-    // Búsqueda de productos
-    const searchInput = document.getElementById("searchProductos");
-    if (searchInput) {
-      searchInput.addEventListener("input", (e) =>
-        handleSearch(e.target.value),
-      );
+    // Herramientas: cache de vista base (solo headers)
+    const categoriasList = document.querySelector(".categorias-list");
+    if (categoriasList && !state.defaultCategoriesHtml) {
+      state.defaultCategoriesHtml = categoriasList.innerHTML;
     }
 
-    // Checkboxes de productos
-    document
-      .querySelectorAll('.producto-row input[type="checkbox"]')
-      .forEach((cb) => {
-        cb.addEventListener("change", () => toggleProductSelection(cb));
+    // Búsqueda server-side
+    const searchInput = document.getElementById("searchProductos");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => handleSearch(e.target.value));
+    }
+
+    // Delegación: checkboxes + toggles + load more
+    if (categoriasList) {
+      categoriasList.addEventListener("change", async (e) => {
+        const t = e.target;
+        if (!t) return;
+
+        if (t.matches('.producto-row input[type="checkbox"]')) {
+          toggleProductSelection(t);
+        }
+
+        if (t.matches('.categoria-checkbox')) {
+          await toggleCategorySelection(t);
+        }
       });
 
-    // Checkboxes de categorías
-    document.querySelectorAll(".categoria-checkbox").forEach((cb) => {
-      cb.addEventListener("change", () => toggleCategorySelection(cb));
-    });
+      categoriasList.addEventListener("click", (e) => {
+        const t = e.target;
+        if (!t) return;
 
-    // Toggle de categorías (acordeón)
-    document.querySelectorAll(".categoria-header").forEach((header) => {
-      header.addEventListener("click", (e) => {
-        // No toggle si click en checkbox
-        if (e.target.closest('input[type="checkbox"]')) return;
-        toggleCategoria(header);
+        // Load more
+        const btnMore = t.closest(".btn-load-more");
+        if (btnMore) {
+          const catItem = btnMore.closest(".categoria-item");
+          if (catItem) loadCategoria(catItem, { append: true });
+          return;
+        }
+
+        // Toggle categoría
+        const header = t.closest(".categoria-header");
+        if (header) {
+          // No toggle si click en checkbox
+          if (t.closest('input[type="checkbox"]')) return;
+          toggleCategoria(header);
+        }
       });
-    });
+
+      // Sync inicial
+      syncCheckboxesFromState(categoriasList);
+      updateCategoryCheckboxes();
+    }
 
     // Formulario de ajuste masivo
     const formAjuste = document.getElementById("formAjusteMasivo");

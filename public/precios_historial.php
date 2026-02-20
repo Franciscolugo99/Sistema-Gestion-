@@ -133,6 +133,260 @@ foreach (['categoria', 'rubro', 'familia'] as $col) {
     }
 }
 
+
+
+// Expresión segura para categoría (alias estable para filtros/agrupación)
+$catExpr = "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categoría')";
+
+// ============================================
+// ENDPOINTS AJAX (Herramientas)
+// - Evita renderizar 3000+ productos en DOM
+// - Carga por categoría + búsqueda server-side
+// ============================================
+if ($vista === 'herramientas' && isset($_GET['ajax_categoria'])) {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $cat = (string)($_GET['cat'] ?? '');
+    $q   = trim((string)($_GET['q'] ?? ''));
+    $offset = max(0, (int)($_GET['offset'] ?? 0));
+    $limit  = (int)($_GET['limit'] ?? 50);
+    if ($limit < 10) $limit = 10;
+    if ($limit > 200) $limit = 200;
+
+    if ($cat === '') {
+        echo json_encode(['success' => false, 'error' => 'Categoría inválida'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    try {
+        $where = "WHERE p.activo = 1 AND {$catExpr} = ?";
+        $params = [$cat];
+
+        if ($q !== '') {
+            $like = '%' . $q . '%';
+            $where .= " AND (p.codigo LIKE ? OR p.nombre LIKE ?)";
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        // Pedimos LIMIT+1 para saber si hay más
+        $sql = "
+            SELECT
+                p.id, p.codigo, p.nombre, p.precio, p.costo,
+                CASE
+                    WHEN p.costo > 0 THEN ROUND(((p.precio - p.costo) / p.costo) * 100, 2)
+                    ELSE NULL
+                END as margen_pct
+            FROM productos p
+            {$where}
+            ORDER BY p.nombre ASC
+            LIMIT " . (int)($limit + 1) . " OFFSET " . (int)$offset;
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            $rows = array_slice($rows, 0, $limit);
+        }
+
+        // Render HTML de filas
+        ob_start();
+        foreach ($rows as $p) {
+            $margenRaw = $p['margen_pct'] ?? null;
+            $margen = ($margenRaw === null || $margenRaw === '') ? null : (float)$margenRaw;
+            $margenClass = $margen === null ? '' : ($margen < 0 ? 'negativo' : ($margen < 15 ? 'bajo' : 'ok'));
+            ?>
+            <label class="producto-row"
+                   data-cat="<?= htmlspecialchars($cat) ?>"
+                   data-codigo="<?= htmlspecialchars((string)($p['codigo'] ?? '')) ?>"
+                   data-nombre="<?= htmlspecialchars((string)($p['nombre'] ?? '')) ?>"
+                   data-precio="<?= htmlspecialchars((string)($p['precio'] ?? '0')) ?>"
+                   data-costo="<?= htmlspecialchars((string)($p['costo'] ?? '0')) ?>">
+                <input type="checkbox" value="<?= (int)$p['id'] ?>">
+                <div class="producto-info">
+                    <div class="producto-codigo"><?= htmlspecialchars((string)($p['codigo'] ?? '')) ?></div>
+                    <div class="producto-nombre"><?= htmlspecialchars((string)($p['nombre'] ?? '')) ?></div>
+                </div>
+                <div class="producto-precios">
+                    <div class="producto-precio">$<?= number_format((float)($p['precio'] ?? 0), 2, ',', '.') ?></div>
+                    <?php if ((float)($p['costo'] ?? 0) > 0): ?>
+                        <div class="producto-costo">Costo: $<?= number_format((float)($p['costo'] ?? 0), 2, ',', '.') ?></div>
+                        <?php if ($margen !== null): ?>
+                            <div class="producto-margen <?= $margenClass ?>"><?= number_format((float)$margen, 1, ',', '.') ?>%</div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </label>
+            <?php
+        }
+        $html = (string)ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'html' => $html,
+            'offset' => $offset,
+            'limit' => $limit,
+            'next_offset' => $offset + count($rows),
+            'has_more' => $hasMore,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al cargar productos'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+if ($vista === 'herramientas' && isset($_GET['ajax_categoria_ids'])) {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $cat = (string)($_GET['cat'] ?? '');
+    $q   = trim((string)($_GET['q'] ?? ''));
+
+    if ($cat === '') {
+        echo json_encode(['success' => false, 'error' => 'Categoría inválida'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    try {
+        $where = "WHERE p.activo = 1 AND {$catExpr} = ?";
+        $params = [$cat];
+
+        if ($q !== '') {
+            $like = '%' . $q . '%';
+            $where .= " AND (p.codigo LIKE ? OR p.nombre LIKE ?)";
+            $params[] = $like;
+            $params[] = $like;
+        }
+
+        $stmt = $pdo->prepare("\n            SELECT p.id, p.codigo, p.nombre, p.precio, p.costo\n            FROM productos p\n            {$where}\n            ORDER BY p.nombre ASC\n        ");
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        echo json_encode([
+            'success' => true,
+            'categoria' => $cat,
+            'count' => count($rows),
+            'products' => array_map(function($r) use ($cat) {
+                return [
+                    'id' => (int)($r['id'] ?? 0),
+                    'categoria' => $cat,
+                    'codigo' => (string)($r['codigo'] ?? ''),
+                    'nombre' => (string)($r['nombre'] ?? ''),
+                    'precio' => (float)($r['precio'] ?? 0),
+                    'costo' => (float)($r['costo'] ?? 0),
+                ];
+            }, $rows)
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al cargar IDs'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
+if ($vista === 'herramientas' && isset($_GET['ajax_search'])) {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $q = trim((string)($_GET['q'] ?? ''));
+    $qMin = 2;
+    $limit = 400;
+
+    if (mb_strlen($q) < $qMin) {
+        echo json_encode(['success' => true, 'html' => ''], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    try {
+        $like = '%' . $q . '%';
+
+        $stmt = $pdo->prepare("\n            SELECT\n                p.id, p.codigo, p.nombre, p.precio, p.costo,\n                {$catExpr} as categoria,\n                CASE\n                    WHEN p.costo > 0 THEN ROUND(((p.precio - p.costo) / p.costo) * 100, 2)\n                    ELSE NULL\n                END as margen_pct\n            FROM productos p\n            WHERE p.activo = 1\n              AND (p.codigo LIKE ? OR p.nombre LIKE ?)\n            ORDER BY categoria ASC, p.nombre ASC\n            LIMIT {$limit}\n        ");
+        $stmt->execute([$like, $like]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $byCat = [];
+        foreach ($rows as $p) {
+            $cat = (string)($p['categoria'] ?? 'Sin categoría');
+            if (!isset($byCat[$cat])) $byCat[$cat] = [];
+            $byCat[$cat][] = $p;
+        }
+
+        ob_start();
+        if (empty($rows)) {
+            ?>
+            <div class="categorias-empty">
+                No se encontraron productos para <strong><?= htmlspecialchars($q) ?></strong>.
+            </div>
+            <?php
+        } else {
+            // Aviso si el límite cortó resultados (mejorable con COUNT, pero evita queries extra)
+            if (count($rows) >= $limit) {
+                ?>
+                <div class="categorias-hint">
+                    Mostrando los primeros <?= (int)$limit ?> resultados. Refiná la búsqueda para ver menos.
+                </div>
+                <?php
+            }
+
+            foreach ($byCat as $catName => $prods) {
+                $count = count($prods);
+                ?>
+                <div class="categoria-item expanded" data-cat="<?= htmlspecialchars($catName) ?>" data-count="<?= (int)$count ?>" data-search="1">
+                    <div class="categoria-header">
+                        <span class="categoria-toggle">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </span>
+                        <input type="checkbox" class="categoria-checkbox" title="Seleccionar productos visibles de la categoría">
+                        <div class="categoria-info">
+                            <span class="categoria-nombre"><?= htmlspecialchars($catName) ?></span>
+                        </div>
+                        <span class="categoria-count"><?= (int)$count ?></span>
+                    </div>
+                    <div class="categoria-productos" data-loaded="1" data-offset="<?= (int)$count ?>">
+                        <?php foreach ($prods as $p):
+                            $margenRaw = $p['margen_pct'] ?? null;
+                            $margen = ($margenRaw === null || $margenRaw === '') ? null : (float)$margenRaw;
+                            $margenClass = $margen === null ? '' : ($margen < 0 ? 'negativo' : ($margen < 15 ? 'bajo' : 'ok'));
+                        ?>
+                            <label class="producto-row"
+                                   data-cat="<?= htmlspecialchars($catName) ?>"
+                                   data-codigo="<?= htmlspecialchars((string)($p['codigo'] ?? '')) ?>"
+                                   data-nombre="<?= htmlspecialchars((string)($p['nombre'] ?? '')) ?>"
+                                   data-precio="<?= htmlspecialchars((string)($p['precio'] ?? '0')) ?>"
+                                   data-costo="<?= htmlspecialchars((string)($p['costo'] ?? '0')) ?>">
+                                <input type="checkbox" value="<?= (int)$p['id'] ?>">
+                                <div class="producto-info">
+                                    <div class="producto-codigo"><?= htmlspecialchars((string)($p['codigo'] ?? '')) ?></div>
+                                    <div class="producto-nombre"><?= htmlspecialchars((string)($p['nombre'] ?? '')) ?></div>
+                                </div>
+                                <div class="producto-precios">
+                                    <div class="producto-precio">$<?= number_format((float)($p['precio'] ?? 0), 2, ',', '.') ?></div>
+                                    <?php if ((float)($p['costo'] ?? 0) > 0): ?>
+                                        <div class="producto-costo">Costo: $<?= number_format((float)($p['costo'] ?? 0), 2, ',', '.') ?></div>
+                                        <?php if ($margen !== null): ?>
+                                            <div class="producto-margen <?= $margenClass ?>"><?= number_format((float)$margen, 1, ',', '.') ?>%</div>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php
+            }
+        }
+        $html = (string)ob_get_clean();
+
+        echo json_encode(['success' => true, 'html' => $html], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Error al buscar'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
 // VISTA: HISTORIAL
 $historial = [];
 $productoFiltro = null;
@@ -167,34 +421,26 @@ if ($vista === 'historial') {
 // VISTA: HERRAMIENTAS
 $categorias = [];
 if ($vista === 'herramientas') {
-    $sql = "
-        SELECT 
-            p.id, p.codigo, p.nombre, p.precio, p.costo, p.stock,
-            COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categoría') as categoria,
-            CASE 
-                WHEN p.costo > 0 THEN ROUND(((p.precio - p.costo) / p.costo) * 100, 2)
-                ELSE NULL
-            END as margen_pct
-        FROM productos p
-        WHERE p.activo = 1
-        ORDER BY categoria ASC, p.nombre ASC
-    ";
-    
-    $stmt = $pdo->query($sql);
-    $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Agrupar por categoría
-    foreach ($productos as $p) {
-        $cat = $p['categoria'];
-        if (!isset($categorias[$cat])) {
-            $categorias[$cat] = [
-                'nombre' => $cat,
-                'productos' => [],
-                'count' => 0
+    try {
+        $stmt = $pdo->query("
+            SELECT
+                {$catExpr} as categoria,
+                COUNT(*) as count
+            FROM productos p
+            WHERE p.activo = 1
+            GROUP BY {$catExpr}
+            ORDER BY categoria ASC
+        ");
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $r) {
+            $categorias[] = [
+                'nombre' => (string)($r['categoria'] ?? 'Sin categoría'),
+                'count' => (int)($r['count'] ?? 0),
             ];
         }
-        $categorias[$cat]['productos'][] = $p;
-        $categorias[$cat]['count']++;
+    } catch (Throwable $e) {
+        $categorias = [];
     }
 }
 
@@ -411,7 +657,7 @@ require __DIR__ . '/partials/header.php';
                         </div>
                     <?php else: ?>
                         <?php foreach ($categorias as $cat): ?>
-                        <div class="categoria-item">
+                        <div class="categoria-item" data-cat="<?= htmlspecialchars($cat['nombre']) ?>" data-count="<?= (int)$cat['count'] ?>" data-search="0">
                             <div class="categoria-header">
                                 <span class="categoria-toggle">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -422,35 +668,10 @@ require __DIR__ . '/partials/header.php';
                                 <div class="categoria-info">
                                     <span class="categoria-nombre"><?= htmlspecialchars($cat['nombre']) ?></span>
                                 </div>
-                                <span class="categoria-count"><?= $cat['count'] ?></span>
+                                <span class="categoria-count"><?= (int)$cat['count'] ?></span>
                             </div>
-                            <div class="categoria-productos">
-                                <?php foreach ($cat['productos'] as $p): 
-                                    $margenRaw = $p['margen_pct'] ?? null;
-                                $margen = ($margenRaw === null || $margenRaw === '') ? null : (float)$margenRaw;
-                                $margenClass = $margen === null ? '' : ($margen < 0 ? 'negativo' : ($margen < 15 ? 'bajo' : 'ok'));
-                                ?>
-                                <label class="producto-row" 
-                                       data-codigo="<?= htmlspecialchars($p['codigo']) ?>"
-                                       data-nombre="<?= htmlspecialchars($p['nombre']) ?>"
-                                       data-precio="<?= $p['precio'] ?>"
-                                       data-costo="<?= $p['costo'] ?>">
-                                    <input type="checkbox" value="<?= $p['id'] ?>">
-                                    <div class="producto-info">
-                                        <div class="producto-codigo"><?= htmlspecialchars($p['codigo']) ?></div>
-                                        <div class="producto-nombre"><?= htmlspecialchars($p['nombre']) ?></div>
-                                    </div>
-                                    <div class="producto-precios">
-                                        <div class="producto-precio">$<?= number_format((float)$p['precio'], 2, ',', '.') ?></div>
-                                        <?php if ((float)$p['costo'] > 0): ?>
-                                            <div class="producto-costo">Costo: $<?= number_format((float)$p['costo'], 2, ',', '.') ?></div>
-                                            <?php if ($margen !== null): ?>
-                                                <div class="producto-margen <?= $margenClass ?>"><?= number_format((float)$margen, 1, ',', '.') ?>%</div>
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </label>
-                                <?php endforeach; ?>
+                            <div class="categoria-productos" data-loaded="0" data-offset="0">
+                                <div class="categoria-placeholder">Expandí la categoría para cargar productos…</div>
                             </div>
                         </div>
                         <?php endforeach; ?>
