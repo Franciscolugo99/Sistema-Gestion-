@@ -213,6 +213,32 @@ body.cc-cliente-page .movimientos-table .row-anulado {
   background: rgba(239, 68, 68, 0.05);
 }
 
+/* En filas anuladas, bajar saturación de colores */
+body.cc-cliente-page .movimientos-table tr.row-anulado .text-danger,
+body.cc-cliente-page .movimientos-table tr.row-anulado .text-success,
+body.cc-cliente-page .movimientos-table tr.row-anulado .font-bold {
+  color: var(--muted-text, #94a3b8) !important;
+}
+
+/* Link para navegar entre original y reversa */
+body.cc-cliente-page .movimientos-table .rel-link {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--muted-text, #94a3b8);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+body.cc-cliente-page .movimientos-table .rel-link:hover {
+  opacity: 0.9;
+  text-decoration: none;
+}
+
 body.cc-cliente-page .movimientos-table a {
   color: var(--accent-cyan, #38bdf8);
   text-decoration: none;
@@ -377,4 +403,14 @@ body[data-theme="light"] .cc-cliente-page .movimientos-table thead {
   body.cc-cliente-page .filter-input {
     width: 100%;
   }
+}
+
+
+/* Mejor UX al saltar con #mov-ID */
+body.cc-cliente-page .movimientos-table tr[id^="mov-"] {
+  scroll-margin-top: 110px;
+}
+body.cc-cliente-page .movimientos-table tr:target {
+  outline: 2px solid rgba(56, 189, 248, 0.35);
+  outline-offset: -2px;
 }

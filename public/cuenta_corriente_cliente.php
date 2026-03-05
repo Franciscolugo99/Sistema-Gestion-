@@ -43,6 +43,21 @@ $resultado = $cc->getMovimientos($clienteId, $filtros);
 $movimientos = $resultado['movimientos'];
 $totalPages = $resultado['pages'];
 
+
+// Mapear relaciones reversa <-> original para navegación en UI
+$reversaByOriginal = [];
+$originalByReversa = [];
+foreach ($movimientos as $m) {
+    $t = $m['tipo'] ?? '';
+    if ($t === 'REVERSA' && !empty($m['reversa_de_id'])) {
+        $origId = (int)$m['reversa_de_id'];
+        $revId  = (int)$m['id'];
+        $reversaByOriginal[$origId] = $revId;
+        $originalByReversa[$revId] = $origId;
+    }
+}
+
+
 // Datos del cliente
 $saldo = (float)$cliente['cc_saldo'];
 $limite = (float)$cliente['cc_limite'];
@@ -286,10 +301,20 @@ require __DIR__ . '/partials/header.php';
               if ($mov['referencia']) {
                   $concepto .= ' <small class="text-muted">(Ref: ' . h($mov['referencia']) . ')</small>';
               }
-              
+
+              // Link de navegación entre movimiento original y su reversa (si aplica)
+              $movId = (int)$mov['id'];
+              if ($tipo === 'REVERSA' && !empty($mov['reversa_de_id'])) {
+                  $origId = (int)$mov['reversa_de_id'];
+                  $concepto .= ' <a class="rel-link" href="#mov-' . $origId . '" title="Ir al movimiento original">↩ Original #' . $origId . '</a>';
+              } elseif ($esAnulado && isset($reversaByOriginal[$movId])) {
+                  $revId = (int)$reversaByOriginal[$movId];
+                  $concepto .= ' <a class="rel-link" href="#mov-' . $revId . '" title="Ir a la reversa asociada">↪ Reversa #' . $revId . '</a>';
+              }
+
               $rowClass = $esAnulado ? 'row-anulado' : '';
             ?>
-            <tr class="<?= $rowClass ?>">
+            <tr id="mov-<?= (int)$mov['id'] ?>" class="<?= $rowClass ?>">
               <td class="mono nowrap">
                 <?= date('d/m/Y H:i', strtotime($mov['created_at'])) ?>
               </td>
@@ -301,10 +326,10 @@ require __DIR__ . '/partials/header.php';
               </td>
               <td><?= $concepto ?></td>
               <td class="t-right mono text-danger">
-                <?= $esDebe && !$esAnulado ? money_ar($monto) : '' ?>
+                <?= $esDebe ? money_ar($monto) : '' ?>
               </td>
               <td class="t-right mono text-success">
-                <?= !$esDebe && !$esAnulado ? money_ar($monto) : '' ?>
+                <?= !$esDebe ? money_ar($monto) : '' ?>
               </td>
               <td class="t-right mono font-bold">
                 <?= money_ar($saldoPost) ?>

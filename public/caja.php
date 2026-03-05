@@ -74,6 +74,8 @@ $csrf = csrf_token(); // ✅ usa tu helper central
 // 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
 // + inyectamos permisos en window.FLUS_PERMS
   $extraHead =
+    '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">' .
+    '<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>' .
     '<meta name="csrf-token" content="' . h($csrf) . '">' .
     '<script>' .
       'window.getCsrfToken = function(){ return ' . json_encode($csrf) . '; };' .

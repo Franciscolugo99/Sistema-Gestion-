@@ -2,7 +2,96 @@
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "api/index.php";
   const API_VENTA = "api/index.php";
-  const API_TIMEOUT_MS = 8000;  
+  const API_TIMEOUT_MS = 8000;
+
+  // =========================================================================
+  // ✅ NOTIFICACIONES (SweetAlert2 con fallback)
+  // =========================================================================
+  const Notif = (() => {
+    const cssVar = (name, fallback = "") => {
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+        const s = String(v || "").trim();
+        return s || fallback;
+      } catch (_) {
+        return fallback;
+      }
+    };
+
+    const stripHtml = (html) => String(html || "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const base = () => ({
+      background: cssVar("--panel-bg", cssVar("--panel", "#ffffff")),
+      color: cssVar("--text", "#0f172a"),
+      confirmButtonColor: cssVar("--accent-cyan", "#06b6d4"),
+      cancelButtonColor: cssVar("--danger", "#ef4444"),
+    });
+
+    const toastBase = () => ({
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 2800,
+      timerProgressBar: true,
+      background: cssVar("--panel-bg", cssVar("--panel", "#ffffff")),
+      color: cssVar("--text", "#0f172a"),
+    });
+
+    async function confirmar(titulo, html, opts = {}) {
+      if (!window.Swal) {
+        return window.confirm(String(titulo || "") + "\n\n" + stripHtml(html));
+      }
+
+      const r = await Swal.fire({
+        ...base(),
+        title: titulo,
+        html,
+        icon: opts.icon || "question",
+        showCancelButton: true,
+        confirmButtonText: opts.confirmText || "✅ Confirmar",
+        cancelButtonText: opts.cancelText || "❌ Cancelar",
+        reverseButtons: true,
+        focusCancel: true,
+      });
+      return !!r.isConfirmed;
+    }
+
+    function toast(icon, msg, ms) {
+      if (!window.Swal) {
+        if (typeof window.showToast === "function") {
+          const map = { success: "ok", error: "error", warning: "warn", info: "info" };
+          window.showToast(String(msg || ""), map[icon] || "info", ms || 2800);
+        }
+        return;
+      }
+
+      const iconColor =
+        icon === "success" ? cssVar("--success", "#22c55e") :
+        icon === "error"   ? cssVar("--danger", "#ef4444")  :
+        icon === "warning" ? cssVar("--warning", "#eab308") :
+                              cssVar("--accent-blue", "#0ea5e9");
+
+      Swal.fire({
+        ...toastBase(),
+        icon,
+        title: String(msg || ""),
+        iconColor,
+        timer: ms || (icon === "error" ? 3500 : 2800),
+      });
+    }
+
+    return {
+      confirmar,
+      exito: (m) => toast("success", m, 2500),
+      error: (m) => toast("error", m, 3500),
+      advertencia: (m) => toast("warning", m, 3000),
+      info: (m) => toast("info", m, 2500),
+    };
+  })();
+
 
   // =========================================================================
   // ✅ AUTOCOMPLETADO VISUAL (dropdown con sugerencias)
@@ -299,14 +388,25 @@ document.addEventListener("DOMContentLoaded", () => {
     inputSaldo.addEventListener("input", actualizarAviso);
     actualizarAviso();
 
-    formApertura.addEventListener("submit", (e) => {
+    let __confirmandoApertura = false;
+
+    formApertura.addEventListener("submit", async (e) => {
+      if (__confirmandoApertura) return;
+      e.preventDefault();
+
       const valor = parseSaldo(inputSaldo.value);
-      if (
-        !window.confirm(
-          `¿Abrir caja con saldo inicial de $${valor.toFixed(2)}?`
-        )
-      ) {
-        e.preventDefault();
+      const html = "<p>¿Confirmar apertura con saldo inicial de <strong style=\"color:var(--success)\">$" + valor.toFixed(2) + "<\/strong>?</p>";
+
+      const ok = await Notif.confirmar(
+        "🏦 Abrir caja",
+        html,
+        { icon: "info", confirmText: "✅ Abrir caja", cancelText: "Cancelar" }
+      );
+
+      if (ok) {
+        __confirmandoApertura = true;
+        if (typeof formApertura.requestSubmit === "function") formApertura.requestSubmit();
+        else formApertura.submit();
       }
     });
   }
@@ -1610,8 +1710,11 @@ function medioEsEfectivo() {
       if (enCarrito + cantidad > stock + tolStock) {
         const disponible = stock - enCarrito;
         if (disponible > 0) {
-          const agregar = window.confirm(
-            `Stock insuficiente. Disponible: ${disponible} ${unidadVenta}.\n¿Agregar ${disponible} en su lugar?`
+          const agregar = await Notif.confirmar(
+            "⚠️ Stock insuficiente",
+            `<p style="margin:4px 0">Solicitaste <strong style="color:var(--danger)">${cantidad} ${unidadVenta}</strong>, solo hay <strong style="color:var(--warning)">${disponible} ${unidadVenta}</strong> disponibles.</p>
+             <p style="color:var(--muted, #888);font-size:.9rem;margin-top:8px">¿Querés agregar las ${disponible} unidades disponibles?</p>`,
+            { icon: "warning", confirmText: `✅ Agregar ${disponible}`, cancelText: "❌ Cancelar" }
           );
           if (agregar) {
             cantidad = disponible;
@@ -2371,9 +2474,16 @@ function medioEsEfectivo() {
   // =========================
   // CANCELAR
   // =========================
-  function cancelarVenta() {
+
+  async function cancelarVenta() {
     if (carrito.length > 0) {
-      const ok = window.confirm("¿Cancelar la venta y vaciar el ticket?");
+      const cant = carrito.length;
+      const plural = cant > 1 ? "s" : "";
+      const ok = await Notif.confirmar(
+        "🗑️ Cancelar venta",
+        `<p>Se eliminarán los <strong>${cant} producto${plural}</strong> del ticket.</p><p style="color:var(--muted, #888);font-size:.9rem;margin-top:6px">Esta acción no se puede deshacer.</p>`,
+        { icon: "warning", confirmText: "🗑️ Sí, cancelar", cancelText: "Volver" }
+      );
       if (!ok) return;
     }
     carrito = [];
