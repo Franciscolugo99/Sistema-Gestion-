@@ -157,13 +157,12 @@
     if (checkbox.checked) {
       const total = parseInt(catItem.dataset.count || "0", 10) || 0;
       if (total > 600) {
-        const ok = confirm(
-          `Vas a seleccionar ${total} productos de la categoría "${catName}". Puede tardar unos segundos. ¿Continuar?`,
+        const ok = await Notif.confirmar(
+          "📦 Selección grande",
+          `<p>Vas a seleccionar <strong>${total} productos</strong> de la categoría "<strong>${catName}</strong>".</p><p style='color:var(--muted,#94a3b8);font-size:.88rem'>Puede tardar unos segundos.</p>`,
+          { icon: "info", confirmText: "✅ Continuar", cancelText: "❌ Cancelar" }
         );
-        if (!ok) {
-          checkbox.checked = false;
-          return;
-        }
+        if (!ok) { checkbox.checked = false; return; }
       }
 
       try {
@@ -698,7 +697,7 @@
   // ============================================
   // FORMULARIOS
   // ============================================
-  function handleAjusteSubmit(e) {
+  async function handleAjusteSubmit(e) {
     e.preventDefault();
 
     if (state.selectedProducts.size === 0) {
@@ -723,13 +722,28 @@
       msg = `⚠️ ¡ATENCIÓN!\n\n${state.productosConPerdida} producto(s) quedarán VENDIENDO A PÉRDIDA (por debajo del costo).\n\n¿Estás SEGURO de que querés aplicar este ajuste?`;
       
       // Doble confirmación para pérdidas
-      if (!confirm(msg)) return;
-      if (!confirm("Esta acción generará pérdidas. ¿Confirmás que querés continuar?")) return;
+      if (!await Notif.confirmar(
+        "⚠️ Productos a pérdida",
+        `<p style='color:#f87171'><strong>${state.productosConPerdida} producto(s)</strong> quedarán <strong>vendiendo a pérdida</strong> (por debajo del costo).</p><p>¿Estás seguro de aplicar este ajuste?</p>`,
+        { icon: "error", confirmText: "⚠️ Sí, aplicar igual", cancelText: "❌ Cancelar" }
+      )) return;
+      if (!await Notif.confirmar(
+        "🔴 Confirmación final",
+        "<p>Esta acción <strong>generará pérdidas</strong>. ¿Confirmás que querés continuar?</p>",
+        { icon: "error", confirmText: "🔴 Confirmar pérdidas", cancelText: "❌ Cancelar", confirmColor: "#e53935" }
+      )) return;
     } else if (state.productosConMargenBajo > 0) {
-      msg += `\n\n⚠️ Nota: ${state.productosConMargenBajo} producto(s) tendrán margen menor al 10%`;
-      if (!confirm(msg)) return;
+      if (!await Notif.confirmar(
+        "⚠️ Margen bajo",
+        `<p>${action.charAt(0).toUpperCase()+action.slice(1)} el precio de <strong>${count} producto(s)</strong> en <strong>${Math.abs(porcentaje)}%</strong>.</p><p style='color:#fbbf24'>⚠️ ${state.productosConMargenBajo} producto(s) tendrán margen menor al 10%.</p>`,
+        { icon: "warning", confirmText: "✅ Aplicar igual", cancelText: "❌ Cancelar" }
+      )) return;
     } else {
-      if (!confirm(msg)) return;
+      if (!await Notif.confirmar(
+        "💲 Ajuste de precios",
+        `<p>${action.charAt(0).toUpperCase()+action.slice(1)} el precio de <strong>${count} producto(s)</strong> en <strong>${Math.abs(porcentaje)}%</strong>.</p>`,
+        { icon: "question", confirmText: "✅ Aplicar", cancelText: "❌ Cancelar" }
+      )) return;
     }
 
     // Submit del form
@@ -737,7 +751,7 @@
     form.submit();
   }
 
-  function handleMargenSubmit(e) {
+  async function handleMargenSubmit(e) {
     e.preventDefault();
 
     if (state.selectedProducts.size === 0) {
@@ -755,7 +769,11 @@
     const count = state.selectedProducts.size;
     const msg = `¿Aplicar un margen del ${margen}% sobre el costo a ${count} producto(s)?`;
 
-    if (!confirm(msg)) return;
+    if (!await Notif.confirmar(
+      "💲 Ajuste por margen",
+      `<p>Aplicar un margen del <strong>${margen}%</strong> sobre el costo a <strong>${count} producto(s)</strong>.</p>`,
+      { icon: "question", confirmText: "✅ Aplicar", cancelText: "❌ Cancelar" }
+    )) return;
 
     // Submit del form
     const form = e.target;

@@ -346,15 +346,14 @@
     const visited = localStorage.getItem("flus-dashboard-visited");
     if (!visited) {
       // Mostrar sugerencia de tour después de 2 segundos
-      setTimeout(() => {
-        if (
-          confirm(
-            "¿Es tu primera vez en el dashboard? ¿Te gustaría un tour guiado?",
-          )
-        ) {
-          startTour();
-        }
-        localStorage.setItem("flus-dashboard-visited", "1");
+      setTimeout(async () => {
+        const ok = await Notif.confirmar(
+          '👋 ¡Bienvenido a FLUS!',
+          '<p>¿Te gustaría un tour guiado por el dashboard?</p>',
+          { icon: 'info', confirmText: '✅ Sí, mostrarme', cancelText: 'Ahora no' }
+        );
+        if (ok) startTour();
+        localStorage.setItem('flus-dashboard-visited', '1');
       }, 2000);
     }
   }

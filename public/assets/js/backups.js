@@ -100,16 +100,16 @@
     const fileSafe = String(file || '').trim();
     if (!fileSafe) return;
 
-    const confirmWord = prompt(
-      `⚠️ RESTAURAR BACKUP
-
-Esto REEMPLAZA la base de datos actual por el contenido del backup:
-
-${fileSafe}
-
-Escribí RESTAURAR para continuar.`
+    const confirmWord = await Notif.prompt(
+      "⚠️ Restaurar backup",
+      `Esto REEMPLAZA la base de datos con:\n${fileSafe}`,
+      {
+        placeholder: "Escribí RESTAURAR para continuar",
+        confirmText: "✅ Restaurar",
+        validator: v => v !== 'RESTAURAR' ? 'Escribí exactamente RESTAURAR para confirmar' : null
+      }
     );
-    if (confirmWord !== 'RESTAURAR') return;
+    if (confirmWord === null || confirmWord !== 'RESTAURAR') return;
 
     const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
     if (!csrf) {
@@ -162,8 +162,16 @@ Escribí RESTAURAR para continuar.`
    * Desactivar mantenimiento manualmente (si quedó activo)
    */
   async function handleMaintenanceOff() {
-    const confirmWord = prompt('Escribí SALIR para desactivar el modo mantenimiento.');
-    if (confirmWord !== 'SALIR') return;
+    const confirmWord = await Notif.prompt(
+      "🔧 Desactivar mantenimiento",
+      "",
+      {
+        placeholder: "Escribí SALIR para confirmar",
+        confirmText: "✅ Desactivar",
+        validator: v => v !== 'SALIR' ? 'Escribí exactamente SALIR para confirmar' : null
+      }
+    );
+    if (confirmWord === null || confirmWord !== 'SALIR') return;
 
     const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
     if (!csrf) {

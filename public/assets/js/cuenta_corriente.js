@@ -53,7 +53,7 @@
     if (window.FLUS && window.FLUS.toast) {
       window.FLUS.toast(message, type);
     } else {
-      alert(message);
+      Notif.error(message);
     }
   }
 
@@ -251,21 +251,19 @@
   // ═══════════════════════════════════════════════════════════════════
 
   async function reversarMovimiento(movimientoId, tipo, monto) {
-    const motivo = prompt(
-      `Ingresá el motivo para reversar este ${tipo.toLowerCase()} de $${formatMoney(monto)}:`,
+    const motivo = await Notif.prompt(
+      "Motivo de reversa",
+      `${tipo} por $${formatMoney(monto)}`,
+      { placeholder: "Ingresá el motivo...", confirmText: "✅ Continuar" }
     );
+    if (!motivo || motivo.trim() === "") return;
 
-    if (!motivo || motivo.trim() === "") {
-      return;
-    }
-
-    if (
-      !confirm(
-        `¿Confirmar reversa del ${tipo.toLowerCase()} por $${formatMoney(monto)}?\n\nMotivo: ${motivo}`,
-      )
-    ) {
-      return;
-    }
+    const _ok = await Notif.confirmar(
+      "🔄 Confirmar reversa",
+      `<p>Tipo: <strong>${tipo}</strong> · Monto: <strong>$${formatMoney(monto)}</strong></p><p>Motivo: ${motivo}</p>`,
+      { icon: "warning", confirmText: "✅ Reversar", cancelText: "❌ Cancelar" }
+    );
+    if (!_ok) return;
 
     try {
       const formData = new FormData();
@@ -298,13 +296,11 @@
   // ═══════════════════════════════════════════════════════════════════
 
   async function recalcularSaldo(clienteId) {
-    if (
-      !confirm(
-        "¿Recalcular el saldo desde los movimientos?\n\nEsto corrige inconsistencias si las hubiera.",
-      )
-    ) {
-      return;
-    }
+    if (!await Notif.confirmar(
+      "🔢 Recalcular saldo",
+      "<p>Recalculará el saldo desde los movimientos.</p><p style='color:var(--muted);font-size:.88rem'>Corrige inconsistencias si las hubiera.</p>",
+      { icon: "info", confirmText: "✅ Recalcular", cancelText: "❌ Cancelar" }
+    )) return;
 
     try {
       const formData = new FormData();
@@ -395,13 +391,11 @@
     const tipoLabel =
       tipoAjuste === "positivo" ? "aumenta deuda" : "reduce deuda";
 
-    if (
-      !confirm(
-        `¿Confirmar ajuste?\n\nTipo: ${tipoLabel}\nMonto: $${formatMoney(monto)}\nConcepto: ${concepto}`,
-      )
-    ) {
-      return;
-    }
+    if (!await Notif.confirmar(
+      "💰 Confirmar ajuste",
+      `<p>Tipo: <strong>${tipoLabel}</strong><br>Monto: <strong>$${formatMoney(monto)}</strong><br>Concepto: ${concepto}</p>`,
+      { icon: "warning", confirmText: "✅ Confirmar ajuste", cancelText: "❌ Cancelar" }
+    )) return;
 
     if (btnConfirmarAjuste) {
       btnConfirmarAjuste.disabled = true;

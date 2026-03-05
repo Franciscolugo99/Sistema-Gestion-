@@ -4,12 +4,18 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!btn) return;
 
   btn.addEventListener("click", async () => {
-    if (!confirm("¿Anular esta venta? Se repondrá stock y se ajustará la caja.")) return;
+    if (!await Notif.confirmar(
+      "🗑️ Anular venta",
+      "<p>Se repondrá el stock y se ajustará la caja.</p><p style='color:var(--muted,#94a3b8);font-size:.88rem'>Esta acción no se puede deshacer.</p>",
+      { icon: "warning", confirmText: "✅ Anular", cancelText: "❌ Cancelar" }
+    )) return;
 
     const ventaId = Number(btn.dataset.ventaId || 0);
-    if (!ventaId) return alert("No se detectó el ID de venta.");
+    if (!ventaId) return Notif.error("No se detectó el ID de venta.");
 
-    const motivo = (prompt("Motivo (opcional):", "") || "").trim();
+    const _motivoRaw = await Notif.prompt("Motivo de anulación", "", { placeholder: "Opcional...", confirmText: "✅ Continuar" });
+    if (_motivoRaw === null) { btn.disabled = false; return; }
+    const motivo = (_motivoRaw || "").trim();
 
     // Chequeo CSRF para mensaje claro si falta el meta
     const csrf =
@@ -17,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") ||
       "";
 
-    if (!csrf) return alert("Falta CSRF token en la página (meta csrf-token).");
+    if (!csrf) return Notif.error("Falta CSRF token en la página (meta csrf-token).");
 
     btn.disabled = true;
 
@@ -36,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error(e);
       btn.disabled = false;
-      alert("No se pudo anular la venta: " + (e?.message || e));
+      Notif.error("No se pudo anular la venta: " + (e?.message || e));
     }
   });
 });

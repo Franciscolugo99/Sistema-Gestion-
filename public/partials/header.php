@@ -78,6 +78,10 @@ $verFor = function (string $rel) use ($defaultVer): string {
   <?php endif; ?>
 
   <?= $metaExtra ?>
+  <!-- FLUS Notifications (SweetAlert2 local) -->
+  <link rel="stylesheet" href="assets/vendor/sweetalert2/sweetalert2.min.css?v=<?= htmlspecialchars($verFor('assets/vendor/sweetalert2/sweetalert2.min.css'), ENT_QUOTES, 'UTF-8') ?>">
+  <script src="assets/vendor/sweetalert2/sweetalert2.min.js?v=<?= htmlspecialchars($verFor('assets/vendor/sweetalert2/sweetalert2.min.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
+  <script src="assets/js/flus_notif.js?v=<?= htmlspecialchars($verFor('assets/js/flus_notif.js'), ENT_QUOTES, 'UTF-8') ?>"></script>
   <?= $extraHead ?>
 </head>
 

@@ -7,11 +7,12 @@
   const form = document.getElementById("cliForm");
   const btnClose = document.getElementById("cliDrawerClose");
   const btnCancel = document.getElementById("cliCancelBtn");
-  const btnSubmit = document.getElementById("cliSubmitBtn");
+  const btnSubmit = document.getElementById("cliSubmitBtn") || document.getElementById("cliSaveBtn");
 
   if (!overlay || !drawer || !form) return;
 
   let formChanged = false;
+  let _closeDrawerOpen = false;
   const originalSubmitText = btnSubmit?.textContent || "Guardar cliente";
 
   function openDrawer() {
@@ -26,11 +27,22 @@
     }, 100);
   }
 
-  function closeDrawer() {
+  async function closeDrawer(e) {
+    // Importante: confirm async. Frenar default (anchors/botones) y evitar click-through.
+    if (e) { e.preventDefault?.(); e.stopPropagation?.(); }
+    // Si hay un SweetAlert visible, no cierres el drawer por detrás.
+    if (window.Swal && typeof Swal.isVisible === 'function' && Swal.isVisible()) return;
+    if (_closeDrawerOpen) return;
+    _closeDrawerOpen = true;
+    try {
+
     if (formChanged) {
-      if (!confirm("Tenés cambios sin guardar. ¿Querés salir igual?")) {
-        return;
-      }
+      const _ok = await Notif.confirmar(
+        "⚠️ Cambios sin guardar",
+        "<p>Tenés cambios sin guardar. ¿Querés salir igual?</p>",
+        { icon: "warning", confirmText: "✅ Salir igual", cancelText: "❌ Quedarme" }
+      );
+      if (!_ok) return;
     }
 
     overlay.classList.remove("is-open");
@@ -44,15 +56,19 @@
     window.history.replaceState({}, "", url.toString());
 
     formChanged = false;
+    } finally {
+      _closeDrawerOpen = false;
+    }
   }
 
-  overlay.addEventListener("click", closeDrawer);
-  btnClose?.addEventListener("click", closeDrawer);
-  btnCancel?.addEventListener("click", closeDrawer);
+  overlay.addEventListener("click", (e) => closeDrawer(e));
+  btnClose?.addEventListener("click", (e) => closeDrawer(e));
+  btnCancel?.addEventListener("click", (e) => closeDrawer(e));
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && drawer.classList.contains("is-open")) {
-      closeDrawer();
+      if (window.Swal && typeof Swal.isVisible === 'function' && Swal.isVisible()) return;
+      closeDrawer(e);
     }
   });
 
@@ -190,14 +206,14 @@
 
     if (!nombre) {
       e.preventDefault();
-      alert("El nombre es obligatorio.");
+      Notif.advertencia("El nombre es obligatorio.");
       nombreInput?.focus();
       return;
     }
 
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       e.preventDefault();
-      alert("El email no tiene un formato válido.");
+      Notif.advertencia("El email no tiene un formato válido.");
       emailInput?.focus();
       return;
     }
@@ -206,7 +222,7 @@
       const resultado = validarCuit(cuit);
       if (!resultado.valido) {
         e.preventDefault();
-        alert(`CUIT inválido: ${resultado.error}`);
+        Notif.error(`CUIT inválido: ${resultado.error}`);
         cuitInput?.focus();
         return;
       }
@@ -214,14 +230,14 @@
 
     if (condIva === "RI" && !cuit) {
       e.preventDefault();
-      alert("Los Responsables Inscriptos deben tener CUIT/CUIL.");
+      Notif.advertencia("Los Responsables Inscriptos deben tener CUIT/CUIL.");
       cuitInput?.focus();
       return;
     }
 
     if (descuento < 0 || descuento > 100) {
       e.preventDefault();
-      alert("El descuento debe estar entre 0% y 100%.");
+      Notif.advertencia("El descuento debe estar entre 0% y 100%.");
       descuentoInput?.focus();
       return;
     }
@@ -307,7 +323,7 @@
 
       fetch(`${AFIP_ENDPOINT}?cuit=${encodeURIComponent(cuitLimpio)}`)
         .then((response) => response.json())
-        .then((data) => {
+        .then(async (data) => {
           afipInFlight = false;
           if (nombreInput) nombreInput.placeholder = oldPh;
 
@@ -321,8 +337,10 @@
           if (!nombreAfip) return;
 
           if (nombreInput && nombreInput.value.trim() !== "") {
-            const ok = confirm(
-              `Se encontró: ${nombreAfip}\n\n¿Autocompletar datos desde AFIP?`
+            const ok = await Notif.confirmar(
+              "🔍 Datos de AFIP",
+              `<p>Se encontró: <strong>${nombreAfip}</strong></p><p style='color:var(--muted,#94a3b8);font-size:.88rem'>¿Autocompletar datos desde AFIP?</p>`,
+              { icon: "info", confirmText: "✅ Autocompletar", cancelText: "❌ No, gracias" }
             );
             if (!ok) return;
           }

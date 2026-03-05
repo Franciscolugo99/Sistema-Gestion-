@@ -16,7 +16,7 @@
 
   function notify(message, type = "info") {
     const toast = document.getElementById("promoToast");
-    if (!toast) return alert(message);
+    if (!toast) return Notif.advertencia(message);
 
     toast.textContent = message;
     toast.className = `promo-toast show promo-toast--${type}`;

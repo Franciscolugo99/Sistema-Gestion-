@@ -241,13 +241,13 @@
                 
                 if (!name || !slug) {
                     e.preventDefault();
-                    alert('Por favor completa todos los campos requeridos.');
+                    Notif.advertencia('Por favor completá todos los campos requeridos.');
                     return false;
                 }
 
                 if (!/^[a-z0-9_]+$/.test(slug)) {
                     e.preventDefault();
-                    alert('El slug solo puede contener letras minúsculas, números y guiones bajos.');
+                    Notif.error('El slug solo puede contener letras minúsculas, números y guiones bajos.');
                     return false;
                 }
             });

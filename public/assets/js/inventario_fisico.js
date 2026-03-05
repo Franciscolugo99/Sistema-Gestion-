@@ -267,7 +267,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   // SELECCIONAR PRODUCTO
   // ═══════════════════════════════════════════════════════════════════════════
-  function seleccionarProducto(id, codigo, nombre, stock, yaContadoCantidad = null) {
+  async function seleccionarProducto(id, codigo, nombre, stock, yaContadoCantidad = null) {
     const productoId = $('productoId');
     const selCodigo = $('selCodigo');
     const selNombre = $('selNombre');
@@ -297,10 +297,12 @@
         yaContadoBadge.classList.remove('is-hidden');
 
         // Mostrar confirmación
-        if (!confirm(`Este producto ya fue contado (${formatNumber(yaContadoCantidad)} unidades).\n\n¿Querés actualizar el conteo?`)) {
-          cancelarSeleccion();
-          return;
-        }
+        const _yaContadoOk = await Notif.confirmar(
+          '🔄 Producto ya contado',
+          `<p>Este producto ya fue contado: <strong>${formatNumber(yaContadoCantidad)} unidades</strong>.</p><p style='color:var(--muted,#94a3b8);font-size:.88rem;margin-top:6px'>¿Querés actualizar el conteo?</p>`,
+          { icon: 'warning', confirmText: '✅ Actualizar', cancelText: '❌ Cancelar' }
+        );
+        if (!_yaContadoOk) { cancelarSeleccion(); return; }
       } else {
         yaContadoBadge.classList.add('is-hidden');
       }

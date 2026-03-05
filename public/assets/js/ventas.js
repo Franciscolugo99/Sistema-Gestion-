@@ -761,7 +761,7 @@ const VentasManager = {
   },
 
   async shareWhatsApp(ventaId) {
-    const phone = prompt('Ingresá el número de WhatsApp (ej: 1155667788):');
+    const phone = await Notif.prompt('📱 Enviar por WhatsApp', '', { placeholder: 'Ej: 5491155667788', confirmText: '✅ Enviar', inputLabel: 'Número con código de país' });
     if (!phone) return;
 
     try {
@@ -784,7 +784,7 @@ const VentasManager = {
   },
 
   async shareEmail(ventaId) {
-    const email = prompt('Ingresá el email del cliente:');
+    const email = await Notif.prompt('📧 Enviar por email', '', { placeholder: 'cliente@ejemplo.com', confirmText: '✅ Enviar', inputType: 'email' });
     if (!email) return;
 
     try {
@@ -800,10 +800,12 @@ const VentasManager = {
       } else {
         this.showToast(data.error || 'Error al enviar email', 'error');
         if (data.fallback_url) {
-          if (confirm('¿Querés copiar el link del ticket?')) {
-            navigator.clipboard?.writeText(data.fallback_url);
-            this.showToast('Link copiado al portapapeles', 'success');
-          }
+          Notif.confirmar('🔗 Copiar link', '<p>¿Querés copiar el link del ticket al portapapeles?</p>', { icon: 'info', confirmText: '✅ Copiar', cancelText: 'No' }).then(ok => {
+            if (ok) {
+              navigator.clipboard?.writeText(data.fallback_url);
+              this.showToast('Link copiado al portapapeles', 'success');
+            }
+          });
         }
       }
     } catch (e) {

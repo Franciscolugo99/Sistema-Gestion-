@@ -1550,7 +1550,7 @@ require_once __DIR__ . '/partials/header.php';
     <div id="editPanel" class="edit-panel">
         <div class="edit-panel-head">
             <h2>Editar producto</h2>
-            <button class="close-edit" type="button" onclick="ProductosManager.closeEdit()">✕</button>
+            <button class="close-edit" type="button" onclick="ProductosManager.closeEdit(event)">✕</button>
         </div>
 
         <div class="edit-loading" id="editLoading">

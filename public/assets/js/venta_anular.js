@@ -7,12 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const ventaId = parseInt(btn.dataset.ventaId || "0", 10);
     if (!ventaId) return;
 
-    const motivo = prompt("Motivo de anulación (opcional):", "");
-    if (motivo === null) return; // cancel
-
-    if (!confirm(`¿Confirmás anular la venta #${ventaId}? Se repondrá el stock y se ajustará la caja.`)) {
-      return;
-    }
+    const motivo = await Notif.prompt(
+      "Motivo de anulación",
+      `Venta #${ventaId} — se repondrá el stock y se ajustará la caja.`,
+      { placeholder: "Opcional...", confirmText: "✅ Anular venta", cancelText: "❌ Cancelar" }
+    );
+    if (motivo === null) return;
 
     const csrf =
       (window.getCsrfToken && window.getCsrfToken()) ||
@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "";
 
     if (!csrf) {
-      alert("Falta CSRF token en la página (meta csrf-token).");
+      Notif.error("Falta CSRF token en la página (meta csrf-token).");
       return;
     }
 
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
       location.reload();
     } catch (e) {
       console.error(e);
-      alert("No se pudo anular la venta: " + (e?.message || e));
+      Notif.error("No se pudo anular la venta: " + (e?.message || e));
       btn.disabled = false;
     }
   });

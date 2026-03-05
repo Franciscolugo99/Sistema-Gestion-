@@ -182,15 +182,18 @@
             const totalAll = document.querySelectorAll('.permiso-check').length;
             
             if (totalChecked === 0) {
-                if (!confirm('¿Quitar TODOS los permisos?\n\nLos usuarios con este rol no tendrán acceso a ninguna función.')) {
-                    e.preventDefault();
-                    return false;
-                }
+                Notif.confirmar(
+                  '⛔ Quitar todos los permisos',
+                  '<p>Los usuarios con este rol <strong>no tendrán acceso a ninguna función</strong>.</p>',
+                  { icon: 'warning', confirmText: '✅ Sí, quitar todos', cancelText: '❌ Cancelar' }
+                ).then(ok => { if (ok) checkAll(false); });
             } else if (totalChecked === totalAll) {
-                if (!confirm('¿Asignar TODOS los permisos?\n\nEsto dará acceso completo al sistema.')) {
-                    e.preventDefault();
-                    return false;
-                }
+                Notif.confirmar(
+                  '✅ Asignar todos los permisos',
+                  '<p>Esto dará <strong>acceso completo al sistema</strong> a los usuarios con este rol.</p>',
+                  { icon: 'warning', confirmText: '✅ Sí, asignar todos', cancelText: '❌ Cancelar' }
+                ).then(ok => { if (ok) checkAll(true); });
+                e.preventDefault(); return false;
             }
         });
     }

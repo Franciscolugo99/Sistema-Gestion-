@@ -164,9 +164,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!ids.length) return;
 
-        if (confirm(`¿Reimprimir ${ids.length} ticket(s)?`)) {
-          window.open(`ticket_multiple.php?ids=${ids.join(",")}`, "_blank");
-        }
+        Notif.confirmar('🖨️ Reimprimir tickets', `<p>¿Reimprimir <strong>${ids.length} ticket(s)</strong>?</p>`, { icon: 'question', confirmText: '✅ Reimprimir', cancelText: '❌ Cancelar' }).then(ok => {
+          if (ok) window.open(`ticket_multiple.php?ids=${ids.join(",")}`, "_blank");
+        });
       });
     }
 
@@ -360,7 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const method = btn.dataset.method; // 'whatsapp' o 'email'
 
       if (method === "whatsapp") {
-        const phone = prompt("Número de teléfono (con código de país):");
+        const phone = await Notif.prompt('📱 Enviar por WhatsApp', '', { placeholder: 'Ej: 5491155667788', confirmText: '✅ Enviar', inputLabel: 'Número con código de país' });
         if (!phone) return;
 
         showLoader();
@@ -389,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
           hideLoader();
         }
       } else if (method === "email") {
-        const email = prompt("Email del cliente:");
+        const email = await Notif.prompt('📧 Enviar por email', '', { placeholder: 'cliente@ejemplo.com', confirmText: '✅ Enviar', inputType: 'email' });
         if (!email) return;
 
         showLoader();

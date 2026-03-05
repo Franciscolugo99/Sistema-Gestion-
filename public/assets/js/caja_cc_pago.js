@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showMsg(type, text) {
-    if (!msgEl) return alert(text);
+    if (!msgEl) return Notif.error(text);
     msgEl.classList.remove("msg-ok","msg-error","msg-success","msg-warning","msg-visible");
     const cls = (type === "success" || type === "ok") ? "msg-success" :
                 (type === "warning") ? "msg-warning" : "msg-error";

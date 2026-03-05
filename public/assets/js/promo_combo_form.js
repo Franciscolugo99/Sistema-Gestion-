@@ -57,7 +57,7 @@
   function toast(msg, type = "info") {
     if (!el.toast) {
       // Fallback a alert si no hay toast
-      alert(msg);
+      Notif.advertencia(msg);
       return;
     }
     

@@ -157,12 +157,15 @@
   
   document.querySelectorAll('.toggle-form').forEach(form => {
     form.addEventListener('submit', function(e) {
-      const valor = this.querySelector('input[name="valor"]').value;
+      e.preventDefault();
+      const _form = this;
+      const valor = _form.querySelector('input[name="valor"]').value;
       const action = valor === '0' ? 'desactivar' : 'activar';
-      
-      if (!confirm(`¿Estás seguro de ${action} este proveedor?`)) {
-        e.preventDefault();
-      }
+      Notif.confirmar(
+        `${action === 'activar' ? '✅' : '⛔'} ${action.charAt(0).toUpperCase() + action.slice(1)} proveedor`,
+        `<p>¿Estás seguro de <strong>${action}</strong> este proveedor?</p>`,
+        { icon: 'warning', confirmText: `✅ Sí, ${action}`, cancelText: '❌ Cancelar' }
+      ).then(ok => { if (ok) _form.submit(); });
     });
   });
 

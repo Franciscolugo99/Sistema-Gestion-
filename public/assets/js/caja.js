@@ -5,95 +5,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_TIMEOUT_MS = 8000;
 
   // =========================================================================
-  // ✅ NOTIFICACIONES (SweetAlert2 con fallback)
-  // =========================================================================
-  const Notif = (() => {
-    const cssVar = (name, fallback = "") => {
-      try {
-        const v = getComputedStyle(document.documentElement).getPropertyValue(name);
-        const s = String(v || "").trim();
-        return s || fallback;
-      } catch (_) {
-        return fallback;
-      }
-    };
-
-    const stripHtml = (html) => String(html || "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const base = () => ({
-      background: cssVar("--panel-bg", cssVar("--panel", "#ffffff")),
-      color: cssVar("--text", "#0f172a"),
-      confirmButtonColor: cssVar("--accent-cyan", "#06b6d4"),
-      cancelButtonColor: cssVar("--danger", "#ef4444"),
-    });
-
-    const toastBase = () => ({
-      toast: true,
-      position: "top-end",
-      showConfirmButton: false,
-      timer: 2800,
-      timerProgressBar: true,
-      background: cssVar("--panel-bg", cssVar("--panel", "#ffffff")),
-      color: cssVar("--text", "#0f172a"),
-    });
-
-    async function confirmar(titulo, html, opts = {}) {
-      if (!window.Swal) {
-        return window.confirm(String(titulo || "") + "\n\n" + stripHtml(html));
-      }
-
-      const r = await Swal.fire({
-        ...base(),
-        title: titulo,
-        html,
-        icon: opts.icon || "question",
-        showCancelButton: true,
-        confirmButtonText: opts.confirmText || "✅ Confirmar",
-        cancelButtonText: opts.cancelText || "❌ Cancelar",
-        reverseButtons: true,
-        focusCancel: true,
-      });
-      return !!r.isConfirmed;
-    }
-
-    function toast(icon, msg, ms) {
-      if (!window.Swal) {
-        if (typeof window.showToast === "function") {
-          const map = { success: "ok", error: "error", warning: "warn", info: "info" };
-          window.showToast(String(msg || ""), map[icon] || "info", ms || 2800);
-        }
-        return;
-      }
-
-      const iconColor =
-        icon === "success" ? cssVar("--success", "#22c55e") :
-        icon === "error"   ? cssVar("--danger", "#ef4444")  :
-        icon === "warning" ? cssVar("--warning", "#eab308") :
-                              cssVar("--accent-blue", "#0ea5e9");
-
-      Swal.fire({
-        ...toastBase(),
-        icon,
-        title: String(msg || ""),
-        iconColor,
-        timer: ms || (icon === "error" ? 3500 : 2800),
-      });
-    }
-
-    return {
-      confirmar,
-      exito: (m) => toast("success", m, 2500),
-      error: (m) => toast("error", m, 3500),
-      advertencia: (m) => toast("warning", m, 3000),
-      info: (m) => toast("info", m, 2500),
-    };
-  })();
-
-
-  // =========================================================================
   // ✅ AUTOCOMPLETADO VISUAL (dropdown con sugerencias)
   // =========================================================================
   (function initAutocompletadoProductos() {
@@ -116,15 +27,23 @@ document.addEventListener("DOMContentLoaded", () => {
       input.parentElement.appendChild(dropdown);
     }
 
-
     // Remover datalist viejo si existe
     const oldDatalist = document.getElementById("sugerencias");
     if (oldDatalist) oldDatalist.remove();
     input.removeAttribute("list");
 
-    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-    }[c]));
+    const esc = (s) =>
+      String(s ?? "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+          })[c],
+      );
 
     let productos = [];
     let selectedIndex = -1;
@@ -133,8 +52,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function posicionarDropdown() {
       const rect = input.getBoundingClientRect();
       const parentRect = input.parentElement.getBoundingClientRect();
-      dropdown.style.top = (rect.bottom - parentRect.top + 4) + "px";
-      dropdown.style.left = (rect.left - parentRect.left) + "px";
+      dropdown.style.top = rect.bottom - parentRect.top + 4 + "px";
+      dropdown.style.left = rect.left - parentRect.left + "px";
       dropdown.style.width = rect.width + "px";
     }
 
@@ -146,18 +65,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       posicionarDropdown();
 
-      dropdown.innerHTML = productos.map((p, i) => `
+      dropdown.innerHTML = productos
+        .map(
+          (p, i) => `
         <div class="autocomplete-item ${i === selectedIndex ? "selected" : ""}" data-index="${i}">
           <div class="ac-title">${esc(p.nombre)}</div>
           <div class="ac-meta">
             Código: ${esc(p.codigo)} · Stock: ${p.stock} · $${Number(p.precio).toFixed(2)}
           </div>
         </div>
-      `).join("");
+      `,
+        )
+        .join("");
 
       dropdown.style.display = "block";
     }
-
 
     function actualizarSeleccionUI() {
       const items = dropdown.querySelectorAll(".autocomplete-item");
@@ -168,7 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
         items[selectedIndex].scrollIntoView({ block: "nearest" });
       }
     }
-
 
     function ocultarDropdown() {
       dropdown.style.display = "none";
@@ -199,10 +120,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetch(
           `${API_BASE}?action=buscar_productos&q=${encodeURIComponent(query)}&limit=8`,
-          { signal: abort.signal, credentials: "same-origin" }
+          { signal: abort.signal, credentials: "same-origin" },
         );
         const data = await res.json();
-        
+
         if (data.ok && Array.isArray(data.productos)) {
           productos = data.productos;
           selectedIndex = -1;
@@ -235,7 +156,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ✅ FIX lector: cancelar debounce y cualquier fetch en vuelo, y evitar lista vieja
       clearTimeout(debounceTimer);
-      if (abort) { try { abort.abort(); } catch (_) {} abort = null; }
+      if (abort) {
+        try {
+          abort.abort();
+        } catch (_) {}
+        abort = null;
+      }
       ocultarDropdown();
 
       // Si viene corto, no sugerimos
@@ -280,30 +206,28 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-
     // Click en sugerencia
-      dropdown.addEventListener("mousedown", (e) => {
-        const item = e.target.closest(".autocomplete-item");
-        if (!item) return;
+    dropdown.addEventListener("mousedown", (e) => {
+      const item = e.target.closest(".autocomplete-item");
+      if (!item) return;
 
-        e.preventDefault();   // evita blur del input antes de seleccionar
-        e.stopPropagation();
+      e.preventDefault(); // evita blur del input antes de seleccionar
+      e.stopPropagation();
 
-        const index = parseInt(item.dataset.index, 10);
-        seleccionarProducto(index);
-      });
-
+      const index = parseInt(item.dataset.index, 10);
+      seleccionarProducto(index);
+    });
 
     // Hover en sugerencias
-      dropdown.addEventListener("mousemove", (e) => {
-        const item = e.target.closest(".autocomplete-item");
-        if (!item) return;
-        const index = parseInt(item.dataset.index, 10);
-        if (Number.isFinite(index) && index !== selectedIndex) {
-          selectedIndex = index;
-          actualizarSeleccionUI();
-        }
-      });
+    dropdown.addEventListener("mousemove", (e) => {
+      const item = e.target.closest(".autocomplete-item");
+      if (!item) return;
+      const index = parseInt(item.dataset.index, 10);
+      if (Number.isFinite(index) && index !== selectedIndex) {
+        selectedIndex = index;
+        actualizarSeleccionUI();
+      }
+    });
 
     // Ocultar al hacer click fuera
     document.addEventListener("click", (e) => {
@@ -376,7 +300,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const valor = parseSaldo(inputSaldo.value);
       if (valor > 0 && valor < MIN_SALDO_SUG) {
         aviso.textContent = `Saldo inicial bajo: $${valor.toFixed(
-          2
+          2,
         )}. Revisá si es suficiente para el turno.`;
         aviso.classList.remove("hidden");
       } else {
@@ -388,25 +312,22 @@ document.addEventListener("DOMContentLoaded", () => {
     inputSaldo.addEventListener("input", actualizarAviso);
     actualizarAviso();
 
-    let __confirmandoApertura = false;
-
+    let _confirmandoApertura = false;
     formApertura.addEventListener("submit", async (e) => {
-      if (__confirmandoApertura) return;
+      // Si ya fue confirmado, dejar pasar el submit nativo
+      if (_confirmandoApertura) return;
       e.preventDefault();
 
       const valor = parseSaldo(inputSaldo.value);
-      const html = "<p>¿Confirmar apertura con saldo inicial de <strong style=\"color:var(--success)\">$" + valor.toFixed(2) + "<\/strong>?</p>";
-
       const ok = await Notif.confirmar(
         "🏦 Abrir caja",
-        html,
-        { icon: "info", confirmText: "✅ Abrir caja", cancelText: "Cancelar" }
+        `<p>Saldo inicial: <strong style="color:var(--accent-green,#22c55e)">$${valor.toFixed(2)}</strong></p>`,
+        { icon: "info", confirmText: "✅ Abrir caja", cancelText: "Cancelar" },
       );
-
       if (ok) {
-        __confirmandoApertura = true;
-        if (typeof formApertura.requestSubmit === "function") formApertura.requestSubmit();
-        else formApertura.submit();
+        _confirmandoApertura = true;
+        // requestSubmit() respeta required/min y dispara validación HTML5
+        formApertura.requestSubmit();
       }
     });
   }
@@ -422,14 +343,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Storage por caja (evita mezclar tickets entre aperturas)
   const STORAGE_PREFIX = "kiosco-caja-estado-v1";
-    // FLUS: Storage key estable por terminal + sesiÃ³n (evita colisiones y CAJA_ID=0)
+  // FLUS: Storage key estable por terminal + sesiÃ³n (evita colisiones y CAJA_ID=0)
   const FLUS_TERMINAL_ID =
-    (window.TERMINAL_ID ?? window.terminalId ?? document.body?.dataset?.terminalId ?? 0);
+    window.TERMINAL_ID ??
+    window.terminalId ??
+    document.body?.dataset?.terminalId ??
+    0;
 
   const __flusSidKey = "kiosco-caja-session-id";
   let __flusSid = sessionStorage.getItem(__flusSidKey);
   if (!__flusSid) {
-    __flusSid = (crypto?.randomUUID?.() || (Date.now() + "-" + Math.random().toString(16).slice(2)));
+    __flusSid =
+      crypto?.randomUUID?.() ||
+      Date.now() + "-" + Math.random().toString(16).slice(2);
     sessionStorage.setItem(__flusSidKey, __flusSid);
   }
 
@@ -508,7 +434,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
-    // =========================
+  // =========================
   // ✅ PESABLE UX (G/ML sin confusión)
   // - G  => unidad interna = 100 g
   // - ML => unidad interna = 100 ml
@@ -521,7 +447,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const fmtInt0 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 
   function parseNumeroLocale(v) {
-    const s = String(v ?? "").trim().replace(/\./g, "").replace(",", ".");
+    const s = String(v ?? "")
+      .trim()
+      .replace(/\./g, "")
+      .replace(",", ".");
     const n = parseFloat(s);
     return Number.isFinite(n) ? n : NaN;
   }
@@ -556,11 +485,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // KG/LT (permitimos escribir gramos/ml directo)
     if (u === "KG") {
       if (n >= 50) return n / 1000; // 3560 => 3.560 kg
-      return n;                     // 3.56 => 3.56 kg
+      return n; // 3.56 => 3.56 kg
     }
     if (u === "LT") {
       if (n >= 50) return n / 1000; // 700 => 0.700 lt
-      return n;                     // 0.7 => 0.7 lt
+      return n; // 0.7 => 0.7 lt
     }
 
     return n;
@@ -571,21 +500,23 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!esPesable) return Math.round(c);
 
     const u = String(unidadVenta || "KG").toUpperCase();
-    if (u === "G")  return c * 100;   // packs -> gramos
-    if (u === "ML") return c * 100;   // packs -> ml
+    if (u === "G") return c * 100; // packs -> gramos
+    if (u === "ML") return c * 100; // packs -> ml
     return c; // KG/LT ya están en unidad humana
   }
 
   function formatearCantidadHumana(item) {
     const cant = Number(item?.cantidad) || 0;
     const esPesable = !!item?.esPesable;
-    const u = String(item?.unidadVenta || (esPesable ? "KG" : "UNID")).toUpperCase();
+    const u = String(
+      item?.unidadVenta || (esPesable ? "KG" : "UNID"),
+    ).toUpperCase();
 
     if (!esPesable) {
       return `${Math.round(cant)} UNID`;
     }
 
-    if (u === "G")  return `${fmtInt0.format(cant * 100)} g`;
+    if (u === "G") return `${fmtInt0.format(cant * 100)} g`;
     if (u === "ML") return `${fmtInt0.format(cant * 100)} ml`;
 
     // KG / LT: mantenemos 3 decimales si hace falta
@@ -632,24 +563,47 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  // Ocultamos el pill de mensajes (ya no lo usamos)
+  if (msgBox) msgBox.style.display = "none";
+
+  // Anti-spam de toasts repetidos
+  let _lastToast = { t: 0, text: "" };
+
   function mostrarMensaje(tipo, texto) {
+    const msg = String(texto ?? "");
+
+    // Preferimos SweetAlert/Notif (global)
+    if (window.Notif) {
+      const now = Date.now();
+      if (msg === _lastToast.text && now - _lastToast.t < 1200) return;
+      _lastToast = { t: now, text: msg };
+
+      if (tipo === "error" || tipo === "danger") return Notif.error(msg);
+      if (tipo === "warning" || tipo === "warn") return Notif.advertencia(msg);
+      if (tipo === "success" || tipo === "ok") return Notif.exito(msg);
+
+      return Notif.advertencia(msg);
+    }
+
+    // Fallback (si Notif no existe por algún motivo)
     if (!msgBox) return;
-    msgBox.textContent = texto;
+    msgBox.style.display = "";
+    msgBox.textContent = msg;
     msgBox.className = "msg msg-visible msg-" + tipo;
   }
 
   function limpiarMensaje() {
-    if (!msgBox) return;
-    msgBox.textContent = "";
-    msgBox.className = "msg";
+    if (msgBox) {
+      msgBox.textContent = "";
+      msgBox.className = "msg";
+      msgBox.style.display = "none";
+    }
   }
 
   function formatearCantidad(item) {
     return formatearCantidadHumana(item);
   }
 
-
-  
   // =========================
   // SPLIT PAYMENT (2 medios)
   // =========================
@@ -701,7 +655,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return sum + (medio === "EFECTIVO" ? monto : 0);
     }, 0);
   }
-function medioEsEfectivo() {
+  function medioEsEfectivo() {
     return (selMedio?.value || "EFECTIVO") === "EFECTIVO";
   }
 
@@ -724,41 +678,41 @@ function medioEsEfectivo() {
     }
   }
 
- function recalcularVuelto() {
-  const total = Number(totalNetoActual) || 0;
+  function recalcularVuelto() {
+    const total = Number(totalNetoActual) || 0;
 
-  // ✅ Si está activo el 2º pago y NO fue tocado manualmente,
-  // mantener "Monto 2" como lo que falta para completar el total.
-  if (splitActivo() && inputPagado2) {
-    const auto = inputPagado2.dataset.auto !== "0"; // por defecto auto
-    if (auto) {
-      const a1 = parseMonto(inputPagado?.value || "0");
-      const falta2 = Math.max(total - a1, 0);
-      inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
-      inputPagado2.dataset.auto = "1";
+    // ✅ Si está activo el 2º pago y NO fue tocado manualmente,
+    // mantener "Monto 2" como lo que falta para completar el total.
+    if (splitActivo() && inputPagado2) {
+      const auto = inputPagado2.dataset.auto !== "0"; // por defecto auto
+      if (auto) {
+        const a1 = parseMonto(inputPagado?.value || "0");
+        const falta2 = Math.max(total - a1, 0);
+        inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
+        inputPagado2.dataset.auto = "1";
+      }
+    }
+
+    const pagos = pagosDesdeUI();
+    const pagadoTotal = totalPagado(pagos);
+    const vuelto = Math.max(pagadoTotal - total, 0);
+    const resta = Math.max(total - pagadoTotal, 0);
+
+    if (lblTotalPagado)
+      lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
+    if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
+
+    // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
+    if (restaWrap && lblRestaPagar) {
+      if (splitActivo() && resta > 0.009) {
+        restaWrap.classList.remove("is-hidden");
+        lblRestaPagar.textContent = formatearMoneda(resta);
+      } else {
+        restaWrap.classList.add("is-hidden");
+        lblRestaPagar.textContent = formatearMoneda(0);
+      }
     }
   }
-
-  const pagos = pagosDesdeUI();
-  const pagadoTotal = totalPagado(pagos);
-  const vuelto = Math.max(pagadoTotal - total, 0);
-  const resta = Math.max(total - pagadoTotal, 0);
-
-  if (lblTotalPagado) lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
-  if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
-
-  // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
-  if (restaWrap && lblRestaPagar) {
-    if (splitActivo() && resta > 0.009) {
-      restaWrap.classList.remove("is-hidden");
-      lblRestaPagar.textContent = formatearMoneda(resta);
-    } else {
-      restaWrap.classList.add("is-hidden");
-      lblRestaPagar.textContent = formatearMoneda(0);
-    }
-  }
-}
-
 
   // =========================
   // CUENTA CORRIENTE (CC)
@@ -767,7 +721,7 @@ function medioEsEfectivo() {
   const ccInputBuscar = document.getElementById("ccClienteBuscar");
   const ccInputId = document.getElementById("ccClienteId");
   const ccInfo = document.getElementById("ccClienteInfo");
-  
+
   let ccDropdown = null;
   let ccResults = [];
   let ccSelectedIdx = -1;
@@ -791,7 +745,7 @@ function medioEsEfectivo() {
     const m1 = String(selMedio?.value || "").toUpperCase();
     const a1 = parseMonto(inputPagado?.value || "0");
     if (m1 === "CC" && a1 > 0) total += a1;
-    
+
     if (splitActivo()) {
       const m2 = String(selMedio2?.value || "").toUpperCase();
       const a2 = parseMonto(inputPagado2?.value || "0");
@@ -825,7 +779,8 @@ function medioEsEfectivo() {
     if (ccDropdown || !ccInputBuscar) return;
     ccDropdown = document.createElement("div");
     ccDropdown.className = "autocomplete-dropdown cc-dropdown";
-    ccDropdown.style.cssText = "position:absolute;display:none;z-index:99999;max-height:250px;overflow-y:auto;";
+    ccDropdown.style.cssText =
+      "position:absolute;display:none;z-index:99999;max-height:250px;overflow-y:auto;";
     ccInputBuscar.parentElement.style.position = "relative";
     ccInputBuscar.parentElement.appendChild(ccDropdown);
   }
@@ -837,32 +792,44 @@ function medioEsEfectivo() {
   }
 
   function escHtml(s) {
-    return String(s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+    return String(s || "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        })[c],
+    );
   }
 
   function renderDropdownCC() {
     if (!ccDropdown || !ccResults.length) return ocultarDropdownCC();
-    
-    ccDropdown.innerHTML = ccResults.map((c, i) => {
-      const sel = i === ccSelectedIdx ? "selected" : "";
-      const saldo = Number(c.cc_saldo || 0).toFixed(2);
-      const limite = Number(c.cc_limite || 0).toFixed(2);
-      const disp = Number(c.cc_disponible || 0).toFixed(2);
-      return `
+
+    ccDropdown.innerHTML = ccResults
+      .map((c, i) => {
+        const sel = i === ccSelectedIdx ? "selected" : "";
+        const saldo = Number(c.cc_saldo || 0).toFixed(2);
+        const limite = Number(c.cc_limite || 0).toFixed(2);
+        const disp = Number(c.cc_disponible || 0).toFixed(2);
+        return `
         <div class="autocomplete-item ${sel}" data-idx="${i}">
           <div class="ac-title">${escHtml(c.nombre)}</div>
           <div class="ac-meta">
-            ${c.cuit ? 'CUIT: ' + escHtml(c.cuit) + ' · ' : ''}
-            Tel: ${escHtml(c.telefono || '-')} · 
+            ${c.cuit ? "CUIT: " + escHtml(c.cuit) + " · " : ""}
+            Tel: ${escHtml(c.telefono || "-")} · 
             Disponible: <strong>$${disp}</strong> (Saldo: $${saldo} / Límite: $${limite})
           </div>
         </div>`;
-    }).join("");
-    
+      })
+      .join("");
+
     // Posicionar
     const rect = ccInputBuscar.getBoundingClientRect();
     const parentRect = ccInputBuscar.parentElement.getBoundingClientRect();
-    ccDropdown.style.top = (rect.bottom - parentRect.top + 2) + "px";
+    ccDropdown.style.top = rect.bottom - parentRect.top + 2 + "px";
     ccDropdown.style.left = "0";
     ccDropdown.style.width = "100%";
     ccDropdown.style.display = "block";
@@ -871,16 +838,16 @@ function medioEsEfectivo() {
   function seleccionarClienteCC(idx) {
     const c = ccResults[idx];
     if (!c) return;
-    
+
     ccClienteSeleccionado = c;
     if (ccInputBuscar) ccInputBuscar.value = c.nombre || "";
     if (ccInputId) ccInputId.value = String(c.id || "");
-    
+
     // Mostrar info del cliente
     const disp = Number(c.cc_disponible || 0).toFixed(2);
     const saldo = Number(c.cc_saldo || 0).toFixed(2);
     const limite = Number(c.cc_limite || 0).toFixed(2);
-    
+
     if (ccInfo) {
       ccInfo.innerHTML = `
         <div class="cc-cliente-info">
@@ -890,9 +857,9 @@ function medioEsEfectivo() {
           </span>
         </div>`;
     }
-    
+
     ocultarDropdownCC();
-    
+
     // Validar disponibilidad
     validarDisponibilidadCC();
   }
@@ -900,19 +867,22 @@ function medioEsEfectivo() {
   async function buscarClientesCC(q) {
     q = String(q || "").trim();
     if (q.length < 2) return ocultarDropdownCC();
-    
+
     crearDropdownCC();
     if (ccAbort) ccAbort.abort();
     ccAbort = new AbortController();
-    
+
     try {
-      const res = await fetch(`api/index.php?action=buscar_clientes_cc&q=${encodeURIComponent(q)}`, {
-        signal: ccAbort.signal,
-        credentials: "same-origin",
-        headers: { "Accept": "application/json" }
-      });
+      const res = await fetch(
+        `api/index.php?action=buscar_clientes_cc&q=${encodeURIComponent(q)}`,
+        {
+          signal: ccAbort.signal,
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        },
+      );
       const data = await res.json();
-      
+
       if (data?.ok && Array.isArray(data.clientes)) {
         ccResults = data.clientes;
         ccSelectedIdx = -1;
@@ -921,43 +891,51 @@ function medioEsEfectivo() {
         ocultarDropdownCC();
       }
     } catch (e) {
-      if (e?.name !== "AbortError") console.warn("Error buscando clientes CC:", e);
+      if (e?.name !== "AbortError")
+        console.warn("Error buscando clientes CC:", e);
       ocultarDropdownCC();
     }
   }
 
   async function validarDisponibilidadCC() {
     if (!ccClienteSeleccionado) return { ok: true };
-    
+
     const monto = montoEnCC();
     if (monto <= 0) return { ok: true };
-    
+
     try {
-      const res = await fetch(`api/index.php?action=verificar_cc&cliente_id=${ccClienteSeleccionado.id}&monto=${monto}`, {
-        credentials: "same-origin",
-        headers: { "Accept": "application/json" }
-      });
+      const res = await fetch(
+        `api/index.php?action=verificar_cc&cliente_id=${ccClienteSeleccionado.id}&monto=${monto}`,
+        {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        },
+      );
       const data = await res.json();
-      
+
       if (!data?.ok) {
         return { ok: false, error: data?.error || "Error verificando CC" };
       }
-      
+
       if (!data.habilitado) {
         return { ok: false, error: "Cliente sin CC habilitada" };
       }
-      
+
       if (!data.puede_comprar) {
-        return { ok: false, error: data.mensaje || "Excede límite de crédito", excede: true };
+        return {
+          ok: false,
+          error: data.mensaje || "Excede límite de crédito",
+          excede: true,
+        };
       }
-      
+
       // Si excede pero puede autorizar, mostrar advertencia
       if (data.excede && data.puede_autorizar) {
         if (ccInfo) {
           ccInfo.innerHTML += `<div class="cc-advertencia">⚠️ ${escHtml(data.mensaje)}</div>`;
         }
       }
-      
+
       return { ok: true, data };
     } catch (e) {
       console.error("Error validando CC:", e);
@@ -968,21 +946,24 @@ function medioEsEfectivo() {
   // Eventos CC
   if (ccInputBuscar) {
     let ccDebounce = null;
-    
+
     ccInputBuscar.addEventListener("input", () => {
       clearTimeout(ccDebounce);
       // Si cambia el texto, limpiar cliente seleccionado
-      if (ccClienteSeleccionado && ccInputBuscar.value !== ccClienteSeleccionado.nombre) {
+      if (
+        ccClienteSeleccionado &&
+        ccInputBuscar.value !== ccClienteSeleccionado.nombre
+      ) {
         ccClienteSeleccionado = null;
         if (ccInputId) ccInputId.value = "";
         if (ccInfo) ccInfo.innerHTML = "";
       }
       ccDebounce = setTimeout(() => buscarClientesCC(ccInputBuscar.value), 200);
     });
-    
+
     ccInputBuscar.addEventListener("keydown", (e) => {
       if (!ccDropdown || ccDropdown.style.display === "none") return;
-      
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         ccSelectedIdx = Math.min(ccSelectedIdx + 1, ccResults.length - 1);
@@ -1000,7 +981,7 @@ function medioEsEfectivo() {
         ocultarDropdownCC();
       }
     });
-    
+
     ccInputBuscar.addEventListener("blur", () => {
       setTimeout(() => {
         if (!ccDropdown?.matches(":hover")) ocultarDropdownCC();
@@ -1025,7 +1006,7 @@ function medioEsEfectivo() {
     if (!ccClienteSeleccionado) return null;
     return {
       id: ccClienteSeleccionado.id,
-      nombre: ccClienteSeleccionado.nombre
+      nombre: ccClienteSeleccionado.nombre,
     };
   }
 
@@ -1059,7 +1040,7 @@ function medioEsEfectivo() {
         split: splitActivo(),
         descGlobal,
         caja_id: CAJA_ID || 0,
-      })
+      }),
     );
   }
 
@@ -1076,16 +1057,20 @@ function medioEsEfectivo() {
 
       if (pagosRaw && pagosRaw.length) {
         const p1 = pagosRaw[0] || {};
-        if (selMedio && p1.medio) selMedio.value = String(p1.medio).toUpperCase();
-        if (inputPagado && p1.monto != null) inputPagado.value = String(p1.monto);
+        if (selMedio && p1.medio)
+          selMedio.value = String(p1.medio).toUpperCase();
+        if (inputPagado && p1.monto != null)
+          inputPagado.value = String(p1.monto);
 
         const split = !!data.split || pagosRaw.length > 1;
         setSplitActivo(split);
 
         if (split && pagosRaw.length > 1) {
           const p2 = pagosRaw[1] || {};
-          if (selMedio2 && p2.medio) selMedio2.value = String(p2.medio).toUpperCase();
-          if (inputPagado2 && p2.monto != null) inputPagado2.value = String(p2.monto);
+          if (selMedio2 && p2.medio)
+            selMedio2.value = String(p2.medio).toUpperCase();
+          if (inputPagado2 && p2.monto != null)
+            inputPagado2.value = String(p2.monto);
         }
       } else {
         // Legacy (por compat): medio + pagado
@@ -1117,7 +1102,7 @@ function medioEsEfectivo() {
 
     const headers = new Headers(opt.headers || {});
     if (!headers.has("Accept")) headers.set("Accept", "application/json");
-   const isFormData =
+    const isFormData =
       typeof FormData !== "undefined" && opt.body instanceof FormData;
 
     if (opt.body && !isFormData && !headers.has("Content-Type")) {
@@ -1127,9 +1112,8 @@ function medioEsEfectivo() {
     if (csrf) {
       if (!headers.has("X-CSRF-Token")) headers.set("X-CSRF-Token", csrf);
       if (!headers.has("X-CSRF-TOKEN")) headers.set("X-CSRF-TOKEN", csrf); // compat
-      if (!headers.has("X-CSRF")) headers.set("X-CSRF", csrf);             // compat
+      if (!headers.has("X-CSRF")) headers.set("X-CSRF", csrf); // compat
     }
-
 
     try {
       const res = await fetch(url, {
@@ -1152,13 +1136,18 @@ function medioEsEfectivo() {
         });
         throw new Error(`La API no devolvió JSON válido (HTTP ${res.status})`);
       }
-        // ✅ casos especiales muy comunes en FLUS
+      // ✅ casos especiales muy comunes en FLUS
       if (res.status === 409 && data?.error === "LOCK_NOT_OWNED") {
         throw new Error("LOCK_NOT_OWNED");
       }
-      if (!res.ok && String(data?.error || "").toUpperCase().includes("CSRF")) {
+      if (
+        !res.ok &&
+        String(data?.error || "")
+          .toUpperCase()
+          .includes("CSRF")
+      ) {
         throw new Error("CSRF");
-        }
+      }
 
       if (!res.ok) {
         const msg = data?.error || data?.message || `HTTP ${res.status}`;
@@ -1292,7 +1281,7 @@ function medioEsEfectivo() {
         const tolerance = it.esPesable ? 0.01 : 0;
         maxCombos = Math.min(
           maxCombos,
-          Math.floor((it.cantidad + tolerance) / req.cantidad)
+          Math.floor((it.cantidad + tolerance) / req.cantidad),
         );
       });
 
@@ -1337,7 +1326,7 @@ function medioEsEfectivo() {
         // Esperar hasta 2 segundos a que termine el sync actual
         let intentos = 0;
         while (sincronizandoConServidor && intentos < 20) {
-          await new Promise(r => setTimeout(r, 100));
+          await new Promise((r) => setTimeout(r, 100));
           intentos++;
         }
         // Si sigue ocupado después de esperar, continuar igual
@@ -1348,9 +1337,9 @@ function medioEsEfectivo() {
         return null;
       }
     }
-    
+
     const ahora = Date.now();
-    if (!forzar && (ahora - ultimaSincronizacion) < SYNC_DEBOUNCE_MS) {
+    if (!forzar && ahora - ultimaSincronizacion < SYNC_DEBOUNCE_MS) {
       return null;
     }
 
@@ -1364,16 +1353,16 @@ function medioEsEfectivo() {
 
     try {
       // ✅ FIX v2.1.2: Incluir precio manual para que el server lo respete
-      const itemsParaServidor = carrito.map(i => ({
+      const itemsParaServidor = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
-        precio: Number(i.precio) || Number(i.precioLista) || 0  // precio manual si existe
+        precio: Number(i.precio) || Number(i.precioLista) || 0, // precio manual si existe
       }));
 
       const fd = new FormData();
       fd.append("csrf_token", getCsrf());
       fd.append("items", JSON.stringify(itemsParaServidor));
-      
+
       // ✅ FIX v2.1.3: Solo enviar desc_global si tiene permiso
       // Esto es doble validación (el backend también rechaza)
       if (descGlobal && CAN_MOD_PRECIO) {
@@ -1382,33 +1371,38 @@ function medioEsEfectivo() {
 
       const response = await fetchJson(`${API_BASE}?action=calcular_carrito`, {
         method: "POST",
-        body: fd
+        body: fd,
       });
 
       if (response.ok && Array.isArray(response.items)) {
         // Actualizar carrito con precios del servidor
         response.items.forEach((serverItem, idx) => {
-          const localItem = carrito.find(c => Number(c.id) === Number(serverItem.producto_id));
+          const localItem = carrito.find(
+            (c) => Number(c.id) === Number(serverItem.producto_id),
+          );
           if (localItem) {
             // Actualizar con datos del servidor
             localItem.subtotalServidor = serverItem.subtotal || serverItem.neto;
             localItem.descuentoServidor = serverItem.descuento || 0;
-            localItem.promoServidor = serverItem.promo || '';
+            localItem.promoServidor = serverItem.promo || "";
           }
         });
 
         // Actualizar total con lo que dice el servidor
         totalNetoActual = Number(response.total_neto) || 0;
-        
+
         return {
           total_neto: response.total_neto,
           total_bruto: response.total_bruto,
           descuento_total: response.descuento_total,
-          items: response.items
+          items: response.items,
         };
       }
     } catch (e) {
-      console.warn("sincronizarCarritoConServidor error (usando cálculo local):", e);
+      console.warn(
+        "sincronizarCarritoConServidor error (usando cálculo local):",
+        e,
+      );
       // En caso de error, el cálculo local sigue funcionando como fallback
     } finally {
       sincronizandoConServidor = false;
@@ -1422,16 +1416,22 @@ function medioEsEfectivo() {
     if (carrito.length > 0) {
       // ✅ FIX v2.1.1: Guardar el total local ANTES de sincronizar
       const totalLocalAntes = Number(totalNetoActual) || 0;
-      
+
       const result = await sincronizarCarritoConServidor();
       if (result && result.total_neto !== undefined) {
         // Comparar con el total local PREVIO (no el actual, que ya fue actualizado)
         const diff = Math.abs(result.total_neto - totalLocalAntes);
         if (diff > 0.01) {
-          console.log(`Precios sincronizados: local=${totalLocalAntes} → servidor=${result.total_neto}`);
+          console.log(
+            `Precios sincronizados: local=${totalLocalAntes} → servidor=${result.total_neto}`,
+          );
           // Actualizar labels sin recalcular
-          if (lblTotal) lblTotal.textContent = formatearMoneda(result.total_neto);
-          if (lblTotalBruto) lblTotalBruto.textContent = formatearMoneda(result.total_bruto || 0);
+          if (lblTotal)
+            lblTotal.textContent = formatearMoneda(result.total_neto);
+          if (lblTotalBruto)
+            lblTotalBruto.textContent = formatearMoneda(
+              result.total_bruto || 0,
+            );
           recalcularVuelto();
         }
       }
@@ -1441,130 +1441,137 @@ function medioEsEfectivo() {
   // =========================
   // RENDER (con debounce)
   // =========================
-    function _actualizarVista() {
-      if (!tbodyTicket) return;
-      tbodyTicket.innerHTML = "";
+  function _actualizarVista() {
+    if (!tbodyTicket) return;
+    tbodyTicket.innerHTML = "";
 
-      const combos = aplicarCombos(carrito);
+    const combos = aplicarCombos(carrito);
 
-      let totalBruto = 0;
-      let totalNeto = 0;
-      let totalDescCombos = 0;
+    let totalBruto = 0;
+    let totalNeto = 0;
+    let totalDescCombos = 0;
 
+    // ✅ Helpers UI (solo para mostrar, NO cambia cálculos internos)
+    function unidadPrecioSuffix(u, esPesable) {
+      u = String(u || "").toUpperCase();
+      if (!esPesable) return "";
+      if (u === "G") return " / 100 g";
+      if (u === "ML") return " / 100 ml";
+      if (u === "KG") return " / kg";
+      if (u === "LT") return " / lt";
+      return ` / ${u}`;
+    }
 
-      // ✅ Helpers UI (solo para mostrar, NO cambia cálculos internos)
-      function unidadPrecioSuffix(u, esPesable) {
-        u = String(u || "").toUpperCase();
-        if (!esPesable) return "";
-        if (u === "G") return " / 100 g";
-        if (u === "ML") return " / 100 ml";
-        if (u === "KG") return " / kg";
-        if (u === "LT") return " / lt";
-        return ` / ${u}`;
+    function formatearCantidadUI(item) {
+      const cant = Number(item.cantidad) || 0;
+      const esPesable = !!item.esPesable;
+      const u = String(
+        item.unidadVenta || (esPesable ? "KG" : "UNID"),
+      ).toUpperCase();
+
+      if (!esPesable) {
+        const entero = Math.max(0, Math.round(cant));
+        return `${entero} UNID`;
       }
 
-      function formatearCantidadUI(item) {
-        const cant = Number(item.cantidad) || 0;
-        const esPesable = !!item.esPesable;
-        const u = String(item.unidadVenta || (esPesable ? "KG" : "UNID")).toUpperCase();
-
-        if (!esPesable) {
-          const entero = Math.max(0, Math.round(cant));
-          return `${entero} UNID`;
-        }
-
-        // G / ML (interno = “unidad de 100”)
-        if (u === "G") {
-          const gramos = Math.round(cant * 100);
-          return `${fmtInt0.format(gramos)} g`;
-        }
-        if (u === "ML") {
-          const ml = Math.round(cant * 100);
-          return `${fmtInt0.format(ml)} ml`;
-        }
-
-        // KG (interno en kg)
-        if (u === "KG") {
-          const kg = cant;
-          const kgInt = Math.floor(kg + 1e-9);
-          let g = Math.round((kg - kgInt) * 1000);
-
-          if (g >= 1000) { g -= 1000; } // ajuste por redondeo
-
-          if (kgInt <= 0) return `${fmtInt0.format(Math.max(g, 0))} g`;
-          if (g <= 0) return `${kgInt} kg`;
-          return `${kgInt} kg ${fmtInt0.format(g)} g`;
-        }
-
-        // LT (interno en litros)
-        if (u === "LT") {
-          const lt = cant;
-          const ltInt = Math.floor(lt + 1e-9);
-          let ml = Math.round((lt - ltInt) * 1000);
-
-          if (ml >= 1000) { ml -= 1000; } // ajuste por redondeo
-
-          if (ltInt <= 0) return `${fmtInt0.format(Math.max(ml, 0))} ml`;
-          if (ml <= 0) return `${ltInt} l`;
-          return `${ltInt} l ${fmtInt0.format(ml)} ml`;
-        }
-
-        // fallback
-        return `${fmtQty3.format(cant)} ${u}`;
+      // G / ML (interno = “unidad de 100”)
+      if (u === "G") {
+        const gramos = Math.round(cant * 100);
+        return `${fmtInt0.format(gramos)} g`;
+      }
+      if (u === "ML") {
+        const ml = Math.round(cant * 100);
+        return `${fmtInt0.format(ml)} ml`;
       }
 
-      // descuento combos (como antes): sumaLista - precio_combo
-      combos.forEach((cb) => {
-        const sumaLista = cb.combo.items.reduce((acc, it) => {
-          const prod = carrito.find((p) => Number(p.id) === it.producto_id);
-          if (!prod) return acc;
-          return acc + (Number(prod.precioLista) || 0) * it.cantidad;
-        }, 0);
+      // KG (interno en kg)
+      if (u === "KG") {
+        const kg = cant;
+        const kgInt = Math.floor(kg + 1e-9);
+        let g = Math.round((kg - kgInt) * 1000);
 
-        const descuentoUnit = sumaLista - cb.combo.precio_combo;
-        cb.descuento = descuentoUnit * cb.cantidad;
-        totalDescCombos += cb.descuento;
-      });
+        if (g >= 1000) {
+          g -= 1000;
+        } // ajuste por redondeo
 
-      carrito.forEach((item, idx) => {
-        const cant = Number(item.cantidad);
-        const lista = Number(item.precioLista) || 0;
-        const base = Number(item.precio) || 0;
+        if (kgInt <= 0) return `${fmtInt0.format(Math.max(g, 0))} g`;
+        if (g <= 0) return `${kgInt} kg`;
+        return `${kgInt} kg ${fmtInt0.format(g)} g`;
+      }
 
-        const subtotalOriginal = cant * lista;
-        let subtotalConPromo = cant * base;
+      // LT (interno en litros)
+      if (u === "LT") {
+        const lt = cant;
+        const ltInt = Math.floor(lt + 1e-9);
+        let ml = Math.round((lt - ltInt) * 1000);
 
-        const promo = aplicarPromosItem(item);
-        let descuentoPromo = 0;
-        let descNombre = null;
+        if (ml >= 1000) {
+          ml -= 1000;
+        } // ajuste por redondeo
 
-        // si hay promo: ignora descuento manual (como backend)
-        if (promo) {
-          subtotalConPromo = promo.subtotalFinal;
-          descuentoPromo = promo.descuento;
-          descNombre = promo.descripcion;
-        }
+        if (ltInt <= 0) return `${fmtInt0.format(Math.max(ml, 0))} ml`;
+        if (ml <= 0) return `${ltInt} l`;
+        return `${ltInt} l ${fmtInt0.format(ml)} ml`;
+      }
 
-        totalBruto += subtotalOriginal;
-        totalNeto += subtotalConPromo;
+      // fallback
+      return `${fmtQty3.format(cant)} ${u}`;
+    }
 
-        const tieneDescManual = !promo && Math.abs(base - lista) > 0.009;
+    // descuento combos (como antes): sumaLista - precio_combo
+    combos.forEach((cb) => {
+      const sumaLista = cb.combo.items.reduce((acc, it) => {
+        const prod = carrito.find((p) => Number(p.id) === it.producto_id);
+        if (!prod) return acc;
+        return acc + (Number(prod.precioLista) || 0) * it.cantidad;
+      }, 0);
 
-        const u = String(item.unidadVenta || (item.esPesable ? "KG" : "UNID")).toUpperCase();
-        const suf = unidadPrecioSuffix(u, !!item.esPesable);
+      const descuentoUnit = sumaLista - cb.combo.precio_combo;
+      cb.descuento = descuentoUnit * cb.cantidad;
+      totalDescCombos += cb.descuento;
+    });
 
-        const precioHtml = tieneDescManual
-          ? `<div>${formatearMoneda(base)}${suf}</div>
+    carrito.forEach((item, idx) => {
+      const cant = Number(item.cantidad);
+      const lista = Number(item.precioLista) || 0;
+      const base = Number(item.precio) || 0;
+
+      const subtotalOriginal = cant * lista;
+      let subtotalConPromo = cant * base;
+
+      const promo = aplicarPromosItem(item);
+      let descuentoPromo = 0;
+      let descNombre = null;
+
+      // si hay promo: ignora descuento manual (como backend)
+      if (promo) {
+        subtotalConPromo = promo.subtotalFinal;
+        descuentoPromo = promo.descuento;
+        descNombre = promo.descripcion;
+      }
+
+      totalBruto += subtotalOriginal;
+      totalNeto += subtotalConPromo;
+
+      const tieneDescManual = !promo && Math.abs(base - lista) > 0.009;
+
+      const u = String(
+        item.unidadVenta || (item.esPesable ? "KG" : "UNID"),
+      ).toUpperCase();
+      const suf = unidadPrecioSuffix(u, !!item.esPesable);
+
+      const precioHtml = tieneDescManual
+        ? `<div>${formatearMoneda(base)}${suf}</div>
             <div class="precio-lista">Lista: ${formatearMoneda(lista)}${suf}</div>`
-          : `${formatearMoneda(promo ? lista : base)}${suf}`;
+        : `${formatearMoneda(promo ? lista : base)}${suf}`;
 
-        // ✅ Si no tiene permiso, no mostrar botón Desc.
-        const btnDescHtml = CAN_MOD_PRECIO
-          ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
-          : "";
+      // ✅ Si no tiene permiso, no mostrar botón Desc.
+      const btnDescHtml = CAN_MOD_PRECIO
+        ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
+        : "";
 
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
           <td>${idx + 1}</td>
           <td>${item.codigo}</td>
           <td>${item.nombre}</td>
@@ -1577,66 +1584,67 @@ function medioEsEfectivo() {
             <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
           </td>
         `;
-        tbodyTicket.appendChild(tr);
+      tbodyTicket.appendChild(tr);
 
-        if (descNombre) {
-          const trPromo = document.createElement("tr");
-          trPromo.innerHTML = `
+      if (descNombre) {
+        const trPromo = document.createElement("tr");
+        trPromo.innerHTML = `
             <td colspan="7" class="promo-aplicada">
               Promo: ${descNombre} → -${formatearMoneda(descuentoPromo)}
             </td>`;
-          tbodyTicket.appendChild(trPromo);
-        }
-      });
+        tbodyTicket.appendChild(trPromo);
+      }
+    });
 
-      if (combos.length > 0) {
-        combos.forEach((cb) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
+    if (combos.length > 0) {
+      combos.forEach((cb) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
             <td colspan="7" class="promo-aplicada">
               Combo aplicado: ${cb.combo.nombre} x${cb.cantidad}
               → -${formatearMoneda(cb.descuento)}
             </td>`;
-          tbodyTicket.appendChild(tr);
-        });
-        totalNeto -= totalDescCombos;
-      }
+        tbodyTicket.appendChild(tr);
+      });
+      totalNeto -= totalDescCombos;
+    }
 
-      // normalizar
-      totalNeto = Math.max(0, Number(totalNeto.toFixed(2)));
+    // normalizar
+    totalNeto = Math.max(0, Number(totalNeto.toFixed(2)));
 
-      // descuento global al final
-      const descG = Number(calcDescGlobal(totalNeto).toFixed(2));
-      if (descG > 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
+    // descuento global al final
+    const descG = Number(calcDescGlobal(totalNeto).toFixed(2));
+    if (descG > 0) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
           <td colspan="7" class="promo-aplicada">
             Descuento global → -${formatearMoneda(descG)}
           </td>`;
-        tbodyTicket.appendChild(tr);
+      tbodyTicket.appendChild(tr);
 
-        totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
-      }
-
-      lblTotalBruto.textContent = formatearMoneda(totalBruto);
-      lblTotal.textContent = formatearMoneda(totalNeto);
-      lblDescGlobal.textContent = formatearMoneda(Math.max(0, totalBruto - totalNeto));
-
-      totalNetoActual = totalNeto;
-
-      ajustarPagoSegunMedio();
-      recalcularVuelto();
-      guardarEstado();
+      totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
     }
 
-    // ✅ Debounced version para inputs rápidos
-    const actualizarVista = debounce(_actualizarVista, 150);
+    lblTotalBruto.textContent = formatearMoneda(totalBruto);
+    lblTotal.textContent = formatearMoneda(totalNeto);
+    lblDescGlobal.textContent = formatearMoneda(
+      Math.max(0, totalBruto - totalNeto),
+    );
 
-    // Para cambios que necesitan render inmediato (agregar/quitar)
-    function actualizarVistaInmediata() {
-      _actualizarVista();
-    }
+    totalNetoActual = totalNeto;
 
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
+    guardarEstado();
+  }
+
+  // ✅ Debounced version para inputs rápidos
+  const actualizarVista = debounce(_actualizarVista, 150);
+
+  // Para cambios que necesitan render inmediato (agregar/quitar)
+  function actualizarVistaInmediata() {
+    _actualizarVista();
+  }
 
   // =========================
   // AGREGAR ITEM
@@ -1649,8 +1657,11 @@ function medioEsEfectivo() {
     async function resolverProductoPorTexto(q) {
       // Si viene muy corto, no buscamos
       if (!q || q.trim().length < 2) return null;
-      const r = await fetchJson(`${API_BASE}?action=buscar_productos&q=${encodeURIComponent(q)}&limit=8`);
-      if (!r?.ok || !Array.isArray(r.productos) || r.productos.length === 0) return null;
+      const r = await fetchJson(
+        `${API_BASE}?action=buscar_productos&q=${encodeURIComponent(q)}&limit=8`,
+      );
+      if (!r?.ok || !Array.isArray(r.productos) || r.productos.length === 0)
+        return null;
       // Tomamos el primer match (API ya viene ordenada por relevancia)
       return r.productos[0] || null;
     }
@@ -1658,18 +1669,25 @@ function medioEsEfectivo() {
     try {
       let data = null;
       try {
-        data = await fetchJson(`${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`);
+        data = await fetchJson(
+          `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`,
+        );
       } catch (e) {
         // Si no encontró por código exacto / nombre exacto, intentamos por autocompletado
         const msg = String(e?.message || "").toLowerCase();
-        const pareceNoEncontrado = msg.includes("no encontrado") || msg.includes("inactivo") || msg.includes("404");
+        const pareceNoEncontrado =
+          msg.includes("no encontrado") ||
+          msg.includes("inactivo") ||
+          msg.includes("404");
         const tieneLetras = /[a-záéíóúñü]/i.test(codigo);
 
         if (pareceNoEncontrado || tieneLetras) {
           const top = await resolverProductoPorTexto(codigo);
           if (top?.codigo) {
             // Reintentar con el código real
-            data = await fetchJson(`${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(top.codigo)}`);
+            data = await fetchJson(
+              `${API_BASE}?action=buscar_producto&codigo=${encodeURIComponent(top.codigo)}`,
+            );
           } else {
             throw e;
           }
@@ -1678,7 +1696,11 @@ function medioEsEfectivo() {
         }
       }
 
-      if (!data || !data.ok) return mostrarMensaje("error", data?.error || "Error al buscar producto");
+      if (!data || !data.ok)
+        return mostrarMensaje(
+          "error",
+          data?.error || "Error al buscar producto",
+        );
 
       const p = data.producto;
 
@@ -1691,15 +1713,20 @@ function medioEsEfectivo() {
       // ✅ Hint para el cajero (según unidad)
       aplicarHintCantidadInput(unidadVenta);
 
-      let cantidad = cantidadInternaDesdeInput(inputCant?.value || "1", unidadVenta, esPesable);
+      let cantidad = cantidadInternaDesdeInput(
+        inputCant?.value || "1",
+        unidadVenta,
+        esPesable,
+      );
 
       if (!Number.isFinite(cantidad) || cantidad <= 0) {
         // defaults “seguros”
-        if (esPesable && (unidadVenta === "G" || unidadVenta === "ML")) cantidad = 1; // 1 pack = 100g/100ml
-        else if (esPesable) cantidad = 0.1; // 0.1 kg/lt
+        if (esPesable && (unidadVenta === "G" || unidadVenta === "ML"))
+          cantidad = 1; // 1 pack = 100g/100ml
+        else if (esPesable)
+          cantidad = 0.1; // 0.1 kg/lt
         else cantidad = 1;
       }
-
 
       const existente = carrito.find((i) => Number(i.id) === Number(p.id));
       const enCarrito = existente ? Number(existente.cantidad) : 0;
@@ -1710,11 +1737,18 @@ function medioEsEfectivo() {
       if (enCarrito + cantidad > stock + tolStock) {
         const disponible = stock - enCarrito;
         if (disponible > 0) {
+          const _stockMsg =
+            `<p style="margin:6px 0">Pediste <strong style="color:var(--danger,#ef4444)">${cantidad} ${unidadVenta}</strong>, ` +
+            `solo hay <strong style="color:#fbbf24">${disponible} ${unidadVenta}</strong>.</p>` +
+            `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:8px">¿Agregamos lo disponible?</p>`;
           const agregar = await Notif.confirmar(
             "⚠️ Stock insuficiente",
-            `<p style="margin:4px 0">Solicitaste <strong style="color:var(--danger)">${cantidad} ${unidadVenta}</strong>, solo hay <strong style="color:var(--warning)">${disponible} ${unidadVenta}</strong> disponibles.</p>
-             <p style="color:var(--muted, #888);font-size:.9rem;margin-top:8px">¿Querés agregar las ${disponible} unidades disponibles?</p>`,
-            { icon: "warning", confirmText: `✅ Agregar ${disponible}`, cancelText: "❌ Cancelar" }
+            _stockMsg,
+            {
+              icon: "warning",
+              confirmText: `✅ Agregar ${disponible}`,
+              cancelText: "❌ Cancelar",
+            },
           );
           if (agregar) {
             cantidad = disponible;
@@ -1724,7 +1758,7 @@ function medioEsEfectivo() {
         } else {
           return mostrarMensaje(
             "error",
-            `No hay stock disponible de "${p.nombre}"`
+            `No hay stock disponible de "${p.nombre}"`,
           );
         }
       }
@@ -1753,7 +1787,9 @@ function medioEsEfectivo() {
       inputCodigo.value = "";
 
       // ✅ FIX dropdown: al limpiar por JS, disparar input para cancelar debounce/fetch y ocultar sugerencias
-      try { inputCodigo.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
+      try {
+        inputCodigo.dispatchEvent(new Event("input", { bubbles: true }));
+      } catch (_) {}
 
       // ✅ FIX: no dejar clavado 0.100
       if (inputCant) inputCant.value = "1";
@@ -1807,20 +1843,27 @@ function medioEsEfectivo() {
         if (opt.step != null) modalInput.step = String(opt.step);
 
         modalInput.value = opt.valorDefault ?? "";
-        
+
         // Mostrar info de stock si es edición de cantidad
         if (modalCurrentItem && opt.showStockInfo) {
           const stock = Number(modalCurrentItem.stock) || 0;
-          const unidad = modalCurrentItem.unidadVenta || (modalCurrentItem.esPesable ? "KG" : "UNID");
-          const stockTxt = modalCurrentItem.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
-          
+          const unidad =
+            modalCurrentItem.unidadVenta ||
+            (modalCurrentItem.esPesable ? "KG" : "UNID");
+          const stockTxt = modalCurrentItem.esPesable
+            ? fmtQty3.format(stock)
+            : String(Math.round(stock));
+
           // Crear info de stock debajo del input
           let stockInfoEl = document.getElementById("modal-stock-info-temp");
           if (!stockInfoEl) {
             stockInfoEl = document.createElement("div");
             stockInfoEl.id = "modal-stock-info-temp";
             stockInfoEl.className = "modal-stock-info";
-            modalInput.parentNode.insertBefore(stockInfoEl, modalInput.nextSibling);
+            modalInput.parentNode.insertBefore(
+              stockInfoEl,
+              modalInput.nextSibling,
+            );
           }
           stockInfoEl.innerHTML = `Stock disponible: <strong>${stockTxt} ${unidad}</strong>`;
           stockInfoEl.style.display = "";
@@ -1828,7 +1871,7 @@ function medioEsEfectivo() {
           const stockInfoEl = document.getElementById("modal-stock-info-temp");
           if (stockInfoEl) stockInfoEl.style.display = "none";
         }
-        
+
         setTimeout(() => modalInput.focus(), 20);
       } else {
         modalInputArea.classList.add("hidden");
@@ -1837,35 +1880,40 @@ function medioEsEfectivo() {
       modal.classList.remove("hidden");
     });
   }
-  
+
   // Validar stock en tiempo real dentro del modal
   function validarStockEnModal() {
     if (!modalCurrentItem || !modalStockAlert) return;
-    
-    const hasStock = modalCurrentItem.stock != null && modalCurrentItem.stock !== "";
+
+    const hasStock =
+      modalCurrentItem.stock != null && modalCurrentItem.stock !== "";
     if (!hasStock) return;
-    
+
     const stock = Number(modalCurrentItem.stock) || 0;
-    const unidad = modalCurrentItem.unidadVenta || (modalCurrentItem.esPesable ? "KG" : "UNID");
+    const unidad =
+      modalCurrentItem.unidadVenta ||
+      (modalCurrentItem.esPesable ? "KG" : "UNID");
     const tol = modalCurrentItem.esPesable ? 0.01 : 0;
-    
+
     let num;
     const val = modalInput.value;
-    
+
     if (modalCurrentItem.esPesable) {
       num = parseCantPesableFlex(val, unidad);
     } else {
       num = parseFloat(String(val).replace(",", "."));
       if (Number.isFinite(num)) num = Math.round(num);
     }
-    
+
     if (!Number.isFinite(num) || num <= 0) {
       modalStockAlert.classList.add("hidden");
       return;
     }
-    
-    const stockTxt = modalCurrentItem.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
-    
+
+    const stockTxt = modalCurrentItem.esPesable
+      ? fmtQty3.format(stock)
+      : String(Math.round(stock));
+
     if (num > stock + tol) {
       // Stock insuficiente - mostrar error
       modalStockAlert.className = "modal-stock-alert modal-stock-alert--error";
@@ -1878,7 +1926,7 @@ function medioEsEfectivo() {
         <span>¡Stock insuficiente! Máximo disponible: <strong>${stockTxt} ${unidad}</strong></span>
       `;
       modalStockAlert.classList.remove("hidden");
-      
+
       // Deshabilitar botón confirmar
       if (btnConfirm) {
         btnConfirm.disabled = true;
@@ -1886,7 +1934,8 @@ function medioEsEfectivo() {
       }
     } else if (num === stock) {
       // Usando todo el stock - warning
-      modalStockAlert.className = "modal-stock-alert modal-stock-alert--warning";
+      modalStockAlert.className =
+        "modal-stock-alert modal-stock-alert--warning";
       modalStockAlert.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/>
@@ -1896,7 +1945,7 @@ function medioEsEfectivo() {
         <span>Usarás todo el stock disponible (${stockTxt} ${unidad})</span>
       `;
       modalStockAlert.classList.remove("hidden");
-      
+
       // Habilitar botón
       if (btnConfirm) {
         btnConfirm.disabled = false;
@@ -1911,7 +1960,7 @@ function medioEsEfectivo() {
       }
     }
   }
-  
+
   // Event listener para validación en tiempo real
   modalInput?.addEventListener("input", validarStockEnModal);
 
@@ -1921,7 +1970,7 @@ function medioEsEfectivo() {
     modalResolver = null;
     modalIsInput = false;
     modalCurrentItem = null;
-    
+
     // Limpiar alerta y restaurar botón
     if (modalStockAlert) {
       modalStockAlert.classList.add("hidden");
@@ -1943,83 +1992,85 @@ function medioEsEfectivo() {
       cerrarModal(false);
   });
   // ✅ Parse decimal tolerante: "3,373" | "3.373" | "1.234,567"
-    function parseDecimalFlex(raw) {
-      let s = String(raw ?? "").trim();
-      if (!s) return NaN;
+  function parseDecimalFlex(raw) {
+    let s = String(raw ?? "").trim();
+    if (!s) return NaN;
 
-      s = s.replace(/\s+/g, "");
+    s = s.replace(/\s+/g, "");
 
-      const lastComma = s.lastIndexOf(",");
-      const lastDot = s.lastIndexOf(".");
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
 
-      // si hay ambos, el último es decimal y el otro miles
-      if (lastComma > -1 && lastDot > -1) {
-        const dec = lastComma > lastDot ? "," : ".";
-        const parts = s.split(dec);
-        const intPart = parts.slice(0, -1).join(dec).replace(/[.,]/g, "");
-        const fracPart = parts[parts.length - 1].replace(/[.,]/g, "");
-        return parseFloat(intPart + "." + fracPart);
-      }
-
-      // si hay uno solo, lo tratamos como decimal
-      if (lastComma > -1) return parseFloat(s.replace(/\./g, "").replace(",", "."));
-      if (lastDot > -1) return parseFloat(s.replace(/,/g, "")); // deja el punto como decimal
-
-      return parseFloat(s);
+    // si hay ambos, el último es decimal y el otro miles
+    if (lastComma > -1 && lastDot > -1) {
+      const dec = lastComma > lastDot ? "," : ".";
+      const parts = s.split(dec);
+      const intPart = parts.slice(0, -1).join(dec).replace(/[.,]/g, "");
+      const fracPart = parts[parts.length - 1].replace(/[.,]/g, "");
+      return parseFloat(intPart + "." + fracPart);
     }
 
-    // ✅ Cantidad pesable flexible según unidad (KG/LT/G(100g)/ML(100ml))
-    // - admite sufijos: g, kg, ml, l/lt
-    // - si unidad es G o ML y no hay sufijo: 3 = "3x100" ; 300 = "300g/ml" (heurística)
-    function parseCantPesableFlex(raw, unidadVenta) {
-      let s = String(raw ?? "").trim().toLowerCase();
-      if (!s) return NaN;
-      s = s.replace(/\s+/g, "");
+    // si hay uno solo, lo tratamos como decimal
+    if (lastComma > -1)
+      return parseFloat(s.replace(/\./g, "").replace(",", "."));
+    if (lastDot > -1) return parseFloat(s.replace(/,/g, "")); // deja el punto como decimal
 
-      const m = s.match(/^([0-9.,]+)(kg|g|lt|l|ml)?$/i);
-      if (!m) return NaN;
+    return parseFloat(s);
+  }
 
-      const n = parseDecimalFlex(m[1]);
-      if (!Number.isFinite(n)) return NaN;
+  // ✅ Cantidad pesable flexible según unidad (KG/LT/G(100g)/ML(100ml))
+  // - admite sufijos: g, kg, ml, l/lt
+  // - si unidad es G o ML y no hay sufijo: 3 = "3x100" ; 300 = "300g/ml" (heurística)
+  function parseCantPesableFlex(raw, unidadVenta) {
+    let s = String(raw ?? "")
+      .trim()
+      .toLowerCase();
+    if (!s) return NaN;
+    s = s.replace(/\s+/g, "");
 
-      const suf = (m[2] || "").toLowerCase();
-      const u = String(unidadVenta || "KG").toUpperCase();
+    const m = s.match(/^([0-9.,]+)(kg|g|lt|l|ml)?$/i);
+    if (!m) return NaN;
 
-      // Sin sufijo: interpretar según unidad
-      // Sin sufijo: interpretar según unidad
-      if (!suf) {
-        if (u === "G")  return n >= 20 ? (n / 100) : n;    // 300 => 3 (x100g)
-        if (u === "ML") return n >= 20 ? (n / 100) : n;    // 800 => 8 (x100ml)
+    const n = parseDecimalFlex(m[1]);
+    if (!Number.isFinite(n)) return NaN;
 
-        if (u === "KG") return n >= 50 ? (n / 1000) : n;   // 3373 => 3.373 kg
-        if (u === "LT") return n >= 50 ? (n / 1000) : n;   // 700  => 0.700 lt
+    const suf = (m[2] || "").toLowerCase();
+    const u = String(unidadVenta || "KG").toUpperCase();
 
-        return n;
-      }
+    // Sin sufijo: interpretar según unidad
+    // Sin sufijo: interpretar según unidad
+    if (!suf) {
+      if (u === "G") return n >= 20 ? n / 100 : n; // 300 => 3 (x100g)
+      if (u === "ML") return n >= 20 ? n / 100 : n; // 800 => 8 (x100ml)
 
-
-      // Con sufijo: convertir a tu unidad interna
-      if (suf === "g") {
-        if (u === "KG") return n / 1000;
-        if (u === "G")  return n / 100;
-        return n;
-      }
-      if (suf === "kg") {
-        if (u === "G") return (n * 1000) / 100; // kg -> (100g)
-        return n;
-      }
-      if (suf === "ml") {
-        if (u === "LT") return n / 1000;
-        if (u === "ML") return n / 100;
-        return n;
-      }
-      if (suf === "l" || suf === "lt") {
-        if (u === "ML") return (n * 1000) / 100; // litros -> (100ml)
-        return n;
-      }
+      if (u === "KG") return n >= 50 ? n / 1000 : n; // 3373 => 3.373 kg
+      if (u === "LT") return n >= 50 ? n / 1000 : n; // 700  => 0.700 lt
 
       return n;
     }
+
+    // Con sufijo: convertir a tu unidad interna
+    if (suf === "g") {
+      if (u === "KG") return n / 1000;
+      if (u === "G") return n / 100;
+      return n;
+    }
+    if (suf === "kg") {
+      if (u === "G") return (n * 1000) / 100; // kg -> (100g)
+      return n;
+    }
+    if (suf === "ml") {
+      if (u === "LT") return n / 1000;
+      if (u === "ML") return n / 100;
+      return n;
+    }
+    if (suf === "l" || suf === "lt") {
+      if (u === "ML") return (n * 1000) / 100; // litros -> (100ml)
+      return n;
+    }
+
+    return n;
+  }
 
   // =========================
   // EDITAR / QUITAR / DESCUENTO ITEM
@@ -2042,28 +2093,31 @@ function medioEsEfectivo() {
       const min = item.esPesable ? "0.001" : "1";
 
       // ✅ Hints para el cajero
-      const hint =
-        item.esPesable
-          ? (unidad === "KG" ? "Ej: 3,373  |  3.373  |  3373g"
-            : unidad === "LT" ? "Ej: 0,700  |  0.7  |  700ml"
-            : unidad === "G"  ? "Ej: 3 (x100g)  |  300  |  300g"
-            : unidad === "ML" ? "Ej: 8 (x100ml) | 800  | 800ml"
-            : "")
-          : "";
+      const hint = item.esPesable
+        ? unidad === "KG"
+          ? "Ej: 3,373  |  3.373  |  3373g"
+          : unidad === "LT"
+            ? "Ej: 0,700  |  0.7  |  700ml"
+            : unidad === "G"
+              ? "Ej: 3 (x100g)  |  300  |  300g"
+              : unidad === "ML"
+                ? "Ej: 8 (x100ml) | 800  | 800ml"
+                : ""
+        : "";
 
       mostrarModal({
         titulo: "Editar cantidad",
         texto: hint ? `${item.nombre}\n${hint}` : item.nombre,
         input: true,
         valorDefault: item.esPesable
-        ? String(cantidadHumanaDesdeInterna(item.cantidad, unidad, true))
-        : item.cantidad,
+          ? String(cantidadHumanaDesdeInterna(item.cantidad, unidad, true))
+          : item.cantidad,
 
         // ✅ CLAVE: para pesables usamos TEXT para que NO te “coma” el punto
         inputType: item.esPesable ? "text" : "number",
         min,
         step,
-        
+
         // ✅ NUEVO: pasar item para validación de stock en tiempo real
         item: item,
         showStockInfo: true,
@@ -2095,8 +2149,13 @@ function medioEsEfectivo() {
           const tol = item.esPesable ? 0.01 : 0;
 
           if (num > stock + tol) {
-            const maxTxt = item.esPesable ? fmtQty3.format(stock) : String(Math.round(stock));
-            mostrarMensaje("error", `Stock insuficiente. Máximo: ${maxTxt} ${unidad}`);
+            const maxTxt = item.esPesable
+              ? fmtQty3.format(stock)
+              : String(Math.round(stock));
+            mostrarMensaje(
+              "error",
+              `Stock insuficiente. Máximo: ${maxTxt} ${unidad}`,
+            );
             num = stock;
           }
 
@@ -2114,7 +2173,6 @@ function medioEsEfectivo() {
       return;
     }
 
-
     // -------------------------
     // DESCUENTO / CAMBIAR PRECIO
     // -------------------------
@@ -2122,7 +2180,7 @@ function medioEsEfectivo() {
       if (!CAN_MOD_PRECIO) {
         mostrarMensaje(
           "error",
-          "No tenés permisos para aplicar descuento manual / cambiar precio."
+          "No tenés permisos para aplicar descuento manual / cambiar precio.",
         );
         return;
       }
@@ -2135,7 +2193,7 @@ function medioEsEfectivo() {
       if (promosPorProducto[String(item.id)]) {
         mostrarMensaje(
           "warning",
-          "⚠️ Este producto tiene promoción activa. El descuento manual no aplicará."
+          "⚠️ Este producto tiene promoción activa. El descuento manual no aplicará.",
         );
       }
 
@@ -2222,7 +2280,7 @@ function medioEsEfectivo() {
     if (!CAN_MOD_PRECIO) {
       mostrarMensaje(
         "error",
-        "No tenés permisos para aplicar descuento global."
+        "No tenés permisos para aplicar descuento global.",
       );
       return;
     }
@@ -2267,8 +2325,8 @@ function medioEsEfectivo() {
         return mostrarMensaje(
           "error",
           `El descuento no puede superar el total (${formatearMoneda(
-            totalNetoActual
-          )})`
+            totalNetoActual,
+          )})`,
         );
       }
 
@@ -2306,25 +2364,31 @@ function medioEsEfectivo() {
       // El servidor es la FUENTE DE VERDAD para los precios
       mostrarMensaje("info", "Verificando precios...");
       const syncResult = await sincronizarCarritoConServidor(true);
-      
+
       // ✅ IMPORTANTE: Guardamos el total del servidor en variable separada
       // para evitar que se pise con cálculos locales
       let totalConfirmado = Number(totalNetoActual) || 0;
-      
+
       if (syncResult && syncResult.total_neto !== undefined) {
         totalConfirmado = Number(syncResult.total_neto) || 0;
-        
+
         // Actualizar UI sin recalcular (solo mostrar)
         if (lblTotal) lblTotal.textContent = formatearMoneda(totalConfirmado);
-        if (lblTotalBruto) lblTotalBruto.textContent = formatearMoneda(Number(syncResult.total_bruto) || 0);
-        if (lblDescGlobal) lblDescGlobal.textContent = formatearMoneda(Number(syncResult.descuento_total) || 0);
-        
+        if (lblTotalBruto)
+          lblTotalBruto.textContent = formatearMoneda(
+            Number(syncResult.total_bruto) || 0,
+          );
+        if (lblDescGlobal)
+          lblDescGlobal.textContent = formatearMoneda(
+            Number(syncResult.descuento_total) || 0,
+          );
+
         // Guardar el total confirmado
         totalNetoActual = totalConfirmado;
       }
-      
+
       limpiarMensaje();
-      
+
       // ✅ Usar totalConfirmado (no totalNetoActual que podría pisarse)
       const totalUI = totalConfirmado;
 
@@ -2348,16 +2412,22 @@ function medioEsEfectivo() {
       if (tieneCC()) {
         const clienteCC = getClienteCC();
         if (!clienteCC || !clienteCC.id) {
-          return mostrarMensaje("error", "Seleccioná un cliente para la cuenta corriente");
+          return mostrarMensaje(
+            "error",
+            "Seleccioná un cliente para la cuenta corriente",
+          );
         }
-        
+
         // Validar disponibilidad
         mostrarMensaje("info", "Verificando crédito disponible...");
         const validacionCC = await validarDisponibilidadCC();
         limpiarMensaje();
-        
+
         if (!validacionCC.ok) {
-          return mostrarMensaje("error", validacionCC.error || "Error validando cuenta corriente");
+          return mostrarMensaje(
+            "error",
+            validacionCC.error || "Error validando cuenta corriente",
+          );
         }
       }
 
@@ -2368,7 +2438,7 @@ function medioEsEfectivo() {
       if (vuelto > 0.009 && efectivo + 0.0001 < vuelto) {
         return mostrarMensaje(
           "error",
-          "El vuelto supera el efectivo ingresado (agregá/ajustá EFECTIVO)"
+          "El vuelto supera el efectivo ingresado (agregá/ajustá EFECTIVO)",
         );
       }
 
@@ -2398,7 +2468,7 @@ function medioEsEfectivo() {
         monto_pagado: Number(totalPag.toFixed(2)),
       };
 
-     const fd = new FormData();
+      const fd = new FormData();
       fd.append("csrf_token", token);
       fd.append("csrf", token); // compat
       fd.append("caja_id", String(CAJA_ID));
@@ -2407,7 +2477,7 @@ function medioEsEfectivo() {
       fd.append("pagos", JSON.stringify(pagos));
       fd.append("medio_pago", medioCompat);
       fd.append("monto_pagado", String(Number(totalPag.toFixed(2))));
-      
+
       // ✅ Cliente para Cuenta Corriente
       if (tieneCC()) {
         const clienteCC = getClienteCC();
@@ -2420,7 +2490,6 @@ function medioEsEfectivo() {
         method: "POST",
         body: fd,
       });
-
 
       if (!data?.ok)
         return mostrarMensaje("error", data?.error || "Error en la API");
@@ -2435,7 +2504,7 @@ function medioEsEfectivo() {
       if (selMedio) selMedio.value = "EFECTIVO";
       if (inputPagado) inputPagado.value = "";
       setSplitActivo(false);
-      
+
       // ✅ Limpiar cliente CC
       limpiarClienteCC();
       actualizarVisibilidadCC();
@@ -2449,7 +2518,7 @@ function medioEsEfectivo() {
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
       iframe.src = `ticket.php?venta_id=${encodeURIComponent(
-        ventaId
+        ventaId,
       )}&paper=${getPaper()}&autoprint=1`;
       document.body.appendChild(iframe);
 
@@ -2458,7 +2527,10 @@ function medioEsEfectivo() {
       if (data.cc && data.cc.cliente_nombre) {
         msgExtra = ` · Cargado a CC de ${data.cc.cliente_nombre}`;
       }
-      mostrarMensaje("success", `✓ Venta #${ventaId} registrada correctamente${msgExtra}`);
+      mostrarMensaje(
+        "success",
+        `✓ Venta #${ventaId} registrada correctamente${msgExtra}`,
+      );
     } catch (e) {
       console.error("Error registrar venta:", e);
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
@@ -2474,15 +2546,18 @@ function medioEsEfectivo() {
   // =========================
   // CANCELAR
   // =========================
-
   async function cancelarVenta() {
     if (carrito.length > 0) {
-      const cant = carrito.length;
-      const plural = cant > 1 ? "s" : "";
+      const _n = carrito.length;
       const ok = await Notif.confirmar(
         "🗑️ Cancelar venta",
-        `<p>Se eliminarán los <strong>${cant} producto${plural}</strong> del ticket.</p><p style="color:var(--muted, #888);font-size:.9rem;margin-top:6px">Esta acción no se puede deshacer.</p>`,
-        { icon: "warning", confirmText: "🗑️ Sí, cancelar", cancelText: "Volver" }
+        `<p>Se eliminarán los <strong>${_n} producto${_n > 1 ? "s" : ""}</strong> del ticket.</p>` +
+          `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:6px">Esta acción no se puede deshacer.</p>`,
+        {
+          icon: "warning",
+          confirmText: "🗑️ Sí, cancelar",
+          cancelText: "Volver",
+        },
       );
       if (!ok) return;
     }
@@ -2490,11 +2565,11 @@ function medioEsEfectivo() {
     descGlobal = null;
     localStorage.removeItem(STORAGE_KEY);
     if (inputPagado) inputPagado.value = "";
-    
+
     // ✅ Limpiar cliente CC
     limpiarClienteCC();
     actualizarVisibilidadCC();
-    
+
     actualizarVistaInmediata();
     inputCodigo?.focus?.();
   }
@@ -2525,11 +2600,10 @@ function medioEsEfectivo() {
   });
 
   inputPagado2?.addEventListener("input", () => {
-  if (inputPagado2) inputPagado2.dataset.auto = "0"; // ✅ ya no autocompletar
-  recalcularVuelto();
-  guardarEstado();
+    if (inputPagado2) inputPagado2.dataset.auto = "0"; // ✅ ya no autocompletar
+    recalcularVuelto();
+    guardarEstado();
   });
-
 
   selMedio?.addEventListener("change", () => {
     actualizarVisibilidadCC();
@@ -2546,26 +2620,25 @@ function medioEsEfectivo() {
   });
 
   btnAgregarPago?.addEventListener("click", () => {
-  setSplitActivo(true);
+    setSplitActivo(true);
 
-  // ✅ Si el medio 2 está en EFECTIVO (default), sugerimos MP (opcional pero re útil)
-  if (selMedio2 && selMedio2.value === "EFECTIVO") selMedio2.value = "MP";
+    // ✅ Si el medio 2 está en EFECTIVO (default), sugerimos MP (opcional pero re útil)
+    if (selMedio2 && selMedio2.value === "EFECTIVO") selMedio2.value = "MP";
 
-  // ✅ Autocompletar lo que falta en el pago 2
-  if (inputPagado2) {
-    const total = Number(totalNetoActual) || 0;
-    const a1 = parseMonto(inputPagado?.value || "0");
-    const falta2 = Math.max(total - a1, 0);
-    inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
-    inputPagado2.dataset.auto = "1";
-  }
+    // ✅ Autocompletar lo que falta en el pago 2
+    if (inputPagado2) {
+      const total = Number(totalNetoActual) || 0;
+      const a1 = parseMonto(inputPagado?.value || "0");
+      const falta2 = Math.max(total - a1, 0);
+      inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
+      inputPagado2.dataset.auto = "1";
+    }
 
-  inputPagado2?.focus?.();
-  ajustarPagoSegunMedio();
-  recalcularVuelto();
-  guardarEstado();
+    inputPagado2?.focus?.();
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
+    guardarEstado();
   });
-
 
   btnQuitarPago2?.addEventListener("click", () => {
     setSplitActivo(false);

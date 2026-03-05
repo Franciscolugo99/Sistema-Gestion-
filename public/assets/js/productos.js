@@ -549,9 +549,23 @@ const ProductosManager = {
 
         // Click fuera cierra
         const overlay = document.getElementById('editOverlay');
-        overlay?.addEventListener('click', (e) => {
-            if (e.target === overlay) this.closeEdit();
-        });
+        overlay?.addEventListener('mousedown', (e) => {
+            // Si hay cambios sin guardar, bloqueamos el cierre por click afuera
+            if (e.target === overlay && this.state?.editFormDirty) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+
+        overlay?.addEventListener('click', async (e) => {
+            if (e.target !== overlay) return;
+            // Capturamos y frenamos otros handlers que puedan cerrar el overlay
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            await this.closeEdit(e);
+        }, true);
     },
 
     async openEdit(id) {
@@ -581,6 +595,9 @@ const ProductosManager = {
             if (!producto?.id) throw new Error('Datos inválidos');
 
             this.populateEditForm(producto);
+            // ✅ FIX: populateEditForm dispara eventos change/input al llenar campos.
+            // Reseteamos el flag DESPUÉS de poblar para no marcar como "sucio" de entrada.
+            this.state.editFormDirty = false;
 
             if (loading) loading.style.display = 'none';
             form.style.display = 'block';
@@ -593,7 +610,7 @@ const ProductosManager = {
         } catch (err) {
             console.error('[ProductosManager] Error loading product:', err);
             this.showToast(err.message || 'Error al cargar producto', 'error');
-            this.closeEdit();
+            this.closeEdit(e);
         }
     },
 
@@ -685,7 +702,7 @@ const ProductosManager = {
             // Actualizar fila
             this.updateRowInTable(data.data);
 
-            this.closeEdit();
+            this.closeEdit(e);
             this.loadStats();
 
         } catch (err) {
@@ -698,10 +715,28 @@ const ProductosManager = {
         }
     },
 
-    closeEdit() {
+    async closeEdit(e) {
+        // confirm async: frenamos click/propagación
+        if (e) { e.preventDefault?.(); e.stopPropagation?.(); }
+        // si hay SweetAlert visible, no cierres por detrás
+        if (window.Swal && typeof Swal.isVisible === "function" && Swal.isVisible()) return;
+
+        // ✅ FIX: Guardia contra re-entrada.
+        // Cuando SweetAlert2 se cierra, el click puede burbujear hasta #editOverlay
+        // y disparar closeEdit() una segunda vez antes de que la primera resuelva.
+        if (this._closeDialogOpen) return;
+
         if (this.state.editFormDirty) {
-            if (!confirm('Hay cambios sin guardar. ¿Cerrar de todos modos?')) {
-                return;
+            this._closeDialogOpen = true;
+            try {
+                const ok = await Notif.confirmar(
+                  '⚠️ Cambios sin guardar',
+                  '<p>Hay cambios sin guardar. ¿Cerrar de todos modos?</p>',
+                  { icon: 'warning', confirmText: '✅ Cerrar igual', cancelText: '❌ Quedarme' }
+                );
+                if (!ok) return;
+            } finally {
+                this._closeDialogOpen = false;
             }
         }
 
@@ -1889,7 +1924,7 @@ bindKeyboardShortcuts() {
                 if (confirmModal?.classList.contains('open')) {
                     this.closeConfirm();
                 } else if (editOverlay?.classList.contains('open')) {
-                    this.closeEdit();
+                    this.closeEdit(e);
                 }
             }
         });
