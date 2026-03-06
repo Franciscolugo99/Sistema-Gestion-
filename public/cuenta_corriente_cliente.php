@@ -39,8 +39,47 @@ $filtros = [
     'incluir_anulados' => isset($_GET['incluir_anulados']),
 ];
 
+
+// Jump a un movimiento (original/reversa) incluso si está en otra página o anulado.
+// NOTA: el fragment (#mov-ID) no viaja al servidor, por eso usamos focus_mov y redirigimos.
+$focusMov = isset($_GET['focus_mov']) ? (int)$_GET['focus_mov'] : 0;
+if ($focusMov > 0) {
+    $stFocus = $pdo->prepare("SELECT id, created_at FROM cuenta_corriente_movimientos WHERE id = ? AND cliente_id = ? LIMIT 1");
+    $stFocus->execute([$focusMov, $clienteId]);
+    $rowFocus = $stFocus->fetch(PDO::FETCH_ASSOC);
+    if ($rowFocus) {
+        $perPage = (int)($filtros['per_page'] ?? 30);
+
+        // Cantidad de movimientos "más nuevos" (orden DESC por created_at, id) para calcular página
+        $stRank = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM cuenta_corriente_movimientos m
+            WHERE m.cliente_id = ?
+              AND (m.created_at > ? OR (m.created_at = ? AND m.id > ?))
+        ");
+        $stRank->execute([$clienteId, $rowFocus['created_at'], $rowFocus['created_at'], (int)$rowFocus['id']]);
+        $rank = (int)$stRank->fetchColumn();
+        $pageFocus = intdiv($rank, $perPage) + 1;
+
+        // Redirigir a una vista que garantice que el movimiento exista en el listado
+        $q = $_GET;
+        $q['page'] = $pageFocus;
+        $q['per_page'] = $perPage;
+        $q['incluir_anulados'] = 1;
+        unset($q['tipo'], $q['desde'], $q['hasta'], $q['focus_mov']);
+        $url = 'cuenta_corriente_cliente.php' . (empty($q) ? '' : '?' . http_build_query($q)) . '#mov-' . $focusMov;
+        header('Location: ' . $url);
+        exit;
+    }
+}
+
 $resultado = $cc->getMovimientos($clienteId, $filtros);
 $movimientos = $resultado['movimientos'];
+
+// IDs presentes en la página actual (para decidir entre salto local o focus_mov)
+$idsOnPage = [];
+foreach ($movimientos as $m0) { $idsOnPage[(int)($m0['id'] ?? 0)] = true; }
+
 $totalPages = $resultado['pages'];
 
 
@@ -306,10 +345,12 @@ require __DIR__ . '/partials/header.php';
               $movId = (int)$mov['id'];
               if ($tipo === 'REVERSA' && !empty($mov['reversa_de_id'])) {
                   $origId = (int)$mov['reversa_de_id'];
-                  $concepto .= ' <a class="rel-link" href="#mov-' . $origId . '" title="Ir al movimiento original">↩ Original #' . $origId . '</a>';
+                  $hrefOrig = isset($idsOnPage[$origId]) ? '#mov-' . $origId : urlEstado(['focus_mov' => $origId]);
+                  $concepto .= ' <a class="rel-link" href="' . h($hrefOrig) . '" title="Ir al movimiento original">↩ Original #' . $origId . '</a>';
               } elseif ($esAnulado && isset($reversaByOriginal[$movId])) {
                   $revId = (int)$reversaByOriginal[$movId];
-                  $concepto .= ' <a class="rel-link" href="#mov-' . $revId . '" title="Ir a la reversa asociada">↪ Reversa #' . $revId . '</a>';
+                  $hrefRev = isset($idsOnPage[$revId]) ? '#mov-' . $revId : urlEstado(['focus_mov' => $revId]);
+                  $concepto .= ' <a class="rel-link" href="' . h($hrefRev) . '" title="Ir a la reversa asociada">↪ Reversa #' . $revId . '</a>';
               }
 
               $rowClass = $esAnulado ? 'row-anulado' : '';

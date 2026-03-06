@@ -187,7 +187,16 @@ function flus_apply_migrations(PDO $pdo, string $migrationsDir, bool $allowBasel
     'baseline' => [],
   ];
 
-  // Baseline si DB ya tiene tablas
+  // Guardrail: en releases actuales, la instalación limpia se hace importando install.sql.
+  // Si la DB está vacía, correr migraciones sin baseline suele fallar (porque las migraciones asumen tablas existentes).
+  if (!$dbHasTables) {
+    throw new RuntimeException(
+      "DB vacía. Primero importá install.sql (baseline) y luego corré scripts/migrate.php."
+    );
+  }
+
+  // Legacy compat: en versiones antiguas existía migrations/001_init_schema.sql.
+  // Si por algún motivo está presente en el paquete, lo marcamos como aplicado para no ejecutarlo en instalaciones existentes.
   if ($dbHasTables && $allowBaseline) {
     $baseName = '001_init_schema.sql';
     $basePath = rtrim($migrationsDir, '/\\') . '/' . $baseName;
