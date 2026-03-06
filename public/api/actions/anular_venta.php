@@ -322,56 +322,54 @@ try {
   }
 
   if (!$ventaYaAnulada) {
-  // 2) Reponer stock (si existen tablas)
-  // -------------------------
-  if (flus_has_table($pdo, 'venta_items') && flus_has_table($pdo, 'productos')) {
-    $stIt = $pdo->prepare("SELECT producto_id, cantidad FROM venta_items WHERE venta_id = ?");
-    $stIt->execute([$ventaId]);
-    $items = $stIt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    // -------------------------
+    // 3) Reponer stock (si existen tablas)
+    // -------------------------
+    if (flus_has_table($pdo, 'venta_items') && flus_has_table($pdo, 'productos')) {
+      $stIt = $pdo->prepare("SELECT producto_id, cantidad FROM venta_items WHERE venta_id = ?");
+      $stIt->execute([$ventaId]);
+      $items = $stIt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    if ($items) {
-      $stProd = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
+      if ($items) {
+        $stProd = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
+        foreach ($items as $it) {
+          $pid = (int)($it['producto_id'] ?? 0);
+          $qty = (float)($it['cantidad'] ?? 0);
+          if ($pid > 0 && $qty > 0) {
+            $stProd->execute([':qty' => $qty, ':pid' => $pid]);
+          }
+        }
+      }
+    }
+
+    // -------------------------
+    // 3b) Registrar movimientos_stock (para auditoría / módulo Movimientos)
+    // -------------------------
+    if (flus_has_table($pdo, 'movimientos_stock') && $items) {
+      $comBase = "Anulación venta #{$ventaId}" . ($motivo !== '' ? (": " . mb_substr($motivo, 0, 180)) : "");
       foreach ($items as $it) {
         $pid = (int)($it['producto_id'] ?? 0);
         $qty = (float)($it['cantidad'] ?? 0);
         if ($pid > 0 && $qty > 0) {
-          $stProd->execute([':qty' => $qty, ':pid' => $pid]);
+          // En ventas guardamos cantidad positiva (el signo lo normaliza el visor por tipo)
+          if (function_exists('insert_dynamic')) {
+            insert_dynamic($pdo, 'movimientos_stock', [
+              'producto_id'         => $pid,
+              'tipo'                => 'ANULACION',
+              'cantidad'            => $qty,
+              'venta_id'            => $ventaId,
+              'referencia_venta_id' => $ventaId,
+              'comentario'          => $comBase,
+              'fecha'               => date('Y-m-d H:i:s'),
+            ]);
+          }
         }
       }
     }
-  }
-
-
-  // -------------------------
-  // 2b) Registrar movimientos_stock (para auditoría / módulo Movimientos)
-  // -------------------------
-  if (flus_has_table($pdo, 'movimientos_stock') && $items) {
-    $comBase = "Anulación venta #{$ventaId}" . ($motivo !== '' ? (": " . mb_substr($motivo, 0, 180)) : "");
-    foreach ($items as $it) {
-      $pid = (int)($it['producto_id'] ?? 0);
-      $qty = (float)($it['cantidad'] ?? 0);
-      if ($pid > 0 && $qty > 0) {
-        // En ventas guardamos cantidad positiva (el signo lo normaliza el visor por tipo)
-        if (function_exists('insert_dynamic')) {
-          insert_dynamic($pdo, 'movimientos_stock', [
-            'producto_id'         => $pid,
-            'tipo'                => 'ANULACION',
-            'cantidad'            => $qty,
-            'venta_id'            => $ventaId,
-            'referencia_venta_id' => $ventaId,
-            'comentario'          => $comBase,
-            'fecha'               => date('Y-m-d H:i:s'),
-          ]);
-
-  }
-
-     }
-      }
-    }
-  }
+  } // end if (!$ventaYaAnulada) — stock restoration
 
   // -------------------------
-  // 3) Caja: no insertamos movimientos manuales.
+  // 4) Caja: no insertamos movimientos manuales.
   // Al anular, la venta pasa a estado ANULADA y queda fuera de los cálculos de caja (cierre y resumen).
   // Eso evita dobles conteos y mantiene el saldo esperado alineado con lo real.
   // -------------------------

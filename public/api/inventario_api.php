@@ -57,9 +57,12 @@ try {
         case 'top_inversion':
             $limit = min(500, max(1, (int)($_GET['limit'] ?? 25)));
             $filtros = [
-                'categoria' => $_GET['categoria'] ?? '',
-                'proveedor_id' => $_GET['proveedor_id'] ?? null,
-                'busqueda' => $_GET['q'] ?? '',
+                'categoria'   => $_GET['categoria'] ?? '',
+                'proveedor_id'=> $_GET['proveedor_id'] ?? null,
+                'busqueda'    => $_GET['q'] ?? '',
+                // C1 FIX: propagar margen_min al método getTopInversion()
+                // y a contarProductosConCosto() para que el total paginado coincida.
+                'margen_min'  => $_GET['margen_min'] ?? '',
             ];
             json_ok([
                 'productos' => $analisis->getTopInversion($limit, $filtros),

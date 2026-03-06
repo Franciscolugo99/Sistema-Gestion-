@@ -76,6 +76,13 @@ try {
             }
             $like = '%' . addcslashes($q, "%_") . '%';
 
+            // B1 FIX: parámetro solo_deudores (default=1 → mantiene comportamiento previo).
+            // Pasar solo_deudores=0 para buscar todos los clientes cc_habilitados,
+            // incluyendo los que tienen saldo 0 (ej: cliente nuevo o saldo saldado).
+            // Útil para registrar un cargo / nueva venta CC sin deuda previa.
+            $soloDeudores = ((string)($_GET['solo_deudores'] ?? '1')) !== '0';
+            $saldoFiltro  = $soloDeudores ? 'AND COALESCE(m.saldo_posterior, 0) > 0' : '';
+
             $sql = "
             SELECT
                 c.id,
@@ -96,7 +103,7 @@ try {
             ) m ON m.cliente_id = c.id
             WHERE c.activo = 1
                 AND c.cc_habilitado = 1
-                AND COALESCE(m.saldo_posterior, 0) > 0
+                {$saldoFiltro}
                 AND (c.nombre LIKE ? OR c.telefono LIKE ? OR c.cuit LIKE ?)
             ORDER BY c.nombre ASC
             LIMIT 10

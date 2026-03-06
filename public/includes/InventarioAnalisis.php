@@ -194,6 +194,12 @@ class InventarioAnalisis
             $params[':busq'] = '%' . $filtros['busqueda'] . '%';
             $params[':busq2'] = '%' . $filtros['busqueda'] . '%';
         }
+        // C2 FIX: aplicar margen_min igual que en getTopInversion() para que
+        // el campo "total" de la respuesta coincida con los productos devueltos.
+        if (isset($filtros['margen_min']) && $filtros['margen_min'] !== '') {
+            $where .= " AND ((precio - costo) / costo * 100) >= :margen_min";
+            $params[':margen_min'] = (float)$filtros['margen_min'];
+        }
 
         $sql = "SELECT COUNT(*) FROM productos WHERE {$where}";
         $stmt = $this->pdo->prepare($sql);

@@ -16,7 +16,9 @@ final class VentasController extends BaseController
     }
 
     // FILTROS EXISTENTES
-    $allowedMedios  = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO', 'SIN_ESPECIFICAR'];
+    // A3: lista canónica unificada con public/ventas.php (TRANSFERENCIA/MODO/QR añadidos).
+    // SIN_ESPECIFICAR se mantiene para compatibilidad con registros legacy.
+    $allowedMedios  = ['EFECTIVO', 'MP', 'DEBITO', 'CREDITO', 'TRANSFERENCIA', 'MODO', 'QR', 'SIN_ESPECIFICAR'];
     $allowedEstados = ['', 'EMITIDA', 'ANULADA'];
 
     $medio  = strtoupper(trim((string)($_GET['medio'] ?? '')));
@@ -180,10 +182,23 @@ final class VentasController extends BaseController
   ): array {
     $desde_dt = new DateTime($desde);
     $hasta_dt = new DateTime($hasta);
-    $diff = $desde_dt->diff($hasta_dt)->days;
 
-    $desde_prev = (clone $desde_dt)->sub(new DateInterval("P{$diff}D"))->format('Y-m-d');
-    $hasta_prev = (clone $hasta_dt)->sub(new DateInterval("P{$diff}D"))->format('Y-m-d');
+    // A2 FIX: período previo sin solape.
+    // Antes: se restaba $diff a ambos extremos → $hasta_prev solapaba con $desde actual.
+    // Corrección: rango inclusivo de longitud $len = $diff + 1 días.
+    //   hasta_prev = desde - 1 día   (toca exactamente el día anterior al período actual)
+    //   desde_prev = desde - $len días
+    //
+    // Ejemplo: actual 2026-03-01 → 2026-03-07 ($diff=6, $len=7)
+    //   previo: 2026-02-22 → 2026-02-28  ← sin solapamiento
+    $diff = $desde_dt->diff($hasta_dt)->days;  // días entre extremos (sin incluir ambos)
+    $len  = $diff + 1;                          // largo inclusivo del período actual
+
+    $hasta_prev_dt = (clone $desde_dt)->sub(new DateInterval('P1D'));
+    $desde_prev_dt = (clone $desde_dt)->sub(new DateInterval("P{$len}D"));
+
+    $desde_prev = $desde_prev_dt->format('Y-m-d');
+    $hasta_prev = $hasta_prev_dt->format('Y-m-d');
 
     // Reemplazar parámetros de fecha
     $paramsPrev = $params;
@@ -269,29 +284,35 @@ final class VentasController extends BaseController
 
   // ============================================
   // MEJORA 5: Export PDF
+  // A1 FIX: stub vacío reemplazado por 501 explícito hasta implementar librería.
+  // No enviar headers de Content-Type PDF antes del 501 para evitar que el browser
+  // intente abrir un PDF vacío/corrupto.
   // ============================================
   private function exportPdf(string $whereSql, array $params, string $joinsSql): never
   {
-    // Implementación con TCPDF o DomPDF
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="ventas_' . date('Ymd_His') . '.pdf"');
-
-    // ... código de generación PDF
-    
+    http_response_code(501);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+      'ok'    => false,
+      'error' => 'Export PDF no implementado. Usá export=csv por ahora.',
+      'code'  => 'NOT_IMPLEMENTED',
+    ]);
     exit;
   }
 
   // ============================================
   // MEJORA 6: Export Excel
+  // A1 FIX: ídem exportPdf — 501 hasta implementar PhpSpreadsheet.
   // ============================================
   private function exportExcel(string $whereSql, array $params, string $joinsSql): never
   {
-    // Implementación con PhpSpreadsheet
-    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    header('Content-Disposition: attachment; filename="ventas_' . date('Ymd_His') . '.xlsx"');
-
-    // ... código de generación Excel
-    
+    http_response_code(501);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+      'ok'    => false,
+      'error' => 'Export Excel no implementado. Usá export=csv por ahora.',
+      'code'  => 'NOT_IMPLEMENTED',
+    ]);
     exit;
   }
 
