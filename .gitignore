@@ -102,3 +102,5 @@ storage/license_state.json
 storage/license_state.json
 license.json
 flus_fixes.patch
+*.patch
+Nuevo documento de texto.txt
