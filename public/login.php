@@ -12,15 +12,25 @@ if (!function_exists("flus_version_label")) {
 
 require_once __DIR__ . '/bootstrap.php';
 
+// next (redirigir de vuelta a la página original)
+$nextRaw = isset($_GET['next']) ? (string)$_GET['next'] : '';
+$next = '';
+if ($nextRaw !== '' && $nextRaw[0] === '/' && strpos($nextRaw, '://') === false && strpos($nextRaw, "\n") === false && strpos($nextRaw, "\r") === false) {
+  $next = $nextRaw;
+}
 
 if (is_logged_in()) {
+  if ($next !== '') {
+    header('Location: ' . $next);
+    exit;
+  }
   header('Location: index.php');
   exit;
 }
 
 // Whitelist de códigos de error
 $errorCode = isset($_GET['error']) ? (string)$_GET['error'] : '';
-if (!in_array($errorCode, ['user', 'pass', 'empty', 'locked', 'csrf'], true)) {
+if (!in_array($errorCode, ['user', 'pass', 'empty', 'locked', 'csrf', 'too_long'], true)) {
   $errorCode = '';
 }
 
@@ -31,6 +41,7 @@ switch ($errorCode) {
   case 'empty':  $errorMsg = 'Completá usuario y contraseña.'; break;
   case 'locked': $errorMsg = 'La terminal/caja está ocupada. Elegí otra en Caja.'; break;
   case 'csrf':   $errorMsg = 'Token inválido. Recargá e intentá de nuevo.'; break;
+  case 'too_long': $errorMsg = 'Usuario/contraseña demasiado largos.'; break;
 }
 ?>
 <!DOCTYPE html>
@@ -65,6 +76,9 @@ switch ($errorCode) {
 
       <form class="login-form" method="post" action="login_process.php" autocomplete="on">
         <?= csrf_field() ?>
+        <?php if ($next !== ''): ?>
+          <input type="hidden" name="next" value="<?= h($next) ?>">
+        <?php endif; ?>
 
         <label for="login-username">Usuario</label>
         <input

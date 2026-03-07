@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
-
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+require_once __DIR__ . '/lib/csrf.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   header('Location: login.php');
   exit;
 }
 
-if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+if (!csrf_verify((string)($_POST['csrf_token'] ?? ''))) {
   header('Location: login.php?error=csrf');
   exit;
 }
@@ -21,12 +22,16 @@ $pdo = getPDO();
 $username = trim((string)($_POST['username'] ?? ''));
 $password = (string)($_POST['password'] ?? '');
 
+$len = function(string $s): int {
+  return function_exists('mb_strlen') ? (int)mb_strlen($s, 'UTF-8') : (int)strlen($s);
+};
+
 if ($username === '' || $password === '') {
   header('Location: login.php?error=empty');
   exit;
 }
-if (mb_strlen($username) > 60 || mb_strlen($password) > 120) {
-  header('Location: login.php?error=empty');
+if ($len($username) > 60 || $len($password) > 120) {
+  header('Location: login.php?error=too_long');
   exit;
 }
 
@@ -54,28 +59,31 @@ if ($hash === '' || !password_verify($password, $hash)) {
 }
 
 session_regenerate_id(true);
+// Si tu csrf_input() regenera token cuando falta, esto está OK.
+// Si no, en vez de unset, rotalo.
 unset($_SESSION['csrf_token']);
 
-/* =========================================================
-   ✅ Permisos a sesión (rápido + consistente)
-========================================================= */
+/* Permisos (no romper login si algo falta) */
 $roleId = (int)($user['role_id'] ?? 0);
 $perms = [];
 
 if ($roleId > 0) {
-  $stPerms = $pdo->prepare("
-    SELECT p.slug
-    FROM role_permission rp
-    JOIN permissions p ON rp.permission_id = p.id
-    WHERE rp.role_id = :rid
-  ");
-  $stPerms->execute([':rid' => $roleId]);
-  $perms = $stPerms->fetchAll(PDO::FETCH_COLUMN) ?: [];
+  try {
+    $stPerms = $pdo->prepare("
+      SELECT p.slug
+      FROM role_permission rp
+      JOIN permissions p ON rp.permission_id = p.id
+      WHERE rp.role_id = :rid
+    ");
+    $stPerms->execute([':rid' => $roleId]);
+    $perms = $stPerms->fetchAll(PDO::FETCH_COLUMN) ?: [];
+  } catch (Throwable $e) {
+    error_log('login_process: permisos no disponibles — ' . $e->getMessage());
+    $perms = [];
+  }
 }
 
-/* =========================================================
-   ✅ Sesión unificada (compat vieja + middleware/controller)
-========================================================= */
+/* Sesión unificada */
 $_SESSION['user'] = [
   'id'        => (int)$user['id'],
   'nombre'    => (string)($user['nombre'] ?? ''),
@@ -85,13 +93,26 @@ $_SESSION['user'] = [
   'role_slug' => (string)($user['role_slug'] ?? ''),
 ];
 
-// Compatibilidad para Middleware/BaseController/etc
-$_SESSION['user_id']    = (int)$user['id'];
-$_SESSION['user_name']  = (string)($user['nombre'] ?? $user['username'] ?? '');
-$_SESSION['user_email'] = (string)($user['email'] ?? '');
-$_SESSION['user_role']  = (string)($user['role_slug'] ?? '');
+$_SESSION['user_id']     = (int)$user['id'];
+$_SESSION['user_name']   = (string)($user['nombre'] ?? $user['username'] ?? '');
+$_SESSION['user_email']  = (string)($user['email'] ?? '');
+$_SESSION['user_role']   = (string)($user['role_slug'] ?? '');
 $_SESSION['permissions'] = $perms;
 
-// Ya logueado: mandalo al inicio / dashboard
+/* Último acceso */
+try {
+  $pdo->prepare("UPDATE users SET ultimo_acceso = NOW() WHERE id = :id")
+      ->execute([':id' => (int)$user['id']]);
+} catch (Throwable $e) {
+  error_log('login_process: no se pudo actualizar ultimo_acceso — ' . $e->getMessage());
+}
+
+/* Redirect: respetar next (solo interno) */
+$next = (string)($_POST['next'] ?? $_GET['next'] ?? '');
+if ($next !== '' && $next[0] === '/' && strpos($next, '://') === false && strpos($next, "\n") === false && strpos($next, "\r") === false) {
+  header('Location: ' . $next);
+  exit;
+}
+
 header('Location: index.php');
 exit;
