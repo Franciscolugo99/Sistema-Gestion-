@@ -1,406 +1,144 @@
 /**
- * FLUS - Validación de Formulario de Usuario
- * Validación en tiempo real con feedback visual
+ * FLUS - Módulo Usuarios (listado)
+ * v4: toggle sin inline-onclick + manejo robusto de fetch/JSON + re-enable botón
  */
+'use strict';
 
-(function() {
-  'use strict';
-
-  // =========================================================================
-  // MENSAJES DE ERROR PERSONALIZADOS
-  // =========================================================================
-  
-  const errorMessages = {
-    nombre: {
-      valueMissing: 'El nombre es obligatorio',
-      tooShort: 'El nombre debe tener al menos 3 caracteres',
-      tooLong: 'El nombre es demasiado largo'
-    },
-    email: {
-      valueMissing: 'El email es obligatorio',
-      typeMismatch: 'Ingrese un email válido (ej: usuario@ejemplo.com)',
-      tooLong: 'El email es demasiado largo'
-    },
-    username: {
-      valueMissing: 'El usuario es obligatorio',
-      tooShort: 'El usuario debe tener al menos 3 caracteres',
-      tooLong: 'El usuario es demasiado largo',
-      patternMismatch: 'Solo se permiten letras, números y guion bajo (_)'
-    },
-    password: {
-      valueMissing: 'La contraseña es obligatoria',
-      tooShort: 'La contraseña debe tener al menos 6 caracteres',
-      tooLong: 'La contraseña es demasiado larga'
-    },
-    role_id: {
-      valueMissing: 'Debe seleccionar un rol'
-    }
-  };
-
-  // =========================================================================
-  // FUNCIONES DE VALIDACIÓN
-  // =========================================================================
-  
-  /**
-   * Validar un campo individual
-   */
-  function validateField(field) {
-    const fieldName = field.name;
-    const errorSpan = document.querySelector(`[data-error-for="${fieldName}"]`);
-    
-    if (!errorSpan) return true;
-
-    // Limpiar error previo
-    errorSpan.textContent = '';
-    errorSpan.classList.remove('visible');
-    field.classList.remove('error');
-
-    // Verificar validez
-    if (!field.validity.valid) {
-      // Obtener el primer error
-      const validity = field.validity;
-      let errorMessage = 'Campo inválido';
-
-      if (errorMessages[fieldName]) {
-        if (validity.valueMissing && errorMessages[fieldName].valueMissing) {
-          errorMessage = errorMessages[fieldName].valueMissing;
-        } else if (validity.typeMismatch && errorMessages[fieldName].typeMismatch) {
-          errorMessage = errorMessages[fieldName].typeMismatch;
-        } else if (validity.tooShort && errorMessages[fieldName].tooShort) {
-          errorMessage = errorMessages[fieldName].tooShort;
-        } else if (validity.tooLong && errorMessages[fieldName].tooLong) {
-          errorMessage = errorMessages[fieldName].tooLong;
-        } else if (validity.patternMismatch && errorMessages[fieldName].patternMismatch) {
-          errorMessage = errorMessages[fieldName].patternMismatch;
-        }
-      }
-
-      // Mostrar error
-      errorSpan.textContent = errorMessage;
-      errorSpan.classList.add('visible');
-      field.classList.add('error');
-      
-      return false;
-    }
-
-    // Si es válido, agregar clase de éxito
-    if (field.value.trim() !== '') {
-      field.classList.add('success');
-      setTimeout(() => field.classList.remove('success'), 600);
-    }
-
-    return true;
+(function () {
+  function getCsrf() {
+    return (typeof window.getCsrfToken === 'function') ? (window.getCsrfToken() || '') : '';
   }
 
-  /**
-   * Validar todo el formulario
-   */
-  function validateForm(form) {
-    let isValid = true;
-    const fields = form.querySelectorAll('input[required], select[required]');
-    
-    fields.forEach(field => {
-      if (!validateField(field)) {
-        isValid = false;
-      }
-    });
-
-    return isValid;
+  async function parseJsonSafe(resp) {
+    try { return await resp.json(); } catch (_) { return null; }
   }
 
-  // =========================================================================
-  // TOGGLE PASSWORD VISIBILITY
-  // =========================================================================
-  
-  window.togglePassword = function(fieldId) {
-    const field = document.getElementById(fieldId);
-    const button = field.nextElementSibling;
-    
-    if (field.type === 'password') {
-      field.type = 'text';
-      button.innerHTML = `
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-          <line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      `;
-    } else {
-      field.type = 'password';
-      button.innerHTML = `
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      `;
-    }
-  };
-
-  // =========================================================================
-  // VALIDACIÓN DE USERNAME (solo alfanumérico + _)
-  // =========================================================================
-  
-  function setupUsernameValidation() {
-    const usernameField = document.getElementById('username');
-    if (!usernameField) return;
-
-    usernameField.addEventListener('input', function(e) {
-      // Remover caracteres no permitidos
-      this.value = this.value.replace(/[^a-zA-Z0-9_]/g, '');
-    });
+  function setBtnLoading(btn, loading) {
+    if (!btn) return;
+    btn.disabled = !!loading;
+    btn.classList.toggle('loading', !!loading);
   }
 
-  // =========================================================================
-  // VALIDACIÓN DE EMAIL EN TIEMPO REAL
-  // =========================================================================
-  
-  function setupEmailValidation() {
-    const emailField = document.getElementById('email');
-    if (!emailField) return;
+  async function toggleUserStatus(userId, currentlyActive, btnEl) {
+    const newActive = !currentlyActive;
 
-    let debounceTimer;
-    
-    emailField.addEventListener('input', function(e) {
-      clearTimeout(debounceTimer);
-      
-      // Validar después de 500ms de no escribir
-      debounceTimer = setTimeout(() => {
-        if (this.value.trim() !== '') {
-          validateField(this);
-        }
-      }, 500);
-    });
-  }
+    const ok = window.confirm(`¿${newActive ? 'Activar' : 'Desactivar'} este usuario?`);
+    if (!ok) return;
 
-  // =========================================================================
-  // PREVENIR DOBLE SUBMIT
-  // =========================================================================
-  
-  function setupSubmitPrevention() {
-    const form = document.getElementById('usuarioForm');
-    if (!form) return;
+    setBtnLoading(btnEl, true);
 
-    let isSubmitting = false;
-
-    form.addEventListener('submit', function(e) {
-      if (isSubmitting) {
-        e.preventDefault();
-        return false;
-      }
-
-      // Validar formulario
-      if (!validateForm(this)) {
-        e.preventDefault();
-        
-        // Scroll al primer error
-        const firstError = this.querySelector('.form-input.error, .form-select.error');
-        if (firstError) {
-          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          firstError.focus();
-        }
-        
-        return false;
-      }
-
-      // Marcar como enviando
-      isSubmitting = true;
-      
-      // Agregar estado de loading
-      const submitBtn = this.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.classList.add('loading');
-        submitBtn.disabled = true;
-      }
-      
-      this.classList.add('form-loading');
-    });
-  }
-
-  // =========================================================================
-  // VALIDACIÓN EN BLUR (al salir del campo)
-  // =========================================================================
-  
-  function setupBlurValidation() {
-    const form = document.getElementById('usuarioForm');
-    if (!form) return;
-
-    const fields = form.querySelectorAll('input[required], select[required]');
-    
-    fields.forEach(field => {
-      field.addEventListener('blur', function() {
-        if (this.value.trim() !== '' || this.hasAttribute('data-touched')) {
-          validateField(this);
-          this.setAttribute('data-touched', 'true');
-        }
+    try {
+      const resp = await fetch('api/usuario_toggle_estado.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          activo: newActive ? 1 : 0,
+          csrf_token: getCsrf(),
+        }),
       });
-      
-      // También validar en cambio (para select)
-      if (field.tagName === 'SELECT') {
-        field.addEventListener('change', function() {
-          validateField(this);
-          this.setAttribute('data-touched', 'true');
-        });
-      }
-    });
-  }
 
-  // =========================================================================
-  // AUTO-FOCO EN PRIMER CAMPO
-  // =========================================================================
-  
-  function setupAutoFocus() {
-    const firstField = document.getElementById('nombre');
-    if (firstField) {
-      setTimeout(() => {
-        firstField.focus();
-      }, 100);
+      const data = await parseJsonSafe(resp);
+
+      if (!resp.ok) {
+        const msg = (data && (data.message || data.error)) || `HTTP ${resp.status}`;
+        throw new Error(msg);
+      }
+      if (!(data && (data.ok || data.success))) {
+        const msg = (data && (data.message || data.error)) || 'No se pudo cambiar el estado';
+        throw new Error(msg);
+      }
+
+      // Actualizar fila sin recarga
+      const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+      if (row) {
+        const badge = row.querySelector('.badge-estado');
+        if (badge) {
+          badge.className = newActive ? 'badge-estado badge-estado--ok' : 'badge-estado badge-estado--off';
+          badge.innerHTML = `<span class="badge-dot"></span>${newActive ? 'Activo' : 'Inactivo'}`;
+        }
+      }
+
+      // Actualizar botón
+      if (btnEl) {
+        btnEl.dataset.active = newActive ? '1' : '0';
+        btnEl.className = `action-btn ${newActive ? 'action-btn--deactivate' : 'action-btn--activate'} js-toggle-user`;
+        btnEl.title = newActive ? 'Desactivar usuario' : 'Activar usuario';
+
+        const icon = newActive
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18.36 6.64A9 9 0 0 1 20.77 15M6.16 6.16a9 9 0 1 0 12.68 12.68M2 2l20 20"/>
+              <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+            </svg>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="m9 12 2 2 4-4"/>
+            </svg>`;
+
+        btnEl.innerHTML = `${icon}<span>${newActive ? 'Desactivar' : 'Activar'}</span>`;
+      }
+
+      showInlineFlash(newActive ? 'success' : 'warning',
+        `Usuario ${newActive ? 'activado' : 'desactivado'} correctamente`);
+    } catch (err) {
+      console.error('toggleUserStatus error:', err);
+      alert('Error: ' + (err && err.message ? err.message : 'No se pudo cambiar el estado'));
+    } finally {
+      setBtnLoading(btnEl, false);
     }
   }
 
-  // =========================================================================
-  // INDICADOR DE FORTALEZA DE CONTRASEÑA (OPCIONAL)
-  // =========================================================================
-  
-  function setupPasswordStrength() {
-    const passwordField = document.getElementById('password');
-    if (!passwordField) return;
+  // Compat: si quedó algún inline onclick viejo, no rompe
+  window.toggleUserStatus = toggleUserStatus;
 
-    // Crear indicador
-    const strengthIndicator = document.createElement('div');
-    strengthIndicator.className = 'password-strength';
-    strengthIndicator.innerHTML = `
-      <div class="password-strength-bar">
-        <div class="password-strength-fill"></div>
-      </div>
-      <span class="password-strength-text"></span>
-    `;
-    
-    // Insertar después del input
-    const passwordWrap = passwordField.closest('.password-input-wrap');
-    if (passwordWrap) {
-      passwordWrap.parentNode.insertBefore(strengthIndicator, passwordWrap.nextSibling);
+  function showInlineFlash(type, message) {
+    const existing = document.querySelector('.inline-flash');
+    if (existing) existing.remove();
+
+    const cls = type === 'success' ? 'alert-success' : 'alert-warning';
+    const icon = type === 'success'
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
+      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+
+    const div = document.createElement('div');
+    div.className = `alert ${cls} inline-flash`;
+    div.style.cssText = 'position:fixed;top:72px;right:24px;z-index:9000;min-width:280px;max-width:400px;animation:slideInRight .25s ease;';
+    div.innerHTML = `${icon} ${message}`;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 3500);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Toggle: event delegation (sin inline onclick)
+    document.addEventListener('click', function (e) {
+      const btn = e.target.closest('.js-toggle-user');
+      if (!btn) return;
+
+      const tr = btn.closest('tr');
+      const trId = (tr && tr.dataset) ? tr.dataset.userId : '';
+      const userId = parseInt(btn.dataset.userId || trId || '0', 10);
+      const currentlyActive = (btn.dataset.active || '0') === '1';
+      if (!userId) return;
+
+      toggleUserStatus(userId, currentlyActive, btn);
+    });
+
+    // Búsqueda con Enter
+    const searchInput = document.getElementById('search');
+    if (searchInput) {
+      searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') this.closest('form').submit();
+      });
     }
 
-    passwordField.addEventListener('input', function() {
-      const password = this.value;
-      let strength = 0;
-      let text = '';
-      let color = '';
-
-      if (password.length === 0) {
-        strengthIndicator.style.display = 'none';
-        return;
-      }
-
-      strengthIndicator.style.display = 'block';
-
-      // Calcular fortaleza
-      if (password.length >= 6) strength++;
-      if (password.length >= 10) strength++;
-      if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-      if (/\d/.test(password)) strength++;
-      if (/[^a-zA-Z0-9]/.test(password)) strength++;
-
-      // Determinar texto y color
-      if (strength <= 2) {
-        text = 'Débil';
-        color = '#ef4444';
-      } else if (strength <= 3) {
-        text = 'Media';
-        color = '#f59e0b';
-      } else {
-        text = 'Fuerte';
-        color = '#22c55e';
-      }
-
-      const fill = strengthIndicator.querySelector('.password-strength-fill');
-      const textSpan = strengthIndicator.querySelector('.password-strength-text');
-      
-      fill.style.width = `${(strength / 5) * 100}%`;
-      fill.style.backgroundColor = color;
-      textSpan.textContent = text;
-      textSpan.style.color = color;
+    // Animación de aparición de filas
+    const rows = document.querySelectorAll('.tabla-usuarios tbody tr');
+    rows.forEach((row, i) => {
+      row.style.animationDelay = `${i * 30}ms`;
+      row.classList.add('row-appear');
     });
-  }
-
-  // =========================================================================
-  // CONFIRMAR SALIDA SI HAY CAMBIOS
-  // =========================================================================
-  
-  function setupUnsavedWarning() {
-    const form = document.getElementById('usuarioForm');
-    if (!form) return;
-
-    let hasChanges = false;
-
-    // Detectar cambios
-    form.addEventListener('input', function() {
-      hasChanges = true;
-    });
-
-    // Limpiar al enviar
-    form.addEventListener('submit', function() {
-      hasChanges = false;
-    });
-
-    // Advertir antes de salir
-    window.addEventListener('beforeunload', function(e) {
-      if (hasChanges) {
-        e.preventDefault();
-        e.returnValue = '¿Está seguro que desea salir? Los cambios no guardados se perderán.';
-        return e.returnValue;
-      }
-    });
-  }
-
-  // =========================================================================
-  // INICIALIZACIÓN
-  // =========================================================================
-  
-  document.addEventListener('DOMContentLoaded', function() {
-    setupUsernameValidation();
-    setupEmailValidation();
-    setupBlurValidation();
-    setupSubmitPrevention();
-    setupAutoFocus();
-    setupPasswordStrength();
-    setupUnsavedWarning();
-
-    // Log para debugging
-    console.log('✓ Validación de formulario inicializada');
   });
-
-  // =========================================================================
-  // ESTILOS ADICIONALES INYECTADOS
-  // =========================================================================
-  
-  const style = document.createElement('style');
-  style.textContent = `
-    .password-strength {
-      margin-top: 8px;
-      display: none;
-    }
-    
-    .password-strength-bar {
-      width: 100%;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-bottom: 4px;
-    }
-    
-    .password-strength-fill {
-      height: 100%;
-      width: 0;
-      transition: all 0.3s ease;
-      border-radius: 2px;
-    }
-    
-    .password-strength-text {
-      font-size: 0.8rem;
-      font-weight: 500;
-    }
-  `;
-  document.head.appendChild(style);
-
 })();

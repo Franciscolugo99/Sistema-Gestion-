@@ -3,124 +3,129 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
-require_login();
-require_permission('administrar_usuarios');
+
+// Importante: sesión antes de usar auth/CSRF (por si bootstrap no la inicia)
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+require_once __DIR__ . '/lib/csrf.php';
+
+require_login();
+require_permission('administrar_usuarios');
+
 /* ============================================================
-   PROCESAR FORMULARIO (POST)
+   PROCESAR FORMULARIO (POST)  (PRG: Post/Redirect/Get)
 ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = trim($_POST['nombre'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
-    $role_id = (int)($_POST['role_id'] ?? 0);
-    $activo = isset($_POST['activo']) ? 1 : 0;
-    
+    $nombre   = trim((string)($_POST['nombre']   ?? ''));
+    $email    = trim((string)($_POST['email']    ?? ''));
+    $username = trim((string)($_POST['username'] ?? ''));
+    // NO trim password (evita alterar la clave si el usuario usa espacios)
+    $password = (string)($_POST['password'] ?? '');
+    $role_id  = (int)($_POST['role_id'] ?? 0);
+    $activo   = isset($_POST['activo']) ? 1 : 0;
+
     $errors = [];
-    
-    // Validaciones
-    if (empty($nombre)) {
-        $errors[] = 'El nombre es obligatorio';
-    } elseif (strlen($nombre) < 3) {
-        $errors[] = 'El nombre debe tener al menos 3 caracteres';
+
+    // CSRF (evita alta por POST desde sitios externos)
+    $csrfToken = (string)($_POST['csrf_token'] ?? $_POST['csrf'] ?? ''); // compat
+    if (!csrf_verify($csrfToken)) {
+        $errors[] = 'Token CSRF inválido. Reintentá el envío.';
     }
-    
-    if (empty($email)) {
-        $errors[] = 'El email es obligatorio';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'El email no es válido';
-    } else {
-        // Verificar email único
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-        $stmt->execute([':email' => $email]);
-        if ($stmt->fetch()) {
-            $errors[] = 'Este email ya está registrado';
-        }
+
+    // Helpers de length (UTF-8 friendly si hay mbstring)
+    $strlen = function (string $s): int {
+        return function_exists('mb_strlen') ? (int)mb_strlen($s, 'UTF-8') : (int)strlen($s);
+    };
+
+    if ($nombre === '')               $errors[] = 'El nombre es obligatorio';
+    elseif ($strlen($nombre) < 3)     $errors[] = 'El nombre debe tener al menos 3 caracteres';
+
+    if ($email === '')                $errors[] = 'El email es obligatorio';
+    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'El email no es válido';
+    else {
+        $st = $pdo->prepare("SELECT id FROM users WHERE email = :email");
+        $st->execute([':email' => $email]);
+        if ($st->fetch()) $errors[] = 'Este email ya está registrado';
     }
-    
-    if (empty($username)) {
-        $errors[] = 'El usuario es obligatorio';
-    } elseif (strlen($username) < 3) {
-        $errors[] = 'El usuario debe tener al menos 3 caracteres';
-    } elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
-        $errors[] = 'El usuario solo puede contener letras, números y guion bajo';
-    } else {
-        // Verificar username único
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :username");
-        $stmt->execute([':username' => $username]);
-        if ($stmt->fetch()) {
-            $errors[] = 'Este nombre de usuario ya está en uso';
-        }
+
+    if ($username === '')             $errors[] = 'El usuario es obligatorio';
+    elseif ($strlen($username) < 3)   $errors[] = 'El usuario debe tener al menos 3 caracteres';
+    elseif (!preg_match('/\A[a-zA-Z0-9_]+\z/', $username)) $errors[] = 'El usuario solo puede contener letras, números y guion bajo';
+    else {
+        $st = $pdo->prepare("SELECT id FROM users WHERE username = :username");
+        $st->execute([':username' => $username]);
+        if ($st->fetch()) $errors[] = 'Este nombre de usuario ya está en uso';
     }
-    
-    if (empty($password)) {
-        $errors[] = 'La contraseña es obligatoria';
-    } elseif (strlen($password) < 6) {
-        $errors[] = 'La contraseña debe tener al menos 6 caracteres';
+
+    if ($password === '')             $errors[] = 'La contraseña es obligatoria';
+    elseif ($strlen($password) < 6)   $errors[] = 'La contraseña debe tener al menos 6 caracteres';
+
+    if ($role_id <= 0)                $errors[] = 'Debe seleccionar un rol válido';
+
+    // Validar que el rol exista (evita guardar IDs inexistentes)
+    if ($role_id > 0) {
+        $st = $pdo->prepare("SELECT id FROM roles WHERE id = :id");
+        $st->execute([':id' => $role_id]);
+        if (!$st->fetch()) $errors[] = 'Debe seleccionar un rol válido';
     }
-    
-    if ($role_id <= 0) {
-        $errors[] = 'Debe seleccionar un rol válido';
-    }
-    
-    // Si no hay errores, crear usuario
+
     if (empty($errors)) {
         try {
-            $password_hash = password_hash($password, PASSWORD_DEFAULT);
-            
             $stmt = $pdo->prepare("
                 INSERT INTO users (nombre, email, username, password_hash, role_id, activo, created_at)
                 VALUES (:nombre, :email, :username, :password_hash, :role_id, :activo, NOW())
             ");
-            
             $stmt->execute([
-                ':nombre' => $nombre,
-                ':email' => $email,
-                ':username' => $username,
-                ':password_hash' => $password_hash,
-                ':role_id' => $role_id,
-                ':activo' => $activo
+                ':nombre'        => $nombre,
+                ':email'         => $email,
+                ':username'      => $username,
+                ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                ':role_id'       => $role_id,
+                ':activo'        => $activo,
             ]);
-            
             $_SESSION['flash_success'] = 'Usuario creado correctamente';
             header('Location: usuarios.php');
             exit;
-            
         } catch (PDOException $e) {
             error_log("Error al crear usuario: " . $e->getMessage());
-            $errors[] = 'Error al crear el usuario. Por favor, intente nuevamente.';
+            $errors[] = 'Error al crear el usuario. Intentá de nuevo.';
         }
     }
-    
-    // Si hay errores, guardar en sesión para mostrar
+
     if (!empty($errors)) {
         $_SESSION['form_errors'] = $errors;
-        $_SESSION['form_data'] = $_POST;
+        // Guardar solo campos seguros (NO guardar password ni csrf en sesión)
+        $_SESSION['form_data']   = [
+            'nombre'   => $nombre,
+            'email'    => $email,
+            'username' => $username,
+            'role_id'  => $role_id,
+            'activo'   => $activo,
+        ];
+
+        // PRG: evita reenvío del POST al refrescar
+        header('Location: usuario_nuevo.php');
+        exit;
     }
 }
 
-// Recuperar datos del formulario si hay errores
-$formData = $_SESSION['form_data'] ?? [];
+$formData   = $_SESSION['form_data']   ?? [];
 $formErrors = $_SESSION['form_errors'] ?? [];
 unset($_SESSION['form_data'], $_SESSION['form_errors']);
 
-// Obtener roles disponibles
 try {
     $roles = $pdo->query("SELECT id, nombre FROM roles ORDER BY nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    error_log("Error al cargar roles: " . $e->getMessage());
     $roles = [];
 }
 
 /* ============================================================
    CONFIG PARA HEADER
 ============================================================ */
-$pageTitle = 'Nuevo Usuario';
+$pageTitle      = 'Nuevo Usuario';
 $currentSection = 'usuarios';
-$extraCss = ['assets/css/usuarios.css?v=2'];
-$extraJs = ['assets/js/usuario_form.js?v=1'];
+$extraCss       = ['assets/css/usuarios.css?v=3'];
+$extraJs        = ['assets/js/usuario_form.js?v=1'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -134,19 +139,18 @@ require __DIR__ . '/partials/header.php';
     </div>
     <div class="form-header-right">
       <a href="usuarios.php" class="v-btn v-btn--ghost">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m19 12-14 0M5 12l7-7M5 12l7 7"/>
         </svg>
         Volver al listado
       </a>
     </div>
   </header>
 
-  <!-- Errores de validación -->
   <?php if (!empty($formErrors)): ?>
     <div class="alert alert-error">
-      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>
       </svg>
       <div>
         <strong>Hay errores en el formulario:</strong>
@@ -159,98 +163,71 @@ require __DIR__ . '/partials/header.php';
     </div>
   <?php endif; ?>
 
-  <!-- Formulario -->
   <div class="form-container">
     <form method="post" action="usuario_nuevo.php" class="usuario-form" id="usuarioForm" novalidate>
-      
+
+      <?= csrf_input() ?>
+
+      <!-- Información Personal -->
       <div class="form-section">
-        <h3 class="form-section-title">Información Personal</h3>
-        
+        <div class="form-section-header">
+          <div class="form-section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+            </svg>
+          </div>
+          <h3 class="form-section-title">Información Personal</h3>
+        </div>
         <div class="form-row">
           <div class="form-field">
-            <label for="nombre" class="form-label">
-              Nombre completo <span class="required">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="nombre" 
-              name="nombre" 
-              class="form-input"
+            <label for="nombre" class="form-label">Nombre completo <span class="required">*</span></label>
+            <input type="text" id="nombre" name="nombre" class="form-input"
               placeholder="Ej: Juan Pérez"
               value="<?= h($formData['nombre'] ?? '') ?>"
-              required
-              minlength="3"
-              maxlength="100"
-              autocomplete="name"
-            >
+              required minlength="3" maxlength="100" autocomplete="name">
             <span class="form-error" data-error-for="nombre"></span>
           </div>
-
           <div class="form-field">
-            <label for="email" class="form-label">
-              Email <span class="required">*</span>
-            </label>
-            <input 
-              type="email" 
-              id="email" 
-              name="email" 
-              class="form-input"
+            <label for="email" class="form-label">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" class="form-input"
               placeholder="usuario@ejemplo.com"
               value="<?= h($formData['email'] ?? '') ?>"
-              required
-              maxlength="150"
-              autocomplete="email"
-            >
+              required maxlength="150" autocomplete="email">
             <span class="form-error" data-error-for="email"></span>
           </div>
         </div>
       </div>
 
+      <!-- Credenciales -->
       <div class="form-section">
-        <h3 class="form-section-title">Credenciales de Acceso</h3>
-        
+        <div class="form-section-header">
+          <div class="form-section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h3 class="form-section-title">Credenciales de Acceso</h3>
+        </div>
         <div class="form-row">
           <div class="form-field">
-            <label for="username" class="form-label">
-              Usuario <span class="required">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="username" 
-              name="username" 
-              class="form-input"
+            <label for="username" class="form-label">Usuario <span class="required">*</span></label>
+            <input type="text" id="username" name="username" class="form-input"
               placeholder="usuario123"
               value="<?= h($formData['username'] ?? '') ?>"
-              required
-              minlength="3"
-              maxlength="50"
-              pattern="[a-zA-Z0-9_]+"
-              autocomplete="username"
-            >
+              required minlength="3" maxlength="50"
+              pattern="[a-zA-Z0-9_]+" autocomplete="username">
             <span class="form-hint">Solo letras, números y guion bajo (_)</span>
             <span class="form-error" data-error-for="username"></span>
           </div>
-
           <div class="form-field">
-            <label for="password" class="form-label">
-              Contraseña <span class="required">*</span>
-            </label>
+            <label for="password" class="form-label">Contraseña <span class="required">*</span></label>
             <div class="password-input-wrap">
-              <input 
-                type="password" 
-                id="password" 
-                name="password" 
-                class="form-input"
+              <input type="password" id="password" name="password" class="form-input"
                 placeholder="••••••••"
-                required
-                minlength="6"
-                maxlength="255"
-                autocomplete="new-password"
-              >
-              <button type="button" class="password-toggle" onclick="togglePassword('password')">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                required minlength="6" maxlength="255" autocomplete="new-password">
+              <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>
             </div>
@@ -260,46 +237,40 @@ require __DIR__ . '/partials/header.php';
         </div>
       </div>
 
+      <!-- Rol y Permisos -->
       <div class="form-section">
-        <h3 class="form-section-title">Rol y Permisos</h3>
-        
+        <div class="form-section-header">
+          <div class="form-section-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+            </svg>
+          </div>
+          <h3 class="form-section-title">Rol y Permisos</h3>
+        </div>
         <div class="form-row">
           <div class="form-field">
-            <label for="role_id" class="form-label">
-              Rol <span class="required">*</span>
-            </label>
-            <select 
-              id="role_id" 
-              name="role_id" 
-              class="form-select"
-              required
-            >
+            <label for="role_id" class="form-label">Rol <span class="required">*</span></label>
+            <select id="role_id" name="role_id" class="form-select" required>
               <option value="">Seleccionar rol...</option>
               <?php foreach ($roles as $rol): ?>
-                <option 
-                  value="<?= (int)$rol['id'] ?>"
-                  <?= isset($formData['role_id']) && $formData['role_id'] == $rol['id'] ? 'selected' : '' ?>
-                >
+                <option value="<?= (int)$rol['id'] ?>"
+                  <?= isset($formData['role_id']) && (int)$formData['role_id'] === (int)$rol['id'] ? 'selected' : '' ?>>
                   <?= h($rol['nombre']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
             <span class="form-error" data-error-for="role_id"></span>
           </div>
-
           <div class="form-field">
             <label class="form-label">Estado</label>
-            <div class="checkbox-wrap">
-              <label class="checkbox-label">
-                <input 
-                  type="checkbox" 
-                  id="activo" 
-                  name="activo" 
-                  class="form-checkbox"
-                  <?= !isset($formData['activo']) || !empty($formData['activo']) ? 'checked' : '' ?>
-                >
-                <span class="checkbox-custom"></span>
-                <span class="checkbox-text">Usuario activo</span>
+            <div class="uf-toggle-wrap">
+              <label class="uf-toggle-switch">
+                <input type="checkbox" id="activo" name="activo" class="uf-toggle-input"
+                  <?= !isset($formData['activo']) || !empty($formData['activo']) ? 'checked' : '' ?>>
+                <span class="uf-toggle-track">
+                  <span class="uf-toggle-thumb"></span>
+                </span>
+                <span class="uf-toggle-label">Usuario activo</span>
               </label>
               <span class="form-hint">Si está desactivado, no podrá iniciar sesión</span>
             </div>
@@ -311,7 +282,7 @@ require __DIR__ . '/partials/header.php';
       <div class="form-footer">
         <a href="usuarios.php" class="v-btn v-btn--ghost">Cancelar</a>
         <button type="submit" class="v-btn v-btn--primary">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
             <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
           </svg>
