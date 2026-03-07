@@ -36,6 +36,14 @@ try {
 
   $pdo->commit();
 
+  // BUG-07 FIX: invalidar cache APCu de PromoEngine para que la promo eliminada
+  // no siga apareciendo como activa en caja hasta que expire el TTL.
+  // La ruta API ya lo hacía; esta ruta legacy (form) no.
+  require_once __DIR__ . '/promos_logic.php';
+  if (function_exists('invalidarCachePromos')) {
+    invalidarCachePromos();
+  }
+
   header('Location: promos.php?msg=' . urlencode('Promo eliminada'));
   exit;
 

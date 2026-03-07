@@ -95,6 +95,13 @@ function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $de
     case 'MERCADOPAGO':
       $campo = 'total_mp';
       break;
+    // BUG-06 FIX: MODO y QR no tienen columna propia en caja_sesiones.
+    // Se acumulan en total_mp (pagos digitales). Si en el futuro se agrega
+    // total_modo/total_qr, solo cambiar el mapeo aquí.
+    case 'MODO':
+    case 'QR':
+      $campo = 'total_mp';
+      break;
     case 'DEBITO':
       $campo = 'total_debito';
       break;

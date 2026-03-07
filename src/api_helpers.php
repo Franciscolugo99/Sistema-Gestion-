@@ -164,6 +164,13 @@ function norm_medio_pago(string $m): string {
     if ($m === 'MP' || str_contains($m, 'MERCADO')) return 'MP';
     if ($m === 'DEBITO' || str_contains($m, 'DEB')) return 'DEBITO';
     if ($m === 'CREDITO' || str_contains($m, 'CRED')) return 'CREDITO';
+    // BUG-06 FIX: TRANSFERENCIA, MODO y QR se perdían → caían al default EFECTIVO.
+    // Consecuencia: venta_pagos.medio_pago quedaba 'EFECTIVO' y los totales de caja
+    // (transferencia/MP) quedaban incorrectos.
+    if ($m === 'TRANSFERENCIA' || $m === 'TRANSFER') return 'TRANSFERENCIA';
+    // MODO y QR son pagos digitales sin columna propia en caja_sesiones: se acumulan en total_mp.
+    if ($m === 'MODO') return 'MODO';
+    if ($m === 'QR')   return 'QR';
     if ($m === 'CC' || str_contains($m, 'CUENTA')) return 'CC';
     return 'EFECTIVO';
 }
