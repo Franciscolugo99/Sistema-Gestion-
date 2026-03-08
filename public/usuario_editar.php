@@ -92,6 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($userId === (int)($_SESSION['user_id'] ?? 0) && $activo === 0)
         $errors[] = 'No podés desactivar tu propio usuario';
 
+    if (empty($errors) && function_exists('flus_guard_last_admin_user_change')) {
+        $guardError = flus_guard_last_admin_user_change($pdo, $userId, $activo, false, $role_id);
+        if ($guardError !== null) {
+            $errors[] = $guardError;
+        }
+    }
+
     if (empty($errors)) {
         try {
             if (!empty($password)) {

@@ -628,6 +628,92 @@ if (!function_exists('config_clear_cache')) {
   }
 }
 
+if (!function_exists('flus_admin_role_slugs')) {
+  function flus_admin_role_slugs(): array {
+    return ['administrador', 'admin', 'superadmin'];
+  }
+}
+
+if (!function_exists('flus_is_protected_admin_role')) {
+  function flus_is_protected_admin_role(string $slug): bool {
+    return in_array(strtolower(trim($slug)), flus_admin_role_slugs(), true);
+  }
+}
+
+if (!function_exists('flus_active_admin_users_count')) {
+  function flus_active_admin_users_count(PDO $pdo): int {
+    $slugs = flus_admin_role_slugs();
+    if ($slugs === []) return 0;
+
+    $ph = implode(',', array_fill(0, count($slugs), '?'));
+    $sql = "
+      SELECT COUNT(*)
+      FROM users u
+      JOIN roles r ON r.id = u.role_id
+      WHERE u.activo = 1
+        AND LOWER(r.slug) IN ($ph)
+    ";
+
+    try {
+      $st = $pdo->prepare($sql);
+      $st->execute($slugs);
+      return (int)$st->fetchColumn();
+    } catch (Throwable $e) {
+      return 0;
+    }
+  }
+}
+
+if (!function_exists('flus_guard_last_admin_user_change')) {
+  function flus_guard_last_admin_user_change(PDO $pdo, int $userId, ?int $nextActivo = null, bool $deleting = false, ?int $nextRoleId = null): ?string {
+    if ($userId <= 0) return null;
+
+    try {
+      $st = $pdo->prepare("
+        SELECT u.id, u.activo, u.role_id, r.slug
+        FROM users u
+        JOIN roles r ON r.id = u.role_id
+        WHERE u.id = ?
+        LIMIT 1
+      ");
+      $st->execute([$userId]);
+      $user = $st->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+      return null;
+    }
+
+    if (!$user) return null;
+
+    $currentRoleSlug = (string)($user['slug'] ?? '');
+    if (!flus_is_protected_admin_role($currentRoleSlug)) return null;
+
+    $currentActivo = (int)($user['activo'] ?? 0) === 1;
+    if (!$currentActivo) return null;
+
+    $willRemainActive = $deleting ? false : ($nextActivo === null ? $currentActivo : ((int)$nextActivo === 1));
+    $nextRoleSlug = $currentRoleSlug;
+
+    if ($nextRoleId !== null && $nextRoleId > 0 && (int)($user['role_id'] ?? 0) !== $nextRoleId) {
+      try {
+        $stRole = $pdo->prepare('SELECT slug FROM roles WHERE id = ? LIMIT 1');
+        $stRole->execute([$nextRoleId]);
+        $nextRoleSlug = (string)($stRole->fetchColumn() ?? '');
+      } catch (Throwable $e) {
+        $nextRoleSlug = '';
+      }
+    }
+
+    $willRemainAdmin = $willRemainActive && flus_is_protected_admin_role($nextRoleSlug);
+    if ($willRemainAdmin) return null;
+
+    if (flus_active_admin_users_count($pdo) <= 1) {
+      return 'No se puede quitar el ultimo administrador activo del sistema.';
+    }
+
+    return null;
+  }
+}
+
 /* ----------------------------
    Alias compat
 ---------------------------- */

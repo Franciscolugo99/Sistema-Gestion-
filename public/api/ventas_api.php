@@ -100,6 +100,62 @@ function validateTicketToken(int $ventaId, int $ts, string $token): bool {
   return hash_equals($expected32, $token) || hash_equals($expected16, $token);
 }
 
+function flus_public_base_url(PDO $pdo): string {
+  $candidates = [];
+
+  foreach (['APP_URL', 'PUBLIC_BASE_URL'] as $const) {
+    if (defined($const)) {
+      $candidates[] = (string)constant($const);
+    }
+  }
+
+  if (function_exists('config_get')) {
+    foreach (['public_base_url', 'app_base_url', 'site_url'] as $key) {
+      $value = config_get($pdo, $key, '');
+      if (is_string($value) && trim($value) !== '') {
+        $candidates[] = $value;
+      }
+    }
+  }
+
+  foreach ($candidates as $candidate) {
+    $candidate = trim((string)$candidate);
+    if ($candidate === '') continue;
+
+    $parts = parse_url($candidate);
+    if (!is_array($parts)) continue;
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $host = (string)($parts['host'] ?? '');
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '') continue;
+
+    return rtrim($candidate, '/');
+  }
+
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host = trim((string)($_SERVER['SERVER_NAME'] ?? $_SERVER['SERVER_ADDR'] ?? 'localhost'));
+  if (!preg_match('/^(localhost|[a-z0-9.-]+|\[[0-9a-f:]+\])$/i', $host)) {
+    $host = 'localhost';
+  }
+
+  $port = (int)($_SERVER['SERVER_PORT'] ?? 0);
+  $portPart = '';
+  if ($port > 0 && !(($scheme === 'http' && $port === 80) || ($scheme === 'https' && $port === 443))) {
+    $portPart = ':' . $port;
+  }
+
+  $basePath = rtrim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/api/ventas_api.php'))), '/');
+  if (str_ends_with($basePath, '/api')) {
+    $basePath = substr($basePath, 0, -4);
+  }
+
+  return $scheme . '://' . $host . $portPart . $basePath;
+}
+
+function flus_ticket_public_url(PDO $pdo, int $ventaId, int $ts, string $token): string {
+  return flus_public_base_url($pdo) . '/ticket_publico.php?id=' . $ventaId . '&ts=' . $ts . '&token=' . urlencode($token);
+}
+
 /**
  * Sanitizar número de teléfono para WhatsApp
  */
@@ -640,12 +696,7 @@ try {
       $token = generateTicketToken($venta_id, $ts);
       
       // Construir URL segura
-      $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-      $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-      $basePath = dirname($_SERVER['SCRIPT_NAME']);
-      $basePath = rtrim(str_replace('/api', '', $basePath), '/');
-      
-      $ticket_url = "{$protocol}://{$host}{$basePath}/ticket_publico.php?id={$venta_id}&ts={$ts}&token={$token}";
+      $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
 
       json_response([
         'success' => true,
@@ -693,12 +744,7 @@ try {
       // Generar link seguro con token
       $ts = time();
       $token = generateTicketToken($venta_id, $ts);
-      $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-      $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-      $basePath = dirname($_SERVER['SCRIPT_NAME']);
-      $basePath = rtrim(str_replace('/api', '', $basePath), '/');
-      
-      $ticket_url = "{$protocol}://{$host}{$basePath}/ticket_publico.php?id={$venta_id}&ts={$ts}&token={$token}";
+      $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
 
       // Obtener nombre del negocio
       $emailConfig = getEmailConfig($pdo);
@@ -766,12 +812,7 @@ try {
       // Generar link seguro con token
       $ts = time();
       $token = generateTicketToken($venta_id, $ts);
-      $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-      $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-      $basePath = dirname($_SERVER['SCRIPT_NAME']);
-      $basePath = rtrim(str_replace('/api', '', $basePath), '/');
-      
-      $ticket_url = "{$protocol}://{$host}{$basePath}/ticket_publico.php?id={$venta_id}&ts={$ts}&token={$token}";
+      $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
 
       // Config de email desde BD
       $emailConfig = getEmailConfig($pdo);

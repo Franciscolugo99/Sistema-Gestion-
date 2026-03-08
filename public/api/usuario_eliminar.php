@@ -52,6 +52,13 @@ if ($userId === (int)($_SESSION['user_id'] ?? 0)) {
     success_fail('No puedes eliminar tu propio usuario', 400);
 }
 
+$adminGuard = function_exists('flus_guard_last_admin_user_change')
+    ? flus_guard_last_admin_user_change($pdo, $userId, null, true)
+    : null;
+if (is_string($adminGuard) && $adminGuard !== '') {
+    success_fail($adminGuard, 409);
+}
+
 // Eliminar usuario
 try {
     $pdo->beginTransaction();

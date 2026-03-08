@@ -190,13 +190,6 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
         $precio = (float)($p['precio'] ?? 0);
         $stock = (float)($p['stock'] ?? 0);
 
-        $qsToggle = productos_clean_qs($currentGet);
-        $qsToggle['csrf_token'] = $csrfQ;
-        $qsToggle['toggle'] = $id;
-        $qsToggle['action'] = ((int)($p['activo'] ?? 0) === 1) ? 'deactivate' : 'activate';
-
-        $toggleHref = 'productos.php?' . http_build_query($qsToggle);
-
         $thumbUrl = '';
         if (!empty($p['imagen'])) {
             $thumbUrl = $uploadDirUrl . (string)$p['imagen'];
@@ -518,74 +511,50 @@ $returnQs = http_build_query(productos_filters_from($_GET));
 /* ================================
    TOGGLE ESTADO (AJAX o GET)
 ================================ */
-if (isset($_GET['toggle']) || (isset($_POST['action']) && $_POST['action'] === 'toggle')) {
-    $isAjax = isset($_POST['action']) && $_POST['action'] === 'toggle';
-    
-    if ($isAjax) {
-        header('Content-Type: application/json; charset=utf-8');
-        
-        if (!csrf_verify($_POST['csrf_token'] ?? null)) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'CSRF inválido'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-        
-        $id = (int)($_POST['id'] ?? 0);
-        $action = (string)($_POST['toggle_action'] ?? '');
-    } else {
-        $id = (int)($_GET['toggle'] ?? 0);
-        $action = (string)($_GET['action'] ?? '');
-        
-        $qs = productos_clean_qs($_GET);
-        
-        if ($id <= 0 || !in_array($action, ['activate', 'deactivate'], true)) {
-            $qs['toast'] = 'error';
-            $qs['toast_msg'] = 'Acción inválida.';
-            header('Location: productos.php?' . http_build_query($qs));
-            exit;
-        }
-        
-        if (!csrf_verify($_GET['csrf_token'] ?? null)) {
-            $qs['toast'] = 'error';
-            $qs['toast_msg'] = 'Token inválido. Recargá y probá de nuevo.';
-            header('Location: productos.php?' . http_build_query($qs));
-            exit;
-        }
-    }
-    
-    if ($id <= 0 || !in_array($action, ['activate', 'deactivate'], true)) {
-        if ($isAjax) {
-            echo json_encode(['success' => false, 'message' => 'Parámetros inválidos'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-    }
-    
-    $newValue = ($action === 'activate') ? 1 : 0;
-    $pdo->prepare("UPDATE productos SET activo = ? WHERE id = ?")->execute([$newValue, $id]);
-    
-    if ($isAjax) {
-        // Obtener datos actualizados
-        $stmt = $pdo->prepare("SELECT * FROM productos WHERE id = ? LIMIT 1");
-        $stmt->execute([$id]);
-        $producto = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        echo json_encode([
-            'success' => true,
-            'message' => $action === 'activate' ? 'Producto activado' : 'Producto desactivado',
-            'data' => [
-                'id' => $id,
-                'activo' => $newValue,
-                'estado' => calcular_estado_producto($producto),
-            ]
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    
-    $qs['toast'] = $action === 'activate' ? 'activated' : 'deactivated';
+if (isset($_GET['toggle'])) {
+    $qs = productos_clean_qs($_GET);
+    $qs['toast'] = 'error';
+    $qs['toast_msg'] = 'La activación por enlace ya no está permitida. Usá el botón de la tabla.';
     header('Location: productos.php?' . http_build_query($qs));
     exit;
 }
 
+if (isset($_POST['action']) && $_POST['action'] === 'toggle') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'CSRF inválido'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $id = (int)($_POST['id'] ?? 0);
+    $action = (string)($_POST['toggle_action'] ?? '');
+
+    if ($id <= 0 || !in_array($action, ['activate', 'deactivate'], true)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Parámetros inválidos'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $newValue = ($action === 'activate') ? 1 : 0;
+    $pdo->prepare("UPDATE productos SET activo = ? WHERE id = ?")->execute([$newValue, $id]);
+
+    $stmt = $pdo->prepare("SELECT * FROM productos WHERE id = ? LIMIT 1");
+    $stmt->execute([$id]);
+    $producto = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'success' => true,
+        'message' => $action === 'activate' ? 'Producto activado' : 'Producto desactivado',
+        'data' => [
+            'id' => $id,
+            'activo' => $newValue,
+            'estado' => $producto ? calcular_estado_producto($producto) : ($newValue ? 'ok' : 'inactivo'),
+        ]
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 /* ================================
    ALTA / EDICIÓN (POST + CSRF)
 ================================ */

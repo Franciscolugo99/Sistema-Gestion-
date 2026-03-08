@@ -53,6 +53,13 @@ if ($userId === (int)($_SESSION['user_id'] ?? 0)) {
     success_fail('No puedes desactivar tu propio usuario', 400);
 }
 
+$adminGuard = function_exists('flus_guard_last_admin_user_change')
+    ? flus_guard_last_admin_user_change($pdo, $userId, $activo, false)
+    : null;
+if (is_string($adminGuard) && $adminGuard !== '') {
+    success_fail($adminGuard, 409);
+}
+
 // Actualizar estado
 try {
     $stmt = $pdo->prepare("

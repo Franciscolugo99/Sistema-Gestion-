@@ -522,8 +522,8 @@ if (r.status === 503) {
                 <a href="#" class="btn-line btn-edit" onclick="openEditPanel(${id}); return false;">Editar</a>
                 ${
                   Number(p.activo)
-                    ? `<a class="btn-line btn-toggle js-product-toggle" href="productos.php?eliminar=${id}" data-action="desactivar">Desactivar</a>`
-                    : `<a class="btn-line btn-toggle js-product-toggle" href="productos.php?activar=${id}" data-action="activar">Activar</a>`
+                    ? `<a class="btn-line btn-toggle js-product-toggle" href="#" data-product-id="${id}" data-toggle-action="deactivate" data-action="desactivar">Desactivar</a>`
+                    : `<a class="btn-line btn-toggle js-product-toggle" href="#" data-product-id="${id}" data-toggle-action="activate" data-action="activar">Activar</a>`
                 }
               </td>
             </tr>`;
@@ -600,7 +600,7 @@ if (r.status === 503) {
 
     if (!overlay || !btnOk || !btnCancel || !titleEl || !textEl) return;
 
-    let pendingUrl = null;
+    let pendingToggle = null;
 
     document.addEventListener("click", (e) => {
       const link = e.target.closest(".js-product-toggle");
@@ -608,7 +608,10 @@ if (r.status === 503) {
 
       e.preventDefault();
 
-      pendingUrl = link.href;
+      pendingToggle = {
+        id: Number(link.dataset.productId || 0),
+        action: String(link.dataset.toggleAction || "").trim(),
+      };
       const action = (link.dataset.action || "").toLowerCase();
 
       if (action === "activar") {
@@ -624,18 +627,48 @@ if (r.status === 503) {
 
     btnCancel.addEventListener("click", () => {
       overlay.classList.remove("open");
-      pendingUrl = null;
+      pendingToggle = null;
     });
 
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) {
         overlay.classList.remove("open");
-        pendingUrl = null;
+        pendingToggle = null;
       }
     });
 
-    btnOk.addEventListener("click", () => {
-      if (pendingUrl) window.location.href = pendingUrl;
+    btnOk.addEventListener("click", async () => {
+      if (!pendingToggle || !pendingToggle.id || !pendingToggle.action) return;
+
+      btnOk.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.append("action", "toggle");
+        fd.append("id", String(pendingToggle.id));
+        fd.append("toggle_action", pendingToggle.action);
+        fd.append("csrf_token", getCsrfToken());
+
+        const res = await fetch("productos.php", {
+          method: "POST",
+          body: fd,
+          headers: { Accept: "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !(data && (data.ok === true || data.success === true))) {
+          throw new Error((data && (data.message || data.error)) || "No se pudo cambiar el estado del producto.");
+        }
+
+        overlay.classList.remove("open");
+        pendingToggle = null;
+        window.location.reload();
+      } catch (err) {
+        showToast(err && err.message ? err.message : "No se pudo cambiar el estado del producto.", "error");
+      } finally {
+        btnOk.disabled = false;
+      }
     });
   });
 
