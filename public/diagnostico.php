@@ -83,19 +83,19 @@ $schemaIntegrity = function_exists('flus_check_schema_integrity') ? flus_check_s
 $securityConfig  = function_exists('flus_check_security_config') ? flus_check_security_config() : null;
 $criticalFiles   = function_exists('flus_check_critical_files') ? flus_check_critical_files() : null;
 $recentErrors    = function_exists('flus_analyze_recent_errors') ? flus_analyze_recent_errors(24) : null;
-
-
-// Checks adicionales (si existen en la lib)
-$schemaIntegrity = function_exists('flus_check_schema_integrity') ? flus_check_schema_integrity() : null;
-$securityConfig  = function_exists('flus_check_security_config') ? flus_check_security_config() : null;
-$criticalFiles   = function_exists('flus_check_critical_files') ? flus_check_critical_files() : null;
-$recentErrors    = function_exists('flus_analyze_recent_errors') ? flus_analyze_recent_errors(24) : null;
+$overview = function_exists('flus_build_diagnostic_overview')
+    ? flus_build_diagnostic_overview($health, $schemaIntegrity, $securityConfig, $criticalFiles, $recentErrors)
+    : ['status' => 'ok', 'message' => 'Todos los sistemas funcionan correctamente', 'restore_in_progress' => false, 'maintenance_active' => false];
 
 // Contar paquetes existentes
 $diagDir = FLUS_ROOT . '/storage/diagnostics';
 $existingPackages = [];
 if (is_dir($diagDir)) {
-    foreach (glob($diagDir . '/flus_diagnostic_*.zip') as $file) {
+    $packageFiles = array_merge(
+        glob($diagDir . '/flus_diagnostic_*.zip') ?: [],
+        glob($diagDir . '/flus_diagnostico_*.zip') ?: []
+    );
+    foreach ($packageFiles as $file) {
         $existingPackages[] = [
             'file' => basename($file),
             'size' => filesize($file),
@@ -132,6 +132,17 @@ require __DIR__ . '/partials/header.php';
         </div>
     </div>
 
+    <div class="bk-note mt-2">
+        <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <div>
+            <strong>Atención:</strong> el paquete de soporte ahora sale en modo compartible: incluye logs saneados y metadata técnica resumida. Igual revisalo antes de compartirlo fuera del equipo de soporte.
+        </div>
+    </div>
+
     <?php if ($info): ?>
         <div class="alert alert-ok">
             <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -162,35 +173,10 @@ require __DIR__ . '/partials/header.php';
 
     <!-- Estado General -->
     <?php
-    $overallStatus = 'ok';
-$statusMsg = 'Todos los sistemas funcionan correctamente';
-
-$dbConnected = (bool)($health['database']['connected'] ?? false);
-$tablesMissing = (int)($health['critical_tables']['missing_count'] ?? 0);
-$tablesCheckFailed = (bool)($health['critical_tables']['check_failed'] ?? false);
-$dbCfg = $health['database']['name'] ?? null;
-$dbSel = $health['database']['selected_db'] ?? null;
-$dbMismatch = $dbConnected && $dbCfg && $dbSel && strcasecmp((string)$dbCfg, (string)$dbSel) !== 0;
-
-// Schema / security / files
-$schemaCritical = false;
-if (is_array($schemaIntegrity)) {
-    foreach (($schemaIntegrity['issues'] ?? []) as $iss) {
-        if (($iss['severity'] ?? '') === 'critical') { $schemaCritical = true; break; }
-    }
-}
-$filesCritical = is_array($criticalFiles) && !empty(($criticalFiles['issues'] ?? []));
-$securityWarn  = is_array($securityConfig) && (!empty(($securityConfig['issues'] ?? [])) || !empty(($securityConfig['warnings'] ?? [])));
-$recentCritical = is_array($recentErrors) && ((int)($recentErrors['total_critical'] ?? 0) > 0);
-
-if (!$dbConnected || $dbMismatch || $tablesMissing > 0 || $schemaCritical || $filesCritical) {
-    $overallStatus = 'error';
-    $statusMsg = 'Se detectaron problemas críticos';
-} elseif ($tablesCheckFailed || (($health['disk']['used_percent'] ?? 0) > 90) || !empty($health['active_locks']) || $securityWarn || $recentCritical) {
-    $overallStatus = 'warning';
-    $statusMsg = 'Se detectaron advertencias';
-}
-
+    $overallStatus = (string)($overview['status'] ?? 'ok');
+    $statusMsg = (string)($overview['message'] ?? 'Todos los sistemas funcionan correctamente');
+    $restoreInProgress = !empty($overview['restore_in_progress']);
+    $maintenanceActive = !empty($overview['maintenance_active']);
     ?>
     <div class="overall-status">
         <div class="overall-icon <?= $overallStatus ?>">
@@ -310,7 +296,6 @@ if (!$dbConnected || $dbMismatch || $tablesMissing > 0 || $schemaCritical || $fi
                         <?= $health['critical_tables']['missing_count'] ?? 0 ?>
                     </span>
                 </div>
-                \
                 <?php if (!empty($health['critical_tables']['check_failed'])): ?>
                 <div class="health-item">
                     <span class="health-label">Chequeo</span>
@@ -431,6 +416,12 @@ if (!$dbConnected || $dbMismatch || $tablesMissing > 0 || $schemaCritical || $fi
                     </span>
                 </div>
                 <div class="health-item">
+                    <span class="health-label">Restore activo</span>
+                    <span class="health-value <?= $restoreInProgress ? 'warning' : 'ok' ?>">
+                        <?= $restoreInProgress ? '⚠ En curso' : '✓ No' ?>
+                    </span>
+                </div>
+                <div class="health-item">
                     <span class="health-label">Locks activos</span>
                     <span class="health-value <?= $locksCount > 0 ? 'warning' : 'ok' ?>">
                         <?= $locksCount ?>
@@ -547,8 +538,10 @@ if (!$dbConnected || $dbMismatch || $tablesMissing > 0 || $schemaCritical || $fi
             <line x1="12" y1="9" x2="12" y2="13"/>
             <line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-        Alertas detectadas
+        Alertas en logs
     </h3>
+
+    <p class="diag-note">Referencia operativa: esta tarjeta resume la cola reciente de logs. El estado general prioriza errores críticos recientes y problemas activos.</p>
 
     <?php
         $logSum = is_array($health['log_summary'] ?? null) ? $health['log_summary'] : [];

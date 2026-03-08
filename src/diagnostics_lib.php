@@ -25,6 +25,7 @@ function flus_health_check(): array {
         'php_os'      => PHP_OS_FAMILY,
         'status'      => 'OK',
         'issues'      => [],
+        'notes'       => [],
     ];
 
     // 1. Verificar DB
@@ -88,6 +89,14 @@ if (!empty($tablesDetail['error'])) {
 
     // 5. Verificar locks activos
     $health['locks'] = flus_check_active_locks();
+    if (!empty($health['locks']['restore_in_progress'])) {
+        $health['status'] = $health['status'] === 'OK' ? 'WARNING' : $health['status'];
+        $health['issues'][] = 'Restore in progress';
+    }
+    if (!empty($health['locks']['maintenance_active'])) {
+        $health['status'] = $health['status'] === 'OK' ? 'WARNING' : $health['status'];
+        $health['issues'][] = 'Maintenance mode active';
+    }
 
     // 6. Último backup
     $health['backup'] = flus_check_last_backup();
@@ -120,21 +129,24 @@ if (!empty($tablesDetail['error'])) {
     // 9. Logs recientes (para vista rápida en Diagnóstico)
     $health['logs'] = flus_get_recent_text_logs(80);
 
-    // 10. Resumen de logs (errores repetidos) + hints de esquema (Unknown column, etc.)
+    // 10. Señales de logs: separar lo reciente de la cola histórica.
+    $health['recent_errors'] = function_exists('flus_analyze_recent_errors')
+        ? flus_analyze_recent_errors(24)
+        : ['hours' => 24, 'total_critical' => 0, 'total_warning' => 0, 'errors' => [], 'warnings' => []];
     $health['log_summary'] = flus_summarize_recent_text_logs($health['logs']);
     $health['schema_hints'] = flus_extract_schema_hints_from_logs($health['logs']);
 
-    // Si hay errores/fatals recientes en logs, marcar como WARNING (aunque sean "históricos", sirven para soporte)
-    $appErrs = (int)($health['log_summary']['app']['errors'] ?? 0);
-    $phpFatals = (int)($health['log_summary']['php']['fatals'] ?? 0);
-    if ($appErrs > 0 || $phpFatals > 0) {
+    $recentCritical = (int)($health['recent_errors']['total_critical'] ?? 0);
+    $recentWarnings = (int)($health['recent_errors']['total_warning'] ?? 0);
+    if ($recentCritical > 0) {
         $health['status'] = $health['status'] === 'OK' ? 'WARNING' : $health['status'];
-        $health['issues'][] = 'Se detectaron errores en logs: app=' . $appErrs . ' php_fatal=' . $phpFatals;
+        $health['issues'][] = 'Recent critical errors (24h): ' . $recentCritical;
+    } elseif ($recentWarnings > 0) {
+        $health['notes'][] = 'Recent warnings (24h): ' . $recentWarnings;
     }
 
     if (is_array($health['schema_hints']) && !empty($health['schema_hints'])) {
-        $health['status'] = $health['status'] === 'OK' ? 'WARNING' : $health['status'];
-        $health['issues'][] = 'Schema hints from logs: ' . implode(', ', array_slice($health['schema_hints'], 0, 5));
+        $health['notes'][] = 'Schema hints in recent log tail: ' . implode(', ', array_slice($health['schema_hints'], 0, 5));
     }
 
     // =========================
@@ -420,6 +432,8 @@ function flus_check_active_locks(): array {
     $result = [
         'terminal_locks' => [],
         'restore_lock' => false,
+        'restore_in_progress' => false,
+        'restore_lock_file_exists' => false,
         'maintenance_active' => false,
     ];
 
@@ -441,9 +455,27 @@ function flus_check_active_locks(): array {
 
     $base = (defined('FLUS_ROOT') ? FLUS_ROOT : dirname(__DIR__));
 
-    // Restore lock
+    // Restore lock: el archivo puede existir aunque no haya restore corriendo,
+    // así que intentamos adquirir el lock para distinguir el estado real.
     $lockPath = $base . '/storage/restore.lock';
-    $result['restore_lock'] = is_file($lockPath);
+    $result['restore_lock_file_exists'] = is_file($lockPath);
+
+    if ($result['restore_lock_file_exists']) {
+        $fp = @fopen($lockPath, 'c');
+        if ($fp) {
+            $locked = @flock($fp, LOCK_EX | LOCK_NB);
+            if ($locked) {
+                @flock($fp, LOCK_UN);
+                $result['restore_in_progress'] = false;
+            } else {
+                $result['restore_in_progress'] = true;
+            }
+            @fclose($fp);
+        }
+    }
+
+    // Compat: restore_lock representa restore realmente activo.
+    $result['restore_lock'] = $result['restore_in_progress'];
 
     // Maintenance flag
     $maintenancePath = $base . '/storage/maintenance.flag';
@@ -829,39 +861,45 @@ function flus_get_php_error_log_path(): ?string {
 /**
  * Logs recientes en formato texto para UI (app.log + php error_log si existe)
  */
-function flus_get_recent_text_logs(int $lines = 80): array {
+function flus_get_recent_text_logs(int $lines = 80, bool $sanitize = false): array {
     $base = (defined('FLUS_ROOT') ? FLUS_ROOT : dirname(__DIR__));
 
     $appLog = $base . '/storage/logs/app.log';
     $phpErr = flus_get_php_error_log_path();
+    $appTail = flus_tail_text_file($appLog, $lines);
+    $phpTail = ($phpErr && is_file($phpErr)) ? flus_tail_text_file($phpErr, $lines) : [];
+
+    if ($sanitize) {
+        $appTail = flus_sanitize_log_lines($appTail);
+        $phpTail = flus_sanitize_log_lines($phpTail);
+    }
 
     $out = [
         'app_log' => [
-            'path' => $appLog,
+            'path' => $sanitize ? flus_make_shareable_path($appLog) : $appLog,
             'exists' => is_file($appLog),
             'size' => (int)@filesize($appLog),
-            'tail' => flus_tail_text_file($appLog, $lines),
+            'tail' => $appTail,
         ],
         'php_error_log' => [
-            'path' => $phpErr,
+            'path' => $sanitize ? flus_make_shareable_path($phpErr) : $phpErr,
             'exists' => $phpErr ? is_file($phpErr) : false,
             'size' => $phpErr ? (int)@filesize($phpErr) : 0,
-            'tail' => ($phpErr && is_file($phpErr)) ? flus_tail_text_file($phpErr, $lines) : [],
+            'tail' => $phpTail,
         ],
     ];
 
     return $out;
 }
 
-
 /**
  * Obtener logs recientes
  */
-function flus_get_recent_logs(int $lines = 100): array {
+function flus_get_recent_logs(int $lines = 100, bool $sanitize = false): array {
     $logPath = (defined('FLUS_ROOT') ? FLUS_ROOT : dirname(__DIR__)) . '/storage/logs/app.log';
 
     $result = [
-        'path' => $logPath,
+        'path' => $sanitize ? flus_make_shareable_path($logPath) : $logPath,
         'exists' => false,
         'size' => 0,
         'lines' => [],
@@ -898,7 +936,9 @@ function flus_get_recent_logs(int $lines = 100): array {
         foreach (array_reverse($parts) as $line) {
             if (trim($line) !== '') {
                 array_unshift($logLines, $line);
-                if (count($logLines) >= $lines) break;
+                if (count($logLines) >= $lines) {
+                    break;
+                }
             }
         }
     }
@@ -908,9 +948,9 @@ function flus_get_recent_logs(int $lines = 100): array {
     foreach ($logLines as $line) {
         $decoded = @json_decode($line, true);
         if (is_array($decoded)) {
-            $result['lines'][] = $decoded;
+            $result['lines'][] = $sanitize ? flus_sanitize_recursive($decoded) : $decoded;
         } else {
-            $result['lines'][] = ['raw' => $line];
+            $result['lines'][] = ['raw' => $sanitize ? flus_sanitize_log_line($line) : $line];
         }
     }
 
@@ -918,10 +958,94 @@ function flus_get_recent_logs(int $lines = 100): array {
 }
 
 /**
+ * Devuelve una etiqueta de path apta para compartir fuera del entorno.
+ */
+function flus_make_shareable_path(?string $path): ?string {
+    if ($path === null || $path === '') {
+        return $path;
+    }
+
+    $normalized = str_replace('\\', '/', $path);
+    $root = defined('FLUS_ROOT') ? str_replace('\\', '/', (string)FLUS_ROOT) : '';
+
+    if ($root !== '' && stripos($normalized, $root) === 0) {
+        return '[FLUS_ROOT]' . substr($normalized, strlen($root));
+    }
+
+    if (preg_match('~^[A-Za-z]:/~', $normalized) || str_starts_with($normalized, '/')) {
+        return '[PATH]/' . basename($normalized);
+    }
+
+    return basename($normalized);
+}
+
+/**
+ * Sanitiza una línea de log para compartir soporte sin exponer datos obvios.
+ */
+function flus_sanitize_log_line(string $line): string {
+    $sanitized = $line;
+
+    $root = defined('FLUS_ROOT') ? (string)FLUS_ROOT : '';
+    if ($root !== '') {
+        $sanitized = str_replace([$root, str_replace('\\', '/', $root)], '[FLUS_ROOT]', $sanitized);
+    }
+
+    $sanitized = preg_replace('~\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b~i', '[EMAIL]', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~\b(?:\d{1,3}\.){3}\d{1,3}\b~', '[IP]', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~\bBearer\s+[A-Za-z0-9\-._~+/]+=*\b~i', 'Bearer [REDACTED_TOKEN]', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~\b[A-Za-z0-9\-_]{12,}\.[A-Za-z0-9\-_]{12,}\.[A-Za-z0-9\-_]{12,}\b~', '[REDACTED_JWT]', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~((?:password|passwd|pwd|token|api[_-]?key|secret|authorization)"?\s*[:=]\s*")([^"]+)(")~i', '$1[REDACTED]$3', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace("~((?:password|passwd|pwd|token|api[_-]?key|secret|authorization)'?\s*[:=]\s*')([^']+)(')~i", '$1[REDACTED]$3', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~((?:password|passwd|pwd|token|api[_-]?key|secret|authorization)\s*[:=]\s*)([^\s,;&]+)~i', '$1[REDACTED]', $sanitized) ?? $sanitized;
+
+    return $sanitized;
+}
+
+/**
+ * Sanitiza recursivamente arrays/strings antes de exportarlos.
+ */
+function flus_sanitize_recursive($value) {
+    if (is_array($value)) {
+        foreach ($value as $key => $item) {
+            $value[$key] = flus_sanitize_recursive($item);
+        }
+        return $value;
+    }
+
+    if (is_string($value)) {
+        return flus_sanitize_log_line($value);
+    }
+
+    return $value;
+}
+
+/**
+ * Sanitiza una lista de líneas de texto.
+ */
+function flus_sanitize_log_lines(array $lines): array {
+    $out = [];
+    foreach ($lines as $line) {
+        $out[] = flus_sanitize_log_line((string)$line);
+    }
+    return $out;
+}
+
+/**
+ * Enmascara valores sensibles de configuración cuando el paquete es compartible.
+ */
+function flus_mask_config_value($value): ?string {
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    return '***SET***';
+}
+
+/**
  * Obtener configuración sanitizada (sin passwords)
  */
-function flus_get_sanitized_config(): array {
-    return [
+function flus_get_sanitized_config(bool $shareable = false): array {
+    $config = [
         'DB_HOST' => defined('DB_HOST') ? DB_HOST : null,
         'DB_PORT' => defined('DB_PORT') ? DB_PORT : null,
         'DB_NAME' => defined('DB_NAME') ? DB_NAME : null,
@@ -934,6 +1058,79 @@ function flus_get_sanitized_config(): array {
         'FLUS_VERSION' => defined('FLUS_VERSION') ? FLUS_VERSION : null,
         'FLUS_BUILD' => defined('FLUS_BUILD') ? FLUS_BUILD : null,
     ];
+
+    if ($shareable) {
+        $config['DB_HOST'] = flus_mask_config_value($config['DB_HOST']);
+        $config['DB_NAME'] = flus_mask_config_value($config['DB_NAME']);
+        $config['DB_USER'] = flus_mask_config_value($config['DB_USER']);
+    }
+
+    return $config;
+}
+
+/**
+ * Resumen técnico de PHP apto para compartir.
+ */
+function flus_get_shareable_php_runtime_summary(): array {
+    return [
+        'php_version' => PHP_VERSION,
+        'php_sapi' => PHP_SAPI,
+        'php_os_family' => PHP_OS_FAMILY,
+        'memory_limit' => ini_get('memory_limit'),
+        'max_execution_time' => ini_get('max_execution_time'),
+        'post_max_size' => ini_get('post_max_size'),
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'max_input_vars' => ini_get('max_input_vars'),
+        'date.timezone' => ini_get('date.timezone'),
+        'loaded_extensions' => get_loaded_extensions(),
+        'document_root' => flus_make_shareable_path($_SERVER['DOCUMENT_ROOT'] ?? null),
+        'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
+    ];
+}
+
+/**
+ * Construye el resumen operativo para la pantalla de diagnóstico.
+ */
+function flus_build_diagnostic_overview(array $health, ?array $schemaIntegrity = null, ?array $securityConfig = null, ?array $criticalFiles = null, ?array $recentErrors = null): array {
+    $overview = [
+        'status' => 'ok',
+        'message' => 'Todos los sistemas funcionan correctamente',
+        'restore_in_progress' => !empty($health['locks']['restore_in_progress']),
+        'maintenance_active' => !empty($health['maintenance']['active']),
+    ];
+
+    $dbConnected = (bool)($health['database']['connected'] ?? false);
+    $tablesMissing = (int)($health['critical_tables']['missing_count'] ?? 0);
+    $tablesCheckFailed = (bool)($health['critical_tables']['check_failed'] ?? false);
+    $dbCfg = $health['database']['name'] ?? null;
+    $dbSel = $health['database']['selected_db'] ?? null;
+    $dbMismatch = $dbConnected && $dbCfg && $dbSel && strcasecmp((string)$dbCfg, (string)$dbSel) !== 0;
+
+    $schemaCritical = false;
+    if (is_array($schemaIntegrity)) {
+        foreach (($schemaIntegrity['issues'] ?? []) as $issue) {
+            if (($issue['severity'] ?? '') === 'critical') {
+                $schemaCritical = true;
+                break;
+            }
+        }
+    }
+
+    $filesCritical = is_array($criticalFiles) && !empty(($criticalFiles['issues'] ?? []));
+    $securityWarn = is_array($securityConfig) && (!empty(($securityConfig['issues'] ?? [])) || !empty(($securityConfig['warnings'] ?? [])));
+    $recentCritical = is_array($recentErrors) && ((int)($recentErrors['total_critical'] ?? 0) > 0);
+    $diskUsed = (float)($health['disk']['used_percent'] ?? 0);
+    $terminalLocks = is_array($health['active_locks'] ?? null) ? $health['active_locks'] : [];
+
+    if (!$dbConnected || $dbMismatch || $tablesMissing > 0 || $schemaCritical || $filesCritical) {
+        $overview['status'] = 'error';
+        $overview['message'] = 'Se detectaron problemas críticos';
+    } elseif ($tablesCheckFailed || $diskUsed > 90 || !empty($terminalLocks) || $overview['maintenance_active'] || $overview['restore_in_progress'] || $securityWarn || $recentCritical) {
+        $overview['status'] = 'warning';
+        $overview['message'] = 'Se detectaron advertencias';
+    }
+
+    return $overview;
 }
 
 /**
@@ -962,36 +1159,44 @@ function flus_generate_diagnostic_package(): ?string {
     }
 
     $health = flus_health_check();
-    $zip->addFromString('health_check.json', json_encode($health, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $packageHealth = $health;
+    $packageHealth['logs'] = flus_get_recent_text_logs(80, true);
+    $packageHealth['log_summary'] = flus_summarize_recent_text_logs($packageHealth['logs']);
+    $packageHealth['schema_hints'] = flus_extract_schema_hints_from_logs($packageHealth['logs']);
+    $packageHealth['issues'] = flus_sanitize_recursive($packageHealth['issues'] ?? []);
+    $packageHealth['notes'] = flus_sanitize_recursive($packageHealth['notes'] ?? []);
+    $packageHealth['recent_errors'] = flus_sanitize_recursive($packageHealth['recent_errors'] ?? []);
+    $zip->addFromString('health_check.json', json_encode($packageHealth, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     $schema = flus_get_schema_summary();
     $zip->addFromString('schema_summary.json', json_encode($schema, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    $config = flus_get_sanitized_config();
+    $config = flus_get_sanitized_config(true);
     $zip->addFromString('config_sanitized.json', json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
+    $packageProfile = [
+        'profile' => 'shareable_support_bundle',
+        'contains_sanitized_logs' => true,
+        'includes_raw_app_log' => false,
+        'includes_full_phpinfo' => false,
+    ];
+    $zip->addFromString('package_profile.json', json_encode($packageProfile, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $zip->addFromString('README.txt', 'Paquete de diagnostico saneado para soporte.' . PHP_EOL . 'Incluye logs recientes saneados y metadata tecnica resumida.' . PHP_EOL . 'No incluye app.log crudo ni phpinfo completo.' . PHP_EOL . 'Aun asi, revisalo antes de compartirlo fuera del equipo de soporte.' . PHP_EOL);
 
-$phpExt = flus_check_php_extensions();
-$zip->addFromString('php_extensions.json', json_encode($phpExt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $phpExt = flus_check_php_extensions();
+    $zip->addFromString('php_extensions.json', json_encode($phpExt, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-$phpIni = flus_check_php_ini();
-$zip->addFromString('php_ini.json', json_encode($phpIni, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $phpIni = flus_check_php_ini();
+    $zip->addFromString('php_ini.json', json_encode($phpIni, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-$textLogs = flus_get_recent_text_logs(200);
-$zip->addFromString('recent_text_logs.json', json_encode($textLogs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    $textLogs = flus_get_recent_text_logs(200, true);
+    $zip->addFromString('recent_text_logs.json', json_encode($textLogs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    $logs = flus_get_recent_logs(500);
+    $logs = flus_get_recent_logs(500, true);
     $zip->addFromString('recent_logs.json', json_encode($logs, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    $logPath = $storageDir . '/logs/app.log';
-    if (is_file($logPath) && filesize($logPath) < 5 * 1024 * 1024) {
-        $zip->addFile($logPath, 'logs/app.log');
-    }
-
-    ob_start();
-    phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_MODULES);
-    $phpinfo = ob_get_clean();
-    $zip->addFromString('phpinfo.html', $phpinfo);
+    $phpRuntime = flus_get_shareable_php_runtime_summary();
+    $zip->addFromString('php_runtime_summary.json', json_encode($phpRuntime, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     $sysinfo = [
         'timestamp' => date('c'),
@@ -1000,7 +1205,7 @@ $zip->addFromString('recent_text_logs.json', json_encode($textLogs, JSON_PRETTY_
         'php_os' => PHP_OS,
         'php_os_family' => PHP_OS_FAMILY,
         'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'unknown',
-        'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'unknown',
+        'document_root' => flus_make_shareable_path($_SERVER['DOCUMENT_ROOT'] ?? 'unknown'),
         'memory_limit' => ini_get('memory_limit'),
         'max_execution_time' => ini_get('max_execution_time'),
         'post_max_size' => ini_get('post_max_size'),
@@ -1009,11 +1214,8 @@ $zip->addFromString('recent_text_logs.json', json_encode($textLogs, JSON_PRETTY_
     ];
     $zip->addFromString('system_info.json', json_encode($sysinfo, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    $maintenancePath = $storageDir . '/maintenance.flag';
-    if (is_file($maintenancePath)) {
-        $zip->addFile($maintenancePath, 'maintenance.flag');
-    }
-
+    $maintenance = flus_check_maintenance_status();
+    $zip->addFromString('maintenance_status.json', json_encode($maintenance, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
 // Resumen rápido para soporte (copiable)
 $summaryLines = [];
@@ -1022,23 +1224,29 @@ $summaryLines[] = 'Timestamp: ' . ($health['timestamp'] ?? date('c'));
 $summaryLines[] = 'FLUS: ' . ($health['version'] ?? 'unknown') . ' (Build ' . ($health['build'] ?? 'unknown') . ')';
 $summaryLines[] = 'PHP: ' . PHP_VERSION . ' (' . PHP_SAPI . ')';
 $summaryLines[] = 'OS: ' . PHP_OS_FAMILY . ' / ' . PHP_OS;
-$summaryLines[] = 'DB host: ' . (($health['database']['host'] ?? 'unknown')) . ' DB_NAME=' . (($health['database']['name'] ?? 'unknown')) . ' SELECTED=' . (($health['database']['selected_db'] ?? 'null'));
+$summaryLines[] = 'DB host: ' . (($config['DB_HOST'] ?? 'unknown')) . ' DB_NAME=' . (($config['DB_NAME'] ?? 'unknown'));
 $summaryLines[] = 'DB ok: ' . ((($health['database']['ok'] ?? false) ? 'YES' : 'NO'));
 $summaryLines[] = 'Tables check: ' . ((($health['critical_tables']['check_failed'] ?? false) ? 'FAILED' : 'OK'));
 if (!empty($health['critical_tables']['missing'])) {
     $summaryLines[] = 'Missing tables: ' . implode(', ', (array)$health['critical_tables']['missing']);
 }
-if (!empty($health['issues'])) {
-    $summaryLines[] = 'Issues: ' . implode(' | ', (array)$health['issues']);
-
-	if (!empty($health['schema_hints'])) {
-	    $summaryLines[] = 'Schema hints: ' . implode(', ', array_slice((array)$health['schema_hints'], 0, 10));
-	}
-	if (!empty($health['log_summary'])) {
-	    $ls = $health['log_summary'];
-	    $summaryLines[] = 'app.log errors: ' . (string)($ls['app']['errors'] ?? 0) . ' warnings: ' . (string)($ls['app']['warnings'] ?? 0);
-	    $summaryLines[] = 'php fatals: ' . (string)($ls['php']['fatals'] ?? 0) . ' warnings: ' . (string)($ls['php']['warnings'] ?? 0) . ' notices: ' . (string)($ls['php']['notices'] ?? 0);
-	}
+if (!empty($packageHealth['issues'])) {
+    $summaryLines[] = 'Issues: ' . implode(' | ', (array)$packageHealth['issues']);
+}
+if (!empty($packageHealth['notes'])) {
+    $summaryLines[] = 'Notes: ' . implode(' | ', array_slice((array)$packageHealth['notes'], 0, 5));
+}
+if (!empty($packageHealth['schema_hints'])) {
+    $summaryLines[] = 'Schema hints: ' . implode(', ', array_slice((array)$packageHealth['schema_hints'], 0, 10));
+}
+if (!empty($packageHealth['recent_errors'])) {
+    $summaryLines[] = 'Recent critical errors (24h): ' . (string)($packageHealth['recent_errors']['total_critical'] ?? 0);
+    $summaryLines[] = 'Recent warnings (24h): ' . (string)($packageHealth['recent_errors']['total_warning'] ?? 0);
+}
+if (!empty($packageHealth['log_summary'])) {
+    $ls = $packageHealth['log_summary'];
+    $summaryLines[] = 'app.log tail: errors=' . (string)($ls['app']['errors'] ?? 0) . ' warnings=' . (string)($ls['app']['warnings'] ?? 0);
+    $summaryLines[] = 'php tail: fatals=' . (string)($ls['php']['fatals'] ?? 0) . ' warnings=' . (string)($ls['php']['warnings'] ?? 0) . ' notices=' . (string)($ls['php']['notices'] ?? 0);
 }
 if (!empty($phpExt['missing_required'])) {
     $summaryLines[] = 'Missing PHP extensions (required): ' . implode(', ', (array)$phpExt['missing_required']);
