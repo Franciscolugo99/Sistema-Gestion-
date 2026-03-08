@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/lib/session.php';
 flus_session_start();
+require_once __DIR__ . '/lib/csrf.php';
+csrf_init();
 
 $cfgFile = FLUS_ROOT . '/src/config.php';
 $example = FLUS_ROOT . '/src/config.example.php';
@@ -32,7 +34,13 @@ if (is_file($cfgFile)) {
   $msg = '✅ Ya existe src/config.php. Si querés reconfigurar, borrá ese archivo primero.';
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  if (!csrf_verify((string)($_POST['csrf_token'] ?? ''))) {
+    $err = 'Token CSRF inválido. Recargá la pantalla e intentá de nuevo.';
+  }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile) && $err === '') {
   $vals['db_host'] = trim((string)($_POST['db_host'] ?? $defaults['db_host']));
   $vals['db_port'] = trim((string)($_POST['db_port'] ?? $defaults['db_port']));
   $vals['db_name'] = trim((string)($_POST['db_name'] ?? $defaults['db_name']));
@@ -221,6 +229,7 @@ if (is_file($cfgFile)) {
 
     <?php if (!is_file($cfgFile)): ?>
       <form method="post" autocomplete="off">
+        <?= csrf_field() ?>
         <div class="row">
           <div>
             <label>DB Host</label>

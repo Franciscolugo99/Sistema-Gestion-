@@ -239,10 +239,10 @@ function backup_create(?string &$err = null): ?string {
     }
 
     if ($isWindows) {
-        // En Windows, formato especial para evitar problemas con espacios y comillas
+        // En Windows, quote explícito para evitar cortes por espacios o caracteres especiales.
         $args = [
-            '--host=' . $db['host'],
-            '--user=' . $db['user'],
+            '--host=' . sh_quote($db['host']),
+            '--user=' . sh_quote($db['user']),
             '--default-character-set=utf8mb4',
             '--single-transaction',
             '--routines',
@@ -257,14 +257,14 @@ function backup_create(?string &$err = null): ?string {
         }
 
         // Agregar database
-        $args[] = $db['name'];
+        $args[] = sh_quote($db['name']);
         
         // Comando final con redirección
         $cmd = sprintf(
-            '"%s" %s > "%s" 2>&1',
-            $mysqldump,
+            '%s %s > %s 2>&1',
+            sh_quote($mysqldump),
             implode(' ', $args),
-            $fullPath
+            sh_quote($fullPath)
         );
     } else {
         // En Linux/Mac, usar escapeshellarg
@@ -475,6 +475,24 @@ function backup_diagnostics(): array {
         'backups_count' => count(backup_list()),
     ];
 }
+function backup_restore_in_progress(): bool {
+    $lockPath = FLUS_ROOT . '/storage/restore.lock';
+    $fp = @fopen($lockPath, 'c');
+    if (!$fp) {
+        return false;
+    }
+
+    $locked = @flock($fp, LOCK_EX | LOCK_NB);
+    if ($locked) {
+        @flock($fp, LOCK_UN);
+        @fclose($fp);
+        return false;
+    }
+
+    @fclose($fp);
+    return true;
+}
+
 /* ==========================================================================
    RESTORE (importar .sql)
    Nota: restaura la DB desde un backup generado por mysqldump.

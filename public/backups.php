@@ -33,6 +33,7 @@ if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_byt
 $pageTitle = 'Backups - FLUS';
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
 $maintenanceActive = is_file($maintenanceFlag);
+$restoreInProgress = backup_restore_in_progress();
 
 $maintenanceMeta = null;
 $maintenanceError = null;
@@ -61,12 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = (string)($_POST['accion'] ?? '');
 
     if ($accion === 'crear') {
-      $err = null;
-      $file = backup_create($err);
-      if ($file) {
-        $info = 'Backup creado exitosamente: ' . basename($file);
+      if ($maintenanceActive || $restoreInProgress) {
+        $error = 'No se pueden crear backups mientras hay una restauración o mantenimiento activo.';
       } else {
-        $error = 'Error al crear backup: ' . ($err ?: 'Error desconocido. Verificá los permisos y la configuración de la base de datos.');
+        $err = null;
+        $file = backup_create($err);
+        if ($file) {
+          $info = 'Backup creado exitosamente: ' . basename($file);
+        } else {
+          $error = 'Error al crear backup: ' . ($err ?: 'Error desconocido. Verificá los permisos y la configuración de la base de datos.');
+        }
       }
     } elseif ($accion === 'borrar') {
       $file = (string)($_POST['file'] ?? '');
@@ -77,22 +82,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Error al eliminar backup: ' . ($err ?: 'No se pudo borrar el archivo.');
       }
     } elseif ($accion === 'restaurar') {
-      $file = (string)($_POST['file'] ?? '');
-      $err = null;
-      if (backup_restore($file, $err)) {
-        $info = 'Restauración completada: ' . basename($file);
+      if ($maintenanceActive || $restoreInProgress) {
+        $error = 'No se puede iniciar otra restauración mientras el sistema está en mantenimiento.';
       } else {
-        $error = 'Error al restaurar backup: ' . ($err ?: 'No se pudo restaurar.');
+        $file = (string)($_POST['file'] ?? '');
+        $err = null;
+        if (backup_restore($file, $err)) {
+          $info = 'Restauración completada: ' . basename($file);
+        } else {
+          $error = 'Error al restaurar backup: ' . ($err ?: 'No se pudo restaurar.');
+        }
       }
     } elseif ($accion === 'maintenance_off') {
-      $confirm = (string)($_POST['confirm'] ?? '');
-      if ($confirm !== 'SALIR') {
-        $error = 'Confirmación inválida. Escribí SALIR para desactivar mantenimiento.';
+      if ($restoreInProgress) {
+        $error = 'Hay una restauración en curso. Esperá a que termine antes de salir de mantenimiento.';
       } else {
-        if (is_file($maintenanceFlag)) {
-          @unlink($maintenanceFlag);
+        $confirm = (string)($_POST['confirm'] ?? '');
+        if ($confirm !== 'SALIR') {
+          $error = 'Confirmación inválida. Escribí SALIR para desactivar mantenimiento.';
+        } else {
+          if (is_file($maintenanceFlag)) {
+            @unlink($maintenanceFlag);
+          }
+          $info = 'Mantenimiento desactivado.';
+          $maintenanceActive = false;
         }
-        $info = 'Mantenimiento desactivado.';
       }
     }
   }
@@ -130,7 +144,7 @@ require __DIR__ . '/partials/header.php';
       <form method="post" id="createBackupForm" class="inline-form">
         <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
         <input type="hidden" name="accion" value="crear">
-        <button class="btn btn-primary" type="submit" id="btnCrearBackup">
+        <button class="btn btn-primary" type="submit" id="btnCrearBackup" <?= ($maintenanceActive || $restoreInProgress) ? 'disabled' : '' ?>>
           <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
@@ -150,14 +164,19 @@ require __DIR__ . '/partials/header.php';
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
       <span>
-  <strong>Sistema en mantenimiento:</strong> se está restaurando un backup o quedó activo por error.
+  <strong>Sistema en mantenimiento:</strong>
+  <?= $restoreInProgress ? 'hay una restauración en curso.' : 'quedó un estado de mantenimiento pendiente.' ?>
   <?php if (!empty($maintenanceError)): ?>
     <details class="bk-details">
       <summary>Ver detalle del error</summary>
       <pre class="bk-pre"><?= h($maintenanceError) ?></pre>
     </details>
   <?php endif; ?>
-  Podés esperar o <button type="button" class="btn btn-warning btn-sm" id="btnMaintenanceOff">Salir de mantenimiento</button>
+  <?php if ($restoreInProgress): ?>
+    Esperá a que termine la restauración antes de volver a operar.
+  <?php else: ?>
+    Podés esperar o <button type="button" class="btn btn-warning btn-sm" id="btnMaintenanceOff">Salir de mantenimiento</button>
+  <?php endif; ?>
 </span>
     </div>
   <?php endif; ?>
@@ -337,7 +356,7 @@ require __DIR__ . '/partials/header.php';
                 Descargar
               </a>
 
-              <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="<?= h($it['file']) ?>" title="Restaurar este backup">
+              <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="<?= h($it['file']) ?>" title="Restaurar este backup" <?= ($maintenanceActive || $restoreInProgress) ? 'disabled' : '' ?>>
                 <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="1 4 1 10 7 10"/>
                   <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
