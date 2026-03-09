@@ -16,6 +16,18 @@ require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
 require_once FLUS_ROOT . '/src/http_helpers.php';
+
+// Forzar UTF-8 en respuestas HTML normales para evitar mojibake por charset por defecto del servidor.
+$accept = (string)($_SERVER['HTTP_ACCEPT'] ?? '');
+$requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+$isApiBootstrapContext = (
+  defined('FLUS_API_CONTEXT') ||
+  str_contains($requestUri, '/api/') ||
+  str_contains($accept, 'application/json')
+);
+if (!$isApiBootstrapContext && !headers_sent()) {
+  header('Content-Type: text/html; charset=utf-8');
+}
 // ✅ Modo mantenimiento (p.ej. durante restore de backups)
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
 if (!defined('FLUS_MAINTENANCE_BYPASS') && is_file($maintenanceFlag)) {
