@@ -992,7 +992,7 @@ function flus_sanitize_log_line(string $line): string {
 
     $sanitized = preg_replace('~\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b~i', '[EMAIL]', $sanitized) ?? $sanitized;
     $sanitized = preg_replace('~\b(?:\d{1,3}\.){3}\d{1,3}\b~', '[IP]', $sanitized) ?? $sanitized;
-    $sanitized = preg_replace('~\bBearer\s+[A-Za-z0-9\-._~+/]+=*\b~i', 'Bearer [REDACTED_TOKEN]', $sanitized) ?? $sanitized;
+    $sanitized = preg_replace('~\bBearer\s+[A-Za-z0-9\-._\~+/]+=*\b~i', 'Bearer [REDACTED_TOKEN]', $sanitized) ?? $sanitized;
     $sanitized = preg_replace('~\b[A-Za-z0-9\-_]{12,}\.[A-Za-z0-9\-_]{12,}\.[A-Za-z0-9\-_]{12,}\b~', '[REDACTED_JWT]', $sanitized) ?? $sanitized;
     $sanitized = preg_replace('~((?:password|passwd|pwd|token|api[_-]?key|secret|authorization)"?\s*[:=]\s*")([^"]+)(")~i', '$1[REDACTED]$3', $sanitized) ?? $sanitized;
     $sanitized = preg_replace("~((?:password|passwd|pwd|token|api[_-]?key|secret|authorization)'?\s*[:=]\s*')([^']+)(')~i", '$1[REDACTED]$3', $sanitized) ?? $sanitized;

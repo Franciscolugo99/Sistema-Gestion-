@@ -71,6 +71,7 @@ if ($currentSection === '') {
 
     // Nuevos módulos P1/P2
     'diagnostico.php'         => 'diagnostico',
+    'tecnico.php'             => 'tecnico',
     'inventario_fisico.php'   => 'inventario_fisico',
     'precios_historial.php'   => 'precios_historial',
     'reposicion.php'          => 'reposicion',
@@ -134,15 +135,17 @@ $canInventarioFisico = $can('editar_stock');
 $canPreciosHistorial = $can('editar_productos');
 $canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
 $canDiagnostico      = $can('gestionar_backups');
+$canTecnico          = $can('administrar_config') || $can('gestionar_backups');
 
 $showAdminMenu =
   $can('administrar_config') ||
   $can('administrar_usuarios') ||
   $can('ver_auditoria') ||
   $can('gestionar_backups') ||
-  $canDiagnostico;
+  $canDiagnostico ||
+  $canTecnico;
 
-$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles','diagnostico'], true);
+$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles','diagnostico','tecnico'], true);
 
 ?>
 
@@ -388,6 +391,13 @@ $adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria'
             <?php if ($canDiagnostico): ?>
               <a role="menuitem" href="diagnostico.php" tabindex="0">
                 <span class="menu-icon">🔧</span> Diagnóstico
+              </a>
+            <?php endif; ?>
+
+
+            <?php if ($canTecnico): ?>
+              <a role="menuitem" href="tecnico.php" tabindex="0">
+                <span class="menu-icon">[Tech]</span> Tecnico
               </a>
             <?php endif; ?>
           </div>
