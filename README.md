@@ -2,35 +2,42 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Versión:** 3.2.2  
-**Build:** 2026-01-29  
+**Version:** 3.3.0  
+**Build:** 2026-03-05  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## 🆕 Novedades v3.2.2 (build 2026-01-29)
+## Estado actual (2026-03-09)
 
-### Funcionalidades
-- ✅ **Diagnóstico** exportable en ZIP (soporte / troubleshooting).
-- ✅ **Inventario físico (conteo)** + aplicación de ajustes con movimientos de stock.
-- ✅ **Reposición sugerida** (stock bajo / sugerencias) + export CSV.
-- ✅ **Historial de precios / ajustes masivos**.
-- ✅ **System API**: endpoints para operación/soporte (health/diagnóstico/backups) y para módulos nuevos (inventario/reposición/precios).
+### Base tecnica
+- Panel Tecnico interno para soporte, diagnostico y ejecucion de smoke tests desde la UI.
+- Smoke tests minimos en `tests/` para helpers criticos y chequeos rapidos del sistema.
+- Hardening general en login, backups/restore, usuarios y links publicos.
+
+### Productos
+- Reglas de estado extraidas a helper compartido (`src/productos_helpers.php`).
+- Busqueda mejorada con prioridad por codigo exacto y prefijo.
+- Filtro de pesables y mejor lectura de stock/unidad para productos KG/G/LT/ML.
+- Modal de edicion mas estable: ya no se cierra al guardar y evita errores JS visibles para el usuario.
+
+### Stock
+- Tabla mas alineada visualmente con productos.
+- Soporte mas claro para pesables en listado y ajuste rapido.
+- Filtro de pesables, busqueda priorizada por codigo e historial reciente dentro del modal de ajuste.
+
+### Proveedores
+- Relacion con productos mas confiable mediante sincronizacion por `proveedor_id` y re-vinculacion de legacy.
+- Re-vinculacion puntual por proveedor y accion global para re-vincular todo.
+- Vista enriquecida con resumen operativo, ultima compra, historial de compras y productos asociados con modales dedicados.
 
 ### Base / Seguridad / Migrations
-- ✅ **Hardening P0**: contrato JSON estándar (`ok/error`) + CSRF reforzado en APIs.
-- ✅ **Migraciones P1**: runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
-- ✅ **BD portable**: views sin `DEFINER` y limpieza de inconsistencias (FKs duplicadas).
+- Contrato JSON estandar (`ok/error`) + CSRF reforzado en APIs.
+- Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
+- Views portables sin `DEFINER` y limpieza de inconsistencias de esquema.
 
-### Repo / mantenimiento
-- ✅ Se **ignora** el estado local de licencia (no se versiona).
-- ✅ Se versionan las migraciones SQL (`migrations/*.sql`).
-- ✅ Refactor de alineación entre scripts API/UI + install + helpers.
-
-> Nota: los permisos de acceso se alinearon a slugs existentes (`ver_stock`, `editar_stock`, `editar_productos`, `gestionar_backups`, `ver_reportes`).
-
----
+> Ver `CHANGELOG.md` para el detalle historico por version.
 
 ## Requisitos
 
@@ -52,25 +59,20 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ---
 
-## Migraciones (upgrade)
-
-- Las migraciones son **idempotentes**: podés correr `php scripts/migrate.php` varias veces.
-- Si actualizás una instalación vieja: **backup → migrate → smoke test**.
-
----
-
-## Smoke test (mínimo)
+## Smoke test (minimo)
 
 - Login + cambio de tema
-- Caja: venta simple / anulación (si aplica) / no duplica por doble click
-- Productos: búsqueda + edición básica
-- Stock / movimientos
+- Panel Tecnico: abrir, ejecutar smoke tests y validar salida en verde
+- Caja: venta simple / anulacion (si aplica) / no duplica por doble click
+- Productos: busqueda por codigo, edicion basica, pesables y cambio de estado
+- Stock: ajuste rapido, historial reciente y visualizacion de pesables
+- Proveedores: editar, ver historial/productos y probar re-vinculacion puntual o global
 - Backups: crear + validar
-- Diagnóstico: generar paquete ZIP
-- Inventario físico: crear sesión + conteo + cerrar + aplicar ajustes
-
+- Diagnostico: generar paquete ZIP
+- Inventario fisico: crear sesion + conteo + cerrar + aplicar ajustes
 
 ---
+
 
 ## Documentación histórica (v2.3.x)
 
@@ -80,7 +82,7 @@ Contenido recuperado desde commit 3c12bdf para no perder notas operativas.
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Versión:** 2.3.1  
+**Version:** 2.3.1  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
@@ -127,11 +129,19 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Generación de ticket térmico (58mm/80mm)
 - Atajos de teclado (F2 cobrar, F4 cancelar, F5 foco)
 
-### 📦 Productos & Stock
-- ABM con panel lateral de edición
-- Stock mínimo con alertas
-- Productos pesables (3 decimales) vs unitarios
-- Categorías, marcas y proveedores
+### Productos & Stock
+- ABM con panel lateral de edicion
+- Stock minimo con alertas
+- Productos pesables (KG/G/LT/ML) con visualizacion consistente en tabla, modal y detalle
+- Filtros por pesables y busqueda priorizada por codigo
+- Stock con ajuste rapido e historial reciente por producto
+- Categorias, marcas y proveedores
+
+### Proveedores
+- ABM con drawer lateral y resumen operativo
+- Ultima compra, compras recientes y productos asociados
+- Re-vinculacion de productos legacy por proveedor o global
+- Mejor soporte para mantener sincronizado proveedor ? productos
 
 ### 🎁 Promociones
 - **NxM**: Llevás N, pagás M (ej: 3x2)
@@ -327,4 +337,3 @@ mysql -u root -p kiosco < scripts/upgrade_v220.sql
 
 - Licencias: en **Acerca de** mostrar plan/vencimiento/días restantes leyendo `storage/license.json` (pendiente).
 - Documentar upgrade SQL por versión (un archivo por release cuando aplique).
-

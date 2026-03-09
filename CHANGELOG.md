@@ -13,6 +13,10 @@
 - UI HTML forzada a UTF-8 para evitar textos corruptos en navegadores/servidores con charset inconsistente.
 - Diagnostico mejorado: overview mas confiable, bundle de soporte mas compartible y mejor deteccion de estados activos.
 - Panel Tecnico localizado al espanol para uso diario desde la interfaz.
+- Productos: reglas de estado extraidas a helper compartido, busqueda con prioridad por codigo y mejor UX para editar sin cerrar el modal al guardar.
+- Productos/Stock: visualizacion de pesables unificada para que tabla, edicion y detalle usen cantidades legibles para el usuario.
+- Stock: tabla y ajuste rapido alineados con productos, con historial reciente en el modal y mejor soporte para unidades KG/G/LT/ML.
+- Proveedores: modulo enriquecido con resumen operativo, ultimas compras, productos asociados y acciones de re-vinculacion puntual/global.
 
 ### Fixed
 
@@ -23,6 +27,9 @@
 - Instalador: proteccion CSRF en el flujo inicial.
 - Backups y restore: quoting mas seguro en Windows, deteccion de restore activo y bloqueo de acciones incompatibles durante restauracion.
 - Panel Tecnico: deteccion correcta de `php.exe` para ejecutar smoke tests desde la UI.
+- Smoke tests: expectativas alineadas con la configuracion real de la app para evitar falsos negativos.
+- Productos: correccion de errores JS en el modal de edicion y sincronizacion visual despues de guardar.
+- Proveedores: sincronizacion del nombre visible en productos al renombrar y deteccion de productos legacy sin `proveedor_id`.
 
 ## [3.3.0] - 2026-03-05
 
