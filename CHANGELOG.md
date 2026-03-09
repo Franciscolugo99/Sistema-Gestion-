@@ -1,5 +1,29 @@
 # CHANGELOG - FLUS
 
+## [Unreleased] - 2026-03-09
+
+### Added
+
+- Panel Tecnico interno para soporte y mantenimiento con acceso desde el menu de administracion.
+- Base de pruebas minima en `tests/` con `bootstrap.php` y `smoke.php`.
+- Documentacion operativa inicial: roadmap POS e inventario de duplicacion legacy/API.
+
+### Changed
+
+- UI HTML forzada a UTF-8 para evitar textos corruptos en navegadores/servidores con charset inconsistente.
+- Diagnostico mejorado: overview mas confiable, bundle de soporte mas compartible y mejor deteccion de estados activos.
+- Panel Tecnico localizado al espanol para uso diario desde la interfaz.
+
+### Fixed
+
+- Login endurecido: errores genericos, preservacion segura de `next` y throttling basico contra fuerza bruta.
+- Productos: cambio de estado migrado a `POST + CSRF`, evitando operaciones mutantes por `GET`.
+- Usuarios: proteccion del ultimo administrador activo en flujos API y legacy.
+- Tickets publicos: generacion de links sin confiar en `HTTP_HOST` del request.
+- Instalador: proteccion CSRF en el flujo inicial.
+- Backups y restore: quoting mas seguro en Windows, deteccion de restore activo y bloqueo de acciones incompatibles durante restauracion.
+- Panel Tecnico: deteccion correcta de `php.exe` para ejecutar smoke tests desde la UI.
+
 ## [3.3.0] - 2026-03-05
 
 ### Fixed
