@@ -112,8 +112,9 @@ try {
     $__fail('Venta no encontrada', 404);
   }
 
-  $estadoActual = strtoupper((string)($venta['estado'] ?? 'EMITIDA'));
-  $ventaYaAnulada = ($estadoActual === 'ANULADA');
+  $ventaYaAnulada = function_exists('flus_sale_is_annulled')
+    ? flus_sale_is_annulled($venta)
+    : (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA');
   $ccReversa = null;
   $items = [];
   // -------------------------

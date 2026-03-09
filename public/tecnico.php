@@ -100,6 +100,11 @@ function tecnico_translate_smoke_output(string $stdout): string
         'flus_get_sanitized_config masks shareable db values' => 'flus_get_sanitized_config oculta valores compartibles de BD',
         'flus_build_diagnostic_overview escalates active problems' => 'flus_build_diagnostic_overview eleva problemas activos',
         'flus_format_bytes keeps current UI format' => 'flus_format_bytes mantiene el formato actual de la UI',
+        'flus_is_critical_role recognizes protected admin slugs' => 'flus_is_critical_role reconoce slugs protegidos de administrador',
+        'flus_validate_user_payload checks duplicates and role existence' => 'flus_validate_user_payload valida duplicados y existencia de rol',
+        'flus_guard_user_admin_mutation blocks self deactivation' => 'flus_guard_user_admin_mutation bloquea la auto desactivacion',
+        'flus_normalize_sale_status normalizes empty and custom states' => 'flus_normalize_sale_status normaliza estados vacios y personalizados',
+        'flus_sale_helpers keep annulled criteria consistent' => 'flus_sale_helpers mantiene consistente el criterio de anulacion',
     ];
 
     return strtr($stdout, $map);

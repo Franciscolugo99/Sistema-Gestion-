@@ -397,7 +397,9 @@ try {
       // Campos principales con fallback
       $fecha  = $venta[$vFechaCol]  ?? ($venta['fecha'] ?? '');
       $total  = isset($venta[$vTotalCol]) ? (float)$venta[$vTotalCol] : (float)($venta['total'] ?? 0);
-      $estado = $venta[$vEstadoCol] ?? ($venta['estado'] ?? 'EMITIDA');
+      $estado = function_exists('flus_normalize_sale_status')
+        ? flus_normalize_sale_status($venta[$vEstadoCol] ?? ($venta['estado'] ?? null))
+        : (string)($venta[$vEstadoCol] ?? ($venta['estado'] ?? 'EMITIDA'));
 
       json_response([
         'success' => true,
@@ -407,7 +409,7 @@ try {
           'cliente' => $clienteNombre,
           'total' => $total,
           'medio_pago' => $medioPago,
-          'estado' => $estado ?: 'EMITIDA',
+          'estado' => $estado,
           'items' => $items,
         ],
       ]);
@@ -453,7 +455,7 @@ try {
       $hasta = $_GET['hasta'] ?? null;
 
       $params = [];
-      $whereParts = ["(v.estado IS NULL OR v.estado = 'EMITIDA')"];
+      $whereParts = [whereEmitida('v')];
 
       if ($desde) {
         $whereParts[] = "v.fecha >= :desde";
@@ -512,7 +514,7 @@ try {
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
 
-      $whereParts = ["(v.estado IS NULL OR v.estado = 'EMITIDA')"];
+      $whereParts = [whereEmitida('v')];
       $params = [];
 
       if ($desde) {

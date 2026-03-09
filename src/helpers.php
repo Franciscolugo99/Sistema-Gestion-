@@ -714,6 +714,181 @@ if (!function_exists('flus_guard_last_admin_user_change')) {
   }
 }
 
+if (!function_exists('flus_is_critical_role')) {
+  function flus_is_critical_role(string $slug): bool {
+    return flus_is_protected_admin_role($slug);
+  }
+}
+
+if (!function_exists('flus_text_length')) {
+  function flus_text_length(string $value): int {
+    return function_exists('mb_strlen') ? (int) mb_strlen($value, 'UTF-8') : (int) strlen($value);
+  }
+}
+
+if (!function_exists('flus_role_exists')) {
+  function flus_role_exists(PDO $pdo, int $roleId): bool {
+    if ($roleId <= 0) return false;
+    try {
+      $st = $pdo->prepare('SELECT 1 FROM roles WHERE id = ? LIMIT 1');
+      $st->execute([$roleId]);
+      return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+      return false;
+    }
+  }
+}
+
+if (!function_exists('flus_user_email_exists')) {
+  function flus_user_email_exists(PDO $pdo, string $email, ?int $excludeUserId = null): bool {
+    if ($email === '') return false;
+
+    try {
+      if ($excludeUserId !== null && $excludeUserId > 0) {
+        $st = $pdo->prepare('SELECT 1 FROM users WHERE email = ? AND id != ? LIMIT 1');
+        $st->execute([$email, $excludeUserId]);
+      } else {
+        $st = $pdo->prepare('SELECT 1 FROM users WHERE email = ? LIMIT 1');
+        $st->execute([$email]);
+      }
+      return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+      return false;
+    }
+  }
+}
+
+if (!function_exists('flus_user_username_exists')) {
+  function flus_user_username_exists(PDO $pdo, string $username, ?int $excludeUserId = null): bool {
+    if ($username === '') return false;
+
+    try {
+      if ($excludeUserId !== null && $excludeUserId > 0) {
+        $st = $pdo->prepare('SELECT 1 FROM users WHERE username = ? AND id != ? LIMIT 1');
+        $st->execute([$username, $excludeUserId]);
+      } else {
+        $st = $pdo->prepare('SELECT 1 FROM users WHERE username = ? LIMIT 1');
+        $st->execute([$username]);
+      }
+      return (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+      return false;
+    }
+  }
+}
+
+if (!function_exists('flus_validate_user_payload')) {
+  function flus_validate_user_payload(PDO $pdo, array $input, array $options = []): array {
+    $existingUserId = isset($options['existing_user_id']) ? (int) $options['existing_user_id'] : 0;
+    $existingUserId = $existingUserId > 0 ? $existingUserId : null;
+    $requireEmail = array_key_exists('require_email', $options) ? (bool) $options['require_email'] : true;
+    $requirePassword = !empty($options['require_password']);
+    $defaultActivo = array_key_exists('default_activo', $options) ? (int) $options['default_activo'] : 1;
+
+    $nombre = trim((string) ($input['nombre'] ?? ''));
+    $email = trim((string) ($input['email'] ?? ''));
+    $username = trim((string) ($input['username'] ?? ''));
+    $password = (string) ($input['password'] ?? '');
+    $roleId = (int) ($input['role_id'] ?? 0);
+    $activoRaw = $input['activo'] ?? $defaultActivo;
+    $activo = in_array($activoRaw, [1, '1', true, 'true', 'on', 'yes'], true) ? 1 : 0;
+
+    $errors = [];
+
+    if ($nombre === '') {
+      $errors[] = 'El nombre es obligatorio';
+    } elseif (flus_text_length($nombre) < 3) {
+      $errors[] = 'El nombre debe tener al menos 3 caracteres';
+    }
+
+    if ($requireEmail && $email === '') {
+      $errors[] = 'El email es obligatorio';
+    } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $errors[] = 'El email no es valido';
+    } elseif ($email !== '' && flus_user_email_exists($pdo, $email, $existingUserId)) {
+      $errors[] = $existingUserId ? 'Este email ya esta registrado por otro usuario' : 'Este email ya esta registrado';
+    }
+
+    if ($username === '') {
+      $errors[] = 'El usuario es obligatorio';
+    } elseif (flus_text_length($username) < 3) {
+      $errors[] = 'El usuario debe tener al menos 3 caracteres';
+    } elseif (!preg_match('/\A[a-zA-Z0-9_]+\z/', $username)) {
+      $errors[] = 'El usuario solo puede contener letras, numeros y guion bajo';
+    } elseif (flus_user_username_exists($pdo, $username, $existingUserId)) {
+      $errors[] = $existingUserId ? 'Este nombre de usuario ya esta en uso por otro usuario' : 'Este nombre de usuario ya esta en uso';
+    }
+
+    if ($requirePassword && $password === '') {
+      $errors[] = 'La contrasena es obligatoria';
+    } elseif ($password !== '' && flus_text_length($password) < 6) {
+      $errors[] = 'La contrasena debe tener al menos 6 caracteres';
+    }
+
+    if ($roleId <= 0 || !flus_role_exists($pdo, $roleId)) {
+      $errors[] = 'Debe seleccionar un rol valido';
+    }
+
+    return [
+      'data' => [
+        'nombre' => $nombre,
+        'email' => $email,
+        'username' => $username,
+        'password' => $password,
+        'role_id' => $roleId,
+        'activo' => $activo,
+      ],
+      'errors' => $errors,
+    ];
+  }
+}
+
+if (!function_exists('flus_guard_user_admin_mutation')) {
+  function flus_guard_user_admin_mutation(PDO $pdo, int $currentUserId, int $targetUserId, ?int $nextActivo = null, bool $deleting = false, ?int $nextRoleId = null): ?string {
+    if ($targetUserId <= 0) return null;
+
+    if ($currentUserId > 0 && $targetUserId === $currentUserId) {
+      if ($deleting) {
+        return 'No puedes eliminar tu propio usuario';
+      }
+
+      if ($nextActivo !== null && (int) $nextActivo === 0) {
+        return 'No puedes desactivar tu propio usuario';
+      }
+    }
+
+    return flus_guard_last_admin_user_change($pdo, $targetUserId, $nextActivo, $deleting, $nextRoleId);
+  }
+}
+
+if (!function_exists('flus_normalize_sale_status')) {
+  function flus_normalize_sale_status($estado): string {
+    $value = strtoupper(trim((string) $estado));
+    return $value === '' ? 'EMITIDA' : $value;
+  }
+}
+
+if (!function_exists('flus_sale_is_annulled')) {
+  function flus_sale_is_annulled($ventaOrEstado): bool {
+    if (is_array($ventaOrEstado)) {
+      $ventaOrEstado = $ventaOrEstado['estado'] ?? null;
+    }
+    return flus_normalize_sale_status($ventaOrEstado) === 'ANULADA';
+  }
+}
+
+if (!function_exists('flus_sale_can_be_annulled')) {
+  function flus_sale_can_be_annulled($ventaOrEstado): bool {
+    return !flus_sale_is_annulled($ventaOrEstado);
+  }
+}
+
+if (!function_exists('flus_sale_emitida_where')) {
+  function flus_sale_emitida_where(string $alias = 'v'): string {
+    $prefix = trim($alias) !== '' ? trim($alias) . '.' : '';
+    return "({$prefix}estado IS NULL OR {$prefix}estado = 'EMITIDA')";
+  }
+}
 /* ----------------------------
    Alias compat
 ---------------------------- */

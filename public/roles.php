@@ -68,7 +68,9 @@ try {
  * Determinar si un rol es crítico (no se puede eliminar)
  */
 function isRoleCritico(string $slug): bool {
-    return in_array(strtolower($slug), ['administrador', 'admin', 'superadmin']);
+    return function_exists('flus_is_critical_role')
+        ? flus_is_critical_role($slug)
+        : in_array(strtolower($slug), ['administrador', 'admin', 'superadmin'], true);
 }
 
 /**

@@ -78,6 +78,10 @@ if (!$venta) {
   flus_abort(404, 'Venta no encontrada');
 }
 
+$ventaAnulada = function_exists('flus_sale_is_annulled')
+  ? flus_sale_is_annulled($venta)
+  : (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA');
+
 /* =========================
    Obtener items
 ========================= */
@@ -297,7 +301,7 @@ $fontSize = $paper === '58' ? '10px' : '12px';
     <div class="ticket-num">TICKET #<?= $ticketNum ?></div>
     
     <!-- Estado anulada -->
-    <?php if (strtoupper($venta['estado'] ?? '') === 'ANULADA'): ?>
+    <?php if ($ventaAnulada): ?>
       <div class="estado-anulada">*** ANULADA ***</div>
     <?php endif; ?>
     

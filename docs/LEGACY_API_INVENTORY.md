@@ -30,6 +30,10 @@ Riesgo:
 
 - reglas de estado, anulacion, links publicos, KPIs y tickets repartidos
 
+Avance marzo 2026:
+
+- detalle, ticket publico, anulación y estadisticas base ya comparten helpers de estado y criterio de ventas emitidas
+
 #### Usuarios, roles y permisos
 
 UI / legacy:
@@ -51,6 +55,10 @@ API:
 Riesgo:
 
 - reglas de ultimo admin y permisos sensibles duplicadas entre UI/API
+
+Avance marzo 2026:
+
+- altas, edicion, toggle, eliminacion y roles criticos ya usan helpers compartidos para validacion y guards
 
 #### Backups y diagnostico
 

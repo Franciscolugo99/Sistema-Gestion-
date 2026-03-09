@@ -109,10 +109,8 @@ try {
         respond(false, 'Rol no encontrado', $isJson);
     }
     
-    // No permitir eliminar roles críticos
-    $rolesProtegidos = ['administrador', 'admin', 'superadmin'];
-    if (in_array(strtolower($role['slug']), $rolesProtegidos)) {
-        respond(false, 'No se puede eliminar un rol crítico del sistema', $isJson);
+    if ((function_exists('flus_is_critical_role') && flus_is_critical_role((string)$role['slug'])) || in_array(strtolower((string)$role['slug']), ['administrador', 'admin', 'superadmin'], true)) {
+        respond(false, 'No se puede eliminar un rol critico del sistema', $isJson);
     }
     
     // Verificar si tiene usuarios asignados

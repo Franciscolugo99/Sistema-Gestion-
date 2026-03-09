@@ -43,57 +43,31 @@ try {
    PROCESAR FORMULARIO (POST)
 ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
     $errors = [];
 
-    // CSRF
     $csrfToken = (string)($_POST['csrf_token'] ?? $_POST['csrf'] ?? '');
     if (!csrf_verify($csrfToken)) {
-        $errors[] = 'Token CSRF inválido. Reintentá el envío.';
+        $errors[] = 'Token CSRF invalido. Reintenta el envio.';
     }
 
-    $nombre   = trim($_POST['nombre']   ?? '');
-    $email    = trim($_POST['email']    ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
-    $role_id  = (int)($_POST['role_id'] ?? 0);
-    $activo   = isset($_POST['activo']) ? 1 : 0;
+    $validation = flus_validate_user_payload($pdo, $_POST, [
+        'existing_user_id' => $userId,
+        'require_password' => false,
+        'require_email' => true,
+        'default_activo' => 0,
+    ]);
+    $data = $validation['data'];
+    $errors = array_merge($errors, $validation['errors']);
 
-    if (empty($nombre))               $errors[] = 'El nombre es obligatorio';
-    elseif (strlen($nombre) < 3)      $errors[] = 'El nombre debe tener al menos 3 caracteres';
-
-    if (empty($email))                $errors[] = 'El email es obligatorio';
-    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'El email no es válido';
-    else {
-        $st = $pdo->prepare("SELECT id FROM users WHERE email = :email AND id != :id");
-        $st->execute([':email' => $email, ':id' => $userId]);
-        if ($st->fetch()) $errors[] = 'Este email ya está registrado por otro usuario';
-    }
-
-    if (empty($username))             $errors[] = 'El usuario es obligatorio';
-    elseif (strlen($username) < 3)   $errors[] = 'El usuario debe tener al menos 3 caracteres';
-    elseif (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) $errors[] = 'El usuario solo puede contener letras, números y guion bajo';
-    else {
-        $st = $pdo->prepare("SELECT id FROM users WHERE username = :username AND id != :id");
-        $st->execute([':username' => $username, ':id' => $userId]);
-        if ($st->fetch()) $errors[] = 'Este nombre de usuario ya está en uso por otro usuario';
-    }
-
-    if (!empty($password) && strlen($password) < 6) $errors[] = 'La contraseña debe tener al menos 6 caracteres';
-
-    if ($role_id <= 0) {
-        $errors[] = 'Debe seleccionar un rol válido';
-    } else {
-        $st = $pdo->prepare("SELECT id FROM roles WHERE id = :id");
-        $st->execute([':id' => $role_id]);
-        if (!$st->fetch()) $errors[] = 'El rol seleccionado no es válido';
-    }
-
-    if ($userId === (int)($_SESSION['user_id'] ?? 0) && $activo === 0)
-        $errors[] = 'No podés desactivar tu propio usuario';
-
-    if (empty($errors) && function_exists('flus_guard_last_admin_user_change')) {
-        $guardError = flus_guard_last_admin_user_change($pdo, $userId, $activo, false, $role_id);
+    if (empty($errors)) {
+        $guardError = flus_guard_user_admin_mutation(
+            $pdo,
+            (int)($_SESSION['user_id'] ?? 0),
+            $userId,
+            (int)$data['activo'],
+            false,
+            (int)$data['role_id']
+        );
         if ($guardError !== null) {
             $errors[] = $guardError;
         }
@@ -101,36 +75,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            if (!empty($password)) {
+            if ((string)$data['password'] !== '') {
                 $sql = "UPDATE users SET nombre=:nombre, email=:email, username=:username,
                         password_hash=:ph, role_id=:role_id, activo=:activo WHERE id=:id";
-                $params = [':nombre'=>$nombre,':email'=>$email,':username'=>$username,
-                           ':ph'=>password_hash($password,PASSWORD_DEFAULT),
-                           ':role_id'=>$role_id,':activo'=>$activo,':id'=>$userId];
+                $params = [
+                    ':nombre' => $data['nombre'],
+                    ':email' => $data['email'],
+                    ':username' => $data['username'],
+                    ':ph' => password_hash((string)$data['password'], PASSWORD_DEFAULT),
+                    ':role_id' => (int)$data['role_id'],
+                    ':activo' => (int)$data['activo'],
+                    ':id' => $userId,
+                ];
             } else {
                 $sql = "UPDATE users SET nombre=:nombre, email=:email, username=:username,
                         role_id=:role_id, activo=:activo WHERE id=:id";
-                $params = [':nombre'=>$nombre,':email'=>$email,':username'=>$username,
-                           ':role_id'=>$role_id,':activo'=>$activo,':id'=>$userId];
+                $params = [
+                    ':nombre' => $data['nombre'],
+                    ':email' => $data['email'],
+                    ':username' => $data['username'],
+                    ':role_id' => (int)$data['role_id'],
+                    ':activo' => (int)$data['activo'],
+                    ':id' => $userId,
+                ];
             }
             $pdo->prepare($sql)->execute($params);
             $_SESSION['flash_success'] = 'Usuario actualizado correctamente';
             header('Location: usuarios.php');
             exit;
         } catch (PDOException $e) {
-            error_log("Error al actualizar usuario: " . $e->getMessage());
-            $errors[] = 'Error al actualizar el usuario. Intentá de nuevo.';
+            error_log('Error al actualizar usuario: ' . $e->getMessage());
+            $errors[] = 'Error al actualizar el usuario. Intenta de nuevo.';
         }
     }
 
     if (!empty($errors)) {
         $_SESSION['form_errors'] = $errors;
         $usuario = array_merge($usuario, [
-            'nombre'   => $nombre,
-            'email'    => $email,
-            'username' => $username,
-            'role_id'  => $role_id,
-            'activo'   => $activo,
+            'nombre' => $data['nombre'],
+            'email' => $data['email'],
+            'username' => $data['username'],
+            'role_id' => (int)$data['role_id'],
+            'activo' => (int)$data['activo'],
         ]);
     }
 }

@@ -161,6 +161,16 @@ $stmt = $pdo->query("
 ");
 $configFact = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
 $facturacionHabilitada = (bool)$configFact;
+$ventaEstado = function_exists('flus_normalize_sale_status')
+  ? flus_normalize_sale_status($venta['estado'] ?? null)
+  : strtoupper((string)($venta['estado'] ?? 'EMITIDA'));
+$ventaAnulada = function_exists('flus_sale_is_annulled')
+  ? flus_sale_is_annulled($venta)
+  : ($ventaEstado === 'ANULADA');
+$ventaPuedeAnular = function_exists('flus_sale_can_be_annulled')
+  ? flus_sale_can_be_annulled($venta)
+  : !$ventaAnulada;
+$ventaPuedeAnular = $ventaPuedeAnular && function_exists('user_has_permission') && user_has_permission('anular_venta');
 
 /* =========================
    Header común
@@ -217,15 +227,15 @@ require __DIR__ . '/partials/header.php';
           <div class="venta-resumen-item">
             <span class="label">Estado</span>
             <span class="value">
-              <?php if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA'): ?>
+              <?php if ($ventaAnulada): ?>
                 <span class="badge badge-danger">ANULADA</span>
               <?php else: ?>
-                <span class="badge badge-success">EMITIDA</span>
+                <span class="badge badge-success"><?= h((string)$ventaEstado) ?></span>
               <?php endif; ?>
             </span>
           </div>
 
-          <?php if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA'): ?>
+          <?php if ($ventaAnulada): ?>
             <div class="venta-resumen-item">
               <span class="label">Anulada</span>
               <span class="value">
@@ -307,13 +317,13 @@ require __DIR__ . '/partials/header.php';
 
           <?php elseif ($facturacionHabilitada): ?>
 
-            <?php if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA'): ?>
+            <?php if ($ventaAnulada): ?>
               <span class="venta-hint"><strong>Venta anulada:</strong> no se puede emitir factura.</span>
             <?php else: ?>
               <a href="factura_nueva.php?venta_id=<?= (int)$id ?>" class="btn btn-primary">Emitir factura</a>
             <?php endif; ?>
 
-            <?php if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) !== 'ANULADA' && function_exists('user_has_permission') && user_has_permission('anular_venta')): ?>
+            <?php if ($ventaPuedeAnular): ?>
               <button type="button" class="btn btn-danger" id="btnAnularVenta" data-venta-id="<?= (int)$id ?>">
                 Anular venta
               </button>

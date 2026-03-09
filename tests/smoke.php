@@ -90,6 +90,65 @@ $results[] = flus_run_test('flus_format_bytes keeps current UI format', function
     flus_assert_same('1,50 KB', flus_format_bytes(1536));
 });
 
+$results[] = flus_run_test('flus_is_critical_role recognizes protected admin slugs', function (): void {
+    flus_assert_true(flus_is_critical_role('admin'));
+    flus_assert_true(flus_is_critical_role('administrador'));
+    flus_assert_false(flus_is_critical_role('cajero'));
+});
+
+$results[] = flus_run_test('flus_validate_user_payload checks duplicates and role existence', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
+    $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin'), (2, 'Cajero', 'cajero')");
+    $pdo->exec("INSERT INTO users (id, email, username, role_id, activo) VALUES (1, 'admin@flus.local', 'admin', 1, 1)");
+
+    $result = flus_validate_user_payload($pdo, [
+        'nombre' => 'Pe',
+        'email' => 'admin@flus.local',
+        'username' => 'admin',
+        'password' => '123',
+        'role_id' => 99,
+        'activo' => 1,
+    ], [
+        'require_password' => true,
+        'require_email' => true,
+        'default_activo' => 1,
+    ]);
+
+    flus_assert_contains('El nombre debe tener al menos 3 caracteres', implode(' | ', $result['errors']));
+    flus_assert_contains('Este email ya esta registrado', implode(' | ', $result['errors']));
+    flus_assert_contains('Este nombre de usuario ya esta en uso', implode(' | ', $result['errors']));
+    flus_assert_contains('La contrasena debe tener al menos 6 caracteres', implode(' | ', $result['errors']));
+    flus_assert_contains('Debe seleccionar un rol valido', implode(' | ', $result['errors']));
+});
+
+$results[] = flus_run_test('flus_guard_user_admin_mutation blocks self deactivation', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, role_id INTEGER, activo INTEGER)');
+    $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin')");
+    $pdo->exec('INSERT INTO users (id, role_id, activo) VALUES (1, 1, 1)');
+
+    $error = flus_guard_user_admin_mutation($pdo, 1, 1, 0, false, null);
+    flus_assert_same('No puedes desactivar tu propio usuario', $error);
+});
+$results[] = flus_run_test('flus_normalize_sale_status normalizes empty and custom states', function (): void {
+    flus_assert_same('EMITIDA', flus_normalize_sale_status(null));
+    flus_assert_same('ANULADA', flus_normalize_sale_status('anulada'));
+    flus_assert_same('PENDIENTE', flus_normalize_sale_status('pendiente'));
+});
+
+$results[] = flus_run_test('flus_sale_helpers keep annulled criteria consistent', function (): void {
+    flus_assert_true(flus_sale_is_annulled(['estado' => 'ANULADA']));
+    flus_assert_false(flus_sale_can_be_annulled(['estado' => 'ANULADA']));
+    flus_assert_true(flus_sale_can_be_annulled(['estado' => null]));
+    flus_assert_same("(v.estado IS NULL OR v.estado = 'EMITIDA')", flus_sale_emitida_where('v'));
+    flus_assert_same("(estado IS NULL OR estado = 'EMITIDA')", flus_sale_emitida_where(''));
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

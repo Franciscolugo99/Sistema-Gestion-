@@ -16,58 +16,20 @@ require_permission('administrar_usuarios');
    PROCESAR FORMULARIO (POST)  (PRG: Post/Redirect/Get)
 ============================================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre   = trim((string)($_POST['nombre']   ?? ''));
-    $email    = trim((string)($_POST['email']    ?? ''));
-    $username = trim((string)($_POST['username'] ?? ''));
-    // NO trim password (evita alterar la clave si el usuario usa espacios)
-    $password = (string)($_POST['password'] ?? '');
-    $role_id  = (int)($_POST['role_id'] ?? 0);
-    $activo   = isset($_POST['activo']) ? 1 : 0;
-
     $errors = [];
 
-    // CSRF (evita alta por POST desde sitios externos)
-    $csrfToken = (string)($_POST['csrf_token'] ?? $_POST['csrf'] ?? ''); // compat
+    $csrfToken = (string)($_POST['csrf_token'] ?? $_POST['csrf'] ?? '');
     if (!csrf_verify($csrfToken)) {
-        $errors[] = 'Token CSRF inválido. Reintentá el envío.';
+        $errors[] = 'Token CSRF invalido. Reintenta el envio.';
     }
 
-    // Helpers de length (UTF-8 friendly si hay mbstring)
-    $strlen = function (string $s): int {
-        return function_exists('mb_strlen') ? (int)mb_strlen($s, 'UTF-8') : (int)strlen($s);
-    };
-
-    if ($nombre === '')               $errors[] = 'El nombre es obligatorio';
-    elseif ($strlen($nombre) < 3)     $errors[] = 'El nombre debe tener al menos 3 caracteres';
-
-    if ($email === '')                $errors[] = 'El email es obligatorio';
-    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'El email no es válido';
-    else {
-        $st = $pdo->prepare("SELECT id FROM users WHERE email = :email");
-        $st->execute([':email' => $email]);
-        if ($st->fetch()) $errors[] = 'Este email ya está registrado';
-    }
-
-    if ($username === '')             $errors[] = 'El usuario es obligatorio';
-    elseif ($strlen($username) < 3)   $errors[] = 'El usuario debe tener al menos 3 caracteres';
-    elseif (!preg_match('/\A[a-zA-Z0-9_]+\z/', $username)) $errors[] = 'El usuario solo puede contener letras, números y guion bajo';
-    else {
-        $st = $pdo->prepare("SELECT id FROM users WHERE username = :username");
-        $st->execute([':username' => $username]);
-        if ($st->fetch()) $errors[] = 'Este nombre de usuario ya está en uso';
-    }
-
-    if ($password === '')             $errors[] = 'La contraseña es obligatoria';
-    elseif ($strlen($password) < 6)   $errors[] = 'La contraseña debe tener al menos 6 caracteres';
-
-    if ($role_id <= 0)                $errors[] = 'Debe seleccionar un rol válido';
-
-    // Validar que el rol exista (evita guardar IDs inexistentes)
-    if ($role_id > 0) {
-        $st = $pdo->prepare("SELECT id FROM roles WHERE id = :id");
-        $st->execute([':id' => $role_id]);
-        if (!$st->fetch()) $errors[] = 'Debe seleccionar un rol válido';
-    }
+    $validation = flus_validate_user_payload($pdo, $_POST, [
+        'require_password' => true,
+        'require_email' => true,
+        'default_activo' => 0,
+    ]);
+    $data = $validation['data'];
+    $errors = array_merge($errors, $validation['errors']);
 
     if (empty($errors)) {
         try {
@@ -76,34 +38,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (:nombre, :email, :username, :password_hash, :role_id, :activo, NOW())
             ");
             $stmt->execute([
-                ':nombre'        => $nombre,
-                ':email'         => $email,
-                ':username'      => $username,
-                ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                ':role_id'       => $role_id,
-                ':activo'        => $activo,
+                ':nombre' => $data['nombre'],
+                ':email' => $data['email'],
+                ':username' => $data['username'],
+                ':password_hash' => password_hash((string)$data['password'], PASSWORD_DEFAULT),
+                ':role_id' => (int)$data['role_id'],
+                ':activo' => (int)$data['activo'],
             ]);
             $_SESSION['flash_success'] = 'Usuario creado correctamente';
             header('Location: usuarios.php');
             exit;
         } catch (PDOException $e) {
-            error_log("Error al crear usuario: " . $e->getMessage());
-            $errors[] = 'Error al crear el usuario. Intentá de nuevo.';
+            error_log('Error al crear usuario: ' . $e->getMessage());
+            $errors[] = 'Error al crear el usuario. Intenta de nuevo.';
         }
     }
 
     if (!empty($errors)) {
         $_SESSION['form_errors'] = $errors;
-        // Guardar solo campos seguros (NO guardar password ni csrf en sesión)
-        $_SESSION['form_data']   = [
-            'nombre'   => $nombre,
-            'email'    => $email,
-            'username' => $username,
-            'role_id'  => $role_id,
-            'activo'   => $activo,
+        $_SESSION['form_data'] = [
+            'nombre' => $data['nombre'],
+            'email' => $data['email'],
+            'username' => $data['username'],
+            'role_id' => (int)$data['role_id'],
+            'activo' => (int)$data['activo'],
         ];
 
-        // PRG: evita reenvío del POST al refrescar
         header('Location: usuario_nuevo.php');
         exit;
     }

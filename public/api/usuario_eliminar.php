@@ -46,17 +46,18 @@ if ($userId <= 0) {
     success_fail('ID de usuario inválido', 400);
 }
 
-// No permitir eliminar el propio usuario
 if (session_status() === PHP_SESSION_NONE) session_start();
-if ($userId === (int)($_SESSION['user_id'] ?? 0)) {
-    success_fail('No puedes eliminar tu propio usuario', 400);
-}
 
-$adminGuard = function_exists('flus_guard_last_admin_user_change')
-    ? flus_guard_last_admin_user_change($pdo, $userId, null, true)
-    : null;
-if (is_string($adminGuard) && $adminGuard !== '') {
-    success_fail($adminGuard, 409);
+$guardError = flus_guard_user_admin_mutation(
+    $pdo,
+    (int)($_SESSION['user_id'] ?? 0),
+    $userId,
+    null,
+    true,
+    null
+);
+if (is_string($guardError) && $guardError !== '') {
+    success_fail($guardError, 409);
 }
 
 // Eliminar usuario
