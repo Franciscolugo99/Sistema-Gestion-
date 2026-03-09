@@ -58,8 +58,8 @@ $results[] = flus_run_test('flus_get_sanitized_config masks shareable db values'
     flus_assert_same('***SET***', $shareable['DB_HOST']);
     flus_assert_same('***SET***', $shareable['DB_NAME']);
     flus_assert_same('***SET***', $shareable['DB_USER']);
-    flus_assert_same('FLUS', $shareable['APP_NAME']);
-    flus_assert_same('127.0.0.1', $normal['DB_HOST']);
+    flus_assert_same(APP_NAME, $shareable['APP_NAME']);
+    flus_assert_same(DB_HOST, $normal['DB_HOST']);
 });
 
 $results[] = flus_run_test('flus_build_diagnostic_overview escalates active problems', function (): void {
@@ -149,6 +149,29 @@ $results[] = flus_run_test('flus_sale_helpers keep annulled criteria consistent'
     flus_assert_same("(estado IS NULL OR estado = 'EMITIDA')", flus_sale_emitida_where(''));
 });
 
+$results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {
+    flus_assert_same('inactivo', flus_calcular_estado_producto([
+        'activo' => 0,
+        'stock' => 10,
+        'stock_minimo' => 5,
+    ]));
+    flus_assert_same('sin', flus_calcular_estado_producto([
+        'activo' => 1,
+        'stock' => 0,
+        'stock_minimo' => 5,
+    ]));
+    flus_assert_same('bajo', flus_calcular_estado_producto([
+        'activo' => 1,
+        'stock' => 3,
+        'stock_minimo' => 5,
+    ]));
+    flus_assert_same('ok', flus_calcular_estado_producto([
+        'activo' => 1,
+        'stock' => 8,
+        'stock_minimo' => 5,
+    ]));
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {
@@ -160,3 +183,8 @@ echo PHP_EOL;
 echo 'Total: ' . count($results) . ', failed: ' . count($failed) . PHP_EOL;
 
 exit(count($failed) > 0 ? 1 : 0);
+
+
+
+
+

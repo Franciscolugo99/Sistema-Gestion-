@@ -62,7 +62,19 @@
 
   // Cerrar con Escape
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
+    if (e.key !== 'Escape') return;
+
+    if (productsModal && !productsModal.hidden) {
+      closeProductsModal();
+      return;
+    }
+
+    if (comprasModal && !comprasModal.hidden) {
+      closeComprasModal();
+      return;
+    }
+
+    if (drawer.classList.contains('is-open')) {
       closeDrawer();
     }
   });
@@ -162,9 +174,21 @@
       const valor = _form.querySelector('input[name="valor"]').value;
       const action = valor === '0' ? 'desactivar' : 'activar';
       Notif.confirmar(
-        `${action === 'activar' ? '✅' : '⛔'} ${action.charAt(0).toUpperCase() + action.slice(1)} proveedor`,
-        `<p>¿Estás seguro de <strong>${action}</strong> este proveedor?</p>`,
-        { icon: 'warning', confirmText: `✅ Sí, ${action}`, cancelText: '❌ Cancelar' }
+        `${action.charAt(0).toUpperCase() + action.slice(1)} proveedor`,
+        `<p>Estas seguro de <strong>${action}</strong> este proveedor?</p>`,
+        { icon: 'warning', confirmText: `Si, ${action}`, cancelText: 'Cancelar' }
+      ).then(ok => { if (ok) _form.submit(); });
+    });
+  });
+
+  document.querySelectorAll('.relink-all-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const _form = this;
+      Notif.confirmar(
+        'Re-vincular todos los proveedores',
+        '<p>Se intentara actualizar el nombre visible y vincular productos legacy para <strong>todos</strong> los proveedores.</p><p>Es seguro, pero puede tardar unos segundos si hay muchos productos.</p>',
+        { icon: 'warning', confirmText: 'Si, re-vincular todo', cancelText: 'Cancelar' }
       ).then(ok => { if (ok) _form.submit(); });
     });
   });
@@ -208,6 +232,82 @@
       }
     }
   });
+
+  // ========== Compras Modal ==========
+
+  const comprasModal = document.getElementById('provComprasModal');
+  const comprasModalOverlay = document.getElementById('provComprasModalOverlay');
+  let lastComprasTrigger = null;
+
+  function openComprasModal(trigger) {
+    if (!comprasModal || !comprasModalOverlay) return;
+    lastComprasTrigger = trigger || null;
+    comprasModal.hidden = false;
+    comprasModalOverlay.hidden = false;
+    comprasModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeComprasModal() {
+    if (!comprasModal || !comprasModalOverlay) return;
+    comprasModal.hidden = true;
+    comprasModalOverlay.hidden = true;
+    comprasModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    if (lastComprasTrigger) {
+      lastComprasTrigger.focus();
+    }
+  }
+
+  // ========== Products Modal ==========
+
+  const productsModal = document.getElementById('provProductsModal');
+  const productsModalOverlay = document.getElementById('provProductsModalOverlay');
+  let lastProductsTrigger = null;
+
+  function openProductsModal(trigger) {
+    if (!productsModal || !productsModalOverlay) return;
+    lastProductsTrigger = trigger || null;
+    productsModal.hidden = false;
+    productsModalOverlay.hidden = false;
+    productsModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeProductsModal() {
+    if (!productsModal || !productsModalOverlay) return;
+    productsModal.hidden = true;
+    productsModalOverlay.hidden = true;
+    productsModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    if (lastProductsTrigger) {
+      lastProductsTrigger.focus();
+    }
+  }
+
+  document.querySelectorAll('[data-open-products-modal]').forEach(button => {
+    button.addEventListener('click', () => openProductsModal(button));
+  });
+
+  document.querySelectorAll('[data-close-products-modal]').forEach(button => {
+    button.addEventListener('click', closeProductsModal);
+  });
+
+  if (productsModalOverlay) {
+    productsModalOverlay.addEventListener('click', closeProductsModal);
+  }
+
+  document.querySelectorAll('[data-open-compras-modal]').forEach(button => {
+    button.addEventListener('click', () => openComprasModal(button));
+  });
+
+  document.querySelectorAll('[data-close-compras-modal]').forEach(button => {
+    button.addEventListener('click', closeComprasModal);
+  });
+
+  if (comprasModalOverlay) {
+    comprasModalOverlay.addEventListener('click', closeComprasModal);
+  }
 
   // ========== Row Click to Edit ==========
   

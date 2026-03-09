@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/productos_helpers.php';
 require_login();
 require_permission('editar_productos');
 
@@ -133,28 +134,16 @@ if (!is_dir($uploadDirFs)) {
    HELPERS
 ================================ */
 function productos_status_tag(array $p): string {
-    $stockVal = (float)($p['stock'] ?? 0);
-    $stockMin = (float)($p['stock_minimo'] ?? 0);
-
-    if (!(int)($p['activo'] ?? 0)) {
-        return '<span class="tag tag-inactivo">Inactivo</span>';
-    }
-    if ($stockVal <= 0) {
-        return '<span class="tag tag-sin">Sin stock</span>';
-    }
-    if ($stockVal <= $stockMin) {
-        return '<span class="tag tag-bajo">Stock bajo</span>';
-    }
-    return '<span class="tag tag-ok">OK</span>';
+    return match (flus_calcular_estado_producto($p)) {
+        'inactivo' => '<span class="tag tag-inactivo">Inactivo</span>',
+        'sin' => '<span class="tag tag-sin">Sin stock</span>',
+        'bajo' => '<span class="tag tag-bajo">Stock bajo</span>',
+        default => '<span class="tag tag-ok">OK</span>',
+    };
 }
 
 function calcular_estado_producto(array $p): string {
-    if (!(int)($p['activo'] ?? 0)) return 'inactivo';
-    $stock = (float)($p['stock'] ?? 0);
-    $stockMin = (float)($p['stock_minimo'] ?? 0);
-    if ($stock <= 0) return 'sin';
-    if ($stock <= $stockMin) return 'bajo';
-    return 'ok';
+    return flus_calcular_estado_producto($p);
 }
 
 function productos_clean_qs(array $qs): array {
@@ -166,6 +155,38 @@ function productos_clean_qs(array $qs): array {
         unset($qs[$k]);
     }
     return $qs;
+}
+
+function productos_search_order_sql(string $sort, string $dir, string $buscar): array {
+    $buscar = trim($buscar);
+    if ($buscar === '') {
+        return [
+            'sql' => "ORDER BY activo DESC, {$sort} {$dir}",
+            'params' => [],
+        ];
+    }
+
+    return [
+        'sql' => "ORDER BY activo DESC,
+            CASE
+                WHEN codigo = ? THEN 0
+                WHEN codigo LIKE ? THEN 1
+                WHEN nombre LIKE ? THEN 2
+                WHEN categoria LIKE ? THEN 3
+                WHEN marca LIKE ? THEN 4
+                WHEN proveedor LIKE ? THEN 5
+                ELSE 6
+            END,
+            {$sort} {$dir}",
+        'params' => [
+            $buscar,
+            $buscar . '%',
+            '%' . $buscar . '%',
+            '%' . $buscar . '%',
+            '%' . $buscar . '%',
+            '%' . $buscar . '%',
+        ],
+    ];
 }
 
 function productos_render_tbody(array $productos, string $uploadDirUrl, string $csrfQ, array $currentGet): string {
@@ -225,7 +246,7 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
             </td>
 
             <td class="right">$<?= number_format($precio, 2, ',', '.') ?></td>
-            <td class="right"><?= h(format_stock_con_unidad($p, 'stock', 3)) ?></td>
+            <td class="right td-stock"><?= h(format_stock_con_unidad($p, 'stock', 3)) ?></td>
 
             <td class="center td-estado"><?= $tag ?></td>
 
@@ -286,7 +307,7 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Stock Mínimo</span>
-                        <span class="detail-value"><?= h(format_cantidad($p, 'stock_minimo', 3)) ?></span>
+                        <span class="detail-value detail-stock-minimo"><?= h(format_stock_con_unidad($p, 'stock_minimo', 3)) ?></span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">IVA</span>
@@ -294,7 +315,7 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Unidad</span>
-                        <span class="detail-value"><?= h($p['unidad_venta'] ?? 'UNIDAD') ?></span>
+                        <span class="detail-value detail-unidad"><?= h(flus_producto_unidad_descripcion((string)($p['unidad_venta'] ?? 'UNIDAD'), $esPesable === 1)) ?></span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Pesable</span>
@@ -844,6 +865,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
                         'nombre' => $productoGuardado['nombre'],
                         'precio' => (float)$productoGuardado['precio'],
                         'stock' => (float)$productoGuardado['stock'],
+                        'stock_minimo' => (float)$productoGuardado['stock_minimo'],
+                        'stock_formatted' => format_stock_con_unidad($productoGuardado, 'stock', 3),
+                        'stock_minimo_formatted' => format_stock_con_unidad($productoGuardado, 'stock_minimo', 3),
+                        'unidad_venta' => (string)($productoGuardado['unidad_venta'] ?? 'UNIDAD'),
+                        'unidad_venta_label' => flus_producto_unidad_descripcion((string)($productoGuardado['unidad_venta'] ?? 'UNIDAD'), (int)($productoGuardado['es_pesable'] ?? 0) === 1),
                         'activo' => (int)$productoGuardado['activo'],
                         'estado' => calcular_estado_producto($productoGuardado),
                         'es_pesable' => (int)$productoGuardado['es_pesable'],
@@ -917,8 +943,8 @@ if (isset($_GET['editar']) && isset($_GET['ajax'])) {
         'iva' => $editProducto['iva'],
         'precio' => $editProducto['precio'],
         'costo' => $editProducto['costo'],
-        'stock' => $editProducto['stock'],
-        'stock_minimo' => $editProducto['stock_minimo'],
+        'stock' => flus_producto_stock_input_value($editProducto['stock'] ?? 0, (string)($editProducto['unidad_venta'] ?? 'UNIDAD')),
+        'stock_minimo' => flus_producto_stock_input_value($editProducto['stock_minimo'] ?? 0, (string)($editProducto['unidad_venta'] ?? 'UNIDAD')),
         'es_pesable' => $editProducto['es_pesable'],
         'unidad_venta' => $editProducto['unidad_venta'],
         'activo' => $editProducto['activo'],
@@ -935,7 +961,7 @@ if (isset($_GET['editar']) && isset($_GET['ajax'])) {
 $buscar = trim((string)($_GET['q'] ?? ''));
 $estado = (string)($_GET['estado'] ?? '');
 $stockFilter = (string)($_GET['stock_filter'] ?? ''); // 'sin' o 'bajo'
-
+$pesableFilter = (string)($_GET['pesable'] ?? '');
 $perPageOptions = [20, 50, 100];
 $perPage = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
 if (!in_array($perPage, $perPageOptions, true) || $perPage <= 0) $perPage = 50;
@@ -965,6 +991,12 @@ if ($estado === 'activos') {
     $where[] = 'activo = 0';
 }
 
+if ($pesableFilter === 'si') {
+    $where[] = 'es_pesable = 1';
+} elseif ($pesableFilter === 'no') {
+    $where[] = 'es_pesable = 0';
+}
+
 // Filtros de stock desde KPIs
 if ($stockFilter === 'sin') {
     $where[] = 'activo = 1';
@@ -976,8 +1008,10 @@ if ($stockFilter === 'sin') {
 }
 
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-$orderSql = "ORDER BY activo DESC, {$sort} {$dir}";
-
+$whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+$orderSpec = productos_search_order_sql($sort, $dir, $buscar);
+$orderSql = $orderSpec['sql'];
+$orderParams = $orderSpec['params'];
 /* ================================
    AJAX TBODY
 ================================ */
@@ -994,6 +1028,7 @@ if (isset($_GET['ajaxTbody'])) {
 
     $q2 = trim((string)($_GET['q'] ?? ''));
     $e2 = (string)($_GET['estado'] ?? '');
+    $p2 = (string)($_GET['pesable'] ?? '');
 
     if ($q2 !== '') {
         $like2 = '%' . $q2 . '%';
@@ -1003,18 +1038,24 @@ if (isset($_GET['ajaxTbody'])) {
 
     if ($e2 === 'activos') $where2[] = 'activo = 1';
     if ($e2 === 'inactivos') $where2[] = 'activo = 0';
+    if ($p2 === 'si') $where2[] = 'es_pesable = 1';
+    if ($p2 === 'no') $where2[] = 'es_pesable = 0';
 
     $whereSql2 = $where2 ? 'WHERE ' . implode(' AND ', $where2) : '';
+    $orderSpec2 = productos_search_order_sql($sortAjax, $dirAjax, $q2);
+    $orderSql2 = $orderSpec2['sql'];
+    $orderParams2 = $orderSpec2['params'];
 
     $sql2 = "
         SELECT *
         FROM productos
         {$whereSql2}
-        ORDER BY activo DESC, {$sortAjax} {$dirAjax}
+        {$orderSql2}
         LIMIT 200
     ";
     $st2 = $pdo->prepare($sql2);
-    $st2->execute($params2);
+    $st2->execute(array_merge($params2, $orderParams2));
+    $productos2 = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
     $productos2 = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     header('Content-Type: text/html; charset=utf-8');
@@ -1044,11 +1085,17 @@ $sql = "
 ";
 $stmt = $pdo->prepare($sql);
 
-foreach ($params as $i => $v) {
+foreach (array_merge($params, $orderParams) as $i => $v) {
     $stmt->bindValue($i + 1, $v);
 }
-$stmt->bindValue(count($params) + 1, $perPage, PDO::PARAM_INT);
-$stmt->bindValue(count($params) + 2, $offset,  PDO::PARAM_INT);
+$baseBindCount = count($params) + count($orderParams);
+$stmt->bindValue($baseBindCount + 1, $perPage, PDO::PARAM_INT);
+$stmt->bindValue($baseBindCount + 2, $offset,  PDO::PARAM_INT);
+
+$stmt->execute();
+$productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+
 
 $stmt->execute();
 $productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -1104,6 +1151,7 @@ if (isset($_GET['ajaxList'])) {
             'q' => $buscar,
             'estado' => $estado,
             'stock_filter' => $stockFilter,
+            'pesable' => $pesableFilter,
             'sort' => $sort,
             'dir' => $dir,
             'page' => $page,
@@ -1404,6 +1452,12 @@ require_once __DIR__ . '/partials/header.php';
                     <option value="inactivos" <?= $estado === 'inactivos' ? 'selected' : '' ?>>Solo inactivos</option>
                 </select>
 
+                <select name="pesable" id="pesableSelect">
+                    <option value="">Pesables y no pesables</option>
+                    <option value="si" <?= $pesableFilter === 'si' ? 'selected' : '' ?>>Solo pesables</option>
+                    <option value="no" <?= $pesableFilter === 'no' ? 'selected' : '' ?>>Solo no pesables</option>
+                </select>
+
                 <select name="limit" id="limitSelect">
                     <option value="20"  <?= $perPage === 20  ? 'selected' : '' ?>>20</option>
                     <option value="50"  <?= $perPage === 50  ? 'selected' : '' ?>>50</option>
@@ -1425,7 +1479,7 @@ require_once __DIR__ . '/partials/header.php';
                     ↻
                 </button>
 
-                <?php if ($buscar !== '' || $estado !== '' || $stockFilter !== ''): ?>
+                <?php if ($buscar !== '' || $estado !== '' || $stockFilter !== '' || $pesableFilter !== ''): ?>
                     <a href="productos.php" class="btn btn-secondary">Limpiar</a>
                 <?php endif; ?>
             </div>
@@ -1776,3 +1830,12 @@ if ($inlineJs) {
 }
 
 require_once __DIR__ . '/partials/footer.php';
+
+
+
+
+
+
+
+
+

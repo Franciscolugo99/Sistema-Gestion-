@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+$productosHelpers = FLUS_ROOT . '/src/productos_helpers.php';
+if (is_file($productosHelpers)) {
+    require_once $productosHelpers;
+}
 require_login();
 require_permission('editar_stock');
 
@@ -15,12 +19,12 @@ const TIPOS_AJUSTE = [
     'entrada'    => ['label' => 'Entrada',     'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
     'salida'     => ['label' => 'Salida',      'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Salida manual'],
     'ajuste_pos' => ['label' => 'Ajuste (+)',  'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'ajuste_neg' => ['label' => 'Ajuste (−)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
-    'perdida'    => ['label' => 'Pérdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Pérdida/Rotura/Vencimiento'],
+    'ajuste_neg' => ['label' => 'Ajuste (-)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
+    'perdida'    => ['label' => 'Perdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Perdida/Rotura/Vencimiento'],
 ];
 
 /* ============================
-   FUNCIÓN CENTRALIZADA: Estado de Stock
+   FUNCIÃƒâ€œN CENTRALIZADA: Estado de Stock
 ============================ */
 function calcular_estado_stock(float $stock, float $stock_minimo, bool $activo): string {
     if (!$activo) return 'inactivo';
@@ -30,10 +34,10 @@ function calcular_estado_stock(float $stock, float $stock_minimo, bool $activo):
 }
 
 /* ============================
-   FUNCIÓN: Calcular cantidad sugerida a pedir
+   FUNCIÃƒâ€œN: Calcular cantidad sugerida a pedir
 ============================ */
 function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable): float {
-    // Objetivo: llegar a 2x el mínimo
+    // Objetivo: llegar a 2x el mÃƒÂ­nimo
     $objetivo = $stock_minimo * 2;
     $minPedido = $es_pesable ? 0.001 : 1;
     
@@ -51,7 +55,7 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
 }
 
 /* ============================
-   FUNCIÓN: Paginación numérica (consistente con ventas)
+   FUNCIÃƒâ€œN: PaginaciÃƒÂ³n numÃƒÂ©rica (consistente con ventas)
 ============================ */
 function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
     if ($totalPages <= 1) return '';
@@ -68,19 +72,19 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
     // Anterior
     if ($page > 1) {
         $params['page'] = $page - 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">‹</a>';
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn"><</a>';
     } else {
-        $html .= '<span class="pg-btn disabled">‹</span>';
+        $html .= '<span class="pg-btn disabled"><</span>';
     }
     
-    // Páginas numéricas
+    // PÃƒÂ¡ginas numÃƒÂ©ricas
     $start = max(1, $page - 2);
     $end = min($totalPages, $page + 2);
     
     if ($start > 1) {
         $params['page'] = 1;
         $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">1</a>';
-        if ($start > 2) $html .= '<span class="pg-ellipsis">…</span>';
+        if ($start > 2) $html .= '<span class="pg-ellipsis">...</span>';
     }
     
     for ($i = $start; $i <= $end; $i++) {
@@ -91,7 +95,7 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
     }
     
     if ($end < $totalPages) {
-        if ($end < $totalPages - 1) $html .= '<span class="pg-ellipsis">…</span>';
+        if ($end < $totalPages - 1) $html .= '<span class="pg-ellipsis">...</span>';
         $params['page'] = $totalPages;
         $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $totalPages . '</a>';
     }
@@ -99,17 +103,60 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
     // Siguiente
     if ($page < $totalPages) {
         $params['page'] = $page + 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">›</a>';
+        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">></a>';
     } else {
-        $html .= '<span class="pg-btn disabled">›</span>';
+        $html .= '<span class="pg-btn disabled">></span>';
     }
     
     $html .= '</div></div>';
     return $html;
 }
 
+function stock_search_order_sql(string $buscar): array {
+    $buscar = trim($buscar);
+    if ($buscar === '') {
+        return [
+            'sql' => "ORDER BY
+                CASE
+                    WHEN stock <= 0 THEN 1
+                    WHEN stock <= stock_minimo THEN 2
+                    ELSE 3
+                END,
+                nombre ASC",
+            'params' => [],
+        ];
+    }
+
+    return [
+        'sql' => "ORDER BY
+            CASE
+                WHEN codigo = :order_codigo_exact THEN 0
+                WHEN codigo LIKE :order_codigo_prefix THEN 1
+                WHEN nombre LIKE :order_nombre THEN 2
+                WHEN categoria LIKE :order_categoria THEN 3
+                WHEN marca LIKE :order_marca THEN 4
+                WHEN proveedor LIKE :order_proveedor THEN 5
+                ELSE 6
+            END,
+            CASE
+                WHEN stock <= 0 THEN 1
+                WHEN stock <= stock_minimo THEN 2
+                ELSE 3
+            END,
+            nombre ASC",
+        'params' => [
+            ':order_codigo_exact' => $buscar,
+            ':order_codigo_prefix' => $buscar . '%',
+            ':order_nombre' => '%' . $buscar . '%',
+            ':order_categoria' => '%' . $buscar . '%',
+            ':order_marca' => '%' . $buscar . '%',
+            ':order_proveedor' => '%' . $buscar . '%',
+        ],
+    ];
+}
+
 /* ============================
-   CONFIG PÁGINA
+   CONFIG PÃƒÂGINA
 ============================ */
 $pageTitle      = "Stock";
 $currentSection = "stock";
@@ -129,9 +176,10 @@ $buscar    = trim((string)($_GET['q'] ?? ''));
 $estado    = (string)($_GET['estado'] ?? '');
 $categoria = (string)($_GET['categoria'] ?? '');
 $proveedor = (string)($_GET['proveedor'] ?? '');
+$pesable   = (string)($_GET['pesable'] ?? '');
 
 /* ============================
-   PAGINACIÓN
+   PAGINACIÃƒâ€œN
 ============================ */
 $perPageOptions = [20, 50, 100];
 $perPage = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
@@ -161,13 +209,13 @@ $bajoStock      = (int)($kpi['bajo_stock'] ?? 0);
 $ok             = (int)($kpi['ok'] ?? 0);
 
 /* ============================
-   LISTAS PARA FILTROS (con caché simple)
+   LISTAS PARA FILTROS (con cachÃƒÂ© simple)
 ============================ */
 $categorias  = $pdo->query("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria")->fetchAll(PDO::FETCH_COLUMN);
 $proveedores = $pdo->query("SELECT DISTINCT proveedor FROM productos WHERE proveedor IS NOT NULL AND proveedor != '' ORDER BY proveedor")->fetchAll(PDO::FETCH_COLUMN);
 
 /* ============================
-   WHERE DINÁMICO
+   WHERE DINÃƒÂMICO
 ============================ */
 $where  = [];
 $params = [];
@@ -180,6 +228,14 @@ if ($buscar !== '') {
     $params[':q3'] = $like;
     $params[':q4'] = $like;
     $params[':q5'] = $like;
+}
+
+if ($pesable !== '') {
+    if ($pesable === 'si') {
+        $where[] = "es_pesable = 1";
+    } elseif ($pesable === 'no') {
+        $where[] = "(es_pesable = 0 OR es_pesable IS NULL)";
+    }
 }
 
 if ($tab !== 'alertas' && $estado !== '') {
@@ -214,9 +270,12 @@ if ($tab === 'alertas') {
 }
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
+$orderSpec = stock_search_order_sql($buscar);
+$orderSql = $orderSpec['sql'];
+$orderParams = $orderSpec['params'];
 
 /* ============================
-   EXPORT CSV (con límite de seguridad)
+   EXPORT CSV (con lÃƒÂ­mite de seguridad)
 ============================ */
 if (isset($_GET['export'])) {
     $exportType = (string)$_GET['export'];
@@ -237,7 +296,7 @@ if (isset($_GET['export'])) {
           SELECT codigo, nombre, categoria, marca, proveedor, stock, stock_minimo, es_pesable, unidad_venta
           FROM productos
           $whereSql
-          ORDER BY nombre ASC
+          $orderSql
           LIMIT $exportLimit
         ";
     } else {
@@ -246,12 +305,13 @@ if (isset($_GET['export'])) {
           SELECT codigo, nombre, categoria, marca, proveedor, stock, stock_minimo, es_pesable, activo
           FROM productos
           $whereSql
-          ORDER BY nombre ASC
+          $orderSql
           LIMIT $exportLimit
         ";
     }
 
     $stmtExp = $pdo->prepare($sqlExp);
+    foreach ($orderParams as $k => $v) $stmtExp->bindValue($k, $v, PDO::PARAM_STR);
     foreach ($params as $k => $v) $stmtExp->bindValue($k, $v, PDO::PARAM_STR);
     $stmtExp->execute();
 
@@ -272,9 +332,9 @@ if (isset($_GET['export'])) {
                 (string)($p['categoria'] ?? ''),
                 (string)($p['marca'] ?? ''),
                 (string)($p['proveedor'] ?? ''),
-                format_qty_field($p, 'stock'),
-                format_qty_field($p, 'stock_minimo'),
-                format_qty($paraPedir, $esPes),
+                format_stock_con_unidad($p, 'stock'),
+                format_stock_con_unidad($p, 'stock_minimo'),
+                format_stock_con_unidad(array_merge($p, ['para_pedir' => $paraPedir]), 'para_pedir'),
                 $unidad,
             ], ';');
 
@@ -291,8 +351,8 @@ if (isset($_GET['export'])) {
                 (string)($p['categoria'] ?? ''),
                 (string)($p['marca'] ?? ''),
                 (string)($p['proveedor'] ?? ''),
-                format_qty_field($p, 'stock'),
-                format_qty_field($p, 'stock_minimo'),
+                format_stock_con_unidad($p, 'stock'),
+                format_stock_con_unidad($p, 'stock_minimo'),
                 $estadoRow,
             ], ';');
         }
@@ -303,7 +363,7 @@ if (isset($_GET['export'])) {
 }
 
 /* ============================
-   TOTAL FILTRADOS + PÁGINAS
+   TOTAL FILTRADOS + PÃƒÂGINAS
 ============================ */
 $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM productos $whereSql");
 foreach ($params as $k => $v) $stmtCount->bindValue($k, $v, PDO::PARAM_STR);
@@ -316,7 +376,7 @@ if ($page > $totalPages) {
     $offset = ($page - 1) * $perPage;
 }
 
-// Calcular rango para paginación
+// Calcular rango para paginaciÃƒÂ³n
 $fromRow = $totalFiltrados > 0 ? $offset + 1 : 0;
 $toRow = min($offset + $perPage, $totalFiltrados);
 
@@ -335,16 +395,11 @@ $sqlList = "
     END AS estado_stock
   FROM productos
   $whereSql
-  ORDER BY 
-    CASE 
-      WHEN stock <= 0 THEN 1
-      WHEN stock <= stock_minimo THEN 2
-      ELSE 3
-    END,
-    nombre ASC
+  $orderSql
   LIMIT :lim OFFSET :off
 ";
 $stmtList = $pdo->prepare($sqlList);
+foreach ($orderParams as $k => $v) $stmtList->bindValue($k, $v, PDO::PARAM_STR);
 foreach ($params as $k => $v) $stmtList->bindValue($k, $v, PDO::PARAM_STR);
 $stmtList->bindValue(':lim', $perPage, PDO::PARAM_INT);
 $stmtList->bindValue(':off', $offset, PDO::PARAM_INT);
@@ -363,7 +418,7 @@ if ($tab === 'alertas') {
 }
 
 /* ============================
-   Params para paginación
+   Params para paginaciÃƒÂ³n
 ============================ */
 $queryParams = $_GET;
 unset($queryParams['page']);
@@ -376,12 +431,12 @@ require __DIR__ . "/partials/header.php";
   <header class="page-header">
     <div>
       <h1 class="page-title">Control de Stock</h1>
-      <p class="page-sub">Gestiona el inventario y realiza ajustes rápidos.</p>
+      <p class="page-sub">Gestiona el inventario y realiza ajustes rapidos.</p>
     </div>
 
     <div class="header-actions">
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
-      <button class="v-btn v-btn--outline btn-disabled" type="button" disabled title="Próximamente">
+      <button class="v-btn v-btn--outline btn-disabled" type="button" disabled title="Proximamente">
         Ajuste masivo
       </button>
     </div>
@@ -430,22 +485,28 @@ require __DIR__ . "/partials/header.php";
 
     <div class="filters-grid">
       <input type="text" name="q"
-             placeholder="🔍 Buscar por código, nombre, marca..."
+             placeholder="Buscar por codigo, nombre, marca..."
              value="<?= h($buscar) ?>"
              class="filter-search">
 
       <?php if ($tab !== 'alertas'): ?>
       <select name="estado" class="filter-select">
         <option value="">Todos los estados</option>
-        <option value="ok" <?= $estado==='ok'?'selected':'' ?>>✅ OK</option>
-        <option value="bajo" <?= $estado==='bajo'?'selected':'' ?>>⚠️ Bajo</option>
-        <option value="sin" <?= $estado==='sin'?'selected':'' ?>>❌ Sin stock</option>
-        <option value="inactivo" <?= $estado==='inactivo'?'selected':'' ?>>🚫 Inactivo</option>
+        <option value="ok" <?= $estado==='ok'?'selected':'' ?>>OK</option>
+        <option value="bajo" <?= $estado==='bajo'?'selected':'' ?>>Bajo</option>
+        <option value="sin" <?= $estado==='sin'?'selected':'' ?>>Sin stock</option>
+        <option value="inactivo" <?= $estado==='inactivo'?'selected':'' ?>>Inactivo</option>
       </select>
       <?php endif; ?>
 
+      <select name="pesable" class="filter-select">
+        <option value="">Todos</option>
+        <option value="si" <?= $pesable==='si'?'selected':'' ?>>Solo pesables</option>
+        <option value="no" <?= $pesable==='no'?'selected':'' ?>>Solo no pesables</option>
+      </select>
+
       <select name="categoria" class="filter-select">
-        <option value="">Todas las categorías</option>
+        <option value="">Todas las categorias</option>
         <?php foreach ($categorias as $cat): ?>
           <option value="<?= h($cat) ?>" <?= $categoria===$cat?'selected':'' ?>><?= h($cat) ?></option>
         <?php endforeach; ?>
@@ -460,13 +521,13 @@ require __DIR__ . "/partials/header.php";
 
       <select name="limit" id="limitSel" class="filter-select">
         <?php foreach ($perPageOptions as $opt): ?>
-          <option value="<?= (int)$opt ?>" <?= $opt===$perPage?'selected':'' ?>><?= (int)$opt ?> por página</option>
+          <option value="<?= (int)$opt ?>" <?= $opt===$perPage?'selected':'' ?>><?= (int)$opt ?> por pagina</option>
         <?php endforeach; ?>
       </select>
 
       <div class="filter-actions">
         <button class="v-btn v-btn--primary" type="submit">Filtrar</button>
-        <?php if ($buscar || $estado || $categoria || $proveedor): ?>
+        <?php if ($buscar || $estado || $categoria || $proveedor || $pesable): ?>
           <a href="stock.php?tab=<?= h($tab) ?>" class="v-btn v-btn--ghost">Limpiar</a>
         <?php endif; ?>
       </div>
@@ -476,9 +537,11 @@ require __DIR__ . "/partials/header.php";
   <!-- Filtros activos (NUEVO - consistente con ventas) -->
   <?php 
   $filtrosActivos = [];
-  if ($buscar) $filtrosActivos[] = ['key' => 'q', 'label' => "Búsqueda: $buscar"];
+  if ($buscar) $filtrosActivos[] = ['key' => 'q', 'label' => "Busqueda: $buscar"];
   if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
-  if ($categoria) $filtrosActivos[] = ['key' => 'categoria', 'label' => "Categoría: $categoria"];
+  if ($pesable === 'si') $filtrosActivos[] = ['key' => 'pesable', 'label' => 'Tipo: Solo pesables'];
+  if ($pesable === 'no') $filtrosActivos[] = ['key' => 'pesable', 'label' => 'Tipo: Solo no pesables'];
+  if ($categoria) $filtrosActivos[] = ['key' => 'categoria', 'label' => "Categoria: $categoria"]; 
   if ($proveedor) $filtrosActivos[] = ['key' => 'proveedor', 'label' => "Proveedor: $proveedor"];
   ?>
   <?php if ($filtrosActivos): ?>
@@ -486,7 +549,7 @@ require __DIR__ . "/partials/header.php";
     <?php foreach ($filtrosActivos as $f): ?>
       <span class="filtro-tag">
         <?= h($f['label']) ?>
-        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">×</button>
+        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">x</button>
       </span>
     <?php endforeach; ?>
   </div>
@@ -498,28 +561,28 @@ require __DIR__ . "/partials/header.php";
     </div>
     <div class="action-buttons">
       <button type="button" class="v-btn v-btn--ghost btn-icon" onclick="StockManager.refreshPage()" title="Actualizar datos">
-        ↻ Actualizar
+        Actualizar
       </button>
       <a href="<?= h(urlWith(['export' => $tab], 'stock.php')) ?>" class="v-btn v-btn--ghost btn-icon">
-        💾 Exportar CSV
+        Exportar CSV
       </a>
     </div>
   </div>
 
-  <!-- Paginación SUPERIOR (NUEVO) -->
+  <!-- PaginaciÃƒÂ³n SUPERIOR (NUEVO) -->
   <?= render_pagination($page, $totalPages, $queryParams, true, $totalFiltrados, $fromRow, $toRow) ?>
 
   <div class="table-wrapper" id="tablaStock">
     <table class="stock-table">
       <thead>
         <tr>
-          <th style="width: 80px">Código</th>
+          <th style="width: 80px">Codigo</th>
           <th>Producto</th>
-          <th style="width: 140px">Categoría</th>
+          <th style="width: 140px">Categoria</th>
           <th style="width: 120px">Marca</th>
           <th style="width: 140px">Proveedor</th>
           <th style="width: 100px" class="t-right">Stock</th>
-          <th style="width: 80px" class="t-right">Mín.</th>
+          <th style="width: 80px" class="t-right">Min.</th>
           <?php if ($tab === 'alertas'): ?>
           <th style="width: 100px" class="t-right">Sugerido</th>
           <?php endif; ?>
@@ -540,26 +603,29 @@ require __DIR__ . "/partials/header.php";
             data-stock="<?= $stockNum ?>" 
             data-stock-minimo="<?= $stockMinNum ?>"
             data-es-pesable="<?= $esPesable ? '1' : '0' ?>"
+            data-unidad-venta="<?= h((string)($p['unidad_venta'] ?? 'UNIDAD')) ?>"
             class="row-<?= h($p['estado_stock']) ?>">
           <td><code><?= h($p['codigo'] ?? '') ?></code></td>
           <td class="td-producto">
-            <strong><?= h($p['nombre'] ?? '') ?></strong>
-            <?php if ($esPesable): ?><span class="badge-pesable">Pesable</span><?php endif; ?>
+            <div class="producto-main">
+              <strong><?= h($p['nombre'] ?? '') ?></strong>
+              <?php if ($esPesable): ?><span class="badge-pesable">Pesable</span><?php endif; ?>
+            </div>
           </td>
           <td><?= h($p['categoria'] ?? '-') ?></td>
           <td><?= h($p['marca'] ?? '-') ?></td>
           <td><?= h($p['proveedor'] ?? '-') ?></td>
           <td class="t-right td-stock">
-            <strong class="stock-value"><?= format_qty_field($p,'stock') ?></strong>
+            <strong class="stock-value"><?= format_stock_con_unidad($p, 'stock') ?></strong>
             <div class="stock-bar">
               <div class="stock-bar-fill stock-bar-<?= h($p['estado_stock']) ?>" style="width: <?= (float)$stockPct ?>%"></div>
             </div>
           </td>
-          <td class="t-right muted td-stock-min"><?= format_qty_field($p,'stock_minimo') ?></td>
+          <td class="t-right muted td-stock-min"><?= format_stock_con_unidad($p, 'stock_minimo') ?></td>
 
           <?php if ($tab === 'alertas'): ?>
           <td class="t-right td-sugerido">
-            <strong class="text-primary"><?= format_qty((float)$p['para_pedir'], $esPesable) ?></strong>
+            <strong class="text-primary"><?= format_stock_con_unidad(array_merge($p, ['para_pedir' => (float)$p['para_pedir']]), 'para_pedir') ?></strong>
           </td>
           <?php endif; ?>
           
@@ -581,16 +647,18 @@ require __DIR__ . "/partials/header.php";
                   <?= $esPesable ? "true" : "false" ?>,
                   <?= json_encode($stockNum, JSON_UNESCAPED_UNICODE) ?>,
                   <?= json_encode($stockMinNum, JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode(format_qty_field($p, "stock"), JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode(format_qty_field($p, "stock_minimo"), JSON_UNESCAPED_UNICODE) ?>
+                  <?= json_encode(format_stock_con_unidad($p, 'stock'), JSON_UNESCAPED_UNICODE) ?>,
+                  <?= json_encode(format_stock_con_unidad($p, 'stock_minimo'), JSON_UNESCAPED_UNICODE) ?>,
+                  <?= json_encode((string)($p['unidad_venta'] ?? 'UNIDAD'), JSON_UNESCAPED_UNICODE) ?>,
+                  <?= json_encode(function_exists('flus_producto_unidad_descripcion') ? flus_producto_unidad_descripcion((string)($p['unidad_venta'] ?? 'UNIDAD'), $esPesable) : ($esPesable ? 'Pesable' : 'Unidad'), JSON_UNESCAPED_UNICODE) ?>
                 )'
-              >✎</button>
+              >Ajustar</button>
 
               <a
                 class="btn-icon btn-sm"
                 title="Ver en Productos"
                 href="<?= h(urlWith(['q' => (string)($p['codigo'] ?? '')], 'productos.php')) ?>"
-              >👁</a>
+              >Ver producto</a>
             </div>
           </td>
         </tr>
@@ -599,12 +667,12 @@ require __DIR__ . "/partials/header.php";
     </table>
   </div>
 
-  <!-- Paginación INFERIOR -->
+  <!-- PaginaciÃƒÂ³n INFERIOR -->
   <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
 </div>
 
-<!-- MODAL: AJUSTE RÁPIDO -->
+<!-- MODAL: AJUSTE RÃƒÂPIDO -->
 <div id="modalAjusteStock" class="modal">
   <div class="modal-content modal-sm">
     <div class="modal-header">
@@ -629,7 +697,7 @@ require __DIR__ . "/partials/header.php";
               <span class="stock-info-value" id="ajuste_stock_actual">-</span>
             </div>
             <div class="stock-info-item">
-              <span class="stock-info-label">Stock mínimo</span>
+              <span class="stock-info-label">Stock minimo</span>
               <span class="stock-info-value" id="ajuste_stock_minimo">-</span>
             </div>
           </div>
@@ -651,9 +719,16 @@ require __DIR__ . "/partials/header.php";
         </div>
 
         <div class="form-group">
+          <label>Ultimos movimientos</label>
+          <div id="ajuste_historial" class="stock-history">
+            <div class="stock-history-empty">Cargando historial...</div>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label>Motivo <span class="text-muted">(opcional)</span></label>
           <textarea name="motivo" id="ajuste_motivo" class="form-control" rows="2" maxlength="255"
-            placeholder="Ej: recepción proveedor, corrección, rotura, etc."></textarea>
+            placeholder="Ej: recepcion proveedor, correccion, rotura, etc."></textarea>
           <small class="form-hint"><span id="motivo_chars">0</span>/255 caracteres</small>
         </div>
       </div>
@@ -666,11 +741,11 @@ require __DIR__ . "/partials/header.php";
   </div>
 </div>
 
-<!-- MODAL: CONFIRMACIÓN AJUSTE GRANDE -->
+<!-- MODAL: CONFIRMACIÃƒâ€œN AJUSTE GRANDE -->
 <div id="modalConfirmacion" class="modal">
   <div class="modal-content modal-sm">
     <div class="modal-header">
-      <h3 class="modal-title">⚠️ Confirmar ajuste</h3>
+      <h3 class="modal-title">Confirmar ajuste</h3>
       <button type="button" class="modal-close" onclick="StockManager.closeConfirmModal()">&times;</button>
     </div>
     <div class="modal-body">
@@ -678,7 +753,7 @@ require __DIR__ . "/partials/header.php";
     </div>
     <div class="modal-footer">
       <button type="button" class="v-btn v-btn--ghost" onclick="StockManager.closeConfirmModal()">Cancelar</button>
-      <button type="button" class="v-btn v-btn--danger" onclick="StockManager.confirmarAjuste()">Sí, confirmar</button>
+      <button type="button" class="v-btn v-btn--danger" onclick="StockManager.confirmarAjuste()">Si, confirmar</button>
     </div>
   </div>
 </div>
@@ -697,3 +772,5 @@ require __DIR__ . "/partials/header.php";
 </div>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>
+
+

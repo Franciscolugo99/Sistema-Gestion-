@@ -494,42 +494,43 @@ if (!function_exists('format_cantidad')) {
 
 if (!function_exists('format_stock_con_unidad')) {
   /**
-   * Formatea stock/cantidad incluyendo la unidad para productos pesables.
-   * Ej: "75,000 kg", "20 ×100g", "1,500 L", "10 ×100ml", o solo "30" para unidades.
+   * Formatea stock/cantidad con una unidad legible para operacion.
+   * Para productos vendidos por 100g/100ml, muestra el total real acumulado.
    */
   function format_stock_con_unidad(array $row, string $field = 'stock', int $decPesable = 3): string {
     $valor = isset($row[$field]) ? (float)$row[$field] : 0.0;
     $esPesable = is_pesable_row($row);
     $unidad = strtoupper(trim($row['unidad_venta'] ?? 'UNIDAD'));
-    
-    // Formatear el número
-    $numFormateado = format_qty_ar($valor, $esPesable, $decPesable);
-    
-    // Si no es pesable, devolver solo el número
+
     if (!$esPesable || $unidad === 'UNIDAD') {
-      return $numFormateado;
+      return format_qty_ar($valor, false, $decPesable);
     }
-    
-    // Determinar etiqueta de unidad
-    $etiqueta = '';
-    switch ($unidad) {
-      case 'KG':
-        $etiqueta = 'kg';
-        break;
-      case 'LT':
-        $etiqueta = 'L';
-        break;
-      case 'G':
-        $etiqueta = '×100g';
-        break;
-      case 'ML':
-        $etiqueta = '×100ml';
-        break;
-      default:
-        $etiqueta = strtolower($unidad);
+
+    if ($unidad === 'KG') {
+      return format_qty_ar($valor, true, $decPesable) . ' kg';
     }
-    
-    return $numFormateado . ' ' . $etiqueta;
+
+    if ($unidad === 'LT') {
+      return format_qty_ar($valor, true, $decPesable) . ' L';
+    }
+
+    if ($unidad === 'G') {
+      $gramos = $valor * 100;
+      if ($gramos >= 1000) {
+        return format_qty_ar($gramos / 1000, true, $decPesable) . ' kg';
+      }
+      return number_format($gramos, 0, ',', '.') . ' g';
+    }
+
+    if ($unidad === 'ML') {
+      $mililitros = $valor * 100;
+      if ($mililitros >= 1000) {
+        return format_qty_ar($mililitros / 1000, true, $decPesable) . ' L';
+      }
+      return number_format($mililitros, 0, ',', '.') . ' ml';
+    }
+
+    return format_qty_ar($valor, true, $decPesable) . ' ' . strtolower($unidad);
   }
 }
 

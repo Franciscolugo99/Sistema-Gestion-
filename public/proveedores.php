@@ -71,6 +71,116 @@ function hasColumn(PDO $pdo, string $column): bool {
     return in_array($column, getProveedorColumns($pdo), true);
 }
 
+function hasTableColumn(PDO $pdo, string $table, string $column): bool {
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $st->execute([$column]);
+        return $cache[$key] = (bool)$st->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return $cache[$key] = false;
+    }
+}
+
+function normProveedorName(string $value): string {
+    $value = preg_replace('/\s+/', ' ', trim($value)) ?? trim($value);
+    return $value;
+}
+
+function buildProveedorProductoMatchSql(string $aliasProducto, string $aliasProveedor, bool $includeLegacy): string {
+    $conditions = ["$aliasProducto.proveedor_id = $aliasProveedor.id"];
+    if ($includeLegacy) {
+        $conditions[] = "(
+            ($aliasProducto.proveedor_id IS NULL OR $aliasProducto.proveedor_id = 0)
+            AND TRIM(LOWER(COALESCE($aliasProducto.proveedor, ''))) = TRIM(LOWER($aliasProveedor.nombre))
+        )";
+    }
+    return implode(' OR ', $conditions);
+}
+
+function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNames): array {
+    $proveedor = getProveedorById($pdo, $proveedorId);
+    if (!$proveedor) {
+        return ['linked' => 0, 'legacy' => 0];
+    }
+
+    $currentName = normProveedorName((string)($proveedor['nombre'] ?? ''));
+    if ($currentName === '') {
+        return ['linked' => 0, 'legacy' => 0];
+    }
+
+    $linked = 0;
+    $legacy = 0;
+
+    try {
+        $st = $pdo->prepare("UPDATE productos SET proveedor = :new_name WHERE proveedor_id = :proveedor_id");
+        $st->execute([
+            ':new_name' => $currentName,
+            ':proveedor_id' => $proveedorId,
+        ]);
+        $linked += $st->rowCount();
+    } catch (Throwable $e) {
+        // instalaciones legacy sin proveedor_id
+    }
+
+    $names = [$currentName];
+    foreach ($legacyNames as $legacyName) {
+        $legacyName = normProveedorName($legacyName);
+        if ($legacyName !== '') {
+            $names[] = $legacyName;
+        }
+    }
+    $names = array_values(array_unique($names));
+
+    foreach ($names as $legacyName) {
+        try {
+            $st = $pdo->prepare("
+                UPDATE productos
+                SET proveedor = :new_name, proveedor_id = :proveedor_id
+                WHERE (proveedor_id IS NULL OR proveedor_id = 0)
+                  AND TRIM(LOWER(COALESCE(proveedor, ''))) = TRIM(LOWER(:legacy_name))
+            ");
+            $st->execute([
+                ':new_name' => $currentName,
+                ':proveedor_id' => $proveedorId,
+                ':legacy_name' => $legacyName,
+            ]);
+            $legacy += $st->rowCount();
+            continue;
+        } catch (Throwable $e) {
+            // fallback sin proveedor_id
+        }
+
+        try {
+            $st = $pdo->prepare("
+                UPDATE productos
+                SET proveedor = :new_name
+                WHERE TRIM(LOWER(COALESCE(proveedor, ''))) = TRIM(LOWER(:legacy_name))
+            ");
+            $st->execute([
+                ':new_name' => $currentName,
+                ':legacy_name' => $legacyName,
+            ]);
+            $legacy += $st->rowCount();
+        } catch (Throwable $e) {
+            // no-op
+        }
+    }
+
+    return ['linked' => $linked, 'legacy' => $legacy];
+}
+
+function syncProveedorProducts(PDO $pdo, int $proveedorId, string $oldName, string $newName): void {
+    if ($proveedorId <= 0 || normProveedorName($newName) === '') {
+        return;
+    }
+    relinkProveedorProducts($pdo, $proveedorId, $oldName, $newName);
+}
+
 function createProveedor(PDO $pdo, array $data): int {
     $cols = getProveedorColumns($pdo);
     
@@ -115,6 +225,10 @@ function createProveedor(PDO $pdo, array $data): int {
 
 function updateProveedor(PDO $pdo, int $id, array $data): bool {
     $cols = getProveedorColumns($pdo);
+    $before = getProveedorById($pdo, $id);
+    if (!$before) {
+        return false;
+    }
     
     // Campos base
     $sets = ['nombre = :nombre', 'cuit = :cuit', 'telefono = :telefono', 'email = :email', 'direccion = :direccion', 'activo = :activo'];
@@ -149,8 +263,17 @@ function updateProveedor(PDO $pdo, int $id, array $data): bool {
     
     $setSql = implode(', ', $sets);
     $st = $pdo->prepare("UPDATE proveedores SET $setSql WHERE id = :id");
-    
-    return $st->execute($values);
+    $ok = $st->execute($values);
+    if ($ok) {
+        syncProveedorProducts(
+            $pdo,
+            $id,
+            trim((string)($data['nombre_original'] ?? (string)($before['nombre'] ?? ''))),
+            trim((string)($data['nombre'] ?? ''))
+        );
+    }
+
+    return $ok;
 }
 
 function toggleProveedorActivo(PDO $pdo, int $id, int $valor): bool {
@@ -159,24 +282,199 @@ function toggleProveedorActivo(PDO $pdo, int $id, int $valor): bool {
 }
 
 function getProveedorStats(PDO $pdo, int $id): array {
-    // Productos vinculados
-    $stProd = $pdo->prepare("SELECT COUNT(*) FROM productos WHERE proveedor_id = ?");
-    $stProd->execute([$id]);
-    $productos = (int)$stProd->fetchColumn();
+    $proveedor = getProveedorById($pdo, $id);
+    $hasProductoProveedor = hasTableColumn($pdo, 'productos', 'proveedor');
+    $hasProductoProveedorId = hasTableColumn($pdo, 'productos', 'proveedor_id');
+
+    $productos = 0;
+    $legacy = 0;
+    if ($proveedor && $hasProductoProveedorId) {
+        $sqlProductos = "
+            SELECT COUNT(*) FROM productos
+            WHERE proveedor_id = :id
+        ";
+        if ($hasProductoProveedor) {
+            $sqlProductos = "
+                SELECT COUNT(*) FROM productos
+                WHERE proveedor_id = :id
+                   OR (
+                        (proveedor_id IS NULL OR proveedor_id = 0)
+                        AND TRIM(LOWER(COALESCE(proveedor, ''))) = TRIM(LOWER(:nombre))
+                   )
+            ";
+        }
+        $stProd = $pdo->prepare($sqlProductos);
+        $params = [':id' => $id];
+        if ($hasProductoProveedor) {
+            $params[':nombre'] = (string)$proveedor['nombre'];
+        }
+        $stProd->execute($params);
+        $productos = (int)$stProd->fetchColumn();
+    } elseif ($proveedor && $hasProductoProveedor) {
+        $stProd = $pdo->prepare("
+            SELECT COUNT(*) FROM productos
+            WHERE TRIM(LOWER(COALESCE(proveedor, ''))) = TRIM(LOWER(:nombre))
+        ");
+        $stProd->execute([':nombre' => (string)$proveedor['nombre']]);
+        $productos = (int)$stProd->fetchColumn();
+    }
+
+    if ($proveedor && $hasProductoProveedor) {
+        if ($hasProductoProveedorId) {
+            $stLegacy = $pdo->prepare("
+                SELECT COUNT(*) FROM productos
+                WHERE (proveedor_id IS NULL OR proveedor_id = 0)
+                  AND TRIM(LOWER(COALESCE(proveedor, ''))) = TRIM(LOWER(:nombre))
+            ");
+            $stLegacy->execute([':nombre' => (string)$proveedor['nombre']]);
+            $legacy = (int)$stLegacy->fetchColumn();
+        } else {
+            $legacy = $productos;
+        }
+    }
     
     // Compras
     $stCompras = $pdo->prepare("
-        SELECT COUNT(*) as total, COALESCE(SUM(total), 0) as monto
+        SELECT COUNT(*) as total,
+               COALESCE(SUM(total), 0) as monto,
+               MAX(fecha) as ultima_fecha
         FROM compras WHERE proveedor_id = ?
     ");
     $stCompras->execute([$id]);
-    $compras = $stCompras->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'monto' => 0];
+    $compras = $stCompras->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'monto' => 0, 'ultima_fecha' => null];
+
+    $ultimaCompra = null;
+    if ((int)$compras['total'] > 0) {
+        $stUlt = $pdo->prepare("
+            SELECT id, fecha, estado, total,
+                   COALESCE(tipo_comp, '') AS tipo_comp,
+                   COALESCE(nro_comp, '') AS nro_comp
+            FROM compras
+            WHERE proveedor_id = ?
+            ORDER BY fecha DESC, id DESC
+            LIMIT 1
+        ");
+        $stUlt->execute([$id]);
+        $ultimaCompra = $stUlt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
     
     return [
         'productos' => $productos,
+        'productos_legacy' => $legacy,
         'compras_count' => (int)$compras['total'],
         'compras_monto' => (float)$compras['monto'],
+        'ultima_compra_fecha' => $compras['ultima_fecha'] ?? null,
+        'ultima_compra' => $ultimaCompra,
     ];
+}
+
+function getProveedorDashboardStats(PDO $pdo): array {
+    $stats = [
+        'total' => 0,
+        'activos' => 0,
+        'con_compras_30d' => 0,
+        'sin_compras_90d' => 0,
+        'con_legacy' => 0,
+    ];
+
+    try {
+        $stats['total'] = (int)$pdo->query("SELECT COUNT(*) FROM proveedores")->fetchColumn();
+        $stats['activos'] = (int)$pdo->query("SELECT COUNT(*) FROM proveedores WHERE activo = 1")->fetchColumn();
+        $stats['con_compras_30d'] = (int)$pdo->query("SELECT COUNT(DISTINCT proveedor_id) FROM compras WHERE proveedor_id IS NOT NULL AND fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)")->fetchColumn();
+        $stats['sin_compras_90d'] = (int)$pdo->query("
+            SELECT COUNT(*) FROM proveedores p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM compras c
+                WHERE c.proveedor_id = p.id
+                  AND c.fecha >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            )
+        ")->fetchColumn();
+
+        if (hasTableColumn($pdo, 'productos', 'proveedor')) {
+            $sqlLegacy = hasTableColumn($pdo, 'productos', 'proveedor_id')
+                ? "
+                    SELECT COUNT(DISTINCT p.id)
+                    FROM proveedores p
+                    JOIN productos pr
+                      ON (pr.proveedor_id IS NULL OR pr.proveedor_id = 0)
+                     AND TRIM(LOWER(COALESCE(pr.proveedor, ''))) = TRIM(LOWER(p.nombre))
+                "
+                : "
+                    SELECT COUNT(DISTINCT p.id)
+                    FROM proveedores p
+                    JOIN productos pr
+                      ON TRIM(LOWER(COALESCE(pr.proveedor, ''))) = TRIM(LOWER(p.nombre))
+                ";
+            $stats['con_legacy'] = (int)$pdo->query($sqlLegacy)->fetchColumn();
+        }
+    } catch (Throwable $e) {
+        // devolver defaults si la instalaci?n es limitada
+    }
+
+    return $stats;
+}
+
+function getProveedorRecentCompras(PDO $pdo, int $id, int $limit = 8): array {
+    if ($id <= 0) {
+        return [];
+    }
+    $limit = max(1, min($limit, 20));
+    $sql = "
+        SELECT c.id, c.fecha, c.estado, c.total,
+               COALESCE(c.tipo_comp, '') AS tipo_comp,
+               COALESCE(c.nro_comp, '') AS nro_comp
+        FROM compras c
+        WHERE c.proveedor_id = :id
+        ORDER BY c.fecha DESC, c.id DESC
+        LIMIT " . $limit;
+    $st = $pdo->prepare($sql);
+    $st->execute([':id' => $id]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function getProveedorProductosResumen(PDO $pdo, int $id, int $limit = 10): array {
+    if ($id <= 0) {
+        return [];
+    }
+    $limit = max(1, min($limit, 20));
+    $matchSql = buildProveedorProductoMatchSql('pr', 'pv', hasTableColumn($pdo, 'productos', 'proveedor'));
+    $sql = "
+        SELECT pr.id, pr.codigo, pr.nombre, pr.costo, pr.stock, pr.activo, pr.es_pesable, pr.unidad_venta,
+               (
+                   SELECT MAX(c.fecha)
+                   FROM compra_items ci
+                   JOIN compras c ON c.id = ci.compra_id
+                   WHERE ci.producto_id = pr.id
+                     AND c.proveedor_id = pv.id
+               ) AS ultima_compra_fecha
+        FROM productos pr
+        JOIN proveedores pv ON pv.id = :id
+        WHERE " . $matchSql . "
+        ORDER BY COALESCE(ultima_compra_fecha, pr.fecha_modificacion, pr.fecha_alta) DESC, pr.nombre ASC
+        LIMIT " . $limit;
+    $st = $pdo->prepare($sql);
+    $st->execute([':id' => $id]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+
+function relinkAllProveedorProducts(PDO $pdo): array {
+    $summary = [
+        'proveedores' => 0,
+        'linked' => 0,
+        'legacy' => 0,
+    ];
+
+    $st = $pdo->query("SELECT id, nombre FROM proveedores ORDER BY nombre ASC");
+    $proveedores = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($proveedores as $proveedor) {
+        $summary['proveedores']++;
+        $result = relinkProveedorProducts($pdo, (int)$proveedor['id'], (string)($proveedor['nombre'] ?? ''));
+        $summary['linked'] += (int)($result['linked'] ?? 0);
+        $summary['legacy'] += (int)($result['legacy'] ?? 0);
+    }
+
+    return $summary;
 }
 
 /* ========== EXPORTAR CSV ========== */
@@ -239,6 +537,50 @@ if (($_GET['export'] ?? '') === 'csv' && $canEdit) {
     }
     
     fclose($out);
+    exit;
+}
+
+/* ========== RE-VINCULAR TODOS LOS PROVEEDORES ========== */
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['accion'] ?? '') === 'relink_all_productos') {
+    if (!$canEdit) {
+        flus_abort(403, 'No tenes permisos.');
+    }
+
+    if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+        header('Location: ' . urlWithProv(['saved' => 'csrf']));
+        exit;
+    }
+
+    $summary = relinkAllProveedorProducts($pdo);
+    $_SESSION['prov_relink_all_summary'] = $summary;
+    $saved = (($summary['linked'] + $summary['legacy']) > 0) ? 'relinked_all' : 'relinked_all_none';
+    header('Location: ' . urlWithProv(['saved' => $saved]));
+    exit;
+}
+
+/* ========== RE-VINCULAR PRODUCTOS ========== */
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['accion'] ?? '') === 'relink_productos') {
+    if (!$canEdit) {
+        flus_abort(403, 'No ten?s permisos.');
+    }
+
+    if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+        header('Location: ' . urlWithProv(['saved' => 'csrf']));
+        exit;
+    }
+
+    $id = (int)($_POST['id'] ?? 0);
+    $legacyName = trim((string)($_POST['legacy_name'] ?? ''));
+    if ($id > 0) {
+        $result = relinkProveedorProducts($pdo, $id, $legacyName);
+        $saved = (($result['linked'] + $result['legacy']) > 0) ? 'relinked' : 'relinked_none';
+        header('Location: ' . urlWithProv([
+            'saved' => $saved,
+            'editar' => $id,
+        ]));
+    } else {
+        header('Location: ' . urlWithProv(['saved' => 'error']));
+    }
     exit;
 }
 
@@ -315,6 +657,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($_POST['accion']))
 $editProveedor = null;
 $editId = (int)($_GET['editar'] ?? 0);
 $editStats = null;
+$editCompras = [];
+$editProductosResumen = [];
 
 if ($editId > 0) {
     if (!$canEdit) {
@@ -323,6 +667,8 @@ if ($editId > 0) {
     $editProveedor = getProveedorById($pdo, $editId);
     if ($editProveedor) {
         $editStats = getProveedorStats($pdo, $editId);
+        $editCompras = getProveedorRecentCompras($pdo, $editId, 100);
+        $editProductosResumen = getProveedorProductosResumen($pdo, $editId, 200);
     }
 }
 
@@ -337,6 +683,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 
 // Obtener columnas disponibles para formulario
 $availableCols = getProveedorColumns($pdo);
+$dashboardStats = getProveedorDashboardStats($pdo);
 
 // Construir query
 $where = [];
@@ -371,10 +718,17 @@ $page = min($page, $totalPages);
 $offset = ($page - 1) * $perPage;
 
 // Fetch proveedores
+$productosJoinSql = buildProveedorProductoMatchSql('prd', 'p', hasTableColumn($pdo, 'productos', 'proveedor'));
+$legacyProductosSql = hasTableColumn($pdo, 'productos', 'proveedor')
+    ? "(SELECT COUNT(*) FROM productos prd WHERE (prd.proveedor_id IS NULL OR prd.proveedor_id = 0) AND TRIM(LOWER(COALESCE(prd.proveedor, ''))) = TRIM(LOWER(p.nombre)))"
+    : "0";
 $stList = $pdo->prepare("
     SELECT p.*, 
-           (SELECT COUNT(*) FROM productos WHERE proveedor_id = p.id) as productos_count,
-           (SELECT COUNT(*) FROM compras WHERE proveedor_id = p.id) as compras_count
+           (SELECT COUNT(*) FROM productos prd WHERE $productosJoinSql) as productos_count,
+           $legacyProductosSql as productos_legacy_count,
+           (SELECT COUNT(*) FROM compras WHERE proveedor_id = p.id) as compras_count,
+           (SELECT MAX(c.fecha) FROM compras c WHERE c.proveedor_id = p.id) as ultima_compra_fecha,
+           (SELECT c2.total FROM compras c2 WHERE c2.proveedor_id = p.id ORDER BY c2.fecha DESC, c2.id DESC LIMIT 1) as ultima_compra_total
     FROM proveedores p
     $whereSql
     ORDER BY p.nombre ASC
@@ -413,8 +767,13 @@ require __DIR__ . '/partials/header.php';
 
             <div class="page-actions">
                 <?php if ($canEdit): ?>
+                    <form method="post" class="inline-form relink-all-form">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="accion" value="relink_all_productos">
+                        <button type="submit" class="btn btn-secondary">Re-vincular todo</button>
+                    </form>
                     <a class="btn btn-secondary" href="<?= h(urlWithProv(['export' => 'csv'])) ?>" title="Exportar a CSV">
-                        📥 Exportar
+                        Exportar
                     </a>
                     <a class="btn btn-primary" href="<?= h(urlWithProv(['new' => 1, 'editar' => null])) ?>">
                         + Nuevo proveedor
@@ -427,6 +786,29 @@ require __DIR__ . '/partials/header.php';
     </div>
 
     <div class="panel prov-list-panel">
+        <div class="prov-overview-grid">
+            <article class="prov-overview-card">
+                <span class="prov-overview-label">Proveedores activos</span>
+                <strong class="prov-overview-value"><?= (int)($dashboardStats['activos'] ?? 0) ?></strong>
+                <small class="prov-overview-help">de <?= (int)($dashboardStats['total'] ?? 0) ?> totales</small>
+            </article>
+            <article class="prov-overview-card">
+                <span class="prov-overview-label">Con compras 30 dias</span>
+                <strong class="prov-overview-value"><?= (int)($dashboardStats['con_compras_30d'] ?? 0) ?></strong>
+                <small class="prov-overview-help">actividad reciente</small>
+            </article>
+            <article class="prov-overview-card">
+                <span class="prov-overview-label">Sin compras 90 dias</span>
+                <strong class="prov-overview-value"><?= (int)($dashboardStats['sin_compras_90d'] ?? 0) ?></strong>
+                <small class="prov-overview-help">para revisar relacion</small>
+            </article>
+            <article class="prov-overview-card <?= ((int)($dashboardStats['con_legacy'] ?? 0) > 0) ? 'is-warning' : '' ?>">
+                <span class="prov-overview-label">Con productos legacy</span>
+                <strong class="prov-overview-value"><?= (int)($dashboardStats['con_legacy'] ?? 0) ?></strong>
+                <small class="prov-overview-help">pendientes de re-vincular</small>
+            </article>
+        </div>
+
         <h2 class="sub-title-page">Listado</h2>
 
         <form method="get" class="filters">
@@ -471,6 +853,7 @@ require __DIR__ . '/partials/header.php';
                             <th>Teléfono</th>
                             <th class="center">Productos</th>
                             <th class="center">Compras</th>
+                            <th>Ultima compra</th>
                             <th class="center">Estado</th>
                             <?php if ($canEdit): ?>
                                 <th class="center">Acciones</th>
@@ -505,6 +888,9 @@ require __DIR__ . '/partials/header.php';
                                 <td class="center">
                                     <?php if ($p['productos_count'] > 0): ?>
                                         <span class="badge badge-info"><?= (int)$p['productos_count'] ?></span>
+                                        <?php if ((int)($p['productos_legacy_count'] ?? 0) > 0): ?>
+                                            <small class="email-small">+<?= (int)$p['productos_legacy_count'] ?> sin vincular</small>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span class="text-muted">0</span>
                                     <?php endif; ?>
@@ -514,6 +900,14 @@ require __DIR__ . '/partials/header.php';
                                         <span class="badge badge-success"><?= (int)$p['compras_count'] ?></span>
                                     <?php else: ?>
                                         <span class="text-muted">0</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="col-ultima-compra">
+                                    <?php if (!empty($p['ultima_compra_fecha'])): ?>
+                                        <strong><?= h(date('d/m/Y', strtotime((string)$p['ultima_compra_fecha']))) ?></strong>
+                                        <small class="email-small"><?= money_ar((float)($p['ultima_compra_total'] ?? 0)) ?></small>
+                                    <?php else: ?>
+                                        <span class="text-muted">Sin compras</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="center">
@@ -578,6 +972,12 @@ require __DIR__ . '/partials/header.php';
                         <span class="stat-value"><?= (int)$editStats['productos'] ?></span>
                         <span class="stat-label">Productos</span>
                     </div>
+                    <?php if ((int)($editStats['productos_legacy'] ?? 0) > 0): ?>
+                    <div class="stat-item">
+                        <span class="stat-value"><?= (int)$editStats['productos_legacy'] ?></span>
+                        <span class="stat-label">Sin vincular</span>
+                    </div>
+                    <?php endif; ?>
                     <div class="stat-item">
                         <span class="stat-value"><?= (int)$editStats['compras_count'] ?></span>
                         <span class="stat-label">Compras</span>
@@ -587,6 +987,87 @@ require __DIR__ . '/partials/header.php';
                         <span class="stat-label">Total comprado</span>
                     </div>
                 </div>
+
+                <div class="prov-insight-grid">
+                    <article class="prov-insight-card">
+                        <span class="prov-insight-label">Ultima compra</span>
+                        <strong class="prov-insight-value"><?= !empty($editStats['ultima_compra_fecha']) ? h(date('d/m/Y H:i', strtotime((string)$editStats['ultima_compra_fecha']))) : 'Sin compras' ?></strong>
+                        <small class="prov-insight-help"><?php if (!empty($editStats['ultima_compra']['tipo_comp']) || !empty($editStats['ultima_compra']['nro_comp'])): ?><?= h(trim(((string)($editStats['ultima_compra']['tipo_comp'] ?? '')) . ' ' . ((string)($editStats['ultima_compra']['nro_comp'] ?? '')))) ?><?php else: ?>Revision rapida del proveedor<?php endif; ?></small>
+                    </article>
+                    <article class="prov-insight-card">
+                        <span class="prov-insight-label">Monto Ultima compra</span>
+                        <strong class="prov-insight-value"><?php if (!empty($editStats['ultima_compra'])): ?><?= money_ar((float)($editStats['ultima_compra']['total'] ?? 0)) ?><?php else: ?>?<?php endif; ?></strong>
+                        <small class="prov-insight-help"><?php if (!empty($editStats['ultima_compra']['estado'])): ?>Estado: <?= h((string)$editStats['ultima_compra']['estado']) ?><?php else: ?>Sin historial cargado<?php endif; ?></small>
+                    </article>
+                </div>
+                <form method="post" class="inline-form" style="margin:12px 0 18px 0;">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="accion" value="relink_productos">
+                    <input type="hidden" name="id" value="<?= (int)$editProveedor['id'] ?>">
+                    <input type="hidden" name="legacy_name" value="<?= h($editProveedor['nombre'] ?? '') ?>">
+                    <button type="submit" class="btn btn-secondary">Re-vincular productos</button>
+                </form>
+            <?php endif; ?>
+
+            <?php if (!empty($editProveedor)): ?>
+                <section class="prov-detail-section">
+                    <div class="prov-detail-header">
+                        <h4 class="section-title">Ultimas compras</h4>
+                        <span class="prov-detail-badge"><?= count($editCompras) ?></span>
+                    </div>
+                    <?php if (!empty($editCompras)): ?>
+                        <div class="prov-mini-list">
+                            <?php foreach (array_slice($editCompras, 0, 3) as $compra): ?>
+                                <article class="prov-mini-item">
+                                    <div>
+                                        <strong><?= !empty($compra['tipo_comp']) || !empty($compra['nro_comp']) ? h(trim(((string)$compra['tipo_comp']) . ' ' . ((string)$compra['nro_comp']))) : 'Compra #' . (int)$compra['id'] ?></strong>
+                                        <small><?= h(date('d/m/Y H:i', strtotime((string)$compra['fecha']))) ?></small>
+                                    </div>
+                                    <div class="prov-mini-meta">
+                                        <span class="status-badge <?= strtoupper((string)($compra['estado'] ?? '')) === 'CONFIRMADA' ? 'active' : 'inactive' ?>"><?= h((string)($compra['estado'] ?? '')) ?></span>
+                                        <strong><?= money_ar((float)($compra['total'] ?? 0)) ?></strong>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if (count($editCompras) > 3): ?>
+                            <button type="button" class="btn btn-ghost prov-open-compras-modal" data-open-compras-modal>Ver historial completo</button>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p class="prov-empty-note">Todavia no hay compras registradas para este proveedor.</p>
+                    <?php endif; ?>
+                </section>
+
+                <section class="prov-detail-section">
+                    <div class="prov-detail-header">
+                        <h4 class="section-title">Productos del proveedor</h4>
+                        <span class="prov-detail-badge"><?= count($editProductosResumen) ?></span>
+                    </div>
+                    <?php if (!empty($editProductosResumen)): ?>
+                        <div class="prov-mini-list" data-product-preview>
+                            <?php foreach (array_slice($editProductosResumen, 0, 3) as $productoProv): ?>
+                                <article class="prov-mini-item prov-mini-item-product" data-product-item>
+                                    <div>
+                                        <strong><?= h((string)($productoProv['codigo'] ?? '-')) ?> - <?= h((string)($productoProv['nombre'] ?? '')) ?></strong>
+                                        <small>
+                                            Costo <?= money_ar((float)($productoProv['costo'] ?? 0)) ?>
+                                            - Stock <?= h(format_stock_con_unidad($productoProv, 'stock', 3)) ?>
+                                        </small>
+                                    </div>
+                                    <div class="prov-mini-meta">
+                                        <span class="status-badge <?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'active' : 'inactive' ?>"><?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'Activo' : 'Inactivo' ?></span>
+                                        <small><?= !empty($productoProv['ultima_compra_fecha']) ? 'Ult. compra ' . h(date('d/m/Y', strtotime((string)$productoProv['ultima_compra_fecha']))) : 'Sin compra asociada' ?></small>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if (count($editProductosResumen) > 3): ?>
+                            <button type="button" class="btn btn-ghost prov-open-products-modal" data-open-products-modal>Ver listado completo</button>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p class="prov-empty-note">No hay productos vinculados todavia.</p>
+                    <?php endif; ?>
+                </section>
             <?php endif; ?>
             
             <form method="post" class="prov-form" id="provForm">
@@ -595,6 +1076,7 @@ require __DIR__ . '/partials/header.php';
 
                 <?php if (!empty($editProveedor)): ?>
                     <input type="hidden" name="id" value="<?= (int)$editProveedor['id'] ?>">
+                    <input type="hidden" name="nombre_original" value="<?= h($editProveedor['nombre'] ?? '') ?>">
                 <?php endif; ?>
 
                 <div class="form-section">
@@ -782,20 +1264,97 @@ require __DIR__ . '/partials/header.php';
     </aside>
 <?php endif; ?>
 
+
+<?php if ($canEdit && !empty($editProveedor) && !empty($editCompras)): ?>
+    <div id="provComprasModalOverlay" class="prov-compras-modal-overlay" hidden></div>
+    <div id="provComprasModal" class="prov-compras-modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="prov-compras-modal-card">
+            <div class="prov-compras-modal-header">
+                <div>
+                    <h3>Historial de compras del proveedor</h3>
+                    <p><?= h($editProveedor['nombre'] ?? '') ?> - <?= count($editCompras) ?> compra<?= count($editCompras) !== 1 ? 's' : '' ?></p>
+                </div>
+                <button type="button" class="prov-compras-modal-close" data-close-compras-modal aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="prov-compras-modal-body">
+                <div class="prov-compras-modal-list">
+                    <?php foreach ($editCompras as $compra): ?>
+                        <article class="prov-compras-modal-item">
+                            <div>
+                                <strong><?= !empty($compra['tipo_comp']) || !empty($compra['nro_comp']) ? h(trim(((string)$compra['tipo_comp']) . ' ' . ((string)$compra['nro_comp']))) : 'Compra #' . (int)$compra['id'] ?></strong>
+                                <small><?= h(date('d/m/Y H:i', strtotime((string)$compra['fecha']))) ?></small>
+                            </div>
+                            <div class="prov-mini-meta">
+                                <span class="status-badge <?= strtoupper((string)($compra['estado'] ?? '')) === 'CONFIRMADA' ? 'active' : 'inactive' ?>"><?= h((string)($compra['estado'] ?? '')) ?></span>
+                                <strong><?= money_ar((float)($compra['total'] ?? 0)) ?></strong>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php if ($canEdit && !empty($editProveedor) && !empty($editProductosResumen)): ?>
+    <div id="provProductsModalOverlay" class="prov-products-modal-overlay" hidden></div>
+    <div id="provProductsModal" class="prov-products-modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="prov-products-modal-card">
+            <div class="prov-products-modal-header">
+                <div>
+                    <h3>Todos los productos del proveedor</h3>
+                    <p><?= h($editProveedor['nombre'] ?? '') ?> - <?= count($editProductosResumen) ?> producto<?= count($editProductosResumen) !== 1 ? 's' : '' ?></p>
+                </div>
+                <button type="button" class="prov-products-modal-close" data-close-products-modal aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="prov-products-modal-body">
+                <div class="prov-products-modal-list">
+                    <?php foreach ($editProductosResumen as $productoProv): ?>
+                        <article class="prov-products-modal-item">
+                            <div>
+                                <strong><?= h((string)($productoProv['codigo'] ?? '-')) ?> - <?= h((string)($productoProv['nombre'] ?? '')) ?></strong>
+                                <small>
+                                    Costo <?= money_ar((float)($productoProv['costo'] ?? 0)) ?>
+                                    - Stock <?= h(format_stock_con_unidad($productoProv, 'stock', 3)) ?>
+                                </small>
+                            </div>
+                            <div class="prov-mini-meta">
+                                <span class="status-badge <?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'active' : 'inactive' ?>"><?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'Activo' : 'Inactivo' ?></span>
+                                <small><?= !empty($productoProv['ultima_compra_fecha']) ? 'Ult. compra ' . h(date('d/m/Y', strtotime((string)$productoProv['ultima_compra_fecha']))) : 'Sin compra asociada' ?></small>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php require __DIR__ . '/partials/footer.php'; ?>
 
 <?php if (!empty($savedFlag)): ?>
     <?php
+    $relinkAllSummary = $_SESSION['prov_relink_all_summary'] ?? null;
+    unset($_SESSION['prov_relink_all_summary']);
     $toastMsg = match($savedFlag) {
         'created' => 'Proveedor creado correctamente.',
         'updated' => 'Proveedor actualizado correctamente.',
         'activated' => 'Proveedor activado.',
         'deactivated' => 'Proveedor desactivado.',
-        'csrf' => 'Acción bloqueada: token inválido.',
+        'relinked' => 'Productos re-vinculados correctamente.',
+        'relinked_none' => 'No habia productos para re-vincular con ese nombre.',
+        'relinked_all' => 'Re-vinculacion global completada.',
+        'relinked_all_none' => 'No se encontraron productos pendientes para re-vincular.',
+        'csrf' => 'Accion bloqueada: token invalido.',
         'duplicate' => 'Ya guardaste este formulario.',
-        'error' => 'Ocurrió un error.',
+        'error' => 'Ocurrio un error.',
         default => 'Listo.'
     };
+    if (($savedFlag === 'relinked_all' || $savedFlag === 'relinked_all_none') && is_array($relinkAllSummary)) {
+        $toastMsg .= ' Proveedores: ' . (int)($relinkAllSummary['proveedores'] ?? 0)
+            . ' | vinculados: ' . (int)($relinkAllSummary['linked'] ?? 0)
+            . ' | legacy: ' . (int)($relinkAllSummary['legacy'] ?? 0);
+    }
     ?>
     <script>
         if (window.showToast) {

@@ -197,6 +197,7 @@ const ProductosManager = {
         if (!kpis.length) return;
 
         const estadoSelect = document.getElementById('estadoSelect');
+        const pesableSelect = document.getElementById('pesableSelect');
         const stockFilterInput = document.getElementById('stockFilterInput');
         const pageInput = document.getElementById('pageInput');
 
@@ -610,7 +611,7 @@ const ProductosManager = {
         } catch (err) {
             console.error('[ProductosManager] Error loading product:', err);
             this.showToast(err.message || 'Error al cargar producto', 'error');
-            this.closeEdit(e);
+            this.closeEdit();
         }
     },
 
@@ -699,10 +700,8 @@ const ProductosManager = {
             this.showToast(data.message || 'Producto actualizado', 'success');
             this.state.editFormDirty = false;
 
-            // Actualizar fila
+            // Actualizar fila sin cerrar el modal; el usuario decide cuándo salir.
             this.updateRowInTable(data.data);
-
-            this.closeEdit(e);
             this.loadStats();
 
         } catch (err) {
@@ -779,8 +778,10 @@ const ProductosManager = {
 
         if (data.stock !== undefined) {
             row.dataset.stock = data.stock;
-            const celdaStock = row.querySelector('td:nth-child(5)');
-            if (celdaStock) celdaStock.textContent = data.stock;
+            const celdaStock = row.querySelector('td.td-stock') || row.querySelector('td:nth-child(5)');
+            if (celdaStock) {
+                celdaStock.textContent = data.stock_formatted || data.stock;
+            }
         }
 
         if (data.activo !== undefined) {
@@ -801,6 +802,19 @@ const ProductosManager = {
                 celdaEstado.innerHTML = tagMap[data.estado] || tagMap['ok'];
             }
         }
+
+        const detailRow = document.getElementById('detail-' + data.id);
+        if (detailRow) {
+            if (data.stock_minimo_formatted !== undefined) {
+                const detailStockMin = detailRow.querySelector('.detail-stock-minimo');
+                if (detailStockMin) detailStockMin.textContent = data.stock_minimo_formatted;
+            }
+            if (data.unidad_venta_label !== undefined) {
+                const detailUnidad = detailRow.querySelector('.detail-unidad');
+                if (detailUnidad) detailUnidad.textContent = data.unidad_venta_label;
+            }
+        }
+
 
         // Actualizar botÃ³n toggle si viene info de activo
         if (data.activo !== undefined) {
@@ -1020,6 +1034,7 @@ const ProductosManager = {
 
         const searchInput = document.getElementById('searchInput');
         const estadoSelect = document.getElementById('estadoSelect');
+        const pesableSelect = document.getElementById('pesableSelect');
         const limitSelect  = document.getElementById('limitSelect');
         const pageInput    = document.getElementById('pageInput');
         const clearLink    = form.querySelector('a[href="productos.php"]');
@@ -1050,6 +1065,12 @@ const ProductosManager = {
             this.updateList({ history: 'push', force: true });
         });
 
+        pesableSelect?.addEventListener('change', () => {
+            if (pageInput) pageInput.value = '1';
+            this.renderActiveFilters();
+            this.updateList({ history: 'push', force: true });
+        });
+
         limitSelect?.addEventListener('change', () => {
             if (pageInput) pageInput.value = '1';
             this.renderActiveFilters();
@@ -1068,6 +1089,7 @@ const ProductosManager = {
 
             if (searchInput) searchInput.value = '';
             if (estadoSelect) estadoSelect.value = '';
+            if (pesableSelect) pesableSelect.value = '';
             const sf = document.getElementById('stockFilterInput');
             if (sf) sf.value = '';
             if (pageInput) pageInput.value = '1';
@@ -1105,6 +1127,7 @@ const ProductosManager = {
     clearFilter(key) {
         const searchInput = document.getElementById('searchInput');
         const estadoSelect = document.getElementById('estadoSelect');
+        const pesableSelect = document.getElementById('pesableSelect');
         const stockFilterInput = document.getElementById('stockFilterInput');
         const pageInput = document.getElementById('pageInput');
 
@@ -1119,6 +1142,9 @@ const ProductosManager = {
         if (k === 'stock_filter' || k === 'stockfilter' || k === 'all') {
             if (stockFilterInput) stockFilterInput.value = '';
         }
+        if (k === 'pesable' || k === 'all') {
+            if (pesableSelect) pesableSelect.value = '';
+        }
 
         if (pageInput) pageInput.value = '1';
     },
@@ -1129,6 +1155,7 @@ const ProductosManager = {
 
         const q = (document.getElementById('searchInput')?.value || '').trim();
         const estado = (document.getElementById('estadoSelect')?.value || '').trim();
+        const pesable = (document.getElementById('pesableSelect')?.value || '').trim();
         const sf = (document.getElementById('stockFilterInput')?.value || '').trim();
 
         const items = [];
@@ -1137,6 +1164,9 @@ const ProductosManager = {
 
         if (estado === 'activos') items.push({ key: 'estado', label: 'Estado: Solo activos' });
         else if (estado === 'inactivos') items.push({ key: 'estado', label: 'Estado: Solo inactivos' });
+
+        if (pesable === 'si') items.push({ key: 'pesable', label: 'Tipo: Solo pesables' });
+        else if (pesable === 'no') items.push({ key: 'pesable', label: 'Tipo: Solo no pesables' });
 
         if (sf === 'sin') items.push({ key: 'stock_filter', label: 'Stock: Sin stock' });
         else if (sf === 'bajo') items.push({ key: 'stock_filter', label: 'Stock: Stock bajo' });
@@ -1216,6 +1246,7 @@ const ProductosManager = {
             // Mantener mismos filtros/orden/limit que la lista
             const searchInput = document.getElementById('searchInput');
             const estadoSelect = document.getElementById('estadoSelect');
+            const pesableSelect = document.getElementById('pesableSelect');
             const stockFilterInput = document.getElementById('stockFilterInput');
             const sortInput = document.getElementById('sortInput');
             const dirInput = document.getElementById('dirInput');
@@ -1223,6 +1254,7 @@ const ProductosManager = {
 
             const q = (searchInput?.value || '').trim();
             const estado = (estadoSelect?.value || '').trim();
+            const pesable = (pesableSelect?.value || '').trim();
             const stockFilter = (stockFilterInput?.value || '').trim();
             const sort = (sortInput?.value || '').trim();
             const dir = (dirInput?.value || '').trim();
@@ -1230,6 +1262,7 @@ const ProductosManager = {
 
             if (q) params.set('q', q);
             if (estado) params.set('estado', estado);
+            if (pesable) params.set('pesable', pesable);
             if (stockFilter) params.set('stock_filter', stockFilter);
             if (sort) params.set('sort', sort);
             if (dir) params.set('dir', dir);
@@ -1695,6 +1728,7 @@ const ProductosManager = {
     applySearchParamsToForm(sp) {
         const q = document.getElementById('searchInput');
         const estado = document.getElementById('estadoSelect');
+        const pesable = document.getElementById('pesableSelect');
         const limit = document.getElementById('limitSelect');
         const sort = document.getElementById('sortInput');
         const dir = document.getElementById('dirInput');
@@ -1703,7 +1737,7 @@ const ProductosManager = {
 
         if (q) q.value = sp.get('q') || '';
         if (estado) estado.value = sp.get('estado') || '';
-        if (limit) limit.value = sp.get('limit') || (limit.value || '20');
+        if (pesable) pesable.value = sp.get('pesable') || '';
         if (sort) sort.value = sp.get('sort') || (sort.value || 'nombre');
         if (dir) dir.value = (sp.get('dir') || (dir.value || 'ASC')).toUpperCase();
         if (page) page.value = sp.get('page') || '1';
@@ -1713,6 +1747,7 @@ const ProductosManager = {
     getListParams(overrides = {}) {
         const q = document.getElementById('searchInput')?.value ?? '';
         const estado = document.getElementById('estadoSelect')?.value ?? '';
+        const pesable = document.getElementById('pesableSelect')?.value ?? '';
         const limit = document.getElementById('limitSelect')?.value ?? '20';
         const sort = document.getElementById('sortInput')?.value ?? 'nombre';
         const dir = document.getElementById('dirInput')?.value ?? 'ASC';
@@ -1723,15 +1758,15 @@ const ProductosManager = {
 
         const qv = (overrides.q ?? q).trim();
         const ev = String(overrides.estado ?? estado).trim();
+        const psv = String(overrides.pesable ?? pesable).trim();
         const lv = String(overrides.limit ?? limit).trim();
         const sv = String(overrides.sort ?? sort).trim();
         const dv = String(overrides.dir ?? dir).trim();
         const pv = String(overrides.page ?? page).trim();
         const sfv = String(overrides.stock_filter ?? stockFilter).trim();
-
         if (qv !== '') params.set('q', qv);
         if (ev !== '') params.set('estado', ev);
-        if (sfv !== '') params.set('stock_filter', sfv);
+        if (psv !== '') params.set('pesable', psv);
 
         if (lv !== '') params.set('limit', lv);
         if (sv !== '') params.set('sort', sv);
@@ -1819,6 +1854,7 @@ const ProductosManager = {
             const pageInput = document.getElementById('pageInput');
             const limitSelect = document.getElementById('limitSelect');
             const estadoSelect = document.getElementById('estadoSelect');
+            const pesableSelect = document.getElementById('pesableSelect');
             const stockFilterInput = document.getElementById('stockFilterInput');
 
             if (sortInput && meta.sort) sortInput.value = meta.sort;
@@ -1826,6 +1862,7 @@ const ProductosManager = {
             if (pageInput) pageInput.value = String(meta.page || 1);
             if (limitSelect) limitSelect.value = String(meta.limit || limitSelect.value || '20');
             if (estadoSelect) estadoSelect.value = String(meta.estado || '');
+            if (pesableSelect) pesableSelect.value = String(meta.pesable || '');
             if (stockFilterInput) stockFilterInput.value = String(meta.stock_filter || '');
 
             this.renderActiveFilters();
@@ -1924,7 +1961,7 @@ bindKeyboardShortcuts() {
                 if (confirmModal?.classList.contains('open')) {
                     this.closeConfirm();
                 } else if (editOverlay?.classList.contains('open')) {
-                    this.closeEdit(e);
+                    this.closeEdit();
                 }
             }
         });
@@ -1953,3 +1990,7 @@ window.showToast = (msg, type) => ProductosManager.showToast(msg, type);
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', () => ProductosManager.init());
+
+
+
+

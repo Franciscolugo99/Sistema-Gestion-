@@ -16,6 +16,8 @@ const StockManager = {
     currentIsPesable: false,
     currentProductoId: null,
     currentStockActual: 0,
+    currentUnidadVenta: 'UNIDAD',
+    currentUnidadLabel: 'Unidad',
     pendingFormData: null,
     modalOpen: false, // Para beforeunload
   },
@@ -164,6 +166,9 @@ const StockManager = {
           case 'categoria':
             url.searchParams.delete('categoria');
             break;
+          case 'pesable':
+            url.searchParams.delete('pesable');
+            break;
           case 'proveedor':
             url.searchParams.delete('proveedor');
             break;
@@ -214,7 +219,7 @@ const StockManager = {
   // ============================================
   // MODAL: ABRIR
   // ============================================
-  quickAdjust(productoId, productoNombre, esPesable, stockActualRaw, stockMinimoRaw, stockActualDisplay, stockMinimoDisplay) {
+  quickAdjust(productoId, productoNombre, esPesable, stockActualRaw, stockMinimoRaw, stockActualDisplay, stockMinimoDisplay, unidadVenta = 'UNIDAD', unidadLabel = 'Unidad') {
     const modal = document.getElementById('modalAjusteStock');
     const form = document.getElementById('formAjusteStock');
 
@@ -222,6 +227,8 @@ const StockManager = {
 
     this.state.currentIsPesable = !!esPesable;
     this.state.currentProductoId = productoId;
+    this.state.currentUnidadVenta = String(unidadVenta || 'UNIDAD').toUpperCase();
+    this.state.currentUnidadLabel = String(unidadLabel || (this.state.currentIsPesable ? 'Pesable' : 'Unidad'));
     // Usar RAW para cálculos (evita problemas con formato local tipo "0,250")
     const stockRawNum = (typeof stockActualRaw === 'number')
       ? stockActualRaw
@@ -247,7 +254,7 @@ const StockManager = {
 
       const small = document.createElement('small');
       small.className = 'text-muted';
-      small.textContent = this.state.currentIsPesable ? ' (Pesable - KG)' : ' (Por unidad)';
+      small.textContent = ` (${this.state.currentUnidadLabel})`;
 
       nameBox.appendChild(strong);
       nameBox.appendChild(small);
@@ -266,6 +273,7 @@ const StockManager = {
     // Sync step/min según pesable
     this.syncCantidadInput();
     this.updateCantidadHint();
+    this.loadHistory(productoId);
 
     // Show modal
     modal.classList.add('show');
@@ -274,6 +282,75 @@ const StockManager = {
     setTimeout(() => {
       document.getElementById('ajuste_cantidad')?.focus();
     }, 100);
+  },
+
+
+  async loadHistory(productoId) {
+    const box = document.getElementById('ajuste_historial');
+    const csrf = document.querySelector('#formAjusteStock input[name="csrf_token"]')?.value || '';
+    if (!box) return;
+
+    box.innerHTML = '<div class="stock-history-empty">Cargando historial...</div>';
+
+    try {
+      const formData = new FormData();
+      formData.append('action', 'historial');
+      formData.append('producto_id', String(productoId));
+      formData.append('csrf_token', csrf);
+
+      const response = await fetch('stock_ajax.php', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data || data.success !== true) {
+        throw new Error((data && data.message) ? data.message : 'No se pudo cargar el historial');
+      }
+
+      const items = data.data?.items || [];
+      if (!items.length) {
+        box.innerHTML = '<div class="stock-history-empty">No hay movimientos recientes para este producto.</div>';
+        return;
+      }
+
+      box.innerHTML = items.map(item => {
+        const comentario = item.comentario ? `<div class="stock-history-comment">${this.escapeHtml(item.comentario)}</div>` : '';
+        return `
+          <div class="stock-history-item">
+            <div class="stock-history-top">
+              <strong>${this.escapeHtml(this.tipoMovimientoLabel(item.tipo))}</strong>
+              <span>${this.escapeHtml(item.fecha || '-')}</span>
+            </div>
+            <div class="stock-history-meta">Cantidad: ${this.escapeHtml(String(item.cantidad || '0'))}</div>
+            ${comentario}
+          </div>`;
+      }).join('');
+    } catch (error) {
+      box.innerHTML = '<div class="stock-history-empty">No se pudo cargar el historial.</div>';
+    }
+  },
+
+  tipoMovimientoLabel(tipo) {
+    const map = {
+      COMPRA: 'Compra',
+      VENTA: 'Venta',
+      AJUSTE_POSITIVO: 'Ajuste (+)',
+      AJUSTE_NEGATIVO: 'Ajuste (-)',
+      ANULACION: 'Anulacion',
+      DEVOLUCION: 'Devolucion',
+    };
+    return map[tipo] || tipo || 'Movimiento';
+  },
+
+  escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   },
 
   // ============================================
@@ -297,14 +374,63 @@ const StockManager = {
     if (!cantidadInput) return;
 
     if (this.state.currentIsPesable) {
-      cantidadInput.step = '0.001';
-      cantidadInput.min = '0.001';
-      cantidadInput.placeholder = 'Ej: 0.250';
+      if (this.state.currentUnidadVenta === 'G') {
+        cantidadInput.step = '1';
+        cantidadInput.min = '1';
+        cantidadInput.placeholder = 'Ej: 1 (=100 g)';
+      } else if (this.state.currentUnidadVenta === 'ML') {
+        cantidadInput.step = '1';
+        cantidadInput.min = '1';
+        cantidadInput.placeholder = 'Ej: 1 (=100 ml)';
+      } else if (this.state.currentUnidadVenta === 'LT') {
+        cantidadInput.step = '0.001';
+        cantidadInput.min = '0.001';
+        cantidadInput.placeholder = 'Ej: 0.500';
+      } else {
+        cantidadInput.step = '0.001';
+        cantidadInput.min = '0.001';
+        cantidadInput.placeholder = 'Ej: 0.250';
+      }
     } else {
       cantidadInput.step = '1';
       cantidadInput.min = '1';
       cantidadInput.placeholder = 'Ej: 1';
     }
+  },
+
+  formatStockByUnidad(rawValue) {
+    const value = Number(rawValue || 0);
+    const unidad = this.state.currentUnidadVenta;
+
+    if (!this.state.currentIsPesable || unidad === 'UNIDAD') {
+      return value.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    }
+
+    if (unidad === 'KG') {
+      return `${value.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
+    }
+
+    if (unidad === 'LT') {
+      return `${value.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} L`;
+    }
+
+    if (unidad === 'G') {
+      const gramos = value * 100;
+      if (gramos >= 1000) {
+        return `${(gramos / 1000).toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`;
+      }
+      return `${gramos.toLocaleString('es-AR', { maximumFractionDigits: 0 })} g`;
+    }
+
+    if (unidad === 'ML') {
+      const mililitros = value * 100;
+      if (mililitros >= 1000) {
+        return `${(mililitros / 1000).toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} L`;
+      }
+      return `${mililitros.toLocaleString('es-AR', { maximumFractionDigits: 0 })} ml`;
+    }
+
+    return value.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   },
 
   // ============================================
@@ -329,10 +455,10 @@ const StockManager = {
     const nuevoStock = stockActual + cambio;
 
     if (nuevoStock < 0) {
-      hintEl.textContent = `⚠️ El stock quedaría negativo (${nuevoStock.toFixed(this.state.currentIsPesable ? 3 : 0)})`;
+      hintEl.textContent = `Atencion: el stock quedaria negativo (${this.formatStockByUnidad(nuevoStock)})`;
       hintEl.className = 'form-hint text-danger';
     } else {
-      hintEl.textContent = `→ Stock resultante: ${nuevoStock.toFixed(this.state.currentIsPesable ? 3 : 0)}`;
+      hintEl.textContent = `Stock resultante: ${this.formatStockByUnidad(nuevoStock)}`;
       hintEl.className = 'form-hint text-muted';
     }
   },
@@ -359,9 +485,15 @@ const StockManager = {
       return;
     }
 
-    // Si NO es pesable, obligar enteros
-    if (!this.state.currentIsPesable && !Number.isInteger(cantidad)) {
-      this.showToast('Para productos por unidad, la cantidad debe ser entera.', 'warning');
+    // Para productos por unidad y para 100 g / 100 ml, la cantidad debe ser entera.
+    const requiereEntero = !this.state.currentIsPesable || ['G', 'ML'].includes(this.state.currentUnidadVenta);
+    if (requiereEntero && !Number.isInteger(cantidad)) {
+      this.showToast(
+        this.state.currentIsPesable
+          ? 'Para productos por 100 g o 100 ml, la cantidad debe ser entera.'
+          : 'Para productos por unidad, la cantidad debe ser entera.',
+        'warning'
+      );
       return;
     }
 
@@ -381,7 +513,7 @@ const StockManager = {
         
         const msgEl = document.getElementById('confirmacion_mensaje');
         if (msgEl) {
-          msgEl.textContent = `Estás por registrar una ${tipo === 'perdida' ? 'pérdida' : 'salida'} de ${cantidad} unidades. ¿Confirmar?`;
+          msgEl.textContent = `Estas por registrar una ${tipo === 'perdida' ? 'perdida' : 'salida'} de ${this.formatStockByUnidad(cantidad)}. Confirmar?`;
         }
         
         document.getElementById('modalConfirmacion')?.classList.add('show');
@@ -499,6 +631,9 @@ const StockManager = {
 
     // 2. Actualizar data attributes
     row.dataset.stock = data.stock_nuevo_raw;
+    if (data.unidad_venta) {
+      row.dataset.unidadVenta = data.unidad_venta;
+    }
 
     // 3. Actualizar barra de stock
     const barFill = row.querySelector('.stock-bar-fill');
@@ -523,7 +658,7 @@ const StockManager = {
       const nombre = data.producto_nombre || '';
       const esPesable = data.es_pesable ? 'true' : 'false';
       adjustBtn.setAttribute('onclick', 
-        `StockManager.quickAdjust(${data.producto_id}, ${JSON.stringify(nombre)}, ${esPesable}, ${JSON.stringify(data.stock_nuevo_raw)}, ${JSON.stringify(String(row.dataset.stockMinimo ?? '0'))}, ${JSON.stringify(data.stock_nuevo)}, ${JSON.stringify(data.stock_minimo)})`
+        `StockManager.quickAdjust(${data.producto_id}, ${JSON.stringify(nombre)}, ${esPesable}, ${JSON.stringify(data.stock_nuevo_raw)}, ${JSON.stringify(String(row.dataset.stockMinimo ?? '0'))}, ${JSON.stringify(data.stock_nuevo)}, ${JSON.stringify(data.stock_minimo)}, ${JSON.stringify(data.unidad_venta || row.dataset.unidadVenta || 'UNIDAD')}, ${JSON.stringify(data.unidad_label || (data.es_pesable ? 'Pesable' : 'Unidad'))})`
       );
     }
 
