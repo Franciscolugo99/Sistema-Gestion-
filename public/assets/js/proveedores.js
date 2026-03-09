@@ -69,6 +69,11 @@
       return;
     }
 
+    if (purchasedProductsModal && !purchasedProductsModal.hidden) {
+      closePurchasedProductsModal();
+      return;
+    }
+
     if (comprasModal && !comprasModal.hidden) {
       closeComprasModal();
       return;
@@ -295,6 +300,42 @@
 
   if (productsModalOverlay) {
     productsModalOverlay.addEventListener('click', closeProductsModal);
+  }
+
+  const purchasedProductsModal = document.getElementById('provPurchasedProductsModal');
+  const purchasedProductsModalOverlay = document.getElementById('provPurchasedProductsModalOverlay');
+  let lastPurchasedProductsTrigger = null;
+
+  function openPurchasedProductsModal(trigger) {
+    if (!purchasedProductsModal || !purchasedProductsModalOverlay) return;
+    lastPurchasedProductsTrigger = trigger || null;
+    purchasedProductsModal.hidden = false;
+    purchasedProductsModalOverlay.hidden = false;
+    purchasedProductsModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePurchasedProductsModal() {
+    if (!purchasedProductsModal || !purchasedProductsModalOverlay) return;
+    purchasedProductsModal.hidden = true;
+    purchasedProductsModalOverlay.hidden = true;
+    purchasedProductsModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    if (lastPurchasedProductsTrigger) {
+      lastPurchasedProductsTrigger.focus();
+    }
+  }
+
+  document.querySelectorAll('[data-open-purchased-products-modal]').forEach(button => {
+    button.addEventListener('click', () => openPurchasedProductsModal(button));
+  });
+
+  document.querySelectorAll('[data-close-purchased-products-modal]').forEach(button => {
+    button.addEventListener('click', closePurchasedProductsModal);
+  });
+
+  if (purchasedProductsModalOverlay) {
+    purchasedProductsModalOverlay.addEventListener('click', closePurchasedProductsModal);
   }
 
   document.querySelectorAll('[data-open-compras-modal]').forEach(button => {

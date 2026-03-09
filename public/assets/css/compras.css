@@ -1351,6 +1351,10 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 /* Badge de descuento en ítems */
+.compras-page .item-discount-badge[hidden] {
+  display: none !important;
+}
+
 .compras-page .item-discount-badge {
   display: inline-flex;
   align-items: center;
@@ -1473,5 +1477,225 @@ body.theme-light .compras-page .compras-table tfoot td {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+
+.compras-page .provider-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.compras-page .provider-match.is-linked {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.compras-page .provider-match.is-new {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+}
+
+.compras-page .list-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.compras-page .btn-compact {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+.compras-page .btn-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+}
+
+.compras-page .btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+.compras-page .btn-warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+
+.compras-page .discount-help-inline {
+  min-height: 18px;
+}
+
+.compras-page .discount-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+}
+
+.compras-page .discount-copy strong {
+  letter-spacing: 0.03em;
+}
+
+.compras-page .discount-copy small {
+  max-width: 320px;
+  color: var(--c-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  .compras-page .discount-copy {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .compras-page .discount-copy small {
+    max-width: none;
+  }
+}
+
+
+.compras-page .compras-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.compras-page .summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  box-shadow: var(--c-shadow);
+}
+
+.compras-page .summary-card-global {
+  grid-column: span 2;
+}
+
+.compras-page .summary-card-total {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(56, 189, 248, 0.18));
+  border-color: rgba(14, 165, 233, 0.28);
+}
+
+.compras-page .summary-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+  font-weight: 800;
+}
+
+.compras-page .summary-value {
+  font-size: 1.6rem;
+  line-height: 1.1;
+  font-weight: 900;
+  color: var(--c-text);
+}
+
+.compras-page .summary-value-warning {
+  color: var(--c-warning);
+}
+
+.compras-page .summary-help {
+  color: var(--c-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.compras-page .summary-card .discount-controls {
+  justify-content: flex-start;
+}
+
+@media (max-width: 980px) {
+  .compras-page .compras-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compras-page .summary-card-global {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .compras-page .compras-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .compras-page .summary-card-global {
+    grid-column: span 1;
+  }
+
+  .compras-page .summary-value {
+    font-size: 1.35rem;
+  }
+}
+
+
+.compras-page .items-grid {
+  align-items: start;
+}
+
+.compras-page .items-grid > .field:last-child {
+  align-self: end;
+}
+
+.compras-page .discount-help-inline {
+  font-size: 0.76rem;
+  max-width: 320px;
+}
+
+.compras-page .summary-card {
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.compras-page .summary-card-global {
+  justify-content: center;
+}
+
+.compras-page .summary-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.compras-page .summary-card .discount-controls {
+  gap: 6px;
+}
+
+.compras-page .summary-card .discount-controls select {
+  width: 118px;
+}
+
+.compras-page .summary-card .discount-controls input {
+  width: 86px;
+}
+
+.compras-page .summary-card-global .summary-value {
+  font-size: 1.15rem;
+}
+
+@media (max-width: 980px) {
+  .compras-page .summary-card-global {
+    justify-content: flex-start;
   }
 }

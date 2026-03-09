@@ -34,6 +34,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const itemDescTipo = document.getElementById("itemDescTipo");
   const itemDescValor = document.getElementById("itemDescValor");
+  const btnResetCompra = document.getElementById("btnResetCompra");
+  const proveedorInput = document.getElementById("proveedorInput");
+  const proveedorIdInput = document.getElementById("proveedorId");
+  const proveedorMatch = document.getElementById("proveedorMatch");
+  const proveedoresData = document.getElementById("proveedoresData");
 
   if (!tbody) return;
 
@@ -600,6 +605,82 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 2800);
   }
 
+
+  function normalizeProviderValue(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLocaleLowerCase("es-AR");
+  }
+
+  function findProveedorOption(value) {
+    if (!proveedoresData) return null;
+    const normalized = normalizeProviderValue(value);
+    if (!normalized) return null;
+
+    return Array.from(proveedoresData.options).find(
+      (option) => normalizeProviderValue(option.value) === normalized,
+    ) || null;
+  }
+
+  function updateProveedorState() {
+    if (!proveedorInput || !proveedorIdInput || !proveedorMatch) return;
+
+    const rawValue = proveedorInput.value;
+    const option = findProveedorOption(rawValue);
+    const hasValue = normalizeProviderValue(rawValue) !== "";
+
+    if (!hasValue) {
+      proveedorIdInput.value = "0";
+      proveedorMatch.hidden = true;
+      proveedorMatch.className = "provider-match";
+      proveedorMatch.textContent = "";
+      return;
+    }
+
+    if (option) {
+      proveedorIdInput.value = option.dataset.id || "0";
+      proveedorInput.value = option.value;
+      proveedorMatch.hidden = false;
+      proveedorMatch.className = "provider-match is-linked";
+      proveedorMatch.textContent = "Proveedor existente";
+      return;
+    }
+
+    proveedorIdInput.value = "0";
+    proveedorMatch.hidden = false;
+    proveedorMatch.className = "provider-match is-new";
+    proveedorMatch.textContent = "Se creara un proveedor nuevo al guardar";
+  }
+
+  function focusFieldWithMessage(field, msg) {
+    if (msg) showToast(msg, "warning");
+    field?.scrollIntoView({ behavior: "smooth", block: "center" });
+    field?.focus();
+  }
+
+  function hasPendingChanges() {
+    return hasUnsavedChanges && itemsAdded.length > 0;
+  }
+
+  function confirmLeavePage(onConfirm) {
+    const title = 'Salir de compras';
+    const body = '<p>Hay cambios sin guardar en esta compra.</p><p>Si salis ahora, podrias perder lo cargado.</p>';
+
+    if (window.Notif?.confirmar) {
+      window.Notif.confirmar(title, body, {
+        icon: 'warning',
+        confirmText: 'Salir igual',
+        cancelText: 'Quedarme',
+      }).then((ok) => {
+        if (ok) onConfirm?.();
+      });
+      return;
+    }
+
+    showConfirm('Hay cambios sin guardar en esta compra. Si salis ahora, podrias perder lo cargado.', onConfirm, null, 'Salir igual', 'Quedarme');
+  }
+
   function showConfirm(
     msg,
     onConfirm,
@@ -653,6 +734,41 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================================
      EDITAR DESCUENTO POR ÍTEM (MODAL SEGURO)
   ============================================================================ */
+  if (proveedorInput) {
+    updateProveedorState();
+    proveedorInput.addEventListener("input", updateProveedorState);
+    proveedorInput.addEventListener("change", updateProveedorState);
+    proveedorInput.addEventListener("blur", updateProveedorState);
+  }
+
+  document.querySelectorAll(".js-compra-confirm-form").forEach((confirmForm) => {
+    confirmForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const title = confirmForm.dataset.confirmTitle || "Confirmar accion";
+      const message = confirmForm.dataset.confirmMessage || "Revisa esta accion antes de continuar.";
+      showConfirm(`${title}. ${message}`, () => confirmForm.submit(), null, "Continuar");
+    });
+  });
+
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      updateProveedorState();
+      if (!proveedorInput || !proveedorIdInput) return;
+
+      const hasName = normalizeProviderValue(proveedorInput.value) !== "";
+      const hasProveedorId = Number(proveedorIdInput.value || 0) > 0;
+      if (!hasName || hasProveedorId) return;
+
+      event.preventDefault();
+      showConfirm(
+        `No existe un proveedor cargado con el nombre "${proveedorInput.value.trim()}". Si continuas se creara uno nuevo.`,
+        () => form.submit(),
+        null,
+        "Crear y guardar",
+      );
+    });
+  }
+
   function openDiscountEditor(tr, product) {
     const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
     const hVal = tr.querySelector('input[name="item_descuento_valor[]"]');
@@ -1198,11 +1314,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (form) {
     form.addEventListener("submit", (e) => {
-      if (!tbody.querySelector("tr[data-row='item']")) {
+      updateProveedorState();
+
+      if (!proveedorInput || normalizeProviderValue(proveedorInput.value) === "") {
         e.preventDefault();
-        showToast("Agregá al menos 1 ítem a la compra", "warning");
+        focusFieldWithMessage(proveedorInput, "Ingresa un proveedor antes de guardar el borrador");
         return;
       }
+
+      if (!tbody.querySelector("tr[data-row='item']")) {
+        e.preventDefault();
+        const itemsGrid = document.querySelector('.items-grid');
+        itemsGrid?.scrollIntoView({ behavior: "smooth", block: "center" });
+        showToast("Agrega al menos 1 item a la compra", "warning");
+        return;
+      }
+
       hasUnsavedChanges = false;
     });
   }
@@ -1336,6 +1463,38 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ============================================================================
      PREVENIR PÉRDIDA DE DATOS
   ============================================================================ */
+  if (btnResetCompra) {
+    btnResetCompra.addEventListener("click", () => {
+      const goReset = () => {
+        hasUnsavedChanges = false;
+        window.location.href = "compras.php";
+      };
+
+      if (hasPendingChanges()) {
+        confirmLeavePage(goReset);
+        return;
+      }
+
+      goReset();
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest('a[href]');
+    if (!link || !hasPendingChanges()) return;
+
+    const href = link.getAttribute('href') || '';
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+    if (link.target === '_blank' || link.hasAttribute('download')) return;
+    if (link.closest('#modalDetalle')) return;
+
+    event.preventDefault();
+    confirmLeavePage(() => {
+      hasUnsavedChanges = false;
+      window.location.href = link.href;
+    });
+  });
+
   window.addEventListener("beforeunload", (e) => {
     if (hasUnsavedChanges && itemsAdded.length > 0) {
       e.preventDefault();

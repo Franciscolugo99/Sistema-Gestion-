@@ -129,6 +129,22 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
   }
 }
 
+function findProveedorIdByName(PDO $pdo, string $nombre): int {
+  $nombre = normalizeProveedorName($nombre);
+  if ($nombre === '') {
+    return 0;
+  }
+
+  $st = $pdo->prepare("
+    SELECT id
+    FROM proveedores
+    WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
+    LIMIT 1
+  ");
+  $st->execute([$nombre]);
+  return (int)($st->fetchColumn() ?: 0);
+}
+
 /* -----------------------------
    EDITAR: cargar datos
 ------------------------------ */
@@ -187,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       $compraId = (int)($_POST['compra_id'] ?? 0); // 0 = crear, >0 = editar
       $proveedorTxt = trim((string)($_POST['proveedor'] ?? ''));
+      $proveedorIdPosted = (int)($_POST['proveedor_id'] ?? 0);
       $tipoComp     = trim((string)($_POST['tipo_comp'] ?? ''));
       $nroComp      = trim((string)($_POST['nro_comp'] ?? ''));
       $observacion  = trim((string)($_POST['observacion'] ?? ''));
@@ -297,9 +314,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($msg === '') {
         try {
           $pdo->beginTransaction();
-
-          // Proveedor (buscar normalizado o crear - con protección contra duplicados)
-          $proveedorId = getOrCreateProveedor($pdo, $proveedorTxt);
+          // Proveedor: priorizar seleccion explicita y usar creacion como fallback.
+          $proveedorId = 0;
+          if ($proveedorIdPosted > 0) {
+            $stProveedor = $pdo->prepare("SELECT id FROM proveedores WHERE id = ? LIMIT 1");
+            $stProveedor->execute([$proveedorIdPosted]);
+            $proveedorId = (int)($stProveedor->fetchColumn() ?: 0);
+          }
+          if ($proveedorId <= 0) {
+            $proveedorId = findProveedorIdByName($pdo, $proveedorTxt);
+          }
+          if ($proveedorId <= 0) {
+            $proveedorId = getOrCreateProveedor($pdo, $proveedorTxt);
+          }
 
           $totalBruto = $total;
 
@@ -803,6 +830,14 @@ $prodStmt = $pdo->query("
 ");
 $productos = $prodStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+$proveedorStmt = $pdo->query("
+  SELECT id, nombre
+  FROM proveedores
+  WHERE activo = 1
+  ORDER BY nombre
+");
+$proveedoresUi = $proveedorStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
 // Listado + filtros
 $q      = trim((string)($_GET['q'] ?? ''));
 $estado = (string)($_GET['estado'] ?? '');
@@ -881,31 +916,29 @@ require __DIR__ . "/partials/header.php";
 ?>
 
 <div class="compras-page">
-  <!-- FORMULARIO -->
   <div class="panel">
     <header class="page-header">
       <div>
-        <h1 class="page-title">✨ Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
+        <h1 class="page-title">Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
         <p class="page-sub">
-          <?= $editMode 
-            ? 'Modificá los datos y guardá los cambios.' 
-            : 'Buscá productos con autocomplete, editá ítems en línea y confirmá para impactar stock.' 
+          <?= $editMode
+            ? 'Modifica los datos y guarda los cambios del borrador.'
+            : 'Busca productos, arma el borrador y confirma cuando quieras impactar stock.'
           ?>
         </p>
       </div>
       <?php if ($editMode): ?>
-        <a href="compras.php" class="btn btn-secondary">❌ Cancelar edición</a>
+        <a href="compras.php" class="btn btn-secondary">Cancelar edicion</a>
       <?php endif; ?>
     </header>
 
-    <form method="post" id="compraForm" class="compras-form">
+    <form method="post" id="compraForm" class="compras-form" novalidate>
       <?= csrf_field() ?>
       <input type="hidden" name="accion" value="guardar_borrador">
       <?php if ($editMode): ?>
         <input type="hidden" name="compra_id" value="<?= (int)$compraEdit['id'] ?>">
       <?php endif; ?>
 
-      <!-- Select oculto con data para JS -->
       <select id="productosData" style="display:none;">
         <option value="">--</option>
         <?php foreach ($productos as $p): ?>
@@ -921,44 +954,54 @@ require __DIR__ . "/partials/header.php";
         <?php endforeach; ?>
       </select>
 
+      <datalist id="proveedoresData">
+        <?php foreach ($proveedoresUi as $prov): ?>
+          <option value="<?= h((string)$prov['nombre']) ?>" data-id="<?= (int)$prov['id'] ?>"></option>
+        <?php endforeach; ?>
+      </datalist>
+
       <div class="form-grid">
         <div class="field">
-          <label>🏢 Proveedor</label>
-          <input 
-            name="proveedor" 
-            placeholder="Ej: Mayorista X" 
-            required 
+          <label for="proveedorInput">Proveedor</label>
+          <input
+            id="proveedorInput"
+            name="proveedor"
+            placeholder="Escribe o elige un proveedor"
+            required
             autocomplete="off"
+            list="proveedoresData"
             value="<?= $editMode ? h((string)$compraEdit['proveedor_nombre']) : '' ?>"
           >
-          <div class="help">Se normalizará automáticamente</div>
+          <input type="hidden" name="proveedor_id" id="proveedorId" value="<?= $editMode ? (int)($compraEdit['proveedor_id'] ?? 0) : 0 ?>">
+          <div class="help" id="proveedorHelp">Si no coincide con uno existente, se creara al guardar.</div>
+          <div class="provider-match" id="proveedorMatch" hidden></div>
         </div>
 
         <div class="field">
-          <label>📄 Tipo comprobante</label>
-          <input 
-            name="tipo_comp" 
-            placeholder="Ej: Factura A" 
+          <label>Tipo comprobante</label>
+          <input
+            name="tipo_comp"
+            placeholder="Ej: Factura A"
             autocomplete="off"
             value="<?= $editMode ? h((string)$compraEdit['tipo_comp']) : '' ?>"
           >
         </div>
 
         <div class="field">
-          <label>🔢 Nro comprobante</label>
-          <input 
-            name="nro_comp" 
-            placeholder="Ej: 0001-00001234" 
+          <label>Nro comprobante</label>
+          <input
+            name="nro_comp"
+            placeholder="Ej: 0001-00001234"
             autocomplete="off"
             value="<?= $editMode ? h((string)$compraEdit['nro_comp']) : '' ?>"
           >
         </div>
 
         <div class="field field-wide">
-          <label>📝 Observación</label>
-          <input 
-            name="observacion" 
-            placeholder="Notas internas (opcional)" 
+          <label>Observacion</label>
+          <input
+            name="observacion"
+            placeholder="Notas internas (opcional)"
             autocomplete="off"
             value="<?= $editMode ? h((string)$compraEdit['obs']) : '' ?>"
           >
@@ -969,48 +1012,42 @@ require __DIR__ . "/partials/header.php";
 
       <div class="items-grid">
         <div class="field field-wide">
-          <label>🔍 Buscar producto</label>
+          <label>Buscar producto</label>
           <div class="search-wrapper">
             <svg class="search-icon" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
               <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
             </svg>
-            <input
-              type="text"
-              id="itemBuscar"
-              placeholder="Escribe para buscar productos..."
-              autocomplete="off"
-            >
+            <input type="text" id="itemBuscar" placeholder="Escribe para buscar productos..." autocomplete="off">
             <div class="suggestions-box" id="suggestions"></div>
           </div>
         </div>
 
         <div class="field" id="qtyFieldContainer">
-          <label>📦 Cantidad</label>
+          <label>Cantidad</label>
           <input id="itemCantidad" type="number" step="1" min="1" value="1" autocomplete="off">
           <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
         </div>
 
         <div class="field">
-          <label>💵 Costo unitario</label>
+          <label>Costo unitario</label>
           <input id="itemCosto" type="number" step="0.01" min="0" value="0" autocomplete="off">
         </div>
 
         <div class="field">
-          <label>🏷️ Desc. ítem</label>
+          <label>Desc. item</label>
           <div class="inline-controls">
-            <select id="itemDescTipo" title="Tipo de descuento por ítem">
+            <select id="itemDescTipo" title="Tipo de descuento por item">
               <option value="MONTO">$ Monto</option>
               <option value="PORC">% Porcentaje</option>
             </select>
             <input id="itemDescValor" type="number" step="0.01" min="0" value="0" autocomplete="off" placeholder="0">
           </div>
+          <div class="help discount-help-inline">Solo se aplica al producto que estas agregando ahora.</div>
         </div>
 
         <div class="field">
           <label>&nbsp;</label>
-          <button type="button" class="btn btn-primary" id="btnAddItem">
-            ➕ Agregar
-          </button>
+          <button type="button" class="btn btn-primary" id="btnAddItem">Agregar</button>
         </div>
       </div>
 
@@ -1021,7 +1058,7 @@ require __DIR__ . "/partials/header.php";
               <th>Producto</th>
               <th class="right">Cantidad</th>
               <th class="right">Costo unitario</th>
-              <th class="right">Desc. ítem</th>
+              <th class="right">Desc. item</th>
               <th class="right">Subtotal</th>
               <th class="center">Acciones</th>
             </tr>
@@ -1029,7 +1066,7 @@ require __DIR__ . "/partials/header.php";
           <tbody>
             <?php if ($editMode && !empty($compraEdit['items'])): ?>
               <?php foreach ($compraEdit['items'] as $it): ?>
-                <tr class="preloaded-item" 
+                <tr class="preloaded-item"
                     data-producto-id="<?= (int)$it['producto_id'] ?>"
                     data-cantidad="<?= (float)$it['cantidad'] ?>"
                     data-costo="<?= (float)$it['costo_unitario'] ?>"
@@ -1043,64 +1080,60 @@ require __DIR__ . "/partials/header.php";
               <?php endforeach; ?>
             <?php else: ?>
               <tr class="empty-row">
-                <td colspan="6" class="empty-cell">
-                  Todavía no agregaste ítems. Buscá un producto arriba para comenzar.
-                </td>
+                <td colspan="6" class="empty-cell">Todavia no agregaste items. Busca un producto arriba para comenzar.</td>
               </tr>
             <?php endif; ?>
           </tbody>
-<tfoot>
-            <tr>
-              <td colspan="4" class="right"><strong>BRUTO</strong></td>
-              <td class="right"><strong id="totalBrutoLbl">$0,00</strong></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td colspan="4" class="right"><strong>DESC. ÍTEMS</strong></td>
-              <td class="right"><strong id="descuentoItemsLbl">-$0,00</strong></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td colspan="4" class="right">
-                <div class="discount-row">
-                  <strong>DESCUENTO</strong>
-                  <div class="discount-controls">
-                    <select id="descuentoTipo" name="descuento_tipo" title="Tipo de descuento">
-                      <option value="MONTO" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'MONTO') ? 'selected' : '' ?>>$ Monto</option>
-                      <option value="PORC" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'PORC') ? 'selected' : '' ?>>% Porcentaje</option>
-                    </select>
-                    <input
-                      id="descuentoValor"
-                      name="descuento_valor"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value="<?= $editMode ? h((string)($compraEdit['descuento_valor'] ?? 0)) : '0' ?>"
-                      placeholder="0"
-                      autocomplete="off"
-                    >
-                  </div>
-                </div>
-              </td>
-              <td class="right"><strong id="descuentoTotalLbl">-$0,00</strong></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td colspan="4" class="right"><strong>TOTAL</strong></td>
-              <td class="right"><strong id="totalLbl">$0,00</strong></td>
-              <td></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
 
+      <section class="compras-summary" aria-label="Resumen de la compra">
+        <article class="summary-card">
+          <span class="summary-label">Bruto</span>
+          <strong class="summary-value" id="totalBrutoLbl">$0,00</strong>
+          <small class="summary-help">Suma de subtotales antes de descuentos.</small>
+        </article>
+
+        <article class="summary-card">
+          <span class="summary-label">Desc. por items</span>
+          <strong class="summary-value summary-value-warning" id="descuentoItemsLbl">-$0,00</strong>
+          <small class="summary-help">Descuentos aplicados producto por producto.</small>
+        </article>
+
+        <article class="summary-card summary-card-global">
+          <div class="discount-copy">
+            <span class="summary-label">Descuento global</span>
+            <small class="summary-help">Se aplica a toda la compra despues de los descuentos por item.</small>
+          </div>
+          <div class="discount-controls">
+            <select id="descuentoTipo" name="descuento_tipo" title="Tipo de descuento global">
+              <option value="MONTO" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'MONTO') ? 'selected' : '' ?>>$ Monto</option>
+              <option value="PORC" <?= (($editMode ? (string)($compraEdit['descuento_tipo'] ?? 'MONTO') : 'MONTO') === 'PORC') ? 'selected' : '' ?>>% Porcentaje</option>
+            </select>
+            <input
+              id="descuentoValor"
+              name="descuento_valor"
+              type="number"
+              step="0.01"
+              min="0"
+              value="<?= $editMode ? h((string)($compraEdit['descuento_valor'] ?? 0)) : '0' ?>"
+              placeholder="0"
+              autocomplete="off"
+            >
+          </div>
+          <strong class="summary-value summary-value-warning" id="descuentoTotalLbl">-$0,00</strong>
+        </article>
+
+        <article class="summary-card summary-card-total">
+          <span class="summary-label">Total</span>
+          <strong class="summary-value" id="totalLbl">$0,00</strong>
+          <small class="summary-help">Importe final que se guardara en la compra.</small>
+        </article>
+      </section>
+
       <div class="actions">
-        <button class="btn btn-primary" type="submit">
-          💾 <?= $editMode ? 'Actualizar' : 'Guardar' ?> borrador
-        </button>
-        <button class="btn btn-secondary" type="button" onclick="location.href='compras.php'">
-          🔄 <?= $editMode ? 'Cancelar' : 'Limpiar todo' ?>
-        </button>
+        <button class="btn btn-primary" type="submit"><?= $editMode ? 'Actualizar' : 'Guardar' ?> borrador</button>
+        <button class="btn btn-secondary" type="button" id="btnResetCompra"><?= $editMode ? 'Cancelar' : 'Limpiar todo' ?></button>
       </div>
 
       <?php if ($msg): ?>
@@ -1111,19 +1144,12 @@ require __DIR__ . "/partials/header.php";
     </form>
   </div>
 
-  <!-- LISTADO -->
   <div class="panel" style="margin-top:22px;">
-    <h2 class="sub-title-page">📋 Listado de Compras</h2>
+    <h2 class="sub-title-page">Listado de compras</h2>
 
     <form method="get" class="filters">
       <div class="filters-left">
-        <input
-          type="text"
-          name="q"
-          placeholder="🔍 Buscar por proveedor, comprobante o ID..."
-          value="<?= h($q) ?>"
-          autocomplete="off"
-        >
+        <input type="text" name="q" placeholder="Buscar por proveedor, comprobante o ID..." value="<?= h($q) ?>" autocomplete="off">
       </div>
 
       <div class="filters-right">
@@ -1137,9 +1163,9 @@ require __DIR__ . "/partials/header.php";
         <input type="date" name="desde" value="<?= h($desde ?? '') ?>" title="Desde">
         <input type="date" name="hasta" value="<?= h($hasta ?? '') ?>" title="Hasta">
 
-        <select name="per_page" title="Items por página">
+        <select name="per_page" title="Items por pagina">
           <?php foreach ([20,50,100] as $n): ?>
-            <option value="<?= $n ?>" <?= $perPage===$n?'selected':'' ?>><?= $n ?> / pág</option>
+            <option value="<?= $n ?>" <?= $perPage===$n?'selected':'' ?>><?= $n ?> / pag</option>
           <?php endforeach; ?>
         </select>
 
@@ -1174,58 +1200,31 @@ require __DIR__ . "/partials/header.php";
                 <div style="font-size:.78rem;opacity:.65;"><?= h((string)$c['nro_comp']) ?></div>
               </td>
               <td>
-                <span class="estado-badge estado-<?= h((string)$c['estado']) ?>">
-                  <?= h((string)$c['estado']) ?>
-                </span>
+                <span class="estado-badge estado-<?= h((string)$c['estado']) ?>"><?= h((string)$c['estado']) ?></span>
               </td>
               <td class="right"><strong><?= money_ar((float)$c['total']) ?></strong></td>
               <td class="center">
-                <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-                  <button 
-                    type="button" 
-                    class="btn-icon" 
-                    onclick="verDetalle(<?= (int)$c['id'] ?>)"
-                    title="Ver detalle"
-                  >
-                    👁️
-                  </button>
-                  
+                <div class="list-actions">
+                  <button type="button" class="btn btn-secondary btn-compact" onclick="verDetalle(<?= (int)$c['id'] ?>)" title="Ver detalle">Ver</button>
+
                   <?php if ((string)$c['estado'] === 'BORRADOR'): ?>
-                    <a 
-                      href="compras.php?editar=<?= (int)$c['id'] ?>" 
-                      class="btn-icon"
-                      title="Editar"
-                    >
-                      ✏️
-                    </a>
-                    
-                    <form method="post" style="display:inline;" onsubmit="return confirm('¿Confirmar esta compra? Se actualizará el stock.')">
+                    <a href="compras.php?editar=<?= (int)$c['id'] ?>" class="btn btn-secondary btn-compact" title="Editar">Editar</a>
+
+                    <form method="post" style="display:inline;" class="js-compra-confirm-form" data-confirm-title="Confirmar compra" data-confirm-message="Se actualizara el stock y los costos de los productos de esta compra.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="accion" value="confirmar">
                       <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
-                      <button class="btn-icon btn-icon-success" type="submit" title="Confirmar">
-                        ✅
-                      </button>
+                      <button class="btn btn-success btn-compact" type="submit" title="Confirmar">Confirmar</button>
                     </form>
 
-                    <form method="post" style="display:inline;" onsubmit="return confirm('¿ELIMINAR esta compra? Esta acción no se puede deshacer.')">
+                    <form method="post" style="display:inline;" class="js-compra-confirm-form" data-confirm-title="Eliminar borrador" data-confirm-message="Esta accion no se puede deshacer.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="accion" value="eliminar_borrador">
                       <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
-                      <button class="btn-icon btn-icon-danger" type="submit" title="Eliminar">
-                        🗑️
-                      </button>
+                      <button class="btn btn-danger btn-compact" type="submit" title="Eliminar">Eliminar</button>
                     </form>
-                    
                   <?php elseif ((string)$c['estado'] === 'CONFIRMADA'): ?>
-                    <button 
-                      type="button" 
-                      class="btn-icon btn-icon-warning" 
-                      onclick="anularCompra(<?= (int)$c['id'] ?>)"
-                      title="Anular"
-                    >
-                      ⛔
-                    </button>
+                    <button type="button" class="btn btn-warning btn-compact" onclick="anularCompra(<?= (int)$c['id'] ?>)" title="Anular">Anular</button>
                   <?php endif; ?>
                 </div>
               </td>
@@ -1238,7 +1237,7 @@ require __DIR__ . "/partials/header.php";
     <?php if ($totalPages > 1): ?>
       <div class="pagination">
         <div class="pagination-info">
-          Mostrando <strong><?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $perPage, $totalRows) ?></strong>
+          Mostrando <strong><?= $totalRows ? ($offset + 1) : 0 ?>-<?= min($offset + $perPage, $totalRows) ?></strong>
           de <strong><?= $totalRows ?></strong> registros
         </div>
 
@@ -1291,15 +1290,15 @@ require __DIR__ . "/partials/header.php";
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     const messages = {
-      'created': '💾 Compra guardada en borrador.',
-      'updated': '✏️ Compra actualizada correctamente.',
-      'confirmed': '✅ Compra confirmada. Stock actualizado.',
-      'deleted': '🗑️ Compra eliminada correctamente.',
-      'anulada': '⛔ Compra anulada.'
+      created: 'Compra guardada en borrador.',
+      updated: 'Compra actualizada correctamente.',
+      confirmed: 'Compra confirmada. Stock actualizado.',
+      deleted: 'Compra eliminada correctamente.',
+      anulada: 'Compra anulada.'
     };
-    
-    const msg = messages[<?= json_encode($savedFlag) ?>] || 'Operación exitosa';
-    
+
+    const msg = messages[<?= json_encode($savedFlag) ?>] || 'Operacion exitosa';
+
     if (window.showToast) {
       window.showToast(msg, 'success');
     } else {
@@ -1314,65 +1313,63 @@ require __DIR__ . "/partials/header.php";
 <?php endif; ?>
 
 <script>
-// Ver detalle (modal) - con manejo de errores mejorado
 function verDetalle(id) {
   const modal = document.getElementById('modalDetalle');
   const content = document.getElementById('modalContent');
   const title = document.getElementById('modalTitle');
-  
+
   modal.style.display = 'flex';
-  content.innerHTML = '<div class="loading">⏳ Cargando...</div>';
-  
+  content.innerHTML = '<div class="loading">Cargando...</div>';
+
   fetch(`api/compra_detalle.php?id=${id}`)
-    .then(r => {
-      if (!r.ok) throw new Error(`Error HTTP: ${r.status}`);
-      return r.json();
+    .then((response) => {
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      return response.json();
     })
-    .then(data => {
+    .then((data) => {
       if (data.error) {
         content.innerHTML = `<div class="msg msg-error">${data.error}</div>`;
         return;
       }
-      
+
       title.textContent = `Compra #${data.id} - ${data.proveedor}`;
-      
+
       let html = `
         <div class="detalle-info">
           <div><strong>Fecha:</strong> ${data.fecha}</div>
           <div><strong>Estado:</strong> <span class="estado-badge estado-${data.estado}">${data.estado}</span></div>
           <div><strong>Comprobante:</strong> ${data.tipo_comp} ${data.nro_comp}</div>
-          ${data.obs ? `<div><strong>Observación:</strong> ${data.obs}</div>` : ''}
+          ${data.obs ? `<div><strong>Observacion:</strong> ${data.obs}</div>` : ''}
         </div>
-        
         <div class="table-wrapper" style="margin-top:16px;">
           <table class="compras-table">
             <thead>
               <tr>
                 <th>Producto</th>
                 <th class="right">Cantidad</th>
-                <th class="right">Costo Unit.</th>
-                <th class="right">Desc. ítem</th>
+                <th class="right">Costo unit.</th>
+                <th class="right">Desc. item</th>
                 <th class="right">Subtotal</th>
               </tr>
             </thead>
             <tbody>
       `;
-      
-      data.items.forEach(it => {
+
+      data.items.forEach((item) => {
         html += `
           <tr>
             <td>
-              <div style="font-weight:700;">${it.nombre}</div>
-              <div style="font-size:.78rem;opacity:.65;">${it.codigo}</div>
+              <div style="font-weight:700;">${item.nombre}</div>
+              <div style="font-size:.78rem;opacity:.65;">${item.codigo}</div>
             </td>
-            <td class="right">${it.cantidad_fmt}</td>
-            <td class="right">${it.costo_fmt}</td>
-            <td class="right">${it.desc_item_fmt}</td>
-            <td class="right"><strong>${it.subtotal_fmt}</strong></td>
+            <td class="right">${item.cantidad_fmt}</td>
+            <td class="right">${item.costo_fmt}</td>
+            <td class="right">${item.desc_item_fmt}</td>
+            <td class="right"><strong>${item.subtotal_fmt}</strong></td>
           </tr>
         `;
       });
-      
+
       html += `
             </tbody>
             <tfoot>
@@ -1381,7 +1378,7 @@ function verDetalle(id) {
                 <td class="right"><strong>${data.total_bruto_fmt}</strong></td>
               </tr>
               <tr>
-                <td colspan="4" class="right"><strong>DESC. ÍTEMS</strong></td>
+                <td colspan="4" class="right"><strong>DESC. ITEMS</strong></td>
                 <td class="right"><strong>-${data.descuento_items_total_fmt}</strong></td>
               </tr>
               <tr>
@@ -1396,17 +1393,15 @@ function verDetalle(id) {
           </table>
         </div>
       `;
-      
+
       content.innerHTML = html;
     })
-    .catch(err => {
+    .catch((error) => {
       content.innerHTML = `
         <div class="msg msg-error">
-          Error al cargar: ${err.message}
+          Error al cargar: ${error.message}
           <br>
-          <button class="btn btn-secondary" onclick="verDetalle(${id})" style="margin-top:12px;">
-            🔄 Reintentar
-          </button>
+          <button class="btn btn-secondary" onclick="verDetalle(${id})" style="margin-top:12px;">Reintentar</button>
         </div>
       `;
     });
@@ -1416,52 +1411,52 @@ function cerrarDetalle() {
   document.getElementById('modalDetalle').style.display = 'none';
 }
 
-// Anular compra
 function anularCompra(id) {
   const modal = document.createElement('div');
-  modal.className = 'modal-overlay compras-modal-overlay active';
+  modal.className = 'modal-overlay compras-modal-overlay';
   modal.innerHTML = `
     <div class="modal-box">
-      <h3 style="margin:0 0 16px;">⛔ Anular Compra #${id}</h3>
-      <p style="margin-bottom:16px;">¿Estás seguro que querés anular esta compra?</p>
-      
+      <div class="modal-header">
+        <h3 style="margin:0;">Anular compra #${id}</h3>
+        <button type="button" class="btn-close js-close" aria-label="Cerrar">X</button>
+      </div>
+      <p style="margin-bottom:16px;">Confirma si quieres anular esta compra.</p>
+
       <form method="post" id="formAnular">
         ${document.querySelector('input[name="csrf_token"]').outerHTML}
         <input type="hidden" name="accion" value="anular_confirmada">
         <input type="hidden" name="compra_id" value="${id}">
-        
+
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;">
           <input type="checkbox" name="revertir_stock" value="1" style="width:auto;">
           <span>Revertir stock (quitar productos del inventario)</span>
         </label>
-        
+
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">
-            Cancelar
-          </button>
-          <button type="submit" class="btn btn-primary" style="background:#ef4444;">
-            Anular compra
-          </button>
+          <button type="button" class="btn btn-secondary js-close">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background:#ef4444;">Anular compra</button>
         </div>
       </form>
     </div>
   `;
-  
+
   document.body.appendChild(modal);
-  
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.remove();
+  setTimeout(() => modal.classList.add('active'), 10);
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) modal.remove();
+  });
+  modal.querySelectorAll('.js-close').forEach((button) => {
+    button.addEventListener('click', () => modal.remove());
   });
 }
 
-// Cerrar modal con ESC
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('modalDetalle');
-    if (modal && modal.style.display !== 'none') {
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    const detalle = document.getElementById('modalDetalle');
+    if (detalle && detalle.style.display !== 'none') {
       cerrarDetalle();
     }
-    // También cerrar modal de anulación si existe
     const anularModal = document.querySelector('.compras-modal-overlay');
     if (anularModal) anularModal.remove();
   }

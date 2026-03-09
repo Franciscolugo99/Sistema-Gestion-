@@ -457,6 +457,28 @@ function getProveedorProductosResumen(PDO $pdo, int $id, int $limit = 10): array
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function getProveedorProductosComprados(PDO $pdo, int $id, int $limit = 10): array {
+    if ($id <= 0) {
+        return [];
+    }
+    $limit = max(1, min($limit, 250));
+    $sql = "
+        SELECT pr.id, pr.codigo, pr.nombre, pr.costo, pr.stock, pr.activo, pr.es_pesable, pr.unidad_venta,
+               MAX(c.fecha) AS ultima_compra_fecha,
+               COUNT(DISTINCT c.id) AS compras_count,
+               MAX(ci.costo_unitario) AS ultimo_costo_compra
+        FROM compra_items ci
+        JOIN compras c ON c.id = ci.compra_id
+        JOIN productos pr ON pr.id = ci.producto_id
+        WHERE c.proveedor_id = :id
+        GROUP BY pr.id, pr.codigo, pr.nombre, pr.costo, pr.stock, pr.activo, pr.es_pesable, pr.unidad_venta
+        ORDER BY MAX(c.fecha) DESC, pr.nombre ASC
+        LIMIT " . $limit;
+    $st = $pdo->prepare($sql);
+    $st->execute([':id' => $id]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
 
 function relinkAllProveedorProducts(PDO $pdo): array {
     $summary = [
@@ -659,6 +681,7 @@ $editId = (int)($_GET['editar'] ?? 0);
 $editStats = null;
 $editCompras = [];
 $editProductosResumen = [];
+$editProductosComprados = [];
 
 if ($editId > 0) {
     if (!$canEdit) {
@@ -669,6 +692,7 @@ if ($editId > 0) {
         $editStats = getProveedorStats($pdo, $editId);
         $editCompras = getProveedorRecentCompras($pdo, $editId, 100);
         $editProductosResumen = getProveedorProductosResumen($pdo, $editId, 200);
+        $editProductosComprados = getProveedorProductosComprados($pdo, $editId, 200);
     }
 }
 
@@ -1040,7 +1064,7 @@ require __DIR__ . '/partials/header.php';
 
                 <section class="prov-detail-section">
                     <div class="prov-detail-header">
-                        <h4 class="section-title">Productos del proveedor</h4>
+                        <h4 class="section-title">Productos vinculados</h4>
                         <span class="prov-detail-badge"><?= count($editProductosResumen) ?></span>
                     </div>
                     <?php if (!empty($editProductosResumen)): ?>
@@ -1065,7 +1089,42 @@ require __DIR__ . '/partials/header.php';
                             <button type="button" class="btn btn-ghost prov-open-products-modal" data-open-products-modal>Ver listado completo</button>
                         <?php endif; ?>
                     <?php else: ?>
-                        <p class="prov-empty-note">No hay productos vinculados todavia.</p>
+                        <p class="prov-empty-note">No hay productos vinculados como proveedor principal.</p>
+                    <?php endif; ?>
+                </section>
+                </section>
+
+                <section class="prov-detail-section">
+                    <div class="prov-detail-header">
+                        <h4 class="section-title">Productos comprados a este proveedor</h4>
+                        <span class="prov-detail-badge"><?= count($editProductosComprados) ?></span>
+                    </div>
+                    <?php if (!empty($editProductosComprados)): ?>
+                        <div class="prov-mini-list">
+                            <?php foreach (array_slice($editProductosComprados, 0, 3) as $productoCompra): ?>
+                                <article class="prov-mini-item prov-mini-item-product">
+                                    <div>
+                                        <strong><?= h((string)($productoCompra['codigo'] ?? '-')) ?> - <?= h((string)($productoCompra['nombre'] ?? '')) ?></strong>
+                                        <small>
+                                            Ult. costo <?= money_ar((float)($productoCompra['ultimo_costo_compra'] ?? $productoCompra['costo'] ?? 0)) ?>
+                                            - Stock <?= h(format_stock_con_unidad($productoCompra, 'stock', 3)) ?>
+                                        </small>
+                                    </div>
+                                    <div class="prov-mini-meta">
+                                        <span class="status-badge <?= ((int)($productoCompra['activo'] ?? 0) === 1) ? 'active' : 'inactive' ?>"><?= ((int)($productoCompra['activo'] ?? 0) === 1) ? 'Activo' : 'Inactivo' ?></span>
+                                        <small>
+                                            <?= (int)($productoCompra['compras_count'] ?? 0) ?> compra<?= ((int)($productoCompra['compras_count'] ?? 0) !== 1) ? 's' : '' ?>
+                                            <?= !empty($productoCompra['ultima_compra_fecha']) ? '- Ult. compra ' . h(date('d/m/Y', strtotime((string)$productoCompra['ultima_compra_fecha']))) : '' ?>
+                                        </small>
+                                    </div>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php if (count($editProductosComprados) > 3): ?>
+                            <button type="button" class="btn btn-ghost prov-open-purchased-products-modal" data-open-purchased-products-modal>Ver listado completo</button>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <p class="prov-empty-note">Todavia no hay productos comprados a este proveedor.</p>
                     <?php endif; ?>
                 </section>
             <?php endif; ?>
@@ -1321,6 +1380,44 @@ require __DIR__ . '/partials/header.php';
                             <div class="prov-mini-meta">
                                 <span class="status-badge <?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'active' : 'inactive' ?>"><?= ((int)($productoProv['activo'] ?? 0) === 1) ? 'Activo' : 'Inactivo' ?></span>
                                 <small><?= !empty($productoProv['ultima_compra_fecha']) ? 'Ult. compra ' . h(date('d/m/Y', strtotime((string)$productoProv['ultima_compra_fecha']))) : 'Sin compra asociada' ?></small>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+
+<?php if ($canEdit && !empty($editProveedor) && !empty($editProductosComprados)): ?>
+    <div id="provPurchasedProductsModalOverlay" class="prov-products-modal-overlay" hidden></div>
+    <div id="provPurchasedProductsModal" class="prov-products-modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="prov-products-modal-card">
+            <div class="prov-products-modal-header">
+                <div>
+                    <h3>Productos comprados a este proveedor</h3>
+                    <p><?= h($editProveedor['nombre'] ?? '') ?> - <?= count($editProductosComprados) ?> producto<?= count($editProductosComprados) !== 1 ? 's' : '' ?></p>
+                </div>
+                <button type="button" class="prov-products-modal-close" data-close-purchased-products-modal aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="prov-products-modal-body">
+                <div class="prov-products-modal-list">
+                    <?php foreach ($editProductosComprados as $productoCompra): ?>
+                        <article class="prov-products-modal-item">
+                            <div>
+                                <strong><?= h((string)($productoCompra['codigo'] ?? '-')) ?> - <?= h((string)($productoCompra['nombre'] ?? '')) ?></strong>
+                                <small>
+                                    Ult. costo <?= money_ar((float)($productoCompra['ultimo_costo_compra'] ?? $productoCompra['costo'] ?? 0)) ?>
+                                    - Stock <?= h(format_stock_con_unidad($productoCompra, 'stock', 3)) ?>
+                                </small>
+                            </div>
+                            <div class="prov-mini-meta">
+                                <span class="status-badge <?= ((int)($productoCompra['activo'] ?? 0) === 1) ? 'active' : 'inactive' ?>"><?= ((int)($productoCompra['activo'] ?? 0) === 1) ? 'Activo' : 'Inactivo' ?></span>
+                                <small>
+                                    <?= (int)($productoCompra['compras_count'] ?? 0) ?> compra<?= ((int)($productoCompra['compras_count'] ?? 0) !== 1) ? 's' : '' ?>
+                                    <?= !empty($productoCompra['ultima_compra_fecha']) ? '- Ult. compra ' . h(date('d/m/Y', strtotime((string)$productoCompra['ultima_compra_fecha']))) : '' ?>
+                                </small>
                             </div>
                         </article>
                     <?php endforeach; ?>

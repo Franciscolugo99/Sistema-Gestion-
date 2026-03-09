@@ -1149,3 +1149,7 @@ body[data-theme="dark"] .prov-compras-modal-item {
     flex-direction: column;
   }
 }
+
+.prov-open-purchased-products-modal {
+  margin-top: 0.85rem;
+}
