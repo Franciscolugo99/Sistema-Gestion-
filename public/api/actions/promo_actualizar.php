@@ -85,7 +85,7 @@ try {
     $n = (int)($body['n'] ?? 0);
     $m = (int)($body['m'] ?? 0);
 
-    if ($productoId <= 0 || $n <= 0 || $m <= 0 || $m > $n) {
+    if ($productoId <= 0 || $n <= 0 || $m <= 0 || $m >= $n) {
       $fail('Datos NxM inválidos', 422);
     }
 
@@ -195,3 +195,4 @@ try {
   error_log('[promo_actualizar] ' . $e->getMessage());
   json_fail('DB_ERROR', 500);
 }
+

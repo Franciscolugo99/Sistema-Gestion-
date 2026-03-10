@@ -102,12 +102,11 @@ require __DIR__ . '/partials/header.php';
           <span class="panel-icon">🏷️</span>
           <h1 class="panel-title">Promociones</h1>
         </div>
-        <p class="panel-sub">Buscá productos con autocomplete, editá ítems en línea y confirmá para impactar stock.</p>
+        <p class="panel-sub">Crea promociones que caja detecta al cargar productos y que quedan reflejadas en la venta y en el ticket.</p>
       </div>
 
       <div class="promo-actions-top">
-        <a href="promo_form.php" class="v-btn v-btn--primary">+ Nueva promo</a>
-        <a href="promo_combo_form.php" class="v-btn v-btn--outline">+ Combo fijo</a>
+        <a href="promo_builder.php" class="v-btn v-btn--primary">+ Nueva promocion</a>
       </div>
     </div>
 
@@ -186,8 +185,21 @@ require __DIR__ . '/partials/header.php';
                 $tipo   = (string)($p['tipo'] ?? '');
                 $activa = ((int)($p['activo'] ?? 0) === 1);
 
-                $desde = !empty($p['fecha_inicio']) ? date('d/m/y', strtotime((string)$p['fecha_inicio'])) : '—';
-                $hasta = !empty($p['fecha_fin'])    ? date('d/m/y', strtotime((string)$p['fecha_fin']))    : '—';
+                $desde = !empty($p['fecha_inicio']) ? date('d/m/y', strtotime((string)$p['fecha_inicio'])) : '';
+                $hasta = !empty($p['fecha_fin']) ? date('d/m/y', strtotime((string)$p['fecha_fin'])) : '';
+                if ($desde !== '' && $hasta !== '') {
+                  $vigenciaLabel = $desde . ' -> ' . $hasta;
+                  $vigenciaClass = '';
+                } elseif ($desde !== '') {
+                  $vigenciaLabel = 'Desde ' . $desde;
+                  $vigenciaClass = '';
+                } elseif ($hasta !== '') {
+                  $vigenciaLabel = 'Hasta ' . $hasta;
+                  $vigenciaClass = '';
+                } else {
+                  $vigenciaLabel = 'Sin vigencia';
+                  $vigenciaClass = ' promo-date--empty';
+                }
 
                 $items = ($tipo === 'COMBO_FIJO')
                   ? ($itemsComboByPromo[$id] ?? [])
@@ -269,9 +281,7 @@ require __DIR__ . '/partials/header.php';
 
                 <td class="promo-params"><?= $paramsLabel ?></td>
 
-                <td class="promo-date">
-                  <?= h($desde) ?> <span class="dot">→</span> <?= h($hasta) ?>
-                </td>
+                <td class="promo-date<?= $vigenciaClass ?>"><?= h($vigenciaLabel) ?></td>
 
                 <td>
                   <span class="badge <?= $activa ? 'badge-activa' : 'badge-inactiva' ?>">
@@ -282,11 +292,11 @@ require __DIR__ . '/partials/header.php';
                 <td class="t-right actions-cell">
                   <div class="actions-desktop">
                     <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
-                    <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
+                    <button type="button" class="btn-mini btn-mini-danger js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
                   </div>
                   <div class="actions-mobile">
                     <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
-                    <button type="button" class="btn-mini btn-mini-ghost js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
+                    <button type="button" class="btn-mini btn-mini-danger js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
                   </div>
                 </td>
               </tr>
@@ -313,39 +323,54 @@ require __DIR__ . '/partials/header.php';
       <form id="promoEditForm" autocomplete="off">
         <input type="hidden" name="id" id="promoId">
 
-        <label>Nombre</label>
-        <input type="text" name="nombre" id="promoNombre" class="input" required>
-
-        <label>Tipo</label>
-        <select name="tipo" id="promoTipo" class="input" disabled>
-          <option value="N_PAGA_M">NxM</option>
-          <option value="NTH_PCT">% Unidad</option>
-          <option value="COMBO_FIJO">Combo</option>
-        </select>
-
-        <!-- Campos N_PAGA_M y NTH_PCT -->
-        <div id="promoSimplesFields">
-          <label>Producto</label>
-          <select name="producto_id" id="promoProducto" class="input"></select>
-
-          <label>N (llevá)</label>
-          <input type="number" name="n" id="promoN" class="input" min="1">
-
-          <label>M (pagá)</label>
-          <input type="number" name="m" id="promoM" class="input" min="1">
-
-          <label>Descuento %</label>
-          <input type="number" name="porcentaje" id="promoPct" class="input" min="1" max="100">
+        <div class="promo-panel-intro">
+          <div class="promo-panel-intro-title">Edicion rapida</div>
+          <p class="promo-panel-intro-copy">Actualiza los datos principales sin salir del listado.</p>
         </div>
 
-        <!-- Campos COMBO_FIJO -->
-        <div id="promoComboFields" style="display:none;">
-          <label>Precio combo</label>
-          <input type="number" name="precio_combo" id="comboPrecio" class="input" step="0.01" min="0">
+        <div class="promo-panel-section">
+          <div class="promo-panel-section-title">Datos principales</div>
 
-          <label>Ítems del combo</label>
-          <div id="comboItemsContainer"></div>
-          <button type="button" class="btn-small" id="btnAddComboItem">+ Agregar ítem</button>
+          <label for="promoNombre">Nombre</label>
+          <input type="text" name="nombre" id="promoNombre" class="input" required>
+
+          <label for="promoTipo">Tipo</label>
+          <select name="tipo" id="promoTipo" class="input" disabled>
+            <option value="N_PAGA_M">NxM</option>
+            <option value="NTH_PCT">% Unidad</option>
+            <option value="COMBO_FIJO">Combo</option>
+          </select>
+        </div>
+
+        <div id="promoSimplesFields">
+          <div class="promo-panel-section">
+            <div class="promo-panel-section-title">Como se aplica</div>
+
+            <label for="promoProducto">Producto</label>
+            <select name="producto_id" id="promoProducto" class="input"></select>
+
+            <label for="promoN">Cantidad que lleva</label>
+            <input type="number" name="n" id="promoN" class="input" min="1">
+
+            <label for="promoM">Cantidad que paga</label>
+            <input type="number" name="m" id="promoM" class="input" min="1">
+
+            <label for="promoPct">Descuento %</label>
+            <input type="number" name="porcentaje" id="promoPct" class="input" min="1" max="100">
+          </div>
+        </div>
+
+        <div id="promoComboFields" style="display:none;">
+          <div class="promo-panel-section">
+            <div class="promo-panel-section-title">Configuracion del combo</div>
+
+            <label for="comboPrecio">Precio final</label>
+            <input type="number" name="precio_combo" id="comboPrecio" class="input" step="0.01" min="0">
+
+            <label>Productos incluidos</label>
+            <div id="comboItemsContainer"></div>
+            <button type="button" class="btn-small" id="btnAddComboItem">+ Agregar item</button>
+          </div>
         </div>
 
         <button type="submit" class="btn-save">Guardar cambios</button>
@@ -373,3 +398,6 @@ require __DIR__ . '/partials/header.php';
 <div class="promo-toast" id="promoToast"></div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
+
+

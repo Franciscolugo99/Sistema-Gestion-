@@ -1,0 +1,485 @@
+.page-wrap-promos {
+  max-width: 1380px;
+}
+
+.promo-builder-shell,
+.promo-builder-header,
+.promo-builder-flow,
+.promo-template-grid,
+.promo-builder-help,
+.promo-builder-section {
+  --promo-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.98));
+  --promo-card-border: rgba(148, 163, 184, 0.28);
+  --promo-card-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  --promo-card-muted: #475569;
+  --promo-step-bg: rgba(6, 182, 212, 0.14);
+  --promo-note-border: rgba(6, 182, 212, 0.24);
+  --promo-glow: rgba(6, 182, 212, 0.18);
+  --promo-shell-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(248, 250, 252, 0.96));
+  --promo-shell-border: rgba(148, 163, 184, 0.24);
+  --promo-shell-shadow: 0 28px 70px rgba(15, 23, 42, 0.09);
+}
+
+body[data-theme="dark"] .promo-builder-shell,
+body[data-theme="dark"] .promo-builder-header,
+body[data-theme="dark"] .promo-builder-flow,
+body[data-theme="dark"] .promo-template-grid,
+body[data-theme="dark"] .promo-builder-help,
+body[data-theme="dark"] .promo-builder-section {
+  --promo-card-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
+  --promo-card-border: var(--panel-border, #1e293b);
+  --promo-card-shadow: 0 18px 40px rgba(2, 6, 23, 0.2);
+  --promo-card-muted: #94a3b8;
+  --promo-step-bg: rgba(34, 211, 238, 0.16);
+  --promo-note-border: rgba(34, 211, 238, 0.25);
+  --promo-glow: rgba(34, 211, 238, 0.18);
+  --promo-shell-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.94));
+  --promo-shell-border: rgba(51, 65, 85, 0.9);
+  --promo-shell-shadow: 0 28px 70px rgba(2, 6, 23, 0.28);
+}
+
+.promo-builder-shell {
+  position: relative;
+  padding: 1.6rem;
+  border-radius: 28px;
+  border: 1px solid var(--promo-shell-border);
+  background: var(--promo-shell-bg);
+  box-shadow: var(--promo-shell-shadow);
+  overflow: hidden;
+}
+
+.promo-builder-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 180px;
+  background: radial-gradient(circle at top right, rgba(34, 211, 238, 0.1), transparent 58%);
+  pointer-events: none;
+}
+
+.promo-builder-header {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--promo-shell-border);
+}
+
+.promo-builder-header .page-title {
+  margin-bottom: 0.35rem;
+}
+
+.promo-builder-header .page-sub {
+  max-width: 860px;
+}
+
+.promo-builder-section {
+  position: relative;
+  z-index: 1;
+  margin-top: 1.35rem;
+  padding: 1.2rem;
+  border-radius: 22px;
+  border: 1px solid var(--promo-card-border);
+  background: color-mix(in srgb, var(--promo-card-bg) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+body[data-theme="dark"] .promo-builder-section {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.promo-builder-section--compact {
+  padding: 1rem;
+}
+
+.promo-builder-note {
+  padding: 0.95rem 1rem;
+}
+
+.promo-builder-note-card {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.promo-builder-note-copy {
+  margin: 0;
+  color: var(--promo-card-muted, var(--muted, #64748b));
+  line-height: 1.6;
+}
+
+.promo-builder-section-head {
+  margin-bottom: 1rem;
+}
+
+.promo-builder-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-cyan, #0891b2);
+}
+
+.promo-builder-section-title {
+  margin: 0 0 0.3rem;
+  color: var(--text, #0f172a);
+}
+
+.promo-builder-section-copy {
+  margin: 0;
+  max-width: 860px;
+  color: var(--promo-card-muted, var(--muted, #64748b));
+  line-height: 1.6;
+}
+
+.promo-builder-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.promo-builder-flow-card,
+.promo-template-card,
+.promo-builder-help-card,
+.promo-flow-note {
+  background: var(--promo-card-bg);
+  border: 1px solid var(--promo-card-border);
+  border-radius: 16px;
+  box-shadow: var(--promo-card-shadow);
+}
+
+.promo-builder-flow-card {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  padding: 1rem 1.1rem;
+}
+
+.promo-builder-flow-card h2,
+.promo-template-card h2,
+.promo-builder-help-card h2,
+.promo-flow-note strong {
+  margin: 0 0 0.35rem;
+  color: var(--text, #e2e8f0);
+}
+
+.promo-builder-flow-card p,
+.promo-template-card p,
+.promo-builder-help-card p,
+.promo-flow-note p,
+.promo-template-list {
+  margin: 0;
+  color: var(--promo-card-muted, var(--muted, #64748b));
+  line-height: 1.55;
+}
+
+.promo-flow-step {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--promo-step-bg);
+  color: var(--accent-cyan, #22d3ee);
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.promo-template-grid,
+.promo-builder-help {
+  display: grid;
+  gap: 1rem;
+}
+
+.promo-template-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.promo-builder-help {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.promo-builder-help--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.promo-builder-help--single .promo-builder-help-card p {
+  max-width: none;
+}
+
+.promo-builder-help--simple .promo-builder-help-card,
+.promo-builder-help--single .promo-builder-help-card {
+  padding: 1rem 1.1rem;
+}
+
+.promo-builder-help--simple .promo-builder-help-card h2,
+.promo-builder-help--single .promo-builder-help-card h2 {
+  margin-bottom: 0.25rem;
+}
+
+.promo-inline-badge {
+  display: inline-flex;
+  vertical-align: middle;
+  margin: 0 0.18rem;
+}
+
+.promo-template-card,
+.promo-builder-help-card,
+.promo-flow-note {
+  padding: 1.25rem;
+}
+
+.promo-template-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.promo-template-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -40px -40px auto;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, var(--promo-glow), transparent 70%);
+  pointer-events: none;
+}
+
+.promo-template-card .badge {
+  margin-bottom: 0.85rem;
+}
+
+.promo-template-list {
+  padding-left: 1rem;
+  margin: 0 0 1.1rem;
+}
+
+.promo-template-list li + li {
+  margin-top: 0.35rem;
+}
+
+.promo-flow-note {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  border-color: var(--promo-note-border);
+}
+
+.promo-flow-note strong {
+  color: var(--accent-cyan, #67e8f9);
+}
+
+@media (max-width: 980px) {
+  .promo-builder-shell {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .promo-builder-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .promo-builder-summary-action {
+    align-self: flex-start;
+  }
+
+  .promo-builder-flow,
+  .promo-template-grid,
+  .promo-builder-help {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-builder-section {
+    padding: 1rem;
+  }
+
+  .promo-builder-section--toggle {
+    padding: 0.85rem;
+  }
+}
+
+
+
+
+
+/* === PROMO FORM PAGES === */
+.promo-form-page {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.promo-form-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1rem;
+}
+
+.promo-form-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.promo-form-section .promo-builder-section-head {
+  margin-bottom: 0;
+}
+
+.promo-form-meta-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.promo-form-table-shell {
+  border: 1px solid var(--promo-card-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--promo-card-bg) 76%, transparent);
+  padding: 0.3rem 0.4rem 0.5rem;
+}
+
+.promo-live-preview {
+  min-height: 0;
+}
+
+.promo-live-preview:empty {
+  display: none;
+}
+
+.preview-box {
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--text, #0f172a);
+  line-height: 1.55;
+}
+
+body[data-theme="dark"] .preview-box {
+  color: var(--text, #e2e8f0);
+}
+
+.preview-discount {
+  color: var(--accent-cyan, #0891b2);
+  font-weight: 700;
+}
+
+.promo-form-page .alert {
+  margin-bottom: 0;
+}
+
+.promo-form-page .combo-preview {
+  margin-top: 0;
+}
+
+@media (max-width: 980px) {
+  .promo-form-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === SPACING REFINEMENTS === */
+.promo-builder-section-title {
+  line-height: 1.18;
+}
+
+.promo-builder-note-card .promo-builder-kicker {
+  margin-bottom: 0.15rem;
+}
+
+.promo-template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.72rem;
+  min-height: 100%;
+  padding: 1.15rem;
+}
+
+.promo-template-card .v-btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.promo-template-list {
+  margin: 0 0 0.9rem;
+}
+
+.promo-form-section {
+  gap: 0.85rem;
+}
+
+/* === PROMO FORM STACKING AND SPACING FIXES === */
+.promo-form-page .promo-builder-header {
+  padding-bottom: 1rem;
+}
+
+.promo-form-page .promo-form-layout {
+  gap: 0.75rem;
+}
+
+.promo-form-page .promo-builder-section {
+  margin-top: 0;
+  z-index: auto;
+  padding: 1rem 1.1rem;
+}
+
+.promo-form-page .promo-builder-section:focus-within {
+  position: relative;
+  z-index: 8;
+}
+
+.promo-form-page .promo-builder-note {
+  padding: 0.8rem 1rem;
+}
+
+.promo-form-page .promo-form-section {
+  gap: 0.7rem;
+}
+
+.promo-form-page .promo-builder-section-head {
+  margin-bottom: 0.55rem;
+}
+
+.promo-form-page .promo-form-meta-grid {
+  gap: 0.8rem;
+}
+
+.promo-form-page .promo-param-block {
+  margin-top: 0.35rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.promo-form-page .combo-preview,
+.promo-form-page .preview-box {
+  margin-top: 0.15rem;
+}
+
+.promo-form-page .product-search-picker,
+.promo-form-page .product-search-picker--table {
+  position: relative;
+  z-index: 4;
+}
+
+.promo-form-page .product-search-picker:focus-within,
+.promo-form-page .product-search-picker--table:focus-within {
+  z-index: 10;
+}
+
+.promo-form-page .product-search-suggestions {
+  z-index: 80;
+  max-height: 240px;
+}
+
+@media (max-width: 980px) {
+  .promo-form-page .promo-form-layout {
+    gap: 0.65rem;
+  }
+
+  .promo-form-page .promo-builder-section {
+    padding: 0.9rem 1rem;
+  }
+}
