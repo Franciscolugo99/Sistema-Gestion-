@@ -1,17 +1,17 @@
 /**
- * COMPRAS.JS - Versión mejorada (segura) con edición de descuentos por ítem
+ * COMPRAS.JS - VersiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n mejorada (segura) con ediciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de descuentos por ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tem
  *
  * Incluye:
- * - ✅ Edición de descuentos por ítem en borradores (modal)
- * - ✅ Vista previa de subtotal (con descuento por ítem)
- * - ✅ Modo "Agregar Rápido" (toggle UI)
- * - ✅ Indicadores visuales (badge / celda descuento)
- * - ✅ Debounce en descuento global
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ EdiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de descuentos por ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tem en borradores (modal)
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Vista previa de subtotal (con descuento por ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tem)
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Modo "Agregar RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pido" (toggle UI)
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Indicadores visuales (badge / celda descuento)
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Debounce en descuento global
  *
  * Fixes de seguridad/robustez:
- * - ✅ Mitigación XSS: NO se inyectan nombres/códigos sin escapar
- * - ✅ Modal sin listeners colgados (AbortController + closeModal centralizado)
- * - ✅ Indicadores sincronizados desde recalcTotal()
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ MitigaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n XSS: NO se inyectan nombres/cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digos sin escapar
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Modal sin listeners colgados (AbortController + closeModal centralizado)
+ * - ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ Indicadores sincronizados desde recalcTotal()
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let autoIdCounter = Date.now();
   let hasUnsavedChanges = false;
   let quickAddMode = false;
+  let bulkQuickAddInProgress = false;
 
   /* ============================================================================
      CONSTANTES Y UTILS
@@ -100,6 +101,27 @@ document.addEventListener("DOMContentLoaded", () => {
         });
   }
 
+  function actionIcon(name) {
+    const icons = {
+      edit:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20zm12.2-16.8 2.6 2.6c.4.4.4 1 0 1.4l-1.6 1.6-4-4 1.6-1.6c.4-.4 1-.4 1.4 0z"/></svg>',
+      discount:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 10V5a1 1 0 0 0-1-1h-5L4 14l6 6 10-10zM7.5 9A1.5 1.5 0 1 1 9 7.5 1.5 1.5 0 0 1 7.5 9z"/></svg>',
+      delete:
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm-1 11h12a1 1 0 0 0 1-1V7H5v12a1 1 0 0 0 1 1z"/></svg>',
+    };
+    return icons[name] || "";
+  }
+
+  function buildRowActionsMarkup() {
+    return `
+      <div class="row-actions">
+        <button type="button" class="btn-icon" title="Editar cantidad y costo" aria-label="Editar cantidad y costo" data-action="edit">${actionIcon("edit")}</button>
+        <button type="button" class="btn-icon btn-icon-warning" title="Editar descuento" aria-label="Editar descuento" data-action="edit-discount">${actionIcon("discount")}</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar item" aria-label="Eliminar item" data-action="delete">${actionIcon("delete")}</button>
+      </div>
+    `;
+  }
   function normalizeDiscount(tipo, valor, subtotal) {
     const t =
       String(tipo || "MONTO").toUpperCase() === "PORC" ? "PORC" : "MONTO";
@@ -141,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const parts = String(val).split(".");
       if (parts[1] && parts[1].length > 3) {
         e.target.value = num.toFixed(3);
-        showToast("Máximo 3 decimales para productos pesables", "info");
+        showToast("Maximo 3 decimales para productos pesables", "info");
       }
     }
   }
@@ -162,10 +184,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Badge visual
       const badge = document.createElement("span");
       badge.className = "badge-pesable";
-      badge.textContent = `⚖️ ${String(product?.unidad || "").toUpperCase()}`;
+      badge.textContent = `PESABLE ${String(product?.unidad || "").toUpperCase()}`;
       qtyFieldContainer.querySelector("label")?.appendChild(badge);
 
-      // Placeholder dinámico
+      // Placeholder dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡mico
       const unidadLower = String(product?.unidad || "").toLowerCase();
       inQty.placeholder = `Ej: 2.500 (${unidadLower})`;
       inQty.classList.add("input-pesable");
@@ -174,9 +196,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const help = document.createElement("div");
       help.className = "help-pesable";
       const strong = document.createElement("strong");
-      strong.textContent = "💡 Producto pesable: ";
+      strong.textContent = "Producto pesable: ";
       const span = document.createElement("span");
-      span.textContent = "Ingresá el peso con 3 decimales.";
+      span.textContent = "Ingresa el peso con 3 decimales.";
       const br = document.createElement("br");
       const txt = document.createTextNode("Ejemplo: ");
       const code = document.createElement("code");
@@ -190,7 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
       help.appendChild(txt2);
       qtyFieldContainer.appendChild(help);
 
-      // Validación en tiempo real
+      // ValidaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n en tiempo real
       inQty.addEventListener("input", validatePesableInput);
     } else {
       inQty.placeholder = "Cantidad (unidades enteras)";
@@ -208,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Array.from(select.options).forEach((opt) => {
       if (!opt.value) return;
 
-      // Limpiar nombre (quitar "(COD)" pero preservar paréntesis en nombre real)
+      // Limpiar nombre (quitar "(COD)" pero preservar parÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©ntesis en nombre real)
       const rawText = opt.textContent.trim();
       const cleanName = rawText.replace(/\s*\([^)]+\)\s*$/, "").trim();
 
@@ -220,6 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
         esPesable: parseInt(opt.dataset.esPesable || 0, 10),
         unidad: opt.dataset.unidad || "UNIDAD",
         ultimoCosto: parseFloat(opt.dataset.ultimoCosto || 0),
+        proveedorId: parseInt(opt.dataset.proveedorId || 0, 10),
+        proveedorNombre: opt.dataset.proveedorNombre || "",
       });
     });
   }
@@ -297,7 +321,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       isSearchActive = true;
       suggestionsBox.innerHTML =
-        '<div class="suggestion-item loading-item">🔍 Buscando...</div>';
+        '<div class="suggestion-item loading-item">Buscando...</div>';
       suggestionsBox.classList.add("active");
 
       debounceTimer = setTimeout(() => {
@@ -324,7 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const codeHtml = escapeHtml(p.codigo || "");
             const priceHtml =
               p.ultimoCosto > 0
-                ? `<div class="sug-price">Último: ${fmtMoney(p.ultimoCosto)}</div>`
+                ? `<div class="sug-price">Ultimo: ${fmtMoney(p.ultimoCosto)}</div>`
                 : "";
             return `
               <div class="suggestion-item" data-id="${p.id}">
@@ -402,7 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     VISTA PREVIA SUBTOTAL CON DESCUENTO (por ítem actual)
+     VISTA PREVIA SUBTOTAL CON DESCUENTO (por ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­tem actual)
   ============================================================================ */
   function updateSubtotalPreview() {
     const existingPreview = document.getElementById("subtotalPreview");
@@ -470,7 +494,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function addEmptyRowIfNeeded() {
     if (!tbody.querySelector("tr[data-row='item']")) {
       tbody.innerHTML =
-        '<tr class="empty-row"><td colspan="6" class="empty-cell">Todavía no agregaste ítems.</td></tr>';
+        '<tr class="empty-row"><td colspan="6" class="empty-cell">Todavia no agregaste items.</td></tr>';
     }
   }
 
@@ -581,7 +605,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const preview = document.getElementById("subtotalPreview");
     if (preview) preview.remove();
 
-    // En modo rápido, devolvé foco a búsqueda
+    // En modo rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pido, devolvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â© foco a bÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºsqueda
     searchInput.focus();
   }
 
@@ -610,25 +634,46 @@ document.addEventListener("DOMContentLoaded", () => {
     return String(value || "")
       .trim()
       .replace(/\s+/g, " ")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLocaleLowerCase("es-AR");
   }
 
-  function findProveedorOption(value) {
-    if (!proveedoresData) return null;
+  function findProveedorMatches(value) {
+    if (!proveedoresData) return [];
     const normalized = normalizeProviderValue(value);
-    if (!normalized) return null;
+    if (!normalized) return [];
 
-    return Array.from(proveedoresData.options).find(
+    const options = Array.from(proveedoresData.options).filter(
+      (option) => normalizeProviderValue(option.value),
+    );
+    const exact = options.find(
       (option) => normalizeProviderValue(option.value) === normalized,
-    ) || null;
+    );
+    if (exact) return [exact];
+
+    const startsWith = options.filter((option) =>
+      normalizeProviderValue(option.value).startsWith(normalized),
+    );
+    if (startsWith.length) return startsWith;
+
+    return options.filter((option) =>
+      normalizeProviderValue(option.value).includes(normalized),
+    );
   }
 
-  function updateProveedorState() {
+  function findProveedorOption(value) {
+    const matches = findProveedorMatches(value);
+    return matches.length === 1 ? matches[0] : null;
+  }
+
+  function updateProveedorState({ autocorrect = false } = {}) {
     if (!proveedorInput || !proveedorIdInput || !proveedorMatch) return;
 
     const rawValue = proveedorInput.value;
-    const option = findProveedorOption(rawValue);
     const hasValue = normalizeProviderValue(rawValue) !== "";
+    const matches = findProveedorMatches(rawValue);
+    const option = matches.length === 1 ? matches[0] : null;
 
     if (!hasValue) {
       proveedorIdInput.value = "0";
@@ -640,7 +685,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (option) {
       proveedorIdInput.value = option.dataset.id || "0";
-      proveedorInput.value = option.value;
+      if (
+        autocorrect ||
+        normalizeProviderValue(rawValue) === normalizeProviderValue(option.value)
+      ) {
+        proveedorInput.value = option.value;
+      }
       proveedorMatch.hidden = false;
       proveedorMatch.className = "provider-match is-linked";
       proveedorMatch.textContent = "Proveedor existente";
@@ -649,10 +699,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     proveedorIdInput.value = "0";
     proveedorMatch.hidden = false;
-    proveedorMatch.className = "provider-match is-new";
-    proveedorMatch.textContent = "Se creara un proveedor nuevo al guardar";
+    proveedorMatch.className =
+      matches.length > 1 ? "provider-match is-ambiguous" : "provider-match is-new";
+    proveedorMatch.textContent =
+      matches.length > 1
+        ? `Hay ${matches.length} coincidencias. Segui escribiendo o elegi una sugerencia.`
+        : "Se creara un proveedor nuevo al guardar";
   }
-
   function focusFieldWithMessage(field, msg) {
     if (msg) showToast(msg, "warning");
     field?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -732,15 +785,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     EDITAR DESCUENTO POR ÍTEM (MODAL SEGURO)
+     EDITAR DESCUENTO POR ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂTEM (MODAL SEGURO)
   ============================================================================ */
   if (proveedorInput) {
     updateProveedorState();
     proveedorInput.addEventListener("input", updateProveedorState);
     proveedorInput.addEventListener("change", updateProveedorState);
-    proveedorInput.addEventListener("blur", updateProveedorState);
+    proveedorInput.addEventListener("blur", () =>
+      updateProveedorState({ autocorrect: true }),
+    );
+    proveedorInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      updateProveedorState({ autocorrect: true });
+    });
   }
-
   document.querySelectorAll(".js-compra-confirm-form").forEach((confirmForm) => {
     confirmForm.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -751,8 +810,43 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (form) {
+    form.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.tagName === "TEXTAREA") return;
+
+      if (target === proveedorInput) {
+        event.preventDefault();
+        updateProveedorState({ autocorrect: true });
+        return;
+      }
+
+      if (
+        target.matches(
+          ".quick-add-search, .quick-add-check, .quick-add-qty, .quick-add-cost",
+        )
+      ) {
+        event.preventDefault();
+        return;
+      }
+
+      if (target === searchInput) return;
+
+      if (target === inQty || target === inCost || target === itemDescValor) {
+        event.preventDefault();
+        addItem();
+        return;
+      }
+
+      if (target.matches("input, select")) {
+        event.preventDefault();
+      }
+    });
+
     form.addEventListener("submit", (event) => {
-      updateProveedorState();
+      updateProveedorState({ autocorrect: true });
       if (!proveedorInput || !proveedorIdInput) return;
 
       const hasName = normalizeProviderValue(proveedorInput.value) !== "";
@@ -779,12 +873,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.createElement("div");
     modal.className = "modal-overlay compras-modal-overlay";
 
-    // Render seguro (nombre/código escapados)
+    // Render seguro (nombre/cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo escapados)
     modal.innerHTML = `
       <div class="modal-box discount-editor-modal">
         <div class="modal-header">
-          <h3>✏️ Editar descuento</h3>
-          <button type="button" class="btn-close js-close" aria-label="Cerrar">✕</button>
+          <h3>Editar descuento</h3>
+          <button type="button" class="btn-close js-close" aria-label="Cerrar">x</button>
         </div>
         <div class="modal-body">
           <div class="product-info">
@@ -796,8 +890,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="field">
               <label>Tipo de descuento</label>
               <select id="editDescTipo" class="form-input">
-                <option value="MONTO" ${currentTipo === "MONTO" ? "selected" : ""}>💵 Monto fijo ($)</option>
-                <option value="PORC" ${currentTipo === "PORC" ? "selected" : ""}>📊 Porcentaje (%)</option>
+                <option value="MONTO" ${currentTipo === "MONTO" ? "selected" : ""}>Monto fijo ($)</option>
+                <option value="PORC" ${currentTipo === "PORC" ? "selected" : ""}>Porcentaje (%)</option>
               </select>
             </div>
 
@@ -819,7 +913,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary js-cancel">Cancelar</button>
-          <button type="button" class="btn btn-primary js-save">💾 Guardar</button>
+          <button type="button" class="btn btn-primary js-save">Guardar</button>
         </div>
       </div>
     `;
@@ -955,7 +1049,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     EDICIÓN INLINE (cantidad / costo)
+     EDICIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN INLINE (cantidad / costo)
   ============================================================================ */
   function enableEditMode(tr, product) {
     const qtyCell = tr.querySelector(".editable-cell[data-field='cantidad']");
@@ -1007,14 +1101,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const validateValue = (fieldName, v) => {
         if (fieldName === "cantidad") {
-          if (!(v > 0)) return "Cantidad inválida";
+          if (!(v > 0)) return "Cantidad invalida";
           if (v > MAX_QTY)
-            return `Cantidad muy alta (máx: ${MAX_QTY.toLocaleString()})`;
+            return `Cantidad muy alta (max: ${MAX_QTY.toLocaleString()})`;
         }
         if (fieldName === "costo") {
-          if (v < 0) return "Costo inválido";
+          if (v < 0) return "Costo invalido";
           if (v > MAX_COST)
-            return `Costo muy alto (máx: ${fmtMoney(MAX_COST)})`;
+            return `Costo muy alto (max: ${fmtMoney(MAX_COST)})`;
         }
         return "";
       };
@@ -1120,7 +1214,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <td>
         <div class="item-name">
           <span class="item-name-text">${safeName}</span>
-          <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>🏷️ Con descuento</span>
+          <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>Con descuento</span>
         </div>
         <div class="item-code">${safeCode}</div>
       </td>
@@ -1136,11 +1230,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}
       </td>
       <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
-      <td class="center">
-        <button type="button" class="btn-icon" title="Editar cantidad/costo" data-action="edit">✏️</button>
-        <button type="button" class="btn-icon" title="Editar descuento" data-action="edit-discount">🏷️</button>
-        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">🗑️</button>
-
+      <td class="center actions-cell">
+        ${buildRowActionsMarkup()}
         <input type="hidden" name="producto_id[]" value="${product.id}">
         <input type="hidden" name="cantidad[]" value="${qty}">
         <input type="hidden" name="costo_unitario[]" value="${cost}">
@@ -1165,12 +1256,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     hasUnsavedChanges = true;
     recalcTotal();
-    resetForm();
-    showToast("Producto agregado", "success");
+    if (!bulkQuickAddInProgress) {
+      resetForm();
+      showToast("Producto agregado", "success");
+    }
   }
 
   function deleteRow(tr, rowId) {
-    showConfirm("¿Eliminar este producto de la compra?", () => {
+    showConfirm("Eliminar este producto de la compra?", () => {
       tr.classList.add("fade-out");
       setTimeout(() => {
         tr.remove();
@@ -1187,7 +1280,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ============================================================================ */
   function addItem() {
     if (!selectedProduct) {
-      showToast("Seleccioná un producto primero", "warning");
+      showToast("Selecciona un producto primero", "warning");
       searchInput.focus();
       return;
     }
@@ -1211,14 +1304,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (qty > MAX_QTY) {
       showToast(
-        `Cantidad muy alta (máximo: ${MAX_QTY.toLocaleString()})`,
+        `Cantidad muy alta (maximo: ${MAX_QTY.toLocaleString()})`,
         "warning",
       );
       inQty.focus();
       return;
     }
     if (cost > MAX_COST) {
-      showToast(`Costo muy alto (máximo: ${fmtMoney(MAX_COST)})`, "warning");
+      showToast(`Costo muy alto (maximo: ${fmtMoney(MAX_COST)})`, "warning");
       inCost.focus();
       return;
     }
@@ -1229,7 +1322,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (existing) {
       showConfirm(
-        "Este producto ya está en la lista. ¿Sumar cantidad en la línea existente?",
+        "Este producto ya esta en la lista. Queres sumar cantidad en la linea existente?",
         () => {
           const tr = tbody.querySelector(`tr[data-row-id="${existing.rowId}"]`);
           if (!tr) return createNewRow(selectedProduct, qty, cost, dTipo, dVal);
@@ -1241,7 +1334,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (newQty > MAX_QTY) {
             showToast(
-              `La suma superaría el máximo permitido (${MAX_QTY.toLocaleString()})`,
+              `La suma superaria el maximo permitido (${MAX_QTY.toLocaleString()})`,
               "warning",
             );
             return;
@@ -1274,12 +1367,58 @@ document.addEventListener("DOMContentLoaded", () => {
           createNewRow(selectedProduct, qty, cost, dTipo, dVal);
         },
         "Sumar",
-        "Agregar nueva línea",
+        "Agregar nueva linea",
       );
       return;
     }
 
     createNewRow(selectedProduct, qty, cost, dTipo, dVal);
+  }
+
+  function addProductToDraft(product, qty, cost) {
+    if (!product) return { status: "skipped", reason: "missing_product" };
+    if (!(qty > 0) || cost < 0 || qty > MAX_QTY || cost > MAX_COST) {
+      return { status: "skipped", reason: "invalid_values" };
+    }
+
+    const existing = itemsAdded.find((it) => it.productId === product.id);
+    bulkQuickAddInProgress = true;
+
+    if (existing) {
+      const tr = tbody.querySelector(`tr[data-row-id="${existing.rowId}"]`);
+      if (!tr) {
+        createNewRow(product, qty, cost, "MONTO", 0);
+        bulkQuickAddInProgress = false;
+        return { status: "added" };
+      }
+
+      const hiddenQty = tr.querySelector('input[name="cantidad[]"]');
+      const hiddenCost = tr.querySelector('input[name="costo_unitario[]"]');
+      const newQty = parseFloat(hiddenQty?.value || 0) + qty;
+      if (newQty > MAX_QTY) {
+        bulkQuickAddInProgress = false;
+        return { status: "skipped", reason: "max_qty" };
+      }
+
+      if (hiddenQty) hiddenQty.value = newQty;
+      if (hiddenCost) hiddenCost.value = cost;
+      tr.querySelector(".editable-cell[data-field='cantidad'] .cell-value").textContent = fmtQty(newQty, product);
+      tr.querySelector(".editable-cell[data-field='costo'] .cell-value").textContent = fmtMoney(cost);
+
+      const newSubtotal = round2(newQty * cost);
+      tr.dataset.subtotal = String(newSubtotal);
+      tr.querySelector(".subtotal-cell").textContent = fmtMoney(newSubtotal);
+      tr.classList.add("highlight-update");
+      setTimeout(() => tr.classList.remove("highlight-update"), 450);
+      hasUnsavedChanges = true;
+      recalcTotal();
+      bulkQuickAddInProgress = false;
+      return { status: "merged" };
+    }
+
+    createNewRow(product, qty, cost, "MONTO", 0);
+    bulkQuickAddInProgress = false;
+    return { status: "added" };
   }
 
   /* ============================================================================
@@ -1335,7 +1474,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     MODO AGREGAR RÁPIDO (UI TOGGLE)
+     MODO AGREGAR RÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂPIDO (UI TOGGLE)
   ============================================================================ */
   function createQuickAddToggle() {
     const toggleContainer = document.createElement("div");
@@ -1343,28 +1482,35 @@ document.addEventListener("DOMContentLoaded", () => {
     toggleContainer.innerHTML = `
       <label class="toggle-label">
         <input type="checkbox" id="quickAddCheckbox">
-        <span class="toggle-text">⚡ Modo agregar rápido</span>
-        <span class="toggle-hint">(mantener búsqueda activa)</span>
+        <span class="toggle-text">Carga masiva</span>
+        <span class="toggle-hint">(varios productos por proveedor o frecuentes)</span>
       </label>
     `;
 
     const itemsGrid = document.querySelector(".items-grid");
     if (itemsGrid) {
+      const setQuickAddMode = (enabled) => {
+        quickAddMode = enabled;
+        itemsGrid.classList.toggle("is-hidden-by-quick-add", enabled);
+      };
+
       itemsGrid.insertAdjacentElement("beforebegin", toggleContainer);
 
       const checkbox = document.getElementById("quickAddCheckbox");
       checkbox?.addEventListener("change", (e) => {
-        quickAddMode = !!e.target.checked;
+        setQuickAddMode(!!e.target.checked);
         if (quickAddMode) {
-          showToast("⚡ Modo rápido activado", "info");
+          showToast("Carga masiva activada", "info");
         }
       });
-    }
+
+      setQuickAddMode(false);
   }
+    }
   createQuickAddToggle();
 
   /* ============================================================================
-     CARGAR ITEMS EN MODO EDICIÓN
+     CARGAR ITEMS EN MODO EDICIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
   ============================================================================ */
   const preloadedItems = tbody.querySelectorAll(".preloaded-item");
   if (preloadedItems.length > 0) {
@@ -1410,7 +1556,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>
           <div class="item-name">
             <span class="item-name-text">${escapeHtml(nombre)}</span>
-            <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>🏷️ Con descuento</span>
+            <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â·ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Con descuento</span>
           </div>
           <div class="item-code">${escapeHtml(codigo)}</div>
         </td>
@@ -1426,11 +1572,8 @@ document.addEventListener("DOMContentLoaded", () => {
           ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}
         </td>
         <td class="right subtotal-cell">${fmtMoney(subtotal)}</td>
-        <td class="center">
-          <button type="button" class="btn-icon" title="Editar cantidad/costo" data-action="edit">✏️</button>
-          <button type="button" class="btn-icon" title="Editar descuento" data-action="edit-discount">🏷️</button>
-          <button type="button" class="btn-icon btn-icon-danger" title="Eliminar" data-action="delete">🗑️</button>
-
+        <td class="center actions-cell">
+        ${buildRowActionsMarkup()}
           <input type="hidden" name="producto_id[]" value="${productId}">
           <input type="hidden" name="cantidad[]" value="${qty}">
           <input type="hidden" name="costo_unitario[]" value="${cost}">
@@ -1461,7 +1604,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ============================================================================
-     PREVENIR PÉRDIDA DE DATOS
+     PREVENIR PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°RDIDA DE DATOS
   ============================================================================ */
   if (btnResetCompra) {
     btnResetCompra.addEventListener("click", () => {
@@ -1504,9 +1647,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ============================================================================
-     INICIALIZACIÓN
+     INICIALIZACIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
   ============================================================================ */
+  window.FlusComprasQuick = {
+    getProducts: () => productosData.slice(),
+    getProveedorState: () => ({
+      proveedorId: parseInt(proveedorIdInput?.value || "0", 10),
+      proveedorNombre: String(proveedorInput?.value || "").trim(),
+      proveedorNombreNormalizado: normalizeProviderValue(proveedorInput?.value || ""),
+    }),
+    normalizeProviderValue,
+    addProductToDraft,
+    isPesable,
+    fmtMoney,
+    onProviderChange(callback) {
+      if (!proveedorInput || typeof callback !== "function") return () => {};
+      const handler = () => callback(this.getProveedorState());
+      proveedorInput.addEventListener("input", handler);
+      proveedorInput.addEventListener("change", handler);
+      proveedorInput.addEventListener("blur", handler);
+      return () => {
+        proveedorInput.removeEventListener("input", handler);
+        proveedorInput.removeEventListener("change", handler);
+        proveedorInput.removeEventListener("blur", handler);
+      };
+    },
+  };
+
   if (searchInput) searchInput.focus();
   addEmptyRowIfNeeded();
   recalcTotal();
 });
+
+

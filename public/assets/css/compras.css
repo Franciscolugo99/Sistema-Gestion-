@@ -1,7 +1,6 @@
-/* ============================================================================
+﻿/* ============================================================================
    COMPRAS - CSS UNIFICADO Y OPTIMIZADO
-   Versión corregida sin duplicaciones
-============================================================================ */
+   ============================================================================ */
 
 /* -------------------------
    Variables CSS (DEFAULT: DARK)
@@ -64,7 +63,7 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   HEADERS / TÍTULOS
+   comentario saneado
 ============================================================================ */
 .compras-page .page-header {
   margin-bottom: 24px;
@@ -549,28 +548,54 @@ body.theme-light .compras-page {
 }
 
 /* Icon buttons */
+.compras-page .actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.compras-page .row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .compras-page .btn-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border-radius: 10px;
-  border: 1px solid var(--c-border);
-  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.08);
   color: var(--c-text);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   text-decoration: none;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.compras-page .btn-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: currentColor;
 }
 
 .compras-page .btn-icon:hover {
   background: rgba(56, 189, 248, 0.12);
   border-color: rgba(56, 189, 248, 0.35);
-  transform: scale(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.12);
 }
 
+.compras-page .btn-icon:focus-visible {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
 .compras-page .btn-icon-success:hover {
   background: rgba(34, 197, 94, 0.12);
   border-color: rgba(34, 197, 94, 0.35);
@@ -590,7 +615,7 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   FILTROS / PAGINACIÓN
+   comentario saneado
 ============================================================================ */
 .compras-page .filters {
   display: flex;
@@ -764,7 +789,7 @@ body.theme-light .compras-page {
 }
 
 .modal-box {
-  /* Definir variables locales para el modal (por si está fuera de .compras-page) */
+  /* comentario saneado */
   --c-surface: rgba(2, 6, 23, 0.92);
   --c-surface-2: rgba(2, 6, 23, 0.96);
   --c-border: rgba(148, 163, 184, 0.22);
@@ -1276,7 +1301,7 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 /* ============================================================================
    MEJORAS UI (Compras)
-   Pegá este bloque AL FINAL de: public/assets/css/compras.css
+   comentario saneado
 ============================================================================ */
 
 /* Vista previa de subtotal */
@@ -1311,7 +1336,7 @@ body.theme-light .compras-page .compras-table tfoot td {
   color: var(--c-primary);
 }
 
-/* Modo agregar rápido */
+/* comentario saneado */
 .compras-page .quick-add-toggle {
   margin: 20px 0;
   padding: 14px;
@@ -1333,10 +1358,22 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 .compras-page .quick-add-toggle input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
   cursor: pointer;
   accent-color: var(--c-primary);
+}
+
+.compras-page .quick-add-toggle input[type="checkbox"]:hover {
+  filter: saturate(1.05);
+}
+
+.compras-page .quick-add-toggle input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .compras-page .quick-add-toggle .toggle-text {
@@ -1350,7 +1387,7 @@ body.theme-light .compras-page .compras-table tfoot td {
   font-style: italic;
 }
 
-/* Badge de descuento en ítems */
+/* comentario saneado */
 .compras-page .item-discount-badge[hidden] {
   display: none !important;
 }
@@ -1374,7 +1411,7 @@ body.theme-light .compras-page .compras-table tfoot td {
   font-weight: 800;
 }
 
-/* Modal de edición de descuento */
+/* comentario saneado */
 .compras-page .discount-editor-modal {
   max-width: 480px;
 }
@@ -1468,7 +1505,7 @@ body.theme-light .compras-page .compras-table tfoot td {
   font-style: italic;
 }
 
-/* Animación de entrada suave */
+/* comentario saneado */
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -1504,36 +1541,57 @@ body.theme-light .compras-page .compras-table tfoot td {
 
 .compras-page .list-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .compras-page .btn-compact {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 0.84rem;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  box-shadow: none;
 }
 
 .compras-page .btn-success {
-  background: rgba(34, 197, 94, 0.12);
+  background: rgba(34, 197, 94, 0.08);
   color: #15803d;
-  border: 1px solid rgba(34, 197, 94, 0.22);
+  border: 1px solid rgba(34, 197, 94, 0.18);
 }
 
 .compras-page .btn-danger {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.08);
   color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(239, 68, 68, 0.18);
 }
 
 .compras-page .btn-warning {
-  background: rgba(245, 158, 11, 0.14);
+  background: rgba(245, 158, 11, 0.09);
   color: #b45309;
-  border: 1px solid rgba(245, 158, 11, 0.24);
+  border: 1px solid rgba(245, 158, 11, 0.18);
 }
 
+.compras-page .list-actions .btn.btn-secondary.btn-compact {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.compras-page .list-actions .btn.btn-secondary.btn-compact:hover,
+.compras-page .list-actions .btn-success.btn-compact:hover,
+.compras-page .list-actions .btn-danger.btn-compact:hover,
+.compras-page .list-actions .btn-warning.btn-compact:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 980px) {
+  .compras-page .list-actions {
+    justify-content: flex-end;
+  }
+}
 
 .compras-page .discount-help-inline {
   min-height: 18px;
@@ -1655,6 +1713,10 @@ body.theme-light .compras-page .compras-table tfoot td {
   align-items: start;
 }
 
+.compras-page .items-grid.is-hidden-by-quick-add {
+  display: none;
+}
+
 .compras-page .items-grid > .field:last-child {
   align-self: end;
 }
@@ -1670,7 +1732,8 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 .compras-page .summary-card-global {
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .compras-page .summary-value {
@@ -1681,7 +1744,6 @@ body.theme-light .compras-page .compras-table tfoot td {
 .compras-page .summary-card .discount-controls {
   gap: 6px;
 }
-
 .compras-page .summary-card .discount-controls select {
   width: 118px;
 }
@@ -1694,8 +1756,213 @@ body.theme-light .compras-page .compras-table tfoot td {
   font-size: 1.15rem;
 }
 
+.compras-page .summary-card-global .discount-copy {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.compras-page .summary-card-global .summary-help {
+  max-width: 100%;
+}
+
 @media (max-width: 980px) {
   .compras-page .summary-card-global {
     justify-content: flex-start;
+  }
+}
+
+
+
+.compras-page .quick-add-panel {
+  margin: -6px 0 20px;
+  padding: 18px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.05), rgba(2, 6, 23, 0.02));
+}
+
+.compras-page .quick-add-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.compras-page .quick-add-title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.compras-page .quick-add-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 5px;
+  border: 1.5px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.compras-page .quick-add-product-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compras-page .quick-add-product-trigger:focus-visible {
+  outline: none;
+}
+
+.compras-page .quick-add-check {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--c-primary);
+}
+
+.compras-page .quick-add-check:hover {
+  filter: saturate(1.05);
+}
+
+.compras-page .quick-add-check:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+
+.compras-page .quick-add-selected-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  color: var(--c-primary-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+
+.compras-page .quick-add-tabs {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compras-page .quick-add-tab {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--c-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.compras-page .quick-add-tab.is-active {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: var(--c-primary-dark);
+}
+
+.compras-page .quick-add-tab:focus,
+.compras-page .quick-add-tab:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.compras-page .quick-add-toolbar {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.compras-page .quick-add-search {
+  flex: 1 1 280px;
+}
+
+.compras-page .quick-add-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compras-page .quick-add-table-wrap {
+  max-height: 440px;
+}
+
+.compras-page .quick-add-table tbody td {
+  vertical-align: middle;
+}
+
+.compras-page .quick-add-input {
+  width: 96px;
+  min-width: 96px;
+}
+
+.compras-page .quick-add-product-name {
+  font-weight: 700;
+}
+
+.compras-page .quick-add-product-meta {
+  color: var(--c-muted);
+  font-size: 0.78rem;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.compras-page .quick-add-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--c-primary-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.compras-page .quick-add-empty {
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--c-muted);
+}
+
+@media (max-width: 768px) {
+  .compras-page .quick-add-toolbar {
+    align-items: stretch;
+  }
+
+  .compras-page .quick-add-toolbar-actions {
+    width: 100%;
+  }
+
+  .compras-page .quick-add-toolbar-actions .btn {
+    flex: 1 1 180px;
   }
 }
