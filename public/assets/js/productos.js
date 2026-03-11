@@ -1767,6 +1767,7 @@ const ProductosManager = {
         if (qv !== '') params.set('q', qv);
         if (ev !== '') params.set('estado', ev);
         if (psv !== '') params.set('pesable', psv);
+        if (sfv !== '') params.set('stock_filter', sfv);
 
         if (lv !== '') params.set('limit', lv);
         if (sv !== '') params.set('sort', sv);

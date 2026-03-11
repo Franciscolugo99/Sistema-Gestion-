@@ -985,7 +985,14 @@ if ($buscar !== '') {
     array_push($params, $like, $like, $like, $like, $like);
 }
 
-if ($estado === 'activos') {
+if ($stockFilter === 'sin') {
+    $where[] = 'activo = 1';
+    $where[] = 'stock <= 0';
+} elseif ($stockFilter === 'bajo') {
+    $where[] = 'activo = 1';
+    $where[] = 'stock > 0';
+    $where[] = 'stock <= stock_minimo';
+} elseif ($estado === 'activos') {
     $where[] = 'activo = 1';
 } elseif ($estado === 'inactivos') {
     $where[] = 'activo = 0';
@@ -995,16 +1002,6 @@ if ($pesableFilter === 'si') {
     $where[] = 'es_pesable = 1';
 } elseif ($pesableFilter === 'no') {
     $where[] = 'es_pesable = 0';
-}
-
-// Filtros de stock desde KPIs
-if ($stockFilter === 'sin') {
-    $where[] = 'activo = 1';
-    $where[] = 'stock <= 0';
-} elseif ($stockFilter === 'bajo') {
-    $where[] = 'activo = 1';
-    $where[] = 'stock > 0';
-    $where[] = 'stock <= stock_minimo';
 }
 
 $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -1029,6 +1026,7 @@ if (isset($_GET['ajaxTbody'])) {
     $q2 = trim((string)($_GET['q'] ?? ''));
     $e2 = (string)($_GET['estado'] ?? '');
     $p2 = (string)($_GET['pesable'] ?? '');
+    $sf2 = (string)($_GET['stock_filter'] ?? '');
 
     if ($q2 !== '') {
         $like2 = '%' . $q2 . '%';
@@ -1036,8 +1034,18 @@ if (isset($_GET['ajaxTbody'])) {
         array_push($params2, $like2, $like2, $like2, $like2, $like2);
     }
 
-    if ($e2 === 'activos') $where2[] = 'activo = 1';
-    if ($e2 === 'inactivos') $where2[] = 'activo = 0';
+    if ($sf2 === 'sin') {
+        $where2[] = 'activo = 1';
+        $where2[] = 'stock <= 0';
+    } elseif ($sf2 === 'bajo') {
+        $where2[] = 'activo = 1';
+        $where2[] = 'stock > 0';
+        $where2[] = 'stock <= stock_minimo';
+    } elseif ($e2 === 'activos') {
+        $where2[] = 'activo = 1';
+    } elseif ($e2 === 'inactivos') {
+        $where2[] = 'activo = 0';
+    }
     if ($p2 === 'si') $where2[] = 'es_pesable = 1';
     if ($p2 === 'no') $where2[] = 'es_pesable = 0';
 

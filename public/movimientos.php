@@ -30,10 +30,10 @@ $selRefCompra = $hasRefCompra ? 'm.referencia_compra_id' : 'NULL';
 function tipoNorm(string $value): string
 {
     $value = strtoupper(trim($value));
-    if ($value === 'ANULACIÃƒâ€œN') {
+    if ($value === 'ANULACION') {
         return 'ANULACION';
     }
-    if ($value === 'DEVOLUCIÃƒâ€œN') {
+    if ($value === 'DEVOLUCION') {
         return 'DEVOLUCION';
     }
 
@@ -42,14 +42,14 @@ function tipoNorm(string $value): string
 
 function tipoDisplayFromRow(string $tipoRaw, $refVenta, $refCompra, ?string $comentario): string
 {
-    $tipo = tipoNorm($tipoRaw);
+    $tipo = mov_tipo_norm($tipoRaw);
     $comentario = (string)$comentario;
 
     if ($tipo === '' && $comentario !== '') {
-        if (stripos($comentario, 'anulaciÃƒÂ³n compra') === 0) {
+        if (stripos($comentario, 'anulacion compra') === 0) {
             $tipo = 'ANULACION';
         }
-        if (stripos($comentario, 'anulaciÃƒÂ³n venta') === 0) {
+        if (stripos($comentario, 'anulacion venta') === 0) {
             $tipo = 'ANULACION';
         }
     }
@@ -61,17 +61,77 @@ function tipoDisplayFromRow(string $tipoRaw, $refVenta, $refCompra, ?string $com
         if (!empty($refVenta)) {
             return 'ANULACION_VENTA';
         }
-        if (stripos($comentario, 'anulaciÃƒÂ³n compra') === 0) {
+        if (stripos($comentario, 'anulacion compra') === 0) {
             return 'ANULACION_COMPRA';
         }
-        if (stripos($comentario, 'anulaciÃƒÂ³n venta') === 0) {
+        if (stripos($comentario, 'anulacion venta') === 0) {
             return 'ANULACION_VENTA';
         }
 
         return 'ANULACION';
     }
 
-    if ($tipo === 'DEVOLUCION' || $tipo === 'DEVOLUCIÃƒâ€œN') {
+    if ($tipo === 'DEVOLUCION') {
+        return 'DEVOLUCION';
+    }
+
+    return $tipo;
+}
+
+function mov_tipo_norm(string $value): string
+{
+    $value = strtoupper(trim($value));
+    if ($value !== '' && str_starts_with($value, 'ANULACI')) {
+        return 'ANULACION';
+    }
+    if ($value !== '' && str_starts_with($value, 'DEVOLUCI')) {
+        return 'DEVOLUCION';
+    }
+
+    return $value;
+}
+
+function mov_comentario_anulacion_tipo(?string $comentario): string
+{
+    $comentario = strtolower(trim((string)$comentario));
+    if ($comentario === '' || stripos($comentario, 'anulaci') !== 0) {
+        return '';
+    }
+
+    if (stripos($comentario, 'compra') !== false) {
+        return 'ANULACION_COMPRA';
+    }
+    if (stripos($comentario, 'venta') !== false) {
+        return 'ANULACION_VENTA';
+    }
+
+    return 'ANULACION';
+}
+
+function mov_tipo_display_from_row(string $tipoRaw, $refVenta, $refCompra, ?string $comentario): string
+{
+    $tipo = mov_tipo_norm($tipoRaw);
+    $tipoDesdeComentario = mov_comentario_anulacion_tipo($comentario);
+
+    if ($tipo === '' && $tipoDesdeComentario !== '') {
+        $tipo = 'ANULACION';
+    }
+
+    if ($tipo === 'ANULACION') {
+        if (!empty($refCompra)) {
+            return 'ANULACION_COMPRA';
+        }
+        if (!empty($refVenta)) {
+            return 'ANULACION_VENTA';
+        }
+        if ($tipoDesdeComentario !== '') {
+            return $tipoDesdeComentario;
+        }
+
+        return 'ANULACION';
+    }
+
+    if ($tipo === 'DEVOLUCION') {
         return 'DEVOLUCION';
     }
 
@@ -80,7 +140,7 @@ function tipoDisplayFromRow(string $tipoRaw, $refVenta, $refCompra, ?string $com
 
 function tipoLabel(string $tipo): string
 {
-    return match (tipoNorm($tipo)) {
+    return match (mov_tipo_norm($tipo)) {
         'VENTA' => 'Venta',
         'COMPRA' => 'Compra',
         'AJUSTE_POSITIVO' => 'Ajuste +',
@@ -89,7 +149,7 @@ function tipoLabel(string $tipo): string
         'ANULACION_COMPRA' => 'Anulacion compra',
         'ANULACION' => 'Anulacion',
         'DEVOLUCION' => 'Devolucion',
-        default => tipoNorm($tipo),
+        default => mov_tipo_norm($tipo),
     };
 }
 
@@ -196,7 +256,7 @@ function render_sort_link(string $label, string $sortKey, string $currentSort, s
 
 function tipoSign(string $tipo): int
 {
-    $tipo = tipoNorm($tipo);
+    $tipo = mov_tipo_norm($tipo);
 
     if (in_array($tipo, ['VENTA', 'AJUSTE_NEGATIVO', 'ANULACION_COMPRA'], true)) {
         return -1;
@@ -213,7 +273,7 @@ function prettyQtyByTipo(float $cantidad, string $tipo, int $esPesable, ?string 
 {
     $unidadVenta = strtoupper(trim((string)$unidadVenta));
     $signoTipo = tipoSign($tipo);
-    $tipoNormalizado = tipoNorm($tipo);
+    $tipoNormalizado = mov_tipo_norm($tipo);
 
     if (in_array($tipoNormalizado, ['ANULACION', 'ANULACION_COMPRA', 'ANULACION_VENTA'], true)) {
         $cantidadNormalizada = (float)$cantidad;
@@ -247,7 +307,7 @@ $searchRaw = trim((string)($_GET['q'] ?? ''));
 $search = function_exists('mb_substr') ? mb_substr($searchRaw, 0, 80) : substr($searchRaw, 0, 80);
 
 $tipoRaw = (string)($_GET['tipo'] ?? '');
-$tipo = $tipoRaw !== '' ? tipoNorm($tipoRaw) : '';
+$tipo = $tipoRaw !== '' ? mov_tipo_norm($tipoRaw) : '';
 $flujo = strtoupper(trim((string)($_GET['flujo'] ?? '')));
 if (!in_array($flujo, ['', 'ENTRADA', 'SALIDA'], true)) {
     $flujo = '';
@@ -282,10 +342,14 @@ $dirSql = strtoupper($dir);
 $allowedTipos = ['VENTA', 'COMPRA', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'ANULACION', 'ANULACION_VENTA', 'ANULACION_COMPRA', 'DEVOLUCION'];
 $baseFromSql = 'FROM movimientos_stock m JOIN productos p ON p.id = m.producto_id';
 $exprTipo = 'UPPER(TRIM(m.tipo))';
-$condAnulacion = "{$exprTipo} IN ('ANULACION','ANULACIÃƒâ€œN')";
-$condDevolucion = "{$exprTipo} IN ('DEVOLUCION','DEVOLUCIÃƒâ€œN')";
-$condAnulCompra = $hasRefCompra ? 'm.referencia_compra_id IS NOT NULL' : "m.comentario LIKE 'AnulaciÃƒÂ³n compra%'";
-$condAnulVenta = $hasRefVenta ? 'm.referencia_venta_id IS NOT NULL' : "m.comentario LIKE 'AnulaciÃƒÂ³n venta%'";
+$condAnulacion = "{$exprTipo} IN ('ANULACION')";
+$condDevolucion = "{$exprTipo} IN ('DEVOLUCION')";
+$condAnulCompra = $hasRefCompra ? 'm.referencia_compra_id IS NOT NULL' : "m.comentario LIKE 'Anulacion compra%'";
+$condAnulVenta = $hasRefVenta ? 'm.referencia_venta_id IS NOT NULL' : "m.comentario LIKE 'Anulacion venta%'";
+$condAnulacion = "{$exprTipo} = 'ANULACION' OR {$exprTipo} LIKE 'ANULACI%'";
+$condDevolucion = "{$exprTipo} = 'DEVOLUCION' OR {$exprTipo} LIKE 'DEVOLUCI%'";
+$condAnulCompra = $hasRefCompra ? 'm.referencia_compra_id IS NOT NULL' : "m.comentario LIKE 'Anulaci% compra%'";
+$condAnulVenta = $hasRefVenta ? 'm.referencia_venta_id IS NOT NULL' : "m.comentario LIKE 'Anulaci% venta%'";
 $condSalida = "{$exprTipo} = 'VENTA' OR {$exprTipo} = 'AJUSTE_NEGATIVO' OR ({$condAnulacion} AND ({$condAnulCompra}))";
 $condEntrada = "{$exprTipo} = 'COMPRA' OR {$exprTipo} = 'AJUSTE_POSITIVO' OR {$condDevolucion} OR ({$condAnulacion} AND (({$condAnulVenta}) OR (NOT ({$condAnulCompra}) AND NOT ({$condAnulVenta}))))";
 $whereParts = ['1=1'];
@@ -298,28 +362,32 @@ if ($productoId > 0) {
 
 if ($search !== '') {
     $whereParts[] = "(
-        p.nombre LIKE :q_like
-        OR p.codigo LIKE :q_like
-        OR COALESCE(m.comentario, '') LIKE :q_like
-        OR CAST(m.id AS CHAR) = :q_exact
-        OR CAST({$selRefVenta} AS CHAR) = :q_exact
-        OR CAST({$selRefCompra} AS CHAR) = :q_exact
+        p.nombre LIKE :q_nombre
+        OR p.codigo LIKE :q_codigo
+        OR COALESCE(m.comentario, '') LIKE :q_comentario
+        OR CAST(m.id AS CHAR) = :q_mov_id
+        OR CAST({$selRefVenta} AS CHAR) = :q_ref_venta
+        OR CAST({$selRefCompra} AS CHAR) = :q_ref_compra
     )";
-    $params[':q_like'] = '%' . $search . '%';
-    $params[':q_exact'] = $search;
+    $params[':q_nombre'] = '%' . $search . '%';
+    $params[':q_codigo'] = '%' . $search . '%';
+    $params[':q_comentario'] = '%' . $search . '%';
+    $params[':q_mov_id'] = $search;
+    $params[':q_ref_venta'] = $search;
+    $params[':q_ref_compra'] = $search;
 }
 
 if ($tipo !== '' && in_array($tipo, $allowedTipos, true)) {
     if ($tipo === 'ANULACION_COMPRA') {
-        $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÃƒâ€œN'))";
+        $whereParts[] = "({$condAnulacion})";
         $whereParts[] = $condAnulCompra;
     } elseif ($tipo === 'ANULACION_VENTA') {
-        $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÃƒâ€œN'))";
+        $whereParts[] = "({$condAnulacion})";
         $whereParts[] = $condAnulVenta;
     } elseif ($tipo === 'ANULACION') {
-        $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÃƒâ€œN'))";
+        $whereParts[] = "({$condAnulacion})";
     } elseif ($tipo === 'DEVOLUCION') {
-        $whereParts[] = "(UPPER(TRIM(m.tipo)) IN ('DEVOLUCION','DEVOLUCIÃƒâ€œN'))";
+        $whereParts[] = "({$condDevolucion})";
     } else {
         $whereParts[] = 'UPPER(TRIM(m.tipo)) = :tipo';
         $params[':tipo'] = $tipo;
@@ -378,7 +446,7 @@ if ($export) {
     $st->execute($params);
 
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $tipoDisplay = tipoDisplayFromRow(
+        $tipoDisplay = mov_tipo_display_from_row(
             (string)($row['tipo'] ?? ''),
             $row['referencia_venta_id'] ?? null,
             $row['referencia_compra_id'] ?? null,
@@ -484,25 +552,46 @@ $hasActiveFilters = $productoId > 0
 
 $filterTags = [];
 if ($flujo !== '') {
-    $filterTags[] = 'Flujo: ' . flujoLabel($flujo);
+    $filterTags[] = [
+        'label' => 'Flujo: ' . flujoLabel($flujo),
+        'url' => urlWith(['flujo' => '', 'page' => 1]),
+    ];
 }
 if ($search !== '') {
-    $filterTags[] = 'Busqueda: ' . $search;
+    $filterTags[] = [
+        'label' => 'Busqueda: ' . $search,
+        'url' => urlWith(['q' => '', 'page' => 1]),
+    ];
 }
 if ($productoFiltroLabel !== '') {
-    $filterTags[] = 'Producto: ' . $productoFiltroLabel;
+    $filterTags[] = [
+        'label' => 'Producto: ' . $productoFiltroLabel,
+        'url' => urlWith(['producto_id' => '', 'page' => 1]),
+    ];
 }
 if ($tipo !== '') {
-    $filterTags[] = 'Tipo: ' . tipoLabel($tipo);
+    $filterTags[] = [
+        'label' => 'Tipo: ' . tipoLabel($tipo),
+        'url' => urlWith(['tipo' => '', 'page' => 1]),
+    ];
 }
 if ($desde !== null || $hasta !== null) {
-    $filterTags[] = 'Periodo: ' . ($desde ?? '...') . ' a ' . ($hasta ?? '...');
+    $filterTags[] = [
+        'label' => 'Periodo: ' . ($desde ?? '...') . ' a ' . ($hasta ?? '...'),
+        'url' => urlWith(['desde' => '', 'hasta' => '', 'page' => 1]),
+    ];
 }
 if ($perPage !== 50) {
-    $filterTags[] = 'Filas por pagina: ' . $perPage;
+    $filterTags[] = [
+        'label' => 'Filas por pagina: ' . $perPage,
+        'url' => urlWith(['per_page' => 50, 'page' => 1]),
+    ];
 }
 if ($sort !== 'fecha' || $dir !== 'desc') {
-    $filterTags[] = 'Orden: ' . sortLabel($sort) . ' ' . ($dir === 'asc' ? 'asc' : 'desc');
+    $filterTags[] = [
+        'label' => 'Orden: ' . sortLabel($sort) . ' ' . ($dir === 'asc' ? 'asc' : 'desc'),
+        'url' => urlWith(['sort' => 'fecha', 'dir' => 'desc', 'page' => 1]),
+    ];
 }
 
 $stKpis = $pdo->prepare("
@@ -529,10 +618,12 @@ $stStats = $pdo->prepare("
         SUM(UPPER(TRIM(m.tipo)) = 'VENTA') AS ventas,
         SUM(UPPER(TRIM(m.tipo)) = 'COMPRA') AS compras,
         SUM(UPPER(TRIM(m.tipo)) IN ('AJUSTE_POSITIVO','AJUSTE_NEGATIVO')) AS ajustes,
-        SUM(UPPER(TRIM(m.tipo)) IN ('DEVOLUCION','DEVOLUCIÃƒâ€œN')) AS devoluciones,
+        SUM(CASE WHEN {$condDevolucion} THEN 1 ELSE 0 END) AS devoluciones,
         SUM(
-            UPPER(TRIM(m.tipo)) IN ('ANULACION','ANULACIÃƒâ€œN')
-            OR ((m.tipo = '' OR m.tipo IS NULL) AND m.comentario LIKE 'AnulaciÃƒÂ³n%')
+            CASE
+                WHEN ({$condAnulacion}) OR ((m.tipo = '' OR m.tipo IS NULL) AND m.comentario LIKE 'Anulaci%') THEN 1
+                ELSE 0
+            END
         ) AS anulaciones
     {$baseFromSql}
     {$whereSql}
@@ -656,14 +747,26 @@ require __DIR__ . '/partials/header.php';
         <button type="button" class="chip" data-range="today">Hoy</button>
         <button type="button" class="chip" data-range="7d">7 dias</button>
         <button type="button" class="chip" data-range="30d">30 dias</button>
+        <button type="button" class="chip" data-range="month">Este mes</button>
     </div>
 
     <section class="mov-summary" aria-label="Resumen de filtros">
-        <div class="mov-summary__headline">
-            <strong><?= $totalRows ?></strong> resultado<?= $totalRows === 1 ? '' : 's' ?>
-            <?php if ($totalRows > 0): ?>
-                <span class="muted">| <?= $fromRow ?>-<?= $toRow ?> de <?= $totalRows ?> | pagina <?= $page ?> de <?= $totalPages ?> | <?= $perPage ?> por pagina</span>
-            <?php endif; ?>
+        <div class="mov-summary__top">
+            <div class="mov-summary__headline">
+                <strong><?= $totalRows ?></strong> resultado<?= $totalRows === 1 ? '' : 's' ?>
+                <?php if ($totalRows > 0): ?>
+                    <span class="muted">| <?= $fromRow ?>-<?= $toRow ?> de <?= $totalRows ?> | pagina <?= $page ?> de <?= $totalPages ?> | <?= $perPage ?> por pagina</span>
+                <?php endif; ?>
+            </div>
+
+            <div class="mov-summary__actions">
+                <?php if ($totalRows > 0): ?>
+                    <a href="<?= h(urlWith(['export' => 'csv', 'page' => 1])) ?>" class="mov-summary__export">Exportar vista</a>
+                <?php endif; ?>
+                <?php if ($hasActiveFilters): ?>
+                    <a href="movimientos.php" class="mov-summary__clear">Limpiar filtros</a>
+                <?php endif; ?>
+            </div>
         </div>
 
         <?php if ($dateRangeAdjusted): ?>
@@ -673,7 +776,10 @@ require __DIR__ . '/partials/header.php';
         <?php if ($filterTags): ?>
             <div class="mov-tags">
                 <?php foreach ($filterTags as $tag): ?>
-                    <span class="mov-tag"><?= h($tag) ?></span>
+                    <a class="mov-tag mov-tag--clear" href="<?= h((string)$tag['url']) ?>">
+                        <span><?= h((string)$tag['label']) ?></span>
+                        <span aria-hidden="true">x</span>
+                    </a>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
@@ -695,11 +801,18 @@ require __DIR__ . '/partials/header.php';
             </thead>
             <tbody>
                 <?php if (!$movs): ?>
-                    <tr><td colspan="6" class="empty-cell">No se encontraron movimientos para los filtros actuales.</td></tr>
+                    <tr>
+                        <td colspan="6" class="empty-cell">
+                            No se encontraron movimientos para los filtros actuales.
+                            <?php if ($hasActiveFilters): ?>
+                                <a href="movimientos.php">Limpiar filtros</a>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
                 <?php else: ?>
                     <?php foreach ($movs as $movimiento): ?>
                         <?php
-                        $tipoDisplay = tipoDisplayFromRow(
+                        $tipoDisplay = mov_tipo_display_from_row(
                             (string)($movimiento['tipo'] ?? ''),
                             $movimiento['referencia_venta_id'] ?? null,
                             $movimiento['referencia_compra_id'] ?? null,
@@ -718,8 +831,8 @@ require __DIR__ . '/partials/header.php';
                             $rowHref = 'venta_detalle.php?id=' . (int)$movimiento['referencia_venta_id'];
                             $rowLabel = 'Abrir venta #' . (int)$movimiento['referencia_venta_id'];
                         } elseif (!empty($movimiento['referencia_compra_id'])) {
-                            $rowHref = 'compras.php?q=' . urlencode((string)(int)$movimiento['referencia_compra_id']);
-                            $rowLabel = 'Buscar compra #' . (int)$movimiento['referencia_compra_id'];
+                            $rowHref = 'compra_detalle.php?id=' . (int)$movimiento['referencia_compra_id'] . '&origen=movimientos';
+                            $rowLabel = 'Abrir compra #' . (int)$movimiento['referencia_compra_id'];
                         }
                         ?>
                         <tr
@@ -727,7 +840,10 @@ require __DIR__ . '/partials/header.php';
                             <?= $rowHref !== '' ? 'data-href="' . h($rowHref) . '" data-row-label="' . h($rowLabel) . '" tabindex="0" role="link"' : '' ?>
                         >
                             <td class="mono">
-                                <?= h((string)($movimiento['fecha'] ?? '')) ?>
+                                <?php $fechaRaw = (string)($movimiento['fecha'] ?? ''); ?>
+                                <time datetime="<?= h($fechaRaw) ?>" title="<?= h($fechaRaw) ?>">
+                                    <?= h(format_datetime($fechaRaw)) ?>
+                                </time>
                                 <?php if ($rowHref !== ''): ?>
                                     <div class="mov-row-hint"><?= h($rowLabel) ?></div>
                                 <?php endif; ?>
@@ -749,7 +865,7 @@ require __DIR__ . '/partials/header.php';
                                         <a class="mov-ref mov-ref--venta" href="venta_detalle.php?id=<?= (int)$movimiento['referencia_venta_id'] ?>">Venta #<?= (int)$movimiento['referencia_venta_id'] ?></a>
                                     <?php endif; ?>
                                     <?php if (!empty($movimiento['referencia_compra_id'])): ?>
-                                        <a class="mov-ref mov-ref--compra" href="compras.php?q=<?= (int)$movimiento['referencia_compra_id'] ?>">Compra #<?= (int)$movimiento['referencia_compra_id'] ?></a>
+                                        <a class="mov-ref mov-ref--compra" href="compra_detalle.php?id=<?= (int)$movimiento['referencia_compra_id'] ?>&amp;origen=movimientos">Compra #<?= (int)$movimiento['referencia_compra_id'] ?></a>
                                     <?php endif; ?>
                                     <?php if (empty($movimiento['referencia_venta_id']) && empty($movimiento['referencia_compra_id'])): ?>
                                         <span class="muted">Manual</span>

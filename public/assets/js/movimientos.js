@@ -58,6 +58,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const getRangeStart = (range, today) => {
+    const fromDate = new Date(today);
+
+    if (range === '7d') {
+      fromDate.setDate(today.getDate() - 6);
+    }
+    if (range === '30d') {
+      fromDate.setDate(today.getDate() - 29);
+    }
+    if (range === 'month') {
+      fromDate.setDate(1);
+    }
+
+    return fromDate;
+  };
+
   const setActiveChip = () => {
     if (!inputDesde || !inputHasta) return;
 
@@ -65,21 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayStr = formatLocalDate(today);
 
     chips.forEach((chip) => {
-      let from = todayStr;
-      if (chip.dataset.range === '7d') {
-        const fromDate = new Date(today);
-        fromDate.setDate(today.getDate() - 6);
-        from = formatLocalDate(fromDate);
-      }
-      if (chip.dataset.range === '30d') {
-        const fromDate = new Date(today);
-        fromDate.setDate(today.getDate() - 29);
-        from = formatLocalDate(fromDate);
-      }
-      if (chip.dataset.range === 'today') {
-        from = todayStr;
-      }
-
+      const from = formatLocalDate(getRangeStart(chip.dataset.range || 'today', today));
       const isActive = inputDesde.value === from && inputHasta.value === todayStr;
       chip.classList.toggle('is-active', isActive);
       chip.setAttribute('aria-pressed', isActive ? 'true' : 'false');
@@ -124,14 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!inputDesde || !inputHasta) return;
 
       const today = new Date();
-      const fromDate = new Date(today);
-
-      if (chip.dataset.range === '7d') {
-        fromDate.setDate(today.getDate() - 6);
-      }
-      if (chip.dataset.range === '30d') {
-        fromDate.setDate(today.getDate() - 29);
-      }
+      const fromDate = getRangeStart(chip.dataset.range || 'today', today);
 
       inputDesde.value = formatLocalDate(fromDate);
       inputHasta.value = formatLocalDate(today);
