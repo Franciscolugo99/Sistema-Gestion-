@@ -471,3 +471,340 @@ body[data-theme="dark"] {
     margin-top: 0.25rem;
   }
 }
+
+/* Hero y flujo */
+.repo-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(16, 185, 129, 0.08));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 16px);
+}
+
+.repo-eyebrow {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.repo-hero-copy h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.repo-hero-copy p {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 68ch;
+}
+
+.repo-steps {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.repo-step {
+  padding: 0.8rem 0.95rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+}
+
+.repo-step strong {
+  margin-right: 0.35rem;
+}
+
+.repo-step.is-done {
+  border-color: color-mix(in srgb, var(--repo-success) 45%, var(--border-color));
+  background: var(--repo-success-bg);
+}
+
+.repo-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.repo-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.repo-kpi-card {
+  padding: 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.repo-kpi-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.repo-kpi-value {
+  display: block;
+  margin: 0.35rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.repo-kpi-card small {
+  display: block;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.repo-callout {
+  margin: -0.25rem 0 1.25rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border-color);
+}
+
+.repo-callout-warning {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning-text);
+}
+
+.repo-callout-info {
+  background: var(--repo-info-bg);
+  color: var(--repo-info-text);
+}
+
+/* Secciones complementarias */
+.repo-section {
+  margin-top: 1.25rem;
+  padding: 1.1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.repo-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.repo-section-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.repo-section-head p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+}
+
+.repo-sales-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.repo-sales-card {
+  padding: 1rem;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border-color);
+  background: var(--bg-light);
+}
+
+.repo-sales-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.repo-sales-card-head h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.repo-sales-card-head p {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.repo-sales-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.repo-sales-metrics span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.repo-sales-metrics strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.95rem;
+}
+
+.repo-sales-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+@media (max-width: 980px) {
+  .repo-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .repo-kpi-grid,
+  .repo-sales-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-section-head,
+  .repo-sales-card-head {
+    flex-direction: column;
+  }
+}
+.repo-bulk-panel {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(16, 185, 129, 0.06));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.repo-bulk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.repo-bulk-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.repo-bulk-head p {
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+}
+
+.repo-bulk-selection {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.repo-bulk-counter {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.repo-bulk-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.repo-bulk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.repo-bulk-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.repo-bulk-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.config-card.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-color));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent), var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.08));
+}
+
+.config-header {
+  gap: 1rem;
+}
+
+.config-product {
+  flex: 1;
+}
+
+.config-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.config-select input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .repo-bulk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .repo-bulk-head,
+  .repo-bulk-foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .repo-bulk-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-bulk-selection {
+    justify-content: space-between;
+  }
+
+  .config-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

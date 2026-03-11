@@ -7,12 +7,12 @@ require_login();
 require_permission('editar_stock');
 
 
-// ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Compatibilidad de esquema (evita 1054 Unknown column en instalaciones viejas)
+// ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Compatibilidad de esquema (evita 1054 Unknown column en instalaciones viejas)
 require_once FLUS_ROOT . '/src/db_helpers.php';
 
 /**
  * Intenta asegurar columnas nuevas usadas por Compras.
- * Si no puede (permisos), el mÃƒÆ’Ã‚Â³dulo sigue funcionando con fallback.
+ * Si no puede (permisos), el mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³dulo sigue funcionando con fallback.
  */
 function flus_compras_ensure_schema(PDO $pdo): void {
   try {
@@ -36,7 +36,7 @@ function flus_compras_ensure_schema(PDO $pdo): void {
         $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_total DECIMAL(12,2) NOT NULL DEFAULT 0");
       }
 
-      // Backfill suave para DBs viejas (si se agregaron columnas reciÃƒÆ’Ã‚Â©n)
+      // Backfill suave para DBs viejas (si se agregaron columnas reciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©n)
       if (has_column($pdo, 'compras', 'total_bruto') && has_column($pdo, 'compras', 'total')) {
         $pdo->exec("UPDATE compras SET total_bruto = total WHERE total_bruto = 0 AND total <> 0");
       }
@@ -84,7 +84,7 @@ $compraEdit = null;
 ------------------------------ */
 function normalizeProveedorName(string $name): string {
   $name = trim($name);
-  $name = preg_replace('/\s+/', ' ', $name); // mÃƒÆ’Ã‚Âºltiples espacios ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ uno
+  $name = preg_replace('/\s+/', ' ', $name); // mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltiples espacios ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ uno
   // Capitalizar cada palabra
   return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
 }
@@ -108,7 +108,7 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
     return $proveedorId;
   }
   
-  // Intentar crear (con manejo de duplicate key por si otro proceso lo creÃƒÆ’Ã‚Â³)
+  // Intentar crear (con manejo de duplicate key por si otro proceso lo creÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³)
   try {
     $stIns = $pdo->prepare("
       INSERT INTO proveedores (nombre, activo)
@@ -117,7 +117,7 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
     $stIns->execute([$nombre]);
     return (int)$pdo->lastInsertId();
   } catch (PDOException $e) {
-    // Si es error de duplicate key (cÃƒÆ’Ã‚Â³digo 23000), buscar de nuevo
+    // Si es error de duplicate key (cÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³digo 23000), buscar de nuevo
     if ($e->getCode() == 23000 || str_contains($e->getMessage(), 'Duplicate')) {
       $stFind->execute([$nombre]);
       $proveedorId = (int)($stFind->fetchColumn() ?: 0);
@@ -190,7 +190,7 @@ if (isset($_GET['editar'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (!csrf_verify($_POST['csrf_token'] ?? null)) {
-    $msg = 'Token CSRF invÃƒÆ’Ã‚Â¡lido. RecargÃƒÆ’Ã‚Â¡ y probÃƒÆ’Ã‚Â¡ de nuevo.';
+    $msg = 'Token CSRF invalido. Recarga y proba de nuevo.';
     $msgType = 'error';
   } else {
 
@@ -218,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cants   = $_POST['cantidad'] ?? [];
       $costos  = $_POST['costo_unitario'] ?? [];
 
-      // Descuento por ÃƒÆ’Ã‚Â­tem (opcional): MONTO ($) o PORC (%)
+      // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (opcional): MONTO ($) o PORC (%)
       $itemDescTipos  = $_POST['item_descuento_tipo'] ?? [];
       $itemDescValores = $_POST['item_descuento_valor'] ?? [];
 
@@ -226,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = 'Proveedor es obligatorio.';
         $msgType = 'warning';
       } elseif (!is_array($prodIds) || count($prodIds) === 0) {
-        $msg = 'AgregÃƒÆ’Ã‚Â¡ al menos 1 ÃƒÆ’Ã‚Â­tem a la compra.';
+        $msg = 'Agrega al menos 1 item a la compra.';
         $msgType = 'warning';
       }
 
@@ -244,24 +244,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $cu  = parse_decimal((string)($costos[$i] ?? ''), 0.0);
 
           if ($qty <= 0) { 
-            $msg = 'Cantidad invÃƒÆ’Ã‚Â¡lida en un ÃƒÆ’Ã‚Â­tem.'; 
+            $msg = 'Cantidad invalida en un item.'; 
             $msgType = 'warning';
             break; 
           }
           if ($cu < 0) { 
-            $msg = 'Costo unitario invÃƒÆ’Ã‚Â¡lido en un ÃƒÆ’Ã‚Â­tem.'; 
+            $msg = 'Costo unitario invalido en un item.'; 
             $msgType = 'warning';
             break; 
           }
 
           // Validaciones de rango
           if ($qty > 99999) {
-            $msg = 'Cantidad muy alta en un ÃƒÆ’Ã‚Â­tem (mÃƒÆ’Ã‚Â¡x: 99,999).';
+            $msg = 'Cantidad muy alta en un item (max: 99,999).';
             $msgType = 'warning';
             break;
           }
           if ($cu > 9999999) {
-            $msg = 'Costo muy alto en un ÃƒÆ’Ã‚Â­tem (mÃƒÆ’Ã‚Â¡x: $9,999,999).';
+            $msg = 'Costo muy alto en un item (max: $9,999,999).';
             $msgType = 'warning';
             break;
           }
@@ -269,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $sub = $qty * $cu;
           $total += $sub;
 
-          // Descuento por ÃƒÆ’Ã‚Â­tem (clamp)
+          // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (clamp)
           $dTipo = strtoupper(trim((string)($itemDescTipos[$i] ?? 'MONTO')));
           if (!in_array($dTipo, ['MONTO','PORC'], true)) $dTipo = 'MONTO';
           $dVal  = parse_decimal((string)($itemDescValores[$i] ?? ''), 0.0);
@@ -299,14 +299,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'subtotal'       => $sub,
 
             'descuento_tipo'  => $dTipo,
-            'descuento_valor' => $dVal,    // % o monto segÃƒÆ’Ã‚Âºn tipo
+            'descuento_valor' => $dVal,    // % o monto segÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn tipo
             'descuento_porc'  => $dPorc,   // % real (0 si MONTO)
             'descuento_monto' => $dMonto,  // $ real (0 si no aplica)
           ];
         }
 
         if ($msg === '' && count($items) === 0) {
-          $msg = 'AgregÃƒÆ’Ã‚Â¡ al menos 1 ÃƒÆ’Ã‚Â­tem vÃƒÆ’Ã‚Â¡lido.';
+          $msg = 'Agrega al menos 1 item valido.';
           $msgType = 'warning';
         }
       }
@@ -330,14 +330,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           $totalBruto = $total;
 
-// Total descuento por ÃƒÆ’Ã‚Â­tems
+// Total descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tems
 $descItemsTotal = 0.0;
 foreach ($items as $it) {
   $descItemsTotal += (float)($it['descuento_monto'] ?? 0.0);
 }
 $descItemsTotal = round($descItemsTotal, 2);
 
-// Base para descuento global: bruto - descuentos por ÃƒÆ’Ã‚Â­tem
+// Base para descuento global: bruto - descuentos por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem
 $baseGlobal = max(0.0, round($totalBruto - $descItemsTotal, 2));
 
 // Calcular descuento global total (clamp) SOBRE baseGlobal
@@ -361,7 +361,7 @@ $totalIva  = 0.0;
 $total     = $totalFinal;
 
 if ($compraId > 0) {
-            // EDITAR: verificar que estÃƒÆ’Ã‚Â© en BORRADOR
+            // EDITAR: verificar que estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© en BORRADOR
             $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
             $stCheck->execute([$compraId]);
             $estadoActual = (string)($stCheck->fetchColumn() ?: '');
@@ -437,7 +437,7 @@ $compraId = (int)$pdo->lastInsertId();
           }
 
           // Insertar items
-          // Insertar items (compat: columnas opcionales de descuento por ÃƒÆ’Ã‚Â­tem)
+          // Insertar items (compat: columnas opcionales de descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
           $colsIt = ['compra_id','producto_id','cantidad','costo_unitario','subtotal','comentario'];
           if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsIt[] = 'descuento'; }
           if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsIt[] = 'descuento_tipo'; }
@@ -495,7 +495,7 @@ $compraId = (int)$pdo->lastInsertId();
       $compraId = (int)($_POST['compra_id'] ?? 0);
       
       if ($compraId <= 0) {
-        $msg = 'ID invÃƒÆ’Ã‚Â¡lido.';
+        $msg = 'ID invalido.';
         $msgType = 'error';
       } else {
         try {
@@ -542,7 +542,7 @@ if ($estado !== 'BORRADOR') {
 
       $compraId = (int)($_POST['compra_id'] ?? 0);
       if ($compraId <= 0) {
-        $msg = "ID invÃƒÆ’Ã‚Â¡lido.";
+        $msg = "ID invalido.";
         $msgType = 'error';
       } else {
         try {
@@ -571,7 +571,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             throw new RuntimeException("Solo se pueden confirmar compras en BORRADOR.");
           }
 
-          // 2) Traer ÃƒÆ’Ã‚Â­tems (compat: columnas opcionales)
+          // 2) Traer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tems (compat: columnas opcionales)
           $colsItSel = ['id','producto_id','cantidad','costo_unitario','subtotal'];
           if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsItSel[] = 'descuento'; }
           if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsItSel[] = 'descuento_tipo'; }
@@ -587,7 +587,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
           $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
           if (!$items) {
-            throw new RuntimeException("La compra no tiene ÃƒÆ’Ã‚Â­tems.");
+            throw new RuntimeException("La compra no tiene items.");
           }
 
           // 3) Verificar productos (existen + activos)
@@ -601,14 +601,14 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
             if (isset($prod['activo']) && (int)$prod['activo'] === 0) {
               $nombre = (string)($prod['nombre'] ?? '');
-              throw new RuntimeException("El producto '{$nombre}' estÃƒÆ’Ã‚Â¡ desactivado. Eliminalo de la compra o reactivÃƒÆ’Ã‚Â¡ el producto.");
+              throw new RuntimeException("El producto '{$nombre}' esta desactivado. Eliminalo de la compra o reactiva el producto.");
             }
           }
 
-          // 4) Calcular descuento por ÃƒÆ’Ã‚Â­tem (guardado) y prorratear descuento global (compras.descuento_total)
+          // 4) Calcular descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (guardado) y prorratear descuento global (compras.descuento_total)
           $baseNet = 0.0;
-          $netByItemId = []; // id => neto (despuÃƒÆ’Ã‚Â©s de desc ÃƒÆ’Ã‚Â­tem)
-          $dItemByItemId = []; // id => desc ÃƒÆ’Ã‚Â­tem ($)
+          $netByItemId = []; // id => neto (despuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s de desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
+          $dItemByItemId = []; // id => desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem ($)
 
           foreach ($items as $it) {
             $itemId = (int)($it['id'] ?? 0);
@@ -618,7 +618,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             $sub = (float)($it['subtotal'] ?? 0.0);
             if ($sub <= 0) $sub = $qty * $cu;
 
-            // Descuento por ÃƒÆ’Ã‚Â­tem: preferir tipo/porc si existe, si no usar descuento (monto)
+            // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem: preferir tipo/porc si existe, si no usar descuento (monto)
             $dItem = 0.0;
             if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO && isset($it['descuento_tipo'])) {
               $t = strtoupper((string)$it['descuento_tipo']);
@@ -651,7 +651,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
           $baseNet = round($baseNet, 2);
 
-          // Prorratear descuento global por neto (post-desc ÃƒÆ’Ã‚Â­tem)
+          // Prorratear descuento global por neto (post-desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
           $dGlobalByItemId = []; // id => desc global ($)
           if ($compraDescuentoTotal > 0 && $baseNet > 0) {
             $sum = 0.0;
@@ -679,7 +679,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-// 5) Impactar stock + movimientos + costo (costo neto por ÃƒÆ’Ã‚Â­tem)
+// 5) Impactar stock + movimientos + costo (costo neto por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
 
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
 
@@ -749,7 +749,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
       $revertirStock = isset($_POST['revertir_stock']); // checkbox
       
       if ($compraId <= 0) {
-        $msg = 'ID invÃƒÆ’Ã‚Â¡lido.';
+        $msg = 'ID invalido.';
         $msgType = 'error';
       } else {
         try {
@@ -793,7 +793,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
                 ':pid' => $pid,
                 ':qty' => -$qty, // negativo
                 ':compra_id' => $compraId,
-                ':com' => "AnulaciÃƒÆ’Ã‚Â³n compra #{$compraId}",
+                ':com' => "Anulacion compra #{$compraId}",
               ]);
             }
           }
@@ -914,9 +914,21 @@ $proveedoresUi = $proveedorStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // Listado + filtros
 $q      = trim((string)($_GET['q'] ?? ''));
+$detalleCompraId = max(0, (int)($_GET['detalle'] ?? 0));
+$detalleOrigen = strtolower(trim((string)($_GET['origen'] ?? '')));
 $estado = (string)($_GET['estado'] ?? '');
 $desde  = validDateYmd((string)($_GET['desde'] ?? ''));
 $hasta  = validDateYmd((string)($_GET['hasta'] ?? ''));
+
+if ($detalleCompraId > 0) {
+  $detalleParams = ['id' => $detalleCompraId];
+  if (in_array($detalleOrigen, ['movimientos', 'compras'], true)) {
+    $detalleParams['origen'] = $detalleOrigen;
+  }
+
+  header('Location: compra_detalle.php?' . http_build_query($detalleParams));
+  exit;
+}
 
 $perPage = (int)($_GET['per_page'] ?? 50);
 if (!in_array($perPage, [20,50,100], true)) $perPage = 50;
@@ -928,8 +940,10 @@ $where = ['1=1'];
 $params = [];
 
 if ($q !== '') {
-  $where[] = "(p.nombre LIKE :q OR c.tipo_comp LIKE :q OR c.nro_comp LIKE :q OR c.id = :idExact)";
-  $params[':q'] = "%{$q}%";
+  $where[] = "(p.nombre LIKE :q_nombre OR c.tipo_comp LIKE :q_tipo OR c.nro_comp LIKE :q_nro OR c.id = :idExact)";
+  $params[':q_nombre'] = "%{$q}%";
+  $params[':q_tipo'] = "%{$q}%";
+  $params[':q_nro'] = "%{$q}%";
   $params[':idExact'] = ctype_digit($q) ? (int)$q : -1;
 }
 
@@ -1539,6 +1553,8 @@ document.addEventListener('keydown', (event) => {
     if (anularModal) anularModal.remove();
   }
 });
+
+
 </script>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>

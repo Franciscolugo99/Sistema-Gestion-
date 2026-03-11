@@ -1,0 +1,298 @@
+.compra-page {
+  max-width: 1180px;
+  margin: 26px auto 40px;
+}
+
+.compra-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.compra-header__main {
+  display: grid;
+  gap: 10px;
+}
+
+.compra-header__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.compra-link-muted,
+.link-back {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.compra-link-muted:hover,
+.link-back:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.compra-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compra-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.compra-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+}
+
+.compra-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compra-badge--borrador {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #f59e0b;
+}
+
+.compra-badge--confirmada {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: var(--accent-green);
+}
+
+.compra-badge--anulada {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: var(--danger);
+}
+
+body[data-theme="light"] .compra-badge--borrador {
+  color: #92400e;
+}
+
+body[data-theme="light"] .compra-badge--confirmada {
+  color: #166534;
+}
+
+body[data-theme="light"] .compra-badge--anulada {
+  color: #991b1b;
+}
+
+.compra-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.compra-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.compra-kpi,
+.compra-sidecard,
+.compra-note,
+.compra-card {
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  box-shadow: var(--panel-shadow);
+}
+
+.compra-kpi {
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.compra-kpi--total {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), color-mix(in srgb, var(--panel) 84%, transparent));
+}
+
+.compra-kpi__label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.compra-kpi__value {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.compra-kpi__hint {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.compra-sidecard {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.compra-sidecard__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.95rem;
+}
+
+.compra-sidecard__row span {
+  color: var(--muted);
+}
+
+.compra-note {
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.compra-note p {
+  margin: 0;
+}
+
+.compra-note p + p {
+  margin-top: 8px;
+}
+
+.compra-note--borrador {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.compra-note--confirmada {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.compra-note--anulada {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.compra-card {
+  padding: 18px;
+}
+
+.compra-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.compra-card__header h2 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.compra-card__header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.compra-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.compra-table th,
+.compra-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 88%, transparent);
+}
+
+.compra-table thead th,
+.compra-table tfoot td {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.compra-table thead th {
+  text-align: left;
+  background: color-mix(in srgb, var(--panel) 90%, var(--bg-soft));
+  color: var(--text-strong, var(--text));
+}
+
+.compra-table tbody td {
+  color: var(--text);
+}
+
+.compra-table tfoot td {
+  background: color-mix(in srgb, var(--panel) 94%, var(--bg-soft));
+  color: var(--text-strong, var(--text));
+}
+
+.compra-table .right {
+  text-align: right;
+}
+
+.compra-product-code {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.empty-cell {
+  text-align: center;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .compra-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .compra-actions {
+    width: 100%;
+  }
+
+  .compra-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .compra-card,
+  .compra-note,
+  .compra-sidecard,
+  .compra-kpi {
+    border-radius: 16px;
+  }
+
+  .compra-table th,
+  .compra-table td {
+    padding: 10px 8px;
+    font-size: 0.9rem;
+  }
+}

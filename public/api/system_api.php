@@ -30,6 +30,16 @@ require_once FLUS_ROOT . '/public/lib/csrf.php';
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
+$canReposicionView = static function (): bool {
+    return function_exists('user_has_permission')
+        && (user_has_permission('ver_reportes') || user_has_permission('ver_stock') || user_has_permission('editar_stock'));
+};
+
+$canReposicionConfig = static function (): bool {
+    return function_exists('user_has_permission')
+        && (user_has_permission('gestionar_stock') || user_has_permission('editar_stock'));
+};
+
 try {
     switch ($action) {
         
@@ -571,7 +581,9 @@ try {
         
         case 'reposicion_stock_bajo': {
             require_login_json();
-            require_perm_json('ver_reportes');
+            if (!$canReposicionView()) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'ver_reportes|ver_stock|editar_stock']);
+            }
             
             if (!function_exists('reposicion_get_stock_bajo')) {
                 json_fail('Módulo de reposición no disponible', 503);
@@ -588,13 +600,17 @@ try {
         
         case 'reposicion_lista': {
             require_login_json();
-            require_perm_json('ver_reportes');
-            
-            if (!function_exists('reposicion_generar_lista')) {
-                json_fail('Módulo de reposición no disponible', 503);
+            if (!$canReposicionView()) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'ver_reportes|ver_stock|editar_stock']);
             }
             
-            $proveedorId = !empty($_GET['proveedor_id']) ? (int)$_GET['proveedor_id'] : null;
+            if (!function_exists('reposicion_generar_lista')) {
+                json_fail('Modulo de reposicion no disponible', 503);
+            }
+            
+            $proveedorId = (array_key_exists('proveedor_id', $_GET) && $_GET['proveedor_id'] !== '')
+                ? (int)$_GET['proveedor_id']
+                : null;
             $items = reposicion_generar_lista($proveedorId);
             
             json_ok(['items' => $items]);
@@ -602,7 +618,9 @@ try {
         
         case 'reposicion_por_proveedor': {
             require_login_json();
-            require_perm_json('ver_reportes');
+            if (!$canReposicionView()) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'ver_reportes|ver_stock|editar_stock']);
+            }
             
             if (!function_exists('reposicion_lista_por_proveedor')) {
                 json_fail('Módulo de reposición no disponible', 503);
@@ -615,7 +633,9 @@ try {
         
         case 'reposicion_cantidad_optima': {
             require_login_json();
-            require_perm_json('ver_reportes');
+            if (!$canReposicionView()) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'ver_reportes|ver_stock|editar_stock']);
+            }
             
             if (!function_exists('reposicion_cantidad_optima')) {
                 json_fail('Módulo de reposición no disponible', 503);
@@ -634,102 +654,32 @@ try {
         
         case 'reposicion_config_list': {
             require_login_json();
-            // Permiso: permitir a usuarios que puedan gestionar/editar stock
-            if (!function_exists('user_has_permission') || (!user_has_permission('gestionar_stock') && !user_has_permission('editar_stock'))) {
+            if (!$canReposicionConfig()) {
                 json_fail('FORBIDDEN', 403, ['perm' => 'gestionar_stock|editar_stock']);
             }
 
-            if (!function_exists('reposicion_ensure_tables')) {
-                json_fail('Módulo de reposición no disponible', 503);
+            if (!function_exists('reposicion_listar_configuracion')) {
+                json_fail('Modulo de reposicion no disponible', 503);
             }
 
-            $pdo = getPDO();
-            // Asegura tabla auxiliar (no toca datos; solo crea si falta)
-            reposicion_ensure_tables($pdo);
-
             $q = trim((string)($_GET['q'] ?? ''));
-            $proveedorId = (int)($_GET['proveedor_id'] ?? 0);
-            if ($proveedorId <= 0) $proveedorId = 0;
-            $sinProveedor = !empty($_GET['sin_proveedor']);
+            $proveedorId = null;
+            if (!empty($_GET['sin_proveedor'])) {
+                $proveedorId = 0;
+            } elseif (array_key_exists('proveedor_id', $_GET) && $_GET['proveedor_id'] !== '') {
+                $proveedorId = (int)$_GET['proveedor_id'];
+            }
 
             $page = max(1, (int)($_GET['page'] ?? 1));
             $limit = min(100, max(10, (int)($_GET['limit'] ?? 30)));
-            $offset = ($page - 1) * $limit;
 
-            // No cargar todo por defecto
-            if ($q === '' && !$proveedorId && !$sinProveedor) {
-                json_ok(['items' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false]);
-            }
-
-            if ($q !== '' && strlen($q) < 2) {
-                json_ok(['items' => [], 'total' => 0, 'page' => $page, 'limit' => $limit, 'has_more' => false, 'q_too_short' => true]);
-            }
-
-            $where = "p.activo = 1";
-            $params = [];
-
-            if ($q !== '') {
-                $where .= " AND (p.codigo LIKE :q OR p.nombre LIKE :q)";
-                $params[':q'] = "%{$q}%";
-            }
-
-            if ($proveedorId) {
-                $where .= " AND COALESCE(p.proveedor_id, r.proveedor_id) = :prov";
-                $params[':prov'] = $proveedorId;
-            }
-
-            if ($sinProveedor) {
-                $where .= " AND COALESCE(p.proveedor_id, r.proveedor_id) IS NULL";
-            }
-
-            $countSql = "
-                SELECT COUNT(*)
-                FROM productos p
-                LEFT JOIN producto_reposicion r ON p.id = r.producto_id
-                WHERE {$where}
-            ";
-            $stmtC = $pdo->prepare($countSql);
-            $stmtC->execute($params);
-            $total = (int)$stmtC->fetchColumn();
-
-            $sql = "
-                SELECT
-                    p.id,
-                    p.codigo,
-                    p.nombre,
-                    p.stock,
-                    COALESCE(p.stock_minimo, r.stock_minimo) AS stock_minimo,
-                    COALESCE(p.punto_reorden, r.punto_reorden) AS punto_reorden,
-                    COALESCE(p.stock_maximo, r.stock_maximo) AS stock_maximo,
-                    COALESCE(p.proveedor_id, r.proveedor_id) AS proveedor_id,
-                    COALESCE(pv.nombre, pvr.nombre, 'Sin proveedor') AS proveedor_nombre
-                FROM productos p
-                LEFT JOIN producto_reposicion r ON p.id = r.producto_id
-                LEFT JOIN proveedores pv  ON p.proveedor_id = pv.id
-                LEFT JOIN proveedores pvr ON r.proveedor_id = pvr.id
-                WHERE {$where}
-                ORDER BY p.nombre
-                LIMIT {$limit} OFFSET {$offset}
-            ";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
-            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            $hasMore = ($offset + count($items)) < $total;
-
-            json_ok([
-                'items' => $items,
-                'total' => $total,
-                'page' => $page,
-                'limit' => $limit,
-                'has_more' => $hasMore,
-            ]);
+            $data = reposicion_listar_configuracion($q, $proveedorId, $page, $limit);
+            json_ok($data);
         }
 
-case 'reposicion_config_set': {
+        case 'reposicion_config_set': {
             require_login_json();
-            // Permiso: permitir a usuarios que puedan gestionar/editar stock
-            if (!function_exists('user_has_permission') || (!user_has_permission('gestionar_stock') && !user_has_permission('editar_stock'))) {
+            if (!$canReposicionConfig()) {
                 json_fail('FORBIDDEN', 403, ['perm' => 'gestionar_stock|editar_stock']);
             }
             
@@ -762,13 +712,17 @@ case 'reposicion_config_set': {
         
         case 'reposicion_exportar_csv': {
             require_login_json();
-            require_perm_json('ver_reportes');
-            
-            if (!function_exists('reposicion_exportar_csv')) {
-                json_fail('Módulo de reposición no disponible', 503);
+            if (!$canReposicionView()) {
+                json_fail('FORBIDDEN', 403, ['perm' => 'ver_reportes|ver_stock|editar_stock']);
             }
             
-            $proveedorId = !empty($_GET['proveedor_id']) ? (int)$_GET['proveedor_id'] : null;
+            if (!function_exists('reposicion_exportar_csv')) {
+                json_fail('Modulo de reposicion no disponible', 503);
+            }
+            
+            $proveedorId = (array_key_exists('proveedor_id', $_GET) && $_GET['proveedor_id'] !== '')
+                ? (int)$_GET['proveedor_id']
+                : null;
             $csv = reposicion_exportar_csv($proveedorId);
             
             header('Content-Type: text/csv; charset=utf-8');

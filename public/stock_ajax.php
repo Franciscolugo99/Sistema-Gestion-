@@ -21,8 +21,8 @@ const TIPOS_AJUSTE = [
     'entrada'    => ['label' => 'Entrada',     'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
     'salida'     => ['label' => 'Salida',      'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Salida manual'],
     'ajuste_pos' => ['label' => 'Ajuste (+)',  'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'ajuste_neg' => ['label' => 'Ajuste (âˆ’)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
-    'perdida'    => ['label' => 'PÃ©rdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'PÃ©rdida/Rotura/Vencimiento'],
+    'ajuste_neg' => ['label' => 'Ajuste (-)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
+    'perdida'    => ['label' => 'Perdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Perdida/Rotura/Vencimiento'],
 ];
 
 const MOTIVO_MAX_LENGTH = 255;
@@ -84,12 +84,12 @@ function calcular_stock_pct(float $stock, float $stock_minimo): float {
 try {
     // Solo POST
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        stock_json_fail('MÃ©todo no permitido', 405);
+        stock_json_fail('Metodo no permitido', 405);
     }
 
     // Verificar CSRF
     if (!function_exists('csrf_verify') || !csrf_verify($_POST['csrf_token'] ?? null)) {
-        stock_json_fail('CSRF invÃ¡lido. RecargÃ¡ la pÃ¡gina y probÃ¡ de nuevo.', 403);
+        stock_json_fail('CSRF invalido. Recarga la pagina y proba de nuevo.', 403);
     }
 
     $action = trim((string)($_POST['action'] ?? ''));
@@ -138,11 +138,11 @@ try {
 
     // Validaciones
     if ($producto_id <= 0) {
-        throw new Exception('ID de producto invÃ¡lido');
+        throw new Exception('ID de producto invalido');
     }
 
     if (!isset(TIPOS_AJUSTE[$tipo])) {
-        throw new Exception('Tipo de ajuste invÃ¡lido');
+        throw new Exception('Tipo de ajuste invalido');
     }
 
     if ($cantidad <= 0) {
@@ -154,7 +154,7 @@ try {
         throw new Exception('El motivo no puede superar los ' . MOTIVO_MAX_LENGTH . ' caracteres');
     }
 
-    // Obtener configuraciÃ³n del tipo
+    // Obtener configuracion del tipo
     $tipoConfig = TIPOS_AJUSTE[$tipo];
     $tipo_mov = $tipoConfig['mov'];
     $cambio = $tipoConfig['signo'] * $cantidad;
@@ -164,7 +164,7 @@ try {
         $motivo = $tipoConfig['motivo_default'];
     }
 
-    // Iniciar transacciÃ³n
+    // Iniciar transaccion
     $pdo->beginTransaction();
 
     // Lock producto para evitar race conditions

@@ -1,5 +1,5 @@
 <?php
-// public/reposicion.php - Reposición Sugerida FLUS
+// public/reposicion.php - Reposicion Sugerida FLUS
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
@@ -7,7 +7,7 @@ require_login();
 
 if (!user_has_permission('ver_reportes') && !user_has_permission('ver_stock') && !user_has_permission('editar_stock')) {
     http_response_code(403);
-    echo 'No tenés permisos para acceder a esta sección.';
+    echo 'No tenes permisos para acceder a esta seccion.';
     exit;
 }
 
@@ -21,11 +21,11 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-$pageTitle = 'Reposición Sugerida - FLUS';
+$pageTitle = 'Reposicion Sugerida - FLUS';
 $currentSection = 'reposicion';
 
-// ✅ Separación de assets
-$extraCss = ['assets/css/reposicion.css'];
+// Separacion de assets
+$extraCss = ['assets/css/reposicion.css', 'assets/css/reposicion_mejoras.css'];
 $extraJs  = ['assets/js/reposicion.js'];
 
 $info = null;
@@ -34,7 +34,7 @@ $error = null;
 // Vista actual
 $vista = (string)($_GET['v'] ?? 'alertas'); // alertas | lista | config
 
-// Permiso para configuración (compat: gestiona_stock en builds viejos)
+// Permiso para configuracion (compat: gestiona_stock en builds viejos)
 $canConfig = user_has_permission('editar_stock') || user_has_permission('gestionar_stock');
 
 // Manejo de acciones POST
@@ -42,25 +42,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
 
     if (!hash_equals($_SESSION['csrf_token'], $token)) {
-        $error = 'Token CSRF inválido.';
+        $error = 'Token CSRF invalido.';
     } else {
         $accion = (string)($_POST['accion'] ?? '');
 
-        if ($accion === 'guardar_config' && $canConfig) {
+        if ($accion === 'generar_reposicion') {
+            $vista = 'lista';
+            $info = 'Reposicion sugerida generada con stock actual, reglas y proveedores vigentes.';
+        } elseif ($accion === 'guardar_config' && $canConfig) {
+            $vista = 'config';
             $productoId = (int)($_POST['producto_id'] ?? 0);
             $stockMin = (float)($_POST['stock_minimo'] ?? 0);
             $stockMax = (float)($_POST['stock_maximo'] ?? 0);
             $puntoReorden = (float)($_POST['punto_reorden'] ?? 0);
 
             $proveedorId = (int)($_POST['proveedor_id'] ?? 0);
-            // Normalizar: 0 => null (Sin proveedor)
             $proveedorId = $proveedorId > 0 ? $proveedorId : null;
 
             if ($productoId > 0) {
                 if (reposicion_set_config($productoId, $stockMin, $stockMax, $puntoReorden, $proveedorId)) {
-                    $info = 'Configuración guardada.';
+                    $info = 'Configuracion guardada.';
                 } else {
-                    $error = 'Error al guardar configuración.';
+                    $error = 'Error al guardar configuracion.';
+                }
+            }
+        } elseif ($accion === 'guardar_config_lote' && $canConfig) {
+            $vista = 'config';
+            $productoIds = array_values(array_unique(array_filter(array_map(static function ($id): int {
+                return (int)$id;
+            }, (array)($_POST['producto_ids'] ?? [])), static function (int $id): bool {
+                return $id > 0;
+            })));
+
+            $changes = [];
+
+            $stockMinRaw = trim((string)($_POST['bulk_stock_minimo'] ?? ''));
+            if ($stockMinRaw !== '') {
+                $changes['stock_minimo'] = (float)$stockMinRaw;
+            }
+
+            $puntoReordenRaw = trim((string)($_POST['bulk_punto_reorden'] ?? ''));
+            if ($puntoReordenRaw !== '') {
+                $changes['punto_reorden'] = (float)$puntoReordenRaw;
+            }
+
+            $stockMaxRaw = trim((string)($_POST['bulk_stock_maximo'] ?? ''));
+            if ($stockMaxRaw !== '') {
+                $changes['stock_maximo'] = (float)$stockMaxRaw;
+            }
+
+            $proveedorRaw = (string)($_POST['bulk_proveedor_id'] ?? '');
+            if ($proveedorRaw !== '') {
+                $proveedorId = (int)$proveedorRaw;
+                $changes['proveedor_id'] = $proveedorId > 0 ? $proveedorId : null;
+            }
+
+            if (empty($productoIds)) {
+                $error = 'Selecciona al menos un producto para aplicar cambios en lote.';
+            } elseif (empty($changes)) {
+                $error = 'Completa al menos un campo en la edicion masiva. Deja vacio para no cambiar.';
+            } else {
+                $resultado = function_exists('reposicion_set_config_lote')
+                    ? reposicion_set_config_lote($productoIds, $changes)
+                    : ['updated' => 0, 'failed' => count($productoIds)];
+
+                if (($resultado['updated'] ?? 0) > 0) {
+                    $info = 'Se actualizaron ' . (int)$resultado['updated'] . ' productos en lote.';
+                    if (($resultado['failed'] ?? 0) > 0) {
+                        $info .= ' Fallaron ' . (int)$resultado['failed'] . '.';
+                    }
+                } else {
+                    $error = 'No se pudieron guardar los cambios en lote.';
                 }
             }
         } elseif ($accion === 'exportar_csv') {
@@ -81,32 +133,69 @@ $pdo = getPDO();
 
 // Conteo de estados
 $conteoEstados = reposicion_conteo_estados();
+$resumenModulo = function_exists('reposicion_resumen_operativo')
+    ? reposicion_resumen_operativo()
+    : [
+        'total_activos' => 0,
+        'productos_configurados' => 0,
+        'productos_sin_regla' => 0,
+        'productos_con_proveedor' => 0,
+        'productos_sin_proveedor' => 0,
+        'productos_pendientes_config' => 0,
+        'cobertura_config' => 0.0,
+    ];
+$ventasDias = 30;
+$leadTimeDias = 7;
+$sugerenciasVentas = function_exists('reposicion_sugerir_por_ventas')
+    ? reposicion_sugerir_por_ventas($ventasDias, $leadTimeDias, 12)
+    : [];
+if (!is_array($sugerenciasVentas)) {
+    $sugerenciasVentas = [];
+}
+$sugerenciasVentas = array_values(array_filter($sugerenciasVentas, static function (array $item): bool {
+    return (float)($item['cantidad_sugerida'] ?? 0) > 0 && (float)($item['vendidas'] ?? 0) > 0;
+}));
+usort($sugerenciasVentas, static function (array $a, array $b): int {
+    $qtyCmp = (float)($b['cantidad_sugerida'] ?? 0) <=> (float)($a['cantidad_sugerida'] ?? 0);
+    if ($qtyCmp !== 0) {
+        return $qtyCmp;
+    }
+    return (float)($b['vendidas'] ?? 0) <=> (float)($a['vendidas'] ?? 0);
+});
+$sugerenciasVentas = array_slice($sugerenciasVentas, 0, 6);
 
 // Para alertas: productos con stock bajo
 $stockBajo = [];
 if ($vista === 'alertas') {
     $stockBajo = reposicion_get_stock_bajo();
 
-    // Fallback: si el conteo dice que hay alertas pero la lista vino vacía,
+    // Fallback: si el conteo dice que hay alertas pero la lista vino vacia,
     // armamos la lista desde productos para que no quede inconsistente.
-    $hayAlertas = (int)($conteoEstados['sin_stock'] ?? 0) > 0 || (int)($conteoEstados['bajo_minimo'] ?? 0) > 0;
+    $hayAlertas = (int)($conteoEstados['total_alertas'] ?? 0) > 0;
 
     if ($hayAlertas && empty($stockBajo)) {
+        $minExpr = _repo_expr_min($pdo);
+        $reoExpr = _repo_expr_reorden($pdo);
+        $provExpr = _repo_expr_proveedor($pdo);
+
         $sql = "
             SELECT
                 p.id,
                 p.codigo,
                 p.nombre,
                 p.stock,
-                p.stock_minimo,
                 p.costo,
+                COALESCE($minExpr, 0) AS stock_minimo,
+                COALESCE($reoExpr, 0) AS punto_reorden,
                 COALESCE(pr.nombre, 'Sin proveedor') AS proveedor_nombre
             FROM productos p
-            LEFT JOIN proveedores pr ON p.proveedor_id = pr.id
+            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            LEFT JOIN proveedores pr ON pr.id = $provExpr
             WHERE p.activo = 1
               AND (
                     p.stock <= 0
-                 OR (p.stock_minimo IS NOT NULL AND p.stock_minimo > 0 AND p.stock < p.stock_minimo)
+                 OR ($minExpr IS NOT NULL AND p.stock < $minExpr)
+                 OR ($reoExpr IS NOT NULL AND p.stock < $reoExpr)
               )
             ORDER BY (p.stock <= 0) DESC, p.stock ASC, p.nombre ASC
             LIMIT 300
@@ -118,17 +207,22 @@ if ($vista === 'alertas') {
         $stockBajo = array_map(static function(array $r): array {
             $stock = (float)($r['stock'] ?? 0);
             $min   = (float)($r['stock_minimo'] ?? 0);
+            $reo   = (float)($r['punto_reorden'] ?? 0);
 
             $estado = 'REORDEN';
-            if ($stock <= 0) $estado = 'SIN_STOCK';
-            elseif ($min > 0 && $stock < $min) $estado = 'BAJO_MINIMO';
+            if ($stock <= 0) {
+                $estado = 'SIN_STOCK';
+            } elseif ($min > 0 && $stock < $min) {
+                $estado = 'BAJO_MINIMO';
+            }
 
-            // Cantidad sugerida simple (para no dejarlo en null)
             $cant = 0.0;
             if ($min > 0) {
                 $cant = max($min - $stock, 0);
+            } elseif ($reo > 0) {
+                $cant = max($reo - $stock, 0);
             } elseif ($stock <= 0) {
-                $cant = 1; // mínimo 1 si está en cero y no hay mínimo definido
+                $cant = 1;
             }
 
             $r['estado'] = $estado;
@@ -141,8 +235,14 @@ if ($vista === 'alertas') {
 
 // Para lista: lista completa por proveedor
 $listaPorProveedor = [];
+$listaResumen = ['grupos' => 0, 'items' => 0, 'costo_total' => 0.0];
 if ($vista === 'lista') {
     $listaPorProveedor = reposicion_lista_por_proveedor();
+    $listaResumen['grupos'] = count($listaPorProveedor);
+    foreach ($listaPorProveedor as $grupo) {
+        $listaResumen['items'] += (int)($grupo['total_items'] ?? 0);
+        $listaResumen['costo_total'] += (float)($grupo['costo_total'] ?? 0);
+    }
 }
 
 // Para config: lista de productos para configurar
@@ -156,85 +256,20 @@ if ($vista === 'config') {
     $buscar = trim((string)($_GET['q'] ?? ''));
     $page = max(1, (int)($_GET['page'] ?? 1));
     $limit = 30;
-    $offset = ($page - 1) * $limit;
 
-    // Filtro proveedor:
-    // - proveedor_id ausente => sin filtro
-    // - proveedor_id=0 => sin proveedor
-    // - proveedor_id>0 => proveedor puntual
     if (isset($_GET['proveedor_id']) && $_GET['proveedor_id'] !== '') {
         $proveedorFiltro = (int)$_GET['proveedor_id'];
         if ($proveedorFiltro < 0) $proveedorFiltro = null;
     }
 
-    // 🚦 Regla anti-tabla gigante:
-    // No listar por defecto. Solo listar si:
-    // - búsqueda >= 2 caracteres
-    // - o hay filtro de proveedor (incluye sin proveedor)
     $lenBuscar = function_exists('mb_strlen') ? mb_strlen($buscar) : strlen($buscar);
     $tieneBusquedaValida = ($buscar !== '' && $lenBuscar >= 2);
     $tieneFiltroProveedor = ($proveedorFiltro !== null);
 
     if ($tieneBusquedaValida || $tieneFiltroProveedor) {
-
-        // Detectar columnas opcionales en productos (evita SQL inválido)
-        $cols = $pdo->query("SHOW COLUMNS FROM productos")->fetchAll(PDO::FETCH_COLUMN) ?: [];
-        $hasMin = in_array('stock_minimo', $cols, true);
-        $hasMax = in_array('stock_maximo', $cols, true);
-        $hasReo = in_array('punto_reorden', $cols, true);
-        $hasProv = in_array('proveedor_id', $cols, true);
-
-        $stockMinExpr = $hasMin ? 'p.stock_minimo' : 'NULL';
-        $stockMaxExpr = $hasMax ? 'p.stock_maximo' : 'NULL';
-        $puntoExpr    = $hasReo ? 'p.punto_reorden' : 'NULL';
-        $provJoinExpr = $hasProv ? 'COALESCE(r.proveedor_id, p.proveedor_id)' : 'r.proveedor_id';
-
-        // WHERE dinámico
-        $where = "WHERE p.activo = 1";
-        $params = [];
-        if ($tieneBusquedaValida) {
-            $where .= " AND (p.codigo LIKE :q OR p.nombre LIKE :q)";
-            $params[':q'] = "%{$buscar}%";
-        }
-        if ($tieneFiltroProveedor) {
-            if ((int)$proveedorFiltro === 0) {
-                $where .= " AND ({$provJoinExpr} IS NULL OR {$provJoinExpr} = 0)";
-            } else {
-                $where .= " AND {$provJoinExpr} = :prov";
-                $params[':prov'] = (int)$proveedorFiltro;
-            }
-        }
-
-        // Total (para paginación)
-        $sqlCount = "SELECT COUNT(*) FROM productos p LEFT JOIN producto_reposicion r ON p.id = r.producto_id {$where}";
-        $stCount = $pdo->prepare($sqlCount);
-        $stCount->execute($params);
-        $totalProductos = (int)($stCount->fetchColumn() ?: 0);
-
-        // Lista (paginada) - trae config en una sola query (evita N+1)
-        $sql = "
-            SELECT
-                p.id,
-                p.codigo,
-                p.nombre,
-                p.stock,
-                p.costo,
-                {$provJoinExpr} AS proveedor_id_efectivo,
-                COALESCE(pv.nombre, 'Sin proveedor') AS proveedor_nombre,
-                COALESCE(r.stock_minimo, {$stockMinExpr}) AS cfg_stock_minimo,
-                COALESCE(r.stock_maximo, {$stockMaxExpr}) AS cfg_stock_maximo,
-                COALESCE(r.punto_reorden, {$puntoExpr}) AS cfg_punto_reorden
-            FROM productos p
-            LEFT JOIN producto_reposicion r ON p.id = r.producto_id
-            LEFT JOIN proveedores pv ON pv.id = {$provJoinExpr}
-            {$where}
-            ORDER BY p.nombre
-            LIMIT {$limit} OFFSET {$offset}
-        ";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $configData = reposicion_listar_configuracion($buscar, $proveedorFiltro, $page, $limit);
+        $productos = $configData['items'] ?? [];
+        $totalProductos = (int)($configData['total'] ?? 0);
     }
 }
 
@@ -247,7 +282,7 @@ require __DIR__ . '/partials/header.php';
 <div class="panel">
     <div class="panel-head">
         <div>
-            <h1>Reposición Sugerida</h1>
+            <h1>Reposicion Sugerida</h1>
             <p class="panel-subtitle">Alertas de stock bajo y lista de compras</p>
         </div>
 
@@ -287,6 +322,82 @@ require __DIR__ . '/partials/header.php';
             <span><?= h($error) ?></span>
         </div>
     <?php endif; ?>
+    <?php
+        $productosConfigurados = (int)($resumenModulo['productos_configurados'] ?? 0);
+        $productosPendientes = (int)($resumenModulo['productos_pendientes_config'] ?? 0);
+        $productosSinRegla = (int)($resumenModulo['productos_sin_regla'] ?? 0);
+        $productosConProveedor = (int)($resumenModulo['productos_con_proveedor'] ?? 0);
+        $productosSinProveedor = (int)($resumenModulo['productos_sin_proveedor'] ?? 0);
+        $coberturaConfig = (float)($resumenModulo['cobertura_config'] ?? 0);
+    ?>
+
+    <section class="repo-hero">
+        <div class="repo-hero-copy">
+            <span class="repo-eyebrow">Flujo completo</span>
+            <h2>Genera la reposicion sugerida sin adivinar el proceso</h2>
+            <p>
+                El sistema cruza stock actual, reglas de reposicion y demanda reciente.
+                Primero defines minimos o punto de reorden, despues generas la sugerencia y finalmente revisas la compra por proveedor.
+            </p>
+
+            <div class="repo-steps">
+                <div class="repo-step <?= $productosConfigurados > 0 ? 'is-done' : '' ?>">
+                    <strong>1.</strong> Configura minimo, reorden y proveedor.
+                </div>
+                <div class="repo-step <?= ((int)($conteoEstados['total_alertas'] ?? 0) > 0 || !empty($sugerenciasVentas)) ? 'is-done' : '' ?>">
+                    <strong>2.</strong> Genera la sugerencia desde este modulo.
+                </div>
+                <div class="repo-step <?= ((int)($listaResumen['items'] ?? 0) > 0) ? 'is-done' : '' ?>">
+                    <strong>3.</strong> Revisa la lista y exporta la compra.
+                </div>
+            </div>
+
+            <div class="repo-hero-actions">
+                <form method="post" class="repo-inline-form">
+                    <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                    <input type="hidden" name="accion" value="generar_reposicion">
+                    <button type="submit" class="btn btn-primary">Generar reposicion sugerida</button>
+                </form>
+                <a href="?v=lista" class="btn btn-ghost">Ver lista de compras</a>
+                <?php if ($canConfig): ?>
+                    <a href="?v=config" class="btn btn-ghost">Configurar reglas</a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="repo-kpi-grid">
+            <article class="repo-kpi-card">
+                <span class="repo-kpi-label">Cobertura</span>
+                <strong class="repo-kpi-value"><?= number_format($coberturaConfig, 1, ',', '.') ?>%</strong>
+                <small><?= number_format($productosConfigurados, 0, ',', '.') ?> / <?= number_format((int)($resumenModulo['total_activos'] ?? 0), 0, ',', '.') ?> productos con reglas</small>
+            </article>
+            <article class="repo-kpi-card">
+                <span class="repo-kpi-label">Pendientes</span>
+                <strong class="repo-kpi-value"><?= number_format($productosPendientes, 0, ',', '.') ?></strong>
+                <small><?= number_format($productosSinRegla, 0, ',', '.') ?> sin minimo ni reorden</small>
+            </article>
+            <article class="repo-kpi-card">
+                <span class="repo-kpi-label">Proveedor</span>
+                <strong class="repo-kpi-value"><?= number_format($productosConProveedor, 0, ',', '.') ?></strong>
+                <small><?= number_format($productosSinProveedor, 0, ',', '.') ?> aun sin proveedor</small>
+            </article>
+            <article class="repo-kpi-card">
+                <span class="repo-kpi-label">Demanda reciente</span>
+                <strong class="repo-kpi-value"><?= number_format(count($sugerenciasVentas), 0, ',', '.') ?></strong>
+                <small>Sugerencias por ventas de los ultimos <?= $ventasDias ?> dias</small>
+            </article>
+        </div>
+    </section>
+
+    <?php if ($productosConfigurados === 0 && $canConfig): ?>
+        <div class="repo-callout repo-callout-warning">
+            Todavia no hay reglas de reposicion configuradas. Empieza por la pestana <strong>Configuracion</strong> para que la sugerencia sea realmente util.
+        </div>
+    <?php elseif ($productosPendientes > 0 && $canConfig): ?>
+        <div class="repo-callout repo-callout-info">
+            Hay <strong><?= number_format($productosPendientes, 0, ',', '.') ?> productos</strong> que aun no tienen reglas suficientes. Puedes generar la reposicion igual, pero conviene completarlos para mejorar la sugerencia.
+        </div>
+    <?php endif; ?>
 
     <!-- Stats Pills -->
     <div class="stats-row">
@@ -314,7 +425,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <div>
                 <div class="stat-pill-value"><?= $conteoEstados['bajo_minimo'] ?? 0 ?></div>
-                <div class="stat-pill-label">Bajo Mínimo</div>
+                <div class="stat-pill-label">Bajo Minimo</div>
             </div>
         </div>
 
@@ -342,7 +453,7 @@ require __DIR__ . '/partials/header.php';
             </svg>
             Alertas
             <?php
-            $totalAlertas = ($conteoEstados['sin_stock'] ?? 0) + ($conteoEstados['bajo_minimo'] ?? 0);
+            $totalAlertas = (int)($conteoEstados['total_alertas'] ?? 0);
             if ($totalAlertas > 0):
             ?>
                 <span class="badge danger"><?= $totalAlertas ?></span>
@@ -367,7 +478,7 @@ require __DIR__ . '/partials/header.php';
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            Configuración
+            Configuracion
         </a>
         <?php endif; ?>
     </div>
@@ -380,7 +491,8 @@ require __DIR__ . '/partials/header.php';
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                     <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
-                <p class="repo-empty-text">¡Excelente! No hay productos con stock bajo</p>
+                <p class="repo-empty-text">No hay productos con alertas por reglas de stock</p>
+                <p class="repo-empty-hint">Si esperabas una sugerencia, usa el boton Generar reposicion sugerida o revisa la configuracion minima y de reorden.</p>
             </div>
         <?php else: ?>
             <?php foreach ($stockBajo as $producto): ?>
@@ -411,7 +523,7 @@ require __DIR__ . '/partials/header.php';
                     <h4><?= h($producto['codigo']) ?> - <?= h($producto['nombre']) ?></h4>
                     <p>
                         <?= h($producto['proveedor_nombre'] ?? 'Sin proveedor') ?>
-                        • Mínimo: <?= number_format((float)($producto['stock_minimo'] ?? 0), 0) ?>
+                        | Minimo: <?= number_format((float)($producto['stock_minimo'] ?? 0), 0) ?>
                     </p>
                 </div>
 
@@ -436,13 +548,72 @@ require __DIR__ . '/partials/header.php';
             <?php endforeach; ?>
         <?php endif; ?>
 
+        <?php if (!empty($sugerenciasVentas)): ?>
+            <section class="repo-section">
+                <div class="repo-section-head">
+                    <div>
+                        <h3>Sugerencias por ventas recientes</h3>
+                        <p>Productos con salida en los ultimos <?= $ventasDias ?> dias que conviene revisar aunque todavia no esten en alerta dura.</p>
+                    </div>
+                    <?php if ($canConfig): ?>
+                        <a href="?v=config" class="btn btn-ghost">Ajustar reglas</a>
+                    <?php endif; ?>
+                </div>
+
+                <div class="repo-sales-grid">
+                    <?php foreach ($sugerenciasVentas as $sugerencia): ?>
+                        <?php
+                            $codigoBusqueda = trim((string)($sugerencia['codigo'] ?? ''));
+                            if ($codigoBusqueda === '') {
+                                $codigoBusqueda = trim((string)($sugerencia['nombre'] ?? ''));
+                            }
+                        ?>
+                        <article class="repo-sales-card">
+                            <div class="repo-sales-card-head">
+                                <div>
+                                    <h4><?= h((string)($sugerencia['codigo'] ?? '')) ?> - <?= h((string)($sugerencia['nombre'] ?? '')) ?></h4>
+                                    <p><?= h((string)($sugerencia['proveedor_nombre'] ?? 'Sin proveedor')) ?></p>
+                                </div>
+                                <span class="badge badge-info">Vendidas: <?= number_format((float)($sugerencia['vendidas'] ?? 0), 0, ',', '.') ?></span>
+                            </div>
+                            <div class="repo-sales-metrics">
+                                <div>
+                                    <span>Stock</span>
+                                    <strong><?= number_format((float)($sugerencia['stock'] ?? 0), 0, ',', '.') ?></strong>
+                                </div>
+                                <div>
+                                    <span>Sugerida</span>
+                                    <strong><?= number_format((float)($sugerencia['cantidad_sugerida'] ?? 0), 0, ',', '.') ?></strong>
+                                </div>
+                                <div>
+                                    <span>Costo estimado</span>
+                                    <strong>$<?= number_format((float)($sugerencia['cantidad_sugerida'] ?? 0) * (float)($sugerencia['costo'] ?? 0), 2, ',', '.') ?></strong>
+                                </div>
+                            </div>
+                            <?php if ($canConfig): ?>
+                                <div class="repo-sales-actions">
+                                    <a href="?v=config&q=<?= urlencode($codigoBusqueda) ?>" class="btn btn-ghost">Configurar producto</a>
+                                </div>
+                            <?php endif; ?>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
+
     <?php elseif ($vista === 'lista'): ?>
         <!-- Lista de compras por proveedor -->
         <?php if (empty($listaPorProveedor)): ?>
             <div class="repo-empty repo-empty--lg">
-                <p class="repo-empty-text">No hay productos que necesiten reposición</p>
+                <p class="repo-empty-text">No hay productos que necesiten reposicion por reglas cargadas</p>
+                <p class="repo-empty-hint">Si quieres forzar una revision, usa Generar reposicion sugerida o revisa las sugerencias por ventas recientes.</p>
             </div>
         <?php else: ?>
+            <div class="repo-pager-info">
+                <strong><?= number_format((int)($listaResumen['grupos'] ?? 0), 0, ',', '.') ?></strong> proveedores,
+                <strong><?= number_format((int)($listaResumen['items'] ?? 0), 0, ',', '.') ?></strong> productos sugeridos
+                y costo estimado total de <strong>$<?= number_format((float)($listaResumen['costo_total'] ?? 0), 2, ',', '.') ?></strong>.
+            </div>
             <?php foreach ($listaPorProveedor as $grupo): ?>
             <?php
                 // Asegurar items (por compat: a veces puede venir como 'items' o 'productos')
@@ -489,10 +660,10 @@ require __DIR__ . '/partials/header.php';
                     <table class="table repo-table">
                         <thead>
                             <tr>
-                                <th>Código</th>
+                                <th>Codigo</th>
                                 <th>Producto</th>
                                 <th class="t-right">Stock</th>
-                                <th class="t-right">Mínimo</th>
+                                <th class="t-right">Minimo</th>
                                 <th class="t-right">Cantidad</th>
                                 <th class="t-right">Costo Unit.</th>
                                 <th class="t-right">Costo Total</th>
@@ -528,8 +699,15 @@ require __DIR__ . '/partials/header.php';
             <?php endforeach; ?>
         <?php endif; ?>
 
+        <?php if ((float)($listaResumen['costo_total'] ?? 0) > 0): ?>
+            <div class="repo-global-total">
+                <div class="repo-global-total-label">Costo estimado total de la reposicion sugerida</div>
+                <div class="repo-global-total-value">$<?= number_format((float)($listaResumen['costo_total'] ?? 0), 2, ',', '.') ?></div>
+            </div>
+        <?php endif; ?>
+
     <?php elseif ($vista === 'config'): ?>
-        <!-- Configuración de stock mínimo/máximo -->
+        <!-- Configuracion de stock minimo/maximo -->
         <div class="repo-searchbar">
             <form method="get">
                 <input type="hidden" name="v" value="config">
@@ -539,7 +717,7 @@ require __DIR__ . '/partials/header.php';
                         name="q"
                         value="<?= h($_GET['q'] ?? '') ?>"
                         class="form-control repo-search-input"
-                        placeholder="Buscar por código o nombre (mín. 2 letras)…"
+                        placeholder="Buscar por codigo o nombre (min. 2 letras)..."
                     >
 
                     <select name="proveedor_id" class="form-control repo-search-select">
@@ -555,7 +733,7 @@ require __DIR__ . '/partials/header.php';
                     <button type="submit" class="btn btn-ghost">Buscar</button>
                 </div>
                 <div class="repo-search-hint">
-                    Tip: para catálogos grandes, buscá por código/nombre o filtrá por proveedor. No se listan productos por defecto para evitar una tabla gigante.
+                    Tip: filtra por proveedor o busca por codigo/nombre y despues aplica cambios en lote. Vacio = no cambia, 0 = limpia minimo/reorden/maximo.
                 </div>
             </form>
         </div>
@@ -564,11 +742,23 @@ require __DIR__ . '/partials/header.php';
           $lenBuscar = function_exists('mb_strlen') ? mb_strlen($buscar) : strlen($buscar);
           $tieneBusquedaValida = ($buscar !== '' && $lenBuscar >= 2);
           $tieneFiltroProveedor = ($proveedorFiltro !== null);
+          $proveedorFiltroNombre = 'todos los proveedores';
+          if ($proveedorFiltro === 0) {
+              $proveedorFiltroNombre = 'productos sin proveedor';
+          } elseif ($proveedorFiltro !== null) {
+              foreach ($proveedores as $proveedorItem) {
+                  if ((int)$proveedorItem['id'] === (int)$proveedorFiltro) {
+                      $proveedorFiltroNombre = (string)$proveedorItem['nombre'];
+                      break;
+                  }
+              }
+          }
         ?>
 
         <?php if (!$tieneBusquedaValida && !$tieneFiltroProveedor): ?>
             <div class="repo-empty repo-empty--md">
-                <p class="repo-empty-text">Buscá o filtrá para empezar.</p>
+                <p class="repo-empty-text">Busca o filtra para empezar a configurar.</p>
+                <p class="repo-empty-hint">Puedes trabajar por proveedor y aplicar las mismas reglas a varios productos de una sola vez.</p>
             </div>
         <?php elseif (empty($productos)): ?>
             <div class="repo-empty repo-empty--md">
@@ -576,18 +766,82 @@ require __DIR__ . '/partials/header.php';
             </div>
         <?php else: ?>
             <div class="repo-pager-info">
-                Mostrando <strong><?= number_format((($page - 1) * $limit) + 1, 0, ',', '.') ?></strong>–<strong><?= number_format(min($page * $limit, $totalProductos), 0, ',', '.') ?></strong>
+                Mostrando <strong><?= number_format((($page - 1) * $limit) + 1, 0, ',', '.') ?></strong>-<strong><?= number_format(min($page * $limit, $totalProductos), 0, ',', '.') ?></strong>
                 de <strong><?= number_format($totalProductos, 0, ',', '.') ?></strong>
+                en <strong><?= h($proveedorFiltroNombre) ?></strong>
+            </div>
+
+            <div class="repo-bulk-panel">
+                <div class="repo-bulk-head">
+                    <div>
+                        <h3>Edicion masiva</h3>
+                        <p>Selecciona varios productos y aplica los mismos parametros sin guardar uno por uno.</p>
+                    </div>
+                    <div class="repo-bulk-selection">
+                        <button type="button" class="btn btn-ghost btn-sm" data-bulk-select-all>Seleccionar pagina</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-bulk-clear>Limpiar</button>
+                        <span class="repo-bulk-counter"><strong data-bulk-count>0</strong> seleccionados</span>
+                    </div>
+                </div>
+
+                <form method="post" id="bulk-config-form" class="repo-bulk-form">
+                    <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                    <input type="hidden" name="accion" value="guardar_config_lote">
+
+                    <div class="repo-bulk-grid">
+                        <div class="form-group">
+                            <label>Stock minimo</label>
+                            <input type="number" name="bulk_stock_minimo" min="0" step="1" class="form-control" placeholder="No cambiar">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Punto de reorden</label>
+                            <input type="number" name="bulk_punto_reorden" min="0" step="1" class="form-control" placeholder="No cambiar">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Stock maximo</label>
+                            <input type="number" name="bulk_stock_maximo" min="0" step="1" class="form-control" placeholder="No cambiar">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Proveedor</label>
+                            <select name="bulk_proveedor_id" class="form-control">
+                                <option value="">No cambiar</option>
+                                <option value="0">Sin proveedor</option>
+                                <?php foreach ($proveedores as $pr): ?>
+                                    <option value="<?= (int)$pr['id'] ?>"><?= h($pr['nombre']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="repo-bulk-foot">
+                        <p class="repo-bulk-hint">Deja vacio para no tocar el valor actual. Usa 0 para limpiar una regla numerica o elige "Sin proveedor" para quitarlo.</p>
+                        <button type="submit" class="btn btn-primary" data-bulk-submit disabled>Aplicar en lote</button>
+                    </div>
+                </form>
             </div>
 
             <?php foreach ($productos as $p): ?>
-            <div class="config-card">
+            <div class="config-card" data-config-card>
                 <div class="config-header">
+                    <label class="config-select">
+                        <input
+                            type="checkbox"
+                            class="repo-bulk-checkbox"
+                            name="producto_ids[]"
+                            value="<?= (int)$p['id'] ?>"
+                            form="bulk-config-form"
+                        >
+                        <span>Seleccionar</span>
+                    </label>
+
                     <div class="config-product">
                         <h4><?= h($p['codigo']) ?> - <?= h($p['nombre']) ?></h4>
                         <p>
                             Stock actual: <strong><?= number_format((float)$p['stock'], 0) ?></strong>
-                            • <?= h($p['proveedor_nombre']) ?>
+                            | <?= h($p['proveedor_nombre']) ?>
                         </p>
                     </div>
                 </div>
@@ -598,18 +852,18 @@ require __DIR__ . '/partials/header.php';
                     <input type="hidden" name="producto_id" value="<?= (int)$p['id'] ?>">
 
                     <div class="form-group">
-                        <label>Stock Mínimo</label>
-                        <input type="number" name="stock_minimo" value="<?= (float)($p['cfg_stock_minimo'] ?? 0) ?>" min="0" step="1" class="form-control">
+                        <label>Stock minimo</label>
+                        <input type="number" name="stock_minimo" value="<?= (float)($p['stock_minimo'] ?? 0) ?>" min="0" step="1" class="form-control">
                     </div>
 
                     <div class="form-group">
-                        <label>Punto de Reorden</label>
-                        <input type="number" name="punto_reorden" value="<?= (float)($p['cfg_punto_reorden'] ?? 0) ?>" min="0" step="1" class="form-control">
+                        <label>Punto de reorden</label>
+                        <input type="number" name="punto_reorden" value="<?= (float)($p['punto_reorden'] ?? 0) ?>" min="0" step="1" class="form-control">
                     </div>
 
                     <div class="form-group">
-                        <label>Stock Máximo</label>
-                        <input type="number" name="stock_maximo" value="<?= (float)($p['cfg_stock_maximo'] ?? 0) ?>" min="0" step="1" class="form-control">
+                        <label>Stock maximo</label>
+                        <input type="number" name="stock_maximo" value="<?= (float)($p['stock_maximo'] ?? 0) ?>" min="0" step="1" class="form-control">
                     </div>
 
                     <div class="form-group">
@@ -625,7 +879,7 @@ require __DIR__ . '/partials/header.php';
                     </div>
 
                     <div class="form-group repo-form-actions">
-                        <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+                        <button type="submit" class="btn btn-sm btn-primary">Guardar solo este</button>
                     </div>
                 </form>
             </div>
@@ -638,11 +892,11 @@ require __DIR__ . '/partials/header.php';
                 ?>
                 <?php if ($page > 1): ?>
                     <?php $qs['page'] = $page - 1; ?>
-                    <a class="btn btn-ghost" href="?<?= http_build_query($qs) ?>">← Anterior</a>
+                    <a class="btn btn-ghost" href="?<?= http_build_query($qs) ?>">Anterior</a>
                 <?php endif; ?>
                 <?php if (($page * $limit) < $totalProductos): ?>
                     <?php $qs['page'] = $page + 1; ?>
-                    <a class="btn btn-ghost" href="?<?= http_build_query($qs) ?>">Siguiente →</a>
+                    <a class="btn btn-ghost" href="?<?= http_build_query($qs) ?>">Siguiente</a>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
