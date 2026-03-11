@@ -62,7 +62,12 @@ final class AfipApi
         $serviceId = 'ws_sr_constancia_inscripcion';
         $ta = ArcaWsaa::getTA($serviceId);
         if (!$ta) {
-            self::$lastError = ArcaWsaa::getLastError() ?: 'No se pudo obtener TA de WSAA.';
+            $wsaaError = ArcaWsaa::getLastError() ?: 'No se pudo obtener TA de WSAA.';
+            if (stripos($wsaaError, 'Computador no autorizado a acceder al servicio') !== false) {
+                self::$lastError = 'El certificado responde con WSAA, pero no tiene autorizado el servicio de padron ARCA (ws_sr_constancia_inscripcion) para este CUIT. Debes habilitar esa relacion en ARCA y volver a intentar.';
+            } else {
+                self::$lastError = $wsaaError;
+            }
             return null;
         }
 
@@ -277,3 +282,4 @@ final class AfipApi
         return implode(', ', $parts);
     }
 }
+

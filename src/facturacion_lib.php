@@ -60,6 +60,31 @@ function flus_facturacion_insert_dynamic(PDO $pdo, string $table, array $data): 
 /**
  * Obtiene la configuracion activa de facturacion con lock pesimista.
  */
+function flus_facturacion_upsert_venta_fiscal(PDO $pdo, int $ventaId, array $data): void
+{
+    if ($ventaId <= 0 || !flus_table_exists($pdo, 'venta_fiscal')) {
+        return;
+    }
+
+    foreach (['venta_id', 'pto_vta', 'tipo_cmp', 'nro_cmp', 'cae', 'cae_vto', 'moneda', 'ctz'] as $col) {
+        if (!flus_column_exists($pdo, 'venta_fiscal', (string) $col)) {
+            return;
+        }
+    }
+
+    $st = $pdo->prepare('REPLACE INTO venta_fiscal (venta_id, pto_vta, tipo_cmp, nro_cmp, cae, cae_vto, moneda, ctz) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $st->execute([
+        $ventaId,
+        (int) ($data['punto_venta'] ?? 0),
+        (int) ($data['tipo_cbte'] ?? 0),
+        (int) ($data['numero'] ?? 0),
+        ($data['cae'] ?? null) ?: null,
+        flus_facturacion_normalizar_cae_vto(isset($data['cae_vto']) ? (string) $data['cae_vto'] : null),
+        ($data['moneda_id'] ?? null) ?: null,
+        isset($data['moneda_cotiz']) ? (float) $data['moneda_cotiz'] : null,
+    ]);
+}
+
 function flus_facturacion_config_activa(PDO $pdo): ?array
 {
     if (!flus_table_exists($pdo, 'config_facturacion')) {
@@ -122,6 +147,95 @@ function flus_facturacion_cond_iva_emisor(array $config): string
     }
 
     return 'RI';
+}
+
+/**
+ * Normaliza un CUIT/CUIL dejando solo digitos.
+ */
+function flus_facturacion_normalizar_doc(?string $value): string
+{
+    return preg_replace('/\D+/', '', (string)$value);
+}
+
+/**
+ * Obtiene el CUIT del emisor desde ARCA o configuracion fiscal local.
+ */
+function flus_facturacion_cuit_emisor(array $config = []): string
+{
+    $arcaCuit = defined('FLUS_ARCA_CUIT') ? flus_facturacion_normalizar_doc((string)FLUS_ARCA_CUIT) : '';
+    if ($arcaCuit !== '') {
+        return $arcaCuit;
+    }
+
+    return flus_facturacion_normalizar_doc((string)($config['cuit'] ?? ''));
+}
+
+/**
+ * Resuelve el tipo de comprobante para facturas comunes aun con esquemas legacy.
+ */
+function flus_facturacion_facturas_modo_value(PDO $pdo, string $modo): string
+{
+    $normalizado = flus_facturacion_normalizar_modo($modo);
+
+    if (!flus_column_exists($pdo, 'facturas', 'modo')) {
+        return flus_facturacion_modo_db_value($normalizado);
+    }
+
+    try {
+        $st = $pdo->query("SHOW COLUMNS FROM facturas LIKE 'modo'");
+        $col = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+        $type = strtolower(trim((string)($col['Type'] ?? '')));
+        if (str_starts_with($type, 'enum(') && !str_contains($type, "'homologacion'")) {
+            return flus_facturacion_modo_db_value($normalizado);
+        }
+    } catch (Throwable $e) {
+        return flus_facturacion_modo_db_value($normalizado);
+    }
+
+    return $normalizado;
+}
+
+function flus_facturacion_numero_local_siguiente(PDO $pdo, int $puntoVenta, string $tipoStr, ?string $modo = null): int
+{
+    if (!flus_table_exists($pdo, 'facturas')) {
+        return 1;
+    }
+    if (!flus_column_exists($pdo, 'facturas', 'punto_venta') || !flus_column_exists($pdo, 'facturas', 'tipo') || !flus_column_exists($pdo, 'facturas', 'numero')) {
+        return 1;
+    }
+
+    $sql = 'SELECT MAX(numero) FROM facturas WHERE punto_venta = ? AND tipo = ?';
+    $params = [$puntoVenta, $tipoStr];
+
+    if ($modo !== null && $modo !== '' && flus_column_exists($pdo, 'facturas', 'modo')) {
+        $sql .= " AND COALESCE(NULLIF(modo, ''), 'legacy') = ?";
+        $params[] = flus_facturacion_facturas_modo_value($pdo, $modo);
+    }
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $max = $st->fetchColumn();
+    return max(1, ((int)($max ?: 0)) + 1);
+}
+
+function flus_facturacion_resolver_tipo_cbte(array $config, ?array $cliente, array $opciones = []): int
+{
+    if (isset($opciones['tipo_cbte'])) {
+        return (int)$opciones['tipo_cbte'];
+    }
+
+    $legacyRaw = strtoupper(trim((string)($config['tipo_comprobante'] ?? $config['tipo_default'] ?? '')));
+    $legacyTipo = flus_facturacion_tipo_cbte_legacy($config);
+    $condIvaEmisor = flus_facturacion_cond_iva_emisor($config);
+    $condIvaReceptor = determinarCondIvaReceptor($cliente);
+
+    // En configuraciones viejas FA/FB/FC representan la familia del comprobante.
+    // Para facturas comunes se debe elegir segun emisor/receptor, no dejar siempre FA.
+    if (in_array($legacyRaw, ['A', 'FA', 'B', 'FB', 'C', 'FC', ''], true)) {
+        return determinarTipoComprobante($condIvaEmisor, $condIvaReceptor);
+    }
+
+    return $legacyTipo ?? determinarTipoComprobante($condIvaEmisor, $condIvaReceptor);
 }
 
 /**
@@ -263,6 +377,9 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         throw new Exception('Venta no encontrada.');
     }
 
+
+    $printItemCount = flus_facturacion_count_items_venta($pdo, $ventaId);
+    flus_facturacion_assert_print_item_limit($printItemCount);
     $st = $pdo->prepare('SELECT id FROM facturas WHERE venta_id = ? ORDER BY id DESC LIMIT 1');
     $st->execute([$ventaId]);
     if ($st->fetchColumn()) {
@@ -276,6 +393,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
 
     $cliente = isset($clienteData['cliente']) && is_array($clienteData['cliente']) ? $clienteData['cliente'] : null;
     $clienteIdFiscal = (int)($clienteData['cliente_id'] ?? 0);
+    $consumidorFinal = !empty($clienteData['consumidor_final']);
 
     if ($clienteIdFiscal > 0 && flus_column_exists($pdo, 'ventas', 'cliente_id') && (int)($venta['cliente_id'] ?? 0) !== $clienteIdFiscal) {
         $stVentaCliente = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
@@ -289,15 +407,21 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
     }
 
     $puntoVenta = max(1, (int)($config['punto_venta'] ?? 1));
-    $condIvaEmisor = flus_facturacion_cond_iva_emisor($config);
     $modoOperacion = flus_facturacion_modo_actual($config, $opciones);
     $modoDemo = $modoOperacion === 'demo';
+    $modoFactura = flus_facturacion_facturas_modo_value($pdo, $modoOperacion);
+    $tipoCbte = flus_facturacion_resolver_tipo_cbte($config, $cliente, $opciones);
+    $tipoStr = obtenerNombreTipoComprobante($tipoCbte);
 
-    $tipoCbte = isset($opciones['tipo_cbte'])
-        ? (int)$opciones['tipo_cbte']
-        : (flus_facturacion_tipo_cbte_legacy($config) ?? determinarTipoComprobante($condIvaEmisor, determinarCondIvaReceptor($cliente)));
+    $clienteCuit = flus_facturacion_normalizar_doc((string)($cliente['cuit'] ?? ''));
+    $emisorCuit = flus_facturacion_cuit_emisor($config);
+    if (!$consumidorFinal && $clienteCuit !== '' && $emisorCuit !== '' && $clienteCuit === $emisorCuit) {
+        throw new Exception('El CUIT del cliente coincide con el CUIT emisor configurado. Selecciona otro cliente o emite como Consumidor Final.');
+    }
 
-    $numero = max(1, (int)($config['proximo_numero'] ?? 1));
+    $numero = $modoDemo
+        ? max(1, (int)($config['proximo_numero'] ?? 1), flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion))
+        : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion));
 
     if (!$modoDemo) {
         $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
@@ -309,7 +433,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
         $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
         if ($ultimoAfip !== null) {
-            $numero = $ultimoAfip + 1;
+            $numero = max($numero, $ultimoAfip + 1);
         }
     }
 
@@ -330,9 +454,10 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         'moneda_cotiz' => 1,
     ];
 
-    $docData = determinarDocumentoCliente($cliente);
+    $docData = determinarDocumentoCliente($cliente, $consumidorFinal);
     $comprobante['tipo_doc'] = $docData['tipo'];
     $comprobante['nro_doc'] = $docData['numero'];
+    $comprobante['condicion_iva_receptor_id'] = determinarCondicionIvaReceptorAfip($cliente, $consumidorFinal);
 
     if ($importes['iva'] > 0 && !empty($importes['iva_detalle'])) {
         $comprobante['iva'] = $importes['iva_detalle'];
@@ -355,7 +480,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
             if (strpos($errorMsg, '10016') !== false || stripos($errorMsg, 'ya fue') !== false) {
                 $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
                 if ($ultimoAfip !== null) {
-                    $numero = $ultimoAfip + 1;
+                    $numero = max(flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion), $ultimoAfip + 1);
                     $comprobante['numero'] = $numero;
                     $resultado = ArcaWsfe::solicitarCAE($comprobante);
                 }
@@ -371,7 +496,6 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         $numero = (int)($resultado['numero'] ?? $numero);
     }
 
-    $tipoStr = obtenerNombreTipoComprobante($tipoCbte);
     $timestamp = date('Y-m-d H:i:s');
 
     $facturaId = flus_facturacion_insert_dynamic($pdo, 'facturas', [
@@ -388,8 +512,18 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         'cae' => $cae,
         'cae_vto' => flus_facturacion_normalizar_cae_vto($caeVto),
         'estado' => $estado,
-        'modo' => $modoOperacion,
+        'modo' => $modoFactura,
         'creado_en' => $timestamp,
+    ]);
+
+    flus_facturacion_upsert_venta_fiscal($pdo, $ventaId, [
+        'punto_venta' => $puntoVenta,
+        'tipo_cbte' => $tipoCbte,
+        'numero' => $numero,
+        'cae' => $cae,
+        'cae_vto' => $caeVto,
+        'moneda_id' => 'PES',
+        'moneda_cotiz' => 1,
     ]);
 
     if (flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
@@ -464,7 +598,7 @@ function crearFacturaManual(array $payload): int
     $pdo->beginTransaction();
 
     try {
-        $clienteData = flus_facturacion_resolver_cliente($pdo, $clienteId);
+        $clienteData = (isset($opciones['resolved_cliente']) && is_array($opciones['resolved_cliente'])) ? $opciones['resolved_cliente'] : flus_facturacion_resolver_cliente($pdo, $clienteId);
         $ventaId = flus_facturacion_crear_venta_manual($pdo, (int)($clienteData['cliente_id'] ?? 0), $items, $meta);
         $facturaId = flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones + ['resolved_cliente' => $clienteData]);
         $pdo->commit();
@@ -477,6 +611,47 @@ function crearFacturaManual(array $payload): int
     }
 }
 
+function flus_facturacion_print_item_limit(): int
+{
+    // Limite conservador para mantener la factura en una sola hoja A4.
+    // Con la version densa de impresion, soporta operaciones largas con descripciones cortas.
+    return 22;
+}
+
+function flus_facturacion_print_item_limit_message(int $count, ?int $limit = null): string
+{
+    $limit = $limit ?? flus_facturacion_print_item_limit();
+    return 'La factura de una sola hoja admite hasta ' . $limit . ' items. Esta operacion tiene ' . $count . '. Divide los items restantes en otra factura.';
+}
+
+function flus_facturacion_assert_print_item_limit(int $count): void
+{
+    $limit = flus_facturacion_print_item_limit();
+    if ($count > $limit) {
+        throw new RuntimeException(flus_facturacion_print_item_limit_message($count, $limit));
+    }
+}
+
+function flus_facturacion_count_items_venta(PDO $pdo, int $ventaId): int
+{
+    if ($ventaId <= 0) {
+        return 0;
+    }
+
+    $manualItems = flus_facturacion_manual_items_fetch($pdo, $ventaId);
+    if ($manualItems !== []) {
+        return count($manualItems);
+    }
+
+    if (!flus_table_exists($pdo, 'venta_items')) {
+        return 0;
+    }
+
+    $st = $pdo->prepare('SELECT COUNT(*) FROM venta_items WHERE venta_id = ?');
+    $st->execute([$ventaId]);
+    $count = $st->fetchColumn();
+    return $count !== false ? (int)$count : 0;
+}
 /**
  * Determina la condicion de IVA del receptor.
  */
@@ -514,9 +689,16 @@ function determinarTipoComprobante(string $condIvaEmisor, string $condIvaRecepto
 /**
  * Determina tipo y numero de documento del cliente.
  */
-function determinarDocumentoCliente(?array $cliente): array
+function determinarDocumentoCliente(?array $cliente, bool $consumidorFinal = false): array
 {
     require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+
+    if ($consumidorFinal) {
+        return [
+            'tipo' => ArcaWsfe::DOC_SIN_IDENTIFICAR,
+            'numero' => '0',
+        ];
+    }
 
     $cuit = $cliente['cuit'] ?? null;
     $dni = $cliente['dni'] ?? $cliente['documento'] ?? null;
@@ -525,8 +707,23 @@ function determinarDocumentoCliente(?array $cliente): array
 }
 
 /**
- * Calcula los importes de la factura.
+ * Devuelve la condicion frente al IVA del receptor para WSFE.
  */
+function determinarCondicionIvaReceptorAfip(?array $cliente, bool $consumidorFinal = false): int
+{
+    require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+
+    if ($consumidorFinal) {
+        return ArcaWsfe::IVA_CONSUMIDOR_FINAL;
+    }
+
+    return match (determinarCondIvaReceptor($cliente)) {
+        'RI' => ArcaWsfe::IVA_RESPONSABLE_INSCRIPTO,
+        'MT' => ArcaWsfe::IVA_MONOTRIBUTISTA,
+        'EX' => ArcaWsfe::IVA_EXENTO,
+        default => ArcaWsfe::IVA_CONSUMIDOR_FINAL,
+    };
+}
 function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipoCbte): array
 {
     $total = (float)($venta['total'] ?? 0);
@@ -846,3 +1043,11 @@ function obtenerPuntosVentaAfip(): ?array
     require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
     return ArcaWsfe::getPuntosVenta();
 }
+
+
+
+
+
+
+
+

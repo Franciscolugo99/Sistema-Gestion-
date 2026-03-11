@@ -128,21 +128,6 @@ function flus_facturacion_consumidor_final(PDO $pdo): ?array
     $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'NULL';
     $order = flus_column_exists($pdo, 'clientes', 'id') ? ' ORDER BY id DESC' : '';
 
-    if (flus_column_exists($pdo, 'clientes', 'cond_iva')) {
-        $sql = 'SELECT * FROM clientes WHERE cond_iva = ?';
-        if (flus_column_exists($pdo, 'clientes', 'activo')) {
-            $sql .= ' AND activo = 1';
-        }
-        $sql .= $order . ' LIMIT 1';
-
-        $st = $pdo->prepare($sql);
-        $st->execute(['CF']);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            return $row;
-        }
-    }
-
     if ($nombreExpr !== 'NULL') {
         $sql = 'SELECT * FROM clientes WHERE UPPER(' . $nombreExpr . ') = ?';
         if (flus_column_exists($pdo, 'clientes', 'activo')) {
@@ -214,6 +199,131 @@ function flus_facturacion_resolver_cliente(PDO $pdo, int $clienteId): array
     ];
 }
 
+function flus_facturacion_resolver_cliente_padron(PDO $pdo, array $lookup): array
+{
+    if (!flus_table_exists($pdo, 'clientes')) {
+        throw new RuntimeException('La tabla clientes no existe.');
+    }
+
+    require_once __DIR__ . '/../public/includes/CuitValidator.php';
+
+    $cuitRaw = trim((string)($lookup['cuit'] ?? ''));
+    $cuit = class_exists('CuitValidator') ? CuitValidator::limpiar($cuitRaw) : preg_replace('/\D+/', '', $cuitRaw);
+    if ($cuit === '' || strlen($cuit) !== 11) {
+        throw new RuntimeException('Debes ingresar un CUIT/CUIL valido para consultar ARCA.');
+    }
+    if (class_exists('CuitValidator') && !CuitValidator::validar($cuit)) {
+        $detalle = CuitValidator::obtenerError($cuitRaw);
+        throw new RuntimeException($detalle !== '' ? $detalle : 'El CUIT/CUIL consultado no es valido.');
+    }
+
+    $nombre = trim((string)($lookup['nombre'] ?? ''));
+    if ($nombre === '') {
+        throw new RuntimeException('ARCA no devolvio nombre o razon social para ese CUIT/CUIL.');
+    }
+
+    $condIva = strtoupper(trim((string)($lookup['cond_iva'] ?? '')));
+    if (!in_array($condIva, ['RI', 'MT', 'EX', 'CF'], true)) {
+        $condIva = 'CF';
+    }
+
+    $direccion = trim((string)($lookup['direccion'] ?? ''));
+    $tipoCliente = strtoupper(trim((string)($lookup['tipo_cliente'] ?? 'MINORISTA')));
+    if (!in_array($tipoCliente, ['MINORISTA', 'MAYORISTA', 'CORPORATIVO'], true)) {
+        $tipoCliente = 'MINORISTA';
+    }
+
+    $cuitFormatted = class_exists('CuitValidator') ? (CuitValidator::formatear($cuit) ?? $cuit) : $cuit;
+
+    $st = $pdo->prepare("SELECT * FROM clientes WHERE REPLACE(REPLACE(COALESCE(cuit, ''), '-', ''), ' ', '') = ? ORDER BY id DESC LIMIT 1");
+    $st->execute([$cuit]);
+    $cliente = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    if ($cliente !== null) {
+        $updates = [];
+        if (flus_column_exists($pdo, 'clientes', 'nombre')) {
+            $updates['nombre'] = $nombre;
+        }
+        if (flus_column_exists($pdo, 'clientes', 'cuit')) {
+            $updates['cuit'] = $cuitFormatted;
+        }
+        if (flus_column_exists($pdo, 'clientes', 'cond_iva')) {
+            $updates['cond_iva'] = $condIva;
+        }
+        if ($direccion !== '' && flus_column_exists($pdo, 'clientes', 'direccion')) {
+            $updates['direccion'] = $direccion;
+        }
+        if (flus_column_exists($pdo, 'clientes', 'tipo_cliente')) {
+            $updates['tipo_cliente'] = $tipoCliente;
+        }
+
+        if ($updates !== []) {
+            $sets = [];
+            $params = [':id' => (int)$cliente['id']];
+            foreach ($updates as $col => $value) {
+                $sets[] = "`{$col}` = :{$col}";
+                $params[':' . $col] = $value;
+            }
+            $sql = 'UPDATE clientes SET ' . implode(', ', $sets) . ' WHERE id = :id';
+            $up = $pdo->prepare($sql);
+            $up->execute($params);
+
+            $st = $pdo->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+            $st->execute([(int)$cliente['id']]);
+            $cliente = $st->fetch(PDO::FETCH_ASSOC) ?: $cliente;
+        }
+
+        return [
+            'cliente_id' => (int)($cliente['id'] ?? 0),
+            'cliente' => $cliente,
+            'consumidor_final' => false,
+        ];
+    }
+
+    $clienteId = flus_facturacion_insert_dynamic($pdo, 'clientes', [
+        'nombre' => $nombre,
+        'cuit' => $cuitFormatted,
+        'cond_iva' => $condIva,
+        'tipo_cliente' => $tipoCliente,
+        'direccion' => $direccion !== '' ? $direccion : null,
+        'activo' => 1,
+        'creado_en' => date('Y-m-d H:i:s'),
+    ]);
+
+    $st = $pdo->prepare('SELECT * FROM clientes WHERE id = ? LIMIT 1');
+    $st->execute([$clienteId]);
+    $cliente = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    return [
+        'cliente_id' => $clienteId,
+        'cliente' => $cliente,
+        'consumidor_final' => false,
+    ];
+}
+
+function flus_facturacion_cliente_lookup_post(array $source): ?array
+{
+    $activo = trim((string)($source['cliente_lookup_activo'] ?? '0')) === '1';
+    if (!$activo) {
+        return null;
+    }
+
+    $cuit = trim((string)($source['cliente_lookup_cuit'] ?? ''));
+    $nombre = trim((string)($source['cliente_lookup_nombre'] ?? ''));
+    if ($cuit === '' || $nombre === '') {
+        return null;
+    }
+
+    return [
+        'cuit' => $cuit,
+        'nombre' => $nombre,
+        'cond_iva' => trim((string)($source['cliente_lookup_cond_iva'] ?? '')),
+        'direccion' => trim((string)($source['cliente_lookup_direccion'] ?? '')),
+        'tipo_cliente' => trim((string)($source['cliente_lookup_tipo_cliente'] ?? 'MINORISTA')),
+        'estado' => trim((string)($source['cliente_lookup_estado'] ?? '')),
+    ];
+}
+
 function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $items, array $meta = []): int
 {
     if (!flus_table_exists($pdo, 'ventas')) {
@@ -259,3 +369,4 @@ function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $it
 
     return $ventaId;
 }
+

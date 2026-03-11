@@ -27,6 +27,61 @@ function factcfg_valid_mode(?string $raw): string
     return flus_facturacion_normalizar_modo($raw);
 }
 
+function factcfg_non_demo_value(?string $raw): string
+{
+    $value = trim((string)$raw);
+    if ($value === '') {
+        return '';
+    }
+
+    $normalized = strtoupper($value);
+    if (in_array($normalized, ['MI KIOSCO DEMO', 'KIOSCO XYZ'], true)) {
+        return '';
+    }
+    if (str_contains($normalized, 'SIEMPRE VIVA')) {
+        return '';
+    }
+
+    return $value;
+}
+
+function factcfg_store_logo_upload(array $file): string
+{
+    $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === UPLOAD_ERR_NO_FILE) {
+        return '';
+    }
+    if ($error !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('No se pudo subir el logo. Codigo de error: ' . $error);
+    }
+
+    $size = (int)($file['size'] ?? 0);
+    if ($size <= 0 || $size > 2 * 1024 * 1024) {
+        throw new RuntimeException('El logo debe ser una imagen de hasta 2 MB.');
+    }
+
+    $originalName = (string)($file['name'] ?? '');
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
+    if (!in_array($ext, $allowed, true)) {
+        throw new RuntimeException('Formato de logo no permitido. Usa PNG, JPG, WEBP o GIF.');
+    }
+
+    $targetDir = __DIR__ . '/uploads/logos';
+    if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+        throw new RuntimeException('No se pudo crear la carpeta para guardar logos.');
+    }
+
+    $safeExt = $ext === 'jpeg' ? 'jpg' : $ext;
+    $filename = 'logo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $safeExt;
+    $targetPath = $targetDir . '/' . $filename;
+    if (!move_uploaded_file((string)($file['tmp_name'] ?? ''), $targetPath)) {
+        throw new RuntimeException('No se pudo guardar el logo subido.');
+    }
+
+    return 'uploads/logos/' . $filename;
+}
+
 function factcfg_legacy_types(string $condIva): array
 {
     if (in_array($condIva, ['MT', 'EX'], true)) {
@@ -166,10 +221,14 @@ function factcfg_fetch_by_punto_venta(PDO $pdo, int $puntoVenta, bool $forUpdate
     return $row ?: null;
 }
 
-function factcfg_defaults(array $row = []): array
+function factcfg_defaults(PDO $pdo, array $row = []): array
 {
     $condIva = factcfg_cond_iva_from_row($row);
     $modo = factcfg_valid_mode((string)($row['modo'] ?? 'demo'));
+    $cuit = trim((string)($row['cuit'] ?? ''));
+    if ($cuit === '' && defined('FLUS_ARCA_CUIT')) {
+        $cuit = (string)FLUS_ARCA_CUIT;
+    }
 
     return [
         'id' => (int)($row['id'] ?? 0),
@@ -177,9 +236,12 @@ function factcfg_defaults(array $row = []): array
         'cond_iva' => $condIva,
         'modo' => $modo,
         'proximo_numero' => max(1, (int)($row['proximo_numero'] ?? 1)),
-        'razon_social' => trim((string)($row['razon_social'] ?? '')),
-        'cuit' => trim((string)($row['cuit'] ?? '')),
-        'domicilio' => trim((string)($row['domicilio'] ?? '')),
+        'razon_social' => factcfg_non_demo_value((string)($row['razon_social'] ?? config_get($pdo, 'business_name', ''))),
+        'cuit' => $cuit,
+        'domicilio' => factcfg_non_demo_value((string)($row['domicilio'] ?? config_get($pdo, 'business_address', ''))),
+        'logo_url' => trim((string)config_get($pdo, 'business_logo_url', '')),
+        'iibb' => trim((string)config_get($pdo, 'business_iibb', '')),
+        'inicio_actividades' => trim((string)config_get($pdo, 'business_inicio_actividades', '')),
     ];
 }
 
@@ -210,6 +272,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $razonSocial = trim((string)($_POST['razon_social'] ?? ''));
                 $cuit = preg_replace('/\D+/', '', (string)($_POST['cuit'] ?? ''));
                 $domicilio = trim((string)($_POST['domicilio'] ?? ''));
+                $iibb = trim((string)($_POST['iibb'] ?? ''));
+                $inicioActividades = trim((string)($_POST['inicio_actividades'] ?? ''));
+                $logoUrl = trim((string)($_POST['logo_url'] ?? ''));
+                $logoSubido = factcfg_store_logo_upload($_FILES['logo_file'] ?? []);
+                if ($logoSubido !== '') {
+                    $logoUrl = $logoSubido;
+                }
 
                 if ($puntoVenta < 1 || $puntoVenta > 99999) {
                     $puntoVenta = 1;
@@ -251,6 +320,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     config_set($pdo, 'facturacion_modo', $modo);
+                    config_set($pdo, 'business_name', $razonSocial);
+                    config_set($pdo, 'business_cuit', $cuit);
+                    config_set($pdo, 'business_address', $domicilio);
+                    config_set($pdo, 'business_iibb', $iibb);
+                    config_set($pdo, 'business_inicio_actividades', $inicioActividades);
+                    config_set($pdo, 'business_logo_url', $logoUrl);
                     $pdo->commit();
                     config_clear_cache();
                     $mensaje = 'Configuracion guardada correctamente.';
@@ -324,7 +399,7 @@ if ($tableReady) {
     }
 }
 
-$config = factcfg_defaults($configRow ?? []);
+$config = factcfg_defaults($pdo, $configRow ?? []);
 $configModo = flus_facturacion_modo_actual($config);
 $configModoLabel = flus_facturacion_modo_label($configModo);
 $modoNoDemo = flus_facturacion_modo_requires_arca($configModo);
@@ -412,7 +487,7 @@ require __DIR__ . '/partials/header.php';
     <section class="config-section">
         <h2 class="section-title">Configuracion general</h2>
 
-        <form method="post" class="config-form">
+        <form method="post" class="config-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="<?= h((string)($_SESSION['csrf_token'] ?? '')) ?>">
             <input type="hidden" name="accion" value="guardar_config">
 
@@ -446,7 +521,52 @@ require __DIR__ . '/partials/header.php';
                         id="domicilio"
                         name="domicilio"
                         value="<?= h($config['domicilio']) ?>"
-                        placeholder="Av. Siempre Viva 123"
+                        placeholder="Ej: San Martin 123, Mendoza"
+                    >
+                </div>
+                <div class="form-group full-width">
+                    <label for="logo_url">Logo de la empresa</label>
+                    <input
+                        type="text"
+                        id="logo_url"
+                        name="logo_url"
+                        value="<?= h($config['logo_url']) ?>"
+                        placeholder="Ej: img/logo_factura.png o https://sitio.com/logo.png"
+                    >
+                    <small>Usa una ruta publica dentro de <code>public/</code>, una URL completa o sube un archivo abajo.</small>
+                    <input
+                        type="file"
+                        id="logo_file"
+                        name="logo_file"
+                        accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+                    >
+                    <small>Formatos permitidos: PNG, JPG, WEBP o GIF. Tamano maximo: 2 MB.</small>
+                    <?php if ($config['logo_url'] !== ''): ?>
+                        <div style="margin-top:10px;">
+                            <img src="<?= h($config['logo_url']) ?>" alt="Logo actual" style="max-width:220px;max-height:90px;object-fit:contain;border:1px solid #d0d7e2;padding:8px;background:#fff;">
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form-group">
+                    <label for="iibb">Ingresos brutos</label>
+                    <input
+                        type="text"
+                        id="iibb"
+                        name="iibb"
+                        value="<?= h($config['iibb']) ?>"
+                        placeholder="Ej: CM 901-234567-8"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="inicio_actividades">Inicio de actividades</label>
+                    <input
+                        type="text"
+                        id="inicio_actividades"
+                        name="inicio_actividades"
+                        value="<?= h($config['inicio_actividades']) ?>"
+                        placeholder="Ej: 01/03/2026"
                     >
                 </div>
 
@@ -577,3 +697,10 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
+
+
+
+
+
+

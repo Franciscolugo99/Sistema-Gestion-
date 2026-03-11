@@ -136,3 +136,51 @@ body[data-theme="light"] .modo-prod {
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
 }
+.fact-lookup-card {
+  padding: 14px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+
+.fact-lookup-inline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.fact-lookup-inline input {
+  flex: 1;
+}
+
+.fact-lookup-result {
+  display: none;
+  margin-top: 14px;
+}
+
+.fact-lookup-result.is-visible {
+  display: block;
+}
+
+.fact-lookup-status {
+  margin-top: 10px;
+}
+
+.fact-lookup-status[data-state="success"] {
+  color: #16a34a;
+}
+
+.fact-lookup-status[data-state="error"] {
+  color: #dc2626;
+}
+
+.fact-lookup-status[data-state="loading"] {
+  color: #2563eb;
+}
+
+@media (max-width: 720px) {
+  .fact-lookup-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

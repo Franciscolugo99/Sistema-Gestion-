@@ -113,13 +113,36 @@ function factura_manual_preview_total(array $rows): float
     return round($total, 2);
 }
 
+function factura_manual_print_item_count(array $rows): int
+{
+    $count = 0;
+    foreach ($rows as $row) {
+        if (trim((string)($row['descripcion'] ?? '')) !== '') {
+            $count++;
+        }
+    }
+    return $count;
+}
+
 $config = factura_manual_config($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
-$modoConfigLabel = flus_facturacion_modo_label(is_array($config) ? (string)($config['modo'] ?? 'demo') : 'demo');
+$modoConfigLabel = flus_facturacion_modo_label(is_array($config) ? flus_facturacion_modo_actual($config) : 'demo');
 $clientes = factura_manual_clientes($pdo);
 $rows = $_SERVER['REQUEST_METHOD'] === 'POST' ? factura_manual_rows_from_post() : factura_manual_default_rows();
+$itemLimit = flus_facturacion_print_item_limit();
+$itemCountPreview = factura_manual_print_item_count($rows);
+$itemCountExceeded = $itemCountPreview > $itemLimit;
 $errores = [];
 $clienteSeleccionadoRaw = (string)($_POST['cliente_id'] ?? '0');
+$clienteLookupUi = [
+    'activo' => (string)($_POST['cliente_lookup_activo'] ?? '0'),
+    'cuit' => trim((string)($_POST['cliente_lookup_cuit'] ?? '')),
+    'nombre' => trim((string)($_POST['cliente_lookup_nombre'] ?? '')),
+    'cond_iva' => trim((string)($_POST['cliente_lookup_cond_iva'] ?? '')),
+    'direccion' => trim((string)($_POST['cliente_lookup_direccion'] ?? '')),
+    'tipo_cliente' => trim((string)($_POST['cliente_lookup_tipo_cliente'] ?? 'MINORISTA')),
+    'estado' => trim((string)($_POST['cliente_lookup_estado'] ?? '')),
+];
 $nota = trim((string)($_POST['nota'] ?? 'Factura manual'));
 $concepto = (int)($_POST['concepto'] ?? 1);
 if (!in_array($concepto, [1, 2, 3], true)) {
@@ -131,16 +154,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
         $errores[] = 'Sesion vencida (CSRF). Actualiza la pagina e intenta de nuevo.';
     }
 
-    if ($clienteSeleccionadoRaw === '') {
-        $errores[] = 'Debes seleccionar un cliente o Consumidor Final.';
-    } elseif ($clienteSeleccionadoRaw !== '0' && !ctype_digit($clienteSeleccionadoRaw)) {
-        $errores[] = 'El cliente seleccionado no es valido.';
+    if ($itemCountExceeded) {
+        $errores[] = flus_facturacion_print_item_limit_message($itemCountPreview, $itemLimit);
+    }
+
+    $resolvedCliente = null;
+    $clienteLookup = flus_facturacion_cliente_lookup_post($_POST);
+    if ($clienteLookup !== null) {
+        try {
+            $resolvedCliente = flus_facturacion_resolver_cliente_padron($pdo, $clienteLookup);
+        } catch (Throwable $e) {
+            $errores[] = $e->getMessage();
+        }
+    } else {
+        if ($clienteSeleccionadoRaw === '') {
+            $errores[] = 'Debes seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.';
+        } elseif ($clienteSeleccionadoRaw !== '0' && !ctype_digit($clienteSeleccionadoRaw)) {
+            $errores[] = 'El cliente seleccionado no es valido.';
+        }
     }
 
     if ($errores === []) {
         try {
+            $clienteId = $resolvedCliente !== null
+                ? (int)($resolvedCliente['cliente_id'] ?? 0)
+                : ($clienteSeleccionadoRaw === '0' ? 0 : (int)$clienteSeleccionadoRaw);
+
+            $opciones = [
+                'concepto' => $concepto,
+            ];
+            if ($resolvedCliente !== null) {
+                $opciones['resolved_cliente'] = $resolvedCliente;
+            }
+
             $facturaId = crearFacturaManual([
-                'cliente_id' => $clienteSeleccionadoRaw === '0' ? 0 : (int)$clienteSeleccionadoRaw,
+                'cliente_id' => $clienteId,
                 'nota' => $nota,
                 'items' => array_map(static function (array $row): array {
                     return [
@@ -151,9 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
                         'iva_porcentaje' => $row['iva_porcentaje'] === '' ? 21 : (float)$row['iva_porcentaje'],
                     ];
                 }, $rows),
-                'opciones' => [
-                    'concepto' => $concepto,
-                ],
+                'opciones' => $opciones,
             ]);
             header('Location: factura_ver.php?id=' . $facturaId);
             exit;
@@ -167,7 +213,7 @@ $totalPreview = factura_manual_preview_total($rows);
 $pageTitle = 'Factura manual';
 $currentSection = 'facturacion';
 $extraCss = ['assets/css/facturacion.css?v=1'];
-
+$extraJs = ['assets/js/facturacion_cliente_lookup.js'];
 require __DIR__ . '/partials/header.php';
 ?>
 
@@ -195,7 +241,7 @@ require __DIR__ . '/partials/header.php';
       </div>
     <?php endif; ?>
 
-    <form method="post" class="fact-form">
+    <form method="post" class="fact-form" data-facturacion-cliente-form="1">
       <?= csrf_field() ?>
 
       <section class="fact-form-section">
@@ -203,7 +249,7 @@ require __DIR__ . '/partials/header.php';
         <div class="fact-form-grid">
           <div class="ff-field ff-field-wide">
             <label>Cliente</label>
-            <select name="cliente_id" required <?= $cfgError !== null ? 'disabled' : '' ?>>
+            <select name="cliente_id" required <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-select>
               <option value="0" <?= $clienteSeleccionadoRaw === '0' ? 'selected' : '' ?>>Consumidor Final</option>
               <?php foreach ($clientes as $cli): ?>
                 <option value="<?= (int)$cli['id'] ?>" <?= ($clienteSeleccionadoRaw !== '0' && ctype_digit($clienteSeleccionadoRaw) && (int)$clienteSeleccionadoRaw === (int)$cli['id']) ? 'selected' : '' ?>>
@@ -211,6 +257,40 @@ require __DIR__ . '/partials/header.php';
                 </option>
               <?php endforeach; ?>
             </select>
+            <div class="muted" style="margin-top:6px;">Tambien puedes consultar ARCA por CUIT/CUIL y usar esos datos al emitir.</div>
+          </div>
+
+          <div class="ff-field ff-field-wide fact-lookup-card" data-facturacion-cliente-lookup>
+            <label>Consultar por CUIT / CUIL</label>
+            <div class="fact-lookup-inline">
+              <input type="text" name="cliente_lookup_cuit" value="<?= h($clienteLookupUi['cuit']) ?>" placeholder="20-12345678-9" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-cuit>
+              <button type="button" class="btn btn-secondary" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-btn>Consultar ARCA</button>
+            </div>
+            <input type="hidden" name="cliente_lookup_activo" value="<?= h($clienteLookupUi['activo']) ?>" data-lookup-activo>
+            <input type="hidden" name="cliente_lookup_tipo_cliente" value="<?= h($clienteLookupUi['tipo_cliente']) ?>" data-lookup-tipo-cliente>
+            <div class="fact-lookup-result <?= $clienteLookupUi['activo'] === '1' ? 'is-visible' : '' ?>" data-lookup-result>
+              <div class="fact-form-grid">
+                <div class="ff-field ff-field-wide">
+                  <label>Razon social</label>
+                  <input type="text" name="cliente_lookup_nombre" value="<?= h($clienteLookupUi['nombre']) ?>" readonly data-lookup-nombre>
+                </div>
+                <div class="ff-field">
+                  <label>Condicion IVA</label>
+                  <input type="text" name="cliente_lookup_cond_iva" value="<?= h($clienteLookupUi['cond_iva']) ?>" readonly data-lookup-cond-iva>
+                </div>
+                <div class="ff-field">
+                  <label>Estado padron</label>
+                  <input type="text" name="cliente_lookup_estado" value="<?= h($clienteLookupUi['estado']) ?>" readonly data-lookup-estado>
+                </div>
+                <div class="ff-field ff-field-wide">
+                  <label>Domicilio fiscal</label>
+                  <input type="text" name="cliente_lookup_direccion" value="<?= h($clienteLookupUi['direccion']) ?>" readonly data-lookup-direccion>
+                </div>
+              </div>
+              <div class="fact-lookup-status muted" data-lookup-status>
+                Si estos datos estan cargados, tendran prioridad sobre el selector al emitir la factura.
+              </div>
+            </div>
           </div>
 
           <div class="ff-field">
@@ -263,7 +343,6 @@ require __DIR__ . '/partials/header.php';
         </div>
         <p class="muted" style="margin-top:10px;">Puedes dejar filas vacias. Se usaran solo las que tengan descripcion.</p>
       </section>
-
       <section class="fact-venta-resumen" style="margin-top:18px;">
         <h2 class="sub-title-page">Resumen</h2>
         <div class="fact-venta-grid">
@@ -279,11 +358,21 @@ require __DIR__ . '/partials/header.php';
             <div class="muted">Modo</div>
             <div><?= h($modoConfigLabel) ?></div>
           </div>
+          <div>
+            <div class="muted">Items imprimibles</div>
+            <div><?= (int)$itemCountPreview ?> / <?= (int)$itemLimit ?></div>
+          </div>
         </div>
+        <p class="muted" style="margin-top:10px;">Limite operativo: hasta <?= (int)$itemLimit ?> items por factura de una hoja.</p>
+        <?php if ($itemCountExceeded): ?>
+          <div class="alert alert-error" style="margin-top:10px;">
+            <?= h(flus_facturacion_print_item_limit_message($itemCountPreview, $itemLimit)) ?>
+          </div>
+        <?php endif; ?>
       </section>
 
       <div class="pf-actions" style="margin-top:18px;">
-        <button type="submit" class="btn btn-primary" <?= $cfgError !== null ? 'disabled' : '' ?>>Emitir factura manual</button>
+        <button type="submit" class="btn btn-primary" <?= ($cfgError !== null || $itemCountExceeded) ? 'disabled' : '' ?>>Emitir factura manual</button>
         <a href="facturacion.php" class="btn btn-secondary">Cancelar</a>
       </div>
     </form>

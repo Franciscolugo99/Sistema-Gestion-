@@ -137,6 +137,63 @@ final class ArcaWsfe
      * 
      * @return array|null ['cae' => string, 'vencimiento' => string] o null si falla
      */
+    /**
+     * Consulta un comprobante ya emitido en WSFE.
+     *
+     * @return array|null Datos basicos del comprobante o null si falla.
+     */
+    public static function consultarComprobante(int $puntoVenta, int $tipoCbte, int $numero): ?array
+    {
+        self::$lastError = null;
+        self::$lastResponse = null;
+
+        $client = self::getSoapClient();
+        if (!$client) return null;
+
+        $auth = self::getAuthArray();
+        if (!$auth) return null;
+
+        try {
+            $params = [
+                'Auth' => $auth,
+                'FeCompConsReq' => [
+                    'CbteTipo' => $tipoCbte,
+                    'CbteNro' => $numero,
+                    'PtoVta' => $puntoVenta,
+                ],
+            ];
+
+            $result = $client->FECompConsultar($params);
+            self::$lastResponse = self::toArray($result);
+
+            $comp = $result->FECompConsultarResult->ResultGet ?? null;
+            if (!$comp) {
+                self::$lastError = self::extractErrors($result->FECompConsultarResult ?? null);
+                if (self::$lastError === null || self::$lastError === '') {
+                    self::$lastError = 'No se pudo recuperar el comprobante desde ARCA.';
+                }
+                return null;
+            }
+
+            return [
+                'cae' => (string) ($comp->CodAutorizacion ?? ''),
+                'cae_vto' => (string) ($comp->FchVto ?? ''),
+                'resultado' => (string) ($comp->Resultado ?? ''),
+                'tipo_cbte' => (int) ($comp->CbteTipo ?? $tipoCbte),
+                'punto_venta' => (int) ($comp->PtoVta ?? $puntoVenta),
+                'numero' => (int) ($comp->CbteNro ?? $numero),
+                'importe_total' => (float) ($comp->ImpTotal ?? 0),
+            ];
+
+        } catch (SoapFault $e) {
+            self::$lastError = 'SOAP Fault: ' . $e->getMessage();
+            return null;
+        } catch (Throwable $e) {
+            self::$lastError = 'Error WSFE: ' . $e->getMessage();
+            return null;
+        }
+    }
+
     public static function solicitarCAE(array $comprobante): ?array
     {
         self::$lastError = null;
@@ -188,7 +245,8 @@ final class ArcaWsfe
             if ($resultado !== 'A' || $cae === '') {
                 // Rechazado
                 $obs = self::extractObservaciones($det);
-                self::$lastError = $obs ?: 'Comprobante rechazado por AFIP.';
+                $errors = self::extractErrors($result->FECAESolicitarResult ?? null);
+                self::$lastError = $obs ?: ($errors ?: 'Comprobante rechazado por AFIP.');
                 return null;
             }
 
@@ -426,6 +484,7 @@ final class ArcaWsfe
         
         $monedaId = (string)($c['moneda_id'] ?? 'PES');
         $monedaCotiz = (float)($c['moneda_cotiz'] ?? 1);
+        $condicionIvaReceptorId = (int)($c['condicion_iva_receptor_id'] ?? self::IVA_CONSUMIDOR_FINAL);
 
         if ($tipoCbte <= 0 || $ptoVta <= 0 || $numero <= 0) {
             self::$lastError = 'Faltan datos obligatorios: tipo_cbte, punto_venta, numero.';
@@ -453,6 +512,7 @@ final class ArcaWsfe
             'ImpTrib' => 0, // Otros tributos
             'MonId' => $monedaId,
             'MonCotiz' => $monedaCotiz,
+            'CondicionIVAReceptorId' => $condicionIvaReceptorId,
         ];
 
         // Si es concepto servicios o mixto, agregar fechas
