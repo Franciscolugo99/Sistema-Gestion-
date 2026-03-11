@@ -8,11 +8,11 @@ declare(strict_types=1);
  * Requiere:
  * - extension openssl
  * - extension soap
- * - Certificado y clave privada (X.509) emitidos por ARCA (prod/homo según ambiente)
+ * - Certificado y clave privada (X.509) emitidos por ARCA (prod/homo segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn ambiente)
  *
- * URLs WSAA (según manual):
- * - Homologación: https://wsaahomo.arca.gov.ar/ws/services/LoginCms?WSDL
- * - Producción:   https://wsaa.arca.gov.ar/ws/services/LoginCms?WSDL
+ * URLs WSAA (segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn manual):
+ * - HomologaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL
+ * - ProducciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n:   https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL
  */
 final class ArcaWsaa
 {
@@ -32,11 +32,11 @@ final class ArcaWsaa
         self::$lastError = null;
 
         if (!extension_loaded('soap')) {
-            self::$lastError = 'Extensión SOAP no habilitada en PHP (extension=soap).';
+            self::$lastError = 'ExtensiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n SOAP no habilitada en PHP (extension=soap).';
             return null;
         }
         if (!extension_loaded('openssl')) {
-            self::$lastError = 'Extensión OpenSSL no habilitada en PHP (extension=openssl).';
+            self::$lastError = 'ExtensiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n OpenSSL no habilitada en PHP (extension=openssl).';
             return null;
         }
 
@@ -50,9 +50,10 @@ final class ArcaWsaa
         }
 
         $env = defined('FLUS_ARCA_ENV') ? (string)FLUS_ARCA_ENV : 'prod';
-        $wsaaWsdl = ($env === 'homo')
-            ? 'https://wsaahomo.arca.gov.ar/ws/services/LoginCms?WSDL'
-            : 'https://wsaa.arca.gov.ar/ws/services/LoginCms?WSDL';
+        $wsaaUrl = ($env === 'homo')
+            ? 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms'
+            : 'https://wsaa.afip.gov.ar/ws/services/LoginCms';
+        $wsaaWsdl = $wsaaUrl . '?WSDL';
 
         $certPath = defined('FLUS_ARCA_CERT_PEM') ? (string)FLUS_ARCA_CERT_PEM : '';
         $keyPath  = defined('FLUS_ARCA_KEY_PEM') ? (string)FLUS_ARCA_KEY_PEM : '';
@@ -90,16 +91,18 @@ final class ArcaWsaa
             $client = new SoapClient($wsaaWsdl, [
                 'trace' => false,
                 'exceptions' => true,
-                'cache_wsdl' => WSDL_CACHE_BOTH,
+                'cache_wsdl' => WSDL_CACHE_NONE,
                 'connection_timeout' => 10,
                 'stream_context' => $ctx,
+                'soap_version' => SOAP_1_2,
+                'location' => $wsaaUrl,
             ]);
 
             // WSAA usa loginCms(in0)
             $resp = $client->loginCms(['in0' => $cms]);
             $taXml = (string)($resp->loginCmsReturn ?? '');
             if ($taXml === '') {
-                self::$lastError = 'WSAA respondió vacío.';
+                self::$lastError = 'WSAA respondiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.';
                 return null;
             }
 
@@ -116,7 +119,7 @@ final class ArcaWsaa
             $expiresAt = $expStr !== '' ? strtotime($expStr) : (time() + 60 * 60);
 
             if ($token === '' || $sign === '') {
-                self::$lastError = 'TA inválido: faltan token/sign.';
+                self::$lastError = 'TA invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido: faltan token/sign.';
                 return null;
             }
 
@@ -157,31 +160,15 @@ final class ArcaWsaa
 
         file_put_contents($traFile, $tra);
 
-        $cert = file_get_contents($certPath);
-        $pkey = file_get_contents($keyPath);
-        if ($cert === false || $pkey === false) {
-            @unlink($traFile);
-            self::$lastError = 'No se pudo leer cert/key.';
-            return null;
-        }
-
-        $pkeyRes = openssl_pkey_get_private($pkey, $keyPass);
-        if ($pkeyRes === false) {
-            @unlink($traFile);
-            self::$lastError = 'No se pudo abrir la clave privada (password incorrecto o formato inválido).';
-            return null;
-        }
-
         $ok = @openssl_pkcs7_sign(
             $traFile,
             $signedFile,
-            $cert,
-            $pkeyRes,
+            'file://' . $certPath,
+            ['file://' . $keyPath, $keyPass],
             [],
-            PKCS7_BINARY | PKCS7_DETACHED
+            0
         );
 
-        openssl_pkey_free($pkeyRes);
         @unlink($traFile);
 
         if (!$ok || !is_file($signedFile)) {
@@ -190,25 +177,27 @@ final class ArcaWsaa
             return null;
         }
 
-        $signed = (string)file_get_contents($signedFile);
+        $signed = @file($signedFile, FILE_IGNORE_NEW_LINES);
         @unlink($signedFile);
-
-        // Extraer bloque base64 (entre líneas) — formato S/MIME
-        $parts = preg_split("/\R/", $signed);
-        $b64 = '';
-        $in = false;
-        foreach ($parts as $line) {
-            if (stripos($line, '-----BEGIN PKCS7-----') !== false) { $in = true; continue; }
-            if (stripos($line, '-----END PKCS7-----') !== false) { $in = false; break; }
-            if ($in) $b64 .= trim($line);
+        if (!is_array($signed) || $signed === []) {
+            self::$lastError = 'No se pudo leer el CMS firmado.';
+            return null;
         }
 
-        if ($b64 === '') {
+        $cms = '';
+        foreach ($signed as $index => $line) {
+            if ($index >= 4) {
+                $cms .= $line . "\n";
+            }
+        }
+
+        $cms = trim($cms);
+        if ($cms === '') {
             self::$lastError = 'No se pudo extraer PKCS7 del S/MIME.';
             return null;
         }
 
-        return $b64;
+        return $cms;
     }
 
     private static function cacheFile(string $serviceId): string

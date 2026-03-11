@@ -3,213 +3,175 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/facturacion_lib.php';
+
 require_login();
 require_permission('emitir_factura');
 
-// Verificar si facturación está habilitada
 $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 if (!$facturacionHabilitada) {
-  header('Location: index.php');
-  exit;
+    header('Location: index.php');
+    exit;
 }
-
 
 $pdo = getPDO();
 
-/* =========================================================
-   1) OBTENER VENTA
-========================================================= */
-$ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
-if ($ventaId <= 0) {
-  header('Location: ventas.php');
-  exit;
-}
-
-$stVenta = $pdo->prepare("
-  SELECT id, fecha, total
-  FROM ventas
-  WHERE id = ?
-  LIMIT 1
-");
-$stVenta->execute([$ventaId]);
-$venta = $stVenta->fetch(PDO::FETCH_ASSOC);
-
-if (!$venta) {
-  header('Location: ventas.php');
-  exit;
-}
-
-/* =========================================================
-   2) SI YA ESTÁ FACTURADA ESTA VENTA -> REDIRIGIR
-========================================================= */
-$stExiste = $pdo->prepare("
-  SELECT id
-  FROM facturas
-  WHERE venta_id = ?
-  ORDER BY id DESC
-  LIMIT 1
-");
-$stExiste->execute([$ventaId]);
-$ya = $stExiste->fetch(PDO::FETCH_ASSOC);
-
-if ($ya && !isset($_GET['force'])) {
-  header('Location: factura_ver.php?id=' . (int)$ya['id']);
-  exit;
-}
-
-/* =========================================================
-   3) CONFIG FACTURACIÓN ACTIVA
-========================================================= */
-$cfgError = null;
-
-$stCfg = $pdo->query("
-  SELECT *
-  FROM config_facturacion
-  WHERE activo = 1
-  ORDER BY id DESC
-  LIMIT 1
-");
-$config = $stCfg ? $stCfg->fetch(PDO::FETCH_ASSOC) : null;
-
-if (!$config) {
-  $cfgError = "Falta configurar la facturación (config_facturacion).";
-}
-
-/* =========================================================
-   4) CLIENTES ACTIVOS
-========================================================= */
-$clientes = $pdo->query("
-  SELECT id, nombre, cuit, cond_iva
-  FROM clientes
-  WHERE activo = 1
-  ORDER BY nombre
-")->fetchAll(PDO::FETCH_ASSOC);
-
-/* =========================================================
-   5) POST: EMITIR FACTURA
-========================================================= */
-$errores = [];
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($cfgError)) {
-
-  // CSRF
-  if (!csrf_verify($_POST['csrf_token'] ?? null)) {
-    $errores[] = "Sesión vencida (CSRF). Actualizá la página e intentá de nuevo.";
-  }
-
-  $clienteId = isset($_POST['cliente_id']) ? (int)$_POST['cliente_id'] : 0;
-
-  if ($clienteId <= 0) {
-    $errores[] = "Tenés que seleccionar un cliente.";
-  } else {
-    $st = $pdo->prepare("SELECT id FROM clientes WHERE id = ? AND activo = 1 LIMIT 1");
-    $st->execute([$clienteId]);
-    if (!$st->fetch()) {
-      $errores[] = "El cliente seleccionado no es válido.";
+function factura_nueva_buscar_existente(PDO $pdo, int $ventaId): ?int
+{
+    if (!flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
+        return null;
     }
-  }
 
-  if (empty($errores)) {
-    try {
-      $pdo->beginTransaction();
-
-      // Re-validar venta dentro de transacción (por seguridad)
-      $stVenta2 = $pdo->prepare("SELECT id, fecha, total FROM ventas WHERE id = ? LIMIT 1");
-      $stVenta2->execute([$ventaId]);
-      $venta2 = $stVenta2->fetch(PDO::FETCH_ASSOC);
-      if (!$venta2) {
-        throw new Exception("La venta ya no existe.");
-      }
-
-      // Evitar doble facturación concurrente
-      $stExiste2 = $pdo->prepare("
+    $st = $pdo->prepare('
         SELECT id
         FROM facturas
         WHERE venta_id = ?
         ORDER BY id DESC
         LIMIT 1
-        FOR UPDATE
-      ");
-      $stExiste2->execute([$ventaId]);
-      $ya2 = $stExiste2->fetch(PDO::FETCH_ASSOC);
+    ');
+    $st->execute([$ventaId]);
+    $facturaId = $st->fetchColumn();
 
-      if ($ya2) {
-        // ya existe: devolvemos a la existente
-        $pdo->commit();
-        header('Location: factura_ver.php?id=' . (int)$ya2['id']);
-        exit;
-      }
-
-      // Lock de config para no repetir número
-      $stCfgLock = $pdo->prepare("
-        SELECT *
-        FROM config_facturacion
-        WHERE id = ?
-        FOR UPDATE
-      ");
-      $stCfgLock->execute([(int)$config['id']]);
-      $cfg = $stCfgLock->fetch(PDO::FETCH_ASSOC);
-
-      if (!$cfg || (int)$cfg['activo'] !== 1) {
-        throw new Exception("No se encontró configuración activa de facturación.");
-      }
-
-      $puntoVenta = (int)$cfg['punto_venta'];
-      $tipo       = (string)$cfg['tipo_comprobante'];  // ej: FACTURA A/B/C
-      $numero     = (int)$cfg['proximo_numero'];
-
-      if ($puntoVenta <= 0) throw new Exception("Punto de venta inválido.");
-      if ($numero <= 0)     throw new Exception("Próximo número inválido.");
-
-      $total = (float)$venta2['total'];
-
-      // Insertar factura (IMPORTANTE: usamos facturas.tipo, no tipo_comprobante)
-      $stIns = $pdo->prepare("
-        INSERT INTO facturas
-          (fecha, venta_id, cliente_id, punto_venta, tipo, numero, total, estado)
-        VALUES
-          (NOW(), ?, ?, ?, ?, ?, ?, 'EMITIDA')
-      ");
-      $stIns->execute([
-        $ventaId,
-        $clienteId,
-        $puntoVenta,
-        $tipo,
-        $numero,
-        $total
-      ]);
-
-      $facturaId = (int)$pdo->lastInsertId();
-
-      // Incrementar contador
-      $stUpdCfg = $pdo->prepare("
-        UPDATE config_facturacion
-        SET proximo_numero = proximo_numero + 1
-        WHERE id = ?
-      ");
-      $stUpdCfg->execute([(int)$cfg['id']]);
-
-      $pdo->commit();
-
-      // Mejor UX: ir directo a ver/imprimir
-      header('Location: factura_ver.php?id=' . $facturaId);
-      exit;
-
-    } catch (Throwable $e) {
-      if ($pdo->inTransaction()) $pdo->rollBack();
-      $errores[] = "Error al emitir la factura: " . $e->getMessage();
-    }
-  }
+    return $facturaId !== false ? (int)$facturaId : null;
 }
 
-/* =========================================================
-   HEADER
-========================================================= */
-$pageTitle      = "Nueva factura";
-$currentSection = "facturacion";
-$extraCss       = ["assets/css/facturacion.css?v=1"];
+function factura_nueva_config(PDO $pdo): ?array
+{
+    if (!flus_table_exists($pdo, 'config_facturacion')) {
+        return null;
+    }
 
-require __DIR__ . "/partials/header.php";
+    $order = flus_column_exists($pdo, 'config_facturacion', 'id') ? ' ORDER BY id DESC' : '';
+
+    if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
+        $st = $pdo->query('SELECT * FROM config_facturacion WHERE activo = 1' . $order . ' LIMIT 1');
+        $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+        if ($row !== null) {
+            return $row;
+        }
+    }
+
+    $st = $pdo->query('SELECT * FROM config_facturacion' . $order . ' LIMIT 1');
+    return $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+}
+
+function factura_nueva_clientes(PDO $pdo): array
+{
+    if (!flus_table_exists($pdo, 'clientes')) {
+        return [];
+    }
+
+    $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'CONCAT("Cliente #", id)';
+    $cuitExpr = flus_column_exists($pdo, 'clientes', 'cuit') ? 'cuit' : 'NULL';
+    $condIvaExpr = flus_column_exists($pdo, 'clientes', 'cond_iva') ? 'cond_iva' : 'NULL';
+    $where = flus_column_exists($pdo, 'clientes', 'activo') ? 'WHERE activo = 1' : '';
+
+    $sql = "
+        SELECT id, {$nombreExpr} AS nombre, {$cuitExpr} AS cuit, {$condIvaExpr} AS cond_iva
+        FROM clientes
+        {$where}
+        ORDER BY nombre ASC
+    ";
+
+    $st = $pdo->query($sql);
+    return $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+}
+
+function factura_nueva_cliente_valido(PDO $pdo, int $clienteId): bool
+{
+    if (!flus_table_exists($pdo, 'clientes')) {
+        return false;
+    }
+
+    $sql = 'SELECT id FROM clientes WHERE id = ?';
+    if (flus_column_exists($pdo, 'clientes', 'activo')) {
+        $sql .= ' AND activo = 1';
+    }
+    $sql .= ' LIMIT 1';
+
+    $st = $pdo->prepare($sql);
+    $st->execute([$clienteId]);
+    return (bool)$st->fetch(PDO::FETCH_ASSOC);
+}
+
+$ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
+if ($ventaId <= 0) {
+    header('Location: ventas.php');
+    exit;
+}
+
+if (!flus_table_exists($pdo, 'ventas')) {
+    header('Location: ventas.php');
+    exit;
+}
+
+$stVenta = $pdo->prepare('
+    SELECT id, fecha, total
+    FROM ventas
+    WHERE id = ?
+    LIMIT 1
+');
+$stVenta->execute([$ventaId]);
+$venta = $stVenta->fetch(PDO::FETCH_ASSOC);
+
+if (!$venta) {
+    header('Location: ventas.php');
+    exit;
+}
+
+$facturaExistenteId = factura_nueva_buscar_existente($pdo, $ventaId);
+if ($facturaExistenteId !== null && !isset($_GET['force'])) {
+    header('Location: factura_ver.php?id=' . $facturaExistenteId);
+    exit;
+}
+
+$config = factura_nueva_config($pdo);
+$cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
+$clientes = factura_nueva_clientes($pdo);
+$errores = [];
+$clienteSeleccionadoRaw = (string)($_POST['cliente_id'] ?? '');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
+    if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+        $errores[] = 'Sesion vencida (CSRF). Actualiza la pagina e intenta de nuevo.';
+    }
+
+    $clienteId = null;
+    if ($clienteSeleccionadoRaw === '') {
+        $errores[] = 'Tienes que seleccionar un cliente o Consumidor Final.';
+    } elseif ($clienteSeleccionadoRaw === '0') {
+        $clienteId = 0;
+    } elseif (!ctype_digit($clienteSeleccionadoRaw)) {
+        $errores[] = 'El cliente seleccionado no es valido.';
+    } else {
+        $clienteId = (int)$clienteSeleccionadoRaw;
+        if (!factura_nueva_cliente_valido($pdo, $clienteId)) {
+            $errores[] = 'El cliente seleccionado no es valido.';
+        }
+    }
+
+    if ($errores === [] && $clienteId !== null) {
+        try {
+            $facturaId = crearFacturaDesdeVenta($ventaId, $clienteId);
+            header('Location: factura_ver.php?id=' . $facturaId);
+            exit;
+        } catch (Throwable $e) {
+            $facturaExistenteId = factura_nueva_buscar_existente($pdo, $ventaId);
+            if ($facturaExistenteId !== null) {
+                header('Location: factura_ver.php?id=' . $facturaExistenteId);
+                exit;
+            }
+
+            $errores[] = 'Error al emitir la factura: ' . $e->getMessage();
+        }
+    }
+}
+
+$pageTitle = 'Nueva factura';
+$currentSection = 'facturacion';
+$extraCss = ['assets/css/facturacion.css?v=1'];
+
+require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="page-wrap">
@@ -217,7 +179,7 @@ require __DIR__ . "/partials/header.php";
 
     <header class="page-header with-back">
       <div class="page-header-left">
-        <a href="facturacion.php" class="link-back">← Volver a facturación</a>
+        <a href="facturacion.php" class="link-back">&larr; Volver a facturacion</a>
         <h1 class="page-title">Nueva factura</h1>
         <p class="page-sub">
           Emitir comprobante a partir de la venta #<?= (int)$venta['id'] ?>.
@@ -225,7 +187,7 @@ require __DIR__ . "/partials/header.php";
       </div>
     </header>
 
-    <?php if (!empty($cfgError)): ?>
+    <?php if ($cfgError !== null): ?>
       <div class="alert alert-error" style="margin-top:12px;">
         <?= h($cfgError) ?>
       </div>
@@ -240,21 +202,25 @@ require __DIR__ . "/partials/header.php";
         </div>
         <div>
           <div class="muted">Fecha</div>
-          <div><?= h($venta['fecha']) ?></div>
+          <div><?= h((string)$venta['fecha']) ?></div>
         </div>
         <div>
           <div class="muted">Total</div>
-          <div class="mono"><?= money_ar($venta['total']) ?></div>
+          <div class="mono"><?= money_ar((float)$venta['total']) ?></div>
         </div>
         <div>
-          <div class="muted">Tipo comprobante</div>
-          <?php if (!empty($config)): ?>
-            <div><?= h($config['tipo_comprobante']) ?> – PV <?= str_pad((string)$config['punto_venta'], 4, '0', STR_PAD_LEFT) ?></div>
+          <div class="muted">Punto de venta</div>
+          <?php if ($config !== null): ?>
+            <?php $modoCfg = flus_facturacion_modo_label((string)($config['modo'] ?? 'demo')); ?>
+            <div>PV <?= str_pad((string)($config['punto_venta'] ?? 1), 4, '0', STR_PAD_LEFT) ?> - <?= h($modoCfg) ?></div>
           <?php else: ?>
-            <div class="muted">Sin configuración</div>
+            <div class="muted">Sin configuracion</div>
           <?php endif; ?>
         </div>
       </div>
+      <p class="muted" style="margin-top:10px;">
+        Puedes emitir para un cliente registrado o para Consumidor Final.
+      </p>
     </section>
 
     <section class="fact-form-section" style="margin-top:18px;">
@@ -267,25 +233,27 @@ require __DIR__ . "/partials/header.php";
         <div class="fact-form-grid">
           <div class="ff-field ff-field-wide">
             <label>Cliente</label>
-            <select name="cliente_id" required <?= !empty($cfgError) ? 'disabled' : '' ?>>
+            <select name="cliente_id" required <?= $cfgError !== null ? 'disabled' : '' ?>>
               <option value="">Seleccionar cliente...</option>
+              <option value="0" <?= $clienteSeleccionadoRaw === '0' ? 'selected' : '' ?>>Consumidor Final</option>
               <?php foreach ($clientes as $cli): ?>
                 <option
                   value="<?= (int)$cli['id'] ?>"
-                  <?= (isset($_POST['cliente_id']) && (int)$_POST['cliente_id'] === (int)$cli['id']) ? 'selected' : '' ?>
+                  <?= ($clienteSeleccionadoRaw !== '' && ctype_digit($clienteSeleccionadoRaw) && (int)$clienteSeleccionadoRaw === (int)$cli['id']) ? 'selected' : '' ?>
                 >
-                  <?= h($cli['nombre']) ?>
+                  <?= h((string)($cli['nombre'] ?? 'Cliente')) ?>
                   <?php if (!empty($cli['cuit'])): ?>
-                    (<?= h($cli['cuit']) ?>)
+                    (<?= h((string)$cli['cuit']) ?>)
                   <?php endif; ?>
                 </option>
               <?php endforeach; ?>
             </select>
+            <div class="muted" style="margin-top:6px;">Si no necesitas asociar un cliente, puedes emitir como Consumidor Final.</div>
           </div>
         </div>
 
         <div class="pf-actions" style="margin-top:18px;">
-          <button type="submit" class="btn btn-primary" <?= !empty($cfgError) ? 'disabled' : '' ?>>
+          <button type="submit" class="btn btn-primary" <?= $cfgError !== null ? 'disabled' : '' ?>>
             Emitir factura
           </button>
 
@@ -294,7 +262,7 @@ require __DIR__ . "/partials/header.php";
           </a>
         </div>
 
-        <?php if (!empty($errores)): ?>
+        <?php if ($errores !== []): ?>
           <div class="msg msg-visible msg-error" style="margin-top:12px;">
             <ul>
               <?php foreach ($errores as $e): ?>
@@ -303,10 +271,9 @@ require __DIR__ . "/partials/header.php";
             </ul>
           </div>
         <?php endif; ?>
-
       </form>
     </section>
   </div>
 </div>
 
-<?php require __DIR__ . "/partials/footer.php"; ?>
+<?php require __DIR__ . '/partials/footer.php'; ?>

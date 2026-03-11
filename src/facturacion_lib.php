@@ -3,14 +3,418 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/db_schema.php';
+require_once __DIR__ . '/facturacion_manual_lib.php';
+
+$flusConfigArcaPath = __DIR__ . '/config_arca.php';
+if (file_exists($flusConfigArcaPath)) {
+    require_once $flusConfigArcaPath;
+}
 
 /**
- * Crea una factura desde una venta existente
- * 
+ * Inserta solo en columnas existentes para tolerar esquemas legacy.
+ *
+ * @return int ID insertado
+ */
+function flus_facturacion_insert_dynamic(PDO $pdo, string $table, array $data): int
+{
+    $schema = flus_current_db($pdo);
+    if ($schema === '' || !flus_table_exists($pdo, $table, $schema)) {
+        throw new RuntimeException("La tabla {$table} no existe.");
+    }
+
+    $colsSet = flus_columns_set($pdo, $schema, $table);
+    $cols = [];
+    $placeholders = [];
+    $params = [];
+
+    foreach ($data as $col => $value) {
+        $col = (string)$col;
+        if (!isset($colsSet[$col])) {
+            continue;
+        }
+
+        $cols[] = "`{$col}`";
+        $placeholders[] = ':' . $col;
+        $params[':' . $col] = $value;
+    }
+
+    if ($cols === []) {
+        throw new RuntimeException("No hay columnas compatibles para insertar en {$table}.");
+    }
+
+    $sql = sprintf(
+        'INSERT INTO `%s` (%s) VALUES (%s)',
+        $table,
+        implode(', ', $cols),
+        implode(', ', $placeholders)
+    );
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+
+    return (int)$pdo->lastInsertId();
+}
+
+/**
+ * Obtiene la configuracion activa de facturacion con lock pesimista.
+ */
+function flus_facturacion_config_activa(PDO $pdo): ?array
+{
+    if (!flus_table_exists($pdo, 'config_facturacion')) {
+        return null;
+    }
+
+    $order = flus_column_exists($pdo, 'config_facturacion', 'id') ? ' ORDER BY id DESC' : '';
+    $lock = ' FOR UPDATE';
+
+    if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
+        $st = $pdo->query('SELECT * FROM config_facturacion WHERE activo = 1' . $order . ' LIMIT 1' . $lock);
+        $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+        if ($row !== null) {
+            return $row;
+        }
+    }
+
+    $st = $pdo->query('SELECT * FROM config_facturacion' . $order . ' LIMIT 1' . $lock);
+    $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
+    return $row;
+}
+
+/**
+ * Compatibilidad con instalaciones viejas que guardaban el tipo textual.
+ */
+function flus_facturacion_tipo_cbte_legacy(array $config): ?int
+{
+    $raw = strtoupper(trim((string)($config['tipo_comprobante'] ?? $config['tipo_default'] ?? '')));
+    $map = [
+        'A' => 1,
+        'FA' => 1,
+        'NDA' => 2,
+        'NCA' => 3,
+        'B' => 6,
+        'FB' => 6,
+        'NDB' => 7,
+        'NCB' => 8,
+        'C' => 11,
+        'FC' => 11,
+        'NDC' => 12,
+        'NCC' => 13,
+    ];
+
+    return $map[$raw] ?? null;
+}
+
+/**
+ * Obtiene la condicion IVA del emisor con fallbacks legacy.
+ */
+function flus_facturacion_cond_iva_emisor(array $config): string
+{
+    $cond = strtoupper(trim((string)($config['cond_iva'] ?? '')));
+    if (in_array($cond, ['RI', 'MT', 'EX'], true)) {
+        return $cond;
+    }
+
+    $legacy = strtoupper(trim((string)($config['tipo_comprobante'] ?? $config['tipo_default'] ?? '')));
+    if (in_array($legacy, ['C', 'FC', 'NCC', 'NDC'], true)) {
+        return 'MT';
+    }
+
+    return 'RI';
+}
+
+/**
+ * Normaliza el modo fiscal de la app.
+ */
+function flus_facturacion_normalizar_modo(?string $raw): string
+{
+    $modo = strtolower(trim((string)$raw));
+
+    if (in_array($modo, ['produccion', 'prod'], true)) {
+        return 'produccion';
+    }
+
+    if (in_array($modo, ['homologacion', 'homologaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', 'homo', 'testing', 'test'], true)) {
+        return 'homologacion';
+    }
+
+    return 'demo';
+}
+
+/**
+ * Obtiene el modo efectivo para la operacion actual.
+ */
+function flus_facturacion_modo_actual(array $config = [], array $opciones = []): string
+{
+    if (isset($opciones['modo'])) {
+        return flus_facturacion_normalizar_modo((string)$opciones['modo']);
+    }
+
+    try {
+        $pdo = getPDO();
+        $persistido = trim((string)config_get($pdo, 'facturacion_modo', ''));
+        if ($persistido !== '') {
+            return flus_facturacion_normalizar_modo($persistido);
+        }
+    } catch (Throwable $e) {
+        // fallback al valor de config_facturacion si app_config no esta disponible
+    }
+
+    return flus_facturacion_normalizar_modo((string)($config['modo'] ?? 'demo'));
+}
+
+/**
+ * Indica si el modo necesita conexion real con ARCA.
+ */
+function flus_facturacion_modo_requires_arca(string $modo): bool
+{
+    return flus_facturacion_normalizar_modo($modo) !== 'demo';
+}
+
+/**
+ * Etiqueta amigable para UI.
+ */
+function flus_facturacion_modo_label(string $modo): string
+{
+    return match (flus_facturacion_normalizar_modo($modo)) {
+        'homologacion' => 'Homologacion',
+        'produccion' => 'Produccion',
+        default => 'Demo',
+    };
+}
+
+/**
+ * Valor compatible para columnas legacy enum(''demo'',''produccion'').
+ */
+function flus_facturacion_modo_db_value(string $modo): string
+{
+    return flus_facturacion_normalizar_modo($modo) === 'demo' ? 'demo' : 'produccion';
+}
+
+/**
+ * Ambiente ARCA esperado para cada modo.
+ */
+function flus_facturacion_arca_env_esperado(string $modo): string
+{
+    return match (flus_facturacion_normalizar_modo($modo)) {
+        'homologacion' => 'homo',
+        'produccion' => 'prod',
+        default => '',
+    };
+}
+
+/**
+ * Ambiente ARCA actualmente configurado.
+ */
+function flus_facturacion_arca_env_actual(): string
+{
+    $env = strtolower(trim((string)(defined('FLUS_ARCA_ENV') ? FLUS_ARCA_ENV : 'prod')));
+    return $env === 'homo' ? 'homo' : 'prod';
+}
+
+/**
+ * Normaliza el modo, con demo como fallback seguro.
+ */
+function flus_facturacion_modo_demo(array $config, array $opciones): bool
+{
+    return flus_facturacion_modo_actual($config, $opciones) === 'demo';
+}
+
+/**
+ * Normaliza fecha de vencimiento CAE para guardar y mostrar consistente.
+ */
+function flus_facturacion_normalizar_cae_vto(?string $caeVto): ?string
+{
+    if ($caeVto === null) {
+        return null;
+    }
+
+    $caeVto = trim($caeVto);
+    if ($caeVto === '') {
+        return null;
+    }
+
+    if (preg_match('/^\d{8}$/', $caeVto) === 1) {
+        $dt = DateTime::createFromFormat('Ymd', $caeVto);
+        if ($dt instanceof DateTime) {
+            return $dt->format('Y-m-d');
+        }
+    }
+
+    $ts = strtotime($caeVto);
+    if ($ts !== false) {
+        return date('Y-m-d', $ts);
+    }
+
+    return $caeVto;
+}
+
+/**
+ * Emite una factura para una venta dentro de una transaccion ya abierta.
+ */
+function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): int
+{
+    $st = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1 FOR UPDATE');
+    $st->execute([$ventaId]);
+    $venta = $st->fetch(PDO::FETCH_ASSOC);
+
+    if (!$venta) {
+        throw new Exception('Venta no encontrada.');
+    }
+
+    $st = $pdo->prepare('SELECT id FROM facturas WHERE venta_id = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$ventaId]);
+    if ($st->fetchColumn()) {
+        throw new Exception('La venta ya tiene una factura emitida.');
+    }
+
+    $clienteData = $opciones['resolved_cliente'] ?? flus_facturacion_resolver_cliente($pdo, $clienteId);
+    if (!is_array($clienteData)) {
+        throw new Exception('No se pudo resolver el cliente para la factura.');
+    }
+
+    $cliente = isset($clienteData['cliente']) && is_array($clienteData['cliente']) ? $clienteData['cliente'] : null;
+    $clienteIdFiscal = (int)($clienteData['cliente_id'] ?? 0);
+
+    if ($clienteIdFiscal > 0 && flus_column_exists($pdo, 'ventas', 'cliente_id') && (int)($venta['cliente_id'] ?? 0) !== $clienteIdFiscal) {
+        $stVentaCliente = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
+        $stVentaCliente->execute([$clienteIdFiscal, $ventaId]);
+        $venta['cliente_id'] = $clienteIdFiscal;
+    }
+
+    $config = flus_facturacion_config_activa($pdo);
+    if (!$config) {
+        throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
+    }
+
+    $puntoVenta = max(1, (int)($config['punto_venta'] ?? 1));
+    $condIvaEmisor = flus_facturacion_cond_iva_emisor($config);
+    $modoOperacion = flus_facturacion_modo_actual($config, $opciones);
+    $modoDemo = $modoOperacion === 'demo';
+
+    $tipoCbte = isset($opciones['tipo_cbte'])
+        ? (int)$opciones['tipo_cbte']
+        : (flus_facturacion_tipo_cbte_legacy($config) ?? determinarTipoComprobante($condIvaEmisor, determinarCondIvaReceptor($cliente)));
+
+    $numero = max(1, (int)($config['proximo_numero'] ?? 1));
+
+    if (!$modoDemo) {
+        $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
+        $envActual = flus_facturacion_arca_env_actual();
+        if ($envEsperado !== '' && $envActual !== $envEsperado) {
+            throw new Exception('El modo ' . flus_facturacion_modo_label($modoOperacion) . ' requiere FLUS_ARCA_ENV=' . strtoupper($envEsperado) . ' pero hoy esta en ' . strtoupper($envActual) . '.');
+        }
+
+        require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+        $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
+        if ($ultimoAfip !== null) {
+            $numero = $ultimoAfip + 1;
+        }
+    }
+
+    $importes = calcularImportesFactura($pdo, $ventaId, $venta, $tipoCbte);
+
+    $comprobante = [
+        'tipo_cbte' => $tipoCbte,
+        'punto_venta' => $puntoVenta,
+        'numero' => $numero,
+        'concepto' => isset($opciones['concepto']) ? (int)$opciones['concepto'] : 1,
+        'fecha' => date('Y-m-d'),
+        'importe_total' => $importes['total'],
+        'importe_neto' => $importes['neto'],
+        'importe_iva' => $importes['iva'],
+        'importe_exento' => $importes['exento'],
+        'importe_no_gravado' => $importes['no_gravado'],
+        'moneda_id' => 'PES',
+        'moneda_cotiz' => 1,
+    ];
+
+    $docData = determinarDocumentoCliente($cliente);
+    $comprobante['tipo_doc'] = $docData['tipo'];
+    $comprobante['nro_doc'] = $docData['numero'];
+
+    if ($importes['iva'] > 0 && !empty($importes['iva_detalle'])) {
+        $comprobante['iva'] = $importes['iva_detalle'];
+    }
+
+    $cae = null;
+    $caeVto = null;
+    $estado = 'EMITIDA';
+
+    if ($modoDemo) {
+        $cae = 'DEMO' . str_pad((string)$numero, 14, '0', STR_PAD_LEFT);
+        $caeVto = date('Y-m-d', strtotime('+10 days'));
+    } else {
+        require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+
+        $resultado = ArcaWsfe::solicitarCAE($comprobante);
+
+        if (!$resultado) {
+            $errorMsg = ArcaWsfe::getLastError() ?: '';
+            if (strpos($errorMsg, '10016') !== false || stripos($errorMsg, 'ya fue') !== false) {
+                $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
+                if ($ultimoAfip !== null) {
+                    $numero = $ultimoAfip + 1;
+                    $comprobante['numero'] = $numero;
+                    $resultado = ArcaWsfe::solicitarCAE($comprobante);
+                }
+            }
+        }
+
+        if (!$resultado) {
+            throw new Exception('Error de AFIP: ' . (ArcaWsfe::getLastError() ?: 'Error desconocido'));
+        }
+
+        $cae = (string)($resultado['cae'] ?? '');
+        $caeVto = flus_facturacion_normalizar_cae_vto((string)($resultado['vencimiento'] ?? ''));
+        $numero = (int)($resultado['numero'] ?? $numero);
+    }
+
+    $tipoStr = obtenerNombreTipoComprobante($tipoCbte);
+    $timestamp = date('Y-m-d H:i:s');
+
+    $facturaId = flus_facturacion_insert_dynamic($pdo, 'facturas', [
+        'venta_id' => $ventaId,
+        'cliente_id' => $clienteIdFiscal > 0 ? $clienteIdFiscal : null,
+        'tipo' => $tipoStr,
+        'punto_venta' => $puntoVenta,
+        'numero' => $numero,
+        'fecha' => $timestamp,
+        'importe_neto' => $importes['neto'],
+        'importe_iva' => $importes['iva'],
+        'importe_exento' => $importes['exento'],
+        'total' => $importes['total'],
+        'cae' => $cae,
+        'cae_vto' => flus_facturacion_normalizar_cae_vto($caeVto),
+        'estado' => $estado,
+        'modo' => $modoOperacion,
+        'creado_en' => $timestamp,
+    ]);
+
+    if (flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
+        $st = $pdo->prepare('UPDATE config_facturacion SET proximo_numero = :nuevo WHERE id = :id');
+        $st->execute([
+            ':nuevo' => $numero + 1,
+            ':id' => $config['id'],
+        ]);
+    }
+
+    if (flus_column_exists($pdo, 'ventas', 'facturada')) {
+        $st = $pdo->prepare('UPDATE ventas SET facturada = 1 WHERE id = ?');
+        $st->execute([$ventaId]);
+    }
+
+    return $facturaId;
+}
+
+/**
+ * Crea una factura desde una venta existente.
+ *
  * @param int $ventaId ID de la venta
  * @param int $clienteId ID del cliente (puede ser 0 para consumidor final)
  * @param array $opciones Opciones adicionales:
- *   - modo: 'demo' o 'produccion' (default: según config)
+ *   - modo: 'demo', 'homologacion' o 'produccion' (default: segun config)
  *   - tipo_cbte: int (forzar tipo de comprobante)
  *   - concepto: int (1=Productos, 2=Servicios, 3=Ambos)
  * @return int ID de la factura creada
@@ -19,202 +423,17 @@ require_once __DIR__ . '/config.php';
 function crearFacturaDesdeVenta(int $ventaId, int $clienteId, array $opciones = []): int
 {
     $pdo = getPDO();
-    
-    // Verificar si facturación está habilitada
-    $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
-    if (!$facturacionHabilitada) {
-        throw new Exception("El módulo de facturación no está habilitado.");
+
+    if (!flus_facturacion_habilitada($pdo)) {
+        throw new Exception('El modulo de facturacion no esta habilitado.');
     }
 
     $pdo->beginTransaction();
 
     try {
-        // 1) Leer la venta
-        $st = $pdo->prepare("SELECT * FROM ventas WHERE id = ?");
-        $st->execute([$ventaId]);
-        $venta = $st->fetch(PDO::FETCH_ASSOC);
-
-        if (!$venta) {
-            throw new Exception("Venta no encontrada.");
-        }
-
-        // 2) Verificar que no tenga factura previa
-        $st = $pdo->prepare("SELECT id FROM facturas WHERE venta_id = ?");
-        $st->execute([$ventaId]);
-        if ($st->fetchColumn()) {
-            throw new Exception("La venta ya tiene una factura emitida.");
-        }
-
-        // 3) Leer cliente (si hay)
-        $cliente = null;
-        if ($clienteId > 0) {
-            $st = $pdo->prepare("SELECT * FROM clientes WHERE id = ?");
-            $st->execute([$clienteId]);
-            $cliente = $st->fetch(PDO::FETCH_ASSOC);
-        }
-
-        // 4) Leer config de facturación activa
-        $st = $pdo->prepare("
-            SELECT *
-            FROM config_facturacion
-            WHERE activo = 1
-            ORDER BY id ASC
-            LIMIT 1
-            FOR UPDATE
-        ");
-        $st->execute();
-        $config = $st->fetch(PDO::FETCH_ASSOC);
-
-        if (!$config) {
-            throw new Exception("No hay configuración de facturación activa. Configure un punto de venta primero.");
-        }
-
-        $puntoVenta = (int)$config['punto_venta'];
-        $condIvaEmisor = (string)($config['cond_iva'] ?? 'RI');
-        $modoDemo = ($config['modo'] ?? 'demo') === 'demo';
-        
-        // Override desde opciones
-        if (isset($opciones['modo'])) {
-            $modoDemo = $opciones['modo'] === 'demo';
-        }
-
-        // 5) Determinar tipo de comprobante
-        $condIvaReceptor = determinarCondIvaReceptor($cliente);
-        $tipoCbte = $opciones['tipo_cbte'] ?? determinarTipoComprobante($condIvaEmisor, $condIvaReceptor);
-        
-        // 6) Obtener próximo número
-        $numero = (int)$config['proximo_numero'];
-        
-        // En modo producción, consultar a AFIP el último número
-        if (!$modoDemo) {
-            require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
-            $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
-            if ($ultimoAfip !== null) {
-                $numero = $ultimoAfip + 1;
-            }
-        }
-
-        // 7) Calcular importes
-        $importes = calcularImportesFactura($pdo, $ventaId, $venta, $tipoCbte);
-
-        // 8) Preparar datos del comprobante
-        $comprobante = [
-            'tipo_cbte' => $tipoCbte,
-            'punto_venta' => $puntoVenta,
-            'numero' => $numero,
-            'concepto' => $opciones['concepto'] ?? 1, // Productos
-            'fecha' => date('Y-m-d'),
-            'importe_total' => $importes['total'],
-            'importe_neto' => $importes['neto'],
-            'importe_iva' => $importes['iva'],
-            'importe_exento' => $importes['exento'],
-            'importe_no_gravado' => $importes['no_gravado'],
-            'moneda_id' => 'PES',
-            'moneda_cotiz' => 1,
-        ];
-
-        // Datos del cliente
-        $docData = determinarDocumentoCliente($cliente);
-        $comprobante['tipo_doc'] = $docData['tipo'];
-        $comprobante['nro_doc'] = $docData['numero'];
-
-        // IVA detallado si corresponde
-        if ($importes['iva'] > 0 && !empty($importes['iva_detalle'])) {
-            $comprobante['iva'] = $importes['iva_detalle'];
-        }
-
-        // 9) Solicitar CAE (o simular en demo)
-        $cae = null;
-        $caeVto = null;
-        $estado = 'EMITIDA';
-
-        if ($modoDemo) {
-            // Modo demo: generar CAE ficticio
-            $cae = 'DEMO' . str_pad((string)$numero, 14, '0', STR_PAD_LEFT);
-            $caeVto = date('Ymd', strtotime('+10 days'));
-        } else {
-            // Modo producción: solicitar a AFIP
-            require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
-            
-            $resultado = ArcaWsfe::solicitarCAE($comprobante);
-            
-            // P1: Si falla con error 10016 (número duplicado), reintentar
-            if (!$resultado) {
-                $errorMsg = ArcaWsfe::getLastError() ?: '';
-                
-                // Error 10016 = "El número de comprobante ya fue registrado"
-                if (strpos($errorMsg, '10016') !== false || stripos($errorMsg, 'ya fue') !== false) {
-                    // Resincronizar número con AFIP
-                    $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
-                    if ($ultimoAfip !== null) {
-                        $numero = $ultimoAfip + 1;
-                        $comprobante['numero'] = $numero;
-                        
-                        // Reintentar una vez
-                        $resultado = ArcaWsfe::solicitarCAE($comprobante);
-                    }
-                }
-            }
-            
-            if (!$resultado) {
-                throw new Exception("Error de AFIP: " . (ArcaWsfe::getLastError() ?: 'Error desconocido'));
-            }
-
-            $cae = $resultado['cae'];
-            $caeVto = $resultado['vencimiento'];
-            $numero = $resultado['numero']; // Por si AFIP lo ajustó
-        }
-
-        // 10) Insertar factura
-        $st = $pdo->prepare("
-            INSERT INTO facturas
-              (venta_id, cliente_id, tipo, punto_venta, numero, 
-               importe_neto, importe_iva, importe_exento, total, 
-               cae, cae_vto, estado, modo, creado_en)
-            VALUES
-              (:venta_id, :cliente_id, :tipo, :punto_venta, :numero,
-               :importe_neto, :importe_iva, :importe_exento, :total,
-               :cae, :cae_vto, :estado, :modo, NOW())
-        ");
-
-        $tipoStr = obtenerNombreTipoComprobante($tipoCbte);
-
-        $st->execute([
-            ':venta_id' => $ventaId,
-            ':cliente_id' => $clienteId ?: null,
-            ':tipo' => $tipoStr,
-            ':punto_venta' => $puntoVenta,
-            ':numero' => $numero,
-            ':importe_neto' => $importes['neto'],
-            ':importe_iva' => $importes['iva'],
-            ':importe_exento' => $importes['exento'],
-            ':total' => $importes['total'],
-            ':cae' => $cae,
-            ':cae_vto' => $caeVto,
-            ':estado' => $estado,
-            ':modo' => $modoDemo ? 'demo' : 'produccion',
-        ]);
-
-        $facturaId = (int)$pdo->lastInsertId();
-
-        // 11) Actualizar próximo número en config
-        $st = $pdo->prepare("
-            UPDATE config_facturacion
-            SET proximo_numero = :nuevo
-            WHERE id = :id
-        ");
-        $st->execute([
-            ':nuevo' => $numero + 1,
-            ':id' => $config['id'],
-        ]);
-
-        // 12) Marcar venta como facturada
-        $st = $pdo->prepare("UPDATE ventas SET facturada = 1 WHERE id = ?");
-        $st->execute([$ventaId]);
-
+        $facturaId = flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones);
         $pdo->commit();
         return $facturaId;
-
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -224,17 +443,50 @@ function crearFacturaDesdeVenta(int $ventaId, int $clienteId, array $opciones = 
 }
 
 /**
- * Determina la condición de IVA del receptor
+ * Crea una venta manual y emite su factura dentro de la misma transaccion.
+ */
+function crearFacturaManual(array $payload): int
+{
+    $pdo = getPDO();
+
+    if (!flus_facturacion_habilitada($pdo)) {
+        throw new Exception('El modulo de facturacion no esta habilitado.');
+    }
+
+    $clienteId = isset($payload['cliente_id']) ? (int)$payload['cliente_id'] : 0;
+    $items = flus_facturacion_normalize_manual_items((array)($payload['items'] ?? []));
+    $meta = [
+        'nota' => trim((string)($payload['nota'] ?? 'Factura manual')),
+        'medio_pago' => trim((string)($payload['medio_pago'] ?? 'FACTURA')),
+    ];
+    $opciones = isset($payload['opciones']) && is_array($payload['opciones']) ? $payload['opciones'] : [];
+
+    $pdo->beginTransaction();
+
+    try {
+        $clienteData = flus_facturacion_resolver_cliente($pdo, $clienteId);
+        $ventaId = flus_facturacion_crear_venta_manual($pdo, (int)($clienteData['cliente_id'] ?? 0), $items, $meta);
+        $facturaId = flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones + ['resolved_cliente' => $clienteData]);
+        $pdo->commit();
+        return $facturaId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+/**
+ * Determina la condicion de IVA del receptor.
  */
 function determinarCondIvaReceptor(?array $cliente): string
 {
     if (!$cliente) {
-        return 'CF'; // Consumidor final
+        return 'CF';
     }
 
     $condIva = strtoupper(trim((string)($cliente['cond_iva'] ?? '')));
-    
-    // Mapear valores posibles
     $mapa = [
         'RI' => 'RI',
         'RESPONSABLE INSCRIPTO' => 'RI',
@@ -251,7 +503,7 @@ function determinarCondIvaReceptor(?array $cliente): string
 }
 
 /**
- * Determina el tipo de comprobante según condiciones de IVA
+ * Determina el tipo de comprobante segun condiciones de IVA.
  */
 function determinarTipoComprobante(string $condIvaEmisor, string $condIvaReceptor): int
 {
@@ -260,109 +512,145 @@ function determinarTipoComprobante(string $condIvaEmisor, string $condIvaRecepto
 }
 
 /**
- * Determina tipo y número de documento del cliente
+ * Determina tipo y numero de documento del cliente.
  */
 function determinarDocumentoCliente(?array $cliente): array
 {
     require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
-    
+
     $cuit = $cliente['cuit'] ?? null;
     $dni = $cliente['dni'] ?? $cliente['documento'] ?? null;
-    
+
     return ArcaWsfe::determinarTipoDocumento($cuit, $dni);
 }
 
 /**
- * Calcula los importes de la factura
+ * Calcula los importes de la factura.
  */
 function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipoCbte): array
 {
     $total = (float)($venta['total'] ?? 0);
-    
-    // Para Facturas C (monotributistas/exentos), no se discrimina IVA
-    $esFacturaC = in_array($tipoCbte, [11, 12, 13]); // C, NC-C, ND-C
-    
+    $esFacturaC = in_array($tipoCbte, [11, 12, 13], true);
+
     if ($esFacturaC) {
         return [
             'total' => $total,
             'neto' => $total,
-            'iva' => 0,
-            'exento' => 0,
-            'no_gravado' => 0,
+            'iva' => 0.0,
+            'exento' => 0.0,
+            'no_gravado' => 0.0,
             'iva_detalle' => [],
         ];
     }
-    
-    // Para Facturas A y B, discriminar IVA
-    // Buscar si hay info de IVA en los items
-    $st = $pdo->prepare("
-        SELECT 
-            COALESCE(p.iva_porcentaje, 21) as iva_porcentaje,
-            SUM(vi.subtotal) as subtotal
-        FROM venta_items vi
-        LEFT JOIN productos p ON vi.producto_id = p.id
-        WHERE vi.venta_id = ?
-        GROUP BY COALESCE(p.iva_porcentaje, 21)
-    ");
-    $st->execute([$ventaId]);
-    $ivaGroups = $st->fetchAll(PDO::FETCH_ASSOC);
-    
-    $neto = 0;
-    $iva = 0;
-    $ivaDetalle = [];
-    
-    if ($ivaGroups) {
-        foreach ($ivaGroups as $group) {
-            $pct = (float)$group['iva_porcentaje'];
-            $subtotal = (float)$group['subtotal'];
-            
-            // El subtotal ya incluye IVA, hay que extraerlo
+
+    $manualItems = flus_facturacion_manual_items_fetch($pdo, $ventaId);
+    if ($manualItems !== []) {
+        $neto = 0.0;
+        $iva = 0.0;
+        $ivaDetalle = [];
+
+        foreach ($manualItems as $item) {
+            $pct = (float)($item['iva_porcentaje'] ?? 21);
+            $subtotal = (float)($item['subtotal'] ?? 0);
+
+            if ($pct <= 0) {
+                $neto += $subtotal;
+                continue;
+            }
+
             $baseImp = $subtotal / (1 + $pct / 100);
             $impIva = $subtotal - $baseImp;
-            
             $neto += $baseImp;
             $iva += $impIva;
-            
-            // ID de alícuota AFIP
-            $idAlicuota = obtenerIdAlicuotaAfip($pct);
-            
+
             $ivaDetalle[] = [
-                'id' => $idAlicuota,
+                'id' => obtenerIdAlicuotaAfip($pct),
+                'base' => round($baseImp, 2),
+                'importe' => round($impIva, 2),
+            ];
+        }
+
+        return [
+            'total' => round($total, 2),
+            'neto' => round($neto, 2),
+            'iva' => round($iva, 2),
+            'exento' => 0.0,
+            'no_gravado' => 0.0,
+            'iva_detalle' => $ivaDetalle,
+        ];
+    }
+
+    if (!flus_table_exists($pdo, 'venta_items')) {
+        $neto = round($total / 1.21, 2);
+        $iva = round($total - $neto, 2);
+        return [
+            'total' => round($total, 2),
+            'neto' => $neto,
+            'iva' => $iva,
+            'exento' => 0.0,
+            'no_gravado' => 0.0,
+            'iva_detalle' => [['id' => 5, 'base' => $neto, 'importe' => $iva]],
+        ];
+    }
+
+    $usaIvaProducto = flus_table_exists($pdo, 'productos') && flus_column_exists($pdo, 'productos', 'iva_porcentaje');
+    $ivaExpr = $usaIvaProducto ? 'COALESCE(p.iva_porcentaje, 21)' : '21';
+    $joinProductos = $usaIvaProducto ? 'LEFT JOIN productos p ON vi.producto_id = p.id' : '';
+
+    $neto = 0.0;
+    $iva = 0.0;
+    $ivaDetalle = [];
+
+    try {
+        $st = $pdo->prepare("\n            SELECT\n                {$ivaExpr} AS iva_porcentaje,\n                SUM(vi.subtotal) AS subtotal\n            FROM venta_items vi\n            {$joinProductos}\n            WHERE vi.venta_id = ?\n            GROUP BY {$ivaExpr}\n        ");
+        $st->execute([$ventaId]);
+        $ivaGroups = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $ivaGroups = [];
+    }
+
+    if ($ivaGroups !== []) {
+        foreach ($ivaGroups as $group) {
+            $pct = (float)($group['iva_porcentaje'] ?? 21);
+            $subtotal = (float)($group['subtotal'] ?? 0);
+            $baseImp = $subtotal / (1 + $pct / 100);
+            $impIva = $subtotal - $baseImp;
+
+            $neto += $baseImp;
+            $iva += $impIva;
+
+            $ivaDetalle[] = [
+                'id' => obtenerIdAlicuotaAfip($pct),
                 'base' => round($baseImp, 2),
                 'importe' => round($impIva, 2),
             ];
         }
     } else {
-        // Fallback: asumir 21%
         $neto = $total / 1.21;
         $iva = $total - $neto;
         $ivaDetalle[] = [
-            'id' => 5, // 21%
+            'id' => 5,
             'base' => round($neto, 2),
             'importe' => round($iva, 2),
         ];
     }
-    
-    // P0: Ajustar diferencia de redondeo para que ImpTotal = ImpNeto + ImpIVA + ...
-    // AFIP es sensible a que los totales cuadren exactamente
+
     $neto = round($neto, 2);
     $iva = round($iva, 2);
-    $exento = 0;
-    $noGravado = 0;
-    
+    $exento = 0.0;
+    $noGravado = 0.0;
+
     $calculado = round($neto + $iva + $exento + $noGravado, 2);
     $diferencia = round($total - $calculado, 2);
-    
-    // Si hay diferencia pequeña (≤ 0.02), ajustar al neto
+
     if (abs($diferencia) > 0 && abs($diferencia) <= 0.02) {
         $neto = round($neto + $diferencia, 2);
-        // También ajustar el último detalle de IVA si existe
-        if (!empty($ivaDetalle)) {
+        if ($ivaDetalle !== []) {
             $lastIdx = count($ivaDetalle) - 1;
             $ivaDetalle[$lastIdx]['base'] = round($ivaDetalle[$lastIdx]['base'] + $diferencia, 2);
         }
     }
-    
+
     return [
         'total' => round($total, 2),
         'neto' => $neto,
@@ -374,46 +662,122 @@ function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipo
 }
 
 /**
- * Obtiene el ID de alícuota AFIP según porcentaje
+ * Obtiene el ID de alicuota AFIP segun porcentaje.
  */
 function obtenerIdAlicuotaAfip(float $porcentaje): int
 {
-    // IDs de alícuota en AFIP (keys como string para evitar conversión float→int)
     $mapa = [
-        '0.0'  => 3,   // 0%
-        '2.5'  => 9,   // 2.5%
-        '5.0'  => 8,   // 5%
-        '10.5' => 4,   // 10.5%
-        '21.0' => 5,   // 21%
-        '27.0' => 6,   // 27%
+        '0.0' => 3,
+        '2.5' => 9,
+        '5.0' => 8,
+        '10.5' => 4,
+        '21.0' => 5,
+        '27.0' => 6,
     ];
-    
+
     $key = sprintf('%.1f', round($porcentaje, 1));
-    return $mapa[$key] ?? 5; // Default 21%
+    return $mapa[$key] ?? 5;
 }
 
 /**
- * Obtiene el nombre del tipo de comprobante
+ * Obtiene el nombre del tipo de comprobante.
  */
 function obtenerNombreTipoComprobante(int $tipo): string
 {
     $nombres = [
-        1 => 'FA',   // Factura A
-        2 => 'NDA',  // Nota de Débito A
-        3 => 'NCA',  // Nota de Crédito A
-        6 => 'FB',   // Factura B
-        7 => 'NDB',  // Nota de Débito B
-        8 => 'NCB',  // Nota de Crédito B
-        11 => 'FC',  // Factura C
-        12 => 'NDC', // Nota de Débito C
-        13 => 'NCC', // Nota de Crédito C
+        1 => 'FA',
+        2 => 'NDA',
+        3 => 'NCA',
+        6 => 'FB',
+        7 => 'NDB',
+        8 => 'NCB',
+        11 => 'FC',
+        12 => 'NDC',
+        13 => 'NCC',
     ];
-    
+
     return $nombres[$tipo] ?? 'FC';
 }
 
 /**
- * Verifica el estado de la conexión con AFIP
+ * Revisa si la configuracion local de ARCA esta lista para probar.
+ */
+function flus_facturacion_preflight_arca(?string $modoEsperado = null): array
+{
+    $modo = $modoEsperado !== null ? flus_facturacion_normalizar_modo($modoEsperado) : null;
+    $requiereArca = $modo !== null && flus_facturacion_modo_requires_arca($modo);
+    $envActual = flus_facturacion_arca_env_actual();
+    $envEsperado = $modo !== null ? flus_facturacion_arca_env_esperado($modo) : '';
+    $configPath = __DIR__ . '/config_arca.php';
+    $configExists = file_exists($configPath);
+    $certPath = defined('FLUS_ARCA_CERT_PEM') ? (string)FLUS_ARCA_CERT_PEM : '';
+    $keyPath = defined('FLUS_ARCA_KEY_PEM') ? (string)FLUS_ARCA_KEY_PEM : '';
+    $cuit = defined('FLUS_ARCA_CUIT') ? preg_replace('/\D+/', '', (string)FLUS_ARCA_CUIT) : '';
+    $repCuit = defined('FLUS_ARCA_REP_CUIT') ? preg_replace('/\D+/', '', (string)FLUS_ARCA_REP_CUIT) : '';
+
+    $items = [];
+    $items[] = [
+        'label' => 'Archivo config_arca.php',
+        'status' => $configExists ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $configExists ? 'Detectado' : 'No existe',
+        'hint' => $configPath,
+    ];
+    $items[] = [
+        'label' => 'Entorno ARCA',
+        'status' => $envEsperado === '' || $envActual === $envEsperado ? 'ok' : 'warning',
+        'value' => strtoupper($envActual),
+        'hint' => $envEsperado !== '' ? 'Esperado: ' . strtoupper($envEsperado) : 'Sin exigencia en demo',
+    ];
+    $items[] = [
+        'label' => 'CUIT emisor',
+        'status' => $cuit !== '' ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $cuit !== '' ? $cuit : 'Pendiente',
+        'hint' => 'FLUS_ARCA_CUIT',
+    ];
+    $items[] = [
+        'label' => 'CUIT representada',
+        'status' => $repCuit !== '' ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $repCuit !== '' ? $repCuit : 'Pendiente',
+        'hint' => 'FLUS_ARCA_REP_CUIT',
+    ];
+    $items[] = [
+        'label' => 'Certificado PEM',
+        'status' => ($certPath !== '' && is_file($certPath) && is_readable($certPath)) ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => ($certPath !== '' && is_file($certPath)) ? 'Detectado' : 'Pendiente',
+        'hint' => $certPath !== '' ? $certPath : 'FLUS_ARCA_CERT_PEM',
+    ];
+    $items[] = [
+        'label' => 'Clave PEM',
+        'status' => ($keyPath !== '' && is_file($keyPath) && is_readable($keyPath)) ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => ($keyPath !== '' && is_file($keyPath)) ? 'Detectada' : 'Pendiente',
+        'hint' => $keyPath !== '' ? $keyPath : 'FLUS_ARCA_KEY_PEM',
+    ];
+
+    $warnings = [];
+    if ($requiereArca && $envEsperado !== '' && $envActual !== $envEsperado) {
+        $warnings[] = 'El modo seleccionado en Flus y FLUS_ARCA_ENV no coinciden.';
+    }
+
+    $ok = true;
+    foreach ($items as $item) {
+        if (($item['status'] ?? 'ok') === 'error') {
+            $ok = false;
+            break;
+        }
+    }
+
+    return [
+        'ok' => $ok,
+        'modo' => $modo,
+        'env_actual' => $envActual,
+        'env_esperado' => $envEsperado,
+        'items' => $items,
+        'warnings' => $warnings,
+    ];
+}
+
+/**
+ * Verifica el estado de la conexion con AFIP.
  */
 function verificarConexionAfip(): array
 {
@@ -423,17 +787,15 @@ function verificarConexionAfip(): array
         'detalles' => [],
     ];
 
-    // Verificar extensiones
     if (!extension_loaded('soap')) {
-        $resultado['mensaje'] = 'Extensión SOAP no habilitada.';
+        $resultado['mensaje'] = 'Extension SOAP no habilitada.';
         return $resultado;
     }
     if (!extension_loaded('openssl')) {
-        $resultado['mensaje'] = 'Extensión OpenSSL no habilitada.';
+        $resultado['mensaje'] = 'Extension OpenSSL no habilitada.';
         return $resultado;
     }
 
-    // Verificar configuración
     $certPath = defined('FLUS_ARCA_CERT_PEM') ? FLUS_ARCA_CERT_PEM : '';
     $keyPath = defined('FLUS_ARCA_KEY_PEM') ? FLUS_ARCA_KEY_PEM : '';
     $cuit = defined('FLUS_ARCA_CUIT') ? FLUS_ARCA_CUIT : '';
@@ -458,17 +820,16 @@ function verificarConexionAfip(): array
         return $resultado;
     }
 
-    // Intentar obtener TA
     require_once __DIR__ . '/../public/includes/ArcaWsaa.php';
     $ta = ArcaWsaa::getTA('wsfe');
-    
+
     if (!$ta) {
-        $resultado['mensaje'] = 'Error de autenticación: ' . (ArcaWsaa::getLastError() ?: 'Error desconocido');
+        $resultado['mensaje'] = 'Error de autenticacion: ' . (ArcaWsaa::getLastError() ?: 'Error desconocido');
         return $resultado;
     }
 
     $resultado['conectado'] = true;
-    $resultado['mensaje'] = 'Conexión exitosa con AFIP/ARCA.';
+    $resultado['mensaje'] = 'Conexion exitosa con AFIP/ARCA.';
     $resultado['detalles'] = [
         'token_expira' => date('Y-m-d H:i:s', $ta['expires_at']),
         'ambiente' => defined('FLUS_ARCA_ENV') ? FLUS_ARCA_ENV : 'prod',
@@ -478,7 +839,7 @@ function verificarConexionAfip(): array
 }
 
 /**
- * Obtiene los puntos de venta habilitados en AFIP
+ * Obtiene los puntos de venta habilitados en AFIP.
  */
 function obtenerPuntosVentaAfip(): ?array
 {

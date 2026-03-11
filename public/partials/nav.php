@@ -57,6 +57,7 @@ if ($currentSection === '') {
 
     'facturacion.php'         => 'facturacion',
     'factura_nueva.php'       => 'facturacion',
+    'factura_manual.php'      => 'facturacion',
     'factura_ver.php'         => 'facturacion',
     'factura_emitir.php'      => 'facturacion',
     'configuracion.php'       => 'configuracion',

@@ -24,6 +24,7 @@ logs/
 .env.*
 *.key
 *.pem
+*.csr
 *.pfx
 # Si tenés un config local con credenciales, descomentá:
 # /src/config.php
@@ -55,6 +56,7 @@ logs/
 *.local
 *.local.*
 /src/config.php
+/src/config_arca.php
 public/_debug_dashboard_schema.php
 codigo_completo.txt
 d

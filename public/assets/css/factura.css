@@ -1,5 +1,5 @@
 /* ============================================
-   FACTURA – Layout profesional + impresión
+   FACTURA - vista tipo papel + impresion
    Se aplica solo en factura_ver.php
 ============================================ */
 
@@ -9,18 +9,49 @@
 }
 
 .factura-shell {
+  --fact-bg: #ffffff;
+  --fact-text: #111827;
+  --fact-muted: #6b7280;
+  --fact-soft: #9ca3af;
+  --fact-line: #dbe2ea;
+  --fact-head: #0f172a;
+  --fact-head-text: #ffffff;
+  --fact-accent: #2563eb;
   max-width: 980px;
   margin: 0 auto;
-  background: #ffffff;
-  color: #111827;
+  background: var(--fact-bg) !important;
+  color: var(--fact-text) !important;
   border-radius: 14px;
   padding: 22px 26px 20px;
   box-shadow: 0 22px 60px rgba(15, 23, 42, 0.35);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 0.85rem;
+  isolation: isolate;
 }
 
-/* Barra superior (solo pantalla) */
+/* Blindaje contra el theme global */
+.factura-shell,
+.factura-shell *:not(.btn-print):not(.btn-print *):not(.link-back-print):not(.link-back-print *),
+.factura-shell *::before,
+.factura-shell *::after {
+  color: var(--fact-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+.factura-shell table,
+.factura-shell table tr,
+.factura-shell table th,
+.factura-shell table td,
+.factura-shell table tbody tr,
+.factura-shell table tbody tr:nth-child(odd),
+.factura-shell table tbody tr:nth-child(even),
+.factura-shell table tfoot tr {
+  background: transparent !important;
+}
+
 .factura-topbar {
   display: flex;
   justify-content: space-between;
@@ -31,23 +62,28 @@
 .link-back-print {
   font-size: 0.9rem;
   text-decoration: none;
-  color: #2563eb;
+  color: var(--fact-accent) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
+
 .link-back-print:hover {
   text-decoration: underline;
 }
 
-/* HEADER */
+.btn-print {
+  color: var(--btn-primary-text, #ffffff) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
 .factura-header {
   display: grid;
   grid-template-columns: 3fr 1.2fr 2.2fr;
   gap: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--fact-line);
   padding-bottom: 14px;
   margin-bottom: 16px;
 }
 
-/* Empresa */
 .factura-logo-mark {
   display: inline-flex;
   align-items: center;
@@ -55,8 +91,9 @@
   width: 54px;
   height: 54px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #22c55e, #14b8a6);
-  color: #ffffff;
+  background: linear-gradient(135deg, #22c55e, #14b8a6) !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   font-weight: 800;
   font-size: 1.1rem;
   letter-spacing: 0.12em;
@@ -68,13 +105,31 @@
   line-height: 1.35;
 }
 
+.factura-empresa-datos,
+.factura-empresa-datos div,
+.empresa-nombre,
+.factura-col,
+.factura-col div,
+.letra-cuadro,
+.letra-tipo,
+.letra-texto,
+.tabla-datos-factura th,
+.tabla-datos-factura td,
+.value,
+.value-strong,
+.tabla-detalle tbody td,
+.tabla-detalle tfoot th,
+.footer-row strong {
+  color: var(--fact-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
 .empresa-nombre {
   font-weight: 700;
   font-size: 0.95rem;
   margin-bottom: 2px;
 }
 
-/* Letra / tipo */
 .factura-col.letra {
   display: flex;
   flex-direction: column;
@@ -86,7 +141,7 @@
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  border: 2px solid #111827;
+  border: 2px solid var(--fact-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -111,10 +166,10 @@
   font-size: 0.65rem;
   letter-spacing: 0;
   text-transform: none;
-  color: #6b7280;
+  color: var(--fact-muted) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
-/* Datos factura */
 .factura-col.datos {
   align-self: center;
 }
@@ -124,20 +179,32 @@
   border-collapse: collapse;
   font-size: 0.78rem;
 }
+
+.tabla-datos-factura tr {
+  border-bottom: 1px solid var(--fact-line);
+}
+
+.tabla-datos-factura tr:last-child {
+  border-bottom: 0;
+}
+
+.tabla-datos-factura th,
+.tabla-datos-factura td {
+  padding: 4px 0;
+}
+
 .tabla-datos-factura th {
   text-align: left;
   width: 45%;
   font-weight: 600;
-  padding: 2px 0;
-}
-.tabla-datos-factura td {
-  text-align: right;
-  padding: 2px 0;
 }
 
-/* Bloques genéricos */
+.tabla-datos-factura td {
+  text-align: right;
+}
+
 .factura-bloque {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--fact-line);
   padding: 10px 0 12px;
   margin-bottom: 2px;
 }
@@ -146,17 +213,18 @@
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #6b7280;
+  color: var(--fact-muted) !important;
+  -webkit-text-fill-color: currentColor !important;
   margin-bottom: 6px;
 }
 
-/* Cliente */
 .cliente-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px 18px;
   font-size: 0.82rem;
 }
+
 .cliente-full {
   grid-column: 1 / -1;
 }
@@ -165,52 +233,65 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #9ca3af;
+  color: var(--fact-soft) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
+
 .value {
   font-size: 0.86rem;
 }
+
 .value-strong {
   font-weight: 700;
   font-size: 0.95rem;
 }
 
-/* Importes */
 .importes-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px 20px;
 }
 
-/* DETALLE */
 .tabla-detalle {
   width: 100%;
   border-collapse: collapse;
   margin-top: 4px;
   font-size: 0.8rem;
 }
+
 .tabla-detalle thead th {
-  border-bottom: 1px solid #111827;
-  padding: 5px 4px;
+  background: var(--fact-head) !important;
+  color: var(--fact-head-text) !important;
+  -webkit-text-fill-color: currentColor !important;
+  border-bottom: 1px solid var(--fact-head);
+  padding: 7px 6px;
   text-align: left;
 }
+
 .tabla-detalle tbody td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 4px 4px;
+  border-bottom: 1px solid var(--fact-line);
+  padding: 6px 6px;
 }
+
+.tabla-detalle tbody tr:last-child td {
+  border-bottom: 1px solid var(--fact-line);
+}
+
 .tabla-detalle tfoot th {
-  padding: 6px 4px 2px;
+  padding: 8px 6px 2px;
 }
+
 .tabla-detalle .num {
   text-align: right;
 }
+
 .empty-cell {
   text-align: center;
   padding: 10px;
-  color: #9ca3af;
+  color: var(--fact-soft) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
-/* PIE / CAE */
 .factura-footer {
   display: flex;
   justify-content: space-between;
@@ -219,76 +300,80 @@
   font-size: 0.72rem;
 }
 
-.footer-text {
-  color: #6b7280;
+.footer-text,
+.footer-row span {
+  color: var(--fact-muted) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
 .footer-right {
   text-align: right;
 }
+
 .footer-row {
   margin-bottom: 2px;
 }
+
 .footer-row span {
-  color: #6b7280;
   margin-right: 4px;
 }
+
 .footer-row strong {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
+
 .footer-note {
   margin-top: 4px;
-  color: #9ca3af;
+  color: var(--fact-soft) !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
-/* =============================
-   RESPONSIVE
-============================= */
 @media (max-width: 900px) {
   .factura-header {
     grid-template-columns: 1.8fr 1fr;
     grid-template-rows: auto auto;
   }
+
   .factura-col.letra {
     grid-column: 2 / 3;
     grid-row: 1 / 2;
   }
+
   .factura-col.datos {
     grid-column: 1 / 3;
     grid-row: 2 / 3;
   }
+
   .cliente-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
 @media (max-width: 640px) {
   .factura-shell {
     padding: 16px 14px;
     border-radius: 0;
     box-shadow: none;
   }
+
   .factura-header {
     grid-template-columns: 1fr;
   }
+
   .factura-col.letra {
     order: -1;
   }
+
   .cliente-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* =============================
-   PRINT
-============================= */
-
 @media print {
-  /* quitar fondo oscuro */
   body[data-theme] {
     background: #ffffff !important;
   }
 
-  /* ocultar nav y botones */
   .nav-container,
   .nav-spacer,
   .btn-print,

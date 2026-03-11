@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
+require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
@@ -83,6 +84,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+if ($items === []) {
+  $items = flus_facturacion_manual_items_fetch($pdo, $id);
+}
 
 /* =========================
    Promos aplicadas (si existe venta_promos)
@@ -150,17 +154,35 @@ $stmt->execute([$id]);
 $factura = $stmt->fetch(PDO::FETCH_ASSOC);
 
 /* =========================
-   Config facturación
+   Config facturacion
 ========================= */
-$stmt = $pdo->query("
-  SELECT *
-  FROM config_facturacion
-  WHERE activo = 1
-  ORDER BY id ASC
-  LIMIT 1
-");
-$configFact = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-$facturacionHabilitada = (bool)$configFact;
+$facturacionActiva = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+$configFact = null;
+if ($facturacionActiva && has_table($pdo, 'config_facturacion')) {
+  try {
+    $stmt = $pdo->query("
+      SELECT *
+      FROM config_facturacion
+      WHERE activo = 1
+      ORDER BY id DESC
+      LIMIT 1
+    ");
+    $configFact = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+
+    if (!$configFact) {
+      $stmt = $pdo->query("
+        SELECT *
+        FROM config_facturacion
+        ORDER BY id DESC
+        LIMIT 1
+      ");
+      $configFact = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
+    }
+  } catch (Throwable $e) {
+    $configFact = null;
+  }
+}
+$facturacionConfigurada = $configFact !== null;
 $ventaEstado = function_exists('flus_normalize_sale_status')
   ? flus_normalize_sale_status($venta['estado'] ?? null)
   : strtoupper((string)($venta['estado'] ?? 'EMITIDA'));
@@ -309,18 +331,27 @@ require __DIR__ . '/partials/header.php';
 
                 <div class="factura-links">
                   <a href="facturacion.php?venta_id=<?= (int)$id ?>" class="btn btn-secondary btn-sm">
-                    Ver en facturación
+                    Ver en facturacion
                   </a>
                 </div>
               </div>
             </div>
 
-          <?php elseif ($facturacionHabilitada): ?>
+          <?php else: ?>
 
-            <?php if ($ventaAnulada): ?>
-              <span class="venta-hint"><strong>Venta anulada:</strong> no se puede emitir factura.</span>
+            <?php if ($facturacionActiva && $facturacionConfigurada): ?>
+              <?php if ($ventaAnulada): ?>
+                <span class="venta-hint"><strong>Venta anulada:</strong> no se puede emitir factura.</span>
+              <?php else: ?>
+                <a href="factura_nueva.php?venta_id=<?= (int)$id ?>" class="btn btn-primary">Emitir factura</a>
+              <?php endif; ?>
+            <?php elseif ($facturacionActiva): ?>
+              <span class="venta-hint">
+                Para emitir factura configura primero un punto de venta en
+                <strong>Facturacion &gt; Configuracion</strong>.
+              </span>
             <?php else: ?>
-              <a href="factura_nueva.php?venta_id=<?= (int)$id ?>" class="btn btn-primary">Emitir factura</a>
+              <span class="venta-hint">Facturacion desactivada para este comercio.</span>
             <?php endif; ?>
 
             <?php if ($ventaPuedeAnular): ?>
@@ -328,13 +359,6 @@ require __DIR__ . '/partials/header.php';
                 Anular venta
               </button>
             <?php endif; ?>
-
-          <?php else: ?>
-
-            <span class="venta-hint">
-              Para emitir factura configurá primero un punto de venta en
-              <strong>Facturación &gt; Configuración</strong>.
-            </span>
 
           <?php endif; ?>
         </div>
