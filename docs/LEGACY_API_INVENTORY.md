@@ -24,7 +24,6 @@ API / acciones:
 - `public/api/ventas_api.php`
 - `public/api/actions/anular_venta.php`
 - `public/api/ventas_kpis.php`
-- `public/api/actions/ventas_kpis.php`
 
 Riesgo:
 
