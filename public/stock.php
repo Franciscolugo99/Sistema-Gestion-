@@ -12,16 +12,7 @@ require_permission('editar_stock');
 
 $pdo = getPDO();
 
-/* ============================
-   CONSTANTES DE TIPOS DE AJUSTE
-============================ */
-const TIPOS_AJUSTE = [
-    'entrada'    => ['label' => 'Entrada',     'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'salida'     => ['label' => 'Salida',      'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Salida manual'],
-    'ajuste_pos' => ['label' => 'Ajuste (+)',  'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'ajuste_neg' => ['label' => 'Ajuste (-)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
-    'perdida'    => ['label' => 'Perdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Perdida/Rotura/Vencimiento'],
-];
+$tiposAjuste = flus_stock_tipos_ajuste();
 
 /* ============================
    FUNCIÃƒâ€œN CENTRALIZADA: Estado de Stock
@@ -57,6 +48,7 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
 /* ============================
    FUNCIÃƒâ€œN: PaginaciÃƒÂ³n numÃƒÂ©rica (consistente con ventas)
 ============================ */
+if (!function_exists('render_pagination')) {
 function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
     if ($totalPages <= 1) return '';
     
@@ -110,6 +102,7 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
     
     $html .= '</div></div>';
     return $html;
+}
 }
 
 function stock_search_order_sql(string $buscar): array {
@@ -706,7 +699,7 @@ require __DIR__ . "/partials/header.php";
         <div class="form-group">
           <label>Tipo de ajuste</label>
           <select name="tipo" id="ajuste_tipo" class="form-control" required>
-            <?php foreach (TIPOS_AJUSTE as $key => $tipo): ?>
+<?php foreach ($tiposAjuste as $key => $tipo): ?>
               <option value="<?= h($key) ?>"><?= h($tipo['label']) ?></option>
             <?php endforeach; ?>
           </select>

@@ -14,16 +14,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $pdo = getPDO();
 
-/* ============================
-   CONSTANTES DE TIPOS DE AJUSTE
-============================ */
-const TIPOS_AJUSTE = [
-    'entrada'    => ['label' => 'Entrada',     'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'salida'     => ['label' => 'Salida',      'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Salida manual'],
-    'ajuste_pos' => ['label' => 'Ajuste (+)',  'mov' => 'AJUSTE_POSITIVO', 'signo' => +1],
-    'ajuste_neg' => ['label' => 'Ajuste (-)',  'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1],
-    'perdida'    => ['label' => 'Perdida',     'mov' => 'AJUSTE_NEGATIVO', 'signo' => -1, 'motivo_default' => 'Perdida/Rotura/Vencimiento'],
-];
+$tiposAjuste = flus_stock_tipos_ajuste();
 
 const MOTIVO_MAX_LENGTH = 255;
 
@@ -141,7 +132,7 @@ try {
         throw new Exception('ID de producto invalido');
     }
 
-    if (!isset(TIPOS_AJUSTE[$tipo])) {
+if (!isset($tiposAjuste[$tipo])) {
         throw new Exception('Tipo de ajuste invalido');
     }
 
@@ -155,7 +146,7 @@ try {
     }
 
     // Obtener configuracion del tipo
-    $tipoConfig = TIPOS_AJUSTE[$tipo];
+$tipoConfig = $tiposAjuste[$tipo];
     $tipo_mov = $tipoConfig['mov'];
     $cambio = $tipoConfig['signo'] * $cantidad;
 

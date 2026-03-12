@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/db_helpers.php';
 require_once FLUS_ROOT . '/src/productos_helpers.php';
 require_login();
 require_permission('editar_productos');
@@ -14,29 +15,6 @@ $msg = "";
 /* ================================
    PROVEEDORES (integración v3.2.2)
 ================================ */
-
-/**
- * Evita INFORMATION_SCHEMA (algunas instalaciones tienen permisos limitados).
- */
-function flus_has_column(PDO $pdo, string $table, string $column): bool {
-    try {
-        $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-        $st->execute([$column]);
-        return (bool)$st->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        return false;
-    }
-}
-
-function flus_has_table(PDO $pdo, string $table): bool {
-    try {
-        $st = $pdo->prepare("SHOW TABLES LIKE ?");
-        $st->execute([$table]);
-        return (bool)$st->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
-}
 
 function flus_norm_name(string $s): string {
     $s = trim(preg_replace('/\s+/', ' ', $s) ?? $s);
@@ -90,8 +68,15 @@ function flus_get_or_create_proveedor(PDO $pdo, string $nombre): int {
 
 
 
-$FLUS_HAS_PROVEEDORES = flus_has_table($pdo, 'proveedores');
-$FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_has_column($pdo, 'productos', 'proveedor_id');
+$FLUS_HAS_PROVEEDORES = has_table($pdo, 'proveedores');
+$FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = false;
+try {
+    $st = $pdo->prepare("SHOW COLUMNS FROM `productos` LIKE ?");
+    $st->execute(['proveedor_id']);
+    $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = (bool)$st->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_column_exists($pdo, 'productos', 'proveedor_id');
+}
 
 // Lista de proveedores para autocomplete.
 // Nota: en algunas instalaciones hay permisos limitados sobre information_schema;
@@ -118,7 +103,6 @@ const UNIDADES_PERMITIDAS = ['UNIDAD', 'KG', 'G', 'LT', 'ML'];
 const UNIDADES_PESABLES = ['KG', 'G', 'LT', 'ML'];
 const IMG_MAX_SIZE = 3 * 1024 * 1024; // 3MB
 const IMG_EXTENSIONES = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-const EXPORT_LIMIT = 10000;
 
 /* ================================
    RUTA PARA GUARDAR IMÁGENES
@@ -457,7 +441,7 @@ if (isset($_GET['exportCSV'])) {
         FROM productos
         {$whereSqlExp}
         ORDER BY nombre ASC
-        LIMIT " . EXPORT_LIMIT;
+  LIMIT " . flus_export_limit();
 
     $stmtExp = $pdo->prepare($sqlExp);
     $stmtExp->execute($paramsExp);

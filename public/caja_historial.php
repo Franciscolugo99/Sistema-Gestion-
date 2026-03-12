@@ -866,7 +866,7 @@ function pill_class_for_amount(float $v): string {
       </div>
     <?php endif; ?>
 
-    <?= render_pagination($page, $totalPages, $_GET, true, $total_sesiones, $startIdx, $endIdx) ?>
+    <?= render_pagination($page, $totalPages, $_GET, true, $total_sesiones, $startIdx, $endIdx, ['export']) ?>
 
     <div class="table-wrapper">
       <table class="hist-table">
@@ -1071,7 +1071,7 @@ function pill_class_for_amount(float $v): string {
       </table>
     </div>
 
-    <?= render_pagination($page, $totalPages, $_GET, false) ?>
+    <?= render_pagination($page, $totalPages, $_GET, false, 0, 0, 0, ['export']) ?>
 
 
   </div>
