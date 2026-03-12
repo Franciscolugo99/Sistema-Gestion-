@@ -18,7 +18,7 @@ function flus_current_db(PDO $pdo): string {
       $db = $q ? $q->fetchColumn() : '';
       $cache[$id] = is_string($db) ? $db : '';
     } catch (Throwable $e) {
-      // No romper por fallas de conexión/privilegios (p.ej. info_schema)
+      // No romper por fallas de conexiÃƒÂ³n/privilegios (p.ej. info_schema)
       $cache[$id] = '';
     }
   }
@@ -74,12 +74,46 @@ function flus_columns_set(PDO $pdo, string $schema, string $table): array {
       $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
       $colsMemo[$memoKey] = array_fill_keys(array_map('strval', (array)$cols), true);
     } catch (Throwable $e) {
-      // Sin privilegios o fallo DB => devolver vacío
+      // Sin privilegios o fallo DB => devolver vacÃƒÂ­o
       $colsMemo[$memoKey] = [];
     }
   }
 
   return $colsMemo[$memoKey];
+}
+
+/**
+ * Devuelve metadatos de una columna desde information_schema con cache en memoria.
+ *
+ * @return array<string,mixed>|null
+ */
+function flus_column_metadata(PDO $pdo, string $table, string $column, ?string $schema = null): ?array {
+  static $metaMemo = [];
+
+  $schema = $schema ?: flus_current_db($pdo);
+  if ($schema === '') return null;
+  if (!flus_table_exists($pdo, $table, $schema)) return null;
+
+  $memoKey = spl_object_id($pdo) . '|' . $schema . '|' . $table . '|' . $column;
+  if (array_key_exists($memoKey, $metaMemo)) return $metaMemo[$memoKey];
+
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT COLUMN_NAME, COLUMN_TYPE, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ?
+          AND TABLE_NAME = ?
+          AND COLUMN_NAME = ?
+        LIMIT 1"
+    );
+    if (!$stmt) { $metaMemo[$memoKey] = null; return null; }
+    $stmt->execute([$schema, $table, $column]);
+    $metaMemo[$memoKey] = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $metaMemo[$memoKey];
+  } catch (Throwable $e) {
+    $metaMemo[$memoKey] = null;
+    return null;
+  }
 }
 
 /**
@@ -97,7 +131,7 @@ function flus_column_exists(PDO $pdo, string $table, string $column, ?string $sc
 }
 
 /**
- * Devuelve el primer nombre de columna que exista en la tabla, según orden de $candidates.
+ * Devuelve el primer nombre de columna que exista en la tabla, segÃƒÂºn orden de $candidates.
  * Si no existe ninguna, devuelve null.
  */
 function flus_first_existing_column(PDO $pdo, string $table, array $candidates, ?string $schema = null): ?string {

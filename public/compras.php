@@ -61,17 +61,17 @@ function flus_compras_ensure_schema(PDO $pdo): void {
   }
 }
 
-flus_compras_ensure_schema($pdo);
+// El esquema de compras se versiona por migraciones SQL.
 
-$HAS_COMPRAS_TOTAL_NETO      = has_column($pdo, 'compras', 'total_neto');
-$HAS_COMPRAS_TOTAL_IVA       = has_column($pdo, 'compras', 'total_iva');
-$HAS_COMPRAS_TOTAL_BRUTO     = has_column($pdo, 'compras', 'total_bruto');
-$HAS_COMPRAS_DESCUENTO_TIPO  = has_column($pdo, 'compras', 'descuento_tipo');
-$HAS_COMPRAS_DESCUENTO_VALOR = has_column($pdo, 'compras', 'descuento_valor');
-$HAS_COMPRAS_DESCUENTO_TOTAL = has_column($pdo, 'compras', 'descuento_total');
-$HAS_COMPRA_ITEMS_DESCUENTO       = has_column($pdo, 'compra_items', 'descuento');
-$HAS_COMPRA_ITEMS_DESCUENTO_TIPO  = has_column($pdo, 'compra_items', 'descuento_tipo');
-$HAS_COMPRA_ITEMS_DESCUENTO_PORC  = has_column($pdo, 'compra_items', 'descuento_porc');
+$HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
+$HAS_COMPRAS_TOTAL_IVA       = flus_column_exists($pdo, 'compras', 'total_iva');
+$HAS_COMPRAS_TOTAL_BRUTO     = flus_column_exists($pdo, 'compras', 'total_bruto');
+$HAS_COMPRAS_DESCUENTO_TIPO  = flus_column_exists($pdo, 'compras', 'descuento_tipo');
+$HAS_COMPRAS_DESCUENTO_VALOR = flus_column_exists($pdo, 'compras', 'descuento_valor');
+$HAS_COMPRAS_DESCUENTO_TOTAL = flus_column_exists($pdo, 'compras', 'descuento_total');
+$HAS_COMPRA_ITEMS_DESCUENTO       = flus_column_exists($pdo, 'compra_items', 'descuento');
+$HAS_COMPRA_ITEMS_DESCUENTO_TIPO  = flus_column_exists($pdo, 'compra_items', 'descuento_tipo');
+$HAS_COMPRA_ITEMS_DESCUENTO_PORC  = flus_column_exists($pdo, 'compra_items', 'descuento_porc');
 
 $msg = '';
 $msgType = 'info';
@@ -412,7 +412,7 @@ WHERE id = :id AND estado = 'BORRADOR'";
             
 // CREAR nueva (compat: columnas opcionales)
 $cols = ['fecha','proveedor_id','tipo_comp','nro_comp','obs','estado','total'];
-$vals = ['CURDATE()',':proveedor_id',':tipo_comp',':nro_comp',':obs',"'BORRADOR'",':total'];
+$vals = ['NOW()',':proveedor_id',':tipo_comp',':nro_comp',':obs',"'BORRADOR'",':total'];
 
 $paramsIns = [
   ':proveedor_id' => $proveedorId,
@@ -724,8 +724,18 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-          // 6) Confirmar compra
-          $pdo->prepare("UPDATE compras SET estado='CONFIRMADA' WHERE id=?")->execute([$compraId]);
+          // 6) Confirmar compra. Si venia de un borrador legacy con fecha a medianoche,
+          // normalizamos la hora al momento real de confirmacion.
+          $pdo->prepare("
+            UPDATE compras
+            SET estado = 'CONFIRMADA',
+                fecha = CASE
+                  WHEN fecha IS NULL THEN NOW()
+                  WHEN TIME(fecha) = '00:00:00' THEN TIMESTAMP(DATE(fecha), CURRENT_TIME())
+                  ELSE fecha
+                END
+            WHERE id = ?
+          ")->execute([$compraId]);
 
           $pdo->commit();
 
@@ -830,8 +840,8 @@ $prodStmt = $pdo->query("
 ");
 $productos = $prodStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-$hasProductosProveedorId = has_column($pdo, 'productos', 'proveedor_id');
-$hasProductosProveedorTxt = has_column($pdo, 'productos', 'proveedor');
+$hasProductosProveedorId = flus_column_exists($pdo, 'productos', 'proveedor_id');
+$hasProductosProveedorTxt = flus_column_exists($pdo, 'productos', 'proveedor');
 
 if ($hasProductosProveedorId || $hasProductosProveedorTxt) {
   $metaCols = ['id'];
@@ -999,7 +1009,7 @@ $compras = $stList->fetchAll(PDO::FETCH_ASSOC) ?: [];
 $pageTitle = "Compras";
 $currentSection = "compras";
 $extraCss = ["assets/css/compras.css"];
-$extraJs  = ["assets/js/compras.js", "assets/js/compras_quick_add.js"];
+$extraJs  = ["assets/js/compras.js?v=2", "assets/js/compras_quick_add.js?v=1"];
 require __DIR__ . "/partials/header.php";
 ?>
 

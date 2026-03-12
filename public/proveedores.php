@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/db_helpers.php';
 
 require_login();
 require_any_permission(['ver_proveedores','editar_proveedores']);
@@ -61,8 +62,15 @@ function getProveedorById(PDO $pdo, int $id): ?array {
 function getProveedorColumns(PDO $pdo): array {
     static $cols = null;
     if ($cols === null) {
-        $st = $pdo->query("SHOW COLUMNS FROM proveedores");
-        $cols = array_column($st->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        $cols = array_keys(flus_columns_set($pdo, flus_current_db($pdo), 'proveedores'));
+        if ($cols === []) {
+            try {
+                $st = $pdo->query("SHOW COLUMNS FROM proveedores");
+                $cols = array_column($st->fetchAll(PDO::FETCH_ASSOC), 'Field');
+            } catch (Throwable $e) {
+                $cols = [];
+            }
+        }
     }
     return $cols;
 }
@@ -76,6 +84,9 @@ function hasTableColumn(PDO $pdo, string $table, string $column): bool {
     $key = $table . '.' . $column;
     if (array_key_exists($key, $cache)) {
         return $cache[$key];
+    }
+    if (flus_column_exists($pdo, $table, $column)) {
+        return $cache[$key] = true;
     }
     try {
         $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");

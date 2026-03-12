@@ -128,19 +128,27 @@ function flus_facturacion_consumidor_final(PDO $pdo): ?array
     $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'NULL';
     $order = flus_column_exists($pdo, 'clientes', 'id') ? ' ORDER BY id DESC' : '';
 
-    if ($nombreExpr !== 'NULL') {
-        $sql = 'SELECT * FROM clientes WHERE UPPER(' . $nombreExpr . ') = ?';
-        if (flus_column_exists($pdo, 'clientes', 'activo')) {
-            $sql .= ' AND activo = 1';
-        }
-        $sql .= $order . ' LIMIT 1';
+    if ($nombreExpr === 'NULL') {
+        return null;
+    }
 
-        $st = $pdo->prepare($sql);
-        $st->execute(['CONSUMIDOR FINAL']);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            return $row;
-        }
+    $sql = 'SELECT * FROM clientes WHERE UPPER(' . $nombreExpr . ') = ?';
+    if (flus_column_exists($pdo, 'clientes', 'activo')) {
+        $sql .= ' AND activo = 1';
+    }
+    $sql .= $order . ' LIMIT 1';
+
+    $st = $pdo->prepare($sql);
+    $st->execute(['CONSUMIDOR FINAL']);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function flus_facturacion_asegurar_consumidor_final(PDO $pdo): ?array
+{
+    $cliente = flus_facturacion_consumidor_final($pdo);
+    if ($cliente !== null) {
+        return $cliente;
     }
 
     $data = [
@@ -241,19 +249,22 @@ function flus_facturacion_resolver_cliente_padron(PDO $pdo, array $lookup): arra
 
     if ($cliente !== null) {
         $updates = [];
-        if (flus_column_exists($pdo, 'clientes', 'nombre')) {
+        if (flus_column_exists($pdo, 'clientes', 'nombre') && trim((string)($cliente['nombre'] ?? '')) === '') {
             $updates['nombre'] = $nombre;
         }
         if (flus_column_exists($pdo, 'clientes', 'cuit')) {
-            $updates['cuit'] = $cuitFormatted;
+            $cuitActual = preg_replace('/\D+/', '', (string)($cliente['cuit'] ?? ''));
+            if ($cuitActual === '' || $cuitActual === $cuit) {
+                $updates['cuit'] = $cuitFormatted;
+            }
         }
-        if (flus_column_exists($pdo, 'clientes', 'cond_iva')) {
+        if (flus_column_exists($pdo, 'clientes', 'cond_iva') && trim((string)($cliente['cond_iva'] ?? '')) === '') {
             $updates['cond_iva'] = $condIva;
         }
-        if ($direccion !== '' && flus_column_exists($pdo, 'clientes', 'direccion')) {
+        if ($direccion !== '' && flus_column_exists($pdo, 'clientes', 'direccion') && trim((string)($cliente['direccion'] ?? '')) === '') {
             $updates['direccion'] = $direccion;
         }
-        if (flus_column_exists($pdo, 'clientes', 'tipo_cliente')) {
+        if (flus_column_exists($pdo, 'clientes', 'tipo_cliente') && trim((string)($cliente['tipo_cliente'] ?? '')) === '') {
             $updates['tipo_cliente'] = $tipoCliente;
         }
 
@@ -324,6 +335,11 @@ function flus_facturacion_cliente_lookup_post(array $source): ?array
     ];
 }
 
+function flus_facturacion_cliente_lookup_confirmado(array $source): bool
+{
+    return trim((string)($source['cliente_lookup_confirmado'] ?? '0')) === '1';
+}
+
 function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $items, array $meta = []): int
 {
     if (!flus_table_exists($pdo, 'ventas')) {
@@ -344,10 +360,10 @@ function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $it
         'total' => $total,
         'descuento_total' => 0,
         'recargo_total' => 0,
-        'medio_pago' => trim((string)($meta['medio_pago'] ?? 'FACTURA')) ?: 'FACTURA',
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? 'FACTURA_MANUAL')) ?: 'FACTURA_MANUAL',
         'monto_pagado' => $total,
         'vuelto' => 0,
-        'nota' => trim((string)($meta['nota'] ?? 'Factura manual')) ?: 'Factura manual',
+        'nota' => trim((string)($meta['nota'] ?? 'Factura manual sin caja')) ?: 'Factura manual sin caja',
         'cliente_id' => $clienteId > 0 ? $clienteId : null,
         'estado' => 'EMITIDA',
         'facturada' => 0,
@@ -369,4 +385,3 @@ function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $it
 
     return $ventaId;
 }
-

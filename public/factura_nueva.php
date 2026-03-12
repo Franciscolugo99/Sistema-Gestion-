@@ -14,85 +14,6 @@ if (!$facturacionHabilitada) {
     exit;
 }
 
-$pdo = getPDO();
-
-function factura_nueva_buscar_existente(PDO $pdo, int $ventaId): ?int
-{
-    if (!flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
-        return null;
-    }
-
-    $st = $pdo->prepare('
-        SELECT id
-        FROM facturas
-        WHERE venta_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-    ');
-    $st->execute([$ventaId]);
-    $facturaId = $st->fetchColumn();
-
-    return $facturaId !== false ? (int)$facturaId : null;
-}
-
-function factura_nueva_config(PDO $pdo): ?array
-{
-    if (!flus_table_exists($pdo, 'config_facturacion')) {
-        return null;
-    }
-
-    $order = flus_column_exists($pdo, 'config_facturacion', 'id') ? ' ORDER BY id DESC' : '';
-
-    if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
-        $st = $pdo->query('SELECT * FROM config_facturacion WHERE activo = 1' . $order . ' LIMIT 1');
-        $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-        if ($row !== null) {
-            return $row;
-        }
-    }
-
-    $st = $pdo->query('SELECT * FROM config_facturacion' . $order . ' LIMIT 1');
-    return $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-}
-
-function factura_nueva_clientes(PDO $pdo): array
-{
-    if (!flus_table_exists($pdo, 'clientes')) {
-        return [];
-    }
-
-    $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'CONCAT("Cliente #", id)';
-    $cuitExpr = flus_column_exists($pdo, 'clientes', 'cuit') ? 'cuit' : 'NULL';
-    $condIvaExpr = flus_column_exists($pdo, 'clientes', 'cond_iva') ? 'cond_iva' : 'NULL';
-    $where = flus_column_exists($pdo, 'clientes', 'activo') ? 'WHERE activo = 1' : '';
-
-    $sql = "
-        SELECT id, {$nombreExpr} AS nombre, {$cuitExpr} AS cuit, {$condIvaExpr} AS cond_iva
-        FROM clientes
-        {$where}
-        ORDER BY nombre ASC
-    ";
-
-    $st = $pdo->query($sql);
-    return $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
-}
-
-function factura_nueva_cliente_valido(PDO $pdo, int $clienteId): bool
-{
-    if (!flus_table_exists($pdo, 'clientes')) {
-        return false;
-    }
-
-    $sql = 'SELECT id FROM clientes WHERE id = ?';
-    if (flus_column_exists($pdo, 'clientes', 'activo')) {
-        $sql .= ' AND activo = 1';
-    }
-    $sql .= ' LIMIT 1';
-
-    $st = $pdo->prepare($sql);
-    $st->execute([$clienteId]);
-    return (bool)$st->fetch(PDO::FETCH_ASSOC);
-}
 
 $ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
 if ($ventaId <= 0) {
@@ -119,22 +40,30 @@ if (!$venta) {
     exit;
 }
 
-$facturaExistenteId = factura_nueva_buscar_existente($pdo, $ventaId);
+$facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
 if ($facturaExistenteId !== null && !isset($_GET['force'])) {
     header('Location: factura_ver.php?id=' . $facturaExistenteId);
     exit;
 }
 
-$config = factura_nueva_config($pdo);
+$config = flus_facturacion_config_activa($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
-$clientes = factura_nueva_clientes($pdo);
-$itemLimit = flus_facturacion_print_item_limit();
+$lookupArcaEnv = flus_facturacion_arca_env_actual();
+$lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
+$clientes = flus_facturacion_clientes_disponibles($pdo);
+$itemLimit = flus_facturacion_print_item_limit($pdo);
 $itemCountVenta = flus_facturacion_count_items_venta($pdo, $ventaId);
 $itemCountExceeded = $itemCountVenta > $itemLimit;
 $errores = [];
+$factErrorFlash = trim((string)($_GET['fact_error'] ?? ''));
+if ($factErrorFlash !== '') {
+    $errores[] = $factErrorFlash;
+}
 $clienteSeleccionadoRaw = (string)($_POST['cliente_id'] ?? '');
 $clienteLookupUi = [
     'activo' => (string)($_POST['cliente_lookup_activo'] ?? '0'),
+    'confirmado' => (string)($_POST['cliente_lookup_confirmado'] ?? '0'),
+    'editor' => (string)($_POST['cliente_lookup_editor'] ?? '0'),
     'cuit' => trim((string)($_POST['cliente_lookup_cuit'] ?? '')),
     'nombre' => trim((string)($_POST['cliente_lookup_nombre'] ?? '')),
     'cond_iva' => trim((string)($_POST['cliente_lookup_cond_iva'] ?? '')),
@@ -155,7 +84,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
     $clienteId = null;
     $resolvedCliente = null;
     $clienteLookup = flus_facturacion_cliente_lookup_post($_POST);
-    if ($clienteLookup !== null) {
+    if ($clienteLookup !== null && !flus_facturacion_cliente_lookup_confirmado($_POST)) {
+        $errores[] = 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.';
+    } elseif ($clienteLookup !== null) {
         try {
             $resolvedCliente = flus_facturacion_resolver_cliente_padron($pdo, $clienteLookup);
             $clienteId = (int)($resolvedCliente['cliente_id'] ?? 0);
@@ -170,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
         $errores[] = 'El cliente seleccionado no es valido.';
     } else {
         $clienteId = (int)$clienteSeleccionadoRaw;
-        if (!factura_nueva_cliente_valido($pdo, $clienteId)) {
+        if (!flus_facturacion_cliente_activo($pdo, $clienteId)) {
             $errores[] = 'El cliente seleccionado no es valido.';
         }
     }
@@ -185,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
             header('Location: factura_ver.php?id=' . $facturaId);
             exit;
         } catch (Throwable $e) {
-            $facturaExistenteId = factura_nueva_buscar_existente($pdo, $ventaId);
+            $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
             if ($facturaExistenteId !== null) {
                 header('Location: factura_ver.php?id=' . $facturaExistenteId);
                 exit;
@@ -198,8 +129,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
 
 $pageTitle = 'Nueva factura';
 $currentSection = 'facturacion';
-$extraCss = ['assets/css/facturacion.css?v=1'];
-$extraJs = ['assets/js/facturacion_cliente_lookup.js'];
+$extraCss = ['assets/css/facturacion.css?v=8'];
+$extraJs = ['assets/js/facturacion_cliente_lookup.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -268,6 +199,16 @@ require __DIR__ . '/partials/header.php';
         <?= csrf_field() ?>
         <input type="hidden" name="venta_id" value="<?= (int)$ventaId ?>">
 
+        <?php if ($errores !== []): ?>
+          <div class="msg msg-visible msg-error" style="margin:12px 0;">
+            <ul>
+              <?php foreach ($errores as $e): ?>
+                <li><?= h($e) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
+
         <div class="fact-form-grid">
           <div class="ff-field ff-field-wide">
             <label>Cliente</label>
@@ -289,35 +230,82 @@ require __DIR__ . '/partials/header.php';
             <div class="muted" style="margin-top:6px;">Si consultas un CUIT/CUIL del padron, ese receptor tendra prioridad al emitir.</div>
           </div>
 
-          <div class="ff-field ff-field-wide fact-lookup-card" data-facturacion-cliente-lookup>
+          <div class="ff-field ff-field-wide fact-lookup-card" data-facturacion-cliente-lookup data-lookup-env="<?= h($lookupArcaEnv) ?>">
             <label>Consultar por CUIT / CUIL</label>
             <div class="fact-lookup-inline">
               <input type="text" name="cliente_lookup_cuit" value="<?= h($clienteLookupUi['cuit']) ?>" placeholder="20-12345678-9" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-cuit>
               <button type="button" class="btn btn-secondary" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-btn>Consultar ARCA</button>
             </div>
+            <div class="fact-field-help muted">La consulta de padron sale por ARCA en <?= strtolower(h($lookupArcaEnvLabel)) ?>.</div>
+            <?php if ($lookupArcaEnv === 'homo'): ?>
+              <div class="fact-field-help is-warning">En homologacion, ARCA puede devolver contribuyentes de prueba que no coinciden con produccion.</div>
+            <?php endif; ?>
             <input type="hidden" name="cliente_lookup_activo" value="<?= h($clienteLookupUi['activo']) ?>" data-lookup-activo>
             <input type="hidden" name="cliente_lookup_tipo_cliente" value="<?= h($clienteLookupUi['tipo_cliente']) ?>" data-lookup-tipo-cliente>
+            <input type="hidden" name="cliente_lookup_editor" value="<?= h($clienteLookupUi['editor']) ?>" data-lookup-editor-state>
             <div class="fact-lookup-result <?= $clienteLookupUi['activo'] === '1' ? 'is-visible' : '' ?>" data-lookup-result>
-              <div class="fact-form-grid">
-                <div class="ff-field ff-field-wide">
-                  <label>Razon social</label>
-                  <input type="text" name="cliente_lookup_nombre" value="<?= h($clienteLookupUi['nombre']) ?>" readonly data-lookup-nombre>
+              <input type="hidden" name="cliente_lookup_estado" value="<?= h($clienteLookupUi['estado']) ?>" data-lookup-estado>
+              <div class="fact-lookup-summary">
+                <div class="fact-lookup-summary-main">
+                  <div class="fact-lookup-kicker">Receptor a usar</div>
+                  <div class="fact-lookup-name" data-lookup-display-nombre>
+                    <?= h($clienteLookupUi['nombre'] !== '' ? $clienteLookupUi['nombre'] : 'Completa los datos del receptor') ?>
+                  </div>
+                  <div class="fact-lookup-cuit" data-lookup-display-cuit><?= h($clienteLookupUi['cuit']) ?></div>
                 </div>
-                <div class="ff-field">
-                  <label>Condicion IVA</label>
-                  <input type="text" name="cliente_lookup_cond_iva" value="<?= h($clienteLookupUi['cond_iva']) ?>" readonly data-lookup-cond-iva>
+                <div class="fact-lookup-meta">
+                  <span class="fact-lookup-pill <?= $clienteLookupUi['cond_iva'] === '' ? 'is-empty' : '' ?>" data-lookup-display-cond-iva>
+                    <?= h($clienteLookupUi['cond_iva'] !== '' ? $clienteLookupUi['cond_iva'] : 'Cond. IVA pendiente') ?>
+                  </span>
+                  <span class="fact-lookup-pill <?= $clienteLookupUi['estado'] === '' ? 'is-empty' : '' ?>" data-lookup-display-estado>
+                    <?= h($clienteLookupUi['estado'] !== '' ? $clienteLookupUi['estado'] : 'Padron sin estado') ?>
+                  </span>
                 </div>
-                <div class="ff-field">
-                  <label>Estado padron</label>
-                  <input type="text" name="cliente_lookup_estado" value="<?= h($clienteLookupUi['estado']) ?>" readonly data-lookup-estado>
-                </div>
-                <div class="ff-field ff-field-wide">
-                  <label>Domicilio fiscal</label>
-                  <input type="text" name="cliente_lookup_direccion" value="<?= h($clienteLookupUi['direccion']) ?>" readonly data-lookup-direccion>
+                <div class="fact-lookup-address <?= $clienteLookupUi['direccion'] === '' ? 'is-empty' : '' ?>" data-lookup-display-direccion>
+                  <?= h($clienteLookupUi['direccion'] !== '' ? $clienteLookupUi['direccion'] : 'Domicilio fiscal pendiente') ?>
                 </div>
               </div>
+              <div class="fact-lookup-tools">
+                <button type="button" class="btn btn-secondary" data-lookup-toggle-editor>
+                  <?= $clienteLookupUi['editor'] === '1' ? 'Ocultar edicion manual' : 'Completar o editar a mano' ?>
+                </button>
+                <button type="button" class="btn btn-secondary" data-lookup-clear>Descartar datos ARCA</button>
+              </div>
+              <div class="fact-lookup-editor <?= $clienteLookupUi['editor'] === '1' ? 'is-visible' : '' ?>" data-lookup-editor>
+                <div class="fact-form-grid">
+                  <div class="ff-field ff-field-wide">
+                    <label>Razon social</label>
+                    <input type="text" name="cliente_lookup_nombre" value="<?= h($clienteLookupUi['nombre']) ?>" placeholder="Completa razon social si ARCA no la trajo" data-lookup-nombre>
+                  </div>
+                  <div class="ff-field">
+                    <label>Condicion IVA</label>
+                    <select name="cliente_lookup_cond_iva" data-lookup-cond-iva>
+                      <option value="" <?= $clienteLookupUi['cond_iva'] === '' ? 'selected' : '' ?>>Elegir condicion IVA...</option>
+                      <?php foreach (['RI' => 'Responsable Inscripto', 'MT' => 'Monotributo', 'EX' => 'Exento', 'CF' => 'Consumidor Final'] as $condKey => $condLabel): ?>
+                        <option value="<?= h($condKey) ?>" <?= strtoupper($clienteLookupUi['cond_iva']) === $condKey ? 'selected' : '' ?>><?= h($condLabel) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="ff-field ff-field-wide">
+                    <label>Domicilio fiscal</label>
+                    <input type="text" name="cliente_lookup_direccion" value="<?= h($clienteLookupUi['direccion']) ?>" placeholder="Completa domicilio si hace falta" data-lookup-direccion>
+                  </div>
+                </div>
+              </div>
+              <div class="fact-lookup-confirm">
+                <label class="fact-lookup-check">
+                  <input
+                    type="checkbox"
+                    name="cliente_lookup_confirmado"
+                    value="1"
+                    <?= $clienteLookupUi['confirmado'] === '1' ? 'checked' : '' ?>
+                    data-lookup-confirm
+                  >
+                  <span>Usar estos datos de ARCA al emitir y completar/actualizar el cliente en FLUS.</span>
+                </label>
+              </div>
               <div class="fact-lookup-status muted" data-lookup-status>
-                Si estos datos estan cargados, se usaran al emitir esta factura.
+                Si confirmas este bloque, FLUS emitira con estos datos aunque arriba haya otro cliente seleccionado.
               </div>
             </div>
           </div>
@@ -333,20 +321,9 @@ require __DIR__ . '/partials/header.php';
           </a>
         </div>
 
-        <?php if ($errores !== []): ?>
-          <div class="msg msg-visible msg-error" style="margin-top:12px;">
-            <ul>
-              <?php foreach ($errores as $e): ?>
-                <li><?= h($e) ?></li>
-              <?php endforeach; ?>
-            </ul>
-          </div>
-        <?php endif; ?>
       </form>
     </section>
   </div>
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
-
-

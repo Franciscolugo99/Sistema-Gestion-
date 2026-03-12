@@ -30,6 +30,7 @@ logs/
 # /src/config.php
 # Backups / dumps / exports
 *.sql
+!migrations/*.sql
 *.sqlite
 *.sqlite3
 *.zip

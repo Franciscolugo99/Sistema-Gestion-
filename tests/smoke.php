@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/facturacion_manual_lib.php';
+require_once __DIR__ . '/../src/facturacion_lib.php';
 
 $results = [];
 
@@ -171,6 +173,59 @@ $results[] = flus_run_test('flus_calcular_estado_producto keeps product status r
         'stock_minimo' => 5,
     ]));
 });
+$results[] = flus_run_test('facturacion mode helpers normalize aliases consistently', function (): void {
+    flus_assert_same('homologacion', flus_facturacion_normalizar_modo('homo'));
+    flus_assert_same('produccion', flus_facturacion_normalizar_modo('prod'));
+    flus_assert_same('demo', flus_facturacion_normalizar_modo('demo'));
+    flus_assert_same('Demo', flus_facturacion_modo_label('demo'));
+    flus_assert_same('homo', flus_facturacion_arca_env_esperado('homologacion'));
+    flus_assert_same('prod', flus_facturacion_arca_env_esperado('produccion'));
+    flus_assert_same('', flus_facturacion_arca_env_esperado('demo'));
+});
+
+$results[] = flus_run_test('facturacion iva and comprobante helpers stay stable', function (): void {
+    flus_assert_same('RI', determinarCondIvaReceptor(['cond_iva' => 'Responsable Inscripto']));
+    flus_assert_same('MT', determinarCondIvaReceptor(['cond_iva' => 'Monotributo']));
+    flus_assert_same('CF', determinarCondIvaReceptor(['cond_iva' => 'Consumidor Final']));
+    flus_assert_same(5, obtenerIdAlicuotaAfip(21.0));
+    flus_assert_same(4, obtenerIdAlicuotaAfip(10.5));
+    flus_assert_same('FA', obtenerNombreTipoComprobante(1));
+    flus_assert_same('FC', obtenerNombreTipoComprobante(11));
+});
+
+$results[] = flus_run_test('facturacion manual items normalize totals and validate iva', function (): void {
+    $items = flus_facturacion_normalize_manual_items([
+        [
+            'codigo' => 'P001',
+            'descripcion' => 'Producto demo',
+            'cantidad' => '2',
+            'precio' => '150.50',
+            'iva_porcentaje' => '21',
+        ],
+        [
+            'descripcion' => 'Servicio exento',
+            'cantidad' => '1',
+            'precio' => '99.99',
+            'iva_porcentaje' => '0',
+        ],
+    ]);
+
+    flus_assert_same(2, count($items));
+    flus_assert_same(301.0, $items[0]['subtotal']);
+    flus_assert_same(99.99, $items[1]['subtotal']);
+
+    try {
+        flus_facturacion_normalize_manual_items([[
+            'descripcion' => 'IVA invalido',
+            'cantidad' => '1',
+            'precio' => '10',
+            'iva_porcentaje' => '3',
+        ]]);
+        throw new RuntimeException('Expected invalid IVA to throw');
+    } catch (RuntimeException $e) {
+        flus_assert_contains('alicuota IVA', $e->getMessage());
+    }
+});
 
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
@@ -183,8 +238,3 @@ echo PHP_EOL;
 echo 'Total: ' . count($results) . ', failed: ' . count($failed) . PHP_EOL;
 
 exit(count($failed) > 0 ? 1 : 0);
-
-
-
-
-

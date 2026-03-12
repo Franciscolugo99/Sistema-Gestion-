@@ -1,12 +1,20 @@
 # CHANGELOG - FLUS
 
-## [Unreleased] - 2026-03-09
+## [Unreleased]
+
+### Changed
+
+- Sin cambios documentados todavia.
+
+## [3.4.0] - 2026-03-11
 
 ### Added
 
 - Panel Tecnico interno para soporte y mantenimiento con acceso desde el menu de administracion.
 - Base de pruebas minima en `tests/` con `bootstrap.php` y `smoke.php`.
 - Documentacion operativa inicial: roadmap POS e inventario de duplicacion legacy/API.
+- Migracion `005_compras_descuentos_schema.sql` para versionar columnas de descuentos y totales en compras.
+- Guia operativa de actualizacion para despliegues en instalaciones existentes.
 
 ### Changed
 
@@ -17,6 +25,9 @@
 - Productos/Stock: visualizacion de pesables unificada para que tabla, edicion y detalle usen cantidades legibles para el usuario.
 - Stock: tabla y ajuste rapido alineados con productos, con historial reciente en el modal y mejor soporte para unidades KG/G/LT/ML.
 - Proveedores: modulo enriquecido con resumen operativo, ultimas compras, productos asociados y acciones de re-vinculacion puntual/global.
+- Ventas: paginacion y export respetan filtros activos de forma consistente.
+- Compras: las nuevas compras guardan fecha y hora reales, y la confirmacion completa horas faltantes en borradores legacy sin cambiar el dia original.
+- Compras: los cambios de esquema pasan al runner de migraciones y dejan de ejecutarse en tiempo de request.
 
 ### Fixed
 
@@ -30,6 +41,8 @@
 - Smoke tests: expectativas alineadas con la configuracion real de la app para evitar falsos negativos.
 - Productos: correccion de errores JS en el modal de edicion y sincronizacion visual despues de guardar.
 - Proveedores: sincronizacion del nombre visible en productos al renombrar y deteccion de productos legacy sin `proveedor_id`.
+- Compras: correccion del texto corrupto al editar items con descuento.
+- Productos/Proveedores: fallback restaurado para instalaciones con permisos limitados sobre `information_schema`.
 
 ## [3.3.0] - 2026-03-05
 

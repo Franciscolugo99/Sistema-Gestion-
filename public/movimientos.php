@@ -9,20 +9,8 @@ require_permission('ver_movimientos');
 $pdo = getPDO();
 
 // Detectar columnas opcionales para compatibilidad con instalaciones viejas.
-$hasRefVenta = false;
-$hasRefCompra = false;
-try {
-    $st = $pdo->query("SHOW COLUMNS FROM movimientos_stock LIKE 'referencia_venta_id'");
-    $hasRefVenta = (bool)$st->fetch();
-} catch (Throwable $e) {
-    $hasRefVenta = false;
-}
-try {
-    $st = $pdo->query("SHOW COLUMNS FROM movimientos_stock LIKE 'referencia_compra_id'");
-    $hasRefCompra = (bool)$st->fetch();
-} catch (Throwable $e) {
-    $hasRefCompra = false;
-}
+$hasRefVenta = flus_column_exists($pdo, 'movimientos_stock', 'referencia_venta_id');
+$hasRefCompra = flus_column_exists($pdo, 'movimientos_stock', 'referencia_compra_id');
 
 $selRefVenta = $hasRefVenta ? 'm.referencia_venta_id' : 'NULL';
 $selRefCompra = $hasRefCompra ? 'm.referencia_compra_id' : 'NULL';
@@ -172,6 +160,7 @@ function sortLabel(string $sort): string
     };
 }
 
+if (!function_exists('render_pagination')) {
 function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string
 {
     if ($totalPages <= 1) {
@@ -230,6 +219,7 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
     $html .= '</div></div>';
 
     return $html;
+}
 }
 
 function render_sort_link(string $label, string $sortKey, string $currentSort, string $currentDir, array $params, bool $rightAligned = false): string

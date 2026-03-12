@@ -78,9 +78,14 @@ final class AfipApi
         }
 
         $env = defined('FLUS_ARCA_ENV') ? (string)FLUS_ARCA_ENV : 'prod';
-        $wsdl = ($env === 'homo')
-            ? 'https://awshomo.arca.gov.ar/sr-padron/webservices/personaServiceA5?WSDL'
-            : 'https://aws.arca.gov.ar/sr-padron/webservices/personaServiceA5?WSDL';
+        $wsdls = ($env === 'homo')
+            ? [
+                'https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
+                'https://awshomo.arca.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
+            ]
+            : [
+                'https://aws.arca.gov.ar/sr-padron/webservices/personaServiceA5?WSDL',
+            ];
 
         try {
             $ctx = stream_context_create([
@@ -91,13 +96,37 @@ final class AfipApi
                 ]
             ]);
 
-            $client = new SoapClient($wsdl, [
-                'trace' => false,
-                'exceptions' => true,
-                'cache_wsdl' => WSDL_CACHE_BOTH,
-                'connection_timeout' => 12,
-                'stream_context' => $ctx,
-            ]);
+            $client = null;
+            $wsdlFaults = [];
+            foreach ($wsdls as $wsdl) {
+                try {
+                    $client = new SoapClient($wsdl, [
+                        'trace' => false,
+                        'exceptions' => true,
+                        'cache_wsdl' => WSDL_CACHE_BOTH,
+                        'connection_timeout' => 12,
+                        'stream_context' => $ctx,
+                    ]);
+                    break;
+                } catch (SoapFault $fault) {
+                    $wsdlFaults[] = (string) ($fault->faultstring ?? 'Error SOAP');
+                }
+            }
+
+            if (!$client instanceof SoapClient) {
+                $fault = implode(' | ', $wsdlFaults);
+                if (
+                    stripos($fault, 'Parsing WSDL') !== false
+                    || stripos($fault, "Couldn't load from") !== false
+                    || stripos($fault, 'failed to load external entity') !== false
+                ) {
+                    self::$lastError = 'No se pudo abrir el servicio de padron ARCA desde esta PC/red. Revisa DNS, internet o firewall para los dominios de homologacion/produccion.';
+                    return null;
+                }
+
+                self::$lastError = $fault !== '' ? 'SOAP Fault: ' . $fault : 'No se pudo abrir el WSDL del servicio de padron ARCA.';
+                return null;
+            }
 
             // método recomendado: getPersona_v2
             $params = [
@@ -152,7 +181,16 @@ final class AfipApi
             ];
 
         } catch (SoapFault $sf) {
-            self::$lastError = 'SOAP Fault: ' . ($sf->faultstring ?? 'Error SOAP');
+            $fault = (string) ($sf->faultstring ?? 'Error SOAP');
+            if (
+                stripos($fault, 'Parsing WSDL') !== false
+                || stripos($fault, "Couldn't load from") !== false
+                || stripos($fault, 'failed to load external entity') !== false
+            ) {
+                self::$lastError = 'No se pudo abrir el servicio de padron ARCA desde esta PC/red. Revisa DNS, internet o firewall para los dominios de homologacion/produccion.';
+            } else {
+                self::$lastError = 'SOAP Fault: ' . $fault;
+            }
             return null;
         } catch (Throwable $e) {
             self::$lastError = 'Error consultando ARCA (SOAP): ' . $e->getMessage();

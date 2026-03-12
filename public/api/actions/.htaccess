@@ -1,5 +1,21 @@
 # Bloquea el acceso directo a actions/*
 # Deben ejecutarse solo via public/api/index.php
+#
+# Excepcion temporal:
+# `buscar_productos.php` se mantiene accesible porque algunas pantallas
+# pueden seguir con JS cacheado apuntando a esa URL. El endpoint igual
+# valida sesion y permisos del lado PHP.
+
+<Files "buscar_productos.php">
+  <IfModule mod_authz_core.c>
+    Require all granted
+  </IfModule>
+
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
+  </IfModule>
+</Files>
 
 <IfModule mod_authz_core.c>
   Require all denied

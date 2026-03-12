@@ -17,13 +17,12 @@ if (function_exists('date_default_timezone_set')) {
 /* =========================
    Constantes
 ========================= */
-const EXPORT_LIMIT = 10000;
-
 /* =========================
    Helpers
 ========================= */
 
 /* Paginación numérica */
+if (!function_exists('render_pagination')) {
 function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
   if ($totalPages <= 1) return '';
   
@@ -77,6 +76,7 @@ function render_pagination(int $page, int $totalPages, array $params, bool $show
   
   $html .= '</div></div>';
   return $html;
+}
 }
 
 /* =========================
@@ -233,7 +233,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         LEFT JOIN clientes c ON c.id = v.cliente_id
         WHERE $whereSQL
         ORDER BY v.id DESC
-        LIMIT " . EXPORT_LIMIT;
+  LIMIT " . flus_export_limit();
 
     $stmtExp = $pdo->prepare($sqlExport);
     $stmtExp->execute($params);
@@ -648,8 +648,18 @@ $extraJs = [
 
 require __DIR__ . '/partials/header.php';
 
-$queryParams = $_GET;
-unset($queryParams['page']);
+$queryParams = [
+  'venta_id' => $venta_id !== '' ? $venta_id : null,
+  'desde' => $desde ?: null,
+  'hasta' => $hasta ?: null,
+  'medio' => $medio !== '' ? $medio : null,
+  'estado' => $estado !== '' ? $estado : null,
+  'hora_desde' => $hora_desde !== '' ? $hora_desde : null,
+  'hora_hasta' => $hora_hasta !== '' ? $hora_hasta : null,
+  'cliente_id' => $cliente_id > 0 ? $cliente_id : null,
+  'per_page' => $perPage,
+];
+$queryParams = array_filter($queryParams, static fn($value) => $value !== null && $value !== '');
 ?>
 
 <div class="ventas-page">
@@ -668,7 +678,7 @@ unset($queryParams['page']);
         <option value="58">58mm</option>
       </select>
       <button id="btnCharts" class="btn-icon" title="Gráficos (Ctrl+E)">📊</button>
-      <a href="?<?= http_build_query(array_merge($_GET, ['export' => 'csv'])) ?>" class="btn btn-primary" title="Exportar CSV">💾 Exportar</a>
+      <a href="?<?= http_build_query($queryParams + ['export' => 'csv']) ?>" class="btn btn-primary" title="Exportar CSV">💾 Exportar</a>
     </div>
   </div>
   

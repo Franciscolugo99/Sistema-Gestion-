@@ -25,7 +25,11 @@ if (function_exists('require_login_json')) {
     if ($uid <= 0) $fail(401, 'No autenticado');
 }
 
-if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
+if (
+    function_exists('user_has_permission')
+    && !user_has_permission('realizar_ventas')
+    && !user_has_permission('emitir_factura')
+) {
     $fail(403, 'No autorizado');
 }
 
@@ -83,8 +87,44 @@ try {
     }
     $whereClause = '(' . implode(' OR ', $whereParts) . ')';
 
+    $precioCol = null;
+    foreach (['precio', 'precio_venta', 'price'] as $candidate) {
+        if ($hasCol($candidate)) {
+            $precioCol = $candidate;
+            break;
+        }
+    }
+
+    $stockCol = null;
+    foreach (['stock', 'cantidad', 'existencia'] as $candidate) {
+        if ($hasCol($candidate)) {
+            $stockCol = $candidate;
+            break;
+        }
+    }
+
+    $ivaCol = null;
+    foreach (['iva_porcentaje', 'iva', 'alicuota_iva'] as $candidate) {
+        if ($hasCol($candidate)) {
+            $ivaCol = $candidate;
+            break;
+        }
+    }
+
     // Construir SELECT con columnas opcionales
-    $selectParts = ['id', 'codigo', 'nombre', 'precio', 'stock'];
+    $selectParts = ['id', 'codigo', 'nombre'];
+
+    if ($precioCol !== null) {
+        $selectParts[] = "`{$precioCol}` AS precio";
+    } else {
+        $selectParts[] = '0 AS precio';
+    }
+
+    if ($stockCol !== null) {
+        $selectParts[] = "`{$stockCol}` AS stock";
+    } else {
+        $selectParts[] = '0 AS stock';
+    }
 
     if ($hasCol('es_pesable')) {
         $selectParts[] = 'COALESCE(es_pesable, 0) as es_pesable';
@@ -102,6 +142,12 @@ try {
         $selectParts[] = 'COALESCE(activo, 1) as activo';
     } else {
         $selectParts[] = '1 as activo';
+    }
+
+    if ($ivaCol !== null) {
+        $selectParts[] = "COALESCE(`{$ivaCol}`, 21) as iva_porcentaje";
+    } else {
+        $selectParts[] = '21 as iva_porcentaje';
     }
 
     $selectClause = implode(', ', $selectParts);
@@ -153,6 +199,7 @@ try {
         $p['nombre'] = (string)($p['nombre'] ?? '');
         $p['precio'] = (float)($p['precio'] ?? 0);
         $p['stock'] = (float)($p['stock'] ?? 0);
+        $p['iva_porcentaje'] = (float)($p['iva_porcentaje'] ?? 21);
         $p['es_pesable'] = ((int)($p['es_pesable'] ?? 0) === 1);
         $p['unidad_venta'] = (string)($p['unidad_venta'] ?: 'UNIDAD');
         $p['activo'] = ((int)($p['activo'] ?? 1) === 1);
