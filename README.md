@@ -2,14 +2,14 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.3.0  
-**Build:** 2026-03-05  
+**Version:** 3.4.0  
+**Build:** 2026-03-11  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-09)
+## Estado actual (2026-03-11)
 
 ### Base tecnica
 - Panel Tecnico interno para soporte, diagnostico y ejecucion de smoke tests desde la UI.
@@ -36,8 +36,16 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Contrato JSON estandar (`ok/error`) + CSRF reforzado en APIs.
 - Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
 - Views portables sin `DEFINER` y limpieza de inconsistencias de esquema.
+- Compras: columnas de descuentos/totales ya versionadas por migracion y no por `ALTER TABLE` en tiempo de request.
 
 > Ver `CHANGELOG.md` para el detalle historico por version.
+
+## Actualizacion de instalaciones existentes
+
+- Hacer backup de archivos y base de datos antes de desplegar.
+- Copiar la nueva version y ejecutar `php scripts/migrate.php`.
+- Validar modulos criticos despues del deploy.
+- Usar la guia de [docs/UPGRADE_3.4.0.md](docs/UPGRADE_3.4.0.md).
 
 ## Requisitos
 
@@ -56,6 +64,14 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
    php scripts/migrate.php
    ```
 3. Abrir el sistema desde `public/`.
+
+## Checklist de release / deploy
+
+1. Confirmar backup de base y proyecto.
+2. Copiar archivos nuevos al servidor.
+3. Ejecutar `php scripts/migrate.php`.
+4. Validar login, ventas, compras, productos, stock y proveedores.
+5. Revisar `src/version.php` en la instancia desplegada.
 
 ---
 
