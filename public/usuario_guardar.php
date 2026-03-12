@@ -6,9 +6,6 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
 
-if (session_status() === PHP_SESSION_NONE) {
-  session_start();
-}
 
 function back_with_error(string $msg): void {
   $_SESSION['flash_error'] = $msg;

@@ -6,7 +6,6 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
 
-if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Solo POST
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {

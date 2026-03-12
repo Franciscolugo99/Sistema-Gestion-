@@ -62,21 +62,11 @@ function getProveedorById(PDO $pdo, int $id): ?array {
 function getProveedorColumns(PDO $pdo): array {
     static $cols = null;
     if ($cols === null) {
-        $cols = array_keys(flus_columns_set($pdo, flus_current_db($pdo), 'proveedores'));
-        if ($cols === []) {
-            try {
-                $st = $pdo->query("SHOW COLUMNS FROM proveedores");
-                $cols = array_column($st->fetchAll(PDO::FETCH_ASSOC), 'Field');
-            } catch (Throwable $e) {
-                $cols = [];
-            }
-        }
+        $cols = function_exists('flus_table_columns')
+            ? flus_table_columns($pdo, 'proveedores')
+            : [];
     }
     return $cols;
-}
-
-function hasColumn(PDO $pdo, string $column): bool {
-    return in_array($column, getProveedorColumns($pdo), true);
 }
 
 function hasTableColumn(PDO $pdo, string $table, string $column): bool {
@@ -85,16 +75,8 @@ function hasTableColumn(PDO $pdo, string $table, string $column): bool {
     if (array_key_exists($key, $cache)) {
         return $cache[$key];
     }
-    if (flus_column_exists($pdo, $table, $column)) {
-        return $cache[$key] = true;
-    }
-    try {
-        $st = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-        $st->execute([$column]);
-        return $cache[$key] = (bool)$st->fetch(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-        return $cache[$key] = false;
-    }
+
+    return $cache[$key] = flus_column_exists($pdo, $table, $column);
 }
 
 function normProveedorName(string $value): string {

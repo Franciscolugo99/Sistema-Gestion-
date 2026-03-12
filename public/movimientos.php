@@ -160,68 +160,6 @@ function sortLabel(string $sort): string
     };
 }
 
-if (!function_exists('render_pagination')) {
-function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string
-{
-    if ($totalPages <= 1) {
-        return '';
-    }
-
-    unset($params['page']);
-    $html = '<div class="pagination">';
-
-    if ($showInfo && $total > 0) {
-        $html .= '<span class="pagination-info">' . number_format($from) . '-' . number_format($to) . ' de ' . number_format($total) . '</span>';
-    }
-
-    $html .= '<div class="pagination-btns">';
-
-    if ($page > 1) {
-        $params['page'] = $page - 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">&lsaquo;</a>';
-    } else {
-        $html .= '<span class="pg-btn disabled">&lsaquo;</span>';
-    }
-
-    $start = max(1, $page - 2);
-    $end = min($totalPages, $page + 2);
-
-    if ($start > 1) {
-        $params['page'] = 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">1</a>';
-        if ($start > 2) {
-            $html .= '<span class="pg-ellipsis">...</span>';
-        }
-    }
-
-    for ($i = $start; $i <= $end; $i++) {
-        $params['page'] = $i;
-        $html .= ($i === $page)
-            ? '<span class="pg-btn active">' . $i . '</span>'
-            : '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $i . '</a>';
-    }
-
-    if ($end < $totalPages) {
-        if ($end < $totalPages - 1) {
-            $html .= '<span class="pg-ellipsis">...</span>';
-        }
-        $params['page'] = $totalPages;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $totalPages . '</a>';
-    }
-
-    if ($page < $totalPages) {
-        $params['page'] = $page + 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">&rsaquo;</a>';
-    } else {
-        $html .= '<span class="pg-btn disabled">&rsaquo;</span>';
-    }
-
-    $html .= '</div></div>';
-
-    return $html;
-}
-}
-
 function render_sort_link(string $label, string $sortKey, string $currentSort, string $currentDir, array $params, bool $rightAligned = false): string
 {
     $isActive = $currentSort === $sortKey;

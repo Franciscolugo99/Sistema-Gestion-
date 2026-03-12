@@ -69,14 +69,7 @@ function flus_get_or_create_proveedor(PDO $pdo, string $nombre): int {
 
 
 $FLUS_HAS_PROVEEDORES = has_table($pdo, 'proveedores');
-$FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = false;
-try {
-    $st = $pdo->prepare("SHOW COLUMNS FROM `productos` LIKE ?");
-    $st->execute(['proveedor_id']);
-    $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = (bool)$st->fetch(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-    $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_column_exists($pdo, 'productos', 'proveedor_id');
-}
+$FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_column_exists($pdo, 'productos', 'proveedor_id');
 
 // Lista de proveedores para autocomplete.
 // Nota: en algunas instalaciones hay permisos limitados sobre information_schema;

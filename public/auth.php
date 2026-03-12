@@ -291,6 +291,20 @@ function user_has_any_permission(array $slugs): bool {
 }
 
 /* Mensajes (HTML / JSON) claros cuando el problema NO es un 403 real */
+function user_can_access_diagnostics(): bool {
+  return user_has_any_permission(['ver_diagnostico', 'gestionar_backups']);
+}
+
+function require_diagnostics_permission(): void {
+  require_any_permission(['ver_diagnostico', 'gestionar_backups']);
+}
+function user_can_access_technical_panel(): bool {
+  return user_has_any_permission(['administrar_config', 'gestionar_backups']);
+}
+
+function require_technical_permission(): void {
+  require_any_permission(['administrar_config', 'gestionar_backups']);
+}
 function flus_render_access_error(string $mode, int $http, string $code, string $msg, string $detail = ''): void {
   http_response_code($http);
 

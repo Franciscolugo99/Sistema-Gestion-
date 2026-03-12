@@ -5,11 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-if (!user_has_permission('gestionar_backups')) {
-    http_response_code(403);
-    echo 'No tenés permisos para acceder a esta sección.';
-    exit;
-}
+require_diagnostics_permission();
 
 require_once __DIR__ . '/../src/diagnostics_lib.php';
 

@@ -5,20 +5,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
+require_technical_permission();
 
-$canTecnico = function_exists('user_has_permission')
-    ? (user_has_permission('administrar_config') || user_has_permission('gestionar_backups'))
-    : false;
-
-if (!$canTecnico) {
-    http_response_code(403);
-    echo 'No tenes permisos para acceder a esta seccion.';
-    exit;
-}
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -105,10 +93,21 @@ function tecnico_translate_smoke_output(string $stdout): string
         'flus_guard_user_admin_mutation blocks self deactivation' => 'flus_guard_user_admin_mutation bloquea la auto desactivacion',
         'flus_normalize_sale_status normalizes empty and custom states' => 'flus_normalize_sale_status normaliza estados vacios y personalizados',
         'flus_sale_helpers keep annulled criteria consistent' => 'flus_sale_helpers mantiene consistente el criterio de anulacion',
+        'flus_calcular_estado_producto keeps product status rules consistent' => 'flus_calcular_estado_producto mantiene consistentes las reglas de estado de producto',
+        'facturacion mode helpers normalize aliases consistently' => 'los helpers de facturacion normalizan alias de modo de forma consistente',
+        'facturacion iva and comprobante helpers stay stable' => 'los helpers de IVA y comprobante de facturacion se mantienen estables',
+        'facturacion manual items normalize totals and validate iva' => 'los items de facturacion manual normalizan totales y validan IVA',
+        'compras schema lives in migrations instead of runtime DDL' => 'compras usa migraciones y no DDL en runtime',
+        'pagination helper is centralized in src helpers' => 'la paginacion sigue centralizada en src/helpers.php',
+        'schema checks are centralized outside public pages' => 'los chequeos de esquema estan centralizados fuera de las paginas publicas',
+        'diagnostics access keeps dedicated permission compatibility' => 'diagnostico conserva compatibilidad con su permiso dedicado',
+        'technical panel access stays centralized and visible in nav' => 'el acceso al panel tecnico sigue centralizado y visible en la navegacion',
+        'admin pages rely on bootstrap session startup' => 'las paginas admin usan bootstrap para iniciar sesion',
     ];
 
     return strtr($stdout, $map);
 }
+
 function tecnico_parse_smoke_output(string $stdout, string $stderr, int $exitCode, string $phpBinary, float $durationMs): array
 {
     $total = null;
@@ -198,6 +197,82 @@ function tecnico_count_php_files(string $dir): int
         }
     }
     return $count;
+}
+
+function tecnico_list_php_files(string $dir, bool $recursive = true): array
+{
+    if (!is_dir($dir)) {
+        return [];
+    }
+
+    if (!$recursive) {
+        $files = glob(rtrim($dir, '/\\') . DIRECTORY_SEPARATOR . '*.php') ?: [];
+        sort($files);
+        return $files;
+    }
+
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+    foreach ($iterator as $file) {
+        if ($file instanceof SplFileInfo && strtolower($file->getExtension()) === 'php') {
+            $files[] = $file->getPathname();
+        }
+    }
+    sort($files);
+    return $files;
+}
+
+function tecnico_count_pattern_matches(array $paths, string $pattern): int
+{
+    $total = 0;
+    foreach ($paths as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            continue;
+        }
+        $matches = preg_match_all($pattern, $raw);
+        if ($matches !== false) {
+            $total += (int)$matches;
+        }
+    }
+    return $total;
+}
+
+function tecnico_files_with_pattern(array $paths, string $pattern): array
+{
+    $matches = [];
+    foreach ($paths as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || $raw === '') {
+            continue;
+        }
+        if (preg_match($pattern, $raw) === 1) {
+            $matches[] = $path;
+        }
+    }
+    return $matches;
+}
+
+function tecnico_relative_path(string $path): string
+{
+    $normalized = str_replace('\\', '/', $path);
+    $root = rtrim(str_replace('\\', '/', FLUS_ROOT), '/') . '/';
+    return str_starts_with($normalized, $root) ? substr($normalized, strlen($root)) : basename($path);
+}
+
+function tecnico_build_check(string $label, bool $ok, string $okDetail, string $failDetail): array
+{
+    return [
+        'label' => $label,
+        'ok' => $ok,
+        'detail' => $ok ? $okDetail : $failDetail,
+    ];
 }
 
 function tecnico_extract_headings(string $markdown, string $prefix): array
@@ -307,11 +382,121 @@ $roadmapPath = FLUS_ROOT . '/docs/ROADMAP_POS.md';
 $inventoryPath = FLUS_ROOT . '/docs/LEGACY_API_INVENTORY.md';
 $roadmapText = tecnico_read_text($roadmapPath);
 $inventoryText = tecnico_read_text($inventoryPath);
-$publicPageCount = count(glob(__DIR__ . '/*.php') ?: []);
+$publicPages = tecnico_list_php_files(__DIR__, false);
+$publicScanPages = array_values(array_filter(
+    $publicPages,
+    static fn(string $path): bool => basename($path) !== 'tecnico.php'
+));
+$partialPages = tecnico_list_php_files(__DIR__ . '/partials');
+$publicPageCount = count($publicPages);
 $apiPageCount = tecnico_count_php_files(__DIR__ . '/api');
 $roadmapStages = tecnico_extract_headings($roadmapText, '##');
 $inventoryDomains = tecnico_extract_headings($inventoryText, '####');
 $phpBinary = tecnico_detect_php_binary();
+
+$paginationPages = array_map(
+    static fn(string $path): string => FLUS_ROOT . '/' . $path,
+    ['public/caja_historial.php', 'public/movimientos.php', 'public/stock.php', 'public/ventas.php']
+);
+$schemaPages = array_map(
+    static fn(string $path): string => FLUS_ROOT . '/' . $path,
+    ['public/proveedores.php', 'public/productos.php', 'public/precios_historial.php']
+);
+$adminPages = array_map(
+    static fn(string $path): string => FLUS_ROOT . '/' . $path,
+    [
+        'public/roles.php',
+        'public/rol_guardar.php',
+        'public/rol_permisos.php',
+        'public/usuarios.php',
+        'public/usuario_editar.php',
+        'public/usuario_guardar.php',
+        'public/usuario_nuevo.php',
+        'public/tecnico.php',
+        'public/diagnostico_download.php',
+    ]
+);
+$helpersPath = FLUS_ROOT . '/src/helpers.php';
+$schemaHelperPath = FLUS_ROOT . '/src/db_schema.php';
+
+$paginationDuplicates = tecnico_count_pattern_matches($paginationPages, '/function\s+render_pagination\s*\(/');
+$publicRuntimeDdlCount = tecnico_count_pattern_matches($publicScanPages, '/ALTER\\s+TABLE/i');
+$publicMojibakeFiles = tecnico_files_with_pattern(
+    array_merge($publicScanPages, $partialPages),
+    '/(\x{00C3}|\x{00E2}|\x{00F0}|\x{00C2}|\x{FFFD})/u'
+);
+$schemaIntrospectionCount = tecnico_count_pattern_matches($schemaPages, '/SHOW\s+COLUMNS/i');
+$adminSessionStartCount = tecnico_count_pattern_matches($adminPages, '/session_start\s*\(|startSecureSession\s*\(/i');
+$smokeSuiteGreen = !empty($smoke['ok']) && (int)($smoke['failed'] ?? 0) === 0;
+$smokeTotal = (int)($smoke['total'] ?? 0);
+$smokePassed = (int)($smoke['passed'] ?? 0);
+
+$baseChecks = [
+    tecnico_build_check(
+        'Smoke estable',
+        $smokeSuiteGreen,
+        'La ultima corrida guardada paso completa: ' . $smokePassed . '/' . $smokeTotal . ' OK.',
+        $smoke
+            ? 'La ultima corrida guardada tiene fallas o quedo incompleta.'
+            : 'Todavia no hay corrida guardada de smoke tests.'
+    ),
+    tecnico_build_check(
+        'Paginacion centralizada',
+        is_file($helpersPath) && tecnico_count_pattern_matches([$helpersPath], '/function\s+render_pagination\s*\(/') === 1 && $paginationDuplicates === 0,
+        'Las pantallas clave usan el helper compartido en src/helpers.php.',
+        'Aparecieron duplicados de render_pagination en paginas publicas.'
+    ),
+    tecnico_build_check(
+        'Sin DDL web en public/',
+        $publicRuntimeDdlCount === 0,
+        'No hay ALTER TABLE ejecutandose desde paginas publicas.',
+        'Se detectaron sentencias ALTER TABLE dentro de public/.'
+    ),
+    tecnico_build_check(
+        'Esquema concentrado',
+        is_file($schemaHelperPath) && $schemaIntrospectionCount === 0,
+        'Los chequeos de columnas viven en src/db_schema.php.',
+        'Hay paginas publicas haciendo SHOW COLUMNS por su cuenta.'
+    ),
+    tecnico_build_check(
+        'Sesion admin unificada',
+        $adminSessionStartCount === 0,
+        'Roles, usuarios, diagnostico y tecnico dependen de bootstrap.',
+        'Quedaron inicios manuales de sesion o wrappers legacy dentro del bloque admin.'
+    ),
+    tecnico_build_check(
+        'UI sin texto roto',
+        count($publicMojibakeFiles) === 0,
+        'No se detecto mojibake en paginas publicas ni en parciales visibles.',
+        'Hay archivos con texto roto: ' . implode(', ', array_map('tecnico_relative_path', array_slice($publicMojibakeFiles, 0, 4))) . (count($publicMojibakeFiles) > 4 ? '...' : '') . '.'
+    ),
+];
+$healthChecksOk = count(array_filter($baseChecks, static fn(array $check): bool => !empty($check['ok'])));
+$healthChecksTotal = count($baseChecks);
+$healthChipClass = $healthChecksOk === $healthChecksTotal ? 'ok' : ($healthChecksOk >= max(1, $healthChecksTotal - 1) ? 'warning' : 'error');
+
+$quickLinks = [];
+if (function_exists('user_can_access_diagnostics') && user_can_access_diagnostics()) {
+    $quickLinks[] = [
+        'href' => 'diagnostico.php',
+        'title' => 'Diagnostico',
+        'desc' => 'Revisar salud del sistema, logs y paquetes compartibles.',
+    ];
+}
+if (function_exists('user_has_permission') && user_has_permission('gestionar_backups')) {
+    $quickLinks[] = [
+        'href' => 'backups.php',
+        'title' => 'Backups',
+        'desc' => 'Crear, validar o restaurar respaldos operativos.',
+    ];
+}
+if (function_exists('user_has_permission') && user_has_permission('administrar_usuarios')) {
+    $quickLinks[] = [
+        'href' => 'usuarios.php',
+        'title' => 'Usuarios',
+        'desc' => 'Revisar accesos, roles y permisos activos.',
+    ];
+}
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -320,7 +505,7 @@ require __DIR__ . '/partials/header.php';
   <div class="panel-head">
     <div>
       <h1>Panel Tecnico</h1>
-      <p class="panel-subtitle">Hoja de ruta, inventario legacy/API y ejecucion de pruebas rapidas desde la UI.</p>
+      <p class="panel-subtitle">Estado tecnico del backoffice, saneamiento base y accesos operativos desde una sola pantalla.</p>
     </div>
     <div class="tecnico-actions">
       <form method="post" class="inline-form">
@@ -328,6 +513,9 @@ require __DIR__ . '/partials/header.php';
         <input type="hidden" name="accion" value="run_smoke">
         <button class="btn btn-primary" type="submit">Correr pruebas rapidas</button>
       </form>
+      <?php if (function_exists('user_can_access_diagnostics') && user_can_access_diagnostics()): ?>
+        <a href="diagnostico.php" class="btn btn-ghost">Abrir diagnostico</a>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -338,6 +526,7 @@ require __DIR__ . '/partials/header.php';
   <?php if ($error): ?>
     <div class="alert alert-err"><span><?= tecnico_h($error) ?></span></div>
   <?php endif; ?>
+
   <div class="tecnico-stats">
     <div class="tecnico-card stat-card">
       <div class="stat-label">Pruebas rapidas</div>
@@ -356,15 +545,17 @@ require __DIR__ . '/partials/header.php';
     </div>
 
     <div class="tecnico-card stat-card">
-      <div class="stat-label">Pantallas legacy</div>
+      <div class="stat-label">Pantallas publicas</div>
       <div class="stat-value"><?= (int)$publicPageCount ?></div>
-      <div class="stat-note">Archivos PHP en `public/`.</div>
+      <div class="stat-note">Archivos PHP raiz en `public/`.</div>
     </div>
 
     <div class="tecnico-card stat-card">
-      <div class="stat-label">Endpoints de API</div>
-      <div class="stat-value"><?= (int)$apiPageCount ?></div>
-      <div class="stat-note">Archivos PHP en `public/api/`.</div>
+      <div class="stat-label">Salud base</div>
+      <div class="stat-value <?= $healthChipClass === 'ok' ? 'ok' : ($healthChipClass === 'error' ? 'error' : '') ?>">
+        <?= $healthChecksOk ?>/<?= $healthChecksTotal ?>
+      </div>
+      <div class="stat-note">Chequeos de saneamiento activos en el repo.</div>
     </div>
 
     <div class="tecnico-card stat-card">
@@ -375,6 +566,27 @@ require __DIR__ . '/partials/header.php';
   </div>
 
   <div class="tecnico-grid">
+    <section class="tecnico-card">
+      <div class="section-head">
+        <h2>Estado actual</h2>
+        <span class="chip <?= $healthChipClass ?>"><?= $healthChecksOk ?>/<?= $healthChecksTotal ?> checks OK</span>
+      </div>
+      <p class="tecnico-copy">Este bloque mira el codigo actual del proyecto y resume si la base tecnica quedo alineada con el saneamiento que venimos haciendo.</p>
+      <div class="health-list">
+        <?php foreach ($baseChecks as $check): ?>
+          <article class="health-item <?= !empty($check['ok']) ? 'is-ok' : 'is-warning' ?>">
+            <div class="health-item-head">
+              <h3><?= tecnico_h($check['label']) ?></h3>
+              <span class="chip <?= !empty($check['ok']) ? 'ok' : 'warning' ?>">
+                <?= !empty($check['ok']) ? 'OK' : 'Revisar' ?>
+              </span>
+            </div>
+            <p><?= tecnico_h($check['detail']) ?></p>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    </section>
+
     <section class="tecnico-card">
       <div class="section-head">
         <h2>Pruebas rapidas</h2>
@@ -401,6 +613,26 @@ require __DIR__ . '/partials/header.php';
 
     <section class="tecnico-card">
       <div class="section-head">
+        <h2>Operacion tecnica</h2>
+        <span class="chip chip-inline"><?= count($quickLinks) ?> accesos</span>
+      </div>
+      <p class="tecnico-copy">Atajos para las herramientas que hoy siguen vivas en soporte y administracion.</p>
+      <div class="tecnico-link-grid">
+        <?php foreach ($quickLinks as $link): ?>
+          <a href="<?= tecnico_h($link['href']) ?>" class="tecnico-link-card">
+            <strong><?= tecnico_h($link['title']) ?></strong>
+            <span><?= tecnico_h($link['desc']) ?></span>
+          </a>
+        <?php endforeach; ?>
+        <div class="tecnico-link-card tecnico-link-card--muted">
+          <strong>API publica</strong>
+          <span><?= (int)$apiPageCount ?> endpoints PHP relevados en `public/api/`.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="tecnico-card">
+      <div class="section-head">
         <h2>Hoja de ruta</h2>
         <span class="chip ok"><?= count($roadmapStages) ?> etapas</span>
       </div>
@@ -414,9 +646,10 @@ require __DIR__ . '/partials/header.php';
 
     <section class="tecnico-card tecnico-card--wide">
       <div class="section-head">
-        <h2>Inventario Legacy / API</h2>
+        <h2>Inventario de compatibilidad</h2>
         <span class="chip warning"><?= count($inventoryDomains) ?> dominios</span>
       </div>
+      <p class="tecnico-copy">Este inventario sigue siendo la referencia para wrappers y endpoints heredados que todavia conviene vigilar antes de podarlos.</p>
       <div class="tag-row">
         <?php foreach ($inventoryDomains as $domain): ?>
           <span class="chip chip-inline warning"><?= tecnico_h($domain) ?></span>

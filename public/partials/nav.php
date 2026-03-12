@@ -135,8 +135,12 @@ $canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
 $canInventarioFisico = $can('editar_stock');
 $canPreciosHistorial = $can('editar_productos');
 $canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
-$canDiagnostico      = $can('gestionar_backups');
-$canTecnico          = $can('administrar_config') || $can('gestionar_backups');
+$canDiagnostico      = function_exists('user_can_access_diagnostics')
+  ? user_can_access_diagnostics()
+  : ($can('ver_diagnostico') || $can('gestionar_backups'));
+$canTecnico          = function_exists('user_can_access_technical_panel')
+  ? user_can_access_technical_panel()
+  : ($can('administrar_config') || $can('gestionar_backups'));
 
 $showAdminMenu =
   $can('administrar_config') ||

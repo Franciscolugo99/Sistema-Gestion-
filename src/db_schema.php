@@ -6,7 +6,12 @@ declare(strict_types=1);
  * - flus_table_exists()
  * - flus_column_exists()
  * - flus_first_existing_column()
+ * - flus_table_columns()
  */
+
+function flus_schema_identifier_ok(string $identifier): bool {
+  return $identifier !== '' && (bool)preg_match('/^[A-Za-z0-9_]+$/', $identifier);
+}
 
 function flus_current_db(PDO $pdo): string {
   static $cache = [];
@@ -18,11 +23,54 @@ function flus_current_db(PDO $pdo): string {
       $db = $q ? $q->fetchColumn() : '';
       $cache[$id] = is_string($db) ? $db : '';
     } catch (Throwable $e) {
-      // No romper por fallas de conexiÃƒÂ³n/privilegios (p.ej. info_schema)
+      // Do not break on connection or privilege issues.
       $cache[$id] = '';
     }
   }
   return $cache[$id];
+}
+
+function flus_schema_probe_table(PDO $pdo, string $table): bool {
+  if (!flus_schema_identifier_ok($table)) {
+    return false;
+  }
+
+  try {
+    $pdo->query('SELECT 1 FROM `' . $table . '` LIMIT 0');
+    return true;
+  } catch (Throwable $e) {
+    return false;
+  }
+}
+
+/**
+ * Centralized fallback for installs without information_schema access.
+ *
+ * @return array<string,true>
+ */
+function flus_schema_show_columns_set(PDO $pdo, string $table): array {
+  if (!flus_schema_identifier_ok($table)) {
+    return [];
+  }
+
+  try {
+    $stmt = $pdo->query('SHOW COLUMNS FROM `' . $table . '`');
+    if (!$stmt) {
+      return [];
+    }
+
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $cols = [];
+    foreach ($rows as $row) {
+      $name = (string)($row['Field'] ?? '');
+      if ($name !== '') {
+        $cols[$name] = true;
+      }
+    }
+    return $cols;
+  } catch (Throwable $e) {
+    return [];
+  }
 }
 
 function flus_table_exists(PDO $pdo, string $table, ?string $schema = null): bool {
@@ -42,20 +90,27 @@ function flus_table_exists(PDO $pdo, string $table, ?string $schema = null): boo
         AND TABLE_NAME = ?
       LIMIT 1"
     );
-    if (!$stmt) { $memo[$key] = false; return false; }
+    if (!$stmt) {
+      $memo[$key] = false;
+      return false;
+    }
     $stmt->execute([$schema, $table]);
     $memo[$key] = (bool)$stmt->fetchColumn();
-    return (bool)$memo[$key];
   } catch (Throwable $e) {
-    // Sin privilegios sobre information_schema o fallo DB => asumir que no existe
     $memo[$key] = false;
-    return false;
   }
+
+  if (!$memo[$key] && $schema === flus_current_db($pdo)) {
+    $memo[$key] = flus_schema_probe_table($pdo, $table);
+  }
+
+  return (bool)$memo[$key];
 }
 
 /**
- * Cachea todas las columnas existentes para una tabla.
- * @return array<string,true> set de columnas
+ * Cache all columns known for a table.
+ *
+ * @return array<string,true>
  */
 function flus_columns_set(PDO $pdo, string $schema, string $table): array {
   static $colsMemo = [];
@@ -69,13 +124,19 @@ function flus_columns_set(PDO $pdo, string $schema, string $table): array {
         WHERE TABLE_SCHEMA = ?
           AND TABLE_NAME = ?"
       );
-      if (!$stmt) { $colsMemo[$memoKey] = []; return $colsMemo[$memoKey]; }
+      if (!$stmt) {
+        $colsMemo[$memoKey] = [];
+        return $colsMemo[$memoKey];
+      }
       $stmt->execute([$schema, $table]);
       $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
       $colsMemo[$memoKey] = array_fill_keys(array_map('strval', (array)$cols), true);
     } catch (Throwable $e) {
-      // Sin privilegios o fallo DB => devolver vacÃƒÂ­o
       $colsMemo[$memoKey] = [];
+    }
+
+    if ($colsMemo[$memoKey] === [] && $schema === flus_current_db($pdo) && flus_schema_probe_table($pdo, $table)) {
+      $colsMemo[$memoKey] = flus_schema_show_columns_set($pdo, $table);
     }
   }
 
@@ -83,7 +144,7 @@ function flus_columns_set(PDO $pdo, string $schema, string $table): array {
 }
 
 /**
- * Devuelve metadatos de una columna desde information_schema con cache en memoria.
+ * Return metadata for one column.
  *
  * @return array<string,mixed>|null
  */
@@ -106,7 +167,10 @@ function flus_column_metadata(PDO $pdo, string $table, string $column, ?string $
           AND COLUMN_NAME = ?
         LIMIT 1"
     );
-    if (!$stmt) { $metaMemo[$memoKey] = null; return null; }
+    if (!$stmt) {
+      $metaMemo[$memoKey] = null;
+      return null;
+    }
     $stmt->execute([$schema, $table, $column]);
     $metaMemo[$memoKey] = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     return $metaMemo[$memoKey];
@@ -117,13 +181,24 @@ function flus_column_metadata(PDO $pdo, string $table, string $column, ?string $
 }
 
 /**
- * Verifica si existe una columna en la tabla.
+ * Return the list of known columns for a table.
+ *
+ * @return array<int,string>
+ */
+function flus_table_columns(PDO $pdo, string $table, ?string $schema = null): array {
+  $schema = $schema ?: flus_current_db($pdo);
+  if ($schema === '') return [];
+  if (!flus_table_exists($pdo, $table, $schema)) return [];
+
+  return array_keys(flus_columns_set($pdo, $schema, $table));
+}
+
+/**
+ * Check whether a column exists in a table.
  */
 function flus_column_exists(PDO $pdo, string $table, string $column, ?string $schema = null): bool {
   $schema = $schema ?: flus_current_db($pdo);
   if ($schema === '') return false;
-
-  // Si la tabla no existe, devolvemos false sin consultar columnas
   if (!flus_table_exists($pdo, $table, $schema)) return false;
 
   $set = flus_columns_set($pdo, $schema, $table);
@@ -131,15 +206,12 @@ function flus_column_exists(PDO $pdo, string $table, string $column, ?string $sc
 }
 
 /**
- * Devuelve el primer nombre de columna que exista en la tabla, segÃƒÂºn orden de $candidates.
- * Si no existe ninguna, devuelve null.
+ * Return the first candidate column that exists in the table.
  */
 function flus_first_existing_column(PDO $pdo, string $table, array $candidates, ?string $schema = null): ?string {
   $schema = $schema ?: flus_current_db($pdo);
   if ($schema === '') return null;
   if (!$candidates) return null;
-
-  // Si la tabla no existe, evitamos consultas innecesarias
   if (!flus_table_exists($pdo, $table, $schema)) return null;
 
   $set = flus_columns_set($pdo, $schema, $table);

@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
-if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Flash messages
 $flashSuccess = (string)($_SESSION['flash_success'] ?? '');

@@ -7,60 +7,6 @@ require_login();
 require_permission('editar_stock');
 
 
-// ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Compatibilidad de esquema (evita 1054 Unknown column en instalaciones viejas)
-require_once FLUS_ROOT . '/src/db_helpers.php';
-
-/**
- * Intenta asegurar columnas nuevas usadas por Compras.
- * Si no puede (permisos), el mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³dulo sigue funcionando con fallback.
- */
-function flus_compras_ensure_schema(PDO $pdo): void {
-  try {
-    if (has_table($pdo, 'compras')) {
-      if (!has_column($pdo, 'compras', 'total_neto')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN total_neto DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-      if (!has_column($pdo, 'compras', 'total_iva')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN total_iva DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-      if (!has_column($pdo, 'compras', 'total_bruto')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN total_bruto DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-      if (!has_column($pdo, 'compras', 'descuento_tipo')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_tipo VARCHAR(10) NOT NULL DEFAULT 'MONTO'");
-      }
-      if (!has_column($pdo, 'compras', 'descuento_valor')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_valor DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-      if (!has_column($pdo, 'compras', 'descuento_total')) {
-        $pdo->exec("ALTER TABLE compras ADD COLUMN descuento_total DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-
-      // Backfill suave para DBs viejas (si se agregaron columnas reciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©n)
-      if (has_column($pdo, 'compras', 'total_bruto') && has_column($pdo, 'compras', 'total')) {
-        $pdo->exec("UPDATE compras SET total_bruto = total WHERE total_bruto = 0 AND total <> 0");
-      }
-      if (has_column($pdo, 'compras', 'total_neto') && has_column($pdo, 'compras', 'total')) {
-        $pdo->exec("UPDATE compras SET total_neto = total WHERE total_neto = 0 AND total <> 0");
-      }
-    }
-
-    if (has_table($pdo, 'compra_items')) {
-      if (!has_column($pdo, 'compra_items', 'descuento')) {
-        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-      if (!has_column($pdo, 'compra_items', 'descuento_tipo')) {
-        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento_tipo VARCHAR(10) NOT NULL DEFAULT 'MONTO'");
-      }
-      if (!has_column($pdo, 'compra_items', 'descuento_porc')) {
-        $pdo->exec("ALTER TABLE compra_items ADD COLUMN descuento_porc DECIMAL(12,2) NOT NULL DEFAULT 0");
-      }
-    }
-  } catch (Throwable $e) {
-    // No rompemos la pantalla por schema (fallback en queries)
-  }
-}
-
 // El esquema de compras se versiona por migraciones SQL.
 
 $HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
@@ -73,6 +19,26 @@ $HAS_COMPRA_ITEMS_DESCUENTO       = flus_column_exists($pdo, 'compra_items', 'de
 $HAS_COMPRA_ITEMS_DESCUENTO_TIPO  = flus_column_exists($pdo, 'compra_items', 'descuento_tipo');
 $HAS_COMPRA_ITEMS_DESCUENTO_PORC  = flus_column_exists($pdo, 'compra_items', 'descuento_porc');
 
+
+$comprasSchemaMissing = [];
+if (!$HAS_COMPRAS_TOTAL_NETO) { $comprasSchemaMissing[] = 'compras.total_neto'; }
+if (!$HAS_COMPRAS_TOTAL_IVA) { $comprasSchemaMissing[] = 'compras.total_iva'; }
+if (!$HAS_COMPRAS_TOTAL_BRUTO) { $comprasSchemaMissing[] = 'compras.total_bruto'; }
+if (!$HAS_COMPRAS_DESCUENTO_TIPO) { $comprasSchemaMissing[] = 'compras.descuento_tipo'; }
+if (!$HAS_COMPRAS_DESCUENTO_VALOR) { $comprasSchemaMissing[] = 'compras.descuento_valor'; }
+if (!$HAS_COMPRAS_DESCUENTO_TOTAL) { $comprasSchemaMissing[] = 'compras.descuento_total'; }
+if (!$HAS_COMPRA_ITEMS_DESCUENTO) { $comprasSchemaMissing[] = 'compra_items.descuento'; }
+if (!$HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $comprasSchemaMissing[] = 'compra_items.descuento_tipo'; }
+if (!$HAS_COMPRA_ITEMS_DESCUENTO_PORC) { $comprasSchemaMissing[] = 'compra_items.descuento_porc'; }
+
+$comprasSchemaWarning = '';
+if ($comprasSchemaMissing !== []) {
+  $comprasSchemaWarning = 'La base de compras esta en modo compatibilidad. Ejecuta '
+    . 'C:\xampp\php\php.exe scripts\migrate.php '
+    . 'para aplicar la migracion 005_compras_descuentos_schema.sql. '
+    . 'Columnas faltantes: ' . implode(', ', $comprasSchemaMissing) . '.';
+}
+
 $msg = '';
 $msgType = 'info';
 $savedFlag = (string)($_GET['saved'] ?? '');
@@ -84,7 +50,7 @@ $compraEdit = null;
 ------------------------------ */
 function normalizeProveedorName(string $name): string {
   $name = trim($name);
-  $name = preg_replace('/\s+/', ' ', $name); // mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºltiples espacios ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ uno
+  $name = preg_replace('/\s+/', ' ', $name); // múltiples espacios → uno
   // Capitalizar cada palabra
   return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
 }
@@ -108,7 +74,7 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
     return $proveedorId;
   }
   
-  // Intentar crear (con manejo de duplicate key por si otro proceso lo creÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³)
+  // Intentar crear (con manejo de duplicate key por si otro proceso lo creó)
   try {
     $stIns = $pdo->prepare("
       INSERT INTO proveedores (nombre, activo)
@@ -117,7 +83,7 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
     $stIns->execute([$nombre]);
     return (int)$pdo->lastInsertId();
   } catch (PDOException $e) {
-    // Si es error de duplicate key (cÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³digo 23000), buscar de nuevo
+    // Si es error de duplicate key (código 23000), buscar de nuevo
     if ($e->getCode() == 23000 || str_contains($e->getMessage(), 'Duplicate')) {
       $stFind->execute([$nombre]);
       $proveedorId = (int)($stFind->fetchColumn() ?: 0);
@@ -218,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $cants   = $_POST['cantidad'] ?? [];
       $costos  = $_POST['costo_unitario'] ?? [];
 
-      // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (opcional): MONTO ($) o PORC (%)
+      // Descuento por ítem (opcional): MONTO ($) o PORC (%)
       $itemDescTipos  = $_POST['item_descuento_tipo'] ?? [];
       $itemDescValores = $_POST['item_descuento_valor'] ?? [];
 
@@ -269,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $sub = $qty * $cu;
           $total += $sub;
 
-          // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (clamp)
+          // Descuento por ítem (clamp)
           $dTipo = strtoupper(trim((string)($itemDescTipos[$i] ?? 'MONTO')));
           if (!in_array($dTipo, ['MONTO','PORC'], true)) $dTipo = 'MONTO';
           $dVal  = parse_decimal((string)($itemDescValores[$i] ?? ''), 0.0);
@@ -299,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'subtotal'       => $sub,
 
             'descuento_tipo'  => $dTipo,
-            'descuento_valor' => $dVal,    // % o monto segÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºn tipo
+            'descuento_valor' => $dVal,    // % o monto según tipo
             'descuento_porc'  => $dPorc,   // % real (0 si MONTO)
             'descuento_monto' => $dMonto,  // $ real (0 si no aplica)
           ];
@@ -330,14 +296,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           $totalBruto = $total;
 
-// Total descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tems
+// Total descuento por ítems
 $descItemsTotal = 0.0;
 foreach ($items as $it) {
   $descItemsTotal += (float)($it['descuento_monto'] ?? 0.0);
 }
 $descItemsTotal = round($descItemsTotal, 2);
 
-// Base para descuento global: bruto - descuentos por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem
+// Base para descuento global: bruto - descuentos por ítem
 $baseGlobal = max(0.0, round($totalBruto - $descItemsTotal, 2));
 
 // Calcular descuento global total (clamp) SOBRE baseGlobal
@@ -361,7 +327,7 @@ $totalIva  = 0.0;
 $total     = $totalFinal;
 
 if ($compraId > 0) {
-            // EDITAR: verificar que estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© en BORRADOR
+            // EDITAR: verificar que esté en BORRADOR
             $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
             $stCheck->execute([$compraId]);
             $estadoActual = (string)($stCheck->fetchColumn() ?: '');
@@ -437,7 +403,7 @@ $compraId = (int)$pdo->lastInsertId();
           }
 
           // Insertar items
-          // Insertar items (compat: columnas opcionales de descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
+          // Insertar items (compat: columnas opcionales de descuento por ítem)
           $colsIt = ['compra_id','producto_id','cantidad','costo_unitario','subtotal','comentario'];
           if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsIt[] = 'descuento'; }
           if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsIt[] = 'descuento_tipo'; }
@@ -571,7 +537,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             throw new RuntimeException("Solo se pueden confirmar compras en BORRADOR.");
           }
 
-          // 2) Traer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tems (compat: columnas opcionales)
+          // 2) Traer ítems (compat: columnas opcionales)
           $colsItSel = ['id','producto_id','cantidad','costo_unitario','subtotal'];
           if ($HAS_COMPRA_ITEMS_DESCUENTO)      { $colsItSel[] = 'descuento'; }
           if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO) { $colsItSel[] = 'descuento_tipo'; }
@@ -605,10 +571,10 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-          // 4) Calcular descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem (guardado) y prorratear descuento global (compras.descuento_total)
+          // 4) Calcular descuento por ítem (guardado) y prorratear descuento global (compras.descuento_total)
           $baseNet = 0.0;
-          $netByItemId = []; // id => neto (despuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s de desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
-          $dItemByItemId = []; // id => desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem ($)
+          $netByItemId = []; // id => neto (después de desc ítem)
+          $dItemByItemId = []; // id => desc ítem ($)
 
           foreach ($items as $it) {
             $itemId = (int)($it['id'] ?? 0);
@@ -618,7 +584,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             $sub = (float)($it['subtotal'] ?? 0.0);
             if ($sub <= 0) $sub = $qty * $cu;
 
-            // Descuento por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem: preferir tipo/porc si existe, si no usar descuento (monto)
+            // Descuento por ítem: preferir tipo/porc si existe, si no usar descuento (monto)
             $dItem = 0.0;
             if ($HAS_COMPRA_ITEMS_DESCUENTO_TIPO && isset($it['descuento_tipo'])) {
               $t = strtoupper((string)$it['descuento_tipo']);
@@ -651,7 +617,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
           $baseNet = round($baseNet, 2);
 
-          // Prorratear descuento global por neto (post-desc ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
+          // Prorratear descuento global por neto (post-desc ítem)
           $dGlobalByItemId = []; // id => desc global ($)
           if ($compraDescuentoTotal > 0 && $baseNet > 0) {
             $sum = 0.0;
@@ -679,7 +645,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-// 5) Impactar stock + movimientos + costo (costo neto por ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­tem)
+// 5) Impactar stock + movimientos + costo (costo neto por ítem)
 
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
 
@@ -1237,6 +1203,13 @@ require __DIR__ . "/partials/header.php";
         <button class="btn btn-primary" type="submit"><?= $editMode ? 'Actualizar' : 'Guardar' ?> borrador</button>
         <button class="btn btn-secondary" type="button" id="btnResetCompra"><?= $editMode ? 'Cancelar' : 'Limpiar todo' ?></button>
       </div>
+
+
+      <?php if ($comprasSchemaWarning !== ''): ?>
+        <div class="msg msg-visible msg-warning">
+          <?= h($comprasSchemaWarning) ?>
+        </div>
+      <?php endif; ?>
 
       <?php if ($msg): ?>
         <div class="msg msg-visible msg-<?= h($msgType) ?>">

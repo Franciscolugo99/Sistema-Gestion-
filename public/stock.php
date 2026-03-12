@@ -15,7 +15,7 @@ $pdo = getPDO();
 $tiposAjuste = flus_stock_tipos_ajuste();
 
 /* ============================
-   FUNCIÃƒâ€œN CENTRALIZADA: Estado de Stock
+   FUNCIÓN CENTRALIZADA: Estado de Stock
 ============================ */
 function calcular_estado_stock(float $stock, float $stock_minimo, bool $activo): string {
     if (!$activo) return 'inactivo';
@@ -25,10 +25,10 @@ function calcular_estado_stock(float $stock, float $stock_minimo, bool $activo):
 }
 
 /* ============================
-   FUNCIÃƒâ€œN: Calcular cantidad sugerida a pedir
+   FUNCIÓN: Calcular cantidad sugerida a pedir
 ============================ */
 function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable): float {
-    // Objetivo: llegar a 2x el mÃƒÂ­nimo
+    // Objetivo: llegar a 2x el mínimo
     $objetivo = $stock_minimo * 2;
     $minPedido = $es_pesable ? 0.001 : 1;
     
@@ -46,64 +46,8 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
 }
 
 /* ============================
-   FUNCIÃƒâ€œN: PaginaciÃƒÂ³n numÃƒÂ©rica (consistente con ventas)
+   FUNCIÓN: Paginación numérica (consistente con ventas)
 ============================ */
-if (!function_exists('render_pagination')) {
-function render_pagination(int $page, int $totalPages, array $params, bool $showInfo = true, int $total = 0, int $from = 0, int $to = 0): string {
-    if ($totalPages <= 1) return '';
-    
-    unset($params['page']);
-    $html = '<div class="pagination">';
-    
-    if ($showInfo && $total > 0) {
-        $html .= '<span class="pagination-info">' . number_format($from) . '-' . number_format($to) . ' de ' . number_format($total) . '</span>';
-    }
-    
-    $html .= '<div class="pagination-btns">';
-    
-    // Anterior
-    if ($page > 1) {
-        $params['page'] = $page - 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn"><</a>';
-    } else {
-        $html .= '<span class="pg-btn disabled"><</span>';
-    }
-    
-    // PÃƒÂ¡ginas numÃƒÂ©ricas
-    $start = max(1, $page - 2);
-    $end = min($totalPages, $page + 2);
-    
-    if ($start > 1) {
-        $params['page'] = 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">1</a>';
-        if ($start > 2) $html .= '<span class="pg-ellipsis">...</span>';
-    }
-    
-    for ($i = $start; $i <= $end; $i++) {
-        $params['page'] = $i;
-        $html .= ($i === $page) 
-            ? '<span class="pg-btn active">' . $i . '</span>'
-            : '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $i . '</a>';
-    }
-    
-    if ($end < $totalPages) {
-        if ($end < $totalPages - 1) $html .= '<span class="pg-ellipsis">...</span>';
-        $params['page'] = $totalPages;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">' . $totalPages . '</a>';
-    }
-    
-    // Siguiente
-    if ($page < $totalPages) {
-        $params['page'] = $page + 1;
-        $html .= '<a href="?' . http_build_query($params) . '" class="pg-btn">></a>';
-    } else {
-        $html .= '<span class="pg-btn disabled">></span>';
-    }
-    
-    $html .= '</div></div>';
-    return $html;
-}
-}
 
 function stock_search_order_sql(string $buscar): array {
     $buscar = trim($buscar);
@@ -149,7 +93,7 @@ function stock_search_order_sql(string $buscar): array {
 }
 
 /* ============================
-   CONFIG PÃƒÂGINA
+   CONFIG PÁGINA
 ============================ */
 $pageTitle      = "Stock";
 $currentSection = "stock";
@@ -172,7 +116,7 @@ $proveedor = (string)($_GET['proveedor'] ?? '');
 $pesable   = (string)($_GET['pesable'] ?? '');
 
 /* ============================
-   PAGINACIÃƒâ€œN
+   PAGINACIÓN
 ============================ */
 $perPageOptions = [20, 50, 100];
 $perPage = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
@@ -202,13 +146,13 @@ $bajoStock      = (int)($kpi['bajo_stock'] ?? 0);
 $ok             = (int)($kpi['ok'] ?? 0);
 
 /* ============================
-   LISTAS PARA FILTROS (con cachÃƒÂ© simple)
+   LISTAS PARA FILTROS (con caché simple)
 ============================ */
 $categorias  = $pdo->query("SELECT DISTINCT categoria FROM productos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria")->fetchAll(PDO::FETCH_COLUMN);
 $proveedores = $pdo->query("SELECT DISTINCT proveedor FROM productos WHERE proveedor IS NOT NULL AND proveedor != '' ORDER BY proveedor")->fetchAll(PDO::FETCH_COLUMN);
 
 /* ============================
-   WHERE DINÃƒÂMICO
+   WHERE DINÁMICO
 ============================ */
 $where  = [];
 $params = [];
@@ -268,7 +212,7 @@ $orderSql = $orderSpec['sql'];
 $orderParams = $orderSpec['params'];
 
 /* ============================
-   EXPORT CSV (con lÃƒÂ­mite de seguridad)
+   EXPORT CSV (con límite de seguridad)
 ============================ */
 if (isset($_GET['export'])) {
     $exportType = (string)$_GET['export'];
@@ -356,7 +300,7 @@ if (isset($_GET['export'])) {
 }
 
 /* ============================
-   TOTAL FILTRADOS + PÃƒÂGINAS
+   TOTAL FILTRADOS + PÁGINAS
 ============================ */
 $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM productos $whereSql");
 foreach ($params as $k => $v) $stmtCount->bindValue($k, $v, PDO::PARAM_STR);
@@ -369,7 +313,7 @@ if ($page > $totalPages) {
     $offset = ($page - 1) * $perPage;
 }
 
-// Calcular rango para paginaciÃƒÂ³n
+// Calcular rango para paginación
 $fromRow = $totalFiltrados > 0 ? $offset + 1 : 0;
 $toRow = min($offset + $perPage, $totalFiltrados);
 
@@ -411,7 +355,7 @@ if ($tab === 'alertas') {
 }
 
 /* ============================
-   Params para paginaciÃƒÂ³n
+   Params para paginación
 ============================ */
 $queryParams = $_GET;
 unset($queryParams['page']);
@@ -562,7 +506,7 @@ require __DIR__ . "/partials/header.php";
     </div>
   </div>
 
-  <!-- PaginaciÃƒÂ³n SUPERIOR (NUEVO) -->
+  <!-- Paginación SUPERIOR (NUEVO) -->
   <?= render_pagination($page, $totalPages, $queryParams, true, $totalFiltrados, $fromRow, $toRow) ?>
 
   <div class="table-wrapper" id="tablaStock">
@@ -660,12 +604,12 @@ require __DIR__ . "/partials/header.php";
     </table>
   </div>
 
-  <!-- PaginaciÃƒÂ³n INFERIOR -->
+  <!-- Paginación INFERIOR -->
   <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
 </div>
 
-<!-- MODAL: AJUSTE RÃƒÂPIDO -->
+<!-- MODAL: AJUSTE RÁPIDO -->
 <div id="modalAjusteStock" class="modal">
   <div class="modal-content modal-sm">
     <div class="modal-header">
@@ -734,7 +678,7 @@ require __DIR__ . "/partials/header.php";
   </div>
 </div>
 
-<!-- MODAL: CONFIRMACIÃƒâ€œN AJUSTE GRANDE -->
+<!-- MODAL: CONFIRMACIÓN AJUSTE GRANDE -->
 <div id="modalConfirmacion" class="modal">
   <div class="modal-content modal-sm">
     <div class="modal-header">

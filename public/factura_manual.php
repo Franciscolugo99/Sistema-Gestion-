@@ -378,7 +378,7 @@ require __DIR__ . '/partials/header.php';
           <article class="fact-card fact-card-source" data-facturacion-cliente-lookup data-lookup-env="<?= h($lookupArcaEnv) ?>">
             <div class="fact-card-head fact-card-head--compact">
               <div>
-                <div class="fact-card-kicker">ARCA � <?= h($lookupArcaEnvLabel) ?></div>
+                <div class="fact-card-kicker">ARCA - <?= h($lookupArcaEnvLabel) ?></div>
                 <h3 class="fact-card-title">Buscar receptor</h3>
               </div>
             </div>

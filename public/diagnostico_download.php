@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Diagnóstico - Descarga de paquetes (seguro)
- * - Permisos: gestionar_backups
+ * - Permisos: ver_diagnostico (compat con gestionar_backups)
  * - Anti path traversal: realpath + containment
  * - Rate limit simple (sesión)
  * - Expiración de paquetes (>7 días)
@@ -59,7 +59,7 @@ function diag_json_error(string $msg, int $code): void {
 }
 
 // Permisos
-if (!function_exists('user_has_permission') || !user_has_permission('gestionar_backups')) {
+if (!function_exists('user_can_access_diagnostics') || !user_can_access_diagnostics()) {
     flus_diag_log('security', 'diagnostic_download_denied', ['reason' => 'no_permission', 'file' => $_GET['f'] ?? null]);
     diag_json_error('Sin permisos', 403);
 }
@@ -93,9 +93,6 @@ if ($age > $maxAge) {
 }
 
 // Rate limit simple: 10 por hora por sesión
-if (session_status() === PHP_SESSION_NONE) {
-    @session_start();
-}
 $key = 'diag_dl_' . date('YmdH');
 $_SESSION[$key] = (int)($_SESSION[$key] ?? 0) + 1;
 if ((int)$_SESSION[$key] > 10) {

@@ -6,13 +6,6 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('administrar_usuarios');
 
-// Asegurar sesión
-if (function_exists('startSecureSession')) {
-    startSecureSession();
-} elseif (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
 /* ============================================================
    OBTENER ROL
 ============================================================ */

@@ -118,20 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // CARGAR DATOS SEGÚN VISTA
 // ============================================
 
-// Detectar columna de categoría
-$catCol = 'categoria';
-foreach (['categoria', 'rubro', 'familia'] as $col) {
-    try {
-        $check = $pdo->prepare("SHOW COLUMNS FROM productos LIKE ?");
-        $check->execute([$col]);
-        if ($check->fetch()) {
-            $catCol = $col;
-            break;
-        }
-    } catch (Throwable $e) {
-        continue;
-    }
-}
+// Detectar columna de categoria
+$catCol = flus_first_existing_column($pdo, 'productos', ['categoria', 'rubro', 'familia']) ?? 'categoria';
 
 
 

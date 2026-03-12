@@ -227,6 +227,164 @@ $results[] = flus_run_test('facturacion manual items normalize totals and valida
     }
 });
 
+$results[] = flus_run_test('compras schema lives in migrations instead of runtime DDL', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '005_compras_descuentos_schema.sql';
+    $comprasPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'compras.php';
+
+    if (!is_file($migrationPath)) {
+        throw new RuntimeException('Missing compras schema migration');
+    }
+    if (!is_file($comprasPath)) {
+        throw new RuntimeException('Missing compras.php');
+    }
+
+    $migrationSql = (string)file_get_contents($migrationPath);
+    $comprasPhp = (string)file_get_contents($comprasPath);
+
+    flus_assert_contains('ALTER TABLE compras', $migrationSql);
+    flus_assert_contains('ALTER TABLE compra_items', $migrationSql);
+    flus_assert_contains('005_compras_descuentos_schema.sql', $comprasPhp);
+    flus_assert_not_contains('function flus_compras_ensure_schema', $comprasPhp);
+    flus_assert_not_contains('ALTER TABLE compras ADD COLUMN', $comprasPhp);
+    flus_assert_not_contains('ALTER TABLE compra_items ADD COLUMN', $comprasPhp);
+});
+
+$results[] = flus_run_test('pagination helper is centralized in src helpers', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $helpersPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'helpers.php';
+    $pages = [
+        'public/caja_historial.php',
+        'public/movimientos.php',
+        'public/stock.php',
+        'public/ventas.php',
+    ];
+
+    if (!is_file($helpersPath)) {
+        throw new RuntimeException('Missing shared helpers.php');
+    }
+
+    $helpersPhp = (string)file_get_contents($helpersPath);
+    flus_assert_contains('function render_pagination', $helpersPhp);
+
+    foreach ($pages as $pageFile) {
+        $pagePath = $repoRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $pageFile);
+        if (!is_file($pagePath)) {
+            throw new RuntimeException('Missing page: ' . $pageFile);
+        }
+
+        $pagePhp = (string)file_get_contents($pagePath);
+        flus_assert_not_contains('function render_pagination', $pagePhp, $pageFile);
+    }
+});
+$results[] = flus_run_test('schema checks are centralized outside public pages', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $schemaPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_schema.php';
+    $pages = [
+        'public/proveedores.php',
+        'public/productos.php',
+        'public/precios_historial.php',
+    ];
+
+    if (!is_file($schemaPath)) {
+        throw new RuntimeException('Missing db_schema.php');
+    }
+
+    $schemaPhp = (string)file_get_contents($schemaPath);
+    flus_assert_contains('function flus_table_columns', $schemaPhp);
+    flus_assert_contains('SHOW COLUMNS FROM', $schemaPhp);
+
+    foreach ($pages as $pageFile) {
+        $pagePath = $repoRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $pageFile);
+        if (!is_file($pagePath)) {
+            throw new RuntimeException('Missing page: ' . $pageFile);
+        }
+
+        $pagePhp = (string)file_get_contents($pagePath);
+        flus_assert_not_contains('SHOW COLUMNS', $pagePhp, $pageFile);
+    }
+});
+
+$results[] = flus_run_test('diagnostics access keeps dedicated permission compatibility', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
+    $migrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '006_diagnostics_permission.sql';
+    $authPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php';
+    $diagPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'diagnostico.php';
+    $diagDownloadPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'diagnostico_download.php';
+    $navPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php';
+
+    foreach ([$installPath, $migrationPath, $authPath, $diagPath, $diagDownloadPath, $navPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $installSql = (string)file_get_contents($installPath);
+    $migrationSql = (string)file_get_contents($migrationPath);
+    $authPhp = (string)file_get_contents($authPath);
+    $diagPhp = (string)file_get_contents($diagPath);
+    $diagDownloadPhp = (string)file_get_contents($diagDownloadPath);
+    $navPhp = (string)file_get_contents($navPath);
+
+    flus_assert_contains('ver_diagnostico', $installSql);
+    flus_assert_contains('ver_diagnostico', $migrationSql);
+    flus_assert_contains('gestionar_backups', $migrationSql);
+    flus_assert_contains('function user_can_access_diagnostics', $authPhp);
+    flus_assert_contains('function require_diagnostics_permission', $authPhp);
+    flus_assert_contains('require_diagnostics_permission();', $diagPhp);
+    flus_assert_contains('user_can_access_diagnostics()', $diagDownloadPhp);
+    flus_assert_contains("\$can('ver_diagnostico')", $navPhp);
+});
+
+$results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $authPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php';
+    $tecnicoPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php';
+    $navPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php';
+
+    foreach ([$authPath, $tecnicoPath, $navPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $authPhp = (string)file_get_contents($authPath);
+    $tecnicoPhp = (string)file_get_contents($tecnicoPath);
+    $navPhp = (string)file_get_contents($navPath);
+
+    flus_assert_contains('function user_can_access_technical_panel', $authPhp);
+    flus_assert_contains('function require_technical_permission', $authPhp);
+    flus_assert_contains('require_technical_permission();', $tecnicoPhp);
+    flus_assert_contains('Estado actual', $tecnicoPhp);
+    flus_assert_contains('Operacion tecnica', $tecnicoPhp);
+    flus_assert_contains('user_can_access_technical_panel', $navPhp);
+});
+$results[] = flus_run_test('admin pages rely on bootstrap session startup', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $pages = [
+        'public/roles.php',
+        'public/rol_guardar.php',
+        'public/rol_permisos.php',
+        'public/usuarios.php',
+        'public/usuario_editar.php',
+        'public/usuario_guardar.php',
+        'public/usuario_nuevo.php',
+        'public/tecnico.php',
+        'public/diagnostico_download.php',
+    ];
+
+    foreach ($pages as $pageFile) {
+        $pagePath = $repoRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $pageFile);
+        if (!is_file($pagePath)) {
+            throw new RuntimeException('Missing page: ' . $pageFile);
+        }
+
+        $pagePhp = (string)file_get_contents($pagePath);
+        flus_assert_not_contains('session_start(', $pagePhp, $pageFile);
+        flus_assert_not_contains('startSecureSession(', $pagePhp, $pageFile);
+    }
+});
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

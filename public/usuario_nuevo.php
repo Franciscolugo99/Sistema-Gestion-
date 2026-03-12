@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
-// Importante: sesión antes de usar auth/CSRF (por si bootstrap no la inicia)
-if (session_status() === PHP_SESSION_NONE) session_start();
-
 require_once __DIR__ . '/lib/csrf.php';
 
 require_login();
