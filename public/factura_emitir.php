@@ -15,43 +15,24 @@ if (!$facturacionHabilitada) {
     exit;
 }
 
-function factura_emitir_buscar_existente(PDO $pdo, int $ventaId): ?int
-{
-    if (!flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
-        return null;
-    }
-
-    $st = $pdo->prepare('SELECT id FROM facturas WHERE venta_id = ? ORDER BY id DESC LIMIT 1');
-    $st->execute([$ventaId]);
-    $facturaId = $st->fetchColumn();
-
-    return $facturaId !== false ? (int)$facturaId : null;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
+    header('Location: ' . ($ventaId > 0 ? 'factura_nueva.php?venta_id=' . $ventaId : 'ventas.php'));
+    exit;
 }
 
-function factura_emitir_cliente_valido(PDO $pdo, int $clienteId): bool
-{
-    if (!flus_table_exists($pdo, 'clientes')) {
-        return false;
-    }
-
-    $sql = 'SELECT id FROM clientes WHERE id = ?';
-    if (flus_column_exists($pdo, 'clientes', 'activo')) {
-        $sql .= ' AND activo = 1';
-    }
-    $sql .= ' LIMIT 1';
-
-    $st = $pdo->prepare($sql);
-    $st->execute([$clienteId]);
-    return (bool)$st->fetch(PDO::FETCH_ASSOC);
-}
-
-$ventaId = isset($_GET['venta_id']) ? (int)$_GET['venta_id'] : 0;
+$ventaId = isset($_POST['venta_id']) ? (int)$_POST['venta_id'] : 0;
 if ($ventaId <= 0) {
     header('Location: ventas.php');
     exit;
 }
 
-$clienteIdRaw = isset($_GET['cliente_id']) ? trim((string)$_GET['cliente_id']) : '';
+if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode('Sesion vencida (CSRF). Actualiza la pagina e intenta de nuevo.'));
+    exit;
+}
+
+$clienteIdRaw = isset($_POST['cliente_id']) ? trim((string)$_POST['cliente_id']) : '';
 if ($clienteIdRaw === '') {
     header('Location: factura_nueva.php?venta_id=' . $ventaId);
     exit;
@@ -59,7 +40,7 @@ if ($clienteIdRaw === '') {
 
 $clienteId = ctype_digit($clienteIdRaw) ? (int)$clienteIdRaw : -1;
 if ($clienteId < 0) {
-    header('Location: venta_detalle.php?id=' . $ventaId . '&fact_error=' . urlencode('Cliente invalido.'));
+    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode('Cliente invalido.'));
     exit;
 }
 
@@ -74,13 +55,13 @@ try {
         throw new RuntimeException('Venta inexistente.');
     }
 
-    $facturaExistenteId = factura_emitir_buscar_existente($pdo, $ventaId);
+    $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
     if ($facturaExistenteId !== null) {
         header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
         exit;
     }
 
-    if ($clienteId > 0 && !factura_emitir_cliente_valido($pdo, $clienteId)) {
+    if ($clienteId > 0 && !flus_facturacion_cliente_activo($pdo, $clienteId)) {
         throw new RuntimeException('Cliente invalido o no disponible.');
     }
 
@@ -88,12 +69,12 @@ try {
     header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
     exit;
 } catch (Throwable $e) {
-    $facturaExistenteId = factura_emitir_buscar_existente($pdo, $ventaId);
+    $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
     if ($facturaExistenteId !== null) {
         header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
         exit;
     }
 
-    header('Location: venta_detalle.php?id=' . $ventaId . '&fact_error=' . urlencode($e->getMessage()));
+    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode($e->getMessage()));
     exit;
 }

@@ -58,7 +58,7 @@ function flus_facturacion_insert_dynamic(PDO $pdo, string $table, array $data): 
 }
 
 /**
- * Obtiene la configuracion activa de facturacion con lock pesimista.
+ * Actualiza venta_fiscal sin usar REPLACE para evitar DELETE+INSERT implicitos.
  */
 function flus_facturacion_upsert_venta_fiscal(PDO $pdo, int $ventaId, array $data): void
 {
@@ -72,7 +72,18 @@ function flus_facturacion_upsert_venta_fiscal(PDO $pdo, int $ventaId, array $dat
         }
     }
 
-    $st = $pdo->prepare('REPLACE INTO venta_fiscal (venta_id, pto_vta, tipo_cmp, nro_cmp, cae, cae_vto, moneda, ctz) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $st = $pdo->prepare(
+        'INSERT INTO venta_fiscal (venta_id, pto_vta, tipo_cmp, nro_cmp, cae, cae_vto, moneda, ctz)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+             pto_vta = VALUES(pto_vta),
+             tipo_cmp = VALUES(tipo_cmp),
+             nro_cmp = VALUES(nro_cmp),
+             cae = VALUES(cae),
+             cae_vto = VALUES(cae_vto),
+             moneda = VALUES(moneda),
+             ctz = VALUES(ctz)'
+    );
     $st->execute([
         $ventaId,
         (int) ($data['punto_venta'] ?? 0),
@@ -85,14 +96,14 @@ function flus_facturacion_upsert_venta_fiscal(PDO $pdo, int $ventaId, array $dat
     ]);
 }
 
-function flus_facturacion_config_activa(PDO $pdo): ?array
+function flus_facturacion_config_activa(PDO $pdo, bool $forUpdate = false): ?array
 {
     if (!flus_table_exists($pdo, 'config_facturacion')) {
         return null;
     }
 
     $order = flus_column_exists($pdo, 'config_facturacion', 'id') ? ' ORDER BY id DESC' : '';
-    $lock = ' FOR UPDATE';
+    $lock = $forUpdate ? ' FOR UPDATE' : '';
 
     if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
         $st = $pdo->query('SELECT * FROM config_facturacion WHERE activo = 1' . $order . ' LIMIT 1' . $lock);
@@ -105,6 +116,177 @@ function flus_facturacion_config_activa(PDO $pdo): ?array
     $st = $pdo->query('SELECT * FROM config_facturacion' . $order . ' LIMIT 1' . $lock);
     $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
     return $row;
+}
+
+function flus_facturacion_factura_existente_id(PDO $pdo, int $ventaId): ?int
+{
+    if ($ventaId <= 0 || !flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT id FROM facturas WHERE venta_id = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$ventaId]);
+    $facturaId = $st->fetchColumn();
+    return $facturaId !== false ? (int)$facturaId : null;
+}
+
+function flus_facturacion_cliente_activo(PDO $pdo, int $clienteId): bool
+{
+    if ($clienteId <= 0 || !flus_table_exists($pdo, 'clientes')) {
+        return false;
+    }
+
+    $sql = 'SELECT id FROM clientes WHERE id = ?';
+    if (flus_column_exists($pdo, 'clientes', 'activo')) {
+        $sql .= ' AND activo = 1';
+    }
+    $sql .= ' LIMIT 1';
+
+    $st = $pdo->prepare($sql);
+    $st->execute([$clienteId]);
+    return (bool)$st->fetch(PDO::FETCH_ASSOC);
+}
+
+function flus_facturacion_clientes_disponibles(PDO $pdo): array
+{
+    if (!flus_table_exists($pdo, 'clientes')) {
+        return [];
+    }
+
+    $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'CONCAT("Cliente #", id)';
+    $cuitExpr = flus_column_exists($pdo, 'clientes', 'cuit') ? 'cuit' : 'NULL';
+    $condIvaExpr = flus_column_exists($pdo, 'clientes', 'cond_iva') ? 'cond_iva' : 'NULL';
+    $where = flus_column_exists($pdo, 'clientes', 'activo') ? 'WHERE activo = 1' : '';
+
+    $sql = "
+        SELECT id, {$nombreExpr} AS nombre, {$cuitExpr} AS cuit, {$condIvaExpr} AS cond_iva
+        FROM clientes
+        {$where}
+        ORDER BY nombre ASC
+    ";
+
+    $st = $pdo->query($sql);
+    return $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+}
+
+function flus_facturacion_facturas_unique_indexes(PDO $pdo): array
+{
+    static $memo = [];
+
+    if (!flus_table_exists($pdo, 'facturas')) {
+        return [];
+    }
+
+    $schema = flus_current_db($pdo);
+    if ($schema === '') {
+        return [];
+    }
+
+    $key = spl_object_id($pdo) . '|facturas_unique_indexes';
+    if (isset($memo[$key])) {
+        return $memo[$key];
+    }
+
+    $sql = "
+        SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = ?
+          AND TABLE_NAME = 'facturas'
+          AND NON_UNIQUE = 0
+        ORDER BY INDEX_NAME, SEQ_IN_INDEX
+    ";
+
+    $st = $pdo->prepare($sql);
+    $st->execute([$schema]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $indexes = [];
+    foreach ($rows as $row) {
+        $indexName = (string)($row['INDEX_NAME'] ?? '');
+        $column = (string)($row['COLUMN_NAME'] ?? '');
+        if ($indexName === '' || $column === '') {
+            continue;
+        }
+        $indexes[$indexName][] = $column;
+    }
+
+    $memo[$key] = $indexes;
+    return $indexes;
+}
+
+function flus_facturacion_facturas_scope_uses_modo(PDO $pdo): bool
+{
+    if (!flus_column_exists($pdo, 'facturas', 'modo')) {
+        return false;
+    }
+
+    foreach (flus_facturacion_facturas_unique_indexes($pdo) as $columns) {
+        if ($columns === ['punto_venta', 'tipo', 'modo', 'numero']) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function flus_facturacion_facturas_scope_requires_migration(PDO $pdo): bool
+{
+    if (!flus_column_exists($pdo, 'facturas', 'modo')) {
+        return false;
+    }
+
+    if (flus_facturacion_facturas_scope_uses_modo($pdo)) {
+        return false;
+    }
+
+    foreach (flus_facturacion_facturas_unique_indexes($pdo) as $columns) {
+        if ($columns === ['punto_venta', 'tipo', 'numero']) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function flus_facturacion_buscar_conflicto_numero(PDO $pdo, int $puntoVenta, string $tipoStr, int $numero): ?array
+{
+    if ($numero <= 0 || !flus_table_exists($pdo, 'facturas')) {
+        return null;
+    }
+
+    $sql = 'SELECT id, tipo, punto_venta, numero';
+    $sql .= flus_column_exists($pdo, 'facturas', 'modo') ? ', modo' : ", '' AS modo";
+    $sql .= ' FROM facturas WHERE punto_venta = ? AND tipo = ? AND numero = ? ORDER BY id DESC LIMIT 1';
+
+    $st = $pdo->prepare($sql);
+    $st->execute([$puntoVenta, $tipoStr, $numero]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $row;
+}
+
+function flus_facturacion_assert_facturas_scope_compatible(PDO $pdo, int $puntoVenta, string $tipoStr, int $numero, string $modoOperacion): void
+{
+    if (!flus_facturacion_facturas_scope_requires_migration($pdo)) {
+        return;
+    }
+
+    $conflicto = flus_facturacion_buscar_conflicto_numero($pdo, $puntoVenta, $tipoStr, $numero);
+    if ($conflicto === null) {
+        return;
+    }
+
+    $modoExistente = flus_facturacion_normalizar_modo((string)($conflicto['modo'] ?? 'demo'));
+    $modoNuevo = flus_facturacion_normalizar_modo($modoOperacion);
+    if ($modoExistente === $modoNuevo) {
+        return;
+    }
+
+    throw new RuntimeException(
+        'La tabla facturas sigue usando un indice unico antiguo que no separa por modo. '
+        . 'Ya existe ' . $tipoStr . ' ' . str_pad((string)$puntoVenta, 4, '0', STR_PAD_LEFT) . '-' . str_pad((string)$numero, 8, '0', STR_PAD_LEFT)
+        . ' en modo ' . flus_facturacion_modo_label($modoExistente) . '. '
+        . 'Aplica la migracion migrations/004_facturas_unique_scope.sql y vuelve a emitir.'
+    );
 }
 
 /**
@@ -173,6 +355,21 @@ function flus_facturacion_cuit_emisor(array $config = []): string
 /**
  * Resuelve el tipo de comprobante para facturas comunes aun con esquemas legacy.
  */
+function flus_facturacion_facturas_modo_acepta_normalizado(PDO $pdo): bool
+{
+    if (!flus_column_exists($pdo, 'facturas', 'modo')) {
+        return false;
+    }
+
+    $meta = flus_column_metadata($pdo, 'facturas', 'modo');
+    $type = strtolower(trim((string)($meta['COLUMN_TYPE'] ?? '')));
+    if ($type === '') {
+        return false;
+    }
+
+    return !str_starts_with($type, 'enum(') || str_contains($type, "'homologacion'");
+}
+
 function flus_facturacion_facturas_modo_value(PDO $pdo, string $modo): string
 {
     $normalizado = flus_facturacion_normalizar_modo($modo);
@@ -181,18 +378,9 @@ function flus_facturacion_facturas_modo_value(PDO $pdo, string $modo): string
         return flus_facturacion_modo_db_value($normalizado);
     }
 
-    try {
-        $st = $pdo->query("SHOW COLUMNS FROM facturas LIKE 'modo'");
-        $col = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-        $type = strtolower(trim((string)($col['Type'] ?? '')));
-        if (str_starts_with($type, 'enum(') && !str_contains($type, "'homologacion'")) {
-            return flus_facturacion_modo_db_value($normalizado);
-        }
-    } catch (Throwable $e) {
-        return flus_facturacion_modo_db_value($normalizado);
-    }
-
-    return $normalizado;
+    return flus_facturacion_facturas_modo_acepta_normalizado($pdo)
+        ? $normalizado
+        : flus_facturacion_modo_db_value($normalizado);
 }
 
 function flus_facturacion_numero_local_siguiente(PDO $pdo, int $puntoVenta, string $tipoStr, ?string $modo = null): int
@@ -207,7 +395,15 @@ function flus_facturacion_numero_local_siguiente(PDO $pdo, int $puntoVenta, stri
     $sql = 'SELECT MAX(numero) FROM facturas WHERE punto_venta = ? AND tipo = ?';
     $params = [$puntoVenta, $tipoStr];
 
-    if ($modo !== null && $modo !== '' && flus_column_exists($pdo, 'facturas', 'modo')) {
+    $usaModoEnScope = $modo !== null
+        && $modo !== ''
+        && flus_column_exists($pdo, 'facturas', 'modo')
+        && (
+            flus_facturacion_facturas_scope_uses_modo($pdo)
+            || flus_facturacion_normalizar_modo($modo) !== 'demo'
+        );
+
+    if ($usaModoEnScope) {
         $sql .= " AND COALESCE(NULLIF(modo, ''), 'legacy') = ?";
         $params[] = flus_facturacion_facturas_modo_value($pdo, $modo);
     }
@@ -249,13 +445,12 @@ function flus_facturacion_normalizar_modo(?string $raw): string
         return 'produccion';
     }
 
-    if (in_array($modo, ['homologacion', 'homologaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', 'homo', 'testing', 'test'], true)) {
+    if (in_array($modo, ['homologacion', 'homo', 'testing', 'test'], true)) {
         return 'homologacion';
     }
 
     return 'demo';
 }
-
 /**
  * Obtiene el modo efectivo para la operacion actual.
  */
@@ -296,6 +491,45 @@ function flus_facturacion_modo_label(string $modo): string
         'produccion' => 'Produccion',
         default => 'Demo',
     };
+}
+
+function flus_facturacion_humanizar_error_arca(?string $raw): string
+{
+    $message = trim((string)$raw);
+    if ($message === '') {
+        return 'ARCA no devolvio detalle del error. Intenta nuevamente en unos minutos.';
+    }
+
+    if (str_starts_with($message, 'Error de AFIP: ')) {
+        $message = substr($message, strlen('Error de AFIP: '));
+    }
+
+    if (preg_match('/\[(\d+)\]/', $message, $matches) === 1) {
+        $code = $matches[1];
+        return match ($code) {
+            '10016' => 'ARCA informo que ese numero de comprobante ya existe. FLUS puede reintentar con el siguiente numero disponible.',
+            '10022' => 'ARCA rechazo el comprobante porque el IVA debe informarse una sola vez por alicuota. Revisa los items y vuelve a emitir.',
+            default => 'ARCA rechazo el comprobante: ' . $message,
+        };
+    }
+
+    if (stripos($message, 'No se pudo obtener TA') !== false || stripos($message, 'autentic') !== false) {
+        return 'No se pudo autenticar con ARCA. Revisa certificado, clave privada y CUIT configurados.';
+    }
+
+    if (stripos($message, 'SOAP Fault') !== false || stripos($message, 'No se pudo conectar al WSFE') !== false || stripos($message, 'Error WSFE') !== false) {
+        return 'No se pudo conectar con ARCA en este momento. Intenta nuevamente en unos minutos.';
+    }
+
+    if (stripos($message, 'Falta configurar FLUS_ARCA_CUIT') !== false) {
+        return 'Falta configurar el CUIT del emisor para operar con ARCA.';
+    }
+
+    if (stripos($message, 'FLUS_ARCA_ENV') !== false) {
+        return 'La configuracion del entorno ARCA no coincide con el modo de facturacion seleccionado.';
+    }
+
+    return 'ARCA rechazo el comprobante: ' . $message;
 }
 
 /**
@@ -401,7 +635,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         $venta['cliente_id'] = $clienteIdFiscal;
     }
 
-    $config = flus_facturacion_config_activa($pdo);
+    $config = flus_facturacion_config_activa($pdo, true);
     if (!$config) {
         throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
     }
@@ -424,6 +658,8 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion));
 
     if (!$modoDemo) {
+        flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
+
         $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
         $envActual = flus_facturacion_arca_env_actual();
         if ($envEsperado !== '' && $envActual !== $envEsperado) {
@@ -488,7 +724,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         }
 
         if (!$resultado) {
-            throw new Exception('Error de AFIP: ' . (ArcaWsfe::getLastError() ?: 'Error desconocido'));
+            throw new Exception(flus_facturacion_humanizar_error_arca(ArcaWsfe::getLastError()));
         }
 
         $cae = (string)($resultado['cae'] ?? '');
@@ -496,9 +732,12 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         $numero = (int)($resultado['numero'] ?? $numero);
     }
 
+    flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
+
     $timestamp = date('Y-m-d H:i:s');
 
-    $facturaId = flus_facturacion_insert_dynamic($pdo, 'facturas', [
+    try {
+        $facturaId = flus_facturacion_insert_dynamic($pdo, 'facturas', [
         'venta_id' => $ventaId,
         'cliente_id' => $clienteIdFiscal > 0 ? $clienteIdFiscal : null,
         'tipo' => $tipoStr,
@@ -515,6 +754,13 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         'modo' => $modoFactura,
         'creado_en' => $timestamp,
     ]);
+    } catch (PDOException $e) {
+        $isDuplicate = ($e->errorInfo[0] ?? '') === '23000' || str_contains((string)$e->getMessage(), '1062 Duplicate entry');
+        if ($isDuplicate && flus_facturacion_facturas_scope_requires_migration($pdo)) {
+            flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
+        }
+        throw $e;
+    }
 
     flus_facturacion_upsert_venta_fiscal($pdo, $ventaId, [
         'punto_venta' => $puntoVenta,
@@ -526,7 +772,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         'moneda_cotiz' => 1,
     ]);
 
-    if (flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
+    if ($modoDemo && flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
         $st = $pdo->prepare('UPDATE config_facturacion SET proximo_numero = :nuevo WHERE id = :id');
         $st->execute([
             ':nuevo' => $numero + 1,
@@ -590,8 +836,8 @@ function crearFacturaManual(array $payload): int
     $clienteId = isset($payload['cliente_id']) ? (int)$payload['cliente_id'] : 0;
     $items = flus_facturacion_normalize_manual_items((array)($payload['items'] ?? []));
     $meta = [
-        'nota' => trim((string)($payload['nota'] ?? 'Factura manual')),
-        'medio_pago' => trim((string)($payload['medio_pago'] ?? 'FACTURA')),
+        'nota' => trim((string)($payload['nota'] ?? 'Factura manual sin caja')),
+        'medio_pago' => trim((string)($payload['medio_pago'] ?? 'FACTURA_MANUAL')),
     ];
     $opciones = isset($payload['opciones']) && is_array($payload['opciones']) ? $payload['opciones'] : [];
 
@@ -611,11 +857,14 @@ function crearFacturaManual(array $payload): int
     }
 }
 
-function flus_facturacion_print_item_limit(): int
+function flus_facturacion_print_item_limit(?PDO $pdo = null): int
 {
-    // Limite conservador para mantener la factura en una sola hoja A4.
-    // Con la version densa de impresion, soporta operaciones largas con descripciones cortas.
-    return 22;
+    $pdo = $pdo ?? getPDO();
+    $raw = trim((string)config_get($pdo, 'facturacion_print_item_limit', '22'));
+    $limit = ctype_digit($raw) ? (int)$raw : 22;
+
+    // Limite operativo de impresion, configurable por comercio.
+    return max(1, min(200, $limit));
 }
 
 function flus_facturacion_print_item_limit_message(int $count, ?int $limit = null): string
@@ -744,7 +993,7 @@ function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipo
     if ($manualItems !== []) {
         $neto = 0.0;
         $iva = 0.0;
-        $ivaDetalle = [];
+        $ivaDetalleMap = [];
 
         foreach ($manualItems as $item) {
             $pct = (float)($item['iva_porcentaje'] ?? 21);
@@ -760,12 +1009,24 @@ function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipo
             $neto += $baseImp;
             $iva += $impIva;
 
-            $ivaDetalle[] = [
-                'id' => obtenerIdAlicuotaAfip($pct),
-                'base' => round($baseImp, 2),
-                'importe' => round($impIva, 2),
-            ];
+            $alicuotaId = obtenerIdAlicuotaAfip($pct);
+            $ivaKey = (string)$alicuotaId;
+            if (!isset($ivaDetalleMap[$ivaKey])) {
+                $ivaDetalleMap[$ivaKey] = [
+                    'id' => $alicuotaId,
+                    'base' => 0.0,
+                    'importe' => 0.0,
+                ];
+            }
+            $ivaDetalleMap[$ivaKey]['base'] += $baseImp;
+            $ivaDetalleMap[$ivaKey]['importe'] += $impIva;
         }
+
+        $ivaDetalle = array_map(static function (array $item): array {
+            $item['base'] = round((float)$item['base'], 2);
+            $item['importe'] = round((float)$item['importe'], 2);
+            return $item;
+        }, array_values($ivaDetalleMap));
 
         return [
             'total' => round($total, 2),
@@ -1043,10 +1304,6 @@ function obtenerPuntosVentaAfip(): ?array
     require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
     return ArcaWsfe::getPuntosVenta();
 }
-
-
-
-
 
 
 

@@ -3,18 +3,18 @@ declare(strict_types=1);
 // public/api/index.php
 // v2.2.0 - Refactorizado con helpers centralizados
 
-// ✅ Indicar que estamos en contexto API (para que bootstrap no devuelva HTML)
+// âœ… Indicar que estamos en contexto API (para que bootstrap no devuelva HTML)
 define('FLUS_API_CONTEXT', true);
 
 require_once __DIR__ . '/../lib/root.php';
 
 
-// ✅ Modo mantenimiento: bloquear API mientras se restaura la DB
+// âœ… Modo mantenimiento: bloquear API mientras se restaura la DB
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
 if (is_file($maintenanceFlag)) {
   if (ob_get_length()) ob_clean();
   http_response_code(503);
-  echo json_encode(['ok'=>false,'error'=>'MAINTENANCE','hint'=>'Sistema en mantenimiento. Reintentá luego.'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+  echo json_encode(['ok'=>false,'error'=>'MAINTENANCE','hint'=>'Sistema en mantenimiento. ReintentÃ¡ luego.'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
   exit;
 }
 
@@ -32,22 +32,22 @@ $cfg = __DIR__ . '/../../src/config.php';
 if (!is_file($cfg)) {
   if (ob_get_length()) ob_clean();
   http_response_code(503);
-  echo json_encode(['ok'=>false,'error'=>'CONFIG_MISSING','hint'=>'Abrí /install.php para configurar FLUS.'],
+  echo json_encode(['ok'=>false,'error'=>'CONFIG_MISSING','hint'=>'AbrÃ­ /install.php para configurar FLUS.'],
     JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
   );
   exit;
 }
 
 require_once $cfg;
-require_once __DIR__ . '/../../src/api_helpers.php';  // ✅ Helpers centralizados
+require_once __DIR__ . '/../../src/api_helpers.php';  // âœ… Helpers centralizados
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
 require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
 require_once __DIR__ . '/../promos_logic.php';
-require_once __DIR__ . '/../includes/CuentaCorrienteController.php'; // ✅ CC
+require_once __DIR__ . '/../includes/CuentaCorrienteController.php'; // âœ… CC
 
-// ✅ Configurar handlers de error para API
+// âœ… Configurar handlers de error para API
 setup_api_error_handlers();
 
 function update_caja_venta_totales(PDO $pdo, int $cajaId, float $importe, float $productos): void {
@@ -79,14 +79,14 @@ function update_caja_venta_totales(PDO $pdo, int $cajaId, float $importe, float 
   $st->execute($params);
 }
 
-// ✅ FIX: delta por medio nunca puede quedar negativo
+// âœ… FIX: delta por medio nunca puede quedar negativo
 function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $delta): void {
   if ($cajaId <= 0) return;
 
   $m = strtoupper(trim($medio));
   
   // Mapeo estricto: cada medio a su columna correspondiente
-  // CRÍTICO: TRANSFERENCIA NO debe ir a total_efectivo
+  // CRÃTICO: TRANSFERENCIA NO debe ir a total_efectivo
   switch ($m) {
     case 'EFECTIVO':
       $campo = 'total_efectivo';
@@ -97,7 +97,7 @@ function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $de
       break;
     // BUG-06 FIX: MODO y QR no tienen columna propia en caja_sesiones.
     // Se acumulan en total_mp (pagos digitales). Si en el futuro se agrega
-    // total_modo/total_qr, solo cambiar el mapeo aquí.
+    // total_modo/total_qr, solo cambiar el mapeo aquÃ­.
     case 'MODO':
     case 'QR':
       $campo = 'total_mp';
@@ -113,7 +113,7 @@ function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $de
       $campo = 'total_transferencia';
       break;
     case 'CC':
-      // Cuenta Corriente NO suma a ningún total de caja
+      // Cuenta Corriente NO suma a ningÃºn total de caja
       // (la plata entra cuando se cobra, no cuando se vende)
       return;
     default:
@@ -227,7 +227,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 
     $promo = $simplesByPid[$pid] ?? null;
 
-    // ✅ aplica promos a pesables
+    // âœ… aplica promos a pesables
     if ($promo) {
       $tipo = (string)($promo['tipo'] ?? '');
       $n    = (int)($promo['n'] ?? 0);
@@ -271,7 +271,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
               'promo_id' => (int)($promo['promo_id'] ?? $promo['id'] ?? 0),
               'promo_tipo'      => 'NTH_PCT',
               'promo_nombre'    => (string)($promo['nombre'] ?? 'Promo'),
-              'descripcion'     => "{$pct}% a la N°{$n}",
+              'descripcion'     => "{$pct}% a la NÂ°{$n}",
               'descuento_monto' => round($desc, 2),
               'meta' => [
                 'producto_id' => $pid,
@@ -292,7 +292,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
   }
   unset($it);
 
-  // 2) combos: descuento proporcional (✅ con tolerancia para pesables)
+  // 2) combos: descuento proporcional (âœ… con tolerancia para pesables)
   foreach ($combos as $combo) {
     $precioCombo = (float)($combo['precio_combo'] ?? 0);
     $itemsReq    = $combo['items'] ?? [];
@@ -357,7 +357,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
     }
   }
 
-  // ✅ Evitar netos negativos
+  // âœ… Evitar netos negativos
   foreach ($items as &$itFix) {
     if ((float)($itFix['neto'] ?? 0) < 0) $itFix['neto'] = 0.0;
     $itFix['neto'] = round((float)($itFix['neto'] ?? 0), 2);
@@ -416,9 +416,9 @@ function require_csrf_json(array $body): void {
 
   $t = csrf_from_request($body);
 
-  // ✅ CSRF obligatorio para requests con sesión (POST/PUT/PATCH/DELETE)
+  // âœ… CSRF obligatorio para requests con sesiÃ³n (POST/PUT/PATCH/DELETE)
   if ($t === '' || !function_exists('csrf_verify') || !csrf_verify($t)) {
-    json_fail('CSRF', 419, ['hint' => 'Token CSRF inválido o ausente. Recargá la página e intentá de nuevo.']);
+    json_fail('CSRF', 419, ['hint' => 'Token CSRF invÃ¡lido o ausente. RecargÃ¡ la pÃ¡gina e intentÃ¡ de nuevo.']);
   }
 }
 
@@ -441,30 +441,35 @@ $action = (string)($_GET['action'] ?? ($body['action'] ?? ''));
    Permite agregar endpoints en public/api/actions/{action}.php
    sin ensuciar el switch principal.
    
-   ✅ SEGURIDAD: Validar $action para evitar path traversal
+   âœ… SEGURIDAD: Validar $action para evitar path traversal
 ================================ */
 
-// Sanitización: solo permitir caracteres alfanuméricos y guión bajo
+// SanitizaciÃ³n: solo permitir caracteres alfanumÃ©ricos y guiÃ³n bajo
 if ($action !== '' && !preg_match('/^[a-z0-9_]+$/i', $action)) {
-  json_fail('Acción inválida', 400);
+  json_fail('AcciÃ³n invÃ¡lida', 400);
 }
 
 $__actionFile = __DIR__ . '/actions/' . $action . '.php';
 if ($action !== '' && is_file($__actionFile)) {
 
-  // ✅ Seguridad por defecto para endpoints actions/*
-  // - Permitimos sin login SOLO endpoints explícitos de diagnóstico/compat.
+  // âœ… Seguridad por defecto para endpoints actions/*
+  // - Permitimos sin login SOLO endpoints explÃ­citos de diagnÃ³stico/compat.
   $authFree = ['_csrf_check'];
 
   if (!in_array($action, $authFree, true)) {
     require_login_json();
 
-    // Permisos puntuales (evita exponer catálogo desde afuera)
+    // Permisos puntuales (evita exponer catÃ¡logo desde afuera)
     if ($action === 'buscar_productos') {
-      require_perm_json('realizar_ventas');
+      $canBuscarProductos = function_exists('user_has_permission')
+        ? (user_has_permission('realizar_ventas') || user_has_permission('emitir_factura'))
+        : true;
+      if (!$canBuscarProductos) {
+        json_fail('No autorizado', 403);
+      }
     }
 
-    // CSRF para cualquier acción state-changing
+    // CSRF para cualquier acciÃ³n state-changing
     if ($method !== 'GET') {
       require_csrf_json($body);
     }
@@ -501,7 +506,7 @@ function read_request_body(): array {
   return is_array($data) ? $data : [];
 }
 
-if ($action === '') json_fail('Acción requerida', 404);
+if ($action === '') json_fail('AcciÃ³n requerida', 404);
 
 try {
 
@@ -510,7 +515,7 @@ try {
     
     case 'health': {
       require_login_json();
-      // No requiere CSRF (GET) - solo diagnóstico
+      // No requiere CSRF (GET) - solo diagnÃ³stico
       try {
         $pdo = getPDO();
         $pdo->query('SELECT 1');
@@ -543,15 +548,15 @@ try {
 case 'buscar_producto': {
       require_login_json();
       require_perm_json('realizar_ventas');
-      if ($method !== 'GET') json_fail('Método no permitido', 405);
+      if ($method !== 'GET') json_fail('MÃ©todo no permitido', 405);
 
       $codigo = trim((string)($_GET['codigo'] ?? ''));
-      if ($codigo === '') json_fail('Código vacío', 422);
+      if ($codigo === '') json_fail('CÃ³digo vacÃ­o', 422);
 
       $pdo = getPDO();
       
-      // ✅ MEJORADO: Buscar primero por código exacto, luego por nombre
-      // 1. Código exacto
+      // âœ… MEJORADO: Buscar primero por cÃ³digo exacto, luego por nombre
+      // 1. CÃ³digo exacto
       $stmt = $pdo->prepare("
         SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
         FROM productos
@@ -573,12 +578,12 @@ case 'buscar_producto': {
         $p = $stmt->fetch(PDO::FETCH_ASSOC);
       }
 
-      // 3. Si no encuentra, buscar por nombre parcial (el más relevante)
+      // 3. Si no encuentra, buscar por nombre parcial (el mÃ¡s relevante)
       if (!$p) {
         $like  = '%' . $codigo . '%';
         $start = $codigo . '%';
 
-        // ⚠️ PDO MySQL (emulación OFF) no permite repetir :param en un mismo statement.
+        // âš ï¸ PDO MySQL (emulaciÃ³n OFF) no permite repetir :param en un mismo statement.
         // Usamos placeholders posicionales para evitar SQLSTATE[HY093].
         $sql = "
           SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
@@ -614,11 +619,16 @@ case 'buscar_producto': {
       json_ok(['producto' => $p]);
     }
 
-    // ✅ BUSCAR PRODUCTOS (plural) - Autocompletado en caja
+    // âœ… BUSCAR PRODUCTOS (plural) - Autocompletado en caja
     case 'buscar_productos': {
       require_login_json();
-      require_perm_json('realizar_ventas');
-      if ($method !== 'GET') json_fail('Método no permitido', 405);
+      $canBuscarProductos = function_exists('user_has_permission')
+        ? (user_has_permission('realizar_ventas') || user_has_permission('emitir_factura'))
+        : true;
+      if (!$canBuscarProductos) {
+        json_fail('No autorizado', 403);
+      }
+      if ($method !== 'GET') json_fail('MÃ©todo no permitido', 405);
 
       $q = trim((string)($_GET['q'] ?? ''));
       if ($q === '' || mb_strlen($q) < 2) {
@@ -632,7 +642,7 @@ case 'buscar_producto': {
 
       $pdo = getPDO();
 
-      // ⚠️ PDO MySQL (emulación OFF) NO permite repetir :param ni bindear LIMIT en algunos setups.
+      // âš ï¸ PDO MySQL (emulaciÃ³n OFF) NO permite repetir :param ni bindear LIMIT en algunos setups.
       // Usamos placeholders posicionales y LIMIT inline (int) para evitar SQLSTATE[HY093].
       $sql = "
         SELECT id, codigo, nombre, precio, stock, es_pesable, unidad_venta
@@ -655,7 +665,7 @@ case 'buscar_producto': {
 
         if (!$ok) {
           $e = $stmt->errorInfo();
-          json_fail("buscar_productos SQL execute falló: " . ($e[2] ?? "sin detalle"), 500);
+          json_fail("buscar_productos SQL execute fallÃ³: " . ($e[2] ?? "sin detalle"), 500);
         }
 
       $productos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -675,7 +685,7 @@ case 'buscar_producto': {
     case 'listar_promos_activas': {
       require_login_json();
       require_perm_json('realizar_ventas');
-      if ($method !== 'GET') json_fail('Método no permitido', 405);
+      if ($method !== 'GET') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
 
@@ -693,16 +703,16 @@ case 'buscar_producto': {
     }
 
     /* =========================================================
-       CALCULAR CARRITO (unifica lógica de precios frontend/backend)
+       CALCULAR CARRITO (unifica lÃ³gica de precios frontend/backend)
        
-       ✅ FIX v2.1.2: Usa EXACTAMENTE el mismo motor que registrar_venta
+       âœ… FIX v2.1.2: Usa EXACTAMENTE el mismo motor que registrar_venta
           (calcular_totales_con_promos) + desc_global + precio manual
     ========================================================= */
     case 'calcular_carrito': {
       require_login_json();
       require_perm_json('realizar_ventas');
-      require_csrf_json($body);  // ✅ CSRF obligatorio
-      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      require_csrf_json($body);  // âœ… CSRF obligatorio
+      if ($method !== 'POST') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
       
@@ -712,23 +722,23 @@ case 'buscar_producto': {
         $itemsRaw = json_decode($itemsRaw, true);
       }
       
-      // ✅ FIX v2.1.2: Leer desc_global (mismo formato que registrar_venta)
+      // âœ… FIX v2.1.2: Leer desc_global (mismo formato que registrar_venta)
       $descGlobalRaw = $body['desc_global'] ?? null;
       if (is_string($descGlobalRaw)) {
         $descGlobalRaw = json_decode($descGlobalRaw, true);
       }
       $descGlobalReq = parse_desc_global($descGlobalRaw);
       
-      // ✅ FIX v2.1.3: Verificar permiso para modificar precio/descuento
-      // MISMO permiso y MISMA lógica que registrar_venta
+      // âœ… FIX v2.1.3: Verificar permiso para modificar precio/descuento
+      // MISMO permiso y MISMA lÃ³gica que registrar_venta
       $canModifyPrice = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
       
-      // ✅ FIX v2.1.3: Si viene desc_global sin permiso → ERROR (no anular silencioso)
+      // âœ… FIX v2.1.3: Si viene desc_global sin permiso â†’ ERROR (no anular silencioso)
       if ($descGlobalReq !== null && !$canModifyPrice) {
         json_fail('No tiene permiso para aplicar descuentos', 403);
       }
       
-      // Respuesta vacía si no hay items
+      // Respuesta vacÃ­a si no hay items
       if (!is_array($itemsRaw) || empty($itemsRaw)) {
         json_ok([
           'items' => [],
@@ -773,7 +783,7 @@ case 'buscar_producto': {
         $productsMap[(int)$row['id']] = $row;
       }
 
-      // ✅ FIX v2.1.2: Mapear cantidades Y precios del request
+      // âœ… FIX v2.1.2: Mapear cantidades Y precios del request
       $itemsMap = [];
       foreach ($itemsRaw as $it) {
         $pid = (int)($it['id'] ?? $it['producto_id'] ?? 0);
@@ -795,7 +805,7 @@ case 'buscar_producto': {
         $p = $productsMap[$pid];
         $precioLista = (float)$p['precio'];
         
-        // ✅ FIX v2.1.2: Respetar precio manual si tiene permiso
+        // âœ… FIX v2.1.2: Respetar precio manual si tiene permiso
         $precioActual = $precioLista;
         if ($canModifyPrice && $itemData['precio_manual'] !== null && $itemData['precio_manual'] > 0) {
           $precioActual = $itemData['precio_manual'];
@@ -824,14 +834,14 @@ case 'buscar_producto': {
         ]);
       }
 
-      // ✅ Usar EXACTAMENTE el mismo motor que registrar_venta
+      // âœ… Usar EXACTAMENTE el mismo motor que registrar_venta
       $calc = calcular_totales_con_promos($srvItems, $promos);
       
       $totalBruto = round((float)($calc['total_bruto'] ?? 0), 2);
       $totalNetoSinGlobal = round((float)($calc['total_neto'] ?? 0), 2);
       $descPromos = round((float)($calc['descuento_total'] ?? 0), 2);
       
-      // ✅ FIX v2.1.2: Aplicar descuento global (mismo que registrar_venta)
+      // âœ… FIX v2.1.2: Aplicar descuento global (mismo que registrar_venta)
       $descGlobalMonto = calc_desc_global($totalNetoSinGlobal, $descGlobalReq);
       $totalNeto = round($totalNetoSinGlobal - $descGlobalMonto, 2);
       $descTotal = round($descPromos + $descGlobalMonto, 2);
@@ -849,7 +859,7 @@ case 'buscar_producto': {
     }
     case 'terminal_list': {
       require_login_json();
-      if ($method !== 'GET') json_fail('Método no permitido', 405);
+      if ($method !== 'GET') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
       $terminales = terminal_list($pdo);
@@ -868,7 +878,7 @@ case 'buscar_producto': {
     case 'terminal_select': {
       require_login_json();
       require_csrf_json($body);
-      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      if ($method !== 'POST') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
       $ttl = 90;
@@ -880,7 +890,7 @@ case 'buscar_producto': {
       $currentTid = terminal_current_id($pdo);
       if ($currentTid > 0) $_SESSION['terminal_id'] = $currentTid;
 
-      // ✅ si no mandan terminal_id -> devolvemos lista
+      // âœ… si no mandan terminal_id -> devolvemos lista
       if ($requestedTerminalId <= 0) {
         $terminales = terminal_list($pdo);
         json_ok([
@@ -893,14 +903,14 @@ case 'buscar_producto': {
 
       $tNew = terminal_get($pdo, $requestedTerminalId);
       if (!$tNew || (int)($tNew['activo'] ?? 0) !== 1) {
-        json_fail('Terminal inválida', 400);
+        json_fail('Terminal invÃ¡lida', 400);
       }
 
       $user = current_user();
       $uid  = (int)($user['id'] ?? 0);
       $sid  = session_id();
 
-      // ✅ Si hay caja abierta en la terminal actual, NO permitimos CAMBIAR a otra
+      // âœ… Si hay caja abierta en la terminal actual, NO permitimos CAMBIAR a otra
       if ($currentTid > 0 && $requestedTerminalId !== $currentTid) {
         $open = caja_get_abierta($pdo, $currentTid);
         if (is_array($open) && !empty($open['id'])) {
@@ -908,12 +918,12 @@ case 'buscar_producto': {
         }
       }
 
-      // ✅ Si estamos cambiando de terminal, liberamos el lock anterior de este usuario (best effort)
+      // âœ… Si estamos cambiando de terminal, liberamos el lock anterior de este usuario (best effort)
       if ($currentTid > 0 && $requestedTerminalId !== $currentTid && $uid > 0) {
         terminal_lock_release($pdo, $currentTid, $uid);
       }
 
-      // ✅ Adquirir/renovar lock para la terminal pedida (incluye el caso "misma terminal")
+      // âœ… Adquirir/renovar lock para la terminal pedida (incluye el caso "misma terminal")
       $res = terminal_lock_acquire($pdo, $requestedTerminalId, $uid, $sid, $ttl);
       if (!($res['ok'] ?? false)) {
         $err  = (string)($res['error'] ?? 'LOCK_FAIL');
@@ -933,14 +943,14 @@ case 'buscar_producto': {
     case 'terminal_switch': {
       require_login_json();
       require_csrf_json($body);
-      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      if ($method !== 'POST') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
       $user = current_user();
       $uid  = (int)($user['id'] ?? 0);
 
       $newTid = (int)($body['terminal_id'] ?? 0);
-      if ($newTid <= 0) json_fail('Terminal inválida', 400);
+      if ($newTid <= 0) json_fail('Terminal invÃ¡lida', 400);
 
       $oldTid = terminal_current_id($pdo);
       if ($oldTid > 0) $_SESSION['terminal_id'] = $oldTid;
@@ -958,7 +968,7 @@ case 'buscar_producto': {
     case 'terminal_heartbeat': {
       require_login_json();
       require_csrf_json($body);
-      if ($method !== 'POST') json_fail('Método no permitido', 405);
+      if ($method !== 'POST') json_fail('MÃ©todo no permitido', 405);
 
       $pdo = getPDO();
       $user = current_user();
@@ -983,8 +993,8 @@ case 'buscar_producto': {
 
       if (!($res['ok'] ?? false)) {
 
-        // ✅ Auto-recovery: si perdimos el lock por sesión/renovación,
-        // intentamos re-adquirirlo (si está libre o sigue siendo nuestro).
+        // âœ… Auto-recovery: si perdimos el lock por sesiÃ³n/renovaciÃ³n,
+        // intentamos re-adquirirlo (si estÃ¡ libre o sigue siendo nuestro).
         $err = (string)($res['error'] ?? '');
         if ($err === 'LOCK_NOT_OWNED' || $err === 'LOCK_LOST') {
 
@@ -1044,7 +1054,7 @@ case 'buscar_producto': {
     }
 
     /* =========================================================
-       CUENTA CORRIENTE - Verificar disponibilidad de crédito
+       CUENTA CORRIENTE - Verificar disponibilidad de crÃ©dito
     ========================================================= */
     case 'verificar_cc': {
       require_login_json();
@@ -1063,7 +1073,7 @@ case 'buscar_producto': {
       $monto = parse_num($_GET['monto'] ?? 0);
       
       if ($clienteId <= 0) {
-        json_fail('Cliente inválido', 400);
+        json_fail('Cliente invÃ¡lido', 400);
       }
       
       $pdo = getPDO();
@@ -1095,8 +1105,8 @@ case 'buscar_producto': {
       $mensaje = '';
       if ($excede) {
         $mensaje = $puedeAutorizar 
-          ? "Excede límite por $" . number_format($monto - $disponible, 2, ',', '.') . " (autorizado)"
-          : "Excede límite. Disponible: $" . number_format($disponible, 2, ',', '.');
+          ? "Excede lÃ­mite por $" . number_format($monto - $disponible, 2, ',', '.') . " (autorizado)"
+          : "Excede lÃ­mite. Disponible: $" . number_format($disponible, 2, ',', '.');
       }
       
       json_ok([
@@ -1123,7 +1133,7 @@ case 'buscar_producto': {
         json_fail('No autorizado', 403);
       }
 
-      // ✅ CSRF obligatorio para registrar ventas
+      // âœ… CSRF obligatorio para registrar ventas
       require_csrf_json($body);
 
 
@@ -1147,14 +1157,14 @@ case 'buscar_producto': {
           $pagosIn = json_decode($pagosIn, true);
         }
 
-      if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacío', 422);
+      if (!is_array($itemsIn) || !$itemsIn) json_fail('Ticket vacÃ­o', 422);
 
   
-      // ✅ FIX v2.1.3: Verificar permiso para modificar precio/descuento
-      // MISMA lógica que calcular_carrito
+      // âœ… FIX v2.1.3: Verificar permiso para modificar precio/descuento
+      // MISMA lÃ³gica que calcular_carrito
       $puedeCambiarPrecio = function_exists('user_has_permission') && user_has_permission('caja_modificar_precio');
       
-      // ✅ FIX v2.1.3: Si viene desc_global sin permiso → ERROR (no anular silencioso)
+      // âœ… FIX v2.1.3: Si viene desc_global sin permiso â†’ ERROR (no anular silencioso)
       if ($descGlobalReq !== null && !$puedeCambiarPrecio) {
         json_fail('No tiene permiso para aplicar descuentos', 403);
       }
@@ -1179,7 +1189,7 @@ case 'buscar_producto': {
       }
 
       $items = array_values($agg);
-      if (!$items) json_fail('Items inválidos', 422);
+      if (!$items) json_fail('Items invÃ¡lidos', 422);
 
       $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
       $caja = caja_get_abierta($pdo, $terminalId);
@@ -1214,7 +1224,7 @@ case 'buscar_producto': {
           $esPesable = ((int)($p['es_pesable'] ?? 0) === 1);
           if (!$esPesable) {
             if (abs($cant - round($cant)) > 0.00001) {
-              throw new RuntimeException("Cantidad inválida para {$p['nombre']} (no es pesable)");
+              throw new RuntimeException("Cantidad invÃ¡lida para {$p['nombre']} (no es pesable)");
             }
             $cant = (float)(int)round($cant);
           }
@@ -1231,7 +1241,7 @@ case 'buscar_producto': {
           if ($puedeCambiarPrecio) {
             $pr = (float)$it['precio_req'];
             if ($pr > 0) $precioActual = $pr;
-            if ($precioActual <= 0) throw new RuntimeException("Precio inválido para {$p['nombre']}");
+            if ($precioActual <= 0) throw new RuntimeException("Precio invÃ¡lido para {$p['nombre']}");
           }
 
           $totalProductos += $cant;
@@ -1295,9 +1305,9 @@ case 'buscar_producto': {
           $pagosValidos[] = ['medio' => $medioLegacy, 'monto' => round($montoLegacy, 2)];
         }
 
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // SEPARAR PAGOS CC DE PAGOS EN CAJA
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         $pagosCC = [];      // Pagos a Cuenta Corriente (no entran a caja)
         $pagosCaja = [];    // Pagos reales que entran a caja
         $montoCC = 0.0;     // Total cargado a CC
@@ -1312,9 +1322,9 @@ case 'buscar_producto': {
         }
         $montoCC = round($montoCC, 2);
         
-        // ═══════════════════════════════════════════════════════════════════════
-        // VALIDACIÓN CC (si hay pagos a cuenta corriente)
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // VALIDACIÃ“N CC (si hay pagos a cuenta corriente)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         $ccMovimientoId = null;
         $ccInfo = null;
         
@@ -1329,7 +1339,7 @@ case 'buscar_producto': {
             throw new RuntimeException('No tiene permiso para vender a Cuenta Corriente');
           }
           
-          // Verificar disponibilidad de crédito
+          // Verificar disponibilidad de crÃ©dito
           $ccCtrl = new CuentaCorrienteController($pdo);
           $ccCheck = $ccCtrl->verificarDisponibilidad($ccClienteId, $montoCC);
           
@@ -1341,10 +1351,10 @@ case 'buscar_producto': {
             if ($excede && !$puedeAutorizar) {
               $disponible = $ccCheck['disponible'] ?? 0;
               throw new RuntimeException(
-                "El cliente excede su límite de crédito. Disponible: $" . number_format($disponible, 2, ',', '.')
+                "El cliente excede su lÃ­mite de crÃ©dito. Disponible: $" . number_format($disponible, 2, ',', '.')
               );
             }
-            // Si puede autorizar, continúa (el permiso actúa como autorización)
+            // Si puede autorizar, continÃºa (el permiso actÃºa como autorizaciÃ³n)
           }
           
           // Obtener info del cliente para la respuesta
@@ -1372,7 +1382,7 @@ case 'buscar_producto': {
         }
 
         // Si NO hay efectivo, no permitimos sobrepago (no hay "vuelto" real)
-        // CC no da vuelto, así que solo cuenta efectivo real
+        // CC no da vuelto, asÃ­ que solo cuenta efectivo real
         $efectivoCaja = 0.0;
         foreach ($pagosCaja as $pg) {
           if ($pg['medio'] === 'EFECTIVO') $efectivoCaja += (float)$pg['monto'];
@@ -1399,9 +1409,9 @@ case 'buscar_producto': {
         }
         $montoPagado = $totalPagado;
 
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // INSERTAR VENTA (con cliente_id y monto_cc)
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         $ventaData = [
           'user_id'         => ($userId > 0 ? $userId : null),
           'caja_id'         => $cajaId,
@@ -1424,13 +1434,13 @@ case 'buscar_producto': {
         
         $ventaId = insert_dynamic($pdo, 'ventas', $ventaData);
 
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // REGISTRAR CARGO EN CUENTA CORRIENTE
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         if ($montoCC > 0 && $ccClienteId > 0) {
           $ccCtrl = $ccCtrl ?? new CuentaCorrienteController($pdo);
           
-          // Determinar si necesita autorización (el permiso actúa como auto-autorización)
+          // Determinar si necesita autorizaciÃ³n (el permiso actÃºa como auto-autorizaciÃ³n)
           $autorizadoPor = null;
           if (($ccCheck['excede'] ?? false) && function_exists('user_has_permission') && user_has_permission('vender_excedido_cc')) {
             $autorizadoPor = $userId;
@@ -1458,7 +1468,7 @@ case 'buscar_producto': {
           }
         }
 
-        // Guardar pagos múltiples (si existe tabla)
+        // Guardar pagos mÃºltiples (si existe tabla)
         if (
           has_col($pdo, 'venta_pagos', 'venta_id') &&
           has_col($pdo, 'venta_pagos', 'medio_pago') &&
@@ -1556,9 +1566,9 @@ case 'buscar_producto': {
         // Totales generales de la venta (una sola vez)
         update_caja_venta_totales($pdo, $cajaId, $totalNetoFinal, $totalProductos);
 
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // TOTALES POR MEDIO (SOLO PAGOS QUE ENTRAN A CAJA - EXCLUYE CC)
-        // ═══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // IMPORTANTE: Solo los pagos que NO son CC entran a los totales de caja
         foreach ($pagosCaja as $pg) {
           update_caja_medio_delta($pdo, $cajaId, $pg['medio'], (float)$pg['monto']);
@@ -1601,7 +1611,7 @@ case 'buscar_producto': {
     }
 
     default:
-      json_fail('Acción inválida', 404);
+      json_fail('AcciÃ³n invÃ¡lida', 404);
   }
 
 } catch (Throwable $e) {

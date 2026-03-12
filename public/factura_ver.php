@@ -565,13 +565,20 @@ $clienteNombre = trim((string)($factura['cliente_nombre'] ?? '')) ?: 'Consumidor
 $clienteCuit = factura_formatear_cuit((string)($factura['cliente_cuit'] ?? '')) ?: '-';
 $clienteCondIva = $mapCondIva[strtoupper(trim((string)($factura['cliente_cond_iva'] ?? 'CF')))] ?? ((string)($factura['cliente_cond_iva'] ?? 'Consumidor Final'));
 $clienteDireccion = trim((string)($factura['cliente_direccion'] ?? '')) ?: '-';
-$condVenta = trim((string)($factura['venta_medio_pago'] ?? '')) ?: 'Contado';
+$condVentaRaw = trim((string)($factura['venta_medio_pago'] ?? ''));
+$condVentaNorm = strtoupper(str_replace([' ', '-'], '_', $condVentaRaw));
+$mostrarCondVenta = $condVentaNorm !== '' && !in_array($condVentaNorm, ['FACTURA_MANUAL', 'FACTURA'], true);
+$condVenta = $mostrarCondVenta ? $condVentaRaw : '';
 $notaVenta = trim((string)($factura['venta_nota'] ?? ''));
 $notaVentaNormalizada = function_exists('mb_strtolower') ? mb_strtolower($notaVenta, 'UTF-8') : strtolower($notaVenta);
 $observacionesTexto = $notaVenta;
-if ($observacionesTexto === '' || in_array($notaVentaNormalizada, ['factura manual', 'factura'], true)) {
+$observacionesEsDefault = $observacionesTexto === '' || in_array($notaVentaNormalizada, ['factura manual', 'factura', 'factura manual sin caja', 'venta'], true);
+if ($observacionesEsDefault) {
     $observacionesTexto = 'Comprobante generado por FLUS';
 }
+$mostrarObservaciones = !$observacionesEsDefault;
+$mostrarBloquePago = $mostrarCondVenta || $mostrarObservaciones;
+$bottomGridClass = $mostrarBloquePago ? 'factura-bottom-grid' : 'factura-bottom-grid factura-bottom-grid--single';
 $letra = factura_tipo_letra($tipo);
 $importeEnLetras = factura_importe_en_letras((float)$resumenFiscal['total']);
 $qrData = $esDemo ? null : factura_qr_data($factura, $fechaEmisionQr, $empresaCuitRaw, (string)($factura['cliente_cuit'] ?? ''), $cae, $tipoCbte, $pdo);
@@ -587,7 +594,7 @@ if ($itemsCount <= 8) {
 
 $pageTitle = 'Factura ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
 $currentSection = 'facturacion';
-$extraCss = ['assets/css/factura.css?v=5'];
+$extraCss = ['assets/css/factura.css?v=7'];
 $bodyClass = 'factura-view';
 
 require __DIR__ . '/partials/header.php';
@@ -658,7 +665,9 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Cliente:</strong> <?= h($clienteNombre) ?></div>
         <div><strong>CUIT / DNI:</strong> <?= h($clienteCuit) ?></div>
         <div><strong>Cond. IVA:</strong> <?= h($clienteCondIva) ?></div>
-        <div><strong>Forma de pago:</strong> <?= h($condVenta) ?></div>
+        <?php if ($mostrarCondVenta): ?>
+          <div><strong>Forma de pago:</strong> <?= h($condVenta) ?></div>
+        <?php endif; ?>
         <div class="client-grid__full"><strong>Domicilio:</strong> <?= h($clienteDireccion) ?></div>
       </div>
     </section>
@@ -742,15 +751,21 @@ require __DIR__ . '/partials/header.php';
       </section>
     </section>
 
-    <section class="factura-bottom-grid">
-      <section class="factura-box factura-box--payment">
-        <div class="box-title">Datos de pago</div>
-        <div class="payment-stack">
-          <div><strong>Medio de pago:</strong> <?= h($condVenta) ?></div>
-          <div><strong>Fecha de emision:</strong> <?= h($fechaFmt) ?></div>
-          <div><strong>Observaciones:</strong> <?= h($observacionesTexto) ?></div>
-        </div>
-      </section>
+    <section class="<?= h($bottomGridClass) ?>">
+      <?php if ($mostrarBloquePago): ?>
+        <section class="factura-box factura-box--payment">
+          <div class="box-title">Datos complementarios</div>
+          <div class="payment-stack">
+            <?php if ($mostrarCondVenta): ?>
+              <div><strong>Medio de pago:</strong> <?= h($condVenta) ?></div>
+            <?php endif; ?>
+            <div><strong>Fecha de emision:</strong> <?= h($fechaFmt) ?></div>
+            <?php if ($mostrarObservaciones): ?>
+              <div><strong>Observaciones:</strong> <?= h($observacionesTexto) ?></div>
+            <?php endif; ?>
+          </div>
+        </section>
+      <?php endif; ?>
 
       <section class="factura-box factura-box--fiscal">
         <div class="box-title">Datos fiscales</div>

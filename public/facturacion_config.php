@@ -275,6 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $iibb = trim((string)($_POST['iibb'] ?? ''));
                 $inicioActividades = trim((string)($_POST['inicio_actividades'] ?? ''));
                 $logoUrl = trim((string)($_POST['logo_url'] ?? ''));
+                $printItemLimit = (int)($_POST['print_item_limit'] ?? flus_facturacion_print_item_limit($pdo));
                 $logoSubido = factcfg_store_logo_upload($_FILES['logo_file'] ?? []);
                 if ($logoSubido !== '') {
                     $logoUrl = $logoSubido;
@@ -283,6 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($puntoVenta < 1 || $puntoVenta > 99999) {
                     $puntoVenta = 1;
                 }
+                $printItemLimit = max(1, min(200, $printItemLimit));
 
                 $legacy = factcfg_legacy_types($condIva);
                 $timestamp = date('Y-m-d H:i:s');
@@ -326,6 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     config_set($pdo, 'business_iibb', $iibb);
                     config_set($pdo, 'business_inicio_actividades', $inicioActividades);
                     config_set($pdo, 'business_logo_url', $logoUrl);
+                    config_set($pdo, 'facturacion_print_item_limit', (string)$printItemLimit);
                     $pdo->commit();
                     config_clear_cache();
                     $mensaje = 'Configuracion guardada correctamente.';
@@ -400,6 +403,7 @@ if ($tableReady) {
 }
 
 $config = factcfg_defaults($pdo, $configRow ?? []);
+$printItemLimit = flus_facturacion_print_item_limit($pdo);
 $configModo = flus_facturacion_modo_actual($config);
 $configModoLabel = flus_facturacion_modo_label($configModo);
 $modoNoDemo = flus_facturacion_modo_requires_arca($configModo);
@@ -604,11 +608,24 @@ require __DIR__ . '/partials/header.php';
                 </div>
 
                 <div class="form-group">
+                    <label for="print_item_limit">Limite operativo de items</label>
+                    <input
+                        type="number"
+                        id="print_item_limit"
+                        name="print_item_limit"
+                        value="<?= (int)$printItemLimit ?>"
+                        min="1"
+                        max="200"
+                    >
+                    <small>Controla la impresion en una sola hoja. No es una regla fiscal.</small>
+                </div>
+
+                <div class="form-group">
                     <label>Proximo numero</label>
                     <div class="numero-display">
                         <span class="numero-valor"><?= (int)$config['proximo_numero'] ?></span>
                     </div>
-                    <small>Si la tabla lo soporta, se actualiza desde la sincronizacion.</small>
+                    <small>En demo se actualiza automaticamente. En ARCA conviene sincronizarlo a demanda.</small>
                 </div>
             </div>
 

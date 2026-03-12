@@ -6,6 +6,266 @@
   padding: 24px 26px 22px;
 }
 
+.fact-step + .fact-step {
+  margin-top: 18px;
+}
+
+.fact-step-head {
+  margin-bottom: 14px;
+}
+
+.fact-step-eyebrow {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-step-sub {
+  max-width: 72ch;
+}
+
+.fact-step-head--compact {
+  margin-bottom: 10px;
+}
+
+.fact-manual-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.fact-manual-main,
+.fact-manual-sidebar {
+  display: grid;
+  gap: 18px;
+}
+
+.fact-manual-sidebar {
+  position: sticky;
+  top: 18px;
+}
+
+.fact-step-detail-full {
+  grid-column: 1 / -1;
+}
+
+.fact-items-card {
+  padding: 2px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(148, 163, 184, 0.03);
+}
+
+.fact-items-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fact-items-counter {
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-card-receptor {
+  padding: 16px;
+}
+
+.fact-card-summary {
+  background: linear-gradient(180deg, #152033, #101827);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  box-shadow: 0 18px 34px rgba(2, 6, 23, 0.24);
+}
+
+body[data-theme="dark"] .fact-card-summary {
+  background: linear-gradient(180deg, #152033, #101827);
+}
+
+.fact-card-summary .fact-card-kicker,
+.fact-card-summary .fact-card-title,
+.fact-card-summary .fact-summary-total {
+  color: #f8fafc;
+}
+
+.fact-card-summary .fact-summary-label,
+.fact-card-summary .fact-summary-help {
+  color: rgba(226, 232, 240, 0.74);
+}
+
+.fact-card-summary .fact-summary-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fact-card-summary .btn.btn-secondary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.fact-card-summary .btn.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fact-card-summary .alert {
+  color: #fecaca;
+}
+
+.fact-config-list--tight {
+  gap: 8px;
+}
+
+.fact-card-note--compact {
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+}
+
+.fact-manual-table thead th {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.fact-manual-table tbody tr {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.fact-manual-table tbody tr:hover {
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.fact-manual-table input,
+.fact-manual-table select {
+  border-color: transparent;
+  background: transparent;
+}
+
+.fact-manual-table input:hover,
+.fact-manual-table select:hover,
+.fact-manual-table input:focus,
+.fact-manual-table select:focus {
+  background: var(--panel);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.fact-lookup-actions .btn,
+.fact-manual-search-inline .btn,
+.fact-summary-actions .btn {
+  min-height: 38px;
+}
+
+@media (max-width: 1180px) {
+  .fact-manual-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-manual-sidebar {
+    position: static;
+  }
+
+  .fact-items-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .fact-manual-layout {
+    gap: 16px;
+  }
+
+  .fact-step-sub {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .fact-summary-total {
+    font-size: 1.9rem;
+  }
+
+  .fact-items-counter {
+    white-space: normal;
+  }
+}
+
+/* legacy helpers kept for other screens */
+.fact-manual-top-grid,
+.fact-manual-close-grid {
+  display: grid;
+  gap: 18px;
+  align-items: start;
+}
+
+.fact-card {
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+body[data-theme="dark"] .fact-card {
+  background: linear-gradient(180deg, rgba(10, 18, 35, 0.96), rgba(8, 15, 28, 0.9));
+  box-shadow: 0 12px 32px rgba(2, 6, 23, 0.22);
+}
+
+.fact-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.fact-card-head--compact {
+  margin-bottom: 12px;
+}
+
+.fact-card-kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-card-title {
+  margin: 2px 0 0;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.fact-card-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.fact-field-help {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 /* Reutilizamos la grilla de filtros core (como movimientos/promos) */
 .fact-filters {
   display: flex;
@@ -70,8 +330,8 @@
 }
 
 .fact-form label {
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 4px;
@@ -136,21 +396,59 @@ body[data-theme="light"] .modo-prod {
   background: rgba(34, 197, 94, 0.12);
   color: #15803d;
 }
+
+.fact-card-receptor > .ff-field {
+  margin-bottom: 16px;
+}
+
+.fact-config-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fact-config-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.07);
+}
+
+.fact-config-label {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .fact-lookup-card {
-  padding: 14px;
-  border: 1px dashed var(--panel-border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  padding: 16px;
+  border: 1px dashed rgba(59, 130, 246, 0.22);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
 }
 
 .fact-lookup-inline {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(16ch, 18ch) auto;
   gap: 10px;
   align-items: center;
+  justify-content: start;
 }
 
 .fact-lookup-inline input {
-  flex: 1;
+  width: 100%;
+  max-width: 18ch;
+}
+
+.fact-lookup-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .fact-lookup-result {
@@ -162,20 +460,325 @@ body[data-theme="light"] .modo-prod {
   display: block;
 }
 
+.fact-lookup-summary {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.03), rgba(15, 23, 42, 0.01));
+}
+
+.fact-lookup-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-lookup-name {
+  margin-top: 4px;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.fact-lookup-cuit {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.fact-lookup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fact-lookup-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.fact-lookup-pill.is-empty {
+  border-style: dashed;
+  background: rgba(148, 163, 184, 0.07);
+  color: var(--muted);
+}
+
+.fact-lookup-address {
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.fact-lookup-address.is-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.fact-lookup-tools {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fact-lookup-editor {
+  display: none;
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.22);
+}
+
+.fact-lookup-editor.is-visible {
+  display: block;
+}
+
 .fact-lookup-status {
   margin-top: 10px;
+  min-height: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  line-height: 1.35;
 }
 
 .fact-lookup-status[data-state="success"] {
   color: #16a34a;
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.22);
 }
 
 .fact-lookup-status[data-state="error"] {
   color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+.fact-lookup-status[data-state="warning"] {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .fact-lookup-status[data-state="loading"] {
   color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.fact-lookup-status[data-state="info"] {
+  color: var(--muted);
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.fact-lookup-status:empty,
+.fact-lookup-status[data-state=""] {
+  display: none;
+}
+
+.fact-lookup-confirm {
+  margin-top: 12px;
+}
+
+.fact-lookup-check {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.07);
+  font-size: 0.92rem;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+}
+
+.fact-lookup-check input {
+  margin-top: 2px;
+}
+
+.fact-manual-form {
+  position: relative;
+}
+
+.fact-step-detail .table-wrapper {
+  margin-top: 12px;
+}
+
+.fact-manual-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 14px 18px;
+  margin-bottom: 12px;
+  align-items: start;
+}
+
+.fact-manual-search,
+.fact-manual-code {
+  position: relative;
+}
+
+.fact-manual-search-inline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.fact-manual-search-inline input {
+  flex: 1;
+}
+
+.fact-manual-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.22);
+}
+
+.fact-manual-suggestion {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.fact-manual-suggestion:hover {
+  border-color: rgba(34, 211, 238, 0.28);
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.fact-manual-suggestion__name {
+  display: block;
+  font-weight: 700;
+}
+
+.fact-manual-suggestion__meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.fact-manual-status {
+  min-height: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.fact-manual-status[data-state="success"] {
+  color: #16a34a;
+}
+
+.fact-manual-status[data-state="warning"] {
+  color: #d97706;
+}
+
+.fact-manual-status[data-state="error"] {
+  color: #dc2626;
+}
+
+.fact-manual-status[data-state="loading"] {
+  color: #2563eb;
+}
+
+.fact-manual-table input,
+.fact-manual-table select {
+  min-width: 0;
+}
+
+.fact-manual-row-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.fact-manual-subtotal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.fact-manual-help {
+  max-width: 78ch;
+}
+
+.fact-summary-total {
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+
+.fact-summary-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.fact-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+body[data-theme="dark"] .fact-summary-item {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.fact-summary-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fact-summary-help {
+  margin-top: 12px;
+}
+
+.fact-summary-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fact-summary-actions .btn {
+  justify-content: center;
+}
+
+@media (max-width: 1080px) {
+  .fact-manual-top-grid,
+  .fact-manual-close-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -183,4 +786,1263 @@ body[data-theme="light"] .modo-prod {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .fact-lookup-actions,
+  .fact-lookup-tools,
+  .fact-lookup-confirm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fact-manual-toolbar,
+  .fact-manual-search-inline {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fact-manual-suggestions {
+    position: static;
+    margin-top: 8px;
+  }
+}
+
+/* ==========================================================
+   Ajustes finos factura manual
+========================================================== */
+.fact-manual-layout,
+.fact-manual-main,
+.fact-manual-sidebar,
+.fact-step,
+.fact-card,
+.fact-lookup-card,
+.fact-items-card,
+.fact-lookup-inline,
+.fact-manual-toolbar,
+.fact-manual-search,
+.fact-manual-code,
+.table-wrapper {
+  min-width: 0;
+}
+
+.fact-manual-layout {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 28px;
+}
+
+.fact-manual-main {
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
+.fact-manual-sidebar {
+  gap: 14px;
+  align-content: start;
+}
+
+.fact-card,
+.fact-card-receptor,
+.fact-lookup-card {
+  padding: 16px;
+}
+
+.fact-card-head {
+  margin-bottom: 12px;
+}
+
+.fact-card-title {
+  font-size: 1rem;
+}
+
+.fact-step-head {
+  margin-bottom: 10px;
+}
+
+.fact-step-sub,
+.fact-field-help,
+.fact-card-note,
+.fact-summary-help {
+  font-size: 0.86rem;
+}
+
+.fact-lookup-inline {
+  grid-template-columns: 15ch auto;
+  align-items: stretch;
+  justify-content: start;
+}
+
+.fact-lookup-inline .btn,
+.fact-manual-search-inline .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.fact-lookup-inline input {
+  max-width: 15ch;
+}
+
+.fact-lookup-summary {
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.fact-lookup-name {
+  font-size: 1rem;
+}
+
+.fact-lookup-address {
+  font-size: 0.88rem;
+}
+
+.fact-lookup-actions {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.fact-lookup-check {
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+
+.fact-lookup-status {
+  margin-top: 8px;
+  padding: 9px 11px;
+  font-size: 0.86rem;
+}
+
+.fact-manual-toolbar {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  gap: 12px 14px;
+}
+
+.fact-manual-search-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.fact-items-card {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.fact-manual-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.fact-manual-table thead th {
+  background: rgba(148, 163, 184, 0.1);
+  padding: 10px 12px;
+}
+
+.fact-manual-table th:nth-child(1),
+.fact-manual-table td:nth-child(1) {
+  width: 110px;
+}
+
+.fact-manual-table th:nth-child(3),
+.fact-manual-table td:nth-child(3) {
+  width: 132px;
+}
+
+.fact-manual-table th:nth-child(4),
+.fact-manual-table td:nth-child(4) {
+  width: 172px;
+}
+
+.fact-manual-table th:nth-child(5),
+.fact-manual-table td:nth-child(5) {
+  width: 110px;
+}
+
+.fact-manual-table th:nth-child(6),
+.fact-manual-table td:nth-child(6) {
+  width: 120px;
+}
+
+.fact-manual-table th:nth-child(7),
+.fact-manual-table td:nth-child(7) {
+  width: 110px;
+}
+
+.fact-manual-table tbody td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.fact-manual-table input,
+.fact-manual-table select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  border-radius: 10px;
+}
+
+.fact-card-summary {
+  background: linear-gradient(180deg, #152033, #101827);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+body[data-theme="light"] .fact-card-summary,
+body[data-theme="dark"] .fact-card-summary {
+  background: linear-gradient(180deg, #152033, #101827);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.fact-card-summary .fact-card-kicker,
+.fact-card-summary .fact-card-title,
+.fact-card-summary .fact-summary-total,
+.fact-card-summary strong {
+  color: #f8fafc;
+}
+
+.fact-card-summary .fact-summary-label,
+.fact-card-summary .fact-summary-help {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.fact-card-summary .fact-summary-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fact-card-summary .btn.btn-secondary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.fact-card-summary .btn.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.fact-summary-total {
+  margin-bottom: 12px;
+  font-size: 2.2rem;
+}
+
+.fact-summary-grid {
+  gap: 8px;
+}
+
+.fact-summary-item {
+  padding: 10px 11px;
+}
+
+.fact-summary-actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 1400px) {
+  .fact-manual-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1260px) {
+  .fact-manual-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-manual-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .fact-lookup-inline {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-lookup-inline input {
+    max-width: none;
+  }
+
+  .fact-manual-table {
+    min-width: 860px;
+  }
+}
+
+/* ==========================================================
+   Factura Manual - redisenio FLUS
+========================================================== */
+.fact-manual-screen .fact-manual-layout {
+  grid-template-columns: minmax(0, 1fr) 304px;
+  gap: 20px;
+  align-items: start;
+}
+
+.fact-manual-screen .fact-manual-main,
+.fact-manual-screen .fact-manual-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.fact-manual-screen .fact-manual-sidebar {
+  position: sticky;
+  top: 18px;
+}
+
+.fact-manual-screen .fact-card {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: color-mix(in srgb, var(--panel, #ffffff) 96%, transparent);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card {
+  background: color-mix(in srgb, var(--panel, #0f172a) 94%, transparent);
+  border-color: rgba(148, 163, 184, 0.14);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.28);
+}
+
+.fact-manual-screen .fact-card-head {
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  background: color-mix(in srgb, var(--panel, #ffffff) 86%, rgba(148, 163, 184, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-head {
+  background: rgba(15, 23, 42, 0.52);
+  border-bottom-color: rgba(148, 163, 184, 0.12);
+}
+
+.fact-manual-screen .fact-card-head--compact {
+  padding: 12px 14px;
+}
+
+.fact-manual-screen .fact-card-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fact-manual-screen .fact-card-title {
+  margin-top: 2px;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.fact-manual-screen .fact-card-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fact-manual-screen .fact-head-meta {
+  font-size: 0.84rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fact-manual-screen .fact-card-body {
+  padding: 18px;
+}
+
+.fact-manual-screen .fact-card-body-cabecera {
+  padding: 18px;
+}
+
+.fact-manual-screen .fact-receptor-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.fact-manual-screen .fact-receptor-mode__btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fact-manual-screen .fact-receptor-mode__btn.is-active {
+  background: var(--panel, #ffffff);
+  color: var(--text, #0f172a);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-mode {
+  background: rgba(30, 41, 59, 0.7);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-mode__btn.is-active {
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+}
+
+.fact-manual-screen .fact-cabecera-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.92fr) minmax(360px, 1.08fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.fact-manual-screen .fact-cabecera-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fact-manual-screen .fact-card-note-soft {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(59, 130, 246, 0.24);
+  background: rgba(59, 130, 246, 0.05);
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-note-soft {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(96, 165, 250, 0.18);
+}
+
+.fact-manual-screen .fact-lookup-card {
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.04);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-lookup-card {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(96, 165, 250, 0.14);
+}
+
+.fact-manual-screen .fact-lookup-inline {
+  display: grid;
+  grid-template-columns: minmax(14ch, 16ch) auto;
+  justify-content: start;
+  gap: 10px;
+  align-items: center;
+}
+
+.fact-manual-screen .fact-lookup-inline input {
+  width: 100%;
+  max-width: 16ch;
+}
+
+.fact-manual-screen .fact-field-help {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.fact-manual-screen .fact-lookup-result {
+  margin-top: 12px;
+}
+
+.fact-manual-screen .fact-lookup-summary {
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-lookup-summary {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(74, 222, 128, 0.18);
+}
+
+.fact-manual-screen .fact-lookup-name {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.fact-manual-screen .fact-lookup-cuit,
+.fact-manual-screen .fact-lookup-address {
+  font-size: 0.92rem;
+}
+
+.fact-manual-screen .fact-lookup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.fact-manual-screen .fact-lookup-check {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.fact-manual-screen .fact-lookup-editor {
+  margin-top: 12px;
+}
+
+.fact-manual-screen .fact-lookup-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.fact-manual-screen .fact-card-body-items {
+  padding: 18px;
+}
+
+.fact-manual-screen .fact-manual-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px 18px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.fact-manual-screen .fact-manual-toolbar-sep {
+  align-self: center;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.fact-manual-screen .fact-manual-search,
+.fact-manual-screen .fact-manual-code {
+  min-width: 0;
+}
+
+.fact-manual-screen .fact-manual-search-inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.fact-manual-screen .fact-manual-status {
+  min-height: 18px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.fact-manual-screen .fact-items-card {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.fact-manual-screen .fact-manual-table {
+  width: 100%;
+  table-layout: fixed;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.fact-manual-screen .fact-manual-table thead th {
+  padding: 12px 14px;
+  background: #1d2b44;
+  color: #dbeafe;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-manual-table thead th {
+  background: #18243a;
+}
+
+.fact-manual-screen .fact-manual-table tbody tr {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.fact-manual-screen .fact-manual-table tbody td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.fact-manual-screen .fact-manual-table input,
+.fact-manual-screen .fact-manual-table select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 38px;
+  border-radius: 10px;
+  background: transparent;
+  border-color: transparent;
+}
+
+.fact-manual-screen .fact-manual-row-actions {
+  text-align: right;
+}
+
+.fact-manual-screen .fact-manual-row-actions .btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.fact-manual-screen .fact-items-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.fact-manual-screen .fact-manual-help {
+  max-width: 58ch;
+}
+
+.fact-manual-screen .fact-items-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.fact-manual-screen .fact-items-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+
+.fact-manual-screen .fact-items-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+}
+
+.fact-manual-screen .fact-items-counter {
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.fact-manual-screen .fact-card-summary {
+  background: linear-gradient(180deg, #1a5f47, #134233);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-summary,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  color: #0f172a !important;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary {
+  background: linear-gradient(180deg, #1b2a44, #132033);
+}
+
+.fact-manual-screen .fact-card-summary .fact-card-head {
+  background: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.fact-manual-screen .fact-card-summary .fact-card-kicker,
+.fact-manual-screen .fact-card-summary .fact-card-title,
+.fact-manual-screen .fact-card-summary .fact-summary-total,
+.fact-manual-screen .fact-card-summary strong {
+  color: #f8fafc;
+}
+
+.fact-manual-screen .fact-card-summary .fact-summary-label,
+.fact-manual-screen .fact-card-summary .fact-summary-help {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-summary-item,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-summary-item {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-card-head,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-card-head {
+  background: #ffffff;
+  border-bottom-color: rgba(148, 163, 184, 0.16);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-card-kicker,
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-card-title,
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-summary-total,
+body[data-theme="light"] .fact-manual-screen .fact-card-summary strong,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-card-kicker,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-card-title,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-summary-total,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary strong {
+  color: #0f172a;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-summary-label,
+body[data-theme="light"] .fact-manual-screen .fact-card-summary .fact-summary-help,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-summary-label,
+body:not([data-theme]) .fact-manual-screen .fact-card-summary .fact-summary-help {
+  color: #64748b;
+}
+
+.fact-manual-screen .fact-summary-total {
+  padding: 18px 18px 0;
+  margin-bottom: 8px;
+  font-size: 2.45rem;
+  line-height: 1;
+}
+
+.fact-manual-screen .fact-summary-grid {
+  display: grid;
+  gap: 8px;
+  padding: 0 18px;
+}
+
+.fact-manual-screen .fact-summary-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-summary-item {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fact-manual-screen .fact-summary-help {
+  padding: 0 18px 18px;
+}
+
+.fact-manual-screen .fact-card-note-side textarea {
+  min-height: 86px;
+}
+
+.fact-manual-screen .fact-manual-row.is-invalid td {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.fact-manual-screen .fact-manual-row.is-invalid input,
+.fact-manual-screen .fact-manual-row.is-invalid select {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.06);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-manual-row.is-invalid td {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-manual-row.is-invalid input,
+body[data-theme="dark"] .fact-manual-screen .fact-manual-row.is-invalid select {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.fact-manual-screen .fact-card-actions {
+  padding: 16px;
+}
+
+.fact-manual-screen .fact-summary-actions {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fact-manual-screen .fact-summary-actions .btn {
+  justify-content: center;
+  min-height: 44px;
+}
+
+@media (max-width: 1260px) {
+  .fact-manual-screen .fact-manual-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-manual-screen .fact-manual-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 980px) {
+  .fact-manual-screen .fact-cabecera-grid,
+  .fact-manual-screen .fact-manual-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-manual-screen .fact-manual-toolbar-sep {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .fact-manual-screen .fact-manual-search-inline,
+  .fact-manual-screen .fact-lookup-inline,
+  .fact-manual-screen .fact-lookup-actions {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fact-manual-screen .fact-lookup-inline input {
+    max-width: none;
+  }
+
+  .fact-manual-screen .fact-items-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fact-manual-screen .fact-manual-table {
+    min-width: 820px;
+  }
+}
+
+/* ==========================================================
+   Factura Manual - mockup receptor
+========================================================== */
+.fact-manual-screen .fact-manual-layout--mock {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.fact-manual-screen .fact-card-receptor--mock .fact-card-body-cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.fact-manual-screen .fact-cabecera-top {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.fact-manual-screen .fact-receptor-workspace {
+  min-height: 250px;
+}
+
+.fact-manual-screen .fact-receptor-empty,
+.fact-manual-screen .fact-receptor-selected {
+  border: 1.5px dashed rgba(148, 163, 184, 0.36);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.fact-manual-screen .fact-receptor-empty {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.fact-manual-screen .fact-receptor-empty strong {
+  color: var(--text, #0f172a);
+  font-size: 1rem;
+}
+
+.fact-manual-screen .fact-receptor-empty__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: rgba(100, 116, 139, 0.6);
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.fact-manual-screen .fact-receptor-selected {
+  padding: 18px;
+}
+
+.fact-manual-screen .fact-receptor-workspace__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.fact-manual-screen .fact-card-source .fact-card-body-source {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fact-manual-screen .fact-receptor-mode--sidebar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.fact-manual-screen .fact-receptor-mode--sidebar .fact-receptor-mode__btn {
+  justify-content: center;
+}
+
+.fact-manual-screen .fact-lookup-inline--sidebar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.fact-manual-screen .btn-lookup-apply {
+  width: 100%;
+  justify-content: center;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-summary {
+  margin-top: 6px;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-actions {
+  margin-top: 10px;
+  flex-direction: column;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-status {
+  margin-top: 0;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-empty,
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-selected {
+  background: rgba(30, 41, 59, 0.32);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-empty__icon {
+  background: rgba(148, 163, 184, 0.08);
+  color: rgba(148, 163, 184, 0.6);
+}
+
+@media (max-width: 1260px) {
+  .fact-manual-screen .fact-manual-layout--mock {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================
+   Factura Manual - receiver workspace refinements
+========================================================== */
+.fact-manual-screen .fact-manual-layout--mock {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: start;
+}
+
+.fact-manual-screen .fact-card-receptor--mock .fact-card-body-cabecera {
+  gap: 20px;
+}
+
+.fact-manual-screen .fact-cabecera-concepto {
+  max-width: 520px;
+}
+
+.fact-manual-screen .fact-receptor-workspace {
+  min-height: auto;
+}
+
+.fact-manual-screen .fact-receptor-empty--inline {
+  min-height: auto;
+  display: block;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  text-align: left;
+  border-style: solid;
+  border-width: 1px;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.fact-manual-screen .fact-receptor-empty--inline strong,
+.fact-manual-screen .fact-receptor-empty--inline span {
+  display: block;
+}
+
+.fact-manual-screen .fact-receptor-empty--inline span {
+  margin-top: 4px;
+}
+
+.fact-manual-screen .fact-receptor-selected--workspace {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.fact-manual-screen .fact-receptor-selected--workspace .fact-form-grid {
+  gap: 16px 18px;
+}
+
+.fact-manual-screen .fact-receptor-selected--workspace input,
+.fact-manual-screen .fact-receptor-selected--workspace select {
+  background: #eef6ff;
+  border-color: #9ac5eb;
+}
+
+.fact-manual-screen .fact-receptor-selected--workspace input.is-readonly,
+.fact-manual-screen .fact-receptor-selected--workspace select.is-readonly {
+  background: #f8fbff;
+  color: #334155;
+  cursor: default;
+}
+
+.fact-manual-screen .fact-receptor-workspace__foot {
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.fact-manual-screen .fact-receptor-applied-note {
+  margin-right: auto;
+  max-width: 54ch;
+}
+
+.fact-manual-screen .fact-card-source {
+  position: sticky;
+  top: 18px;
+}
+
+.fact-manual-screen .fact-card-source .fact-card-head {
+  padding-bottom: 8px;
+}
+
+.fact-manual-screen .fact-card-body-source {
+  gap: 16px;
+}
+
+.fact-manual-screen .fact-card-source [data-receptor-panel="selector"],
+.fact-manual-screen .fact-card-source [data-receptor-panel="lookup"] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fact-manual-screen .fact-card-source [data-receptor-panel][hidden] {
+  display: none !important;
+}
+
+.fact-manual-screen .fact-card-source .fact-field-help {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.fact-manual-screen .fact-lookup-inline--sidebar input {
+  max-width: none;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-result {
+  margin-top: 2px;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-summary {
+  padding: 16px;
+}
+
+.fact-manual-screen .fact-card-source .fact-lookup-status {
+  padding: 12px 14px;
+  border: 1px solid rgba(251, 146, 60, 0.25);
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.fact-manual-screen .fact-card-summary {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  color: #0f172a !important;
+}
+
+.fact-manual-screen .fact-card-summary .fact-card-head {
+  background: #ffffff;
+  border-bottom-color: rgba(148, 163, 184, 0.16);
+}
+
+.fact-manual-screen .fact-card-summary .fact-card-kicker,
+.fact-manual-screen .fact-card-summary .fact-card-title,
+.fact-manual-screen .fact-card-summary .fact-summary-total,
+.fact-manual-screen .fact-card-summary strong {
+  color: #0f172a !important;
+}
+
+.fact-manual-screen .fact-card-summary .fact-summary-label,
+.fact-manual-screen .fact-card-summary .fact-summary-help {
+  color: #64748b !important;
+}
+
+.fact-manual-screen .fact-card-summary .fact-summary-item {
+  background: #f7f9fc;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-empty--inline {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(96, 165, 250, 0.2);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-selected--workspace input,
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-selected--workspace select {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(59, 130, 246, 0.24);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-selected--workspace input.is-readonly,
+body[data-theme="dark"] .fact-manual-screen .fact-receptor-selected--workspace select.is-readonly {
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-source .fact-lookup-status {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.18);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary {
+  background: linear-gradient(180deg, #1b2a44, #132033) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-card-head {
+  background: transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-card-kicker,
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-card-title,
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-summary-total,
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary strong {
+  color: #f8fafc !important;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-summary-label,
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-summary-help {
+  color: rgba(226, 232, 240, 0.78) !important;
+}
+
+body[data-theme="dark"] .fact-manual-screen .fact-card-summary .fact-summary-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 1260px) {
+  .fact-manual-screen .fact-manual-layout--mock {
+    grid-template-columns: 1fr;
+  }
+
+  .fact-manual-screen .fact-card-source {
+    position: static;
+  }
+}
+
+/* Evita superposiciones entre ARCA, resumen y acciones en alturas medias */
+.fact-manual-screen .fact-manual-sidebar {
+  position: static !important;
+  align-self: start;
+}
+
+.fact-manual-screen .fact-card-source {
+  position: static !important;
+}
+
+/* Modo claro: contornos mas definidos y lectura mas limpia */
+body[data-theme="light"] .fact-manual-screen .fact-card,
+body:not([data-theme]) .fact-manual-screen .fact-card {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.3);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-head,
+body:not([data-theme]) .fact-manual-screen .fact-card-head {
+  background: #fbfcfe;
+  border-bottom-color: rgba(148, 163, 184, 0.24);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-body,
+body[data-theme="light"] .fact-manual-screen .fact-card-body-cabecera,
+body:not([data-theme]) .fact-manual-screen .fact-card-body,
+body:not([data-theme]) .fact-manual-screen .fact-card-body-cabecera {
+  background: #ffffff;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-receptor-empty--inline,
+body:not([data-theme]) .fact-manual-screen .fact-receptor-empty--inline {
+  background: #f8fbff;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-receptor-selected--workspace input,
+body[data-theme="light"] .fact-manual-screen .fact-receptor-selected--workspace select,
+body:not([data-theme]) .fact-manual-screen .fact-receptor-selected--workspace input,
+body:not([data-theme]) .fact-manual-screen .fact-receptor-selected--workspace select {
+  background: #f4f8ff;
+  border-color: #8fb9e6;
+  color: #0f172a;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-receptor-selected--workspace input.is-readonly,
+body[data-theme="light"] .fact-manual-screen .fact-receptor-selected--workspace select.is-readonly,
+body:not([data-theme]) .fact-manual-screen .fact-receptor-selected--workspace input.is-readonly,
+body:not([data-theme]) .fact-manual-screen .fact-receptor-selected--workspace select.is-readonly {
+  background: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-source .fact-lookup-result,
+body:not([data-theme]) .fact-manual-screen .fact-card-source .fact-lookup-result {
+  border-color: rgba(34, 197, 94, 0.26);
+  background: #f3fbf6;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-source .fact-lookup-summary,
+body:not([data-theme]) .fact-manual-screen .fact-card-source .fact-lookup-summary {
+  background: transparent;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-card-source .fact-lookup-status,
+body:not([data-theme]) .fact-manual-screen .fact-card-source .fact-lookup-status {
+  background: #fff8ec;
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-items-card,
+body:not([data-theme]) .fact-manual-screen .fact-items-card {
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-manual-table tbody td,
+body:not([data-theme]) .fact-manual-screen .fact-manual-table tbody td {
+  background: #ffffff;
+}
+
+body[data-theme="light"] .fact-manual-screen .fact-manual-table tbody tr:nth-child(even) td,
+body:not([data-theme]) .fact-manual-screen .fact-manual-table tbody tr:nth-child(even) td {
+  background: #fbfdff;
 }

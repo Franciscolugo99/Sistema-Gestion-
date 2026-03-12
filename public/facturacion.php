@@ -39,47 +39,6 @@ function urlWithFact(array $overrides = []): string
     return 'facturacion.php' . ($query === [] ? '' : '?' . http_build_query($query));
 }
 
-function factlist_config_row(PDO $pdo): ?array
-{
-    if (!flus_table_exists($pdo, 'config_facturacion')) {
-        return null;
-    }
-
-    $where = flus_column_exists($pdo, 'config_facturacion', 'activo') ? 'WHERE activo = 1' : '';
-    $order = flus_column_exists($pdo, 'config_facturacion', 'id') ? 'ORDER BY id DESC' : '';
-
-    if ($where !== '') {
-        $st = $pdo->query("SELECT * FROM config_facturacion {$where} {$order} LIMIT 1");
-        $row = $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-        if ($row !== null) {
-            return $row;
-        }
-    }
-
-    $st = $pdo->query("SELECT * FROM config_facturacion {$order} LIMIT 1");
-    return $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-}
-
-function factlist_clientes(PDO $pdo): array
-{
-    if (!flus_table_exists($pdo, 'clientes')) {
-        return [];
-    }
-
-    $nombreExpr = flus_column_exists($pdo, 'clientes', 'nombre') ? 'nombre' : 'CONCAT("Cliente #", id)';
-    $cuitExpr = flus_column_exists($pdo, 'clientes', 'cuit') ? 'cuit' : 'NULL';
-    $where = flus_column_exists($pdo, 'clientes', 'activo') ? 'WHERE activo = 1' : '';
-
-    $sql = "
-        SELECT id, {$nombreExpr} AS nombre, {$cuitExpr} AS cuit
-        FROM clientes
-        {$where}
-        ORDER BY nombre ASC
-    ";
-
-    $st = $pdo->query($sql);
-    return $st ? ($st->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
-}
 
 $desdeRaw = (string)($_GET['desde'] ?? '');
 $hastaRaw = (string)($_GET['hasta'] ?? '');
@@ -101,13 +60,13 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $allowedEstados = ['EMITIDA', 'ANULADA'];
 
 $facturas = [];
-$clientes = factlist_clientes($pdo);
+$clientes = flus_facturacion_clientes_disponibles($pdo);
 $avisos = [];
 $totalRows = 0;
 $totalPages = 1;
 
 $modoFacturacion = 'demo';
-$configFact = factlist_config_row($pdo);
+$configFact = flus_facturacion_config_activa($pdo);
 if ($configFact) {
     $modoFacturacion = flus_facturacion_modo_actual($configFact);
 }
@@ -217,7 +176,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
 
 $pageTitle = 'Facturacion';
 $currentSection = 'facturacion';
-$extraCss = ['assets/css/facturacion.css?v=1'];
+$extraCss = ['assets/css/facturacion.css?v=8'];
 
 require __DIR__ . '/partials/header.php';
 ?>
