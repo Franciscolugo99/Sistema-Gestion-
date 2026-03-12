@@ -87,6 +87,8 @@ function factura_manual_print_item_count(array $rows): int
 $config = flus_facturacion_config_activa($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
 $modoConfigLabel = flus_facturacion_modo_label(is_array($config) ? flus_facturacion_modo_actual($config) : 'demo');
+$lookupArcaEnv = flus_facturacion_arca_env_actual();
+$lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
 $clientes = flus_facturacion_clientes_disponibles($pdo);
 $rows = $_SERVER['REQUEST_METHOD'] === 'POST' ? factura_manual_rows_from_post() : factura_manual_default_rows();
 $itemLimit = flus_facturacion_print_item_limit($pdo);
@@ -373,10 +375,10 @@ require __DIR__ . '/partials/header.php';
         </section>
 
         <aside class="fact-manual-sidebar">
-          <article class="fact-card fact-card-source" data-facturacion-cliente-lookup>
+          <article class="fact-card fact-card-source" data-facturacion-cliente-lookup data-lookup-env="<?= h($lookupArcaEnv) ?>">
             <div class="fact-card-head fact-card-head--compact">
               <div>
-                <div class="fact-card-kicker">ARCA</div>
+                <div class="fact-card-kicker">ARCA � <?= h($lookupArcaEnvLabel) ?></div>
                 <h3 class="fact-card-title">Buscar receptor</h3>
               </div>
             </div>
@@ -412,7 +414,10 @@ require __DIR__ . '/partials/header.php';
                   <input type="text" name="cliente_lookup_cuit" value="<?= h($clienteLookupUi['cuit']) ?>" placeholder="20-12345678-9" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-cuit>
                   <button type="button" class="btn btn-primary" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-btn>Consultar</button>
                 </div>
-                <div class="fact-field-help muted">Consulta el padron de ARCA y luego aplica esos datos al receptor.</div>
+                <div class="fact-field-help muted">Consulta el padron de ARCA en <?= strtolower(h($lookupArcaEnvLabel)) ?> y luego aplica esos datos al receptor.</div>
+                <?php if ($lookupArcaEnv === 'homo'): ?>
+                  <div class="fact-field-help is-warning">En homologacion, ARCA puede devolver contribuyentes de prueba que no coinciden con produccion.</div>
+                <?php endif; ?>
 
                 <input type="hidden" name="cliente_lookup_activo" value="<?= h($clienteLookupUi['activo']) ?>" data-lookup-activo>
                 <input type="hidden" name="cliente_lookup_tipo_cliente" value="<?= h($clienteLookupUi['tipo_cliente']) ?>" data-lookup-tipo-cliente>

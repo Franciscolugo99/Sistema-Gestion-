@@ -266,6 +266,14 @@ body[data-theme="dark"] .fact-card {
   line-height: 1.45;
 }
 
+.fact-field-help.is-warning {
+  color: #9b4d10;
+}
+
+body[data-theme="dark"] .fact-field-help.is-warning {
+  color: #f2c078;
+}
+
 /* Reutilizamos la grilla de filtros core (como movimientos/promos) */
 .fact-filters {
   display: flex;
@@ -285,7 +293,7 @@ body[data-theme="dark"] .fact-card {
 }
 
 /* ==========================================================
-    Resumen venta en factura_nueva 
+    Resumen venta en factura_nueva
 ========================================================== */
 .fact-venta-resumen {
   margin-top: 8px;

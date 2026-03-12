@@ -48,6 +48,8 @@ if ($facturaExistenteId !== null && !isset($_GET['force'])) {
 
 $config = flus_facturacion_config_activa($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
+$lookupArcaEnv = flus_facturacion_arca_env_actual();
+$lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
 $clientes = flus_facturacion_clientes_disponibles($pdo);
 $itemLimit = flus_facturacion_print_item_limit($pdo);
 $itemCountVenta = flus_facturacion_count_items_venta($pdo, $ventaId);
@@ -228,12 +230,16 @@ require __DIR__ . '/partials/header.php';
             <div class="muted" style="margin-top:6px;">Si consultas un CUIT/CUIL del padron, ese receptor tendra prioridad al emitir.</div>
           </div>
 
-          <div class="ff-field ff-field-wide fact-lookup-card" data-facturacion-cliente-lookup>
+          <div class="ff-field ff-field-wide fact-lookup-card" data-facturacion-cliente-lookup data-lookup-env="<?= h($lookupArcaEnv) ?>">
             <label>Consultar por CUIT / CUIL</label>
             <div class="fact-lookup-inline">
               <input type="text" name="cliente_lookup_cuit" value="<?= h($clienteLookupUi['cuit']) ?>" placeholder="20-12345678-9" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-cuit>
               <button type="button" class="btn btn-secondary" <?= $cfgError !== null ? 'disabled' : '' ?> data-lookup-btn>Consultar ARCA</button>
             </div>
+            <div class="fact-field-help muted">La consulta de padron sale por ARCA en <?= strtolower(h($lookupArcaEnvLabel)) ?>.</div>
+            <?php if ($lookupArcaEnv === 'homo'): ?>
+              <div class="fact-field-help is-warning">En homologacion, ARCA puede devolver contribuyentes de prueba que no coinciden con produccion.</div>
+            <?php endif; ?>
             <input type="hidden" name="cliente_lookup_activo" value="<?= h($clienteLookupUi['activo']) ?>" data-lookup-activo>
             <input type="hidden" name="cliente_lookup_tipo_cliente" value="<?= h($clienteLookupUi['tipo_cliente']) ?>" data-lookup-tipo-cliente>
             <input type="hidden" name="cliente_lookup_editor" value="<?= h($clienteLookupUi['editor']) ?>" data-lookup-editor-state>
