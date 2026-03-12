@@ -1,6 +1,6 @@
-# FLUS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Sistema de GestiÃƒÆ’Ã‚Â³n POS (PHP + MySQL)
+# FLUS – Sistema de Gestión POS (PHP + MySQL)
 
-Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
+Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 **Version:** 3.4.0  
 **Build:** 2026-03-11  
@@ -52,11 +52,11 @@ Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
 - PHP 8.0+
 - MySQL/MariaDB
 - Apache/Nginx
-- Extensiones PHP tÃƒÆ’Ã‚Â­picas: `pdo_mysql`, `json`, `mbstring`, `zip`
+- Extensiones PHP típicas: `pdo_mysql`, `json`, `mbstring`, `zip`
 
 ---
 
-## InstalaciÃƒÆ’Ã‚Â³n rÃƒÆ’Ã‚Â¡pida (dev)
+## Instalación rápida (dev)
 
 1. Configurar DB y credenciales en `src/config.php` (o el flujo de `public/install.php`).
 2. Ejecutar migraciones:
@@ -90,13 +90,13 @@ Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
 ---
 
 
-## DocumentaciÃƒÆ’Ã‚Â³n histÃƒÆ’Ã‚Â³rica (v2.3.x)
+## Documentación histórica (v2.3.x)
 
 Contenido recuperado desde commit 3c12bdf para no perder notas operativas.
 
-# FLUS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ Sistema de GestiÃƒÆ’Ã‚Â³n POS (PHP + MySQL)
+# FLUS – Sistema de Gestión POS (PHP + MySQL)
 
-Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
+Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 **Version:** 2.3.1  
 **PHP:** 8.0+  
@@ -104,45 +104,45 @@ Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Â Ã¢â‚¬Â¢ Novedades v2.3.1 (2026-01-28)
+## 🆕 Novedades v2.3.1 (2026-01-28)
 
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Correcciones de estabilidad en endpoints (p. ej. `strict_types` en acciones PHP).
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Ajustes y refactors menores en APIs: **cuenta corriente**, **inventario**, **clientes**.
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Mejoras de consistencia en exportaciones (sesiÃƒÆ’Ã‚Â³n de caja / dashboard).
+- ✅ Correcciones de estabilidad en endpoints (p. ej. `strict_types` en acciones PHP).
+- ✅ Ajustes y refactors menores en APIs: **cuenta corriente**, **inventario**, **clientes**.
+- ✅ Mejoras de consistencia en exportaciones (sesión de caja / dashboard).
 
-> Ver [CHANGELOG.md](CHANGELOG.md) para el detalle y el histÃƒÆ’Ã‚Â³rico.
+> Ver [CHANGELOG.md](CHANGELOG.md) para el detalle y el histórico.
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Â Ã¢â‚¬Â¢ Novedades v2.3.0
+## 🆕 Novedades v2.3.0
 
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Ventas**: Historial avanzado con filtros, KPIs, grÃƒÆ’Ã‚Â¡ficos y **exportaciÃƒÆ’Ã‚Â³n CSV**
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Ventas**: **Autocompletado de clientes** (dropdown visual + teclado)
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Ventas**: **Ticket pÃƒÆ’Ã‚Âºblico compartible** (link con token) + acciones WhatsApp/Email
-- ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ **Backups**: mejoras de robustez/UX + lock de restore
+- ✅ **Ventas**: Historial avanzado con filtros, KPIs, gráficos y **exportación CSV**
+- ✅ **Ventas**: **Autocompletado de clientes** (dropdown visual + teclado)
+- ✅ **Ventas**: **Ticket público compartible** (link con token) + acciones WhatsApp/Email
+- ✅ **Backups**: mejoras de robustez/UX + lock de restore
 
 > Ver [CHANGELOG.md](CHANGELOG.md) para el detalle completo y notas de upgrade.
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â  Arquitectura recomendada (LAN)
+## 🧠 Arquitectura recomendada (LAN)
 
 - **Servidor**: PC donde corre Apache/PHP + BD (y donde vive `storage/`).  
-- **Terminales**: PCs que ingresan por navegador vÃƒÆ’Ã‚Â­a LAN (no ejecutan PHP local).
+- **Terminales**: PCs que ingresan por navegador vía LAN (no ejecutan PHP local).
 
-**Importante:** funcionalidades como *ticket pÃƒÆ’Ã‚Âºblico* se validan en el **servidor**, por eso secretos como `APP_SECRET` deben existir y mantenerse estables ahÃƒÆ’Ã‚Â­.
+**Importante:** funcionalidades como *ticket público* se validan en el **servidor**, por eso secretos como `APP_SECRET` deben existir y mantenerse estables ahí.
 
 
 ---
 
-## ÃƒÂ¢Ã…â€œÃ‚Â¨ CaracterÃƒÆ’Ã‚Â­sticas Principales
+## ✨ Características Principales
 
-### ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Âª Punto de Venta (Caja)
-- Carga rÃƒÆ’Ã‚Â¡pida por cÃƒÆ’Ã‚Â³digo de barras o bÃƒÆ’Ã‚Âºsqueda
-- Soporte para productos **pesables** (carnicerÃƒÆ’Ã‚Â­a, fiambres, frutas)
+### 🏪 Punto de Venta (Caja)
+- Carga rápida por código de barras o búsqueda
+- Soporte para productos **pesables** (carnicería, fiambres, frutas)
 - **Split payments** (pagos con 2 medios)
 - Descuentos globales por monto o porcentaje
-- GeneraciÃƒÆ’Ã‚Â³n de ticket tÃƒÆ’Ã‚Â©rmico (58mm/80mm)
+- Generación de ticket térmico (58mm/80mm)
 - Atajos de teclado (F2 cobrar, F4 cancelar, F5 foco)
 
 ### Productos & Stock
@@ -159,32 +159,32 @@ Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
 - Re-vinculacion de productos legacy por proveedor o global
 - Mejor soporte para mantener sincronizado proveedor ? productos
 
-### ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â Promociones
-- **NxM**: LlevÃƒÆ’Ã‚Â¡s N, pagÃƒÆ’Ã‚Â¡s M (ej: 3x2)
-- **NÃƒâ€šÃ‚Â° al X%**: Cada N unidades, descuento del X%
+### 🎁 Promociones
+- **NxM**: Llevás N, pagás M (ej: 3x2)
+- **N° al X%**: Cada N unidades, descuento del X%
 - **Combos fijos**: Productos combinados a precio especial
 - Motor centralizado (PromoEngine)
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬â€œÃ‚Â¥ÃƒÂ¯Ã‚Â¸Ã‚Â Multi-Terminal
-- Soporte para mÃƒÆ’Ã‚Âºltiples cajas/terminales
+### 🖥️ Multi-Terminal
+- Soporte para múltiples cajas/terminales
 - Sistema de locks para evitar conflictos
 - Heartbeat para detectar cajas inactivas
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¥ Usuarios & Seguridad
+### 👥 Usuarios & Seguridad
 - RBAC (Roles y Permisos)
 - CSRF protection en todos los forms
-- AuditorÃƒÆ’Ã‚Â­a de acciones
+- Auditoría de acciones
 - Sesiones seguras
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  Reportes
-- Dashboard con estadÃƒÆ’Ã‚Â­sticas
+### 📊 Reportes
+- Dashboard con estadísticas
 - Historial de ventas con filtros
-- ExportaciÃƒÆ’Ã‚Â³n CSV
+- Exportación CSV
 - Historial de caja
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã…Â¡Ã¢â€šÂ¬ InstalaciÃƒÆ’Ã‚Â³n RÃƒÆ’Ã‚Â¡pida
+## 🚀 Instalación Rápida
 
 ### 1. Requisitos
 - PHP 8.0+ (recomendado 8.1/8.2)
@@ -192,12 +192,12 @@ Sistema web tipo **POS / gestiÃƒÆ’Ã‚Â³n** para kioscos y comercios.
 - Apache con mod_rewrite (XAMPP recomendado en Windows)
 - Extensiones PHP: `pdo_mysql`, `mbstring`, `openssl`
 
-### 2. ConfiguraciÃƒÆ’Ã‚Â³n
+### 2. Configuración
 ```bash
 # Clonar o descomprimir
 cd /htdocs/flus
 
-# Copiar configuraciÃƒÆ’Ã‚Â³n
+# Copiar configuración
 cp src/config.example.php src/config.php
 
 # Editar credenciales de BD
@@ -217,71 +217,71 @@ http://localhost/flus/public/install.php
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 flus/
-ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ public/              # Archivos web accesibles
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ api/            # Endpoints REST
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ assets/         # CSS, JS
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ includes/       # PromoEngine, Controllers
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ lib/            # Helpers core
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ partials/       # Fragmentos HTML
-ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ src/                # LÃƒÆ’Ã‚Â³gica backend
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ config.php      # ConfiguraciÃƒÆ’Ã‚Â³n (crear desde example)
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ helpers.php     # Funciones globales
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ *.php           # Controllers y libs
-ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ storage/            # Archivos generados (backups, logs)
-ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ scripts/            # Scripts CLI
+├── public/              # Archivos web accesibles
+│   ├── api/            # Endpoints REST
+│   ├── assets/         # CSS, JS
+│   ├── includes/       # PromoEngine, Controllers
+│   ├── lib/            # Helpers core
+│   └── partials/       # Fragmentos HTML
+├── src/                # Lógica backend
+│   ├── config.php      # Configuración (crear desde example)
+│   ├── helpers.php     # Funciones globales
+│   └── *.php           # Controllers y libs
+├── storage/            # Archivos generados (backups, logs)
+└── scripts/            # Scripts CLI
 ```
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â Permisos Disponibles
+## 🔐 Permisos Disponibles
 
-| Permiso | DescripciÃƒÆ’Ã‚Â³n |
+| Permiso | Descripción |
 |---------|-------------|
 | `realizar_ventas` | Usar la caja |
-| `cerrar_caja` | Cerrar sesiÃƒÆ’Ã‚Â³n de caja |
+| `cerrar_caja` | Cerrar sesión de caja |
 | `editar_productos` | ABM de productos |
 | `editar_stock` | Ajustar stock |
 | `ver_reportes` | Ver historial de ventas |
 | `administrar_usuarios` | Gestionar usuarios y roles |
 | `gestionar_backups` | Crear/restaurar backups |
 | `ver_diagnostico` | Ver diagnostico y descargar paquetes de soporte |
-| `administrar_config` | ConfiguraciÃƒÆ’Ã‚Â³n del sistema |
+| `administrar_config` | Configuración del sistema |
 | `caja_modificar_precio` | Cambiar precios en caja |
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â¡ API Endpoints
+## 📡 API Endpoints
 
-| Endpoint | MÃƒÆ’Ã‚Â©todo | DescripciÃƒÆ’Ã‚Â³n |
+| Endpoint | Método | Descripción |
 |----------|--------|-------------|
-| `?action=buscar_producto` | GET | Buscar por cÃƒÆ’Ã‚Â³digo |
+| `?action=buscar_producto` | GET | Buscar por código |
 | `?action=buscar_productos` | GET | Buscar por nombre (autocomplete) |
 | `?action=calcular_carrito` | POST | Calcular precios con promos |
 | `?action=registrar_venta` | POST | Registrar venta |
 | `?action=listar_promos_activas` | GET | Promociones vigentes |
 | `?action=terminal_list` | GET | Listar terminales |
-| `ventas_api.php?action=listar_ventas` | GET | Listado de ventas (filtros/paginaciÃƒÆ’Ã‚Â³n) |
+| `ventas_api.php?action=listar_ventas` | GET | Listado de ventas (filtros/paginación) |
 | `ventas_api.php?action=venta_preview` | GET | Preview de venta (modal) |
-| `ventas_api.php?action=stats` | GET | KPIs/series para grÃƒÆ’Ã‚Â¡ficos |
+| `ventas_api.php?action=stats` | GET | KPIs/series para gráficos |
 | `ventas_api.php?action=buscar_clientes` | GET | Autocomplete de clientes |
-| `ventas_api.php?action=ticket_publico_url` | GET | Generar URL/token de ticket pÃƒÆ’Ã‚Âºblico |
-| `ventas_api.php?action=send_ticket_whatsapp` | POST | Preparar envÃƒÆ’Ã‚Â­o por WhatsApp (wa.me) |
-| `ventas_api.php?action=send_ticket_email` | POST | EnvÃƒÆ’Ã‚Â­o por Email (si estÃƒÆ’Ã‚Â¡ habilitado) |
+| `ventas_api.php?action=ticket_publico_url` | GET | Generar URL/token de ticket público |
+| `ventas_api.php?action=send_ticket_whatsapp` | POST | Preparar envío por WhatsApp (wa.me) |
+| `ventas_api.php?action=send_ticket_email` | POST | Envío por Email (si está habilitado) |
 
 
 ---
 
-## ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂºÃ‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Desarrollo
+## 🛠️ Desarrollo
 
 ### Convenciones
 - PHP: `declare(strict_types=1)` en todos los archivos
 - SQL: Prepared statements obligatorios
-- JS: ES6+ sin transpilaciÃƒÆ’Ã‚Â³n
-- CSS: BEM-like con prefijos por mÃƒÆ’Ã‚Â³dulo
+- JS: ES6+ sin transpilación
+- CSS: BEM-like con prefijos por módulo
 
 ### Testing
 ```bash
@@ -294,7 +294,7 @@ curl http://localhost/flus/public/api/index.php?action=health
 
 ---
 
-### ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å¾ Upgrade desde versiones anteriores
+### 🔄 Upgrade desde versiones anteriores
 
 ### Desde v2.3.0 a v2.3.1
 
@@ -303,9 +303,9 @@ curl http://localhost/flus/public/api/index.php?action=health
    - Conservar `src/config.php`
    - **No pisar `storage/`** (logs, backups, uploads, locks, etc.)
 3. **Migraciones**
-   - Esta versiÃƒÆ’Ã‚Â³n es principalmente de mantenimiento. Si tu branch incluyÃƒÆ’Ã‚Â³ cambios de BD, agregÃƒÆ’Ã‚Â¡ y documentÃƒÆ’Ã‚Â¡ un script `scripts/upgrade_v231.sql`.
-4. **VerificaciÃƒÆ’Ã‚Â³n rÃƒÆ’Ã‚Â¡pida**
-   - Caja / Productos: bÃƒÆ’Ã‚Âºsqueda y autocompletado
+   - Esta versión es principalmente de mantenimiento. Si tu branch incluyó cambios de BD, agregá y documentá un script `scripts/upgrade_v231.sql`.
+4. **Verificación rápida**
+   - Caja / Productos: búsqueda y autocompletado
    - Inventario: consultas principales
    - Reportes / exportaciones: generar CSV sin errores
 
@@ -319,15 +319,15 @@ curl http://localhost/flus/public/api/index.php?action=health
    - **No pisar `storage/`** (logs, backups, uploads, locks, etc.)
 3. **Cosas a considerar**
    - Agregar `storage/restore.lock` al `.gitignore` (runtime, no va al repo).
-   - Si vas a usar **ticket pÃƒÆ’Ã‚Âºblico**, definir un `APP_SECRET` real en el **servidor** (no usar el secreto por defecto).
+   - Si vas a usar **ticket público**, definir un `APP_SECRET` real en el **servidor** (no usar el secreto por defecto).
      - Recomendado: persistirlo en `storage/app_secret.key` para que no cambie entre upgrades.
-     - El link incluye `ts` y el token **expira**: TTL por defecto 7 dÃƒÆ’Ã‚Â­as (configurable con `TICKET_TOKEN_TTL_SECONDS`).
-   - Si tu instalaciÃƒÆ’Ã‚Â³n usa pagos mixtos: la tabla `venta_pagos` mejora la calidad de los reportes; si no existe, FLUS funciona igual (modo compat).
+     - El link incluye `ts` y el token **expira**: TTL por defecto 7 días (configurable con `TICKET_TOKEN_TTL_SECONDS`).
+   - Si tu instalación usa pagos mixtos: la tabla `venta_pagos` mejora la calidad de los reportes; si no existe, FLUS funciona igual (modo compat).
 
-4. **VerificaciÃƒÆ’Ã‚Â³n rÃƒÆ’Ã‚Â¡pida**
-   - Ventas ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ filtrar y exportar CSV
+4. **Verificación rápida**
+   - Ventas → filtrar y exportar CSV
    - Abrir preview de una venta
-   - Generar link de ticket pÃƒÆ’Ã‚Âºblico y abrirlo (debe validar token)
+   - Generar link de ticket público y abrirlo (debe validar token)
 
 ---
 
@@ -347,10 +347,10 @@ mysql -u root -p kiosco < scripts/upgrade_v220.sql
 ```
 
 4. **Verificar**
-- Entrar al sistema y probar crear/eliminar un producto que estÃƒÆ’Ã‚Â© en un combo
+- Entrar al sistema y probar crear/eliminar un producto que esté en un combo
 - Si funciona sin errores, el upgrade fue exitoso
 
-## ÃƒÂ°Ã…Â¸Ã‚Â§Ã‚Â­ Roadmap corto (WIP)
+## 🧭 Roadmap corto (WIP)
 
-- Licencias: en **Acerca de** mostrar plan/vencimiento/dÃƒÆ’Ã‚Â­as restantes leyendo `storage/license.json` (pendiente).
-- Documentar upgrade SQL por versiÃƒÆ’Ã‚Â³n (un archivo por release cuando aplique).
+- Licencias: en **Acerca de** mostrar plan/vencimiento/días restantes leyendo `storage/license.json` (pendiente).
+- Documentar upgrade SQL por versión (un archivo por release cuando aplique).
