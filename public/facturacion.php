@@ -448,10 +448,11 @@ require __DIR__ . '/partials/header.php';
 
 <div class="page-wrap facturacion-page">
   <div class="panel fact-panel">
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">Facturacion</h1>
-        <p class="page-sub">
+    <header class="page-header module-header">
+      <div class="module-header-main">
+        <span class="module-eyebrow">Operacion fiscal</span>
+        <h1 class="page-title module-title">Facturacion</h1>
+        <p class="page-sub module-subtitle">
           Historial fiscal de FLUS para comprobar emisiones, CAE y documentos vinculados a ventas o carga manual.
           <?php if ($modoFacturacion === 'demo'): ?>
             <span class="modo-badge modo-demo" title="Las facturas generadas no se envian a ARCA">Modo demo</span>
@@ -463,7 +464,7 @@ require __DIR__ . '/partials/header.php';
         </p>
       </div>
 
-      <div class="promo-actions-top">
+      <div class="promo-actions-top module-header-actions">
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
           <a href="facturacion_config.php" class="v-btn v-btn--outline" title="Configuracion de facturacion">
             Configuracion

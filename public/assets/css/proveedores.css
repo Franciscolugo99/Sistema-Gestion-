@@ -68,29 +68,29 @@ body[data-theme="dark"] .drawer{
 }
 
 /* ---------- Page Header ---------- */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
+.proveedores-page .page-header {
+  margin-bottom: 24px;
 }
 
-.page-title {
-  font-size: 1.75rem;
-  font-weight: 700;
+.proveedores-page .page-title {
+  font-size: clamp(1.72rem, 2.3vw, 2.15rem);
+  font-weight: 780;
+  letter-spacing: -0.03em;
   margin: 0;
   color: var(--text-primary, #1f2937);
 }
 
-.page-sub {
-  margin: 0.25rem 0 0;
+.proveedores-page .page-sub {
+  margin: 8px 0 0;
   color: var(--text-secondary, #6b7280);
-  font-size: 0.9rem;
+  font-size: 0.98rem;
+  line-height: 1.55;
 }
 
-.page-actions {
+.proveedores-page .page-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   flex-wrap: wrap;
 }

@@ -618,17 +618,17 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   <div class="panel ventas-shell">
 
   <!-- Header -->
-  <div class="ventas-header">
-    <div class="ventas-header-left">
-      <span class="section-kicker">Operacion comercial</span>
-      <h1>Ventas</h1>
-      <p class="ventas-header-copy">Segui tickets, clientes, medios de pago y rendimiento del periodo desde un solo historial.</p>
-      <div class="ventas-header-meta">
-        <span class="ventas-meta-pill"><?= number_format($totalRows) ?> registros</span>
-        <span class="ventas-meta-pill">Periodo: <?= h($stats['periodo_label']) ?></span>
+  <header class="ventas-header module-header">
+    <div class="ventas-header-left module-header-main">
+      <span class="module-eyebrow">Operacion comercial</span>
+      <h1 class="page-title module-title">Ventas</h1>
+      <p class="ventas-header-copy page-sub module-subtitle">Segui tickets, clientes, medios de pago y rendimiento del periodo desde un solo historial.</p>
+      <div class="ventas-header-meta module-header-meta">
+        <span class="ventas-meta-pill module-meta-pill"><?= number_format($totalRows) ?> registros</span>
+        <span class="ventas-meta-pill module-meta-pill">Periodo: <?= h($stats['periodo_label']) ?></span>
       </div>
     </div>
-    <div class="ventas-header-right">
+    <div class="ventas-header-right module-header-actions">
       <label class="paper-control">
         <span>Ticket</span>
         <select id="paperSel" class="paper-select">
@@ -639,7 +639,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
       <button id="btnCharts" class="btn btn-secondary btn-compact" type="button" title="Graficos (Ctrl+E)" aria-expanded="false">Ver graficos</button>
       <a href="?<?= http_build_query($queryParams + ['export' => 'csv']) ?>" class="btn btn-primary btn-compact" title="Exportar CSV">Exportar CSV</a>
     </div>
-  </div>
+  </header>
   
 <!-- KPIs (Operativos) - CLICKEABLES -->
 <section id="ventas-kpis" class="ventas-kpis">

@@ -1344,15 +1344,16 @@ require __DIR__ . '/partials/header.php';
 
 <div class="page-wrap">
   <div class="panel dashboard-panel">
-    <div class="dash-header">
-      <div>
-        <h1 class="dash-title">Panel de control</h1>
-        <p class="dash-sub">Analisis completo de ventas, rentabilidad y operaciones</p>
+    <header class="dash-header module-header">
+      <div class="module-header-main">
+        <span class="module-eyebrow">Vision operativa</span>
+        <h1 class="dash-title page-title module-title">Panel de control</h1>
+        <p class="dash-sub page-sub module-subtitle">Analisis completo de ventas, rentabilidad y operaciones</p>
       </div>
-      <div class="dash-header-meta">
-        <span>Hoy: <?= date('d/m/Y'); ?></span>
+      <div class="dash-header-meta module-header-meta">
+        <span class="module-meta-pill">Hoy: <?= date('d/m/Y'); ?></span>
       </div>
-    </div>
+    </header>
 
     <form id="dashFilters" class="dash-filters" method="get" action="dashboard.php">
       <div class="dash-presets">

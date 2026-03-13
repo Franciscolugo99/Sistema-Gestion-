@@ -954,19 +954,22 @@ require __DIR__ . "/partials/header.php";
 
 <div class="compras-page">
   <div class="panel">
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
-        <p class="page-sub">
+    <header class="page-header module-header">
+      <div class="module-header-main">
+        <span class="module-eyebrow">Abastecimiento</span>
+        <h1 class="page-title module-title">Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
+        <p class="page-sub module-subtitle">
           <?= $editMode
             ? 'Modifica los datos y guarda los cambios del borrador.'
             : 'Busca productos, arma el borrador y confirma cuando quieras impactar stock.'
           ?>
         </p>
       </div>
-      <?php if ($editMode): ?>
-        <a href="compras.php" class="btn btn-secondary">Cancelar edicion</a>
-      <?php endif; ?>
+      <div class="module-header-actions">
+        <?php if ($editMode): ?>
+          <a href="compras.php" class="btn btn-secondary">Cancelar edicion</a>
+        <?php endif; ?>
+      </div>
     </header>
 
     <form method="post" id="compraForm" class="compras-form" novalidate>

@@ -67,20 +67,15 @@ body.theme-light .compras-page {
 ============================================================================ */
 .compras-page .page-header {
   margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
 }
 
 .compras-page .page-title {
-  font-size: 1.75rem;
-  margin: 0 0 8px;
-  background: linear-gradient(135deg, var(--c-primary) 0%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin: 0;
+  background: none;
+  -webkit-background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  background-clip: border-box;
+  color: var(--c-text);
 }
 
 .compras-page .page-sub {

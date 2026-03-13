@@ -21,39 +21,17 @@
 
 /* Header */
 .ventas-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
   margin-bottom: 20px;
-}
-
-.ventas-header h1 {
-  font-size: 1.9rem;
-  font-weight: 750;
-  margin: 4px 0 0;
-}
-
-.section-kicker {
-  display: inline-block;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--muted);
 }
 
 .ventas-header-copy {
   max-width: 720px;
-  margin: 10px 0 0;
-  color: var(--muted);
-  line-height: 1.55;
 }
 
 .ventas-header-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 14px;
 }
 
 .ventas-meta-pill {

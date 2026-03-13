@@ -12,16 +12,10 @@
 }
 
 .dash-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 16px;
   margin-bottom: 18px;
 }
 
 .dash-header-meta {
-  font-size: 0.85rem;
-  color: var(--muted);
   white-space: nowrap;
 }
 

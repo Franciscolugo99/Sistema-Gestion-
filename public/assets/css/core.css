@@ -115,17 +115,78 @@ a {
 /* ============================================================================
    [04] TITULOS Y SUBTITULOS
 ============================================================================ */
-.page-title {
-  font-size: 2.2rem;
+.module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 18px 20px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.module-header-main {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.module-eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 6px;
+  color: var(--muted);
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(1.72rem, 2.3vw, 2.15rem);
+  line-height: 1.08;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: var(--text);
 }
 
 .page-sub {
-  font-size: 0.95rem;
+  margin: 8px 0 0;
+  font-size: 0.98rem;
+  line-height: 1.55;
   color: var(--muted);
-  margin-bottom: 16px;
+}
+
+.module-subtitle {
+  max-width: 72ch;
+}
+
+.module-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.module-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(148, 163, 184, 0.08);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.module-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .sub-title {
@@ -134,6 +195,19 @@ a {
   letter-spacing: 0.1em;
   font-size: 0.8rem;
   margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+  .module-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .module-header-actions,
+  .module-header-meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 /* ============================================================================

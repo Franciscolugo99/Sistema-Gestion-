@@ -243,20 +243,21 @@ require __DIR__ . '/partials/header.php';
 
     <!-- Encabezado -->
     <div class="panel inv-header-panel">
-        <header class="page-header">
-            <div>
-                <h1 class="page-title">📊 Análisis de Inventario</h1>
-                <p class="page-sub">Inversión, rotación, alertas y métricas de tu stock.</p>
+        <header class="page-header module-header">
+            <div class="module-header-main">
+                <span class="module-eyebrow">Inventario</span>
+                <h1 class="page-title module-title">Analisis de inventario</h1>
+                <p class="page-sub module-subtitle">Inversion, rotacion, alertas y metricas de tu stock.</p>
             </div>
-            <div class="page-actions">
+            <div class="page-actions module-header-actions">
                 <a href="api/inventario_api.php?action=exportar_excel" class="btn btn-secondary" title="Exportar a Excel">
-                    📥 Excel
+                    Excel
                 </a>
                 <button type="button" class="btn btn-secondary" onclick="exportarPDF()">
-                    📄 PDF
+                    PDF
                 </button>
                 <button type="button" class="btn btn-primary" onclick="location.reload()">
-                    🔄 Actualizar
+                    Actualizar
                 </button>
             </div>
         </header>

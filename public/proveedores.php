@@ -776,13 +776,14 @@ require __DIR__ . '/partials/header.php';
 <div class="page-wrap proveedores-page">
 
     <div class="panel prov-panel">
-        <header class="page-header">
-            <div>
-                <h1 class="page-title">🏭 Proveedores</h1>
-                <p class="page-sub">Gestión de proveedores para compras e inventario.</p>
+        <header class="page-header module-header">
+            <div class="module-header-main">
+                <span class="module-eyebrow">Abastecimiento externo</span>
+                <h1 class="page-title module-title">Proveedores</h1>
+                <p class="page-sub module-subtitle">Gestion de proveedores para compras e inventario.</p>
             </div>
 
-            <div class="page-actions">
+            <div class="page-actions module-header-actions">
                 <?php if ($canEdit): ?>
                     <form method="post" class="inline-form relink-all-form">
                         <?= csrf_field() ?>
