@@ -86,6 +86,8 @@ C:\xampp\php\php.exe scripts\migrate.php
 
 - Confirmar que existe `schema_migrations`.
 - Confirmar que `005_compras_descuentos_schema.sql` aparece como aplicada.
+- Confirmar que `006_diagnostics_permission.sql` aparece como aplicada.
+- Confirmar que `007_support_modules_schema.sql` aparece como aplicada.
 - Confirmar que la tabla `compras` tiene:
   - `total_neto`
   - `total_iva`
@@ -97,6 +99,13 @@ C:\xampp\php\php.exe scripts\migrate.php
   - `descuento`
   - `descuento_tipo`
   - `descuento_porc`
+- Confirmar que existen las tablas:
+  - `factura_manual_items`
+  - `producto_reposicion`
+  - `producto_precios_hist`
+  - `inventario_sesiones`
+  - `inventario_conteos`
+  - `cuenta_corriente_movimientos`
 
 ## Criterio de aprobacion
 

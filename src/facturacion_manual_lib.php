@@ -31,23 +31,9 @@ function flus_facturacion_ensure_manual_items_table(PDO $pdo): void
     if (flus_table_exists($pdo, 'factura_manual_items')) {
         return;
     }
-
-    $sql = "
-        CREATE TABLE IF NOT EXISTS factura_manual_items (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            venta_id INT NOT NULL,
-            codigo VARCHAR(80) DEFAULT NULL,
-            descripcion VARCHAR(255) NOT NULL,
-            cantidad DECIMAL(10,3) NOT NULL DEFAULT 1.000,
-            precio_unitario DECIMAL(12,2) NOT NULL,
-            subtotal DECIMAL(12,2) NOT NULL,
-            iva_porcentaje DECIMAL(5,2) NOT NULL DEFAULT 21.00,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            KEY idx_factura_manual_items_venta (venta_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ";
-
-    $pdo->exec($sql);
+    throw new RuntimeException(
+        'Falta la tabla factura_manual_items. Aplica primero la migracion migrations/007_support_modules_schema.sql.'
+    );
 }
 
 function flus_facturacion_manual_items_fetch(PDO $pdo, int $ventaId): array

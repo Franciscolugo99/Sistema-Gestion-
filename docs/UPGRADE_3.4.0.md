@@ -12,6 +12,8 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 
 - `migrations/004_facturas_unique_scope.sql`
 - `migrations/005_compras_descuentos_schema.sql`
+- `migrations/006_diagnostics_permission.sql`
+- `migrations/007_support_modules_schema.sql`
 
 ## Impacto esperado
 
@@ -21,6 +23,10 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 - Compras:
   - Nuevas compras se guardan con fecha y hora reales.
   - Compras legacy con hora `00:00:00` completan hora al confirmar sin cambiar el dia original.
+- Factura manual / soporte:
+  - La tabla `factura_manual_items` deja de depender de creacion en runtime.
+- Modulos de soporte:
+  - Inventario fisico, reposicion, historial de precios, caja auditoria y cuenta corriente quedan cubiertos por migracion idempotente.
 - Productos / Proveedores:
   - Se mantiene compatibilidad con instalaciones donde el usuario MySQL tiene permisos limitados sobre `information_schema`.
 
@@ -31,6 +37,7 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 3. Hacer backup de la carpeta del proyecto actual.
 4. Confirmar que `src/config.php` y `storage/` quedan preservados.
 5. Tener a mano el PHP del servidor para correr migraciones.
+6. Si la instancia usa caché de navegador agresiva, planear una recarga forzada despues del deploy.
 
 ## Pasos de actualizacion
 
@@ -62,6 +69,9 @@ C:\xampp\php\php.exe scripts\migrate.php
 - Productos:
   - abrir edicion
   - revisar proveedor vinculado
+- Factura manual:
+  - crear una factura manual de prueba
+  - verificar que no falle por esquema faltante
 - Stock:
   - abrir ajuste rapido
   - verificar tipos de ajuste
@@ -85,3 +95,5 @@ C:\xampp\php\php.exe scripts\migrate.php
 - `README.md`
 - `migrations/004_facturas_unique_scope.sql`
 - `migrations/005_compras_descuentos_schema.sql`
+- `migrations/006_diagnostics_permission.sql`
+- `migrations/007_support_modules_schema.sql`

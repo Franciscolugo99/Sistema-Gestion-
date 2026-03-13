@@ -3,13 +3,13 @@
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 **Version:** 3.4.0  
-**Build:** 2026-03-11  
+**Build:** 2026-03-12  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-11)
+## Estado actual (2026-03-12)
 
 ### Base tecnica
 - Panel Tecnico interno para soporte, diagnostico y ejecucion de smoke tests desde la UI.
@@ -37,6 +37,8 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
 - Views portables sin `DEFINER` y limpieza de inconsistencias de esquema.
 - Compras: columnas de descuentos/totales ya versionadas por migracion y no por `ALTER TABLE` en tiempo de request.
+- Baseline `install.sql` para instalacion limpia + migraciones para actualizar instalaciones existentes.
+- Modulos de soporte (factura manual, inventario, reposicion, historial de precios y cuenta corriente) preparados con migraciones SQL.
 
 > Ver `CHANGELOG.md` para el detalle historico por version.
 
@@ -46,6 +48,16 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
 - Validar modulos criticos despues del deploy.
 - Usar la guia de [docs/UPGRADE_3.4.0.md](docs/UPGRADE_3.4.0.md).
+
+## Instalacion limpia
+
+1. Configurar DB y credenciales en `src/config.php` (o el flujo de `public/install.php`).
+2. Importar `install.sql`.
+3. Ejecutar `php scripts/migrate.php`.
+4. Ingresar con:
+   - usuario: `admin`
+   - clave: `flusadmin123`
+5. Cambiar la clave inicial apenas termine la instalacion.
 
 ## Requisitos
 
@@ -59,11 +71,12 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 ## Instalación rápida (dev)
 
 1. Configurar DB y credenciales en `src/config.php` (o el flujo de `public/install.php`).
-2. Ejecutar migraciones:
+2. Si la base esta vacia, importar `install.sql`.
+3. Ejecutar migraciones:
    ```bash
    php scripts/migrate.php
    ```
-3. Abrir el sistema desde `public/`.
+4. Abrir el sistema desde `public/`.
 
 ## Checklist de release / deploy
 
@@ -208,7 +221,7 @@ nano src/config.php
 ```sql
 CREATE DATABASE kiosco CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
-Luego importar el schema (disponible en instalador web).
+Luego importar `install.sql` y ejecutar `php scripts/migrate.php`.
 
 ### 4. Acceder
 ```

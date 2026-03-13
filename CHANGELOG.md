@@ -6,7 +6,7 @@
 
 - Sin cambios documentados todavia.
 
-## [3.4.0] - 2026-03-11
+## [3.4.0] - 2026-03-12
 
 ### Added
 
@@ -15,6 +15,9 @@
 - Documentacion operativa inicial: roadmap POS e inventario de duplicacion legacy/API.
 - Migracion `005_compras_descuentos_schema.sql` para versionar columnas de descuentos y totales en compras.
 - Guia operativa de actualizacion para despliegues en instalaciones existentes.
+- Baseline `install.sql` para instalaciones limpias.
+- Migracion `006_diagnostics_permission.sql` para compatibilidad del permiso de diagnostico.
+- Migracion `007_support_modules_schema.sql` para tablas/permisos de soporte y actualizaciones sobre instalaciones existentes.
 
 ### Changed
 
@@ -28,6 +31,7 @@
 - Ventas: paginacion y export respetan filtros activos de forma consistente.
 - Compras: las nuevas compras guardan fecha y hora reales, y la confirmacion completa horas faltantes en borradores legacy sin cambiar el dia original.
 - Compras: los cambios de esquema pasan al runner de migraciones y dejan de ejecutarse en tiempo de request.
+- Factura manual: la tabla de items deja de autocrearse en runtime y pasa a esquema versionado.
 
 ### Fixed
 

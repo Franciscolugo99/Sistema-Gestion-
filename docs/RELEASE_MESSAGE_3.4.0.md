@@ -13,6 +13,7 @@ Puntos principales:
 - Se corrigieron problemas de edicion de compras con descuentos por item.
 - Ventas conserva filtros correctamente al paginar y exportar.
 - Se reforzo compatibilidad con instalaciones MySQL que tienen permisos limitados sobre `information_schema`.
+- Se agrego `install.sql` para instalacion limpia y una nueva migracion para modulos de soporte/permisos faltantes.
 
 La actualizacion requiere ejecutar migraciones:
 
@@ -65,6 +66,8 @@ Incluye:
 - nueva guia de upgrade
 - nueva guia de QA manual
 - migracion `005_compras_descuentos_schema.sql`
+- migraciones `006_diagnostics_permission.sql` y `007_support_modules_schema.sql`
+- baseline `install.sql` para instalacion limpia
 
 Validaciones recomendadas antes de deploy:
 

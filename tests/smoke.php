@@ -337,6 +337,34 @@ $results[] = flus_run_test('diagnostics access keeps dedicated permission compat
     flus_assert_contains("\$can('ver_diagnostico')", $navPhp);
 });
 
+$results[] = flus_run_test('support schema is versioned for clean installs and upgrades', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
+    $migrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '007_support_modules_schema.sql';
+    $manualLibPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_manual_lib.php';
+
+    foreach ([$installPath, $migrationPath, $manualLibPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $installSql = (string)file_get_contents($installPath);
+    $migrationSql = (string)file_get_contents($migrationPath);
+    $manualLibPhp = (string)file_get_contents($manualLibPath);
+
+    flus_assert_contains('flusadmin123', $installSql);
+    flus_assert_contains('yPokhUEft2w2kngTRjoBkuaq7cwygVwwfYA.oY.lKVH7Sxytlkkde', $installSql);
+    flus_assert_contains('ver_diagnostico', $installSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS factura_manual_items', $migrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS producto_reposicion', $migrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS producto_precios_hist', $migrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS inventario_sesiones', $migrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos', $migrationSql);
+    flus_assert_contains('migrations/007_support_modules_schema.sql', $manualLibPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS factura_manual_items', $manualLibPhp);
+});
+
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {
     $repoRoot = dirname(__DIR__);
     $authPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php';

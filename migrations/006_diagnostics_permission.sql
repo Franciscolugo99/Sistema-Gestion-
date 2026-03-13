@@ -1,8 +1,7 @@
-INSERT INTO permissions (slug, nombre, enabled)
-VALUES ('ver_diagnostico', 'Ver diagnostico', 1)
+INSERT INTO permissions (slug, nombre, created_at)
+VALUES ('ver_diagnostico', 'Ver diagnostico', NOW())
 ON DUPLICATE KEY UPDATE
-  nombre = VALUES(nombre),
-  enabled = VALUES(enabled);
+  nombre = VALUES(nombre);
 
 INSERT IGNORE INTO role_permission (role_id, permission_id)
 SELECT rp.role_id, p_diag.id
