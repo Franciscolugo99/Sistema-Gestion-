@@ -367,14 +367,19 @@ try {
             }
             
             $userId = (int)($_SESSION['user_id'] ?? 0);
+            $errMsg = null;
 
             // Compatibilidad de firma: (..., ubicacion, notas) o (..., ubicacion, notas, userId)
             try {
                 $ref = new ReflectionFunction('inventario_registrar_conteo');
                 $argc = $ref->getNumberOfParameters();
-                $conteoId = ($argc >= 6)
-                    ? inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas, $userId)
-                    : inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas);
+                if ($argc >= 7) {
+                    $conteoId = inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas, $userId, $errMsg);
+                } elseif ($argc >= 6) {
+                    $conteoId = inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas, $userId);
+                } else {
+                    $conteoId = inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas);
+                }
             } catch (Throwable $e) {
                 try {
                     $conteoId = inventario_registrar_conteo($sessionId, $productoId, $cantidad, $ubicacion, $notas);
@@ -384,7 +389,7 @@ try {
             }
             
             if (!$conteoId) {
-                json_fail('Error al registrar conteo', 500);
+                json_fail($errMsg ?: 'Error al registrar conteo', 500);
             }
             
             json_ok([
@@ -464,7 +469,14 @@ try {
             $termino = trim($_GET['q'] ?? '');
             if (!$termino) json_fail('Término de búsqueda requerido', 400);
             
-            $productos = inventario_buscar_producto($termino);
+            $categoriaId = (int)($_GET['categoria_id'] ?? 0);
+            $categoriaNombre = trim((string)($_GET['categoria_nombre'] ?? ''));
+            $productos = inventario_buscar_producto(
+                $termino,
+                12,
+                $categoriaId > 0 ? $categoriaId : null,
+                $categoriaNombre !== '' ? $categoriaNombre : null
+            );
             
             json_ok(['productos'=>$productos,'data'=>$productos,'success'=>true]);
         }

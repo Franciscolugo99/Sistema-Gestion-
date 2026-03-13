@@ -7,8 +7,15 @@ require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 
-require_login();
-require_any_permission(['ver_facturacion', 'emitir_factura']);
+$requestedFacturaId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$pdfToken = trim((string)($_GET['pdf_token'] ?? ''));
+$pdfMode = isset($_GET['pdf']) && $_GET['pdf'] === '1';
+$pdfTokenValid = $pdfMode && flus_factura_pdf_token_validate($pdfToken, $requestedFacturaId);
+
+if (!$pdfTokenValid) {
+    require_login();
+    require_any_permission(['ver_facturacion', 'emitir_factura']);
+}
 
 function factura_tipo_letra(string $tipo): string
 {
@@ -342,7 +349,7 @@ if (!$facturacionHabilitada) {
     exit;
 }
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = $requestedFacturaId;
 if ($id <= 0) {
     http_response_code(400);
     flus_abort(400, 'ID de factura invalido');
@@ -597,15 +604,42 @@ $currentSection = 'facturacion';
 $extraCss = ['assets/css/factura.css?v=7'];
 $bodyClass = 'factura-view';
 
-require __DIR__ . '/partials/header.php';
+if ($pdfMode) {
+    if (!headers_sent()) {
+        header('Content-Type: text/html; charset=utf-8');
+    }
+    ?>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><?= h($pageTitle) ?></title>
+  <link rel="stylesheet" href="assets/css/factura.css?v=7">
+</head>
+<body class="<?= h($bodyClass) ?>">
+<?php
+} else {
+    require __DIR__ . '/partials/header.php';
+}
 ?>
 
 <div class="<?= h(implode(' ', $pageClasses)) ?>">
   <div class="factura-shell">
     <div class="factura-topbar no-print">
       <a href="facturacion.php" class="link-back-print">Volver a facturacion</a>
-      <button class="btn btn-primary btn-print" onclick="window.print()">Imprimir</button>
+      <div class="factura-topbar-actions">
+        <a href="factura_pdf.php?id=<?= (int)$id ?>" class="btn btn-secondary">PDF</a>
+        <button class="btn btn-primary btn-print" onclick="window.print()">Imprimir</button>
+      </div>
     </div>
+
+    <?php if (!$pdfTokenValid && !empty($_GET['pdf_error'])): ?>
+      <div class="factura-alerta-emisor no-print">
+        <div class="factura-alerta-titulo">No se pudo generar el PDF</div>
+        <div class="factura-alerta-texto"><?= h((string)$_GET['pdf_error']) ?></div>
+      </div>
+    <?php endif; ?>
 
     <?php if (!$empresaDatosCompletos): ?>
       <div class="factura-alerta-emisor no-print">
@@ -795,7 +829,12 @@ require __DIR__ . '/partials/header.php';
   </div>
 </div>
 
+<?php if ($pdfMode): ?>
+</body>
+</html>
+<?php else: ?>
 <?php require __DIR__ . '/partials/footer.php'; ?>
+<?php endif; ?>
 
 
 

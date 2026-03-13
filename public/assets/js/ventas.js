@@ -1,10 +1,10 @@
 /* ============================================================================
    FLUS - VENTAS.JS v5.0 (Refactorizado)
-   - Objeto único VentasManager (consistente con ProductosManager/StockManager)
-   - Sistema de Toasts (no más alert())
+   - Objeto ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºnico VentasManager (consistente con ProductosManager/StockManager)
+   - Sistema de Toasts (no mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s alert())
    - KPIs clickeables
    - Atajos de teclado completos
-   - Protección XSS
+   - ProtecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n XSS
    - Autocomplete clientes mejorado
 ============================================================================ */
 
@@ -14,22 +14,27 @@ const VentasManager = {
   // ============================================
   state: {
     chartsInitialized: false,
+    chartsLoading: false,
+    chartLibraryPromise: null,
+    ventasChartInstance: null,
+    mediosChartInstance: null,
     selectedClienteId: null,
     searchTimeout: null,
     paperSize: '80',
   },
 
   // ============================================
-  // CONFIGURACIÓN
+  // CONFIGURACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
   // ============================================
   config: {
     PAPER_KEY: 'flus-paper',
     DEBOUNCE_SEARCH_MS: 300,
     TOAST_DURATION: 3500,
+    CHART_JS_URL: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   },
 
   // ============================================
-  // INICIALIZACIÓN
+  // INICIALIZACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
   // ============================================
   init() {
     console.log('[VentasManager] Inicializando...');
@@ -41,6 +46,7 @@ const VentasManager = {
     this.bindHoraAmpmSelects();
     this.bindClienteAutocomplete();
     this.bindChipsRapidos();
+    this.bindPerPageSelect();
     this.bindFiltrosRemove();
     this.bindKPIClicks();
     this.bindPreviewModal();
@@ -48,7 +54,7 @@ const VentasManager = {
     this.bindShareButtons();
     this.bindKeyboardShortcuts();
 
-    console.log('[VentasManager] ✓ Inicialización completa');
+    console.log('[VentasManager] ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ InicializaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n completa');
   },
 
   // ============================================
@@ -70,7 +76,7 @@ const VentasManager = {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     
-    const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+    const icons = { success: 'OK', error: 'X', warning: '!', info: 'i' };
     
     const icon = document.createElement('span');
     icon.className = 'toast-icon';
@@ -130,7 +136,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // GRÁFICOS
+  // GRÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂFICOS
   // ============================================
   bindChartsToggle() {
     const btnCharts = document.getElementById('btnCharts');
@@ -138,29 +144,88 @@ const VentasManager = {
 
     if (!btnCharts || !chartsPanel) return;
 
-    btnCharts.addEventListener('click', () => {
+    const syncChartsButton = () => {
+      const expanded = !chartsPanel.classList.contains('hidden');
+      btnCharts.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      btnCharts.textContent = expanded ? 'Ocultar graficos' : 'Ver graficos';
+    };
+
+    syncChartsButton();
+
+    btnCharts.addEventListener('click', async () => {
       chartsPanel.classList.toggle('hidden');
       if (!this.state.chartsInitialized && !chartsPanel.classList.contains('hidden')) {
-        this.initCharts();
-        this.state.chartsInitialized = true;
+        this.state.chartsLoading = true;
+        btnCharts.disabled = true;
+        btnCharts.textContent = 'Cargando graficos';
+        try {
+          await this.initCharts();
+          this.state.chartsInitialized = true;
+        } catch (error) {
+          console.error('[VentasManager] Error cargando graficos', error);
+          chartsPanel.classList.add('hidden');
+          this.showToast('No se pudieron cargar los graficos', 'error');
+        } finally {
+          this.state.chartsLoading = false;
+          btnCharts.disabled = false;
+        }
       }
+      syncChartsButton();
     });
   },
 
-  initCharts() {
+  async loadChartLibrary() {
+    if (typeof window.Chart !== 'undefined') return window.Chart;
+    if (this.state.chartLibraryPromise) return this.state.chartLibraryPromise;
+
+    const src = window.VENTAS_CONFIG?.chartJsUrl || this.config.CHART_JS_URL;
+    this.state.chartLibraryPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-ventas-chartjs="1"]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.Chart), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Chart.js failed to load')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.dataset.ventasChartjs = '1';
+      script.onload = () => resolve(window.Chart);
+      script.onerror = () => reject(new Error('Chart.js failed to load'));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      this.state.chartLibraryPromise = null;
+      throw error;
+    });
+
+    return this.state.chartLibraryPromise;
+  },
+
+  async initCharts() {
+    await this.loadChartLibrary();
     if (typeof Chart === 'undefined' || !window.VENTAS_DATA) return;
 
     const data = window.VENTAS_DATA;
+    const chartRangeLabel = data.chartRangeLabel || 'Periodo actual';
 
-    // Chart ventas por día
+    if (this.state.ventasChartInstance) {
+      this.state.ventasChartInstance.destroy();
+      this.state.ventasChartInstance = null;
+    }
+    if (this.state.mediosChartInstance) {
+      this.state.mediosChartInstance.destroy();
+      this.state.mediosChartInstance = null;
+    }
+
     const ctxVentas = document.getElementById('chartVentas');
     if (ctxVentas && data.chartVentas.labels.length) {
-      new Chart(ctxVentas, {
+      this.state.ventasChartInstance = new Chart(ctxVentas, {
         type: 'bar',
         data: {
           labels: data.chartVentas.labels,
           datasets: [{
-            label: 'Ventas',
+            label: chartRangeLabel,
             data: data.chartVentas.ventas,
             backgroundColor: 'rgba(6, 182, 212, 0.7)',
             borderRadius: 6
@@ -177,10 +242,9 @@ const VentasManager = {
       });
     }
 
-    // Chart medios de pago
     const ctxMedios = document.getElementById('chartMedios');
     if (ctxMedios && data.chartMedios.labels.length) {
-      new Chart(ctxMedios, {
+      this.state.mediosChartInstance = new Chart(ctxMedios, {
         type: 'doughnut',
         data: {
           labels: data.chartMedios.labels,
@@ -207,20 +271,30 @@ const VentasManager = {
   bindAdvancedFilters() {
     const btnMore = document.getElementById('btnMoreFilters');
     const advFilters = document.getElementById('advancedFilters');
+    const medioSelect = advFilters.querySelector('select[name="medio"]');
+    const horaDesdeHidden = document.getElementById('horaDesdeHidden');
+    const horaHastaHidden = document.getElementById('horaHastaHidden');
+    const clienteIdHidden = document.getElementById('clienteIdHidden');
 
     if (!btnMore || !advFilters) return;
 
-    // Verificar si hay filtros avanzados activos
-    const hasAdvanced = advFilters.querySelectorAll('input, select');
-    let hasValue = false;
-    hasAdvanced.forEach(el => {
-      if (el.value) hasValue = true;
-    });
+    const syncFiltersButton = () => {
+      btnMore.textContent = advFilters.classList.contains('hidden') ? 'Filtros avanzados' : 'Ocultar filtros';
+    };
+
+    // Solo abrir si hay filtros avanzados reales, no por defaults visuales como 00/AM.
+    const hasValue = Boolean(
+      (medioSelect?.value || '').trim() ||
+      (horaDesdeHidden?.value || '').trim() ||
+      (horaHastaHidden?.value || '').trim() ||
+      (clienteIdHidden?.value || '').trim()
+    );
     if (hasValue) advFilters.classList.remove('hidden');
+    syncFiltersButton();
 
     btnMore.addEventListener('click', () => {
       advFilters.classList.toggle('hidden');
-      btnMore.textContent = advFilters.classList.contains('hidden') ? '+ Filtros' : '- Filtros';
+      syncFiltersButton();
     });
   },
 
@@ -287,7 +361,7 @@ const VentasManager = {
     if (hora12 === 0) hora12 = 12;
     const ampm = h < 12 ? 'AM' : 'PM';
     
-    // Redondear minutos al más cercano disponible (00, 15, 30, 45)
+    // Redondear minutos al mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s cercano disponible (00, 15, 30, 45)
     const mins = ['00', '15', '30', '45'];
     const minStr = String(m).padStart(2, '0');
     const closestMin = mins.reduce((prev, curr) => 
@@ -372,7 +446,7 @@ const VentasManager = {
       }
     });
 
-    // Botón limpiar
+    // BotÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n limpiar
     if (btnClear) {
       btnClear.addEventListener('click', () => {
         clienteInput.value = '';
@@ -452,7 +526,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // CHIPS RÁPIDOS
+  // CHIPS RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂPIDOS
   // ============================================
   bindChipsRapidos() {
     const form = document.getElementById('ventasForm');
@@ -534,8 +608,21 @@ const VentasManager = {
     });
   },
 
+  bindPerPageSelect() {
+    const select = document.getElementById('perPageSelect');
+    const form = document.getElementById('ventasForm');
+    const page = document.getElementById('hiddenPage');
+
+    if (!select || !form) return;
+
+    select.addEventListener('change', () => {
+      if (page) page.value = '1';
+      form.submit();
+    });
+  },
+
   formatDate(date) {
-    // IMPORTANTE: NO usar toISOString() porque usa UTC y en Argentina puede correrte el día
+    // IMPORTANTE: NO usar toISOString() porque usa UTC y en Argentina puede correrte el dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -659,7 +746,7 @@ const VentasManager = {
             // Badge de estado
             const estadoBadge = (v.estado === 'ANULADA')
               ? '<span class="badge-estado anulada">Anulada</span>'
-              : '<span class="badge-estado emitida">Emitida</span>';
+              : '<span class="badge-estado emitida">Confirmada</span>';
 
             previewBody.innerHTML = `
               <div style="display:grid; gap:12px;">
@@ -684,7 +771,7 @@ const VentasManager = {
             previewBody.innerHTML = '<p style="color:#ef4444;">Error al cargar</p>';
           }
         } catch (e) {
-          previewBody.innerHTML = '<p style="color:#ef4444;">Error de conexión</p>';
+          previewBody.innerHTML = '<p style="color:#ef4444;">Error de conexion</p>';
         }
       });
     });
@@ -761,7 +848,7 @@ const VentasManager = {
   },
 
   async shareWhatsApp(ventaId) {
-    const phone = await Notif.prompt('📱 Enviar por WhatsApp', '', { placeholder: 'Ej: 5491155667788', confirmText: '✅ Enviar', inputLabel: 'Número con código de país' });
+    const phone = await Notif.prompt('Enviar por WhatsApp', '', { placeholder: 'Ej: 5491155667788', confirmText: 'Enviar', inputLabel: 'Numero con codigo de pais' });
     if (!phone) return;
 
     try {
@@ -779,12 +866,12 @@ const VentasManager = {
         this.showToast(data.error || 'Error al generar link', 'error');
       }
     } catch (e) {
-      this.showToast('Error de conexión', 'error');
+      this.showToast('Error de conexion', 'error');
     }
   },
 
   async shareEmail(ventaId) {
-    const email = await Notif.prompt('📧 Enviar por email', '', { placeholder: 'cliente@ejemplo.com', confirmText: '✅ Enviar', inputType: 'email' });
+    const email = await Notif.prompt('Enviar por email', '', { placeholder: 'cliente@ejemplo.com', confirmText: 'Enviar', inputType: 'email' });
     if (!email) return;
 
     try {
@@ -800,7 +887,7 @@ const VentasManager = {
       } else {
         this.showToast(data.error || 'Error al enviar email', 'error');
         if (data.fallback_url) {
-          Notif.confirmar('🔗 Copiar link', '<p>¿Querés copiar el link del ticket al portapapeles?</p>', { icon: 'info', confirmText: '✅ Copiar', cancelText: 'No' }).then(ok => {
+          Notif.confirmar('Copiar link', '<p>Queres copiar el link del ticket al portapapeles?</p>', { icon: 'info', confirmText: 'Copiar', cancelText: 'No' }).then(ok => {
             if (ok) {
               navigator.clipboard?.writeText(data.fallback_url);
               this.showToast('Link copiado al portapapeles', 'success');
@@ -809,7 +896,7 @@ const VentasManager = {
         }
       }
     } catch (e) {
-      this.showToast('Error de conexión', 'error');
+      this.showToast('Error de conexion', 'error');
     }
   },
 
@@ -818,7 +905,7 @@ const VentasManager = {
   // ============================================
   bindKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      // Ctrl+K: Focus búsqueda
+      // Ctrl+K: Focus bÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         const search = document.querySelector('input[name="venta_id"]');
@@ -826,7 +913,7 @@ const VentasManager = {
         search?.select();
       }
 
-      // Ctrl+E: Toggle export o gráficos
+      // Ctrl+E: Toggle export o grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ficos
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         const btnCharts = document.getElementById('btnCharts');
@@ -847,14 +934,14 @@ const VentasManager = {
   },
 
   // ============================================
-  // UTILIDAD: Refresh página
+  // UTILIDAD: Refresh pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
   // ============================================
   refreshPage() {
     window.location.reload();
   },
 
   // ============================================
-  // UTILIDAD: Ir a página
+  // UTILIDAD: Ir a pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
   // ============================================
   goToPage(page) {
     const url = new URL(window.location.href);

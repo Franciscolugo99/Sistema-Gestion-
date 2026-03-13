@@ -15,31 +15,6 @@ if (function_exists('flus_require_feature')) { flus_require_feature('exports'); 
 /* =========================
    HELPERS
 ========================= */
-function _legacy_tableExists(PDO $pdo, string $table): bool {
-  try {
-    $stmt = $pdo->prepare("
-      SELECT COUNT(*)
-      FROM information_schema.tables
-      WHERE table_schema = DATABASE() AND table_name = :t
-    ");
-    $stmt->execute([':t' => $table]);
-    return (int)$stmt->fetchColumn() > 0;
-  } catch (Throwable $e) {
-    return false;
-  }
-}
-function _legacy_columnExists(PDO $pdo, string $table, string $column): bool {
-  try {
-    $pdo->query("SELECT `$column` FROM `$table` LIMIT 0");
-    return true;
-  } catch (Throwable $e) {
-    return false;
-  }
-}
-function firstExistingColumn(PDO $pdo, string $table, array $candidates): ?string {
-  foreach ($candidates as $c) if (flus_column_exists($pdo, $table, $c)) return $c;
-  return null;
-}
 function csvOut(array $row, $out, string $delimiter=';'): void {
   fputcsv($out, $row, $delimiter);
 }
@@ -77,30 +52,11 @@ $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00
 // Filtro de categoría
 $categoriaFiltro = trim($_GET['categoria'] ?? '');
 
-// Filtros de hora
+// Filtros de hora (24h nativo)
 $horaDesde = isset($_GET['hora_desde']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', (string)$_GET['hora_desde']) ? (string)$_GET['hora_desde'] : null;
 $horaHasta = isset($_GET['hora_hasta']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', (string)$_GET['hora_hasta']) ? (string)$_GET['hora_hasta'] : null;
-$horaDesdeAmpm = isset($_GET['hora_desde_ampm']) ? strtoupper(trim((string)$_GET['hora_desde_ampm'])) : 'AUTO';
-$horaHastaAmpm = isset($_GET['hora_hasta_ampm']) ? strtoupper(trim((string)$_GET['hora_hasta_ampm'])) : 'AUTO';
-
-function flus_time_to_24h_export(string $hhmm, string $ampm): string {
-  $ampm = strtoupper($ampm);
-  if ($ampm !== 'AM' && $ampm !== 'PM') return $hhmm;
-
-  [$h, $m] = array_map('intval', explode(':', $hhmm, 2));
-  // Si ya está en 13..23, ignoramos AM/PM
-  if ($h >= 13) return $hhmm;
-
-  if ($h === 12) {
-    $h = ($ampm === 'AM') ? 0 : 12;
-  } elseif ($h >= 1 && $h <= 11) {
-    if ($ampm === 'PM') $h += 12;
-  }
-  return sprintf('%02d:%02d', $h, $m);
-}
-
-$horaDesdeSql = $horaDesde ? flus_time_to_24h_export($horaDesde, $horaDesdeAmpm) : null;
-$horaHastaSql = $horaHasta ? flus_time_to_24h_export($horaHasta, $horaHastaAmpm) : null;
+$horaDesdeSql = $horaDesde ?: null;
+$horaHastaSql = $horaHasta ?: null;
 
 // Aplicar filtros de hora a las fechas
 if ($horaDesdeSql) {
@@ -481,8 +437,8 @@ try {
     if ($can) {
       $fechaLimite = (new DateTime('today'))->modify("-{$diasSinMovimiento} days")->format('Y-m-d H:i:s');
       $catCol = $prodCatCol ? "COALESCE(p.`{$prodCatCol}`, 'Sin Categoría')" : "'Sin Categoría'";
-      $precioCol = $prodPrecioCol ?: ($prodCostoCol ?: null);
-      $valorExpr = $precioCol ? "p.`{$precioCol}`" : "0";
+    $valorCol = $prodCostoCol ?: ($prodPrecioCol ?: null);
+    $valorExpr = $valorCol ? "p.`{$valorCol}`" : "0";
       
       $sql = "
         SELECT

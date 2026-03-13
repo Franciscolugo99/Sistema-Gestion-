@@ -41,69 +41,229 @@ function inventario_column_exists(PDO $pdo, string $table, string $column): bool
  * Importante: evitamos SHOW ... ? porque en MariaDB/MySQL los "parameter markers"
  * NO están permitidos en sentencias SHOW, y eso dispara "syntax near '?'".
  */
-function inventario_ensure_tables(): void {
-    $pdo = getPDO();
+function inventario_ensure_tables(?string &$errMsg = null): bool {
+    $errMsg = null;
 
-    // 1) Sesiones
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS inventario_sesiones (
-            id INT(11) NOT NULL AUTO_INCREMENT,
-            nombre VARCHAR(120) NOT NULL,
-            descripcion VARCHAR(255) NULL,
-            categoria_id INT(11) NULL COMMENT 'Si se especifica, solo productos de esta categoría',
-            estado ENUM('ABIERTA','CERRADA','APLICADA') NOT NULL DEFAULT 'ABIERTA',
-            created_by INT(11) NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            closed_by INT(11) NULL,
-            closed_at DATETIME NULL,
-            cierre_motivo VARCHAR(255) NULL,
-            applied_by INT(11) NULL,
-            applied_at DATETIME NULL,
-            PRIMARY KEY (id),
-            KEY idx_estado (estado),
-            KEY idx_created_at (created_at),
-            KEY idx_categoria (categoria_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ");
+    try {
+        $pdo = getPDO();
 
-    // 1b) Categoria_id (compat con instalaciones viejas)
-    if (!inventario_column_exists($pdo, 'inventario_sesiones', 'categoria_id')) {
-        try {
-            $pdo->exec("ALTER TABLE inventario_sesiones ADD COLUMN categoria_id INT(11) NULL AFTER descripcion");
-        } catch (Throwable $e) {
-            // Si otra instancia lo agregó en paralelo, ignorar 1060
-            if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
-                throw $e;
+        // 1) Sesiones
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS inventario_sesiones (
+                id INT(11) NOT NULL AUTO_INCREMENT,
+                nombre VARCHAR(120) NOT NULL,
+                descripcion VARCHAR(255) NULL,
+                categoria_id INT(11) NULL COMMENT 'Si se especifica, solo productos de esta categoría',
+                categoria_nombre VARCHAR(100) NULL COMMENT 'Nombre de categoría cuando la instancia no usa ids',
+                estado ENUM('ABIERTA','CERRADA','APLICADA') NOT NULL DEFAULT 'ABIERTA',
+                created_by INT(11) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                closed_by INT(11) NULL,
+                closed_at DATETIME NULL,
+                cierre_motivo VARCHAR(255) NULL,
+                applied_by INT(11) NULL,
+                applied_at DATETIME NULL,
+                PRIMARY KEY (id),
+                KEY idx_estado (estado),
+                KEY idx_created_at (created_at),
+                KEY idx_categoria (categoria_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        if (!inventario_column_exists($pdo, 'inventario_sesiones', 'categoria_id')) {
+            try {
+                $pdo->exec("ALTER TABLE inventario_sesiones ADD COLUMN categoria_id INT(11) NULL AFTER descripcion");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
+                    throw $e;
+                }
             }
         }
+
+        if (!inventario_column_exists($pdo, 'inventario_sesiones', 'categoria_nombre')) {
+            try {
+                $pdo->exec("ALTER TABLE inventario_sesiones ADD COLUMN categoria_nombre VARCHAR(100) NULL AFTER categoria_id");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
+                    throw $e;
+                }
+            }
+        }
+
+        // 2) Conteos
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS inventario_conteos (
+                id INT(11) NOT NULL AUTO_INCREMENT,
+                sesion_id INT(11) NOT NULL,
+                producto_id INT(11) NOT NULL,
+                cantidad DECIMAL(10,3) NOT NULL DEFAULT 0.000,
+                stock_sistema_snapshot DECIMAL(10,3) NULL,
+                ubicacion VARCHAR(120) NULL,
+                notas VARCHAR(255) NULL,
+                created_by INT(11) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id),
+                KEY idx_sesion (sesion_id),
+                KEY idx_producto (producto_id),
+                KEY idx_created_at (created_at),
+                CONSTRAINT fk_inv_conteos_sesion
+                    FOREIGN KEY (sesion_id) REFERENCES inventario_sesiones(id)
+                    ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        if (!inventario_column_exists($pdo, 'inventario_conteos', 'stock_sistema_snapshot')) {
+            try {
+                $pdo->exec("ALTER TABLE inventario_conteos ADD COLUMN stock_sistema_snapshot DECIMAL(10,3) NULL AFTER cantidad");
+            } catch (Throwable $e) {
+                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
+                    throw $e;
+                }
+            }
+        }
+
+        try {
+            $pdo->query("SELECT 1 FROM inventario_conteos LIMIT 1");
+        } catch (Throwable $e) {
+            throw new RuntimeException("No se pudo crear/ver la tabla inventario_conteos: " . $e->getMessage(), 0, $e);
+        }
+
+        return true;
+    } catch (Throwable $e) {
+        $errMsg = $e->getMessage();
+        flus_log_error('inventario_ensure_tables failed', ['error' => $e->getMessage()]);
+        return false;
+    }
+}
+
+function inventario_productos_usa_categoria_id(PDO $pdo): bool {
+    return inventario_column_exists($pdo, 'productos', 'categoria_id');
+}
+
+function inventario_productos_usa_categoria_texto(PDO $pdo): bool {
+    return inventario_column_exists($pdo, 'productos', 'categoria');
+}
+
+function inventario_normalize_categoria_nombre(?string $value): ?string {
+    $value = trim((string)$value);
+    return $value !== '' ? $value : null;
+}
+
+function inventario_session_category_filters(?array $sesion): array {
+    $categoriaId = (int)($sesion['categoria_id'] ?? 0);
+    $categoriaNombre = inventario_normalize_categoria_nombre($sesion['categoria_nombre'] ?? null);
+
+    return [
+        'categoria_id' => $categoriaId > 0 ? $categoriaId : null,
+        'categoria_nombre' => $categoriaNombre,
+    ];
+}
+
+function inventario_get_categorias_disponibles(): array {
+    try {
+        $pdo = getPDO();
+        $categorias = [];
+
+        if (inventario_table_exists($pdo, 'categorias')) {
+            $st = $pdo->query("SELECT id, nombre FROM categorias WHERE activo = 1 ORDER BY nombre");
+            foreach (($st->fetchAll(PDO::FETCH_ASSOC) ?: []) as $row) {
+                $nombre = inventario_normalize_categoria_nombre($row['nombre'] ?? null);
+                if ($nombre === null) {
+                    continue;
+                }
+
+                $categorias[] = [
+                    'token' => 'id:' . (int)$row['id'],
+                    'id' => (int)$row['id'],
+                    'nombre' => $nombre,
+                    'modo' => 'id',
+                ];
+            }
+
+            if ($categorias) {
+                return $categorias;
+            }
+        }
+
+        if (inventario_productos_usa_categoria_texto($pdo)) {
+            $st = $pdo->query("
+                SELECT DISTINCT categoria
+                FROM productos
+                WHERE activo = 1
+                  AND categoria IS NOT NULL
+                  AND TRIM(categoria) <> ''
+                ORDER BY categoria
+            ");
+
+            foreach (($st->fetchAll(PDO::FETCH_COLUMN) ?: []) as $nombreRaw) {
+                $nombre = inventario_normalize_categoria_nombre((string)$nombreRaw);
+                if ($nombre === null) {
+                    continue;
+                }
+
+                $categorias[] = [
+                    'token' => 'text:' . $nombre,
+                    'id' => null,
+                    'nombre' => $nombre,
+                    'modo' => 'text',
+                ];
+            }
+        }
+
+        return $categorias;
+    } catch (Throwable $e) {
+        flus_log_error('inventario_get_categorias_disponibles failed', ['error' => $e->getMessage()]);
+        return [];
+    }
+}
+
+function inventario_parse_categoria_token(?string $token): array {
+    $token = trim((string)$token);
+    if ($token === '') {
+        return ['categoria_id' => null, 'categoria_nombre' => null];
     }
 
-    // 2) Conteos
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS inventario_conteos (
-            id INT(11) NOT NULL AUTO_INCREMENT,
-            sesion_id INT(11) NOT NULL,
-            producto_id INT(11) NOT NULL,
-            cantidad DECIMAL(10,3) NOT NULL DEFAULT 0.000,
-            ubicacion VARCHAR(120) NULL,
-            notas VARCHAR(255) NULL,
-            created_by INT(11) NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY idx_sesion (sesion_id),
-            KEY idx_producto (producto_id),
-            KEY idx_created_at (created_at),
-            CONSTRAINT fk_inv_conteos_sesion
-                FOREIGN KEY (sesion_id) REFERENCES inventario_sesiones(id)
-                ON DELETE CASCADE ON UPDATE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ");
+    if (str_starts_with($token, 'id:')) {
+        $categoriaId = (int)substr($token, 3);
+        return [
+            'categoria_id' => $categoriaId > 0 ? $categoriaId : null,
+            'categoria_nombre' => null,
+        ];
+    }
 
-    // 2b) Verificación simple (sin placeholders)
+    if (str_starts_with($token, 'text:')) {
+        return [
+            'categoria_id' => null,
+            'categoria_nombre' => inventario_normalize_categoria_nombre(substr($token, 5)),
+        ];
+    }
+
+    return ['categoria_id' => null, 'categoria_nombre' => inventario_normalize_categoria_nombre($token)];
+}
+
+function inventario_contar_productos_sesion(?array $sesion): int {
     try {
-        $pdo->query("SELECT 1 FROM inventario_conteos LIMIT 1");
+        $pdo = getPDO();
+        $filters = inventario_session_category_filters($sesion);
+        $where = ["activo = 1"];
+        $params = [];
+
+        if ($filters['categoria_id'] !== null && inventario_productos_usa_categoria_id($pdo)) {
+            $where[] = 'categoria_id = ?';
+            $params[] = $filters['categoria_id'];
+        } elseif ($filters['categoria_nombre'] !== null && inventario_productos_usa_categoria_texto($pdo)) {
+            $where[] = 'categoria = ?';
+            $params[] = $filters['categoria_nombre'];
+        }
+
+        $sql = 'SELECT COUNT(*) FROM productos WHERE ' . implode(' AND ', $where);
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+
+        return (int)$st->fetchColumn();
     } catch (Throwable $e) {
-        throw new RuntimeException("No se pudo crear/ver la tabla inventario_conteos: " . $e->getMessage(), 0, $e);
+        flus_log_error('inventario_contar_productos_sesion failed', ['error' => $e->getMessage()]);
+        return 0;
     }
 }
 
@@ -149,7 +309,9 @@ function inventario_session_list(int $limit = 50): array {
         // Algunas instalaciones no tienen tabla `categorias` (o la tabla se llama distinto).
         // No debemos romper el listado de sesiones por un LEFT JOIN opcional.
         $hasCategorias = inventario_table_exists($pdo, 'categorias');
-        $selectCategoria = $hasCategorias ? 'c.nombre AS categoria_nombre' : 'NULL AS categoria_nombre';
+        $selectCategoria = $hasCategorias
+            ? "COALESCE(NULLIF(TRIM(s.categoria_nombre), ''), c.nombre) AS categoria_nombre"
+            : "NULLIF(TRIM(s.categoria_nombre), '') AS categoria_nombre";
         $joinCategoria   = $hasCategorias ? 'LEFT JOIN categorias c ON c.id = s.categoria_id' : '';
 
         $limit = max(1, min($limit, 200));
@@ -184,23 +346,35 @@ function inventario_session_create(
     string $nombre, 
     ?string $descripcion = null, 
     ?int $userId = null,
-    ?int $categoriaId = null
+    ?int $categoriaId = null,
+    ?string &$errMsg = null,
+    ?string $categoriaNombre = null
 ): ?int {
+    $errMsg = null;
+
     try {
         $pdo = getPDO();
         inventario_ensure_tables();
 
         $nombre = trim($nombre);
         if ($nombre === '') return null;
+        $categoriaNombre = inventario_normalize_categoria_nombre($categoriaNombre);
+
+        if ($categoriaNombre === null && $categoriaId > 0 && inventario_table_exists($pdo, 'categorias')) {
+            $stCat = $pdo->prepare("SELECT nombre FROM categorias WHERE id = ?");
+            $stCat->execute([$categoriaId]);
+            $categoriaNombre = inventario_normalize_categoria_nombre((string)$stCat->fetchColumn());
+        }
 
         $st = $pdo->prepare("
-            INSERT INTO inventario_sesiones (nombre, descripcion, categoria_id, estado, created_by, created_at)
-            VALUES (?, ?, ?, 'ABIERTA', ?, NOW())
+            INSERT INTO inventario_sesiones (nombre, descripcion, categoria_id, categoria_nombre, estado, created_by, created_at)
+            VALUES (?, ?, ?, ?, 'ABIERTA', ?, NOW())
         ");
         $st->execute([
             $nombre, 
             $descripcion, 
             $categoriaId > 0 ? $categoriaId : null, 
+            $categoriaNombre,
             $userId
         ]);
 
@@ -215,10 +389,12 @@ function inventario_session_create(
         inventario_audit_safe('INVENTARIO_SESSION_CREATE', 'INVENTARIO', $id, [
             'nombre' => $nombre,
             'categoria_id' => $categoriaId,
+            'categoria_nombre' => $categoriaNombre,
         ], $userId);
 
         return $id;
     } catch (Throwable $e) {
+        $errMsg = $e->getMessage();
         flus_log_error('inventario_session_create failed', ['error' => $e->getMessage()]);
         return null;
     }
@@ -234,7 +410,9 @@ function inventario_session_get(int $sessionId): ?array {
 
         // `categorias` puede no existir en algunas instalaciones.
         $hasCategorias = inventario_table_exists($pdo, 'categorias');
-        $selectCategoria = $hasCategorias ? 'c.nombre AS categoria_nombre' : 'NULL AS categoria_nombre';
+        $selectCategoria = $hasCategorias
+            ? "COALESCE(NULLIF(TRIM(s.categoria_nombre), ''), c.nombre) AS categoria_nombre"
+            : "NULLIF(TRIM(s.categoria_nombre), '') AS categoria_nombre";
         $joinCategoria   = $hasCategorias ? 'LEFT JOIN categorias c ON c.id = s.categoria_id' : '';
 
         $st = $pdo->prepare("
@@ -306,33 +484,71 @@ function inventario_registrar_conteo(
     float $cantidad,
     ?string $ubicacion = null,
     ?string $notas = null,
-    ?int $userId = null
+    ?int $userId = null,
+    ?string &$errMsg = null
 ): ?int {
+    $errMsg = null;
+
     try {
         $pdo = getPDO();
         inventario_ensure_tables();
 
-        if ($sessionId <= 0 || $productoId <= 0) return null;
+        if ($sessionId <= 0 || $productoId <= 0) {
+            $errMsg = 'Sesión o producto inválido.';
+            return null;
+        }
 
         // Verificar que la sesión esté abierta
-        $st = $pdo->prepare("SELECT estado, categoria_id FROM inventario_sesiones WHERE id = ?");
+        $st = $pdo->prepare("SELECT estado, categoria_id, categoria_nombre FROM inventario_sesiones WHERE id = ?");
         $st->execute([$sessionId]);
         $sesion = $st->fetch(PDO::FETCH_ASSOC);
         
-        if (!$sesion || $sesion['estado'] !== 'ABIERTA') return null;
+        if (!$sesion) {
+            $errMsg = 'La sesión no existe.';
+            return null;
+        }
+        if ($sesion['estado'] !== 'ABIERTA') {
+            $errMsg = 'La sesión ya no está abierta para nuevos conteos.';
+            return null;
+        }
 
-        // Si la sesión tiene filtro de categoría, verificar que el producto pertenezca
-        if ($sesion['categoria_id']) {
-            $st = $pdo->prepare("SELECT categoria_id FROM productos WHERE id = ?");
-            $st->execute([$productoId]);
-            $prodCatId = $st->fetchColumn();
-            
-            if ((int)$prodCatId !== (int)$sesion['categoria_id']) {
+        $sessionFilters = inventario_session_category_filters($sesion);
+        $productColumns = ['stock'];
+        if (inventario_productos_usa_categoria_id($pdo)) {
+            $productColumns[] = 'categoria_id';
+        }
+        if (inventario_productos_usa_categoria_texto($pdo)) {
+            $productColumns[] = 'categoria';
+        }
+
+        $st = $pdo->prepare('SELECT ' . implode(', ', array_unique($productColumns)) . ' FROM productos WHERE id = ?');
+        $st->execute([$productoId]);
+        $producto = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$producto) {
+            $errMsg = 'El producto seleccionado no existe.';
+            return null;
+        }
+
+        if ($sessionFilters['categoria_id'] !== null && inventario_productos_usa_categoria_id($pdo)) {
+            $prodCatId = (int)($producto['categoria_id'] ?? 0);
+            if ($prodCatId !== (int)$sessionFilters['categoria_id']) {
                 flus_log_error('inventario_registrar_conteo: producto no pertenece a la categoría de la sesión', [
                     'producto_id' => $productoId,
-                    'sesion_categoria' => $sesion['categoria_id'],
+                    'sesion_categoria' => $sessionFilters['categoria_id'],
                     'producto_categoria' => $prodCatId,
                 ]);
+                $errMsg = 'El producto no pertenece a la categoría de esta sesión.';
+                return null;
+            }
+        } elseif ($sessionFilters['categoria_nombre'] !== null && inventario_productos_usa_categoria_texto($pdo)) {
+            $prodCategoria = inventario_normalize_categoria_nombre($producto['categoria'] ?? null);
+            if (strcasecmp((string)$prodCategoria, (string)$sessionFilters['categoria_nombre']) !== 0) {
+                flus_log_error('inventario_registrar_conteo: producto no pertenece a la categoría textual de la sesión', [
+                    'producto_id' => $productoId,
+                    'sesion_categoria_nombre' => $sessionFilters['categoria_nombre'],
+                    'producto_categoria' => $prodCategoria,
+                ]);
+                $errMsg = 'El producto no pertenece a la categoría de esta sesión.';
                 return null;
             }
         }
@@ -340,28 +556,37 @@ function inventario_registrar_conteo(
         $cantidad = round((float)$cantidad, 3);
         $ubicacion = $ubicacion !== null ? trim($ubicacion) : null;
         $notas = $notas !== null ? trim($notas) : null;
+        $stockSistemaSnapshot = round((float)($producto['stock'] ?? 0), 3);
 
         $st = $pdo->prepare("
-            INSERT INTO inventario_conteos (sesion_id, producto_id, cantidad, ubicacion, notas, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO inventario_conteos (sesion_id, producto_id, cantidad, stock_sistema_snapshot, ubicacion, notas, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
         ");
-        $st->execute([$sessionId, $productoId, $cantidad, $ubicacion, $notas, $userId]);
+        $st->execute([$sessionId, $productoId, $cantidad, $stockSistemaSnapshot, $ubicacion, $notas, $userId]);
         $id = (int)$pdo->lastInsertId();
 
         // Verificación dura: confirmamos que el conteo quedó guardado
-        if ($id <= 0) return null;
+        if ($id <= 0) {
+            $errMsg = 'No se pudo guardar el conteo.';
+            return null;
+        }
         $chk = $pdo->prepare("SELECT id FROM inventario_conteos WHERE id = ? AND sesion_id = ?");
         $chk->execute([$id, $sessionId]);
-        if (!$chk->fetchColumn()) return null;
+        if (!$chk->fetchColumn()) {
+            $errMsg = 'El conteo no quedó persistido correctamente.';
+            return null;
+        }
 
         inventario_audit_safe('INVENTARIO_COUNT', 'INVENTARIO', $sessionId, [
             'producto_id' => $productoId,
             'cantidad' => $cantidad,
+            'stock_sistema_snapshot' => $stockSistemaSnapshot,
             'ubicacion' => $ubicacion,
         ], $userId);
 
         return $id;
     } catch (Throwable $e) {
+        $errMsg = $e->getMessage();
         flus_log_error('inventario_registrar_conteo failed', ['error' => $e->getMessage()]);
         return null;
     }
@@ -389,8 +614,9 @@ function inventario_get_conteos(int $sessionId, bool $soloConDiferencia = false)
                 p.nombre,
                 p.costo,
                 c.cantidad AS cantidad_contada,
-                p.stock AS cantidad_sistema,
-                (c.cantidad - p.stock) AS diferencia,
+                COALESCE(c.stock_sistema_snapshot, p.stock) AS cantidad_sistema,
+                p.stock AS cantidad_sistema_actual,
+                (c.cantidad - COALESCE(c.stock_sistema_snapshot, p.stock)) AS diferencia,
                 c.ubicacion,
                 c.notas,
                 c.created_at AS fecha_conteo
@@ -406,7 +632,7 @@ function inventario_get_conteos(int $sessionId, bool $soloConDiferencia = false)
         ";
 
         if ($soloConDiferencia) {
-            $sql .= " AND ABS(c.cantidad - p.stock) > 0.001";
+            $sql .= " AND ABS(c.cantidad - COALESCE(c.stock_sistema_snapshot, p.stock)) > 0.001";
         }
 
         $sql .= " ORDER BY p.nombre ASC";
@@ -420,6 +646,7 @@ function inventario_get_conteos(int $sessionId, bool $soloConDiferencia = false)
             $r['producto_id'] = (int)$r['producto_id'];
             $r['cantidad_contada'] = (float)$r['cantidad_contada'];
             $r['cantidad_sistema'] = (float)$r['cantidad_sistema'];
+            $r['cantidad_sistema_actual'] = (float)($r['cantidad_sistema_actual'] ?? $r['cantidad_sistema']);
             $r['diferencia'] = (float)$r['diferencia'];
             $r['costo'] = $r['costo'] !== null ? (float)$r['costo'] : null;
         }
@@ -484,7 +711,7 @@ function inventario_get_resumen_diferencias(int $sessionId): array {
  * @param int|null $categoriaId Filtrar por categoría (opcional)
  * @return array Lista de productos
  */
-function inventario_buscar_producto(string $q, int $limit = 12, ?int $categoriaId = null): array {
+function inventario_buscar_producto(string $q, int $limit = 12, ?int $categoriaId = null, ?string $categoriaNombre = null): array {
     try {
         $pdo = getPDO();
         $q = trim($q);
@@ -493,20 +720,28 @@ function inventario_buscar_producto(string $q, int $limit = 12, ?int $categoriaI
         $limit = max(1, min($limit, 50));
         $like = '%' . $q . '%';
 
-        $params = [$like, $like, $q];
-        $categoriaCond = '';
-        
-        if ($categoriaId > 0) {
-            $categoriaCond = 'AND categoria_id = ?';
+        $params = [$like, $like];
+        $categoriaCond = [];
+        if ($categoriaId > 0 && inventario_productos_usa_categoria_id($pdo)) {
+            $categoriaCond[] = 'categoria_id = ?';
             $params[] = $categoriaId;
         }
+
+        $categoriaNombre = inventario_normalize_categoria_nombre($categoriaNombre);
+        if ($categoriaNombre !== null && inventario_productos_usa_categoria_texto($pdo)) {
+            $categoriaCond[] = 'categoria = ?';
+            $params[] = $categoriaNombre;
+        }
+
+        $params[] = $q;
+        $categoriaSql = $categoriaCond ? (' AND ' . implode(' AND ', $categoriaCond)) : '';
 
         $st = $pdo->prepare("
             SELECT id, codigo, nombre, stock, costo
             FROM productos
             WHERE activo = 1
               AND (codigo LIKE ? OR nombre LIKE ?)
-              {$categoriaCond}
+              {$categoriaSql}
             ORDER BY
               CASE WHEN codigo = ? THEN 0 ELSE 1 END,
               nombre ASC
@@ -567,6 +802,12 @@ function inventario_aplicar_ajustes(int $sessionId, ?int $userId = null, ?string
         foreach ($conteos as $c) {
             $productoId = (int)$c['producto_id'];
             $contado = (float)$c['cantidad_contada'];
+            $stockBaseSesion = (float)($c['cantidad_sistema'] ?? 0);
+            $delta = round($contado - $stockBaseSesion, 3);
+
+            if (abs($delta) < 0.001) {
+                continue;
+            }
 
             // Releer stock actual para evitar race condition
             $st = $pdo->prepare("SELECT stock, nombre FROM productos WHERE id = ? FOR UPDATE");
@@ -575,12 +816,16 @@ function inventario_aplicar_ajustes(int $sessionId, ?int $userId = null, ?string
             if (!$prod) continue;
 
             $stockActual = (float)$prod['stock'];
-            $dif = $contado - $stockActual;
+            $nuevoStock = round($stockActual + $delta, 3);
+            if ($nuevoStock < -0.001) {
+                throw new RuntimeException('No se puede aplicar la sesión porque el producto "' . ($prod['nombre'] ?? ('#' . $productoId)) . '" tuvo movimientos posteriores incompatibles con el conteo.');
+            }
+            if ($nuevoStock < 0) {
+                $nuevoStock = 0.0;
+            }
 
-            if (abs($dif) < 0.001) continue;
-
-            $tipo = $dif > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
-            $cantidadMov = round(abs($dif), 3);
+            $tipo = $delta > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO';
+            $cantidadMov = round(abs($delta), 3);
 
             // Insert movimiento de stock
             $st = $pdo->prepare("
@@ -591,16 +836,17 @@ function inventario_aplicar_ajustes(int $sessionId, ?int $userId = null, ?string
             $coment = "Inventario físico (sesión #{$sessionId})";
             $st->execute([$productoId, $tipo, $cantidadMov, $coment, $userId]);
 
-            // Actualizar stock al valor contado
+            // Ajustar sobre el stock actual usando la diferencia detectada al contar.
             $st = $pdo->prepare("UPDATE productos SET stock = ?, fecha_modificacion = NOW() WHERE id = ?");
-            $st->execute([$contado, $productoId]);
+            $st->execute([$nuevoStock, $productoId]);
 
             $detalles[] = [
                 'producto_id' => $productoId,
                 'nombre' => $prod['nombre'],
+                'stock_sistema_sesion' => $stockBaseSesion,
                 'stock_anterior' => $stockActual,
-                'stock_nuevo' => $contado,
-                'diferencia' => $dif,
+                'stock_nuevo' => $nuevoStock,
+                'diferencia' => $delta,
             ];
             
             $ajustes++;

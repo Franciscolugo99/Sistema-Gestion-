@@ -97,8 +97,7 @@ public/caja.php                                # Botón y modal de Cobrar CC
 public/assets/js/caja.js                       # Lógica de venta con CC
 public/assets/js/caja_cc_pago.js               # JS del modal de cobro CC (múltiples medios)
 src/api_helpers.php                            # norm_medio_pago ya soportaba CC
-migrations/004_cc_ventas_integration.sql       # SQL de migración
-scripts/migrate_004_cc_ventas.php              # Script de migración PHP
+scripts/migrate_004_cc_ventas.php              # Script idempotente que aplica los cambios de esquema
 ```
 
 ---

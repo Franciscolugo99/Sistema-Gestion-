@@ -55,6 +55,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const getDefaultCost = (product) =>
     Number(product.ultimoCosto || 0).toFixed(2);
 
+  const formatMoney = (value) =>
+    "$" +
+    Number(value || 0).toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
   const rememberRowState = (row) => {
     if (!row) return;
     const productId = parseInt(row.dataset.productId || "0", 10);
@@ -157,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <span class="quick-add-product-meta">${escapeHtml(product.codigo || "Sin codigo")} ${badge}</span>
               </button>
             </td>
+            <td class="right"><span class="quick-add-last-cost">${escapeHtml(formatMoney(product.ultimoCosto || 0))}</span></td>
             <td><input type="number" class="quick-add-input quick-add-qty" value="${qtyValue}" step="${qtyStep}" min="${qtyMin}"></td>
             <td><input type="number" class="quick-add-input quick-add-cost" value="${costValue}" step="0.01" min="0"></td>
             <td class="center"><button type="button" class="btn btn-secondary btn-compact" data-quick-add-one>Agregar</button></td>

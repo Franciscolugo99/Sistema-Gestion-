@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/compras_helpers.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 
@@ -225,6 +226,32 @@ $results[] = flus_run_test('facturacion manual items normalize totals and valida
     } catch (RuntimeException $e) {
         flus_assert_contains('alicuota IVA', $e->getMessage());
     }
+});
+
+$results[] = flus_run_test('compras helpers keep item discount calculations consistent', function (): void {
+    $porc = flus_compra_item_metrics([
+        'cantidad' => 2,
+        'costo_unitario' => 100,
+        'descuento_tipo' => 'PORC',
+        'descuento_porc' => 10,
+        'unidad_venta' => 'UNIDAD',
+    ]);
+
+    flus_assert_same(200.0, $porc['subtotal']);
+    flus_assert_same(20.0, $porc['descuento_monto']);
+    flus_assert_same(180.0, $porc['neto']);
+
+    $monto = flus_compra_item_metrics([
+        'cantidad' => 1,
+        'costo_unitario' => 50,
+        'subtotal' => 50,
+        'descuento_tipo' => 'MONTO',
+        'descuento' => 80,
+        'unidad_venta' => 'UNIDAD',
+    ]);
+
+    flus_assert_same(50.0, $monto['descuento_monto']);
+    flus_assert_same(0.0, $monto['neto']);
 });
 
 $results[] = flus_run_test('compras schema lives in migrations instead of runtime DDL', function (): void {

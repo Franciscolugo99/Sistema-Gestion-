@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/compras_helpers.php';
 require_login();
 require_permission('editar_stock');
 
@@ -45,71 +46,39 @@ $stmtItems = $pdo->prepare("
 $stmtItems->execute([$id]);
 $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+$itemsMetrics = flus_compra_items_metrics($items);
+$totals = flus_compra_totals((array)$compra, $itemsMetrics);
+
 $itemsView = [];
-$cantidadTotal = 0.0;
-$brutoCalculado = 0.0;
-$descuentoItemsTotal = 0.0;
-
-foreach ($items as $it) {
-  $unidad = strtoupper(trim((string)($it['unidad_venta'] ?? 'UNIDAD')));
-  $esPesable = (int)($it['es_pesable'] ?? 0) === 1
-    || in_array($unidad, ['KG', 'G', 'LT', 'ML'], true);
-
-  $cantidad = (float)($it['cantidad'] ?? 0);
-  $costoUnitario = (float)($it['costo_unitario'] ?? 0);
-  $subtotal = (float)($it['subtotal'] ?? ($cantidad * $costoUnitario));
-
-  $descuentoTipo = strtoupper(trim((string)($it['descuento_tipo'] ?? 'MONTO')));
-  if (!in_array($descuentoTipo, ['MONTO', 'PORC'], true)) {
-    $descuentoTipo = 'MONTO';
-  }
-
-  $descuentoPorc = max(0.0, (float)($it['descuento_porc'] ?? 0));
-  if ($descuentoPorc > 100) {
-    $descuentoPorc = 100.0;
-  }
-
-  $descuentoMonto = max(0.0, (float)($it['descuento'] ?? 0));
-  if ($descuentoTipo === 'PORC' && $subtotal > 0) {
-    $descuentoMonto = round($subtotal * ($descuentoPorc / 100.0), 2);
-  }
-  if ($descuentoMonto > $subtotal) {
-    $descuentoMonto = $subtotal;
-  }
-
-  $cantidadTotal += $cantidad;
-  $brutoCalculado += $subtotal;
-  $descuentoItemsTotal += $descuentoMonto;
-
+foreach ($itemsMetrics['items'] as $index => $itemMetrics) {
+  $it = $items[$index] ?? [];
   $itemsView[] = [
     'codigo' => (string)($it['codigo'] ?? ''),
     'nombre' => (string)($it['nombre'] ?? 'Producto'),
-    'cantidad_fmt' => ($esPesable ? number_format($cantidad, 3, ',', '.') : number_format($cantidad, 0, ',', '.')) . ' ' . $unidad,
-    'costo_fmt' => money($costoUnitario),
-    'subtotal_fmt' => money($subtotal),
-    'descuento_fmt' => $descuentoMonto > 0 ? '-' . money($descuentoMonto) : '-',
-    'neto_fmt' => money(max(0.0, $subtotal - $descuentoMonto)),
+    'cantidad_fmt' => (
+      ((bool)($itemMetrics['es_pesable'] ?? false))
+        ? number_format((float)($itemMetrics['cantidad'] ?? 0), 3, ',', '.')
+        : number_format((float)($itemMetrics['cantidad'] ?? 0), 0, ',', '.')
+    ) . ' ' . (string)($itemMetrics['unidad'] ?? 'UNIDAD'),
+    'costo_fmt' => money((float)($itemMetrics['costo_unitario'] ?? 0)),
+    'subtotal_fmt' => money((float)($itemMetrics['subtotal'] ?? 0)),
+    'descuento_fmt' => (float)($itemMetrics['descuento_monto'] ?? 0) > 0
+      ? '-' . money((float)($itemMetrics['descuento_monto'] ?? 0))
+      : '-',
+    'neto_fmt' => money((float)($itemMetrics['neto'] ?? 0)),
   ];
 }
 
-$brutoCalculado = round($brutoCalculado, 2);
-$descuentoItemsTotal = round($descuentoItemsTotal, 2);
+$cantidadTotal = (float)($totals['cantidad_total'] ?? 0.0);
+$descuentoItemsTotal = (float)($totals['descuento_items_total'] ?? 0.0);
+$totalBruto = (float)($totals['total_bruto'] ?? 0.0);
+$descuentoGlobal = (float)($totals['descuento_global'] ?? 0.0);
+$totalCompra = (float)($totals['total_compra'] ?? 0.0);
+$totalNeto = (float)($totals['total_neto'] ?? 0.0);
+$totalIva = (float)($totals['total_iva'] ?? 0.0);
 
-$totalBruto = round((float)($compra['total_bruto'] ?? 0), 2);
-if ($totalBruto <= 0 && $brutoCalculado > 0) {
-  $totalBruto = $brutoCalculado;
-}
-if ($totalBruto <= 0) {
-  $totalBruto = round((float)($compra['total'] ?? 0), 2);
-}
-
-$descuentoGlobal = round((float)($compra['descuento_total'] ?? 0), 2);
-$totalCompra = round((float)($compra['total'] ?? ($totalBruto - $descuentoItemsTotal - $descuentoGlobal)), 2);
-$totalNeto = round((float)($compra['total_neto'] ?? $totalCompra), 2);
-$totalIva = round((float)($compra['total_iva'] ?? 0), 2);
-
-$descuentoGlobalTipo = strtoupper(trim((string)($compra['descuento_tipo'] ?? 'MONTO')));
-$descuentoGlobalValor = (float)($compra['descuento_valor'] ?? 0);
+$descuentoGlobalTipo = (string)($totals['descuento_global_tipo'] ?? 'MONTO');
+$descuentoGlobalValor = (float)($totals['descuento_global_valor'] ?? 0.0);
 $descuentoGlobalDetalle = '';
 if ($descuentoGlobal > 0) {
   if ($descuentoGlobalTipo === 'PORC') {
@@ -137,7 +106,7 @@ $estadoTexto = match ($estado) {
   default => 'Es un borrador: todavia no impacto stock.',
 };
 
-$actionHref = 'compras.php?q=' . $id;
+$actionHref = 'compras.php?detalle=' . $id;
 $actionLabel = 'Ver en compras';
 if ($estado === 'BORRADOR') {
   $actionHref = 'compras.php?editar=' . $id;

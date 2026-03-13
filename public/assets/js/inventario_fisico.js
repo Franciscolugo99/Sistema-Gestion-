@@ -22,6 +22,8 @@
     modoCiego: false,
     modoRapido: false,
     productoSeleccionado: null,
+    sessionCategoriaId: 0,
+    sessionCategoriaNombre: '',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -60,6 +62,8 @@
       if (data) {
         state.productosContados = JSON.parse(data);
       }
+      state.sessionCategoriaId = Number(panel.dataset.sessionCategoryId || 0);
+      state.sessionCategoriaNombre = String(panel.dataset.sessionCategoryName || '').trim();
     } catch (e) {
       console.warn('Error parsing productosContados:', e);
     }
@@ -145,8 +149,19 @@
       abortController = new AbortController();
 
       try {
+        const params = new URLSearchParams({
+          action: 'inventario_buscar_producto',
+          q: query,
+        });
+        if (state.sessionCategoriaId > 0) {
+          params.set('categoria_id', String(state.sessionCategoriaId));
+        }
+        if (state.sessionCategoriaNombre) {
+          params.set('categoria_nombre', state.sessionCategoriaNombre);
+        }
+
         const res = await fetch(
-          `${CONFIG.apiEndpoint}?action=inventario_buscar_producto&q=${encodeURIComponent(query)}`,
+          `${CONFIG.apiEndpoint}?${params.toString()}`,
           {
             headers: { Accept: 'application/json' },
             signal: abortController.signal,
@@ -447,7 +462,13 @@
         },
       });
 
-      const data = await res.json();
+      let data = null;
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        throw new Error('Respuesta no JSON');
+      }
 
       if (data.ok) {
         // Actualizar productos contados en estado
@@ -466,11 +487,11 @@
           window.location.reload();
         }, 500);
       } else {
-        mostrarNotificacion(data.error || 'Error al registrar', 'error');
+        mostrarNotificacion(data.error || data.mensaje || 'Error al registrar', 'error');
       }
     } catch (err) {
       console.error('Error en submit rápido:', err);
-      mostrarNotificacion('Error de conexión', 'error');
+      mostrarNotificacion('No se pudo registrar el conteo', 'error');
     } finally {
       if (btnRegistrar) {
         btnRegistrar.disabled = false;

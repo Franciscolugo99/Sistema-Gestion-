@@ -1,24 +1,21 @@
 <?php
-// public/api/compra_detalle.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
+require_once FLUS_ROOT . '/src/compras_helpers.php';
 
-
-// FIX: Verificar login Y permisos
 require_login();
 require_permission('editar_stock');
 
 $id = (int)($_GET['id'] ?? 0);
 
 if ($id <= 0) {
-  json_response(['error' => 'ID inválido'], 400);
+  json_response(['error' => 'ID invalido'], 400);
 }
 
 try {
-  // Traer compra
   $st = $pdo->prepare("
-    SELECT 
+    SELECT
       c.*,
       p.nombre AS proveedor_nombre
     FROM compras c
@@ -27,14 +24,13 @@ try {
   ");
   $st->execute([$id]);
   $compra = $st->fetch(PDO::FETCH_ASSOC);
-  
+
   if (!$compra) {
-  json_response(['error' => 'Compra no encontrada'], 404);
-}
-  
-  // Traer items
+    json_response(['error' => 'Compra no encontrada'], 404);
+  }
+
   $stItems = $pdo->prepare("
-    SELECT 
+    SELECT
       ci.*,
       p.nombre,
       p.codigo,
@@ -47,90 +43,52 @@ try {
   ");
   $stItems->execute([$id]);
   $items = $stItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
-  
-  // Formatear items
-    // Formatear items (incluye descuento por ítem)
-  $itemsFormatted = array_map(function($it) {
-    $isPesable = (int)$it['es_pesable'] === 1 || 
-                 in_array(strtoupper($it['unidad_venta'] ?? 'UNIDAD'), ['KG','G','LT','ML']);
 
-    $qty = (float)$it['cantidad'];
-    $qtyFmt = $isPesable 
-      ? number_format($qty, 3, ',', '.') 
+  $itemsMetrics = flus_compra_items_metrics($items);
+  $totals = flus_compra_totals((array)$compra, $itemsMetrics);
+
+  $itemsFormatted = array_map(function (array $metrics, array $it): array {
+    $qty = (float)($metrics['cantidad'] ?? 0.0);
+    $qtyFmt = (bool)($metrics['es_pesable'] ?? false)
+      ? number_format($qty, 3, ',', '.')
       : number_format($qty, 0, ',', '.');
 
-    $cu = (float)($it['costo_unitario'] ?? 0);
-    $subtotal = (float)($it['subtotal'] ?? ($qty * $cu));
-
-    // Descuento por ítem (si existe)
-    $tipoItem = strtoupper((string)($it['descuento_tipo'] ?? 'MONTO'));
-    if (!in_array($tipoItem, ['MONTO','PORC'], true)) $tipoItem = 'MONTO';
-
-    $porc = (float)($it['descuento_porc'] ?? 0);
-    $monto = (float)($it['descuento'] ?? 0);
-
-    if ($porc < 0) $porc = 0;
-    if ($porc > 100) $porc = 100;
-    if ($monto < 0) $monto = 0;
-
-    $descItem = 0.0;
-    if ($subtotal > 0) {
-      if ($tipoItem === 'PORC') {
-        $descItem = $subtotal * ($porc / 100.0);
-      } else {
-        if ($monto > $subtotal) $monto = $subtotal;
-        $descItem = $monto;
-      }
-    }
-    $descItem = round($descItem, 2);
-
-    $descValor = ($tipoItem === 'PORC') ? $porc : $monto;
+    $cu = (float)($metrics['costo_unitario'] ?? 0.0);
+    $subtotal = (float)($metrics['subtotal'] ?? 0.0);
+    $descItem = (float)($metrics['descuento_monto'] ?? 0.0);
 
     return [
-      'producto_id' => (int)$it['producto_id'],
-      'nombre' => $it['nombre'],
-      'codigo' => $it['codigo'],
+      'producto_id' => (int)($it['producto_id'] ?? 0),
+      'nombre' => (string)($it['nombre'] ?? 'Producto'),
+      'codigo' => (string)($it['codigo'] ?? ''),
       'cantidad' => $qty,
-      'cantidad_fmt' => $qtyFmt . ' ' . ($it['unidad_venta'] ?? 'UNIDAD'),
+      'cantidad_fmt' => $qtyFmt . ' ' . (string)($metrics['unidad'] ?? 'UNIDAD'),
       'costo_unitario' => $cu,
       'costo_fmt' => '$' . number_format($cu, 2, ',', '.'),
       'desc_item' => $descItem,
       'desc_item_fmt' => ($descItem > 0 ? '-$' : '$') . number_format($descItem, 2, ',', '.'),
-      'desc_item_tipo' => $tipoItem,
-      'desc_item_valor' => $descValor,
+      'desc_item_tipo' => (string)($metrics['descuento_tipo'] ?? 'MONTO'),
+      'desc_item_valor' => (float)($metrics['descuento_valor'] ?? 0.0),
       'subtotal' => $subtotal,
       'subtotal_fmt' => '$' . number_format($subtotal, 2, ',', '.'),
     ];
-  }, $items);
-  
-  // Respuesta
-  $brutoItems = 0.0;
-  $descItemsTotal = 0.0;
-  foreach ($itemsFormatted as $itf) {
-    $brutoItems += (float)($itf['subtotal'] ?? 0.0);
-    $descItemsTotal += (float)($itf['desc_item'] ?? 0.0);
-  }
-  $brutoItems = round($brutoItems, 2);
-  $descItemsTotal = round($descItemsTotal, 2);
+  }, $itemsMetrics['items'], $items);
 
-  // Bruto preferir compras.total_bruto si existe, si no recalcular por items
-  $bruto = (float)($compra['total_bruto'] ?? $brutoItems ?? $compra['total'] ?? 0);
-
-  // Descuento global (compras.descuento_total)
-  $descT = (float)($compra['descuento_total'] ?? 0);
-  $total = (float)($compra['total'] ?? 0);
-  $descTipo = (string)($compra['descuento_tipo'] ?? 'MONTO');
-  $descVal  = (float)($compra['descuento_valor'] ?? 0);
+  $bruto = (float)($totals['total_bruto'] ?? 0.0);
+  $descItemsTotal = (float)($totals['descuento_items_total'] ?? 0.0);
+  $descT = (float)($totals['descuento_global'] ?? 0.0);
+  $total = (float)($totals['total_compra'] ?? 0.0);
+  $descTipo = (string)($totals['descuento_global_tipo'] ?? 'MONTO');
+  $descVal = (float)($totals['descuento_global_valor'] ?? 0.0);
 
   echo json_encode([
     'id' => (int)$compra['id'],
-    'fecha' => date('d/m/Y', strtotime($compra['fecha'])),
+    'fecha' => date('d/m/Y', strtotime((string)$compra['fecha'])),
     'proveedor' => $compra['proveedor_nombre'] ?? 'Sin nombre',
     'tipo_comp' => $compra['tipo_comp'] ?? '',
     'nro_comp' => $compra['nro_comp'] ?? '',
     'obs' => $compra['obs'] ?? '',
     'estado' => $compra['estado'],
-
     'total_bruto' => $bruto,
     'total_bruto_fmt' => '$' . number_format($bruto, 2, ',', '.'),
     'descuento_items_total' => $descItemsTotal,
@@ -139,12 +97,10 @@ try {
     'descuento_total_fmt' => '$' . number_format($descT, 2, ',', '.'),
     'descuento_tipo' => $descTipo,
     'descuento_valor' => $descVal,
-
     'total' => $total,
     'total_fmt' => '$' . number_format($total, 2, ',', '.'),
-    'items' => $itemsFormatted
+    'items' => $itemsFormatted,
   ], JSON_UNESCAPED_UNICODE);
-  
 } catch (Throwable $e) {
   json_response(['error' => 'Error al cargar'], 500);
 }

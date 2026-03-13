@@ -1,5 +1,5 @@
 <?php
-// public/ventas.php - Módulo de Ventas FLUS v5.0 (Refactorizado - Consistente con Productos/Stock)
+// public/ventas.php - MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³dulo de Ventas FLUS v5.0 (Refactorizado - Consistente con Productos/Stock)
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
@@ -20,7 +20,7 @@ if (function_exists('date_default_timezone_set')) {
 /* =========================
 
 /* =========================
-   Inicialización
+   InicializaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
 ========================= */
 $pdo = getPDO();
 $stats = ['cnt_hoy' => 0, 'sum_hoy' => 0, 'avg_hoy' => 0, 'cnt_ayer' => 0, 'sum_ayer' => 0, 'diff_ventas' => 0, 'diff_total' => 0, 'top_medio' => 'N/A', 'top_medio_pct' => 0, 'periodo_label' => 'Hoy', 'cnt_anuladas' => 0, 'sum_anuladas' => 0];
@@ -36,7 +36,6 @@ $toRow = 0;
    Detectar tablas y columnas
 ========================= */
 $hasVentaPagos = has_table($pdo, 'venta_pagos');
-$hasVentasCompleto = has_view($pdo, 'v_ventas_completo');
 $hasTerminalId = has_column($pdo, 'ventas', 'terminal_id');
 $hasDescuentoMonto = has_column($pdo, 'ventas', 'descuento_monto');
 $hasDescuentoTotal = has_column($pdo, 'ventas', 'descuento_total');
@@ -70,7 +69,7 @@ $hora_hasta = trim($_GET['hora_hasta'] ?? '');
 if ($hora_desde && !preg_match('/^\d{2}:\d{2}$/', $hora_desde)) $hora_desde = '';
 if ($hora_hasta && !preg_match('/^\d{2}:\d{2}$/', $hora_hasta)) $hora_hasta = '';
 
-// FIX: Validación segura de per_page
+// FIX: ValidaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n segura de per_page
 $perPage = (int)($_GET['per_page'] ?? 20);
 if (!in_array($perPage, [20, 50, 100], true)) {
     $perPage = 20;
@@ -78,7 +77,7 @@ if (!in_array($perPage, [20, 50, 100], true)) {
 $page = max(1, (int)($_GET['page'] ?? 1));
 
 /* =========================
-   WHERE dinámico
+   WHERE dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡mico
 ========================= */
 $whereParts = ['1=1'];
 $params = [];
@@ -113,7 +112,7 @@ if ($hasta) {
   $params[':hasta'] = $hasta . ' ' . $horaFin;
 }
 
-// Si solo hay filtro de hora sin fechas, aplicar a cualquier día
+// Si solo hay filtro de hora sin fechas, aplicar a cualquier dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a
 if (!$desde && !$hasta && ($hora_desde || $hora_hasta)) {
   if ($hora_desde && $hora_hasta) {
     $minD = intval(substr($hora_desde, 0, 2)) * 60 + intval(substr($hora_desde, 3, 2));
@@ -244,7 +243,7 @@ $stats['periodo_label'] = 'Hoy';
 
 try {
   if ($hayFiltros) {
-    // KPIs del período FILTRADO
+    // KPIs del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo FILTRADO
     $stFiltrado = $pdo->prepare("
       SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
       FROM ventas v 
@@ -256,7 +255,7 @@ try {
     $stats['sum_hoy'] = (float)$rowFiltrado['sum'];
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
-    // Anuladas en el período
+    // Anuladas en el perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo
     $stAnuladas = $pdo->prepare("
       SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
       FROM ventas v 
@@ -267,7 +266,7 @@ try {
     $stats['cnt_anuladas'] = (int)$rowAnuladas['cnt'];
     $stats['sum_anuladas'] = (float)$rowAnuladas['sum'];
     
-    // Determinar label del período
+    // Determinar label del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo
     if ($desde && $hasta) {
       if ($desde === $hasta) {
         $stats['periodo_label'] = date('d/m', strtotime($desde));
@@ -282,13 +281,13 @@ try {
       $stats['periodo_label'] = 'Filtrado';
     }
     
-    // Comparación: calcular período anterior equivalente
+    // ComparaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: calcular perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo anterior equivalente
     if ($desde && $hasta) {
       $diasRango = (strtotime($hasta) - strtotime($desde)) / 86400 + 1;
       $desdeAnterior = date('Y-m-d', strtotime($desde) - ($diasRango * 86400));
       $hastaAnterior = date('Y-m-d', strtotime($desde) - 86400);
       
-      // Construir WHERE para período anterior (sin filtros de fecha pero con otros filtros)
+      // Construir WHERE para perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo anterior (sin filtros de fecha pero con otros filtros)
       $wherePartsAnterior = ['1=1'];
       $paramsAnterior = [];
       
@@ -328,7 +327,7 @@ try {
       $stats['sum_ayer'] = (float)$rowAnterior['sum'];
     }
     
-    // Top medio de pago del período filtrado
+    // Top medio de pago del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo filtrado
     if ($hasVentaPagos) {
       $stMedio = $pdo->prepare("
         SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
@@ -358,7 +357,7 @@ try {
     $hoy = date('Y-m-d');
     $ayer = date('Y-m-d', strtotime('-1 day'));
     
-    // Ventas de hoy (total facturado y total que entró a caja)
+    // Ventas de hoy (total facturado y total que entrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ a caja)
     $selectMontoCCHoy = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
     $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCHoy FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
     $stHoy->execute([$hoy]);
@@ -366,7 +365,7 @@ try {
     $stats['cnt_hoy'] = (int)$rowHoy['cnt'];
     $stats['sum_hoy'] = (float)$rowHoy['sum'];
     $stats['sum_cc_hoy'] = (float)$rowHoy['sum_cc'];
-    $stats['sum_caja_hoy'] = $stats['sum_hoy'] - $stats['sum_cc_hoy']; // Lo que entró a caja
+    $stats['sum_caja_hoy'] = $stats['sum_hoy'] - $stats['sum_cc_hoy']; // Lo que entrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ a caja
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
     // Anuladas hoy
@@ -427,43 +426,57 @@ try {
 }
 
 /* =========================
-   Datos para gráficos
+   Datos para grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ficos
 ========================= */
 $chartData = ['labels' => [], 'ventas' => [], 'totales' => []];
 $chartMedios = ['labels' => [], 'data' => [], 'colors' => []];
+$chartRangeLabel = (!$desde && !$hasta) ? 'Ultimos 7 dias' : $stats['periodo_label'];
 
 try {
-  // Ventas últimos 7 días
-  $st = $pdo->query("
-    SELECT DATE(fecha) as dia, COUNT(*) as cnt, SUM(total) as sum
-    FROM ventas
-    WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (estado IS NULL OR estado = 'EMITIDA')
-    GROUP BY DATE(fecha)
+  $chartWhereParts = $whereParts;
+  $chartParams = $params;
+
+  if ($estado === '') {
+    $chartWhereParts[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+  }
+  if (!$desde && !$hasta) {
+    $chartWhereParts[] = 'v.fecha >= :chart_since';
+    $chartParams[':chart_since'] = date('Y-m-d 00:00:00', strtotime('-6 days'));
+  }
+
+  $chartWhereSQL = implode(' AND ', $chartWhereParts);
+  $st = $pdo->prepare("
+    SELECT DATE(v.fecha) as dia, COUNT(*) as cnt, COALESCE(SUM(v.total), 0) as sum
+    FROM ventas v
+    WHERE $chartWhereSQL
+    GROUP BY DATE(v.fecha)
     ORDER BY dia
   ");
+  $st->execute($chartParams);
   while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
     $chartData['labels'][] = date('d/m', strtotime($row['dia']));
     $chartData['ventas'][] = (int)$row['cnt'];
     $chartData['totales'][] = round((float)$row['sum'], 2);
   }
-  
-  // Distribución por medio
+
   $colores = ['EFECTIVO' => '#22c55e', 'MP' => '#3b82f6', 'DEBITO' => '#f59e0b', 'CREDITO' => '#8b5cf6', 'MIXTO' => '#ec4899'];
   if ($hasVentaPagos) {
-    $st = $pdo->query("
+    $st = $pdo->prepare("
       SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
       FROM venta_pagos vp
       JOIN ventas v ON v.id = vp.venta_id
-      WHERE v.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+      WHERE $chartWhereSQL
       GROUP BY UPPER(vp.medio_pago)
     ");
+    $st->execute($chartParams);
   } else {
-    $st = $pdo->query("
-      SELECT UPPER(medio_pago) as medio, COUNT(*) as cnt
-      FROM ventas
-      WHERE fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND (estado IS NULL OR estado = 'EMITIDA')
-      GROUP BY UPPER(medio_pago)
+    $st = $pdo->prepare("
+      SELECT UPPER(v.medio_pago) as medio, COUNT(*) as cnt
+      FROM ventas v
+      WHERE $chartWhereSQL
+      GROUP BY UPPER(v.medio_pago)
     ");
+    $st->execute($chartParams);
   }
   while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
     $m = $row['medio'] ?: 'OTRO';
@@ -486,7 +499,7 @@ $fromRow = $totalRows > 0 ? $offset + 1 : 0;
 $toRow = min($offset + $perPage, $totalRows);
 
 /* =========================
-   Query principal - Detectar columnas dinámicamente
+   Query principal - Detectar columnas dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡micamente
 ========================= */
 // Vendedor (compat: usuario_id / user_id / vendedor_id)
 $hasUsuarioId  = has_column($pdo, 'ventas', 'usuario_id');
@@ -579,9 +592,8 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css?v=6','assets/css/ventas-autocomplete.css?v=1','assets/css/ventas_kpis.css?v=2','assets/css/ventas-enhanced.css?v=1'];
+$extraCss = ['assets/css/ventas.css?v=7','assets/css/ventas_kpis.css?v=3'];
 $extraJs = [
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   'assets/js/ventas.js?v=5.0',
   'assets/js/ventas_kpis.js?v=2'
 ];
@@ -603,22 +615,29 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
 ?>
 
 <div class="ventas-page">
+  <div class="panel ventas-shell">
 
   <!-- Header -->
   <div class="ventas-header">
     <div class="ventas-header-left">
+      <span class="section-kicker">Operacion comercial</span>
       <h1>Ventas</h1>
-      <?php if ($hasVentasCompleto): ?>
-        <span class="badge-opt">⚡ Optimizado</span>
-      <?php endif; ?>
+      <p class="ventas-header-copy">Segui tickets, clientes, medios de pago y rendimiento del periodo desde un solo historial.</p>
+      <div class="ventas-header-meta">
+        <span class="ventas-meta-pill"><?= number_format($totalRows) ?> registros</span>
+        <span class="ventas-meta-pill">Periodo: <?= h($stats['periodo_label']) ?></span>
+      </div>
     </div>
     <div class="ventas-header-right">
-      <select id="paperSel" class="paper-select">
-        <option value="80">80mm</option>
-        <option value="58">58mm</option>
-      </select>
-      <button id="btnCharts" class="btn-icon" title="Gráficos (Ctrl+E)">📊</button>
-      <a href="?<?= http_build_query($queryParams + ['export' => 'csv']) ?>" class="btn btn-primary" title="Exportar CSV">💾 Exportar</a>
+      <label class="paper-control">
+        <span>Ticket</span>
+        <select id="paperSel" class="paper-select">
+          <option value="80">80mm</option>
+          <option value="58">58mm</option>
+        </select>
+      </label>
+      <button id="btnCharts" class="btn btn-secondary btn-compact" type="button" title="Graficos (Ctrl+E)" aria-expanded="false">Ver graficos</button>
+      <a href="?<?= http_build_query($queryParams + ['export' => 'csv']) ?>" class="btn btn-primary btn-compact" title="Exportar CSV">Exportar CSV</a>
     </div>
   </div>
   
@@ -635,8 +654,8 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
       <?php endif; ?>
     </div>
 
-    <div class="vkpi-card vkpi-clickable" data-filter="estado" data-filter-value="EMITIDA" title="Ver solo emitidas">
-      <div class="vkpi-label">Facturación (emitidas)</div>
+    <div class="vkpi-card vkpi-clickable" data-filter="estado" data-filter-value="EMITIDA" title="Ver solo confirmadas">
+      <div class="vkpi-label">Total confirmado</div>
       <div class="vkpi-value" data-kpi="facturacion"><?= money((float)($stats['sum_hoy'] ?? 0)) ?></div>
       <?php if ($stats['diff_total'] != 0): ?>
         <div class="vkpi-diff <?= $stats['diff_total'] > 0 ? 'positive' : 'negative' ?>">
@@ -666,15 +685,15 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   </div>
 </section>
 
-  <!-- Gráficos (oculto por defecto) -->
+  <!-- Graficos (oculto por defecto) -->
   <div id="chartsPanel" class="charts-panel hidden">
     <div class="charts-grid">
       <div class="chart-box">
-        <h4>📈 Ventas últimos 7 días</h4>
+        <h4>Ventas por dia</h4>
         <canvas id="chartVentas"></canvas>
       </div>
       <div class="chart-box">
-        <h4>📊 Por medio de pago</h4>
+        <h4>Distribucion por medio</h4>
         <canvas id="chartMedios"></canvas>
       </div>
     </div>
@@ -682,10 +701,17 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
 
   <!-- Filtros -->
   <div class="filtros-panel">
+    <div class="filtros-head">
+      <div>
+        <span class="section-kicker">Consulta</span>
+        <h2>Filtros y rango</h2>
+      </div>
+      <p>Combina fecha, hora, cliente y medio de pago para aislar rapido cualquier tramo de ventas.</p>
+    </div>
     <form id="ventasForm" method="GET" class="filtros-form">
       <div class="filtros-main">
         <div class="filtro-group">
-          <input type="text" name="venta_id" placeholder="🔍 Buscar ID..." value="<?= h($venta_id) ?>" class="input-search">
+          <input type="text" name="venta_id" placeholder="Venta #" value="<?= h($venta_id) ?>" class="input-search">
         </div>
         
         <div class="filtro-group">
@@ -697,8 +723,26 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
         </div>
         
         <div class="filtro-group">
+          <select name="estado">
+            <option value="">Todos los estados</option>
+            <option value="EMITIDA" <?= $estado === 'EMITIDA' ? 'selected' : '' ?>>Confirmadas</option>
+            <option value="ANULADA" <?= $estado === 'ANULADA' ? 'selected' : '' ?>>Anuladas</option>
+          </select>
+        </div>
+
+        <div class="filtros-actions">
+          <button type="button" id="btnMoreFilters" class="btn btn-ghost btn-filter-toggle">Filtros avanzados</button>
+          <a href="ventas.php" class="btn btn-ghost btn-filter-clear">Limpiar</a>
+          <button type="submit" class="btn btn-primary">Aplicar</button>
+        </div>
+      </div>
+      
+      <!-- Filtros avanzados (ocultos) -->
+      <div id="advancedFilters" class="filtros-advanced hidden">
+        <div class="filtro-group">
+          <label>Medio</label>
           <select name="medio">
-            <option value="">Medio: Todos</option>
+            <option value="">Todos los medios</option>
             <option value="EFECTIVO" <?= $medio === 'EFECTIVO' ? 'selected' : '' ?>>Efectivo</option>
             <option value="MP" <?= $medio === 'MP' ? 'selected' : '' ?>>MP</option>
             <option value="DEBITO" <?= $medio === 'DEBITO' ? 'selected' : '' ?>>Debito</option>
@@ -708,25 +752,8 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <option value="QR" <?= $medio === 'QR' ? 'selected' : '' ?>>QR</option>
           </select>
         </div>
-        
         <div class="filtro-group">
-          <select name="estado">
-            <option value="">Estado: Todos</option>
-            <option value="EMITIDA" <?= $estado === 'EMITIDA' ? 'selected' : '' ?>>✅ Emitidas</option>
-            <option value="ANULADA" <?= $estado === 'ANULADA' ? 'selected' : '' ?>>❌ Anuladas</option>
-          </select>
-        </div>
-        
-        <button type="submit" class="btn btn-primary">Filtrar</button>
-        <a href="ventas.php" class="btn btn-ghost">Limpiar</a>
-        
-        <button type="button" id="btnMoreFilters" class="btn btn-ghost">+ Filtros</button>
-      </div>
-      
-      <!-- Filtros avanzados (ocultos) -->
-      <div id="advancedFilters" class="filtros-advanced hidden">
-        <div class="filtro-group">
-          <label>🕐 Hora desde</label>
+          <label>Hora desde</label>
           <div class="hora-ampm-group">
             <select id="horaDesdeHora" class="hora-select">
               <option value="">--</option>
@@ -749,7 +776,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
           <input type="hidden" name="hora_desde" id="horaDesdeHidden" value="<?= h($hora_desde) ?>">
         </div>
         <div class="filtro-group">
-          <label>🕐 Hora hasta</label>
+          <label>Hora hasta</label>
           <div class="hora-ampm-group">
             <select id="horaHastaHora" class="hora-select">
               <option value="">--</option>
@@ -770,14 +797,14 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             </select>
           </div>
           <input type="hidden" name="hora_hasta" id="horaHastaHidden" value="<?= h($hora_hasta) ?>">
-          <small>La hora se combina con la fecha (ej: 31/12 8AM → 01/01 5AM)</small>
+          <small>La hora se combina con la fecha para cubrir rangos cruzados.</small>
         </div>
         <div class="filtro-group filtro-cliente">
-          <label>👤 Cliente</label>
+          <label>Cliente</label>
           <div class="cliente-autocomplete">
             <input type="text" 
                    id="clienteSearch" 
-                   placeholder="Buscar por nombre..." 
+                   placeholder="Buscar cliente..." 
                    value="<?= h($clienteNombre) ?>"
                    autocomplete="off">
             <input type="hidden" name="cliente_id" id="clienteIdHidden" value="<?= $cliente_id ?: '' ?>">
@@ -785,28 +812,21 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <div id="clienteDropdown" class="cliente-dropdown"></div>
           </div>
         </div>
-        <div class="filtro-group">
-          <label>📄 Por página</label>
-          <select name="per_page">
-            <option value="20" <?= $perPage === 20 ? 'selected' : '' ?>>20</option>
-            <option value="50" <?= $perPage === 50 ? 'selected' : '' ?>>50</option>
-            <option value="100" <?= $perPage === 100 ? 'selected' : '' ?>>100</option>
-          </select>
+
+        <div class="chips-row">
+          <span class="chips-label">Periodo rapido</span>
+          <span class="chip" data-range="today">Hoy</span>
+          <span class="chip" data-range="yesterday">Ayer</span>
+          <span class="chip" data-range="7d">7 dias</span>
+          <span class="chip" data-range="30d">30 dias</span>
+          <span class="chip-sep">|</span>
+          <span class="chip" data-hora="06:00,12:00">Manana</span>
+          <span class="chip" data-hora="12:00,18:00">Tarde</span>
+          <span class="chip" data-hora="18:00,23:59">Noche</span>
         </div>
       </div>
       
-      <!-- Chips rápidos -->
-      <div class="chips-row">
-        <span class="chip" data-range="today">Hoy</span>
-        <span class="chip" data-range="yesterday">Ayer</span>
-        <span class="chip" data-range="7d">7 días</span>
-        <span class="chip" data-range="30d">30 días</span>
-        <span class="chip-sep">|</span>
-        <span class="chip" data-hora="06:00,12:00">🌅 Mañana</span>
-        <span class="chip" data-hora="12:00,18:00">☀️ Tarde</span>
-        <span class="chip" data-hora="18:00,23:59">🌙 Noche</span>
-      </div>
-      
+      <!-- Chips rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidos -->
       <input type="hidden" name="page" id="hiddenPage" value="1">
     </form>
   </div>
@@ -817,7 +837,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   if ($medio) $filtrosActivos[] = ['key' => 'medio', 'label' => "Medio: $medio"];
   if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
   
-  // Mostrar fecha+hora combinados si ambos están presentes
+  // Mostrar fecha+hora combinados si ambos estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n presentes
   if ($desde || $hasta || $hora_desde || $hora_hasta) {
     $label = 'Rango: ';
     
@@ -830,7 +850,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
       $label .= '...';
     }
     
-    $label .= ' → ';
+    $label .= ' -> ';
     
     if ($hasta) {
       $label .= date('d/m/Y', strtotime($hasta));
@@ -851,7 +871,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
     <?php foreach ($filtrosActivos as $f): ?>
       <span class="filtro-tag">
         <?= h($f['label']) ?>
-        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">×</button>
+        <button type="button" class="filtro-remove" data-filter="<?= $f['key'] ?>">&times;</button>
       </span>
     <?php endforeach; ?>
   </div>
@@ -859,10 +879,21 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
 
   <!-- Info de resultados -->
   <div class="results-info">
-    Mostrando <?= number_format($fromRow) ?>-<?= number_format($toRow) ?> de <?= number_format($totalRows) ?> ventas
+    <div class="results-info-main">
+      <span><strong><?= number_format($fromRow) ?>-<?= number_format($toRow) ?></strong> de <strong><?= number_format($totalRows) ?></strong> ventas</span>
+      <span>Pagina <?= number_format($page) ?> de <?= number_format($totalPages) ?></span>
+    </div>
+    <label class="results-per-page">
+      <span>Por pagina</span>
+      <select name="per_page" id="perPageSelect" form="ventasForm">
+        <option value="20" <?= $perPage === 20 ? 'selected' : '' ?>>20</option>
+        <option value="50" <?= $perPage === 50 ? 'selected' : '' ?>>50</option>
+        <option value="100" <?= $perPage === 100 ? 'selected' : '' ?>>100</option>
+      </select>
+    </label>
   </div>
 
-  <!-- Paginación superior -->
+  <!-- PaginaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n superior -->
   <?= render_pagination($page, $totalPages, $queryParams, true, $totalRows, $fromRow, $toRow) ?>
 
   <!-- Tabla -->
@@ -905,8 +936,10 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <?= h($v['cliente_nombre'] ?: 'Consumidor Final') ?>
           </td>
           <td class="col-productos">
-            <span class="productos-count"><?= (int)$v['items_count'] ?></span>
-            <span class="productos-preview"><?= h(mb_substr($v['productos_resumen'] ?? '', 0, 30)) ?><?= mb_strlen($v['productos_resumen'] ?? '') > 30 ? '...' : '' ?></span>
+            <div class="productos-stack">
+              <span class="productos-count"><?= (int)$v['items_count'] ?></span>
+              <span class="productos-preview"><?= h(mb_substr($v['productos_resumen'] ?? '', 0, 30)) ?><?= mb_strlen($v['productos_resumen'] ?? '') > 30 ? '...' : '' ?></span>
+            </div>
           </td>
           <td class="col-medio">
             <span class="badge-medio badge-<?= $esMixto ? 'mixto' : strtolower($medioMostrar) ?>">
@@ -917,7 +950,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <?php if ($esAnulada): ?>
               <span class="badge-estado anulada">Anulada</span>
             <?php else: ?>
-              <span class="badge-estado emitida">Emitida</span>
+              <span class="badge-estado emitida">Confirmada</span>
             <?php endif; ?>
           </td>
           <td class="col-total text-right">
@@ -926,7 +959,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <?php endif; ?>
             <?= money($v['total']) ?>
             <?php if ($esMixtoCC): ?>
-              <small class="text-muted d-block" title="Entró a caja">(<?= money($totalVenta - $montoCC) ?> caja)</small>
+              <small class="text-muted d-block" title="Entro a caja">(<?= money($totalVenta - $montoCC) ?> caja)</small>
             <?php endif; ?>
           </td>
           <?php if ($hasMontoCC): ?>
@@ -941,16 +974,18 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
           </td>
           <?php endif; ?>
           <td class="col-acciones text-center">
-            <button class="btn-action" data-preview="<?= (int)$v['id'] ?>" title="Vista previa">👁️</button>
-            <button class="btn-action" data-ticket="<?= (int)$v['id'] ?>" title="Ver ticket">🧾</button>
-            <a href="venta_detalle.php?id=<?= (int)$v['id'] ?>" class="btn-action" title="Detalle">→</a>
+            <div class="acciones-group">
+              <button type="button" class="btn-action" data-preview="<?= (int)$v['id'] ?>" title="Vista previa">Vista</button>
+              <button type="button" class="btn-action" data-ticket="<?= (int)$v['id'] ?>" title="Ver ticket">Ticket</button>
+              <a href="venta_detalle.php?id=<?= (int)$v['id'] ?>" class="btn-action btn-action-link" title="Detalle">Detalle</a>
+            </div>
           </td>
         </tr>
         <?php endforeach; ?>
       <?php else: ?>
         <tr>
-          <td colspan="8" class="empty-state">
-            <div class="empty-icon">📭</div>
+          <td colspan="<?= $hasMontoCC ? 9 : 8 ?>" class="empty-state">
+            <div class="empty-icon">Sin resultados</div>
             <p>No hay ventas con los filtros seleccionados</p>
           </td>
         </tr>
@@ -959,9 +994,10 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
     </table>
   </div>
 
-  <!-- Paginación inferior -->
+  <!-- PaginaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n inferior -->
   <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
+  </div>
 </div>
 
 <!-- Modal Preview -->
@@ -970,7 +1006,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   <div class="modal-content">
     <div class="modal-header">
       <h3>Venta #<span id="previewId"></span></h3>
-      <button class="modal-close" data-close>×</button>
+      <button class="modal-close" data-close>&times;</button>
     </div>
     <div class="modal-body" id="previewBody">
       <div class="loading">Cargando...</div>
@@ -989,8 +1025,8 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
     <div class="modal-header">
       <h3>Ticket #<span id="ticketId"></span></h3>
       <div class="modal-actions">
-        <button id="btnPrintTicket" class="btn btn-primary">🖨️ Imprimir</button>
-        <button class="modal-close" data-close>×</button>
+        <button id="btnPrintTicket" class="btn btn-primary">Imprimir</button>
+        <button class="modal-close" data-close>&times;</button>
       </div>
     </div>
     <div class="modal-body">
@@ -1008,7 +1044,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
         <kbd>Ctrl</kbd> + <kbd>K</kbd> = Buscar
     </div>
     <div class="keyboard-hints-item">
-        <kbd>Ctrl</kbd> + <kbd>E</kbd> = Gráficos
+        <kbd>Ctrl</kbd> + <kbd>E</kbd> = Graficos
     </div>
     <div class="keyboard-hints-item">
         <kbd>Esc</kbd> = Cerrar
@@ -1017,7 +1053,11 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
 
 <!-- Datos para JS -->
 <script>
+window.VENTAS_CONFIG = {
+  chartJsUrl: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+};
 window.VENTAS_DATA = {
+  chartRangeLabel: <?= json_encode($chartRangeLabel) ?>,
   chartVentas: <?= json_encode($chartData) ?>,
   chartMedios: <?= json_encode($chartMedios) ?>
 };

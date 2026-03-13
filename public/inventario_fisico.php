@@ -27,6 +27,15 @@ $currentSection = 'inventario_fisico';
 
 $extraCss = ['assets/css/inventario_fisico.css?v=2.0'];
 $extraJs  = ['assets/js/inventario_fisico.js?v=2.0'];
+$isAjaxRequest = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
+    && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+$respondAjax = static function (bool $ok, array $payload = [], int $status = 200): void {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(($ok ? ['ok' => true] : ['ok' => false]) + $payload, JSON_UNESCAPED_UNICODE);
+    exit;
+};
 
 $info = null;
 $error = null;
@@ -99,19 +108,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!hash_equals($_SESSION['csrf_token'], $token)) {
         $error = 'Token CSRF inválido.';
+        if ($isAjaxRequest) {
+            $respondAjax(false, ['error' => $error], 403);
+        }
     } else {
         $accion = (string)($_POST['accion'] ?? '');
 
         if ($accion === 'crear_sesion') {
             $nombre = trim((string)($_POST['nombre'] ?? ''));
             $descripcion = trim((string)($_POST['descripcion'] ?? ''));
-            $categoriaId = (int)($_POST['categoria_id'] ?? 0);
+            $categoriaToken = trim((string)($_POST['categoria_token'] ?? ''));
+            $categoriaData = inventario_parse_categoria_token($categoriaToken);
+            if ($categoriaData['categoria_id'] === null && $categoriaData['categoria_nombre'] === null) {
+                $categoriaLegacyId = (int)($_POST['categoria_id'] ?? 0);
+                if ($categoriaLegacyId > 0) {
+                    $categoriaData['categoria_id'] = $categoriaLegacyId;
+                }
+            }
 
             if ($nombre === '') {
                 $error = 'El nombre de la sesión es requerido.';
             } else {
                 $errMsg = null;
-                $newId = inventario_session_create($nombre, $descripcion, (int)($_SESSION['user_id'] ?? 0), $categoriaId > 0 ? $categoriaId : null, $errMsg);
+                $newId = inventario_session_create(
+                    $nombre,
+                    $descripcion,
+                    (int)($_SESSION['user_id'] ?? 0),
+                    $categoriaData['categoria_id'],
+                    $errMsg,
+                    $categoriaData['categoria_nombre']
+                );
                 if ($newId) {
                     $currentSession = inventario_session_get($newId);
                     if ($currentSession) {
@@ -138,27 +164,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($cantidad < 0) {
                 $error = 'La cantidad no puede ser negativa.';
             } else {
+                $errMsg = null;
                 $conteoId = inventario_registrar_conteo(
                     $sessionId,
                     $productoId,
                     $cantidad,
                     $ubicacion !== '' ? $ubicacion : null,
                     $notas !== '' ? $notas : null,
-                    (int)($_SESSION['user_id'] ?? 0)
+                    (int)($_SESSION['user_id'] ?? 0),
+                    $errMsg
                 );
 
                 if ($conteoId) {
                     $info = 'Conteo registrado.';
                     $currentSession = inventario_session_get($sessionId);
                     
-                    // Si es AJAX, responder JSON
-                    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-                        header('Content-Type: application/json');
-                        echo json_encode(['ok' => true, 'conteo_id' => $conteoId, 'mensaje' => 'Conteo registrado']);
-                        exit;
+                    if ($isAjaxRequest) {
+                        $respondAjax(true, ['conteo_id' => $conteoId, 'mensaje' => 'Conteo registrado']);
                     }
                 } else {
-                    $error = 'Error al registrar conteo.';
+                    $error = $errMsg ?: 'Error al registrar conteo.';
                 }
             }
 
@@ -186,6 +211,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    if ($isAjaxRequest && $error !== null) {
+        $respondAjax(false, ['error' => $error], 400);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -211,30 +240,21 @@ if ($sessionId > 0) {
     }
 }
 
-// Cargar categorías para filtro
-$categorias = [];
-try {
-    $pdo = getPDO();
-    $st = $pdo->query("SELECT id, nombre FROM categorias WHERE activo = 1 ORDER BY nombre");
-    $categorias = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-} catch (Throwable $e) {
-    // Silenciar error
-}
+$categorias = inventario_get_categorias_disponibles();
 
 // Calcular estadísticas de progreso
 $totalProductos = 0;
 $productosContados = count($conteos);
 $productosConDiferencia = (int)($resumen['productos_con_diferencia'] ?? 0);
 $valorDiferencia = (float)($resumen['valor_diferencia'] ?? 0);
+$sessionCategoryFilters = inventario_session_category_filters($currentSession);
+$sessionCategoryLabel = $sessionCategoryFilters['categoria_nombre'];
 
-if ($filtroCategoria > 0) {
-    try {
-        $st = $pdo->prepare("SELECT COUNT(*) FROM productos WHERE activo = 1 AND categoria_id = ?");
-        $st->execute([$filtroCategoria]);
-        $totalProductos = (int)$st->fetchColumn();
-    } catch (Throwable $e) {}
+if ($currentSession) {
+    $totalProductos = inventario_contar_productos_sesion($currentSession);
 } else {
     try {
+        $pdo = getPDO();
         $totalProductos = (int)$pdo->query("SELECT COUNT(*) FROM productos WHERE activo = 1")->fetchColumn();
     } catch (Throwable $e) {}
 }
@@ -255,7 +275,12 @@ if ($currentSession) {
 require __DIR__ . '/partials/header.php';
 ?>
 
-<div class="panel invf" data-productos-contados='<?= json_encode($productosYaContados) ?>'>
+<div
+    class="panel invf"
+    data-productos-contados='<?= json_encode($productosYaContados, JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT) ?>'
+    data-session-category-id="<?= (int)($sessionCategoryFilters['categoria_id'] ?? 0) ?>"
+    data-session-category-name="<?= h((string)($sessionCategoryFilters['categoria_nombre'] ?? '')) ?>"
+>
     
     <!-- ═══════════════════════════════════════════════════════════════════════
          HEADER + STEPPER
@@ -383,6 +408,15 @@ require __DIR__ . '/partials/header.php';
                         </svg>
                         <?= h(date('d/m/Y H:i', strtotime((string)($sesion['created_at'] ?? 'now')))) ?>
                     </div>
+                    <?php if (!empty($sesion['categoria_nombre'])): ?>
+                    <div class="session-meta">
+                        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.59 13.41L12 22l-8.59-8.59a2 2 0 0 1 0-2.82l7.18-7.18a2 2 0 0 1 2.82 0l7.18 7.18a2 2 0 0 1 0 2.82z"/>
+                            <line x1="7" y1="7" x2="7.01" y2="7"/>
+                        </svg>
+                        <?= h((string)$sesion['categoria_nombre']) ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <span class="session-status <?= $estadoSesion ?>"><?= h((string)($sesion['estado'] ?? '')) ?></span>
             </div>
@@ -454,6 +488,9 @@ require __DIR__ . '/partials/header.php';
                         <?= h((string)$currentSession['descripcion']) ?> •
                     <?php endif; ?>
                     Creada <?= h(date('d/m/Y H:i', strtotime((string)($currentSession['created_at'] ?? 'now')))) ?>
+                    <?php if ($sessionCategoryLabel): ?>
+                        • Categoría: <?= h($sessionCategoryLabel) ?>
+                    <?php endif; ?>
                 </div>
             </div>
             <span class="session-status <?= strtolower((string)($currentSession['estado'] ?? '')) ?>"><?= h((string)($currentSession['estado'] ?? '')) ?></span>
@@ -923,10 +960,10 @@ require __DIR__ . '/partials/header.php';
         <?php if (!empty($categorias)): ?>
         <div class="form-group">
             <label for="sesionCategoria">Filtrar por categoría (opcional)</label>
-            <select name="categoria_id" id="sesionCategoria" class="form-control">
-                <option value="0">Todos los productos</option>
+            <select name="categoria_token" id="sesionCategoria" class="form-control">
+                <option value="">Todos los productos</option>
                 <?php foreach ($categorias as $cat): ?>
-                <option value="<?= (int)$cat['id'] ?>"><?= h($cat['nombre']) ?></option>
+                <option value="<?= h((string)$cat['token']) ?>"><?= h((string)$cat['nombre']) ?></option>
                 <?php endforeach; ?>
             </select>
             <p class="form-hint">Si elegís una categoría, solo podrás contar productos de esa categoría</p>

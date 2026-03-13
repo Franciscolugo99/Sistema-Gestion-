@@ -73,9 +73,14 @@ try {
         case 'parados':
             $dias = max(1, (int)($_GET['dias'] ?? 30));
             $limit = min(500, max(1, (int)($_GET['limit'] ?? 25)));
+            $filtros = [
+                'categoria'   => $_GET['categoria'] ?? '',
+                'proveedor_id'=> $_GET['proveedor_id'] ?? null,
+                'busqueda'    => $_GET['q'] ?? '',
+            ];
             json_ok([
-                'productos' => $analisis->getProductosParados($dias, $limit),
-                'total' => $analisis->contarProductosParados($dias)
+                'productos' => $analisis->getProductosParados($dias, $limit, $filtros),
+                'total' => $analisis->contarProductosParados($dias, $filtros)
             ]);
             break;
 
@@ -83,7 +88,12 @@ try {
             $dias = max(1, (int)($_GET['dias'] ?? 30));
             $limit = min(500, max(1, (int)($_GET['limit'] ?? 25)));
             $orden = $_GET['orden'] ?? 'vendidos';
-            json_ok(['productos' => $analisis->getRotacion($dias, $limit, $orden)]);
+            $filtros = [
+                'categoria'   => $_GET['categoria'] ?? '',
+                'proveedor_id'=> $_GET['proveedor_id'] ?? null,
+                'busqueda'    => $_GET['q'] ?? '',
+            ];
+            json_ok(['productos' => $analisis->getRotacion($dias, $limit, $orden, $filtros)]);
             break;
 
         case 'stock_bajo':

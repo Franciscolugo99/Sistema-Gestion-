@@ -5,7 +5,7 @@
    - Actualiza nodos con [data-kpi="..."]
    - Si no existe #ventas-kpis, lo inserta arriba (modo fallback)
    - KPIs clickeables:
-       * Tickets/Facturación/Ticket Prom/Descuentos => Estado=EMITIDA
+       * Tickets/Total confirmado/Ticket Prom/Descuentos => Estado=EMITIDA
        * Anuladas => Estado=ANULADA
        * Chips de pago => setea Medio (si existe en select) y filtra
 */
@@ -79,11 +79,11 @@
     container.innerHTML = `
       <div class="vkpi-grid" role="list">
         <div class="vkpi-card" role="listitem">
-          <div class="vkpi-label">Tickets (emitidas)</div>
+          <div class="vkpi-label">Tickets confirmados</div>
           <div class="vkpi-value" data-kpi="tickets">0</div>
         </div>
         <div class="vkpi-card" role="listitem">
-          <div class="vkpi-label">Facturación (emitidas)</div>
+          <div class="vkpi-label">Total confirmado</div>
           <div class="vkpi-value" data-kpi="facturacion">$0,00</div>
         </div>
         <div class="vkpi-card" role="listitem">

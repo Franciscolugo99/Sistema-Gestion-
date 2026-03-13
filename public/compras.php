@@ -797,47 +797,31 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
    Datos para UI
 ------------------------------ */
 
+$hasProductosProveedorId = flus_column_exists($pdo, 'productos', 'proveedor_id');
+$hasProductosProveedorTxt = flus_column_exists($pdo, 'productos', 'proveedor');
+
 // Productos (select items)
+$productoCols = ['id', 'codigo', 'nombre', 'es_pesable', 'unidad_venta', 'costo'];
+if ($hasProductosProveedorId) {
+  $productoCols[] = 'proveedor_id';
+}
+if ($hasProductosProveedorTxt) {
+  $productoCols[] = 'proveedor AS proveedor_nombre';
+}
+
 $prodStmt = $pdo->query("
-  SELECT id, codigo, nombre, es_pesable, unidad_venta, costo
+  SELECT " . implode(', ', $productoCols) . "
   FROM productos
   WHERE activo = 1
   ORDER BY nombre
 ");
 $productos = $prodStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-$hasProductosProveedorId = flus_column_exists($pdo, 'productos', 'proveedor_id');
-$hasProductosProveedorTxt = flus_column_exists($pdo, 'productos', 'proveedor');
-
-if ($hasProductosProveedorId || $hasProductosProveedorTxt) {
-  $metaCols = ['id'];
-  if ($hasProductosProveedorId) {
-    $metaCols[] = 'proveedor_id';
-  }
-  if ($hasProductosProveedorTxt) {
-    $metaCols[] = 'proveedor';
-  }
-
-  $prodMetaStmt = $pdo->query("SELECT " . implode(', ', $metaCols) . " FROM productos WHERE activo = 1");
-  $prodMetaRows = $prodMetaStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-  $prodMetaById = [];
-  foreach ($prodMetaRows as $metaRow) {
-    $prodMetaById[(int)($metaRow['id'] ?? 0)] = $metaRow;
-  }
-
-  foreach ($productos as &$productoUi) {
-    $meta = $prodMetaById[(int)($productoUi['id'] ?? 0)] ?? [];
-    $productoUi['proveedor_id'] = $hasProductosProveedorId ? (int)($meta['proveedor_id'] ?? 0) : 0;
-    $productoUi['proveedor_nombre'] = $hasProductosProveedorTxt ? trim((string)($meta['proveedor'] ?? '')) : '';
-  }
-  unset($productoUi);
-} else {
-  foreach ($productos as &$productoUi) {
-    $productoUi['proveedor_id'] = 0;
-    $productoUi['proveedor_nombre'] = '';
-  }
-  unset($productoUi);
+foreach ($productos as &$productoUi) {
+  $productoUi['proveedor_id'] = $hasProductosProveedorId ? (int)($productoUi['proveedor_id'] ?? 0) : 0;
+  $productoUi['proveedor_nombre'] = $hasProductosProveedorTxt ? trim((string)($productoUi['proveedor_nombre'] ?? '')) : '';
 }
+unset($productoUi);
 
 $productosByIdUi = [];
 foreach ($productos as $productoUi) {
@@ -850,7 +834,7 @@ try {
     SELECT ci.producto_id, MAX(c.fecha) AS ultima_fecha, COUNT(*) AS veces
     FROM compra_items ci
     INNER JOIN compras c ON c.id = ci.compra_id
-    WHERE ci.producto_id IS NOT NULL AND c.estado <> 'ANULADA'
+    WHERE ci.producto_id IS NOT NULL AND c.estado = 'CONFIRMADA'
     GROUP BY ci.producto_id
     ORDER BY ultima_fecha DESC, veces DESC
     LIMIT 18
@@ -891,20 +875,9 @@ $proveedoresUi = $proveedorStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 // Listado + filtros
 $q      = trim((string)($_GET['q'] ?? ''));
 $detalleCompraId = max(0, (int)($_GET['detalle'] ?? 0));
-$detalleOrigen = strtolower(trim((string)($_GET['origen'] ?? '')));
 $estado = (string)($_GET['estado'] ?? '');
 $desde  = validDateYmd((string)($_GET['desde'] ?? ''));
 $hasta  = validDateYmd((string)($_GET['hasta'] ?? ''));
-
-if ($detalleCompraId > 0) {
-  $detalleParams = ['id' => $detalleCompraId];
-  if (in_array($detalleOrigen, ['movimientos', 'compras'], true)) {
-    $detalleParams['origen'] = $detalleOrigen;
-  }
-
-  header('Location: compra_detalle.php?' . http_build_query($detalleParams));
-  exit;
-}
 
 $perPage = (int)($_GET['per_page'] ?? 50);
 if (!in_array($perPage, [20,50,100], true)) $perPage = 50;
@@ -1534,6 +1507,19 @@ document.addEventListener('keydown', (event) => {
     }
     const anularModal = document.querySelector('.compras-modal-overlay');
     if (anularModal) anularModal.remove();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const detalleId = <?= json_encode($detalleCompraId) ?>;
+  if (Number(detalleId) > 0) {
+    verDetalle(Number(detalleId));
+    if (window.history && typeof window.history.replaceState === 'function') {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete('detalle');
+      nextUrl.searchParams.delete('origen');
+      window.history.replaceState({}, document.title, nextUrl.toString());
+    }
   }
 });
 

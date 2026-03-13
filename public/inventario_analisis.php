@@ -185,7 +185,7 @@ if ($tabActivo === 'resumen' || $tabActivo === 'parados') {
     $productosParados = $analisis->getProductosParados($diasParados, $limitParados, $filtros);
 }
 if ($tabActivo === 'resumen' || $tabActivo === 'rotacion') {
-    $rotacion = $analisis->getRotacion(30, $limitRotacion);
+    $rotacion = $analisis->getRotacion(30, $limitRotacion, 'vendidos', $filtros);
 }
 
 if ($tabActivo === 'costos') {
@@ -204,7 +204,7 @@ if ($tabActivo === 'ventas') {
 
 // Totales para contadores
 $totalConCosto = $analisis->contarProductosConCosto($filtros);
-$totalParados = $analisis->contarProductosParados($diasParados);
+$totalParados = $analisis->contarProductosParados($diasParados, $filtros);
 
 // Helper formato
 $fmtQty = static function($value, $esPesable = 0): string {
@@ -770,6 +770,9 @@ require __DIR__ . '/partials/header.php';
     <div class="panel inv-filters-panel">
         <form method="get" class="inv-filters">
             <input type="hidden" name="tab" value="parados">
+            <input type="hidden" name="q" value="<?= htmlspecialchars($filtros['busqueda']) ?>">
+            <input type="hidden" name="categoria" value="<?= htmlspecialchars($filtros['categoria']) ?>">
+            <input type="hidden" name="proveedor_id" value="<?= htmlspecialchars((string)($filtros['proveedor_id'] ?? '')) ?>">
             <div class="inv-filter-group">
                 <label>📅 Sin venta hace</label>
                 <select name="dias_parados" class="inv-filter-select" onchange="this.form.submit()">
@@ -796,7 +799,7 @@ require __DIR__ . '/partials/header.php';
         <div class="panel-header">
             <h2 class="panel-title">😴 Productos Sin Venta (<?= $diasParados ?>+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
             <div class="panel-info">
-                <?= count($productosParados) ?> productos | Capital parado: 
+                <?= count($productosParados) ?> de <?= (int)$totalParados ?> productos | Capital parado: 
                 <strong><?= $fmtMoney(array_sum(array_column($productosParados, 'capital_parado'))) ?></strong>
             </div>
         </div>

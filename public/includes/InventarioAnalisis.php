@@ -27,6 +27,31 @@ class InventarioAnalisis
         $this->pdo = $pdo;
     }
 
+    private function buildProductoFilters(string $alias = 'p', array $filtros = []): array
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+        $sql = '';
+        $params = [];
+
+        if (!empty($filtros['categoria'])) {
+            $sql .= " AND {$prefix}categoria = :f_categoria";
+            $params[':f_categoria'] = $filtros['categoria'];
+        }
+
+        if (!empty($filtros['proveedor_id'])) {
+            $sql .= " AND {$prefix}proveedor_id = :f_proveedor_id";
+            $params[':f_proveedor_id'] = (int)$filtros['proveedor_id'];
+        }
+
+        if (!empty($filtros['busqueda'])) {
+            $sql .= " AND ({$prefix}nombre LIKE :f_busq OR {$prefix}codigo LIKE :f_busq2)";
+            $params[':f_busq'] = '%' . $filtros['busqueda'] . '%';
+            $params[':f_busq2'] = '%' . $filtros['busqueda'] . '%';
+        }
+
+        return ['sql' => $sql, 'params' => $params];
+    }
+
     /**
      * Obtiene el resumen general de inversión
      * 
@@ -325,18 +350,9 @@ class InventarioAnalisis
         $diasInt  = max(1, (int)$dias);
         $limitInt = max(0, (int)$limit);
 
-        $whereExtra = "";
-        $params = [];
-
-        if (!empty($filtros['categoria'])) {
-            $whereExtra .= " AND p.categoria = :categoria";
-            $params[':categoria'] = $filtros['categoria'];
-        }
-        if (!empty($filtros['busqueda'])) {
-            $whereExtra .= " AND (p.nombre LIKE :busq OR p.codigo LIKE :busq2)";
-            $params[':busq'] = '%' . $filtros['busqueda'] . '%';
-            $params[':busq2'] = '%' . $filtros['busqueda'] . '%';
-        }
+        $productoFilters = $this->buildProductoFilters('p', $filtros);
+        $whereExtra = $productoFilters['sql'];
+        $params = $productoFilters['params'];
 
         $limitSql = $limitInt > 0 ? "LIMIT {$limitInt}" : "";
 
@@ -393,25 +409,33 @@ class InventarioAnalisis
     /**
      * Cuenta productos parados
      */
-    public function contarProductosParados(int $dias = 30): int
+    public function contarProductosParados(int $dias = 30, array $filtros = []): int
     {
         $diasInt = max(1, (int)$dias);
+        $productoFilters = $this->buildProductoFilters('p', $filtros);
+        $whereExtra = $productoFilters['sql'];
 
         $sql = "
             SELECT COUNT(*) FROM (
                 SELECT p.id,
                     (SELECT MAX(v.fecha) 
                     FROM venta_items vi 
-                    INNER JOIN ventas v ON v.id = vi.venta_id AND v.estado = 'EMITIDA'
-                    WHERE vi.producto_id = p.id) as ultima_venta
+                     INNER JOIN ventas v ON v.id = vi.venta_id AND v.estado = 'EMITIDA'
+                     WHERE vi.producto_id = p.id) as ultima_venta
                 FROM productos p
-                WHERE p.activo = 1 AND p.stock > 0
+                WHERE p.activo = 1 AND p.stock > 0 {$whereExtra}
                 HAVING ultima_venta IS NULL 
                 OR ultima_venta < DATE_SUB(NOW(), INTERVAL {$diasInt} DAY)
             ) as parados
         ";
 
-        return (int)$this->pdo->query($sql)->fetchColumn();
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($productoFilters['params'] as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+
+        return (int)$stmt->fetchColumn();
     }
 
 
@@ -421,10 +445,12 @@ class InventarioAnalisis
      * FIX v2.1.0: Clasificación ABC ahora es real (por ingresos acumulados 80/95),
      * no la comparación vendidos vs stock que había antes.
      */
-    public function getRotacion(int $dias = 30, int $limit = 25, string $orden = 'vendidos'): array
+    public function getRotacion(int $dias = 30, int $limit = 25, string $orden = 'vendidos', array $filtros = []): array
     {
         $diasInt  = max(1, (int)$dias);
         $limitInt = max(0, (int)$limit);
+        $productoFilters = $this->buildProductoFilters('p', $filtros);
+        $whereExtra = $productoFilters['sql'];
 
         $orderBy = match ($orden) {
             'dias_rest' => 'dias_stock_restante ASC',
@@ -451,11 +477,16 @@ class InventarioAnalisis
                 AND v.fecha >= DATE_SUB(NOW(), INTERVAL {$diasInt} DAY)
                 GROUP BY vi.producto_id
             ) vx ON vx.producto_id = p.id
-            WHERE p.activo = 1
+            WHERE p.activo = 1 {$whereExtra}
             ORDER BY ingresos_30d DESC
         ";
 
-        $todosProductos = $this->pdo->query($sqlAbc)->fetchAll(PDO::FETCH_ASSOC);
+        $stmtAbc = $this->pdo->prepare($sqlAbc);
+        foreach ($productoFilters['params'] as $key => $val) {
+            $stmtAbc->bindValue($key, $val);
+        }
+        $stmtAbc->execute();
+        $todosProductos = $stmtAbc->fetchAll(PDO::FETCH_ASSOC);
 
         $totalIngresos = (float) array_sum(array_column($todosProductos, 'ingresos_30d'));
         $abcMap = [];
@@ -516,12 +547,17 @@ class InventarioAnalisis
                 AND v.fecha >= DATE_SUB(NOW(), INTERVAL {$diasInt} DAY)
                 GROUP BY vi.producto_id
             ) vx ON vx.producto_id = p.id
-            WHERE p.activo = 1 AND p.stock > 0
+            WHERE p.activo = 1 AND p.stock > 0 {$whereExtra}
             ORDER BY {$orderBy}
             {$limitSql}
         ";
 
-        $results = $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($productoFilters['params'] as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($results as &$row) {
             $id = (int)$row['id'];

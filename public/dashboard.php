@@ -15,70 +15,70 @@ require_permission('ver_reportes');
 ========================= */
 $kpiTooltips = [
     'ventas' => [
-        'title' => '¿Qué son las Ventas?',
-        'desc' => 'Número total de tickets/transacciones completadas en el período seleccionado.',
+        'title' => 'Que son las ventas?',
+        'desc' => 'Numero total de tickets o transacciones completadas en el periodo seleccionado.',
         'calc' => 'Cuenta de ventas con estado EMITIDA',
-        'tip' => 'Compara con períodos anteriores para identificar tendencias. Un aumento constante indica crecimiento saludable.'
+        'tip' => 'Compara con periodos anteriores para identificar tendencias. Un aumento constante indica crecimiento saludable.'
     ],
     'facturacion' => [
-        'title' => '¿Qué es la Facturación?',
+        'title' => 'Que es la facturacion?',
         'desc' => 'Suma total del dinero recibido por todas las ventas. Incluye todos los medios de pago.',
-        'calc' => 'Σ (total de cada venta emitida)',
-        'tip' => 'Este es tu ingreso bruto. Para conocer la ganancia real, revisa el análisis de rentabilidad.'
+        'calc' => 'Suma del total de cada venta emitida',
+        'tip' => 'Este es tu ingreso bruto. Para conocer la ganancia real, revisa el analisis de rentabilidad.'
     ],
     'ticket_promedio' => [
-        'title' => '¿Qué es el Ticket Promedio?',
-        'desc' => 'Cuánto gasta en promedio cada cliente por compra. Indica el valor típico de una transacción.',
-        'calc' => 'Facturación ÷ Número de ventas',
-        'tip' => 'Para aumentarlo: ofrece productos complementarios, promociones por monto mínimo o combos.'
+        'title' => 'Que es el ticket promedio?',
+        'desc' => 'Cuanto gasta en promedio cada cliente por compra. Indica el valor tipico de una transaccion.',
+        'calc' => 'Facturacion / numero de ventas',
+        'tip' => 'Para aumentarlo: ofrece productos complementarios, promociones por monto minimo o combos.'
     ],
     'unidades' => [
-        'title' => '¿Qué son las Unidades Vendidas?',
-        'desc' => 'Cantidad total de productos vendidos (suma de cantidades de todos los items).',
-        'calc' => 'Σ (cantidad de cada línea de venta)',
-        'tip' => 'Útil para planificar reposición de stock y detectar productos estrella.'
+        'title' => 'Que son las unidades vendidas?',
+        'desc' => 'Cantidad total de productos vendidos, sumando todas las lineas de venta.',
+        'calc' => 'Suma de la cantidad de cada linea de venta',
+        'tip' => 'Util para planificar reposicion de stock y detectar productos estrella.'
     ],
     'ganancia' => [
-        'title' => '¿Qué es la Ganancia Bruta?',
-        'desc' => 'Diferencia entre lo que vendiste y lo que te costó la mercadería. Es tu utilidad antes de gastos operativos.',
-        'calc' => 'Facturación − Costo de mercadería vendida',
-        'tip' => 'Si es negativa, estás vendiendo por debajo del costo. Revisa precios urgentemente.'
+        'title' => 'Que es la ganancia bruta?',
+        'desc' => 'Diferencia entre lo que vendiste y lo que te costo la mercaderia. Es tu utilidad antes de gastos operativos.',
+        'calc' => 'Facturacion - costo de mercaderia vendida',
+        'tip' => 'Si es negativa, estas vendiendo por debajo del costo. Revisa precios urgentemente.'
     ],
     'margen' => [
-        'title' => '¿Qué es el Margen?',
-        'desc' => 'Porcentaje de cada peso vendido que queda como ganancia. Indica qué tan rentable es tu operación.',
-        'calc' => '(Ganancia ÷ Facturación) × 100',
-        'tip' => 'Un margen del 30-40% es saludable para retail. Menos del 20% puede ser problemático.'
+        'title' => 'Que es el margen?',
+        'desc' => 'Porcentaje de cada peso vendido que queda como ganancia. Indica que tan rentable es tu operacion.',
+        'calc' => '(Ganancia / facturacion) * 100',
+        'tip' => 'Un margen del 30 al 40 por ciento es saludable para retail. Menos del 20 por ciento puede ser problematico.'
     ],
     'costos' => [
-        'title' => '¿Qué es el Total de Costos?',
-        'desc' => 'Suma de lo que pagaste por la mercadería que vendiste (costo de adquisición).',
-        'calc' => 'Σ (cantidad × costo unitario) de productos vendidos',
-        'tip' => 'Mantén actualizados los costos de tus productos para que este cálculo sea preciso.'
+        'title' => 'Que es el total de costos?',
+        'desc' => 'Suma de lo que pagaste por la mercaderia que vendiste.',
+        'calc' => 'Suma de cantidad por costo unitario de productos vendidos',
+        'tip' => 'Manten actualizados los costos de tus productos para que este calculo sea preciso.'
     ],
     'descuentos' => [
-        'title' => '¿Qué son los Descuentos por Promos?',
+        'title' => 'Que son los descuentos por promos?',
         'desc' => 'Total de dinero descontado a clientes por promociones activas.',
-        'calc' => 'Σ (descuentos aplicados por promociones)',
-        'tip' => 'Monitorea que las promos generen más ventas de las que cuestan en descuentos.'
+        'calc' => 'Suma de descuentos aplicados por promociones',
+        'tip' => 'Monitorea que las promos generen mas ventas de las que cuestan en descuentos.'
     ],
     'anulaciones' => [
-        'title' => '¿Qué son las Ventas Anuladas?',
-        'desc' => 'Ventas que se cancelaron o revirtieron después de emitirse.',
+        'title' => 'Que son las ventas anuladas?',
+        'desc' => 'Ventas que se cancelaron o revirtieron despues de emitirse.',
         'calc' => 'Cuenta de ventas con estado ANULADA',
-        'tip' => 'Una tasa mayor al 5% indica problemas. Investiga las causas: errores, devoluciones, etc.'
+        'tip' => 'Una tasa mayor al 5 por ciento indica problemas. Investiga las causas: errores, devoluciones, etc.'
     ],
     'tasa_anulacion' => [
-        'title' => '¿Qué es la Tasa de Anulación?',
+        'title' => 'Que es la tasa de anulacion?',
         'desc' => 'Porcentaje de ventas que terminaron siendo anuladas respecto al total.',
-        'calc' => '(Anuladas ÷ Total de ventas) × 100',
-        'tip' => 'Menos del 2% es excelente, 2-5% es aceptable, más del 5% requiere atención.'
+        'calc' => '(Anuladas / total de ventas) * 100',
+        'tip' => 'Menos del 2 por ciento es excelente, 2 a 5 por ciento es aceptable, mas del 5 por ciento requiere atencion.'
     ],
     'monto_anulado' => [
-        'title' => '¿Qué es el Monto Anulado?',
+        'title' => 'Que es el monto anulado?',
         'desc' => 'Suma del valor de todas las ventas que fueron anuladas.',
-        'calc' => 'Σ (total de ventas anuladas)',
-        'tip' => 'Representa dinero que esperabas recibir pero no se concretó.'
+        'calc' => 'Suma del total de ventas anuladas',
+        'tip' => 'Representa dinero que esperabas recibir pero no se concreto.'
     ],
 ];
 
@@ -92,50 +92,20 @@ function format_qty_trim(float $n): string {
   return $s === '' ? '0' : $s;
 }
 
-function _legacy_tableExists(PDO $pdo, string $table): bool {
-  try {
-    $stmt = $pdo->prepare("
-      SELECT COUNT(*)
-      FROM information_schema.tables
-      WHERE table_schema = DATABASE() AND table_name = :t
-    ");
-    $stmt->execute([':t' => $table]);
-    return (int)$stmt->fetchColumn() > 0;
-  } catch (Throwable $e) {
-    return false;
-  }
-}
-
-function _legacy_columnExists(PDO $pdo, string $table, string $column): bool {
-  try {
-    $pdo->query("SELECT `$column` FROM `$table` LIMIT 0");
-    return true;
-  } catch (Throwable $e) {
-    return false;
-  }
-}
-
-function firstExistingColumn(PDO $pdo, string $table, array $candidates): ?string {
-  foreach ($candidates as $c) {
-    if (flus_column_exists($pdo, $table, $c)) return $c;
-  }
-  return null;
-}
-
-// Función para determinar el estado del KPI
+// FunciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n para determinar el estado del KPI
 function getKpiStatus(string $type, float $value): array {
     switch ($type) {
         case 'margen':
             if ($value >= 35) return ['class' => 'kpi-status-excellent', 'text' => 'Excelente'];
             if ($value >= 25) return ['class' => 'kpi-status-good', 'text' => 'Bueno'];
             if ($value >= 15) return ['class' => 'kpi-status-attention', 'text' => 'Revisar'];
-            return ['class' => 'kpi-status-critical', 'text' => 'Crítico'];
+            return ['class' => 'kpi-status-critical', 'text' => 'Critico'];
             
         case 'tasa_anulacion':
             if ($value <= 2) return ['class' => 'kpi-status-excellent', 'text' => 'Excelente'];
             if ($value <= 5) return ['class' => 'kpi-status-good', 'text' => 'Normal'];
             if ($value <= 10) return ['class' => 'kpi-status-attention', 'text' => 'Revisar'];
-            return ['class' => 'kpi-status-critical', 'text' => 'Crítico'];
+            return ['class' => 'kpi-status-critical', 'text' => 'Critico'];
             
         default:
             return ['class' => '', 'text' => ''];
@@ -150,13 +120,11 @@ $hasVentaItems   = flus_table_exists($pdo, 'venta_items');
 $hasProductos    = flus_table_exists($pdo, 'productos');
 $hasMovimientos  = flus_table_exists($pdo, 'movimientos_stock');
 $hasVentaPromos  = flus_table_exists($pdo, 'venta_promos');
-$hasCierresCaja  = flus_table_exists($pdo, 'cierres_caja');
 
 $ventasFechaCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['fecha','created_at','fecha_hora']) : null;
 $ventasTotalCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['total','monto_total','importe_total']) : null;
 $ventasEstadoCol = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['estado','status']) : null;
 $ventasMedioCol  = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['medio_pago','metodo_pago','pago_tipo']) : null;
-$ventasCajaCol   = $hasVentas ? flus_first_existing_column($pdo, 'ventas', ['caja_id','terminal_id']) : null;
 
 $viVentaIdCol    = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['venta_id']) : null;
 $viProdIdCol     = $hasVentaItems ? flus_first_existing_column($pdo, 'venta_items', ['producto_id']) : null;
@@ -177,7 +145,7 @@ $msTipoCol       = $hasMovimientos ? flus_first_existing_column($pdo, 'movimient
 $msProdIdCol     = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['producto_id']) : null;
 $msCantCol       = $hasMovimientos ? flus_first_existing_column($pdo, 'movimientos_stock', ['cantidad']) : null;
 
-/* Expr "importe de línea" para prorratear neto (evita vi.subtotal inexistente) */
+/* Expr "importe de lÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½nea" para prorratear neto (evita vi.subtotal inexistente) */
 $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPriceCol): ?string {
   if ($viLineCol) return "{$alias}.`{$viLineCol}`";
   if ($viQtyCol && $viPriceCol) return "({$alias}.`{$viQtyCol}` * {$alias}.`{$viPriceCol}`)";
@@ -185,12 +153,12 @@ $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPrice
 };
 
 /* =========================
-   OBTENER CATEGORÍAS DISPONIBLES
+   OBTENER CATEGORÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½AS DISPONIBLES
 ========================= */
 $categoriasDisponibles = [];
 if ($hasProductos && $prodCatCol) {
   $stmt = $pdo->query("
-    SELECT DISTINCT COALESCE(NULLIF(TRIM(`{$prodCatCol}`), ''), 'Sin Categoría') AS categoria
+    SELECT DISTINCT COALESCE(NULLIF(TRIM(`{$prodCatCol}`), ''), 'Sin categoria') AS categoria
     FROM productos
     ORDER BY categoria
   ");
@@ -199,7 +167,7 @@ if ($hasProductos && $prodCatCol) {
 
 
 /* =========================
-   RANGO DE FECHAS + FILTRO CATEGORÍA
+   RANGO DE FECHAS + FILTRO CATEGORÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½A
 ========================= */
 $today       = (new DateTime('today'))->format('Y-m-d');
 $defaultFrom = (new DateTime('today'))->modify('-29 days')->format('Y-m-d');
@@ -209,31 +177,9 @@ $from = validDateYmd($_GET['from'] ?? null) ?? $defaultFrom;
 $to   = validDateYmd($_GET['to'] ?? null) ?? $defaultTo;
 $categoriaFiltro = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : null;
 
-// Filtros de hora
+// Filtros de hora (24h nativo)
 $horaDesde = isset($_GET['hora_desde']) && $_GET['hora_desde'] !== '' ? trim($_GET['hora_desde']) : null;
 $horaHasta = isset($_GET['hora_hasta']) && $_GET['hora_hasta'] !== '' ? trim($_GET['hora_hasta']) : null;
-$horaDesdeAmpm = isset($_GET['hora_desde_ampm']) ? strtoupper(trim((string)$_GET['hora_desde_ampm'])) : 'AUTO';
-$horaHastaAmpm = isset($_GET['hora_hasta_ampm']) ? strtoupper(trim((string)$_GET['hora_hasta_ampm'])) : 'AUTO';
-
-if (!in_array($horaDesdeAmpm, ['AUTO','AM','PM'], true)) $horaDesdeAmpm = 'AUTO';
-if (!in_array($horaHastaAmpm, ['AUTO','AM','PM'], true)) $horaHastaAmpm = 'AUTO';
-
-function flus_time_to_24h(string $hhmm, string $ampm): string {
-  $ampm = strtoupper($ampm);
-  if ($ampm !== 'AM' && $ampm !== 'PM') return $hhmm;
-
-  [$h, $m] = array_map('intval', explode(':', $hhmm, 2));
-  // Si ya está en 13..23, ignoramos AM/PM
-  if ($h >= 13) return $hhmm;
-
-  // Interpretación 12h
-  if ($h === 12) {
-    $h = ($ampm === 'AM') ? 0 : 12;
-  } elseif ($h >= 1 && $h <= 11) {
-    if ($ampm === 'PM') $h += 12;
-  }
-  return sprintf('%02d:%02d', $h, $m);
-}
 
 // Validar formato HH:MM
 if ($horaDesde && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaDesde)) {
@@ -244,11 +190,11 @@ if ($horaHasta && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaHasta)
 }
 
 if ($from > $to) [$from, $to] = [$to, $from];
-$horaDesdeSql = $horaDesde ? flus_time_to_24h($horaDesde, $horaDesdeAmpm) : null;
-$horaHastaSql = $horaHasta ? flus_time_to_24h($horaHasta, $horaHastaAmpm) : null;
+$horaDesdeSql = $horaDesde ?: null;
+$horaHastaSql = $horaHasta ?: null;
 
 /* =========================
-   LÍMITE DE RANGO (365 días)
+   LÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½MITE DE RANGO (365 dÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as)
 ========================= */
 $maxDays = 365;
 $toastMessage = '';
@@ -262,7 +208,7 @@ $diffDays = (int)$fromDT->diff($toDT)->format('%a');
 if ($diffDays > ($maxDays - 1)) {
   $fromDT = (clone $toDT)->modify('-' . ($maxDays - 1) . ' days');
   $from = $fromDT->format('Y-m-d');
-  $toastMessage = "Rango máximo: {$maxDays} días. Ajustado automáticamente.";
+  $toastMessage = "Rango maximo: {$maxDays} dias. Ajustado automaticamente.";
   $toastFrom = $from;
   $toastTo = $to;
   $diffDays = (int)$fromDT->diff($toDT)->format('%a');
@@ -271,7 +217,7 @@ if ($diffDays > ($maxDays - 1)) {
 $fromStart = $from . " 00:00:00";
 $toEnd     = (new DateTime($to))->modify('+1 day')->format('Y-m-d') . " 00:00:00";
 
-// Aplicar filtro de horas si están definidos (convertidos a 24h para SQL)
+// Aplicar filtro de horas si estÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n definidos (convertidos a 24h para SQL)
 if ($horaDesdeSql) {
   $fromStart = $from . " " . $horaDesdeSql . ":00";
 }
@@ -295,30 +241,22 @@ $ventasAnuladaCond = ($hasVentas && $ventasEstadoCol)
   ? " AND `{$ventasEstadoCol}`='ANULADA' "
   : " AND 1=0 ";
 
-/* Condición de filtro por categoría */
+/* CondiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n de filtro por categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a */
 $categoriaJoinCond = "";
 $categoriaWhereCond = "";
-$esSinCategoria = ($categoriaFiltro === 'Sin Categoría');
+$esSinCategoria = ($categoriaFiltro === 'Sin categoria');
 
-// Genera condición SQL para filtro de categoría (maneja "Sin Categoría" como NULL/vacío)
+// Genera condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n SQL para filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a (maneja "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a" como NULL/vacÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½o)
 // Retorna string SQL que puede insertarse directamente (ya incluye el valor escapado)
 function buildCatCond(string $alias, string $colName, ?string $filtro, PDO $pdo): string {
   if (!$filtro) return "";
-  if ($filtro === 'Sin Categoría') {
+  if ($filtro === 'Sin categoria') {
     return " AND ({$alias}.`{$colName}` IS NULL OR TRIM({$alias}.`{$colName}`) = '') ";
   }
   return " AND {$alias}.`{$colName}` = " . $pdo->quote($filtro) . " ";
 }
 
-// Genera condición para subquery IN (retorna condición completa para WHERE de subquery)
-function buildCatCondForSubquery(string $alias, string $colName, ?string $filtro, PDO $pdo): string {
-  if (!$filtro) return "";
-  if ($filtro === 'Sin Categoría') {
-    return " AND ({$alias}.`{$colName}` IS NULL OR TRIM({$alias}.`{$colName}`) = '') ";
-  }
-  return " AND {$alias}.`{$colName}` = " . $pdo->quote($filtro) . " ";
-}
-
+// Genera condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n para subquery IN (retorna condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n completa para WHERE de subquery)
 // Pre-calcular condiciones que se usan frecuentemente
 $catCondP = "";  // Para alias 'p' (productos)
 if ($categoriaFiltro && $hasProductos && $prodCatCol) {
@@ -330,9 +268,9 @@ if ($categoriaFiltro && $hasProductos && $prodCatCol && $hasVentaItems && $viPro
 }
 
 /* =========================
-   CONFIGURACIÓN
+   CONFIGURACIÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½N
 ========================= */
-$diasSinMovimiento = 30; // Días sin movimiento para considerar producto "dormido"
+$diasSinMovimiento = 30; // DÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½as sin movimiento para considerar producto "dormido"
 
 /* =========================
    CACHE (APCu o File cache opcional - 5 min)
@@ -342,7 +280,11 @@ $dashCacheHit = false;
 $dashCached   = null;
 
 $sid = (session_status() === PHP_SESSION_ACTIVE) ? session_id() : '';
-$dashKeyBase = md5($from . '|' . $to . '|' . ($categoriaFiltro ?? '') . '|' . ($horaDesde ?? '') . '|' . ($horaHasta ?? '') . '|' . json_encode($_GET) . '|' . $sid);
+$dashKeyBase = md5(
+  $from . '|' . $to . '|' . ($categoriaFiltro ?? '') . '|'
+  . ($horaDesdeSql ?? '') . '|' . ($horaHastaSql ?? '') . '|'
+  . $sid
+);
 
 $dashCacheApcuEnabled = function_exists('apcu_fetch') && (bool)ini_get('apc.enabled');
 $dashCacheApcuKey = 'flus_dash_v4:' . $dashKeyBase;
@@ -390,7 +332,7 @@ if ($dashCacheHit && is_array($dashCached)) {
 
 
 /* =========================
-   KPIs BÁSICOS
+   KPIs BÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½SICOS
 ========================= */
 if (!$dashCacheHit) {
 
@@ -405,10 +347,10 @@ if ($hasMovimientos && $msFechaCol) {
   $movimientosRango = (int)$stmt->fetchColumn();
 }
 
-// KPIs con o sin filtro de categoría
+// KPIs con o sin filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
 if ($hasVentas && $ventasFechaCol) {
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
-    // Con filtro de categoría - contar ventas que incluyen productos de esa categoría
+    // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a - contar ventas que incluyen productos de esa categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
     $stmt = $pdo->prepare("
       SELECT COUNT(DISTINCT v.id)
       FROM ventas v
@@ -420,7 +362,7 @@ if ($hasVentas && $ventasFechaCol) {
     $stmt->execute([$fromStart, $toEnd]);
     $ventasRango = (int)$stmt->fetchColumn();
     
-    // Facturación filtrada por categoría (solo líneas de esa categoría)
+    // FacturaciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n filtrada por categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a (solo lÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½neas de esa categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
     if ($ventasTotalCol && $viLineCol) {
       $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(vi.`{$viLineCol}`),0)
@@ -499,7 +441,7 @@ $lineExprVi  = $lineExprForAlias('vi');
 $lineExprVi2 = $lineExprForAlias('vi2');
 
 if ($canRentabilidad) {
-  $catCondCostos = $catCondP;  // Ya está pre-calculada con manejo de "Sin Categoría"
+  $catCondCostos = $catCondP;  // Ya estÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½ pre-calculada con manejo de "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"
   
   $stmt = $pdo->prepare("
     SELECT COALESCE(SUM(vi.`{$viQtyCol}` * p.`{$prodCostoCol}`), 0)
@@ -549,7 +491,7 @@ if ($canRentabilidad) {
 }
 
 /* =========================
-   MÉTODOS DE PAGO (con filtro categoría)
+   MÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½TODOS DE PAGO (con filtro categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
 ========================= */
 $metodosPago = [];
 
@@ -564,7 +506,7 @@ if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
   if ($vpVentaId && $vpMedio && $vpMonto) {
     $vueltoExpr = $ventasVueltoCol ? "COALESCE(MAX(v.`{$ventasVueltoCol}`),0)" : "0";
     
-    // Construir condición de subquery para categoría (maneja "Sin Categoría")
+    // Construir condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n de subquery para categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a (maneja "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a")
     $catSubqueryWhere = "";
     if ($categoriaFiltro) {
       if ($esSinCategoria) {
@@ -574,7 +516,7 @@ if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
       }
     }
     
-    // Con filtro de categoría
+    // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
     if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
       $sql = "
         SELECT
@@ -639,7 +581,7 @@ if ($hasVentaPagos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
   }
 
 } elseif ($hasVentas && $ventasFechaCol && $ventasTotalCol && $ventasMedioCol) {
-  // Fallback sin tabla venta_pagos - construir condición de subquery
+  // Fallback sin tabla venta_pagos - construir condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n de subquery
   $catSubqueryWhere = "";
   if ($categoriaFiltro && $prodCatCol) {
     if ($esSinCategoria) {
@@ -713,7 +655,7 @@ if ($hasVentaPromos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
     ");
     $stmt->execute([$fromStart, $toEnd]);
     $promociones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    // Total real de descuentos en el período (no solo top 5)
+    // Total real de descuentos en el perÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½odo (no solo top 5)
     $stmtTotal = $pdo->prepare("
       SELECT COALESCE(SUM(vp.`{$vpDesc}`),0)
       FROM venta_promos vp
@@ -726,14 +668,14 @@ if ($hasVentaPromos && $hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 }
 
 /* =========================
-   CATEGORÍAS
+   CATEGORÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½AS
 ========================= */
 $categorias = [];
 if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasTotalCol && $viVentaIdCol && $viProdIdCol && $viQtyCol) {
   $catCol = $prodCatCol ?: null;
   $catSelect = $catCol
-  ? "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin Categoría')"
-  : "'Sin Categoría'";
+  ? "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categoria')"
+  : "'Sin categoria'";
 
 
   if ($lineExprVi && $lineExprVi2) {
@@ -783,14 +725,14 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $ventasT
 }
 
 /* =========================
-   ANULACIONES (con filtro categoría)
+   ANULACIONES (con filtro categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
 ========================= */
 $ventasAnuladas = 0;
 $montoAnulado = 0.0;
 $tasaAnulacion = 0.0;
 
 if ($hasVentas && $ventasFechaCol && $ventasEstadoCol) {
-  // Con filtro de categoría
+  // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
       SELECT COUNT(DISTINCT v.id) 
@@ -805,12 +747,15 @@ if ($hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 
     if ($ventasTotalCol) {
       $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) 
-        FROM ventas v
-        JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
-        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
-        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasAnuladaCond}
-          {$catCondP}
+        SELECT COALESCE(SUM(t.total_venta), 0)
+        FROM (
+          SELECT DISTINCT v.id, v.{$ventasTotalSQL} AS total_venta
+          FROM ventas v
+          JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasAnuladaCond}
+            {$catCondP}
+        ) t
       ");
       $stmt->execute([$fromStart, $toEnd]);
       $montoAnulado = (float)$stmt->fetchColumn();
@@ -833,39 +778,49 @@ if ($hasVentas && $ventasFechaCol && $ventasEstadoCol) {
 }
 
 /* =========================
-   TEMPORAL: Ventas por hora / día semana (con filtro categoría)
+   TEMPORAL: Ventas por hora / dÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a semana (con filtro categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
 ========================= */
 $ventasPorHora = [];
 $ventasPorDiaSemana = [];
 
 if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
-  // Con filtro de categoría
+  // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
-      SELECT HOUR(v.{$ventasDateSQL}) AS hora,
-             COUNT(DISTINCT v.id) AS cantidad,
-             COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) AS monto
-      FROM ventas v
-      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
-      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
-      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-        {$catCondP}
-      GROUP BY HOUR(v.{$ventasDateSQL})
+      SELECT t.hora,
+             COUNT(*) AS cantidad,
+             COALESCE(SUM(t.total_venta), 0) AS monto
+      FROM (
+        SELECT DISTINCT v.id,
+               HOUR(v.{$ventasDateSQL}) AS hora,
+               v.{$ventasTotalSQL} AS total_venta
+        FROM ventas v
+        JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+          {$catCondP}
+      ) t
+      GROUP BY t.hora
       ORDER BY hora
     ");
     $stmt->execute([$fromStart, $toEnd]);
     $ventasPorHora = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $stmt = $pdo->prepare("
-      SELECT DAYOFWEEK(v.{$ventasDateSQL}) AS dia_num,
-             COUNT(DISTINCT v.id) AS cantidad,
-             COALESCE(SUM(DISTINCT v.{$ventasTotalSQL}),0) AS monto
-      FROM ventas v
-      JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
-      JOIN productos p ON p.id = vi.`{$viProdIdCol}`
-      WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-        {$catCondP}
-      GROUP BY DAYOFWEEK(v.{$ventasDateSQL})
+      SELECT t.dia_num,
+             COUNT(*) AS cantidad,
+             COALESCE(SUM(t.total_venta), 0) AS monto
+      FROM (
+        SELECT DISTINCT v.id,
+               DAYOFWEEK(v.{$ventasDateSQL}) AS dia_num,
+               v.{$ventasTotalSQL} AS total_venta
+        FROM ventas v
+        JOIN venta_items vi ON v.id = vi.`{$viVentaIdCol}`
+        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+          {$catCondP}
+      ) t
+      GROUP BY t.dia_num
       ORDER BY dia_num
     ");
     $stmt->execute([$fromStart, $toEnd]);
@@ -897,7 +852,7 @@ if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
     $ventasPorDiaSemana = $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
-  $diasSemana = ['', 'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  $diasSemana = ['', 'Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
   foreach ($ventasPorDiaSemana as &$dia) {
     $dia['dia_nombre'] = $diasSemana[(int)($dia['dia_num'] ?? 0)] ?? 'N/A';
   }
@@ -905,11 +860,11 @@ if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
 }
 
 /* =========================
-   STOCK CRÍTICO
+   STOCK CRÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½TICO
 ========================= */
 $stockCritico = [];
 if ($hasProductos && $prodNombreCol && $prodStockCol && $prodMinCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msTipoCol && $msCantCol && $msFechaCol) {
-  $catCondStock = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
+  $catCondStock = $catCondP;  // Usa condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n pre-calculada con manejo de "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"
   
   $stmt = $pdo->prepare("
     SELECT
@@ -950,9 +905,9 @@ $capitalDormido = 0.0;
 
 if ($hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMovimientos && $msProdIdCol && $msTipoCol && $msFechaCol) {
   $fechaLimiteDormido = (new DateTime('today'))->modify("-{$diasSinMovimiento} days")->format('Y-m-d H:i:s');
-  $catCondDormidos = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
-  $precioCol = $prodPrecioCol ?: ($prodCostoCol ?: null);
-  $valorExpr = $precioCol ? "p.`{$precioCol}`" : "0";
+  $catCondDormidos = $catCondP;  // Usa condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n pre-calculada con manejo de "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"
+  $valorCol = $prodCostoCol ?: ($prodPrecioCol ?: null);
+  $valorExpr = $valorCol ? "p.`{$valorCol}`" : "0";
   
   $stmt = $pdo->prepare("
     SELECT
@@ -983,7 +938,7 @@ if ($hasProductos && $prodNombreCol && $prodStockCol && $prodActivoCol && $hasMo
 }
 
 /* =========================
-   CIERRE DE CAJA - Resumen del día (HOY)
+   CIERRE DE CAJA - Resumen del dÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a (HOY)
 ========================= */
 $cierreCajaHoy = [
   'fecha' => $today,
@@ -1097,7 +1052,7 @@ if ($hasVentas && $ventasFechaCol && $ventasTotalCol) {
 }
 
 /* =========================
-   COMPARACIÓN vs período anterior
+   COMPARACIÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½N vs perÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½odo anterior
 ========================= */
 function kpiDeltaBadge(float $curr, float $prev): array {
   if ($prev == 0.0) {
@@ -1107,10 +1062,10 @@ function kpiDeltaBadge(float $curr, float $prev): array {
   $pct = (($curr - $prev) / $prev) * 100.0;
   if (abs($pct) < 0.05) return ['class' => 'kpi-flat', 'text' => '0%', 'title' => 'Sin cambios'];
 
-  $arrow = ($pct > 0) ? '▲' : '▼';
+  $arrow = ($pct > 0) ? '+' : '-';
   $cls = ($pct > 0) ? 'kpi-up' : 'kpi-down';
   $txt = $arrow . ' ' . number_format(abs($pct), 1, ',', '.') . '%';
-  return ['class' => $cls, 'text' => $txt, 'title' => 'Vs período anterior'];
+  return ['class' => $cls, 'text' => $txt, 'title' => 'Vs periodo anterior'];
 }
 
 $rangeDays = $diffDays + 1;
@@ -1125,7 +1080,7 @@ $ventasPrev = 0;
 $facturacionPrev = 0.0;
 
 if ($hasVentas && $ventasFechaCol) {
-  // Con filtro de categoría
+  // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
       SELECT COUNT(DISTINCT v.id) 
@@ -1171,12 +1126,12 @@ $factDelta   = kpiDeltaBadge((float)$facturacionRango, (float)$facturacionPrev);
 $ticketDelta = kpiDeltaBadge((float)$ticketPromedio, (float)$ticketPrev);
 
 /* =========================
-   CHARTS DATA (con filtro categoría)
+   CHARTS DATA (con filtro categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
 ========================= */
 $ventasLabels = [];
 $ventasData = [];
 if ($hasVentas && $ventasFechaCol) {
-  // Con filtro de categoría
+  // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
       SELECT DATE(v.{$ventasDateSQL}) AS dia, COUNT(DISTINCT v.id) AS total
@@ -1218,7 +1173,7 @@ if ($hasVentas && $ventasFechaCol) {
 $topProductosLabels = [];
 $topProductosData = [];
 if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
-  $catCondTop = $catCondP;  // Usa condición pre-calculada con manejo de "Sin Categoría"
+  $catCondTop = $catCondP;  // Usa condiciÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½n pre-calculada con manejo de "Sin CategorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a"
   
   $stmt = $pdo->prepare("
     SELECT p.`{$prodNombreCol}` AS nombre, SUM(vi.`{$viQtyCol}`) AS total
@@ -1239,7 +1194,7 @@ if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVenta
 }
 
 /* =========================
-   SPARKLINES (con filtro categoría)
+   SPARKLINES (con filtro categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a)
 ========================= */
 $sparkFromDT = (new DateTime('today'))->modify('-6 days');
 $sparkToDT   = new DateTime('today');
@@ -1251,7 +1206,7 @@ $sparklineVentas = [];
 $sparklineFacturacion = [];
 
 if ($hasVentas && $ventasFechaCol) {
-  // Con filtro de categoría
+  // Con filtro de categorÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½a
   if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
     $stmt = $pdo->prepare("
       SELECT DATE(v.{$ventasDateSQL}) as dia, COUNT(DISTINCT v.id) as total
@@ -1389,29 +1344,27 @@ require __DIR__ . '/partials/header.php';
 
 <div class="page-wrap">
   <div class="panel dashboard-panel">
-
     <div class="dash-header">
       <div>
-        <h1 class="dash-title">📊 Panel de control</h1>
-        <p class="dash-sub">Análisis completo de ventas, rentabilidad y operaciones</p>
+        <h1 class="dash-title">Panel de control</h1>
+        <p class="dash-sub">Analisis completo de ventas, rentabilidad y operaciones</p>
       </div>
       <div class="dash-header-meta">
         <span>Hoy: <?= date('d/m/Y'); ?></span>
       </div>
     </div>
 
-    <!-- FILTROS + EXPORT -->
     <form id="dashFilters" class="dash-filters" method="get" action="dashboard.php">
       <div class="dash-presets">
         <button type="button" class="dash-chip" data-preset="today" aria-pressed="false" aria-label="Filtrar: Hoy">Hoy</button>
-        <button type="button" class="dash-chip" data-preset="7d" aria-pressed="false" aria-label="Filtrar: Últimos 7 días">7d</button>
-        <button type="button" class="dash-chip" data-preset="30d" aria-pressed="false" aria-label="Filtrar: Últimos 30 días">30d</button>
+        <button type="button" class="dash-chip" data-preset="7d" aria-pressed="false" aria-label="Filtrar: Ultimos 7 dias">7d</button>
+        <button type="button" class="dash-chip" data-preset="30d" aria-pressed="false" aria-label="Filtrar: Ultimos 30 dias">30d</button>
         <button type="button" class="dash-chip" data-preset="month" aria-pressed="false" aria-label="Filtrar: Este mes">Este mes</button>
 
         <?php if (!empty($categoriasDisponibles)): ?>
         <div class="dash-cat-filter">
           <select name="categoria" id="dashCategoria" class="dash-select" onchange="this.form.submit()">
-            <option value="">📁 Todas las categorías</option>
+            <option value="">Todas las categorias</option>
             <?php foreach ($categoriasDisponibles as $cat): ?>
               <option value="<?= h($cat) ?>" <?= $categoriaFiltro === $cat ? 'selected' : '' ?>><?= h($cat) ?></option>
             <?php endforeach; ?>
@@ -1420,15 +1373,15 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
 
         <details id="dashExportDD" class="dash-export-dd">
-          <summary aria-label="Abrir opciones de exportación">📤 Exportar</summary>
+          <summary aria-label="Abrir opciones de exportacion">Exportar</summary>
           <div class="dash-export-dd-menu">
-            <a class="dash-export" data-export-type="kpis" href="dashboard_export.php?type=kpis&from=<?= h($from) ?>&to=<?= h($to) ?>">📊 KPIs</a>
-            <a class="dash-export" data-export-type="movimientos" href="dashboard_export.php?type=movimientos&from=<?= h($from) ?>&to=<?= h($to) ?>">📦 Movimientos</a>
-            <a class="dash-export" data-export-type="top_productos" href="dashboard_export.php?type=top_productos&from=<?= h($from) ?>&to=<?= h($to) ?>">🏆 Top Productos</a>
-            <a class="dash-export" data-export-type="metodos_pago" href="dashboard_export.php?type=metodos_pago&from=<?= h($from) ?>&to=<?= h($to) ?>">💳 Medios de pago</a>
-            <a class="dash-export" data-export-type="categorias" href="dashboard_export.php?type=categorias&from=<?= h($from) ?>&to=<?= h($to) ?>">📁 Categorías</a>
-            <a class="dash-export" data-export-type="rentables" href="dashboard_export.php?type=rentables&from=<?= h($from) ?>&to=<?= h($to) ?>">💰 Rentables</a>
-            <a class="dash-export" data-export-type="dormidos" href="dashboard_export.php?type=dormidos&from=<?= h($from) ?>&to=<?= h($to) ?>">💤 Productos dormidos</a>
+            <a class="dash-export" data-export-type="kpis" href="dashboard_export.php?type=kpis&from=<?= h($from) ?>&to=<?= h($to) ?>">KPIs</a>
+            <a class="dash-export" data-export-type="movimientos" href="dashboard_export.php?type=movimientos&from=<?= h($from) ?>&to=<?= h($to) ?>">Movimientos</a>
+            <a class="dash-export" data-export-type="top_productos" href="dashboard_export.php?type=top_productos&from=<?= h($from) ?>&to=<?= h($to) ?>">Top productos</a>
+            <a class="dash-export" data-export-type="metodos_pago" href="dashboard_export.php?type=metodos_pago&from=<?= h($from) ?>&to=<?= h($to) ?>">Medios de pago</a>
+            <a class="dash-export" data-export-type="categorias" href="dashboard_export.php?type=categorias&from=<?= h($from) ?>&to=<?= h($to) ?>">Categorias</a>
+            <a class="dash-export" data-export-type="rentables" href="dashboard_export.php?type=rentables&from=<?= h($from) ?>&to=<?= h($to) ?>">Rentables</a>
+            <a class="dash-export" data-export-type="dormidos" href="dashboard_export.php?type=dormidos&from=<?= h($from) ?>&to=<?= h($to) ?>">Productos dormidos</a>
           </div>
         </details>
       </div>
@@ -1443,78 +1396,56 @@ require __DIR__ . '/partials/header.php';
             <span>Hasta</span>
             <input type="date" id="dashTo" name="to" value="<?= h($to) ?>" />
           </label>
-          
-          <!-- Filtros de hora -->
           <label class="dash-hora-label">
-            <span>🕐 Hora desde</span>
+            <span>Hora desde</span>
             <div class="dash-hora-row">
               <input type="time" id="dashHoraDesde" name="hora_desde" value="<?= h($horaDesde ?? '') ?>" class="dash-hora-input" />
-              <select id="dashHoraDesdeAmpm" name="hora_desde_ampm" class="dash-ampm" aria-label="AM/PM desde">
-                <option value="AUTO" <?= ($horaDesdeAmpm ?? 'AUTO') === 'AUTO' ? 'selected' : '' ?>>Auto</option>
-                <option value="AM"   <?= ($horaDesdeAmpm ?? '') === 'AM' ? 'selected' : '' ?>>AM</option>
-                <option value="PM"   <?= ($horaDesdeAmpm ?? '') === 'PM' ? 'selected' : '' ?>>PM</option>
-              </select>
             </div>
           </label>
-
           <label class="dash-hora-label">
-            <span>🕐 Hora hasta</span>
+            <span>Hora hasta</span>
             <div class="dash-hora-row">
               <input type="time" id="dashHoraHasta" name="hora_hasta" value="<?= h($horaHasta ?? '') ?>" class="dash-hora-input" />
-              <select id="dashHoraHastaAmpm" name="hora_hasta_ampm" class="dash-ampm" aria-label="AM/PM hasta">
-                <option value="AUTO" <?= ($horaHastaAmpm ?? 'AUTO') === 'AUTO' ? 'selected' : '' ?>>Auto</option>
-                <option value="AM"   <?= ($horaHastaAmpm ?? '') === 'AM' ? 'selected' : '' ?>>AM</option>
-                <option value="PM"   <?= ($horaHastaAmpm ?? '') === 'PM' ? 'selected' : '' ?>>PM</option>
-              </select>
             </div>
           </label>
-
-          
           <?php if ($horaDesde || $horaHasta): ?>
           <button type="button" class="dash-clear-hours"
             onclick="
               document.getElementById('dashHoraDesde').value='';
               document.getElementById('dashHoraHasta').value='';
-              const a=document.getElementById('dashHoraDesdeAmpm'); if(a) a.value='AUTO';
-              const b=document.getElementById('dashHoraHastaAmpm'); if(b) b.value='AUTO';
               this.form.submit();
             "
-            title="Limpiar filtro de horas">✕</button>
+            title="Limpiar filtro de horas">x</button>
           <?php endif; ?>
-          
           <button type="submit" class="dash-apply">Aplicar</button>
         </div>
         <div class="dash-range-hint">
           <?php if ($categoriaFiltro): ?>
-            <span class="dash-filter-badge">🏷️ <?= h($categoriaFiltro) ?></span>
+            <span class="dash-filter-badge">Categoria: <?= h($categoriaFiltro) ?></span>
           <?php endif; ?>
           <?php if ($horaDesde || $horaHasta): ?>
-            <span class="dash-filter-badge">
-              🕐 <?= h($horaDesde ?? '00:00') ?> - <?= h($horaHasta ?? '23:59') ?>
-            </span>
+            <span class="dash-filter-badge">Horario: <?= h($horaDesde ?? '00:00') ?> - <?= h($horaHasta ?? '23:59') ?></span>
           <?php endif; ?>
-          Rango: <strong><?= (new DateTime($from))->format('d/m/Y'); ?></strong>
-          → <strong><?= (new DateTime($to))->format('d/m/Y'); ?></strong>
+          Rango: <strong><?= (new DateTime($from))->format('d/m/Y'); ?></strong> -> <strong><?= (new DateTime($to))->format('d/m/Y'); ?></strong>
         </div>
       </div>
     </form>
 
-    <!-- BANNER FILTRO ACTIVO -->
     <?php if ($categoriaFiltro || $horaDesde || $horaHasta): ?>
     <div class="dash-filter-banner">
       <div class="dash-filter-banner-content">
-        <span class="dash-filter-banner-icon">🔍</span>
+        <span class="dash-filter-banner-icon">Filtro</span>
         <span class="dash-filter-banner-text">
           <strong>Datos filtrados:</strong>
           <?php if ($categoriaFiltro): ?>
-            Categoría <em>"<?= h($categoriaFiltro) ?>"</em>
+            Categoria <em>"<?= h($categoriaFiltro) ?>"</em>
           <?php endif; ?>
           <?php if ($horaDesde || $horaHasta): ?>
-            <?= $categoriaFiltro ? ' • ' : '' ?>
+            <?= $categoriaFiltro ? ' | ' : '' ?>
             Horario <?= h($horaDesde ?? '00:00') ?> - <?= h($horaHasta ?? '23:59') ?>
           <?php endif; ?>
         </span>
-        <a href="dashboard.php?from=<?= h($from) ?>&to=<?= h($to) ?>" class="dash-filter-banner-clear" title="Quitar filtros">✕ Limpiar filtros</a>
+        <a href="dashboard.php?from=<?= h($from) ?>&to=<?= h($to) ?>" class="dash-filter-banner-clear" title="Quitar filtros">Limpiar filtros</a>
       </div>
     </div>
     <?php endif; ?>
@@ -1523,8 +1454,8 @@ require __DIR__ . '/partials/header.php';
     <div class="cierre-caja-section">
       <div class="cierre-caja-header">
         <div class="cierre-caja-title-row">
-          <h2 class="section-title">🧾 Cierre de Caja - Hoy <?= date('d/m/Y') ?></h2>
-          <span class="cierre-caja-note" title="Este resumen siempre muestra el día de HOY, independiente del filtro de fechas seleccionado">ℹ️ Solo día actual</span>
+          <h2 class="section-title">Cierre de caja - Hoy <?= date('d/m/Y') ?></h2>
+          <span class="cierre-caja-note" title="Este resumen siempre muestra el dia de hoy, independiente del filtro de fechas seleccionado">Solo dia actual</span>
         </div>
         <span class="cierre-caja-horario">
           <?php if ($cierreCajaHoy['primera_venta']): ?>
@@ -1534,38 +1465,38 @@ require __DIR__ . '/partials/header.php';
           <?php endif; ?>
         </span>
       </div>
-      
+
       <div class="cierre-caja-grid">
         <div class="cierre-caja-card cierre-main">
-          <div class="cierre-icon">💵</div>
+          <div class="cierre-icon"></div>
           <div class="cierre-content">
-            <span class="cierre-label">Total del día</span>
+            <span class="cierre-label">Total del dia</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['monto_total'], 0, ',', '.') ?></span>
-            <span class="cierre-sub"><?= $cierreCajaHoy['total_ventas'] ?> ventas • Ticket prom: $ <?= number_format($cierreCajaHoy['ticket_promedio'], 0, ',', '.') ?></span>
+            <span class="cierre-sub"><?= $cierreCajaHoy['total_ventas'] ?> ventas | Ticket prom: $ <?= number_format($cierreCajaHoy['ticket_promedio'], 0, ',', '.') ?></span>
           </div>
         </div>
-        
+
         <div class="cierre-caja-card cierre-efectivo">
-          <div class="cierre-icon">💰</div>
+          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Efectivo en caja</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['efectivo'], 0, ',', '.') ?></span>
             <span class="cierre-sub">Para arqueo</span>
           </div>
         </div>
-        
+
         <div class="cierre-caja-card cierre-otros">
-          <div class="cierre-icon">💳</div>
+          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Otros medios</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['otros_medios'], 0, ',', '.') ?></span>
             <span class="cierre-sub">Tarjetas, transferencias, etc.</span>
           </div>
         </div>
-        
+
         <?php if ($cierreCajaHoy['anulaciones'] > 0): ?>
         <div class="cierre-caja-card cierre-anulaciones">
-          <div class="cierre-icon">❌</div>
+          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Anulaciones</span>
             <span class="cierre-value"><?= $cierreCajaHoy['anulaciones'] ?></span>
@@ -1574,10 +1505,10 @@ require __DIR__ . '/partials/header.php';
         </div>
         <?php endif; ?>
       </div>
-      
+
       <?php if (!empty($cierreCajaHoy['desglose_medios'])): ?>
       <details class="cierre-desglose">
-        <summary>Ver desglose por método de pago</summary>
+        <summary>Ver desglose por metodo de pago</summary>
         <div class="cierre-desglose-grid">
           <?php foreach ($cierreCajaHoy['desglose_medios'] as $medio): ?>
           <div class="cierre-desglose-item">
@@ -1590,9 +1521,8 @@ require __DIR__ . '/partials/header.php';
       <?php endif; ?>
     </div>
 
-    <!-- INSIGHTS -->
     <div class="insights-container">
-      <h2 class="section-title">💡 Indicadores clave</h2>
+      <h2 class="section-title">Indicadores clave</h2>
       <div class="insights-grid">
         <?php
           $insights = [];
@@ -1602,49 +1532,47 @@ require __DIR__ . '/partials/header.php';
             $maxIdx = array_search($maxVentas, $ventasData, true);
             if ($maxIdx !== false && isset($ventasLabels[$maxIdx])) {
               $mejorDia = (new DateTime($ventasLabels[$maxIdx]))->format('d/m');
-              $diaSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][(int)(new DateTime($ventasLabels[$maxIdx]))->format('w')];
+              $diaSemana = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'][(int)(new DateTime($ventasLabels[$maxIdx]))->format('w')];
               $insights[] = [
-                'icon' => '📈',
-                'html' => 'Tu mejor día fue el <strong>' . h($mejorDia) . '</strong> (' . $diaSemana . ') con <strong>' . (int)$maxVentas . ' ventas</strong>',
+                'html' => 'Tu mejor dia fue el <strong>' . h($mejorDia) . '</strong> (' . $diaSemana . ') con <strong>' . (int)$maxVentas . ' ventas</strong>',
                 'tip' => 'Considera reforzar personal los ' . $diaSemana . '.'
               ];
             }
           }
 
           if (($ventasDelta['class'] ?? '') === 'kpi-up') {
-            $insights[] = ['icon' => '🚀', 'html' => 'Ventas crecieron <strong>' . h($ventasDelta['text']) . '</strong> vs período anterior', 'tip' => '¡Sigue así! Analiza qué funcionó bien.'];
+            $insights[] = ['html' => 'Ventas crecieron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Analiza que funciono bien para sostener la tendencia.'];
           } elseif (($ventasDelta['class'] ?? '') === 'kpi-down') {
-            $insights[] = ['icon' => '⚠️', 'html' => 'Ventas bajaron <strong>' . h($ventasDelta['text']) . '</strong> vs período anterior', 'tip' => 'Revisa factores externos o considera una promoción.'];
+            $insights[] = ['html' => 'Ventas bajaron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Revisa factores externos o considera una promocion.'];
           }
 
           if (!empty($productosRentables)) {
             $top = $productosRentables[0];
             $nombre = h((string)($top['nombre'] ?? 'Producto'));
             $ganancia = number_format((float)($top['ganancia'] ?? 0), 0, ',', '.');
-            $insights[] = ['icon' => '💰', 'html' => "<strong>{$nombre}</strong> es tu producto más rentable (<strong>$ {$ganancia}</strong>)", 'tip' => 'Asegura stock suficiente de este producto.'];
+            $insights[] = ['html' => "<strong>{$nombre}</strong> es tu producto mas rentable (<strong>$ {$ganancia}</strong>)", 'tip' => 'Asegura stock suficiente de este producto.'];
           }
 
           if ($tasaAnulacion > 5) {
-            $insights[] = ['icon' => '⚠️', 'html' => 'Tasa de anulación alta: <strong>' . h(number_format($tasaAnulacion, 1)) . '%</strong>', 'tip' => 'Investiga las causas: errores de caja, devoluciones, etc.'];
+            $insights[] = ['html' => 'Tasa de anulacion alta: <strong>' . h(number_format($tasaAnulacion, 1)) . '%</strong>', 'tip' => 'Investiga las causas: errores de caja, devoluciones, etc.'];
           } elseif ($ventasAnuladas === 0 && $ventasRango > 10) {
-            $insights[] = ['icon' => '✅', 'html' => 'Excelente: <strong>0 anulaciones</strong> en el período', 'tip' => ''];
+            $insights[] = ['html' => 'Excelente: <strong>0 anulaciones</strong> en el periodo', 'tip' => ''];
           }
 
           if ($capitalDormido > 0) {
             $countDormidos = count($productosDormidos);
             $insights[] = [
-              'icon' => '💤', 
-              'html' => "<strong>{$countDormidos} productos</strong> sin movimiento en 30 días. Capital parado: <strong>$ " . number_format($capitalDormido, 0, ',', '.') . "</strong>",
-              'tip' => 'Considera promociones o liquidación para liberar capital.'
+              'html' => "<strong>{$countDormidos} productos</strong> sin movimiento en 30 dias. Capital parado: <strong>$ " . number_format($capitalDormido, 0, ',', '.') . "</strong>",
+              'tip' => 'Considera promociones o liquidacion para liberar capital.'
             ];
           }
 
           if (count($stockCritico) > 5) {
-            $insights[] = ['icon' => '🔴', 'html' => '<strong>' . count($stockCritico) . ' productos</strong> con stock crítico. ¡Revisar reposición!', 'tip' => 'Haz pedido a proveedores urgentemente.'];
+            $insights[] = ['html' => '<strong>' . count($stockCritico) . ' productos</strong> con stock critico. Revisar reposicion.', 'tip' => 'Haz pedido a proveedores urgentemente.'];
           }
 
           foreach ($insights as $in) {
-            echo "<div class='insight-item'><span class='insight-icon'>{$in['icon']}</span> {$in['html']}";
+            echo "<div class='insight-item'> {$in['html']}";
             if (!empty($in['tip'])) {
               echo "<span class='insight-tip'>{$in['tip']}</span>";
             }
@@ -1654,80 +1582,70 @@ require __DIR__ . '/partials/header.php';
       </div>
     </div>
 
-    <!-- ========================= -->
-    <!-- ACCIONES RECOMENDADAS -->
-    <!-- ========================= -->
     <?php
-      // Generar acciones recomendadas basadas en los datos
       $acciones = [];
-      
+
       if ($margenPorcentaje < 20 && $totalVentas > 0) {
         $acciones[] = [
-          'icon' => '⚠️',
-          'title' => 'Revisar márgenes',
-          'desc' => 'Tu margen está por debajo del 20%. Considera ajustar precios o negociar con proveedores.',
+          'title' => 'Revisar margenes',
+          'desc' => 'Tu margen esta por debajo del 20%. Considera ajustar precios o negociar con proveedores.',
           'link' => 'productos.php',
           'linkText' => 'Ver productos'
         ];
       }
-      
+
       if (count($stockCritico) > 3) {
         $acciones[] = [
-          'icon' => '📦',
           'title' => 'Reponer stock',
-          'desc' => count($stockCritico) . ' productos necesitan reposición urgente.',
+          'desc' => count($stockCritico) . ' productos necesitan reposicion urgente.',
           'link' => 'stock.php',
-          'linkText' => 'Ir a Stock'
+          'linkText' => 'Ir a stock'
         ];
       }
-      
+
       if (count($productosDormidos) > 5) {
         $acciones[] = [
-          'icon' => '💤',
           'title' => 'Liquidar productos parados',
-          'desc' => 'Tienes $' . number_format($capitalDormido, 0, ',', '.') . ' en mercadería sin movimiento.',
+          'desc' => 'Tienes $' . number_format($capitalDormido, 0, ',', '.') . ' en mercaderia sin movimiento.',
           'link' => 'promos.php',
-          'linkText' => 'Crear promoción'
+          'linkText' => 'Crear promocion'
         ];
       }
-      
+
       if ($tasaAnulacion > 5) {
         $acciones[] = [
-          'icon' => '❌',
           'title' => 'Investigar anulaciones',
-          'desc' => 'Tasa de anulación del ' . number_format($tasaAnulacion, 1) . '%. Revisar causas.',
+          'desc' => 'Tasa de anulacion del ' . number_format($tasaAnulacion, 1) . '%. Revisar causas.',
           'link' => 'ventas.php?estado=ANULADA',
           'linkText' => 'Ver anuladas'
         ];
       }
-      
-      if ($ventasDelta['class'] === 'kpi-down' && str_contains($ventasDelta['text'], '▼')) {
+
+      if ($ventasDelta['class'] === 'kpi-down') {
         $acciones[] = [
-          'icon' => '📉',
           'title' => 'Ventas en baja',
-          'desc' => 'Las ventas cayeron vs el período anterior. Considera acciones promocionales.',
+          'desc' => 'Las ventas cayeron vs el periodo anterior. Considera acciones promocionales.',
           'link' => 'promos.php',
           'linkText' => 'Ver promociones'
         ];
       }
     ?>
-    
+
     <?php if (!empty($acciones)): ?>
     <div class="dash-actions-section">
       <div class="dash-actions-header">
-        <span>🎯</span>
-        <h3>Acciones Recomendadas</h3>
+        <span></span>
+        <h3>Acciones recomendadas</h3>
       </div>
       <div class="dash-actions-grid">
         <?php foreach ($acciones as $accion): ?>
         <div class="dash-action-item">
-          <span class="dash-action-icon"><?= $accion['icon'] ?></span>
           <div class="dash-action-content">
             <div class="dash-action-title"><?= h($accion['title']) ?></div>
             <div class="dash-action-desc"><?= h($accion['desc']) ?></div>
             <?php if (!empty($accion['link'])): ?>
             <a href="<?= h($accion['link']) ?>" class="dash-action-link">
-              <?= h($accion['linkText']) ?> →
+              <?= h($accion['linkText']) ?> ->
             </a>
             <?php endif; ?>
           </div>
@@ -1740,13 +1658,11 @@ require __DIR__ . '/partials/header.php';
     <!-- ========================= -->
     <!-- KPIs PRINCIPALES MEJORADOS -->
     <!-- ========================= -->
-    <h2 class="section-title">📊 Métricas de Ventas <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
+    <h2 class="section-title">Metricas de ventas <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
     <div class="dash-kpi-row">
-      
-      <!-- KPI: Ventas -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">🛒</span> Ventas</span>
+          <span class="stat-label"><span class="stat-icon"></span> Ventas</span>
           <button type="button" class="kpi-help" data-tooltip="ventas" aria-label="Ayuda sobre Ventas" aria-expanded="false">?</button>
         </div>
         <div class="stat-value"><?= number_format($ventasRango, 0, ',', '.') ?></div>
@@ -1755,14 +1671,13 @@ require __DIR__ . '/partials/header.php';
           <div class="kpi-delta <?= h($ventasDelta['class']) ?>" title="<?= h($ventasDelta['title'] ?? '') ?>"><?= h($ventasDelta['text']) ?></div>
           <?php endif; ?>
         </div>
-        <canvas class="mini-sparkline" role="img" aria-label="Tendencia de ventas últimos 7 días" data-values='<?= json_encode($sparklineVentas) ?>'></canvas>
+        <canvas class="mini-sparkline" role="img" aria-label="Tendencia de ventas ultimos 7 dias" data-values='<?= json_encode($sparklineVentas) ?>'></canvas>
       </div>
 
-      <!-- KPI: Facturación -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">💰</span> Facturación</span>
-          <button type="button" class="kpi-help" data-tooltip="facturacion" aria-label="Ayuda sobre Facturación" aria-expanded="false">?</button>
+          <span class="stat-label"><span class="stat-icon"></span> Facturacion</span>
+          <button type="button" class="kpi-help" data-tooltip="facturacion" aria-label="Ayuda sobre Facturacion" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($facturacionRango, 0, ',', '.') ?></div>
         <div class="stat-footer">
@@ -1770,14 +1685,13 @@ require __DIR__ . '/partials/header.php';
           <div class="kpi-delta <?= h($factDelta['class']) ?>" title="<?= h($factDelta['title'] ?? '') ?>"><?= h($factDelta['text']) ?></div>
           <?php endif; ?>
         </div>
-        <canvas class="mini-sparkline" role="img" aria-label="Tendencia de facturación últimos 7 días" data-values='<?= json_encode($sparklineFacturacion) ?>'></canvas>
+        <canvas class="mini-sparkline" role="img" aria-label="Tendencia de facturacion ultimos 7 dias" data-values='<?= json_encode($sparklineFacturacion) ?>'></canvas>
       </div>
 
-      <!-- KPI: Ticket Promedio -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">🎫</span> Ticket Promedio</span>
-          <button type="button" class="kpi-help" data-tooltip="ticket_promedio" aria-label="Ayuda sobre Ticket Promedio" aria-expanded="false">?</button>
+          <span class="stat-label"><span class="stat-icon"></span> Ticket promedio</span>
+          <button type="button" class="kpi-help" data-tooltip="ticket_promedio" aria-label="Ayuda sobre Ticket promedio" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($ticketPromedio, 0, ',', '.') ?></div>
         <div class="stat-footer">
@@ -1787,40 +1701,32 @@ require __DIR__ . '/partials/header.php';
         </div>
       </div>
 
-      <!-- KPI: Unidades Vendidas -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">📦</span> Unidades Vendidas</span>
+          <span class="stat-label"><span class="stat-icon"></span> Unidades vendidas</span>
           <button type="button" class="kpi-help" data-tooltip="unidades" aria-label="Ayuda sobre Unidades" aria-expanded="false">?</button>
         </div>
         <div class="stat-value"><?= h(format_qty_trim($unidadesVendidasRango)) ?></div>
       </div>
-      
     </div>
 
-    <!-- ========================= -->
-    <!-- RENTABILIDAD MEJORADA -->
-    <!-- ========================= -->
-    <h2 class="section-title">💰 Análisis de Rentabilidad <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
+    <h2 class="section-title">Analisis de rentabilidad <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
     <div class="dash-kpi-row">
-      
-      <!-- KPI: Ganancia Bruta -->
       <div class="stat-card <?= $gananciaBruta >= 0 ? 'stat-ok' : 'stat-sin' ?>">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">📊</span> Ganancia Bruta</span>
+          <span class="stat-label"><span class="stat-icon"></span> Ganancia bruta</span>
           <button type="button" class="kpi-help" data-tooltip="ganancia" aria-label="Ayuda sobre Ganancia" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($gananciaBruta, 0, ',', '.') ?></div>
         <?php if ($gananciaBruta < 0): ?>
-        <span class="kpi-status kpi-status-critical">¡Pérdida!</span>
+        <span class="kpi-status kpi-status-critical">Perdida</span>
         <?php endif; ?>
       </div>
 
-      <!-- KPI: Margen -->
       <?php $margenStatus = getKpiStatus('margen', $margenPorcentaje); ?>
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">📈</span> Margen</span>
+          <span class="stat-label"><span class="stat-icon"></span> Margen</span>
           <button type="button" class="kpi-help" data-tooltip="margen" aria-label="Ayuda sobre Margen" aria-expanded="false">?</button>
         </div>
         <div class="stat-value"><?= number_format($margenPorcentaje, 1) ?>%</div>
@@ -1829,52 +1735,41 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
       </div>
 
-      <!-- KPI: Total Costos -->
       <div class="stat-card stat-bajo">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">💸</span> Total Costos</span>
+          <span class="stat-label"><span class="stat-icon"></span> Total costos</span>
           <button type="button" class="kpi-help" data-tooltip="costos" aria-label="Ayuda sobre Costos" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($totalCostos, 0, ',', '.') ?></div>
       </div>
 
-      <!-- KPI: Descuentos -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label">
-            <span class="stat-icon">🏷️</span> Descuentos (Promos)
+          <span class="stat-label"><span class="stat-icon"></span> Descuentos (promos)
             <?php if ($categoriaFiltro): ?>
-              <span class="stat-global-badge" title="Este dato es global, no se filtra por categoría">🌐 global</span>
+              <span class="stat-global-badge" title="Este dato es global, no se filtra por categoria">global</span>
             <?php endif; ?>
           </span>
           <button type="button" class="kpi-help" data-tooltip="descuentos" aria-label="Ayuda sobre Descuentos" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($totalDescuentosPromos, 0, ',', '.') ?></div>
       </div>
-      
     </div>
 
-    <!-- ========================= -->
-    <!-- ANULACIONES MEJORADA -->
-    <!-- ========================= -->
-    <h2 class="section-title">❌ Control de Anulaciones <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
+    <h2 class="section-title">Control de anulaciones <?= $categoriaFiltro ? '<span class="section-filter-badge">' . h($categoriaFiltro) . '</span>' : '' ?></h2>
     <div class="dash-kpi-row">
-      
       <?php $anulacionStatus = getKpiStatus('tasa_anulacion', $tasaAnulacion); ?>
-
-      <!-- KPI: Ventas Anuladas -->
       <div class="stat-card <?= $tasaAnulacion > 5 ? 'stat-sin' : 'stat-ok' ?>">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">🚫</span> Ventas Anuladas</span>
+          <span class="stat-label"><span class="stat-icon"></span> Ventas anuladas</span>
           <button type="button" class="kpi-help" data-tooltip="anulaciones" aria-label="Ayuda sobre Anulaciones" aria-expanded="false">?</button>
         </div>
         <div class="stat-value"><?= (int)$ventasAnuladas ?></div>
       </div>
 
-      <!-- KPI: Tasa de Anulación -->
       <div class="stat-card">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">📉</span> Tasa Anulación</span>
+          <span class="stat-label"><span class="stat-icon"></span> Tasa de anulacion</span>
           <button type="button" class="kpi-help" data-tooltip="tasa_anulacion" aria-label="Ayuda sobre Tasa" aria-expanded="false">?</button>
         </div>
         <div class="stat-value"><?= number_format($tasaAnulacion, 1) ?>%</div>
@@ -1883,29 +1778,26 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
       </div>
 
-      <!-- KPI: Monto Anulado -->
       <div class="stat-card stat-bajo">
         <div class="stat-header">
-          <span class="stat-label"><span class="stat-icon">💔</span> Monto Anulado</span>
-          <button type="button" class="kpi-help" data-tooltip="monto_anulado" aria-label="Ayuda sobre Monto Anulado" aria-expanded="false">?</button>
+          <span class="stat-label"><span class="stat-icon"></span> Monto anulado</span>
+          <button type="button" class="kpi-help" data-tooltip="monto_anulado" aria-label="Ayuda sobre Monto anulado" aria-expanded="false">?</button>
         </div>
         <div class="stat-value">$ <?= number_format($montoAnulado, 0, ',', '.') ?></div>
       </div>
-      
     </div>
 
-    <!-- PRODUCTOS DORMIDOS -->
     <?php if (!empty($productosDormidos)): ?>
     <div class="dormidos-section">
       <div class="dormidos-header">
-        <h2 class="section-title">💤 Productos Dormidos <span class="dormidos-count"><?= count($productosDormidos) ?> productos</span></h2>
+        <h2 class="section-title">Productos dormidos <span class="dormidos-count"><?= count($productosDormidos) ?> productos</span></h2>
         <div class="dormidos-capital">
           <span class="dormidos-capital-label">Capital parado:</span>
           <span class="dormidos-capital-value">$ <?= number_format($capitalDormido, 0, ',', '.') ?></span>
         </div>
       </div>
-      <p class="dormidos-desc">Productos con stock pero sin ventas en los últimos <?= $diasSinMovimiento ?> días. Considera promociones o liquidación.</p>
-      
+      <p class="dormidos-desc">Productos con stock pero sin ventas en los ultimos <?= $diasSinMovimiento ?> dias. Considera promociones o liquidacion.</p>
+
       <div class="dormidos-table-wrap">
         <table class="dormidos-table">
           <thead>
@@ -1914,21 +1806,21 @@ require __DIR__ . '/partials/header.php';
               <th>Stock</th>
               <th>Precio</th>
               <th>Valor en stock</th>
-              <th>Última venta</th>
+              <th>Ultima venta</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach (array_slice($productosDormidos, 0, 10) as $pd): ?>
             <tr>
-              <td><?= h($pd['nombre']) ?></td>
-              <td><?= format_qty_trim((float)$pd['stock']) ?></td>
+              <td><?= h((string)($pd['nombre'] ?? '-')) ?></td>
+              <td><?= h(format_qty_trim((float)($pd['stock'] ?? 0))) ?></td>
               <td>$ <?= number_format((float)($pd['precio'] ?? 0), 0, ',', '.') ?></td>
-              <td class="valor-stock">$ <?= number_format((float)($pd['valor_stock'] ?? 0), 0, ',', '.') ?></td>
+              <td>$ <?= number_format((float)($pd['valor_stock'] ?? 0), 0, ',', '.') ?></td>
               <td>
-                <?php if ($pd['ultima_venta']): ?>
-                  <?= (new DateTime($pd['ultima_venta']))->format('d/m/Y') ?>
+                <?php if (!empty($pd['ultima_venta'])): ?>
+                  <?= h(date('d/m/Y', strtotime((string)$pd['ultima_venta']))) ?>
                 <?php else: ?>
-                  <span class="nunca-vendido">Nunca</span>
+                  Nunca
                 <?php endif; ?>
               </td>
             </tr>
@@ -1937,94 +1829,89 @@ require __DIR__ . '/partials/header.php';
         </table>
       </div>
       <?php if (count($productosDormidos) > 10): ?>
-      <p class="dormidos-more">Y <?= count($productosDormidos) - 10 ?> productos más... <a href="dashboard_export.php?type=dormidos&from=<?= h($from) ?>&to=<?= h($to) ?>">Exportar lista completa</a></p>
+      <p class="dormidos-more">Y <?= count($productosDormidos) - 10 ?> productos mas... <a href="dashboard_export.php?type=dormidos&from=<?= h($from) ?>&to=<?= h($to) ?>">Exportar lista completa</a></p>
       <?php endif; ?>
     </div>
     <?php endif; ?>
-
-    <!-- GRID DE GRÁFICOS -->
+    <!-- GRID DE GRAFICOS -->
     <div class="dash-grid">
       <div class="dash-card">
         <div class="dash-card-header">
-          <h2>Ventas por día</h2>
-          <span class="dash-card-sub">Evolución en el rango</span>
+          <h2>Ventas por dia</h2>
+          <span class="dash-card-sub">Evolucion en el rango</span>
         </div>
         <div class="chart-wrap">
-          <canvas id="chartVentas" role="img" tabindex="0" aria-label="Ventas por día (cantidad de tickets)" aria-describedby="chartVentasData"></canvas>
+          <canvas id="chartVentas" role="img" tabindex="0" aria-label="Ventas por dia (cantidad de tickets)" aria-describedby="chartVentasData"></canvas>
           <div id="noVentasMsg" class="chart-empty" style="display:none;">No hay ventas en el rango</div>
         </div>
         <div class="chart-context">
-          <span class="chart-context-tip">Busca tendencias ascendentes. Los picos indican días de mayor actividad.</span>
+          <span class="chart-context-tip">Busca tendencias ascendentes. Los picos indican dias de mayor actividad.</span>
         </div>
 
-          <details class="chart-data" id="chartVentasData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Día</th><th>Ventas</th></tr></thead>
-                <tbody>
-                  <?php foreach ($ventasLabels as $i => $dia): ?>
-                    <tr>
-                      <td><?= h((string)$dia) ?></td>
-                      <td><?= (int)($ventasData[$i] ?? 0) ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-
+        <details class="chart-data" id="chartVentasData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Dia</th><th>Ventas</th></tr></thead>
+              <tbody>
+                <?php foreach ($ventasLabels as $i => $dia): ?>
+                  <tr>
+                    <td><?= h((string)$dia) ?></td>
+                    <td><?= (int)($ventasData[$i] ?? 0) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
       <div class="dash-card">
         <div class="dash-card-header">
-          <h2>Top Productos</h2>
-          <span class="dash-card-sub">Más vendidos <?= $categoriaFiltro ? '(' . h($categoriaFiltro) . ')' : '' ?></span>
+          <h2>Top productos</h2>
+          <span class="dash-card-sub">Mas vendidos <?= $categoriaFiltro ? '(' . h($categoriaFiltro) . ')' : '' ?></span>
         </div>
         <div class="chart-wrap">
-          <canvas id="chartTopProductos" role="img" tabindex="0" aria-label="Top productos más vendidos" aria-describedby="chartTopProductosData"></canvas>
+          <canvas id="chartTopProductos" role="img" tabindex="0" aria-label="Top productos mas vendidos" aria-describedby="chartTopProductosData"></canvas>
           <div id="noTopMsg" class="chart-empty" style="display:none;">Sin datos</div>
         </div>
         <div class="chart-context">
           <span class="chart-context-tip">Estos productos son tu motor de ventas. Asegura stock suficiente.</span>
         </div>
 
-          <details class="chart-data" id="chartTopProductosData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Producto</th><th>Unidades</th></tr></thead>
-                <tbody>
-                  <?php foreach ($topProductosLabels as $i => $nombre): ?>
-                    <tr>
-                      <td><?= h((string)$nombre) ?></td>
-                      <td><?= h(format_qty_trim((float)($topProductosData[$i] ?? 0))) ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-
+        <details class="chart-data" id="chartTopProductosData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Producto</th><th>Unidades</th></tr></thead>
+              <tbody>
+                <?php foreach ($topProductosLabels as $i => $nombre): ?>
+                  <tr>
+                    <td><?= h((string)$nombre) ?></td>
+                    <td><?= h(format_qty_trim((float)($topProductosData[$i] ?? 0))) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
       <div class="dash-card">
         <div class="dash-card-header">
-          <h2>Métodos de Pago</h2>
-          <span class="dash-card-sub">Distribución</span>
+          <h2>Metodos de pago</h2>
+          <span class="dash-card-sub">Distribucion</span>
         </div>
         <div class="chart-wrap">
-          <canvas id="chartMetodosPago" role="img" tabindex="0" aria-label="Distribución por métodos de pago" aria-describedby="chartMetodosPagoData"></canvas>
+          <canvas id="chartMetodosPago" role="img" tabindex="0" aria-label="Distribucion por metodos de pago" aria-describedby="chartMetodosPagoData"></canvas>
         </div>
 
-          <details class="chart-data" id="chartMetodosPagoData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Método</th><th>Monto</th></tr></thead>
-                <tbody>
+        <details class="chart-data" id="chartMetodosPagoData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Metodo</th><th>Monto</th></tr></thead>
+              <tbody>
 <?php
   $mp = $metodosPago ?? [];
   $isList = is_array($mp) && isset($mp[0]) && is_array($mp[0]) && array_key_exists('medio_pago', $mp[0]);
@@ -2057,37 +1944,35 @@ require __DIR__ . '/partials/header.php';
     <?php
   }
 ?>
-</tbody>
-              </table>
-            </div>
-          </details>
-
-
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
       <div class="dash-card">
         <div class="dash-card-header">
-          <h2>Ventas por Categoría</h2>
+          <h2>Ventas por categoria</h2>
         </div>
         <div class="chart-wrap">
-          <canvas id="chartCategorias" role="img" tabindex="0" aria-label="Ventas por categoría" aria-describedby="chartCategoriasData"></canvas>
+          <canvas id="chartCategorias" role="img" tabindex="0" aria-label="Ventas por categoria" aria-describedby="chartCategoriasData"></canvas>
         </div>
 
-          <details class="chart-data" id="chartCategoriasData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Categoría</th><th>Monto</th></tr></thead>
-                <tbody>
+        <details class="chart-data" id="chartCategoriasData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Categoria</th><th>Monto</th></tr></thead>
+              <tbody>
 <?php
   $cats = $categorias ?? [];
   $isList = is_array($cats) && isset($cats[0]) && is_array($cats[0]) && array_key_exists('categoria', $cats[0]);
 
   if ($isList) {
     foreach ($cats as $row) {
-    $catRaw = (string)($row['categoria'] ?? '');
-    $cat = (trim($catRaw) !== '') ? $catRaw : 'Sin Categoría';
-    $monto = (float)($row['ventas'] ?? 0);
+      $catRaw = (string)($row['categoria'] ?? '');
+      $cat = (trim($catRaw) !== '') ? $catRaw : 'Sin categoria';
+      $monto = (float)($row['ventas'] ?? 0);
       ?>
       <tr>
         <td><?= h($cat) ?></td>
@@ -2112,91 +1997,85 @@ require __DIR__ . '/partials/header.php';
     <?php
   }
 ?>
-</tbody>
-              </table>
-            </div>
-          </details>
-
-
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
       <div class="dash-card dash-card-wide">
         <div class="dash-card-header">
-          <h2>Horarios Pico</h2>
-          <span class="dash-card-sub">Distribución por hora</span>
+          <h2>Horarios pico</h2>
+          <span class="dash-card-sub">Distribucion por hora</span>
         </div>
         <div class="chart-wrap chart-wrap-wide">
-          <canvas id="chartHorarios" role="img" tabindex="0" aria-label="Distribución de ventas por hora" aria-describedby="chartHorariosData"></canvas>
+          <canvas id="chartHorarios" role="img" tabindex="0" aria-label="Distribucion de ventas por hora" aria-describedby="chartHorariosData"></canvas>
         </div>
         <div class="chart-context">
-          <span class="chart-context-tip">Los picos indican cuándo necesitas más personal. Considera horarios de apertura/cierre.</span>
+          <span class="chart-context-tip">Los picos indican cuando necesitas mas personal. Considera horarios de apertura y cierre.</span>
         </div>
 
-          <details class="chart-data" id="chartHorariosData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Hora</th><th>Ventas</th><th>Monto</th></tr></thead>
-                <tbody>
-                  <?php foreach (($ventasPorHora ?? []) as $h => $row): ?>
-                    <tr>
-                      <td><?= h((string)$h) ?>:00</td>
-                      <td><?= (int)($row['cantidad'] ?? 0) ?></td>
-                      <td>$ <?= number_format((float)($row['monto'] ?? 0), 0, ',', '.') ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-
+        <details class="chart-data" id="chartHorariosData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Hora</th><th>Ventas</th><th>Monto</th></tr></thead>
+              <tbody>
+                <?php foreach (($ventasPorHora ?? []) as $h => $row): ?>
+                  <tr>
+                    <td><?= sprintf('%02d:00', (int)($row['hora'] ?? $h)) ?></td>
+                    <td><?= (int)($row['cantidad'] ?? 0) ?></td>
+                    <td>$ <?= number_format((float)($row['monto'] ?? 0), 0, ',', '.') ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
 
       <div class="dash-card dash-card-wide">
         <div class="dash-card-header">
-          <h2>Productos Más Rentables</h2>
+          <h2>Productos mas rentables</h2>
           <span class="dash-card-sub">Top 5 por ganancia</span>
         </div>
         <div class="chart-wrap chart-wrap-wide">
-          <canvas id="chartRentables" role="img" tabindex="0" aria-label="Top productos más rentables por ganancia" aria-describedby="chartRentablesData"></canvas>
+          <canvas id="chartRentables" role="img" tabindex="0" aria-label="Top productos mas rentables por ganancia" aria-describedby="chartRentablesData"></canvas>
         </div>
         <div class="chart-context">
           <span class="chart-context-tip">Verde = ganancia, rojo = costos. Prioriza productos con mayor barra verde.</span>
         </div>
 
-          <details class="chart-data" id="chartRentablesData">
-            <summary>Ver datos</summary>
-            <div class="chart-data-inner">
-              <table class="chart-data-table">
-                <thead><tr><th>Producto</th><th>Ganancia</th></tr></thead>
-                <tbody>
-                  <?php foreach (($productosRentables ?? []) as $r): ?>
-                    <tr>
-                      <td><?= h((string)($r['nombre'] ?? '')) ?></td>
-                      <td>$ <?= number_format((float)($r['ganancia'] ?? 0), 0, ',', '.') ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-
+        <details class="chart-data" id="chartRentablesData">
+          <summary>Ver datos</summary>
+          <div class="chart-data-inner">
+            <table class="chart-data-table">
+              <thead><tr><th>Producto</th><th>Ganancia</th></tr></thead>
+              <tbody>
+                <?php foreach (($productosRentables ?? []) as $r): ?>
+                  <tr>
+                    <td><?= h((string)($r['nombre'] ?? '')) ?></td>
+                    <td>$ <?= number_format((float)($r['ganancia'] ?? 0), 0, ',', '.') ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
     </div>
 
-    <!-- STOCK CRÍTICO -->
+    <!-- STOCK CRITICO -->
     <?php if (!empty($stockCritico)): ?>
-      <h2 class="section-title">⚠️ Stock Crítico <span class="stock-count"><?= count($stockCritico) ?> productos</span></h2>
+      <h2 class="section-title">Stock critico <span class="stock-count"><?= count($stockCritico) ?> productos</span></h2>
       <div class="stock-table-wrap">
         <table class="stock-table">
           <thead>
             <tr>
               <th>Producto</th>
               <th>Stock</th>
-              <th>Mínimo</th>
-              <th>Días Restantes</th>
+              <th>Minimo</th>
+              <th>Dias restantes</th>
             </tr>
           </thead>
           <tbody>
@@ -2208,7 +2087,7 @@ require __DIR__ . '/partials/header.php';
                 <td><?= h(format_qty_trim((float)$item['stock_minimo'])) ?></td>
                 <td>
                   <?php if ($dr < 999): ?>
-                    ~<?= $dr ?> días
+                    ~<?= $dr ?> dias
                   <?php else: ?>
                     Sin datos
                   <?php endif; ?>
@@ -2219,7 +2098,6 @@ require __DIR__ . '/partials/header.php';
         </table>
       </div>
     <?php endif; ?>
-
   </div>
 </div>
 
@@ -2256,7 +2134,7 @@ require __DIR__ . '/partials/header.php';
 
   function loadDash() {
     load("assets/js/dashboard.js?v=5", function() {
-      // Cargar el script de ayuda después del dashboard
+      // Cargar el script de ayuda despuÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¿Ãƒâ€šÃ‚Â½s del dashboard
       load("assets/js/dashboard-help.js?v=1");
     });
   }
@@ -2276,3 +2154,4 @@ require __DIR__ . '/partials/header.php';
 
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
