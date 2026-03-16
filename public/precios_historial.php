@@ -1,15 +1,15 @@
 <?php
 // public/precios_historial.php - Historial de Precios FLUS
 /**
- * FLUS - GestiÛn de Precios v3.0
- * Historial de cambios, herramientas masivas y an·lisis de m·rgenes
+ * FLUS - Gesti√≥n de Precios v3.0
+ * Historial de cambios, herramientas masivas y an√°lisis de m√°rgenes
  * 
  * Mejoras v3.0:
  * - Filtros de historial visibles con UI intuitiva
  * - Sistema de variables CSS unificado con tema global
- * - Mejor UX en selecciÛn de productos
+ * - Mejor UX en selecci√≥n de productos
  * - Responsive mejorado
- * - EliminaciÛn de cÛdigo duplicado
+ * - Eliminaci√≥n de c√≥digo duplicado
  * 
  * @version 3.0.0
  */
@@ -20,7 +20,7 @@ require_login();
 
 if (!user_has_permission('editar_productos')) {
     http_response_code(403);
-    echo 'No tenÈs permisos para acceder a esta secciÛn.';
+    echo 'No ten√©s permisos para acceder a esta secci√≥n.';
     exit;
 }
 
@@ -35,10 +35,11 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 // ============================================
-// CONFIGURACI”N DE P¡GINA
+// CONFIGURACI√ìN DE P√ÅGINA
 // ============================================
-$pageTitle = 'GestiÛn de Precios - FLUS';
+$pageTitle = 'Gesti√≥n de Precios - FLUS';
 $currentSection = 'precios_historial';
+$bodyClass = 'precios-page';
 $extraCss = ['assets/css/precios.css'];
 $extraJs = ['assets/js/precios.js'];
 
@@ -59,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     
     if (!hash_equals($_SESSION['csrf_token'], $token)) {
-        $error = 'Token CSRF inv·lido. Recarg· la p·gina.';
+        $error = 'Token CSRF inv√°lido. Recarg√° la p√°gina.';
     } else {
         $accion = $_POST['accion'] ?? '';
         
@@ -74,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($porcentaje == 0) {
                 $error = 'El porcentaje no puede ser 0.';
             } elseif (empty($productoIds)) {
-                $error = 'Seleccion· al menos un producto.';
+                $error = 'Seleccion√° al menos un producto.';
             } else {
                 $result = precio_ajuste_masivo_porcentaje($productoIds, $porcentaje, $tipo, $redondeo, $motivo);
                 if ($result['actualizados'] > 0) {
@@ -83,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $info .= ' Con algunos errores: ' . implode(', ', array_slice($result['errores'], 0, 3));
                     }
                 } else {
-                    $error = 'No se actualizÛ ning˙n producto.' . 
+                    $error = 'No se actualiz√≥ ning√∫n producto.' . 
                         (!empty($result['errores']) ? ' Errores: ' . implode(', ', $result['errores']) : '');
                 }
             }
@@ -99,14 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($margen <= 0) {
                 $error = 'El margen debe ser mayor a 0.';
             } elseif (empty($productoIds)) {
-                $error = 'Seleccion· al menos un producto.';
+                $error = 'Seleccion√° al menos un producto.';
             } else {
                 $result = precio_aplicar_margen($productoIds, $margen, $redondeo, $motivo);
                 $actualizados = $result['actualizados'] ?? 0;
                 if ($actualizados > 0) {
                     $info = "Margen aplicado: {$actualizados} producto(s) actualizado(s).";
                 } else {
-                    $error = 'No se actualizÛ ning˙n producto.' .
+                    $error = 'No se actualiz√≥ ning√∫n producto.' .
                         (!empty($result['errores']) ? ' Errores: ' . implode(', ', $result['errores']) : '');
                 }
             }
@@ -115,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ============================================
-// CARGAR DATOS SEG⁄N VISTA
+// CARGAR DATOS SEG√öN VISTA
 // ============================================
 
 // Detectar columna de categoria
@@ -123,13 +124,13 @@ $catCol = flus_first_existing_column($pdo, 'productos', ['categoria', 'rubro', '
 
 
 
-// ExpresiÛn segura para categorÌa (alias estable para filtros/agrupaciÛn)
-$catExpr = "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categorÌa')";
+// Expresi√≥n segura para categor√≠a (alias estable para filtros/agrupaci√≥n)
+$catExpr = "COALESCE(NULLIF(TRIM(p.`{$catCol}`), ''), 'Sin categor√≠a')";
 
 // ============================================
 // ENDPOINTS AJAX (Herramientas)
 // - Evita renderizar 3000+ productos en DOM
-// - Carga por categorÌa + b˙squeda server-side
+// - Carga por categor√≠a + b√∫squeda server-side
 // ============================================
 if ($vista === 'herramientas' && isset($_GET['ajax_categoria'])) {
     header('Content-Type: application/json; charset=utf-8');
@@ -142,7 +143,7 @@ if ($vista === 'herramientas' && isset($_GET['ajax_categoria'])) {
     if ($limit > 200) $limit = 200;
 
     if ($cat === '') {
-        echo json_encode(['success' => false, 'error' => 'CategorÌa inv·lida'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'error' => 'Categor√≠a inv√°lida'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -157,7 +158,7 @@ if ($vista === 'herramientas' && isset($_GET['ajax_categoria'])) {
             $params[] = $like;
         }
 
-        // Pedimos LIMIT+1 para saber si hay m·s
+        // Pedimos LIMIT+1 para saber si hay m√°s
         $sql = "
             SELECT
                 p.id, p.codigo, p.nombre, p.precio, p.costo,
@@ -233,7 +234,7 @@ if ($vista === 'herramientas' && isset($_GET['ajax_categoria_ids'])) {
     $q   = trim((string)($_GET['q'] ?? ''));
 
     if ($cat === '') {
-        echo json_encode(['success' => false, 'error' => 'CategorÌa inv·lida'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['success' => false, 'error' => 'Categor√≠a inv√°lida'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -295,7 +296,7 @@ if ($vista === 'herramientas' && isset($_GET['ajax_search'])) {
 
         $byCat = [];
         foreach ($rows as $p) {
-            $cat = (string)($p['categoria'] ?? 'Sin categorÌa');
+            $cat = (string)($p['categoria'] ?? 'Sin categor√≠a');
             if (!isset($byCat[$cat])) $byCat[$cat] = [];
             $byCat[$cat][] = $p;
         }
@@ -308,11 +309,11 @@ if ($vista === 'herramientas' && isset($_GET['ajax_search'])) {
             </div>
             <?php
         } else {
-            // Aviso si el lÌmite cortÛ resultados (mejorable con COUNT, pero evita queries extra)
+            // Aviso si el l√≠mite cort√≥ resultados (mejorable con COUNT, pero evita queries extra)
             if (count($rows) >= $limit) {
                 ?>
                 <div class="categorias-hint">
-                    Mostrando los primeros <?= (int)$limit ?> resultados. Refin· la b˙squeda para ver menos.
+                    Mostrando los primeros <?= (int)$limit ?> resultados. Refin√° la b√∫squeda para ver menos.
                 </div>
                 <?php
             }
@@ -327,7 +328,7 @@ if ($vista === 'herramientas' && isset($_GET['ajax_search'])) {
                                 <polyline points="9 18 15 12 9 6"/>
                             </svg>
                         </span>
-                        <input type="checkbox" class="categoria-checkbox" title="Seleccionar productos visibles de la categorÌa">
+                        <input type="checkbox" class="categoria-checkbox" title="Seleccionar productos visibles de la categor√≠a">
                         <div class="categoria-info">
                             <span class="categoria-nombre"><?= htmlspecialchars($catName) ?></span>
                         </div>
@@ -520,7 +521,7 @@ if ($vista === 'herramientas') {
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         foreach ($rows as $r) {
             $categorias[] = [
-                'nombre' => (string)($r['categoria'] ?? 'Sin categorÌa'),
+                'nombre' => (string)($r['categoria'] ?? 'Sin categor√≠a'),
                 'count' => (int)($r['count'] ?? 0),
             ];
         }
@@ -529,7 +530,7 @@ if ($vista === 'herramientas') {
     }
 }
 
-// VISTA: M¡RGENES
+// VISTA: M√ÅRGENES
 $estadisticas = null;
 $margenBajo = [];
 if ($vista === 'margenes') {
@@ -556,8 +557,9 @@ require __DIR__ . '/partials/header.php';
                 </span>
                 <div class="module-header-copy">
                     <span class="module-eyebrow">Rentabilidad comercial</span>
-            <h1>GestiÛn de Precios</h1>
-            <p class="panel-subtitle">Historial de cambios, ajustes masivos y an·lisis de m·rgenes</p>
+                    <h1 class="page-title module-title">Gesti√≥n de Precios</h1>
+                    <p class="page-sub panel-subtitle module-subtitle">Historial de cambios, ajustes masivos y an√°lisis de m√°rgenes</p>
+                </div>
             </div>
         </div>
     </header>
@@ -603,7 +605,7 @@ require __DIR__ . '/partials/header.php';
                 <line x1="12" y1="1" x2="12" y2="23"/>
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
             </svg>
-            M·rgenes
+            M√°rgenes
         </a>
     </nav>
 
@@ -653,7 +655,7 @@ require __DIR__ . '/partials/header.php';
                 <label for="historialPerPage">Mostrar</label>
                 <select id="historialPerPage" name="per_page" data-autosubmit="1">
                     <?php foreach ($historialPerPageOptions as $pageSize): ?>
-                        <option value="<?= (int)$pageSize ?>" <?= $historialPerPage === $pageSize ? 'selected' : '' ?>><?= (int)$pageSize ?> por p·gina</option>
+                        <option value="<?= (int)$pageSize ?>" <?= $historialPerPage === $pageSize ? 'selected' : '' ?>><?= (int)$pageSize ?> por p√°gina</option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -670,11 +672,11 @@ require __DIR__ . '/partials/header.php';
                     <strong><?= $historialTotalRows ?></strong> cambio<?= $historialTotalRows === 1 ? '' : 's' ?>
                 </div>
                 <div class="historial-summary__meta">
-                    <?= $historialFromRow ?>-<?= $historialToRow ?> de <?= $historialTotalRows ?> | p·gina <?= $historialPage ?> de <?= $historialTotalPages ?> | <?= $historialPerPage ?> por p·gina
+                    <?= $historialFromRow ?>-<?= $historialToRow ?> de <?= $historialTotalRows ?> | p√°gina <?= $historialPage ?> de <?= $historialTotalPages ?> | <?= $historialPerPage ?> por p√°gina
                 </div>
             </div>
 
-            <?= render_pagination($historialPage, $historialTotalPages, $historialQueryParams, true, $historialTotalRows, $historialFromRow, $historialToRow) ?>
+            <?= render_pagination($historialPage, $historialTotalPages, $historialQueryParams, false) ?>
         <?php endif; ?>
 
         <div class="historial-list">
@@ -685,7 +687,7 @@ require __DIR__ . '/partials/header.php';
                         <polyline points="12 6 12 12 16 14"/>
                     </svg>
                     <p>No hay cambios de precios registrados.</p>
-                    <p style="font-size: 0.8125rem;">Los cambios aparecer·n ac· cuando modifiques precios desde las herramientas o el mÛdulo de productos.</p>
+                    <p style="font-size: 0.8125rem;">Los cambios aparecer√°n ac√° cuando modifiques precios desde las herramientas o el m√≥dulo de productos.</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($historial as $h):
@@ -745,14 +747,14 @@ require __DIR__ . '/partials/header.php';
     <?php elseif ($vista === 'herramientas'): ?>
         
         <div class="precios-layout">
-            <!-- Panel izquierdo: CategorÌas y productos -->
+            <!-- Panel izquierdo: Categor√≠as y productos -->
             <div class="categorias-panel">
                 <div class="categorias-header">
                     <h3>
                         <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                         </svg>
-                        Productos por CategorÌa
+                        Productos por Categor√≠a
                     </h3>
                     <div class="btn-group">
                         <button type="button" id="expandAllBtn" class="btn btn-ghost btn-sm" title="Expandir todo (Ctrl+Shift+E)">
@@ -771,7 +773,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
                 
                 <div class="categorias-search">
-                    <input type="text" id="searchProductos" placeholder="Buscar por cÛdigo o nombre..." autocomplete="off">
+                    <input type="text" id="searchProductos" placeholder="Buscar por c√≥digo o nombre..." autocomplete="off">
                 </div>
                 
                 <div class="categorias-list">
@@ -788,14 +790,14 @@ require __DIR__ . '/partials/header.php';
                                         <polyline points="9 18 15 12 9 6"/>
                                     </svg>
                                 </span>
-                                <input type="checkbox" class="categoria-checkbox" title="Seleccionar toda la categorÌa">
+                                <input type="checkbox" class="categoria-checkbox" title="Seleccionar toda la categor√≠a">
                                 <div class="categoria-info">
                                     <span class="categoria-nombre"><?= htmlspecialchars($cat['nombre']) ?></span>
                                 </div>
                                 <span class="categoria-count"><?= (int)$cat['count'] ?></span>
                             </div>
                             <div class="categoria-productos" data-loaded="0" data-offset="0">
-                                <div class="categoria-placeholder">ExpandÌ la categorÌa para cargar productosÖ</div>
+                                <div class="categoria-placeholder">Expand√≠ la categor√≠a para cargar productos¬Ö</div>
                             </div>
                         </div>
                         <?php endforeach; ?>
@@ -806,7 +808,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Panel derecho: Herramientas -->
             <div class="herramientas-panel">
                 
-                <!-- Contador de selecciÛn -->
+                <!-- Contador de selecci√≥n -->
                 <div class="selection-counter" style="display: none;">
                     <span><span id="selectionCount">0</span> producto(s) seleccionado(s)</span>
                     <button type="button" id="clearSelectionBtn" class="clear-btn">Limpiar</button>
@@ -820,7 +822,7 @@ require __DIR__ . '/partials/header.php';
                             <polyline points="17 6 23 6 23 12"/>
                         </svg>
                         <h3>Ajuste por Porcentaje</h3>
-                        <span class="help-tooltip" data-tip="Aument· o disminuÌ precios aplicando un porcentaje. Ej: +10% para aumentar, -5% para disminuir." tabindex="0" aria-label="Ayuda">?</span>
+                        <span class="help-tooltip" data-tip="Aument√° o disminu√≠ precios aplicando un porcentaje. Ej: +10% para aumentar, -5% para disminuir." tabindex="0" aria-label="Ayuda">?</span>
                     </div>
                     <div class="tool-card-body">
                         <form method="post" id="formAjusteMasivo">
@@ -834,7 +836,7 @@ require __DIR__ . '/partials/header.php';
                                     <input type="number" name="porcentaje" id="porcentajeInput" step="0.1" class="form-control" placeholder="Ej: 10 o -5" required>
                                     <span>%</span>
                                 </div>
-                                <p class="form-hint">Us· valores negativos para disminuir</p>
+                                <p class="form-hint">Us√° valores negativos para disminuir</p>
                             </div>
                             
                             <div class="form-group">
@@ -848,28 +850,28 @@ require __DIR__ . '/partials/header.php';
                             <div class="form-group">
                                 <label>
                                     Redondeo
-                                    <span class="help-tooltip" data-tip="El redondeo se aplica despuÈs del ajuste. 'PsicolÛgico' redondea a X90 o X990." tabindex="0" aria-label="Ayuda">?</span>
+                                    <span class="help-tooltip" data-tip="El redondeo se aplica despu√©s del ajuste. 'Psicol√≥gico' redondea a X90 o X990." tabindex="0" aria-label="Ayuda">?</span>
                                 </label>
                                 <select name="redondeo" id="redondeoSelect" class="form-control">
                                     <option value="NINGUNO">Sin redondeo</option>
-                                    <option value="ENTERO">Entero m·s cercano</option>
-                                    <option value="10" selected>M˙ltiplo de 10</option>
-                                    <option value="50">M˙ltiplo de 50</option>
-                                    <option value="100">M˙ltiplo de 100</option>
-                                    <option value="990">PsicolÛgico (X90/X990)</option>
+                                    <option value="ENTERO">Entero m√°s cercano</option>
+                                    <option value="10" selected>M√∫ltiplo de 10</option>
+                                    <option value="50">M√∫ltiplo de 50</option>
+                                    <option value="100">M√∫ltiplo de 100</option>
+                                    <option value="990">Psicol√≥gico (X90/X990)</option>
                                 </select>
                             </div>
                             
                             <div class="form-group">
                                 <label>Motivo (opcional)</label>
-                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Ajuste por inflaciÛn marzo">
+                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Ajuste por inflaci√≥n marzo">
                             </div>
                             
                             <!-- Preview -->
                             <div class="preview-section">
                                 <h4>Vista previa</h4>
                                 <div class="preview-list" id="previewList">
-                                    <p style="text-align: center; padding: 1rem; color: var(--pm-muted); margin: 0;">Seleccion· productos y un porcentaje</p>
+                                    <p style="text-align: center; padding: 1rem; color: var(--pm-muted); margin: 0;">Seleccion√° productos y un porcentaje</p>
                                 </div>
                             </div>
                             
@@ -891,7 +893,7 @@ require __DIR__ . '/partials/header.php';
                             <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                         </svg>
                         <h3>Margen sobre Costo</h3>
-                        <span class="help-tooltip" data-tip="Calcul· el precio de venta bas·ndote en el costo. Precio = Costo ◊ (1 + Margen/100). Solo funciona en productos con costo cargado." tabindex="0" aria-label="Ayuda">?</span>
+                        <span class="help-tooltip" data-tip="Calcul√° el precio de venta bas√°ndote en el costo. Precio = Costo √ó (1 + Margen/100). Solo funciona en productos con costo cargado." tabindex="0" aria-label="Ayuda">?</span>
                     </div>
                     <div class="tool-card-body">
                         <form method="post" id="formAplicarMargen">
@@ -905,24 +907,24 @@ require __DIR__ . '/partials/header.php';
                                     <input type="number" name="margen" id="margenInput" step="0.1" min="0" class="form-control" placeholder="Ej: 30" required>
                                     <span>%</span>
                                 </div>
-                                <p class="form-hint">Si el costo es $100 y el margen 30%, el precio ser· $130</p>
+                                <p class="form-hint">Si el costo es $100 y el margen 30%, el precio ser√° $130</p>
                             </div>
                             
                             <div class="form-group">
                                 <label>Redondeo</label>
                                 <select name="redondeo" class="form-control">
                                     <option value="NINGUNO">Sin redondeo</option>
-                                    <option value="ENTERO">Entero m·s cercano</option>
-                                    <option value="10" selected>M˙ltiplo de 10</option>
-                                    <option value="50">M˙ltiplo de 50</option>
-                                    <option value="100">M˙ltiplo de 100</option>
-                                    <option value="990">PsicolÛgico (X90/X990)</option>
+                                    <option value="ENTERO">Entero m√°s cercano</option>
+                                    <option value="10" selected>M√∫ltiplo de 10</option>
+                                    <option value="50">M√∫ltiplo de 50</option>
+                                    <option value="100">M√∫ltiplo de 100</option>
+                                    <option value="990">Psicol√≥gico (X90/X990)</option>
                                 </select>
                             </div>
                             
                             <div class="form-group">
                                 <label>Motivo (opcional)</label>
-                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Normalizar m·rgenes">
+                                <input type="text" name="motivo" class="form-control" placeholder="Ej: Normalizar m√°rgenes">
                             </div>
                             
                             <button type="submit" class="btn-apply primary" disabled>
@@ -935,11 +937,11 @@ require __DIR__ . '/partials/header.php';
                     </div>
                 </div>
 
-                <!-- Ayuda r·pida -->
+                <!-- Ayuda r√°pida -->
                 <div class="tool-card tool-card-help">
                     <div class="tool-card-body">
                         <p>
-                            <strong>Atajos:</strong> Ctrl+A = Seleccionar todo ∑ Esc = Limpiar ∑ Ctrl+Shift+E = Expandir ∑ Ctrl+Shift+C = Colapsar
+                            <strong>Atajos:</strong> Ctrl+A = Seleccionar todo ¬∑ Esc = Limpiar ¬∑ Ctrl+Shift+E = Expandir ¬∑ Ctrl+Shift+C = Colapsar
                         </p>
                     </div>
                 </div>
@@ -959,11 +961,11 @@ require __DIR__ . '/partials/header.php';
         </script>
 
     <!-- ============================================
-         VISTA: M¡RGENES
+         VISTA: M√ÅRGENES
     ============================================ -->
     <?php elseif ($vista === 'margenes'): ?>
         
-        <!-- EstadÌsticas -->
+        <!-- Estad√≠sticas -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value"><?= number_format($estadisticas['total_productos'] ?? 0) ?></div>
@@ -979,7 +981,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <div class="stat-card">
                 <div class="stat-value danger"><?= $estadisticas['productos_con_perdida'] ?? 0 ?></div>
-                <div class="stat-label">Con PÈrdida</div>
+                <div class="stat-label">Con P√©rdida</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value warning"><?= $estadisticas['productos_margen_bajo'] ?? 0 ?></div>
@@ -987,7 +989,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <div class="stat-card">
                 <div class="stat-value"><?= number_format($estadisticas['margen_minimo'] ?? 0, 1) ?>%</div>
-                <div class="stat-label">Margen MÌnimo</div>
+                <div class="stat-label">Margen M√≠nimo</div>
             </div>
         </div>
 
@@ -1017,7 +1019,7 @@ require __DIR__ . '/partials/header.php';
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                         <polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
-                    <p>°Excelente! No hay productos con margen inferior al <?= htmlspecialchars($_GET['umbral'] ?? '15') ?>%</p>
+                    <p>¬°Excelente! No hay productos con margen inferior al <?= htmlspecialchars($_GET['umbral'] ?? '15') ?>%</p>
                 </div>
             <?php else: ?>
                 <div class="table-wrap">
