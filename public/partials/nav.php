@@ -1,536 +1,434 @@
 <?php
-// public/partials/nav.php
 declare(strict_types=1);
 
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
 
 $user = $user ?? (function_exists('current_user') ? current_user() : []);
-$pdo  = $pdo  ?? (function_exists('getPDO') ? getPDO() : null);
-
-/**
- * Chequeo de permisos:
- * 1) user_has_permission() si existe
- * 2) fallback a $_SESSION['permissions']
- */
-$can = function (string $perm) use ($user): bool {
-  if (function_exists('user_has_permission')) {
-    return user_has_permission($perm);
-  }
-  $perms = function_exists('session_permissions') ? session_permissions() : ($_SESSION['permissions'] ?? ($user['permissions'] ?? []));
-  if (!is_array($perms)) $perms = [];
-  return in_array($perm, $perms, true);
+$pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
+$esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+$groupCurrentLabel = static function (string $fallback, array $links, string $section): string {
+    foreach ($links as $link) {
+        if (($link['section'] ?? '') === $section) {
+            return (string)($link['label'] ?? $fallback);
+        }
+    }
+    return $fallback;
 };
 
-// Sección actual
+$can = function (string $perm) use ($user): bool {
+    if (function_exists('user_has_permission')) {
+        return user_has_permission($perm);
+    }
+
+    $perms = function_exists('session_permissions')
+        ? session_permissions()
+        : ($_SESSION['permissions'] ?? ($user['permissions'] ?? []));
+
+    if (!is_array($perms)) {
+        $perms = [];
+    }
+
+    return in_array($perm, $perms, true);
+};
+
 $currentSection = $currentSection ?? '';
 if ($currentSection === '') {
-  $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+    $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+    $map = [
+        'index.php' => 'inicio',
+        'dashboard.php' => 'dashboard',
+        'caja.php' => 'caja',
+        'productos.php' => 'productos',
+        'stock.php' => 'stock',
+        'inventario_analisis.php' => 'inventario_analisis',
+        'inventario_fisico.php' => 'inventario_fisico',
+        'reposicion.php' => 'reposicion',
+        'movimientos.php' => 'movimientos',
+        'ventas.php' => 'ventas',
+        'venta_detalle.php' => 'ventas',
+        'compras.php' => 'compras',
+        'proveedores.php' => 'proveedores',
+        'caja_historial.php' => 'caja_historial',
+        'caja_sesion_detalle.php' => 'caja_historial',
+        'caja_sesion_print.php' => 'caja_historial',
+        'promos.php' => 'promos',
+        'promo_form.php' => 'promos',
+        'promo_combo_form.php' => 'promos',
+        'clientes.php' => 'clientes',
+        'cuenta_corriente.php' => 'cuenta_corriente',
+        'cuenta_corriente_cliente.php' => 'cuenta_corriente',
+        'cuenta_corriente_print.php' => 'cuenta_corriente',
+        'facturacion.php' => 'facturacion',
+        'factura_nueva.php' => 'facturacion',
+        'factura_manual.php' => 'facturacion',
+        'factura_ver.php' => 'facturacion',
+        'factura_emitir.php' => 'facturacion',
+        'configuracion.php' => 'configuracion',
+        'licencia.php' => 'configuracion',
+        'usuarios.php' => 'usuarios',
+        'usuario_nuevo.php' => 'usuarios',
+        'usuario_editar.php' => 'usuarios',
+        'auditoria.php' => 'auditoria',
+        'backups.php' => 'backups',
+        'roles.php' => 'roles',
+        'rol_permisos.php' => 'roles',
+        'terminales.php' => 'configuracion',
+        'diagnostico.php' => 'diagnostico',
+        'tecnico.php' => 'tecnico',
+        'precios_historial.php' => 'precios_historial',
+    ];
 
-  $map = [
-    'index.php'               => 'inicio',
-    'dashboard.php'           => 'dashboard',
-    'caja.php'                => 'caja',
-    'productos.php'           => 'productos',
-    'stock.php'               => 'stock',
-    'inventario_analisis.php' => 'inventario_analisis',
-    'movimientos.php'         => 'movimientos',
-    'ventas.php'              => 'ventas',
-    'venta_detalle.php'       => 'ventas',
-    'compras.php'             => 'compras',
-    'proveedores.php'         => 'proveedores',
-    'caja_historial.php'      => 'caja_historial',
-    'caja_sesion_detalle.php' => 'caja_historial',
-    'caja_sesion_print.php'   => 'caja_historial',
-    'promos.php'              => 'promos',
-    'promo_form.php'          => 'promos',
-    'promo_combo_form.php'    => 'promos',
-    'clientes.php'            => 'clientes',
-
-    // ✅ NUEVO: Cuenta Corriente
-    // Ajustá estos nombres si tus archivos se llaman distinto
-    'cuenta_corriente.php'          => 'cuenta_corriente',
-    'cuenta_corriente_cliente.php'  => 'cuenta_corriente',
-    'cuenta_corriente_print.php'    => 'cuenta_corriente',
-
-    'facturacion.php'         => 'facturacion',
-    'factura_nueva.php'       => 'facturacion',
-    'factura_manual.php'      => 'facturacion',
-    'factura_ver.php'         => 'facturacion',
-    'factura_emitir.php'      => 'facturacion',
-    'configuracion.php'       => 'configuracion',
-    'usuarios.php'            => 'usuarios',
-    'usuario_nuevo.php'       => 'usuarios',
-    'usuario_editar.php'      => 'usuarios',
-    'auditoria.php'           => 'auditoria',
-    'backups.php'             => 'backups',
-    'roles.php'               => 'roles',
-    'rol_permisos.php'        => 'roles',
-    'terminales.php'          => 'configuracion',
-
-    // Nuevos módulos P1/P2
-    'diagnostico.php'         => 'diagnostico',
-    'tecnico.php'             => 'tecnico',
-    'inventario_fisico.php'   => 'inventario_fisico',
-    'precios_historial.php'   => 'precios_historial',
-    'reposicion.php'          => 'reposicion',
-  ];
-
-  if (isset($map[$file])) $currentSection = $map[$file];
+    if (isset($map[$file])) {
+        $currentSection = $map[$file];
+    }
 }
 
-// Caja abierta
 $cajaAbierta = false;
 $cajaId = 0;
 try {
-  if ($pdo instanceof PDO) {
-    $terminalId  = current_terminal_id();
-    $cajaRow     = ($terminalId > 0) ? caja_get_abierta($pdo, $terminalId) : null;
-    $cajaAbierta = ($cajaRow !== null);
-    $cajaId = (int)($cajaRow['id'] ?? 0);
-  }
+    if ($pdo instanceof PDO) {
+        $terminalId = current_terminal_id();
+        $cajaRow = $terminalId > 0 ? caja_get_abierta($pdo, $terminalId) : null;
+        $cajaAbierta = $cajaRow !== null;
+        $cajaId = (int)($cajaRow['id'] ?? 0);
+    }
 } catch (Throwable $e) {
-  $cajaAbierta = false;
+    $cajaAbierta = false;
 }
 
-// Permisos
-$canDashboard   = $can('ver_reportes');
-$canCaja        = $can('realizar_ventas');
-// Productos: ABM (edición). Si querés "solo lectura", hacemos vista separada.
-$canProductos   = $can('editar_productos');
-// Stock: ajustes (edición)
-$canStock       = $can('editar_stock');
-
-// Inventario: análisis/lectura (admite ver_stock o legacy stock)
-$canInventario  = $can('editar_stock') || $can('ver_stock') || $can('stock');
-
+$canDashboard = $can('ver_reportes');
+$canCaja = $can('realizar_ventas');
+$canProductos = $can('editar_productos');
+$canStock = $can('editar_stock');
+$canInventario = $can('editar_stock') || $can('ver_stock') || $can('stock');
 $canMovimientos = $can('ver_movimientos');
-// Ventas: reportes (no la caja)
-$canVentas      = $can('ver_reportes');
-// Compras: impacta stock => requiere stock (edición)
-$canCompras     = $can('editar_stock');
-$canProveedores = $can('ver_proveedores')  || $can('editar_proveedores');
-$canHistCaja    = $can('ver_historial_caja');
-$canPromos      = $can('editar_promos');
-$canClientes    = $can('ver_clientes')     || $can('editar_clientes');
-$canFacturacion = $can('ver_facturacion')  || $can('emitir_factura') || $can('administrar_config');
+$canVentas = $can('ver_reportes');
+$canCompras = $can('editar_stock');
+$canProveedores = $can('ver_proveedores') || $can('editar_proveedores');
+$canHistCaja = $can('ver_historial_caja');
+$canPromos = $can('editar_promos');
+$canClientes = $can('ver_clientes') || $can('editar_clientes');
+$canFacturacion = $can('ver_facturacion') || $can('emitir_factura') || $can('administrar_config');
 
-// Verificar si facturación está habilitada en configuración
-$facturacionHabilitada = true; // default
+$facturacionHabilitada = true;
 if ($pdo instanceof PDO && function_exists('config_get')) {
-  $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+    $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 }
 $canFacturacion = $canFacturacion && $facturacionHabilitada;
 
-// ✅ NUEVO: Cuenta Corriente (elegí el criterio que querés)
-// Opción simple (recomendada): visible si puede ver clientes y cuenta corriente
 $canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
-
-// Si querés que aparezca también si tiene permisos operativos, podés usar esto en lugar de lo anterior:
-// $canCuentaCorriente = $can('ver_cuenta_corriente') || $can('registrar_pago_cc') || $can('registrar_cargo_cc');
-
-// Nuevos módulos P1/P2
 $canInventarioFisico = $can('editar_stock');
 $canPreciosHistorial = $can('editar_productos');
-$canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
-$canDiagnostico      = function_exists('user_can_access_diagnostics')
-  ? user_can_access_diagnostics()
-  : ($can('ver_diagnostico') || $can('gestionar_backups'));
-$canTecnico          = function_exists('user_can_access_technical_panel')
-  ? user_can_access_technical_panel()
-  : ($can('administrar_config') || $can('gestionar_backups'));
+$canReposicion = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
+$canDiagnostico = function_exists('user_can_access_diagnostics')
+    ? user_can_access_diagnostics()
+    : ($can('ver_diagnostico') || $can('gestionar_backups'));
+$canTecnico = function_exists('user_can_access_technical_panel')
+    ? user_can_access_technical_panel()
+    : ($can('administrar_config') || $can('gestionar_backups'));
 
 $showAdminMenu =
-  $can('administrar_config') ||
-  $can('administrar_usuarios') ||
-  $can('ver_auditoria') ||
-  $can('gestionar_backups') ||
-  $canDiagnostico ||
-  $canTecnico;
+    $can('administrar_config') ||
+    $can('administrar_usuarios') ||
+    $can('ver_auditoria') ||
+    $can('gestionar_backups') ||
+    $canDiagnostico ||
+    $canTecnico;
 
-$adminActive = in_array($currentSection, ['configuracion','usuarios','auditoria','backups','roles','diagnostico','tecnico'], true);
+$adminActive = in_array($currentSection, ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico'], true);
+$commercialSections = ['productos', 'precios_historial', 'promos', 'clientes', 'proveedores'];
+$inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
+$fiscalSections = ['cuenta_corriente', 'facturacion'];
 
+$commercialLinks = [];
+if ($canProductos) $commercialLinks[] = ['href' => 'productos.php', 'section' => 'productos', 'label' => 'Productos'];
+if ($canPreciosHistorial) $commercialLinks[] = ['href' => 'precios_historial.php', 'section' => 'precios_historial', 'label' => 'Precios'];
+if ($canPromos) $commercialLinks[] = ['href' => 'promos.php', 'section' => 'promos', 'label' => 'Promociones'];
+if ($canClientes) $commercialLinks[] = ['href' => 'clientes.php', 'section' => 'clientes', 'label' => 'Clientes'];
+if ($canProveedores) $commercialLinks[] = ['href' => 'proveedores.php', 'section' => 'proveedores', 'label' => 'Proveedores'];
+
+$inventoryLinks = [];
+if ($canStock) $inventoryLinks[] = ['href' => 'stock.php', 'section' => 'stock', 'label' => 'Stock'];
+if ($canInventario) $inventoryLinks[] = ['href' => 'inventario_analisis.php', 'section' => 'inventario_analisis', 'label' => 'Analisis'];
+if ($canInventarioFisico) $inventoryLinks[] = ['href' => 'inventario_fisico.php', 'section' => 'inventario_fisico', 'label' => 'Conteo fisico'];
+if ($canReposicion) $inventoryLinks[] = ['href' => 'reposicion.php', 'section' => 'reposicion', 'label' => 'Reposicion'];
+if ($canMovimientos) $inventoryLinks[] = ['href' => 'movimientos.php', 'section' => 'movimientos', 'label' => 'Movimientos'];
+
+$fiscalLinks = [];
+if ($canCuentaCorriente) $fiscalLinks[] = ['href' => 'cuenta_corriente.php', 'section' => 'cuenta_corriente', 'label' => 'Cuenta corriente'];
+if ($canFacturacion) $fiscalLinks[] = ['href' => 'facturacion.php', 'section' => 'facturacion', 'label' => 'Facturacion'];
+
+$commercialActive = in_array($currentSection, $commercialSections, true);
+$inventoryActive = in_array($currentSection, $inventorySections, true);
+$fiscalActive = in_array($currentSection, $fiscalSections, true);
+$commercialLabel = $groupCurrentLabel('Comercial', $commercialLinks, $currentSection);
+$inventoryLabel = $groupCurrentLabel('Inventario', $inventoryLinks, $currentSection);
+$fiscalLabel = $groupCurrentLabel('Fiscal', $fiscalLinks, $currentSection);
+
+$primaryLinks = [];
+if ($canDashboard) $primaryLinks[] = ['href' => 'dashboard.php', 'section' => 'dashboard', 'label' => 'Panel'];
+if ($canCaja) $primaryLinks[] = ['href' => 'caja.php', 'section' => 'caja', 'label' => 'Caja'];
+if ($canVentas) $primaryLinks[] = ['href' => 'ventas.php', 'section' => 'ventas', 'label' => 'Ventas'];
+if ($canCompras) $primaryLinks[] = ['href' => 'compras.php', 'section' => 'compras', 'label' => 'Compras'];
+if ($canHistCaja) $primaryLinks[] = ['href' => 'caja_historial.php', 'section' => 'caja_historial', 'label' => 'Historial caja'];
+
+$adminLinks = [];
+if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php', 'label' => 'Usuarios'];
+if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php', 'label' => 'Roles y permisos'];
+if ($can('administrar_config')) $adminLinks[] = ['href' => 'configuracion.php', 'label' => 'Configuracion'];
+if ($can('administrar_config')) $adminLinks[] = ['href' => 'licencia.php', 'label' => 'Licencia'];
+if ($can('administrar_config')) $adminLinks[] = ['href' => 'terminales.php', 'label' => 'Terminales'];
+if ($can('ver_auditoria')) $adminLinks[] = ['href' => 'auditoria.php', 'label' => 'Auditoria'];
+if ($can('gestionar_backups')) $adminLinks[] = ['href' => 'backups.php', 'label' => 'Backups'];
+if ($canDiagnostico) $adminLinks[] = ['href' => 'diagnostico.php', 'label' => 'Diagnostico'];
+if ($canTecnico) $adminLinks[] = ['href' => 'tecnico.php', 'label' => 'Tecnico'];
 ?>
 
-<nav class="nav-container" role="navigation" aria-label="Navegación principal">
+<nav class="nav-container" role="navigation" aria-label="Navegacion principal">
+    <a href="index.php" class="nav-brand" aria-label="Inicio">
+        <span class="nav-logo">FLUS</span>
+    </a>
 
-  <!-- Logo / Marca (opcional) -->
-  <a href="index.php" class="nav-brand" aria-label="Inicio">
-    <span class="nav-logo">FLUS</span>
-  </a>
+    <button type="button"
+            class="nav-hamburger"
+            id="navHamburger"
+            aria-label="Menu de navegacion"
+            aria-expanded="false"
+            aria-controls="navMenu">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+    </button>
 
-  <!-- Botón hamburguesa (mobile) -->
-  <button type="button"
-          class="nav-hamburger"
-          id="navHamburger"
-          aria-label="Menú de navegación"
-          aria-expanded="false"
-          aria-controls="navMenu">
-    <span class="hamburger-line"></span>
-    <span class="hamburger-line"></span>
-    <span class="hamburger-line"></span>
-  </button>
+    <div class="nav-menu-wrapper" id="navMenu">
+        <div class="nav-left">
+            <?php foreach ($primaryLinks as $link): ?>
+                <a href="<?= $esc($link['href']) ?>"
+                   class="nav-pill <?= $currentSection === $link['section'] ? 'active' : '' ?>"
+                   aria-current="<?= $currentSection === $link['section'] ? 'page' : 'false' ?>">
+                    <?= $esc($link['label']) ?>
+                </a>
+            <?php endforeach; ?>
 
-  <!-- Menú principal -->
-  <div class="nav-menu-wrapper" id="navMenu">
-    <div class="nav-left">
+            <?php if ($commercialLinks !== []): ?>
+                <div class="nav-dropdown nav-group js-nav-dropdown">
+                    <button type="button"
+                            class="nav-pill nav-group-btn <?= $commercialActive ? 'active' : '' ?>"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Grupo Comercial">
+                        <?= $esc($commercialLabel) ?>
+                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
+                    </button>
+                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Comercial">
+                        <?php foreach ($commercialLinks as $link): ?>
+                            <a role="menuitem"
+                               href="<?= $esc($link['href']) ?>"
+                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
+                                <?= $esc($link['label']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
 
-      <?php if ($canDashboard): ?>
-        <a href="dashboard.php"
-           class="nav-pill <?= $currentSection === 'dashboard' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'dashboard' ? 'page' : 'false' ?>">
-          📊 Panel de control
-        </a>
-      <?php endif; ?>
+            <?php if ($inventoryLinks !== []): ?>
+                <div class="nav-dropdown nav-group js-nav-dropdown">
+                    <button type="button"
+                            class="nav-pill nav-group-btn <?= $inventoryActive ? 'active' : '' ?>"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Grupo Inventario">
+                        <?= $esc($inventoryLabel) ?>
+                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
+                    </button>
+                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Inventario">
+                        <?php foreach ($inventoryLinks as $link): ?>
+                            <a role="menuitem"
+                               href="<?= $esc($link['href']) ?>"
+                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
+                                <?= $esc($link['label']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
 
-      <?php if ($canCaja): ?>
-        <a href="caja.php"
-           class="nav-pill <?= $currentSection === 'caja' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'caja' ? 'page' : 'false' ?>">
-          🛒 Caja
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canProductos): ?>
-        <a href="productos.php"
-           class="nav-pill <?= $currentSection === 'productos' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'productos' ? 'page' : 'false' ?>">
-          📦 Productos
-        </a>
-      <?php endif; ?>
-
-      <!-- Historial de Precios -->
-      <?php if ($canPreciosHistorial): ?>
-        <a href="precios_historial.php"
-           class="nav-pill <?= $currentSection === 'precios_historial' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'precios_historial' ? 'page' : 'false' ?>">
-          💲 Precios
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canStock): ?>
-        <a href="stock.php"
-           class="nav-pill <?= $currentSection === 'stock' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'stock' ? 'page' : 'false' ?>">
-          📋 Stock
-        </a>
-      <?php endif; ?>
-
-      <!-- ✅ NUEVO: Inventario -->
-      <?php if ($canInventario): ?>
-        <a href="inventario_analisis.php"
-           class="nav-pill <?= $currentSection === 'inventario_analisis' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'inventario_analisis' ? 'page' : 'false' ?>">
-          📦 Inventario
-        </a>
-      <?php endif; ?>
-
-      <!-- Inventario Físico (conteo) -->
-      <?php if ($canInventarioFisico): ?>
-        <a href="inventario_fisico.php"
-           class="nav-pill <?= $currentSection === 'inventario_fisico' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'inventario_fisico' ? 'page' : 'false' ?>">
-          📝 Conteo Físico
-        </a>
-      <?php endif; ?>
-
-      <!-- Reposición Sugerida -->
-      <?php if ($canReposicion): ?>
-        <a href="reposicion.php"
-           class="nav-pill <?= $currentSection === 'reposicion' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'reposicion' ? 'page' : 'false' ?>">
-          📦 Reposición
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canMovimientos): ?>
-        <a href="movimientos.php"
-           class="nav-pill <?= $currentSection === 'movimientos' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'movimientos' ? 'page' : 'false' ?>">
-          🔄 Movimientos
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canVentas): ?>
-        <a href="ventas.php"
-           class="nav-pill <?= $currentSection === 'ventas' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'ventas' ? 'page' : 'false' ?>">
-          💰 Ventas
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canCompras): ?>
-        <a href="compras.php"
-           class="nav-pill <?= $currentSection === 'compras' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'compras' ? 'page' : 'false' ?>">
-          🛍️ Compras
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canProveedores): ?>
-        <a href="proveedores.php"
-           class="nav-pill <?= $currentSection === 'proveedores' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'proveedores' ? 'page' : 'false' ?>">
-          🏭 Proveedores
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canHistCaja): ?>
-        <a href="caja_historial.php"
-           class="nav-pill <?= $currentSection === 'caja_historial' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'caja_historial' ? 'page' : 'false' ?>">
-          📜 Historial
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canPromos): ?>
-        <a href="promos.php"
-           class="nav-pill <?= $currentSection === 'promos' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'promos' ? 'page' : 'false' ?>">
-          🎁 Promos
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canClientes): ?>
-        <a href="clientes.php"
-           class="nav-pill <?= $currentSection === 'clientes' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'clientes' ? 'page' : 'false' ?>">
-          👥 Clientes
-        </a>
-      <?php endif; ?>
-
-      <!-- ✅ NUEVO: Cuenta Corriente -->
-      <?php if ($canCuentaCorriente): ?>
-        <a href="cuenta_corriente.php"
-           class="nav-pill <?= $currentSection === 'cuenta_corriente' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'cuenta_corriente' ? 'page' : 'false' ?>">
-          🧮 Cuenta Corriente
-        </a>
-      <?php endif; ?>
-
-      <?php if ($canFacturacion): ?>
-        <a href="facturacion.php"
-           class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>"
-           aria-current="<?= $currentSection === 'facturacion' ? 'page' : 'false' ?>">
-          🧾 Facturación
-        </a>
-      <?php endif; ?>
-    </div>
-
-    <div class="nav-right">
-
-      <!-- Badge caja -->
-      <?php if ($canCaja): ?>
-        <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>"
-             title="<?= $cajaAbierta ? "Caja #{$cajaId} abierta" : 'Caja cerrada' ?>">
-          <span class="badge-dot"></span>
-          <span class="badge-text">
-            <?= $cajaAbierta ? 'Caja abierta' : 'Caja cerrada' ?>
-          </span>
+            <?php if ($fiscalLinks !== []): ?>
+                <div class="nav-dropdown nav-group js-nav-dropdown">
+                    <button type="button"
+                            class="nav-pill nav-group-btn <?= $fiscalActive ? 'active' : '' ?>"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="Grupo Fiscal">
+                        <?= $esc($fiscalLabel) ?>
+                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
+                    </button>
+                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Fiscal">
+                        <?php foreach ($fiscalLinks as $link): ?>
+                            <a role="menuitem"
+                               href="<?= $esc($link['href']) ?>"
+                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
+                                <?= $esc($link['label']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
-      <?php endif; ?>
 
-      <!-- Theme toggle -->
-      <div class="theme-switch">
-        <input type="checkbox" id="toggleTheme" aria-label="Alternar tema oscuro/claro">
-        <label for="toggleTheme" class="theme-toggle">
-          <span class="toggle-track">
-            <span class="toggle-icon toggle-icon--sun" aria-hidden="true">☀</span>
-            <span class="toggle-icon toggle-icon--moon" aria-hidden="true">🌙</span>
-          </span>
-          <span class="toggle-thumb"></span>
-        </label>
-      </div>
-
-      <!-- Menú admin -->
-      <?php if ($showAdminMenu): ?>
-        <div class="nav-dropdown" id="adminMenu">
-          <button type="button"
-                  class="nav-icon nav-dropdown-btn <?= $adminActive ? 'active' : '' ?>"
-                  aria-haspopup="true"
-                  aria-expanded="false"
-                  aria-label="Menú de administración"
-                  title="Ajustes">
-            ⚙️
-          </button>
-
-          <div class="nav-dropdown-menu" role="menu" aria-label="Administración">
-            <?php if ($can('administrar_usuarios')): ?>
-              <a role="menuitem" href="usuarios.php" tabindex="0">
-                <span class="menu-icon">👤</span> Usuarios
-              </a>
+        <div class="nav-right">
+            <?php if ($canCaja): ?>
+                <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>"
+                     title="<?= $esc($cajaAbierta ? "Caja #{$cajaId} abierta" : 'Caja cerrada') ?>">
+                    <span class="badge-dot"></span>
+                    <span class="badge-text"><?= $cajaAbierta ? 'Caja abierta' : 'Caja cerrada' ?></span>
+                </div>
             <?php endif; ?>
 
-            <?php if ($can('administrar_usuarios')): ?>
-              <a role="menuitem" href="roles.php" tabindex="0">
-                <span class="menu-icon">🔐</span> Roles y permisos
-              </a>
+            <div class="theme-switch">
+                <input type="checkbox" id="toggleTheme" aria-label="Alternar tema oscuro o claro">
+                <label for="toggleTheme" class="theme-toggle">
+                    <span class="toggle-track">
+                        <span class="toggle-icon toggle-icon--sun" aria-hidden="true">&#9728;</span>
+                        <span class="toggle-icon toggle-icon--moon" aria-hidden="true">&#9789;</span>
+                    </span>
+                    <span class="toggle-thumb"></span>
+                </label>
+            </div>
+
+            <?php if ($showAdminMenu): ?>
+                <div class="nav-dropdown js-nav-dropdown" id="adminMenu">
+                    <button type="button"
+                            class="nav-icon nav-dropdown-btn <?= $adminActive ? 'active' : '' ?>"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            aria-label="Menu de administracion"
+                            title="Ajustes">
+                        <span aria-hidden="true">&#9881;</span>
+                    </button>
+
+                    <div class="nav-dropdown-menu" role="menu" aria-label="Administracion">
+                        <?php foreach ($adminLinks as $link): ?>
+                            <a role="menuitem" href="<?= $esc($link['href']) ?>" tabindex="0">
+                                <?= $esc($link['label']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             <?php endif; ?>
 
-            <?php if ($can('administrar_config')): ?>
-              <a role="menuitem" href="configuracion.php" tabindex="0">
-                <span class="menu-icon">🛠</span> Configuración
-              </a>
-              <a role="menuitem" href="licencia.php" tabindex="0">
-                <span class="menu-icon">🔑</span> Licencia
-              </a>
-              <a role="menuitem" href="terminales.php" tabindex="0">
-                <span class="menu-icon">🧾</span> Terminales
-              </a>
-            <?php endif; ?>
-
-            <?php if ($can('ver_auditoria')): ?>
-              <a role="menuitem" href="auditoria.php" tabindex="0">
-                <span class="menu-icon">🕵️</span> Auditoría
-              </a>
-            <?php endif; ?>
-
-            <?php if ($can('gestionar_backups')): ?>
-              <a role="menuitem" href="backups.php" tabindex="0">
-                <span class="menu-icon">💾</span> Backups
-              </a>
-            <?php endif; ?>
-
-            <?php if ($canDiagnostico): ?>
-              <a role="menuitem" href="diagnostico.php" tabindex="0">
-                <span class="menu-icon">🔧</span> Diagnóstico
-              </a>
-            <?php endif; ?>
-
-
-            <?php if ($canTecnico): ?>
-              <a role="menuitem" href="tecnico.php" tabindex="0">
-                <span class="menu-icon">[Tech]</span> Tecnico
-              </a>
-            <?php endif; ?>
-          </div>
+            <div class="nav-user">
+                <span class="nav-username" title="Usuario actual">
+                    <?= $esc((string)($user['username'] ?? 'Usuario')) ?>
+                </span>
+                <a href="logout.php" class="logout-btn" aria-label="Cerrar sesion">
+                    <span class="logout-text">Salir</span>
+                </a>
+            </div>
         </div>
-      <?php endif; ?>
-
-      <!-- Usuario -->
-      <div class="nav-user">
-        <span class="nav-username" title="Usuario actual">
-          <?= h($user['username'] ?? 'Usuario') ?>
-        </span>
-        <a href="logout.php" class="logout-btn" aria-label="Cerrar sesión">
-          <span class="logout-icon">🚪</span>
-          <span class="logout-text">Salir</span>
-        </a>
-      </div>
     </div>
-  </div>
 </nav>
 
 <script>
 (() => {
   'use strict';
-// ============================================================================
-// NAVBAR INTERACTIVA
-// ============================================================================
 
-// Menú hamburguesa (mobile)
-// Menú hamburguesa (mobile)
-const hamburger = document.getElementById('navHamburger');
-const navMenu = document.getElementById('navMenu');
+  const hamburger = document.getElementById('navHamburger');
+  const navMenu = document.getElementById('navMenu');
+  const dropdowns = Array.from(document.querySelectorAll('.js-nav-dropdown'));
+  let scrollY = 0;
 
-let __scrollY = 0;
+  function lockBodyScroll() {
+    scrollY = window.scrollY || 0;
+    document.documentElement.classList.add('nav-open');
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
 
-function lockBodyScroll() {
-  // iOS-safe
-  __scrollY = window.scrollY || 0;
-  document.documentElement.classList.add('nav-open');
+  function unlockBodyScroll() {
+    document.documentElement.classList.remove('nav-open');
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, scrollY);
+  }
 
-  document.body.style.position = 'fixed';
-  document.body.style.top = `-${__scrollY}px`;
-  document.body.style.left = '0';
-  document.body.style.right = '0';
-  document.body.style.width = '100%';
-}
+  function setNavOpen(open) {
+    if (!hamburger || !navMenu) return;
+    hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    hamburger.classList.toggle('active', open);
+    navMenu.classList.toggle('open', open);
+    if (open) lockBodyScroll();
+    else unlockBodyScroll();
+  }
 
-function unlockBodyScroll() {
-  document.documentElement.classList.remove('nav-open');
-
-  document.body.style.position = '';
-  document.body.style.top = '';
-  document.body.style.left = '';
-  document.body.style.right = '';
-  document.body.style.width = '';
-
-  window.scrollTo(0, __scrollY);
-}
-
-function setNavOpen(open) {
-  hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
-  navMenu.classList.toggle('open', open);
-  hamburger.classList.toggle('active', open);
-
-  if (open) lockBodyScroll();
-  else unlockBodyScroll();
-}
-
-if (hamburger && navMenu) {
-  hamburger.addEventListener('click', () => {
-    const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
-    setNavOpen(!isOpen);
-  });
-
-  // Cerrar al hacer clic fuera
-  document.addEventListener('click', (e) => {
-    const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
-    if (!isOpen) return;
-    if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
-      setNavOpen(false);
-    }
-  });
-
-  // Cerrar con ESC
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') setNavOpen(false);
-  });
-
-  // Opcional: cerrar al tocar un link del menú (cuando navegás)
-  navMenu.addEventListener('click', (e) => {
-    const a = e.target.closest('a.nav-pill');
-    if (a) setNavOpen(false);
-  });
-}
-// ============================================================================
-// DROPDOWN ADMIN (TUERCA)
-// ============================================================================
-const adminWrap = document.getElementById('adminMenu');
-if (adminWrap) {
-  const btn = adminWrap.querySelector('.nav-dropdown-btn');
-  const menu = adminWrap.querySelector('.nav-dropdown-menu');
-
-  const setAdminOpen = (open) => {
-    if (!btn || !menu) return;
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  function setDropdownOpen(wrapper, open) {
+    const button = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn');
+    const menu = wrapper.querySelector('.nav-dropdown-menu');
+    if (!button || !menu) return;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
     menu.classList.toggle('open', open);
-  };
+    wrapper.classList.toggle('open', open);
+  }
 
-  if (btn && menu) {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const isOpen = btn.getAttribute('aria-expanded') === 'true';
-      setAdminOpen(!isOpen);
-    });
-
-    // click afuera => cerrar
-    document.addEventListener('click', (e) => {
-      const isOpen = btn.getAttribute('aria-expanded') === 'true';
-      if (!isOpen) return;
-      if (!adminWrap.contains(e.target)) setAdminOpen(false);
-    });
-
-    // ESC => cerrar
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') setAdminOpen(false);
+  function closeOtherDropdowns(current) {
+    dropdowns.forEach((wrapper) => {
+      if (wrapper !== current) setDropdownOpen(wrapper, false);
     });
   }
-}
 
+  if (hamburger && navMenu) {
+    hamburger.addEventListener('click', () => {
+      const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
+      setNavOpen(!isOpen);
+    });
+
+    navMenu.addEventListener('click', (event) => {
+      const link = event.target.closest('a.nav-pill, .nav-dropdown-menu a');
+      if (link) setNavOpen(false);
+    });
+  }
+
+  dropdowns.forEach((wrapper) => {
+    const button = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn');
+    if (!button) return;
+
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const isOpen = button.getAttribute('aria-expanded') === 'true';
+      closeOtherDropdowns(wrapper);
+      setDropdownOpen(wrapper, !isOpen);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    const navOpen = hamburger && hamburger.getAttribute('aria-expanded') === 'true';
+    if (navOpen && hamburger && navMenu && !hamburger.contains(event.target) && !navMenu.contains(event.target)) {
+      setNavOpen(false);
+    }
+
+    dropdowns.forEach((wrapper) => {
+      if (!wrapper.contains(event.target)) setDropdownOpen(wrapper, false);
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      setNavOpen(false);
+      dropdowns.forEach((wrapper) => setDropdownOpen(wrapper, false));
+    }
+  });
 })();
 </script>

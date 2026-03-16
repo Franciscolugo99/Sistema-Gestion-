@@ -381,6 +381,10 @@ a {
   flex-wrap: wrap;
 }
 
+.nav-group {
+  position: relative;
+}
+
 .nav-right {
   display: flex;
   align-items: center;
@@ -429,6 +433,27 @@ a {
   border-color: transparent;
   box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
   font-weight: 600;
+}
+
+.nav-group-btn {
+  cursor: pointer;
+}
+
+.nav-group-btn.active {
+  min-width: 0;
+}
+
+.nav-caret {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.nav-group.open .nav-caret {
+  transform: rotate(180deg);
+}
+
+.nav-group-menu {
+  min-width: 220px;
 }
 /* Bloquear scroll del fondo cuando el menú está abierto */
 html.nav-open,
@@ -756,9 +781,33 @@ body.nav-open {
     transform 0.15s ease;
 }
 
+.nav-dropdown-menu a.active {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--nav-pill-active-text);
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  transform: none;
+}
+
 .nav-dropdown-menu a:hover {
   background: var(--row-hover);
   transform: translateX(2px);
+}
+
+.nav-group-menu a {
+  position: relative;
+  padding-left: 14px;
+}
+
+.nav-group-menu a.active::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--nav-pill-active-bg);
+  transform: translateY(-50%);
 }
 
 .nav-dropdown-menu a:focus-visible {
@@ -916,6 +965,10 @@ body.nav-open {
     width: 100%;
   }
 
+  .nav-group {
+    width: 100%;
+  }
+
   .nav-icon {
     width: 100%;
     justify-content: flex-start;
@@ -928,6 +981,10 @@ body.nav-open {
     margin-top: 8px;
     box-shadow: none;
     border: 1px solid var(--panel-border);
+  }
+
+  .nav-group-menu {
+    min-width: 0;
   }
 
   .nav-dropdown-menu.open {
