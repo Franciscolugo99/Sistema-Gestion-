@@ -280,27 +280,41 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel">
-    <div class="panel-head">
-        <div>
-            <h1>Reposicion Sugerida</h1>
-            <p class="panel-subtitle">Alertas de stock bajo y lista de compras</p>
+    <header class="panel-head page-header module-header">
+        <div class="page-header-main module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M3 7h18"/>
+                        <path d="M6 3h12l3 4v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7l3-4Z"/>
+                        <path d="M9 12h6"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="module-eyebrow">Abastecimiento operativo</span>
+                    <h1 class="page-title">Reposicion Sugerida</h1>
+                    <p class="page-sub panel-subtitle">Alertas de stock bajo y lista de compras</p>
+                </div>
+            </div>
         </div>
 
         <?php if ($vista === 'lista'): ?>
-        <form method="post" class="repo-inline-form">
-            <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-            <input type="hidden" name="accion" value="exportar_csv">
-            <button type="submit" class="btn btn-primary">
-                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Exportar CSV
-            </button>
-        </form>
+        <div class="module-header-actions">
+            <form method="post" class="repo-inline-form">
+                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                <input type="hidden" name="accion" value="exportar_csv">
+                <button type="submit" class="btn btn-primary">
+                    <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Exportar CSV
+                </button>
+            </form>
+        </div>
         <?php endif; ?>
-    </div>
+    </header>
 
     <?php if ($info): ?>
         <div class="alert alert-ok">

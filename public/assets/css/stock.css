@@ -41,21 +41,6 @@
   margin-bottom: 26px;
 }
 
-.page-title {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-
-.page-sub {
-  margin-top: 6px;
-  font-size: 0.94rem;
-  color: var(--muted);
-}
-
 .header-actions {
   display: flex;
   gap: 10px;

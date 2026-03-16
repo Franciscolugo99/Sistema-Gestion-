@@ -25,8 +25,8 @@
   border-bottom: 1px solid var(--border);
 }
 
-.usuarios-header-left .page-title { margin-bottom: 4px; font-size: 1.65rem; font-weight: 700; }
-.usuarios-header-left .page-sub   { font-size: 0.875rem; color: var(--muted); }
+.usuarios-header-left .page-title { margin-bottom: 4px; }
+.usuarios-header-left .page-sub   { color: var(--muted); }
 .usuarios-actions { display: flex; align-items: center; gap: 10px; }
 
 /* ============================================================================
@@ -491,7 +491,7 @@
 
 @media (max-width: 480px) {
   .usuarios-panel { padding: 14px; }
-  .page-title { font-size: 1.45rem !important; }
+  .usuarios-header .page-title { font-size: 1.45rem; }
   .action-btn span { display: none; } /* solo icono en mobile */
   .action-btn { padding: 7px 9px; }
 }

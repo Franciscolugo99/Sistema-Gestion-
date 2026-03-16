@@ -27,35 +27,30 @@
 .panel-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: var(--space-5, 1.25rem) var(--space-6, 1.5rem);
   border-bottom: 1px solid var(--panel-border, #1e293b);
   gap: var(--space-4, 1rem);
+  margin-bottom: 0;
 }
 
 .panel-title-group {
   display: flex;
-  align-items: center;
-  gap: var(--space-3, 0.75rem);
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
 }
 
 .panel-icon {
-  font-size: 1.5rem;
+  display: none;
 }
 
 .panel-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text, #e2e8f0);
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .panel-sub {
-  font-size: 0.85rem;
-  color: var(--muted, #64748b);
-  margin: var(--space-1, 0.25rem) 0 0 0;
+  margin: 8px 0 0;
 }
 
 .promo-actions-top {
@@ -762,14 +757,6 @@
 }
 
 @media (max-width: 600px) {
-  .panel-title {
-    font-size: 1.25rem;
-  }
-  
-  .panel-sub {
-    display: none;
-  }
-  
   .promo-stats {
     gap: var(--space-2, 0.5rem);
   }

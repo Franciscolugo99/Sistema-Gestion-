@@ -15,7 +15,7 @@
 }
 
 /* Header */
-.panel-head {
+.backups-panel .panel-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -24,14 +24,14 @@
   flex-wrap: wrap;
 }
 
-.panel-head h1 {
+.backups-panel .panel-head h1 {
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
   color: var(--text);
 }
 
-.panel-subtitle {
+.backups-panel .panel-subtitle {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: var(--text-sm, 0.875rem);
@@ -523,7 +523,7 @@
 }
 
 @media (max-width: 480px) {
-  .panel-head h1 {
+  .backups-panel .panel-head h1 {
     font-size: 1.25rem;
   }
 

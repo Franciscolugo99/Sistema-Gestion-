@@ -161,13 +161,26 @@ require __DIR__ . '/partials/header.php';
 <div class="page-wrap clientes-page">
 
     <div class="panel cli-panel">
-        <header class="page-header">
-            <div>
-                <h1 class="page-title">Clientes</h1>
+        <header class="page-header module-header">
+            <div class="page-header-main module-header-main">
+                <div class="module-header-hero">
+                    <span class="module-header-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </span>
+                    <div class="module-header-copy">
+                        <span class="page-eyebrow module-eyebrow">Relacion comercial</span>
+                        <h1 class="page-title">Clientes</h1>
                 <p class="page-sub">Gestión de clientes para facturación y ventas.</p>
+                    </div>
+                </div>
             </div>
 
-            <div class="page-actions">
+            <div class="page-actions module-header-actions">
                 <?php if ($canEditClientes): ?>
                     <a class="btn btn-secondary" href="<?= h(urlWithCli(['export' => 'csv'])) ?>" title="Exportar a CSV">
                         📥 Exportar
@@ -182,6 +195,7 @@ require __DIR__ . '/partials/header.php';
         </header>
     </div>
 
+    <section class="cli-content-shell">
     <?php if ($hasCC && $statsCC): ?>
     <div class="cli-cc-stats">
         <div class="cc-stat-card">
@@ -382,6 +396,7 @@ require __DIR__ . '/partials/header.php';
             </div>
         <?php endif; ?>
     </div>
+    </section>
 </div>
 
 <?php if ($canEditClientes): ?>

@@ -285,20 +285,34 @@ require __DIR__ . '/partials/header.php';
     <!-- ═══════════════════════════════════════════════════════════════════════
          HEADER + STEPPER
     ═══════════════════════════════════════════════════════════════════════ -->
-    <div class="panel-head">
-        <div>
-            <h1>Inventario Físico</h1>
-            <p class="panel-subtitle">Conteo y ajuste de stock real vs sistema</p>
+    <header class="panel-head page-header module-header">
+        <div class="page-header-main module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                        <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2"/>
+                        <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="module-eyebrow">Conteo operativo</span>
+                    <h1 class="page-title">Inventario Físico</h1>
+                    <p class="page-sub panel-subtitle">Conteo y ajuste de stock real vs sistema</p>
+                </div>
+            </div>
         </div>
         <?php if ($vista === 'sesiones'): ?>
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('modalNuevaSesion').showModal()">
-            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Nueva Sesión
-        </button>
+        <div class="module-header-actions">
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('modalNuevaSesion').showModal()">
+                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Nueva Sesión
+            </button>
+        </div>
         <?php endif; ?>
-    </div>
+    </header>
 
     <!-- Stepper Visual -->
     <?php if ($currentSession): ?>
@@ -971,7 +985,7 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
 
         <div class="inv-modal-actions">
-            <button type="button" class="btn btn-ghost" onclick="document.getElementById('modalNuevaSesion').close()">Cancelar</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalNuevaSesion').close()">Cancelar</button>
             <button type="submit" class="btn btn-primary">
                 <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="20 6 9 17 4 12"/>

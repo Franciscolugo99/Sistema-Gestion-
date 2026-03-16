@@ -448,12 +448,22 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel precios-module">
-    <div class="panel-head">
-        <div>
+    <header class="panel-head page-header module-header">
+        <div class="page-header-main module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M12 2v20"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="module-eyebrow">Rentabilidad comercial</span>
             <h1>Gestión de Precios</h1>
             <p class="panel-subtitle">Historial de cambios, ajustes masivos y análisis de márgenes</p>
+            </div>
         </div>
-    </div>
+    </header>
 
     <?php if ($info): ?>
         <div class="alert alert-ok">

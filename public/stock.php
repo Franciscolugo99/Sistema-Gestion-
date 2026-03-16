@@ -365,13 +365,25 @@ require __DIR__ . "/partials/header.php";
 
 <div class="panel">
 
-  <header class="page-header">
-    <div>
-      <h1 class="page-title">Control de Stock</h1>
-      <p class="page-sub">Gestiona el inventario y realiza ajustes rapidos.</p>
+  <header class="page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="m12 3 8 4.5v9L12 21 4 16.5v-9L12 3Z"/>
+            <path d="m4 7.5 8 4.5 8-4.5"/>
+            <path d="M12 12v9"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="page-eyebrow module-eyebrow">Inventario operativo</span>
+          <h1 class="page-title">Control de Stock</h1>
+          <p class="page-sub">Gestiona el inventario y realiza ajustes rapidos.</p>
+        </div>
+      </div>
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions module-header-actions">
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
       <button class="v-btn v-btn--outline btn-disabled" type="button" disabled title="Proximamente">
         Ajuste masivo

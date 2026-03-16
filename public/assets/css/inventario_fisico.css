@@ -1114,14 +1114,15 @@
    MODAL
 ═══════════════════════════════════════════════════════════════════════════ */
 dialog.inv-modal {
-  border: none;
-  border-radius: var(--inv-radius);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 18px;
   padding: 0;
   max-width: 480px;
   width: calc(100vw - 2rem);
-  background: var(--inv-card-bg);
+  background: rgba(255, 255, 255, 0.98);
   color: var(--inv-text);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
 }
 
 
@@ -1134,23 +1135,28 @@ dialog.inv-modal[open]{
 }
 
 dialog.inv-modal::backdrop {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(6px);
 }
 
 dialog.inv-modal--lg {
-  max-width: 600px;
+  max-width: 720px;
 }
 
 .inv-modal-body {
-  padding: 1.5rem;
+  padding: 1.6rem 1.65rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98));
 }
 
 .inv-modal-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .inv-modal-title {
@@ -1158,8 +1164,9 @@ dialog.inv-modal--lg {
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--inv-text);
 }
 
 .inv-modal-title .icon {
@@ -1171,7 +1178,7 @@ dialog.inv-modal--lg {
   height: 32px;
   border-radius: 8px;
   border: 1px solid var(--inv-border);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1181,17 +1188,77 @@ dialog.inv-modal--lg {
 }
 
 .inv-modal-close:hover {
-  background: var(--inv-bg-subtle);
+  background: rgba(241, 245, 249, 0.98);
   color: var(--inv-text);
+}
+
+.inv-modal .form-group {
+  margin-bottom: 1rem;
+}
+
+.inv-modal .form-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.inv-modal .form-control {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.8rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--inv-text);
+  font: inherit;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.inv-modal textarea.form-control {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.inv-modal .form-control:focus {
+  outline: none;
+  border-color: rgba(14, 165, 233, 0.9);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.16);
+}
+
+.inv-modal .form-hint {
+  margin-top: 0.5rem;
+  line-height: 1.45;
 }
 
 .inv-modal-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--inv-border);
+}
+
+.inv-modal-actions .btn {
+  min-width: 146px;
+}
+
+.inv-modal-actions .btn.btn-secondary {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--inv-text);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: none;
+}
+
+.inv-modal-actions .btn.btn-secondary:hover {
+  background: rgba(148, 163, 184, 0.18);
+  border-color: rgba(100, 116, 139, 0.34);
+  color: var(--inv-text);
+  box-shadow: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1200,6 +1267,7 @@ dialog.inv-modal--lg {
 .ayuda-content {
   max-height: 60vh;
   overflow-y: auto;
+  padding-right: 0.4rem;
 }
 
 .ayuda-section {
@@ -1228,6 +1296,37 @@ dialog.inv-modal--lg {
   font-size: 0.875rem;
   color: var(--inv-muted);
   line-height: 1.5;
+}
+
+[data-theme="dark"] dialog.inv-modal {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.96);
+}
+
+[data-theme="dark"] .inv-modal-body {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.96));
+}
+
+[data-theme="dark"] .inv-modal .form-control {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #e5e7eb;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32);
+}
+
+[data-theme="dark"] .inv-modal-close {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+[data-theme="dark"] .inv-modal-close:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+[data-theme="dark"] .inv-modal-actions .btn.btn-secondary {
+  background: rgba(148, 163, 184, 0.08);
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 .ayuda-section dl {

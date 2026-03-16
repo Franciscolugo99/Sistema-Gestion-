@@ -1168,20 +1168,34 @@ require_once __DIR__ . '/partials/header.php';
             if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($msg)) $showForm = true;
         ?>
 
-        <div class="productos-header">
-            <div class="productos-header-left">
-                <h1 class="page-title">Productos</h1>
+        <div class="productos-header page-header module-header">
+            <div class="productos-header-left page-header-main module-header-main">
+                <div class="module-header-hero">
+                    <span class="module-header-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="m12 3 8 4.5v9L12 21 4 16.5v-9L12 3Z"/>
+                            <path d="m4 7.5 8 4.5 8-4.5"/>
+                            <path d="M12 12v9"/>
+                        </svg>
+                    </span>
+                    <div class="module-header-copy">
+                        <span class="page-eyebrow module-eyebrow">Catalogo comercial</span>
+                        <h1 class="page-title">Productos</h1>
                 <p class="page-sub">Gestión de productos del sistema</p>
+                    </div>
+                </div>
             </div>
 
-            <button type="button"
-                class="btn btn-primary btn-new-product"
-                id="toggleFormBtn"
-                data-toggle-product-form="1"
-                aria-controls="productFormBlock"
-                aria-expanded="<?= $showForm ? 'true' : 'false' ?>">
-                <span class="label"><?= $esModoEdicion ? 'Editar producto' : 'Agregar producto' ?></span>
-            </button>
+            <div class="module-header-actions">
+                <button type="button"
+                    class="btn btn-primary btn-new-product"
+                    id="toggleFormBtn"
+                    data-toggle-product-form="1"
+                    aria-controls="productFormBlock"
+                    aria-expanded="<?= $showForm ? 'true' : 'false' ?>">
+                    <span class="label"><?= $esModoEdicion ? 'Editar producto' : 'Agregar producto' ?></span>
+                </button>
+            </div>
         </div>
 
         <!-- Quick Stats -->

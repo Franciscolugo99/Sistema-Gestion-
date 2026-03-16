@@ -956,14 +956,25 @@ require __DIR__ . "/partials/header.php";
   <div class="panel">
     <header class="page-header module-header">
       <div class="module-header-main">
-        <span class="module-eyebrow">Abastecimiento</span>
-        <h1 class="page-title module-title">Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
-        <p class="page-sub module-subtitle">
-          <?= $editMode
-            ? 'Modifica los datos y guarda los cambios del borrador.'
-            : 'Busca productos, arma el borrador y confirma cuando quieras impactar stock.'
-          ?>
-        </p>
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M3 6h3l2.4 9.5a1 1 0 0 0 1 .75H18a1 1 0 0 0 .98-.8L20 9H7"/>
+              <circle cx="10" cy="20" r="1.5"/>
+              <circle cx="17" cy="20" r="1.5"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow">Abastecimiento</span>
+            <h1 class="page-title module-title">Compras <?= $editMode ? '(Editando #'.(int)$compraEdit['id'].')' : '' ?></h1>
+            <p class="page-sub module-subtitle">
+              <?= $editMode
+                ? 'Modifica los datos y guarda los cambios del borrador.'
+                : 'Busca productos, arma el borrador y confirma cuando quieras impactar stock.'
+              ?>
+            </p>
+          </div>
+        </div>
       </div>
       <div class="module-header-actions">
         <?php if ($editMode): ?>

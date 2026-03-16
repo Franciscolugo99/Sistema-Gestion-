@@ -620,12 +620,19 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   <!-- Header -->
   <header class="ventas-header module-header">
     <div class="ventas-header-left module-header-main">
-      <span class="module-eyebrow">Operacion comercial</span>
-      <h1 class="page-title module-title">Ventas</h1>
-      <p class="ventas-header-copy page-sub module-subtitle">Segui tickets, clientes, medios de pago y rendimiento del periodo desde un solo historial.</p>
-      <div class="ventas-header-meta module-header-meta">
-        <span class="ventas-meta-pill module-meta-pill"><?= number_format($totalRows) ?> registros</span>
-        <span class="ventas-meta-pill module-meta-pill">Periodo: <?= h($stats['periodo_label']) ?></span>
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M6 3h12l1 5H5l1-5Z"/>
+            <path d="M7 8h10v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8Z"/>
+            <path d="M10 12h4"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Operacion comercial</span>
+          <h1 class="page-title module-title">Ventas</h1>
+          <p class="ventas-header-copy page-sub module-subtitle">Segui tickets, clientes, medios de pago y rendimiento del periodo desde un solo historial.</p>
+        </div>
       </div>
     </div>
     <div class="ventas-header-right module-header-actions">

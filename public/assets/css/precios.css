@@ -94,16 +94,19 @@
 }
 
 .precios-module .panel-head h1 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--pm-text-strong);
-  margin: 0 0 0.25rem 0;
+  font-size: clamp(1.72rem, 2.3vw, 2.15rem);
+  line-height: 1.08;
+  font-weight: 780;
+  letter-spacing: -0.03em;
+  color: var(--text, var(--pm-text-strong));
+  margin: 0;
 }
 
 .precios-module .panel-subtitle {
-  font-size: 0.875rem;
-  color: var(--pm-muted);
-  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--muted, var(--pm-muted));
+  margin: 8px 0 0;
 }
 
 /* ============================================

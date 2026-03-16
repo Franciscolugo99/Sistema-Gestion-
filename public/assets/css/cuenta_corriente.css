@@ -29,37 +29,11 @@ body.cuenta-corriente-page .cc-panel {
 }
 
 body.cuenta-corriente-page .cc-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
   margin-bottom: 24px;
 }
 
 body.cuenta-corriente-page .cc-header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-body.cuenta-corriente-page .cc-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--text);
-}
-
-body.cuenta-corriente-page .cc-title svg {
-  color: var(--accent-cyan, #38bdf8);
-}
-
-body.cuenta-corriente-page .cc-subtitle {
-  font-size: 0.9rem;
-  color: var(--muted);
-  margin: 0;
+  min-width: 0;
 }
 
 body.cuenta-corriente-page .cc-header-actions {

@@ -127,14 +127,25 @@ function formatLastAccess(?string $datetime): string {
 
 <div class="panel usuarios-panel">
 
-  <header class="usuarios-header">
-    <div class="usuarios-header-left">
-      <h1 class="page-title">Usuarios</h1>
-      <p class="page-sub">
-        <?= $totalUsuarios ?> usuario<?= $totalUsuarios !== 1 ? 's' : '' ?> registrado<?= $totalUsuarios !== 1 ? 's' : '' ?>
-      </p>
+  <header class="usuarios-header page-header module-header">
+    <div class="usuarios-header-left page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M20 21a8 8 0 0 0-16 0"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="page-eyebrow module-eyebrow">Accesos del sistema</span>
+          <h1 class="page-title">Usuarios</h1>
+          <p class="page-sub">
+            <?= $totalUsuarios ?> usuario<?= $totalUsuarios !== 1 ? 's' : '' ?> registrado<?= $totalUsuarios !== 1 ? 's' : '' ?>
+          </p>
+        </div>
+      </div>
     </div>
-    <div class="usuarios-actions">
+    <div class="usuarios-actions module-header-actions">
       <a href="usuario_nuevo.php" class="v-btn v-btn--primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 5v14M5 12h14"/>

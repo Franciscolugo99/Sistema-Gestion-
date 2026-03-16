@@ -180,10 +180,21 @@ require __DIR__ . '/partials/header.php';
 
 <div class="panel config-panel">
 
-  <header class="page-header">
-    <div>
-      <h1 class="page-title">Configuración</h1>
-      <p class="page-sub">Ajustes generales del sistema (ticket, negocio, etc.).</p>
+  <header class="page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.21 7.2a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01A1.65 1.65 0 0 0 10 3.25V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="page-eyebrow module-eyebrow">Ajustes del sistema</span>
+          <h1 class="page-title">Configuración</h1>
+          <p class="page-sub">Ajustes generales del sistema (ticket, negocio, etc.).</p>
+        </div>
+      </div>
     </div>
   </header>
 

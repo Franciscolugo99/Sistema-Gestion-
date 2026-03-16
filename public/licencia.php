@@ -86,10 +86,23 @@ $lic = (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE)) ? FLUS_LICENSE : null
 
 <div class="panel">
 
-  <header class="page-header">
-    <div>
-      <h1 class="page-title">Licencia</h1>
-      <p class="page-sub">Cargar / renovar <span class="mono">storage/license.json</span> (solo admins).</p>
+  <header class="page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M15 7V4a3 3 0 0 0-6 0v3"/>
+            <rect x="4" y="7" width="16" height="13" rx="2"/>
+            <path d="M9 12h6"/>
+            <path d="M12 15v.01"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Control de licencia</span>
+          <h1 class="page-title">Licencia</h1>
+          <p class="page-sub">Cargar / renovar <span class="mono">storage/license.json</span> (solo admins).</p>
+        </div>
+      </div>
     </div>
   </header>
 

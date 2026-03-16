@@ -450,18 +450,30 @@ require __DIR__ . '/partials/header.php';
   <div class="panel fact-panel">
     <header class="page-header module-header">
       <div class="module-header-main">
-        <span class="module-eyebrow">Operacion fiscal</span>
-        <h1 class="page-title module-title">Facturacion</h1>
-        <p class="page-sub module-subtitle">
-          Historial fiscal de FLUS para comprobar emisiones, CAE y documentos vinculados a ventas o carga manual.
-          <?php if ($modoFacturacion === 'demo'): ?>
-            <span class="modo-badge modo-demo" title="Las facturas generadas no se envian a ARCA">Modo demo</span>
-          <?php elseif ($modoFacturacion === 'homologacion'): ?>
-            <span class="modo-badge modo-homo" title="Conectado a ARCA testing">Homologacion</span>
-          <?php else: ?>
-            <span class="modo-badge modo-prod" title="Conectado a AFIP/ARCA produccion">Produccion</span>
-          <?php endif; ?>
-        </p>
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M8 3h7l5 5v13H8z"/>
+              <path d="M15 3v5h5"/>
+              <path d="M11 13h6"/>
+              <path d="M11 17h6"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow">Operacion fiscal</span>
+            <h1 class="page-title module-title">Facturacion</h1>
+            <p class="page-sub module-subtitle">
+              Historial fiscal de FLUS para comprobar emisiones, CAE y documentos vinculados a ventas o carga manual.
+              <?php if ($modoFacturacion === 'demo'): ?>
+                <span class="modo-badge modo-demo" title="Las facturas generadas no se envian a ARCA">Modo demo</span>
+              <?php elseif ($modoFacturacion === 'homologacion'): ?>
+                <span class="modo-badge modo-homo" title="Conectado a ARCA testing">Homologacion</span>
+              <?php else: ?>
+                <span class="modo-badge modo-prod" title="Conectado a AFIP/ARCA produccion">Produccion</span>
+              <?php endif; ?>
+            </p>
+          </div>
+        </div>
       </div>
 
       <div class="promo-actions-top module-header-actions">

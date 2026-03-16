@@ -96,16 +96,25 @@ require __DIR__ . '/partials/header.php';
   <div class="panel panel-promos">
 
     <!-- HEADER -->
-    <div class="panel-header">
-      <div>
-        <div class="panel-title-group">
+    <div class="panel-header page-header module-header">
+      <div class="page-header-main module-header-main">
+        <div class="panel-title-group module-header-hero">
           <span class="panel-icon">🏷️</span>
-          <h1 class="panel-title">Promociones</h1>
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="m20.59 13.41-7.18 7.18a2 2 0 0 1-2.82 0L2 12V4h8l8.59 8.59a2 2 0 0 1 0 2.82Z"/>
+              <circle cx="7" cy="7" r="1.5"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow">Motor comercial</span>
+            <h1 class="panel-title page-title">Promociones</h1>
+            <p class="panel-sub page-sub">Crea promociones que caja detecta al cargar productos y que quedan reflejadas en la venta y en el ticket.</p>
+          </div>
         </div>
-        <p class="panel-sub">Crea promociones que caja detecta al cargar productos y que quedan reflejadas en la venta y en el ticket.</p>
       </div>
 
-      <div class="promo-actions-top">
+      <div class="promo-actions-top module-header-actions">
         <a href="promo_builder.php" class="v-btn v-btn--primary">+ Nueva promocion</a>
       </div>
     </div>

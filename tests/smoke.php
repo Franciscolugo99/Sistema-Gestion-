@@ -9,6 +9,112 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 
 $results = [];
 
+function flus_collect_permission_slugs_from_public(string $publicRoot): array
+{
+    if (!is_dir($publicRoot)) {
+        throw new RuntimeException('Missing public root for permission scan');
+    }
+
+    $slugs = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($publicRoot, FilesystemIterator::SKIP_DOTS)
+    );
+
+    foreach ($iterator as $file) {
+        if (!$file instanceof SplFileInfo || strtolower($file->getExtension()) !== 'php') {
+            continue;
+        }
+
+        $php = (string)file_get_contents($file->getPathname());
+
+        if (preg_match_all('/\b(?:require_permission|user_has_permission|\$can)\(\s*[\'"]([^\'"]+)[\'"]\s*\)/', $php, $matches)) {
+            foreach ($matches[1] as $slug) {
+                $slugs[] = $slug;
+            }
+        }
+
+        if (preg_match_all('/\b(?:require_any_permission|user_has_any_permission)\(\s*\[(.*?)\]\s*\)/s', $php, $matches)) {
+            foreach ($matches[1] as $list) {
+                if (preg_match_all('/[\'"]([^\'"]+)[\'"]/', $list, $slugMatches)) {
+                    foreach ($slugMatches[1] as $slug) {
+                        $slugs[] = $slug;
+                    }
+                }
+            }
+        }
+    }
+
+    $slugs = array_values(array_unique(array_map('strval', $slugs)));
+    sort($slugs, SORT_STRING);
+
+    return $slugs;
+}
+
+function flus_collect_permission_slugs_from_sql_file(string $path): array
+{
+    if (!is_file($path)) {
+        throw new RuntimeException('Missing SQL file: ' . $path);
+    }
+
+    $sql = (string)file_get_contents($path);
+    $slugs = [];
+
+    if (preg_match_all("/\\(\\s*\\d+\\s*,\\s*'[^']+'\\s*,\\s*'([^']+)'\\s*,\\s*NOW\\(\\)\\s*\\)/", $sql, $matches)) {
+        $slugs = $matches[1];
+    } elseif (preg_match_all("/\\(\\s*'[^']+'\\s*,\\s*'([^']+)'\\s*,\\s*NOW\\(\\)\\s*\\)/", $sql, $matches)) {
+        $slugs = $matches[1];
+    }
+
+    $slugs = array_values(array_unique(array_map('strval', $slugs)));
+    sort($slugs, SORT_STRING);
+
+    return $slugs;
+}
+
+function flus_open_project_pdo(string $repoRoot): PDO
+{
+    $configPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.php';
+    if (!is_file($configPath)) {
+        throw new RuntimeException('Missing src/config.php for database permission test');
+    }
+
+    require_once $configPath;
+
+    if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
+        throw new RuntimeException('Database constants are not available for permission test');
+    }
+
+    $port = defined('DB_PORT') ? (string)DB_PORT : '3306';
+    $charset = defined('DB_CHARSET') ? (string)DB_CHARSET : 'utf8mb4';
+    $dsn = sprintf(
+        'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+        (string)DB_HOST,
+        $port,
+        (string)DB_NAME,
+        $charset
+    );
+
+    return new PDO($dsn, (string)DB_USER, (string)DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+}
+
+function flus_fetch_first_column(PDO $pdo, string $sql): array
+{
+    $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_COLUMN);
+    $values = array_values(array_unique(array_filter(array_map('strval', $rows), static fn(string $value): bool => $value !== '')));
+    sort($values, SORT_STRING);
+
+    return $values;
+}
+
+function flus_format_slug_diff(array $slugs): string
+{
+    return $slugs === [] ? 'ninguno' : implode(', ', $slugs);
+}
+
 $results[] = flus_run_test('sh_quote handles Windows quoting', function (): void {
     $quoted = sh_quote('C:\Program Files\MySQL\bin\mysqldump.exe');
     flus_assert_same('"C:\Program Files\MySQL\bin\mysqldump.exe"', $quoted);
@@ -440,6 +546,51 @@ $results[] = flus_run_test('admin pages rely on bootstrap session startup', func
         flus_assert_not_contains('startSecureSession(', $pagePhp, $pageFile);
     }
 });
+
+$results[] = flus_run_test('permissions stay aligned across code, install and admin role', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $publicPath = $repoRoot . DIRECTORY_SEPARATOR . 'public';
+    $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
+    $syncMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '008_permissions_catalog_sync.sql';
+
+    foreach ([$publicPath, $installPath, $syncMigrationPath] as $requiredPath) {
+        if (!file_exists($requiredPath)) {
+            throw new RuntimeException('Missing file or directory: ' . $requiredPath);
+        }
+    }
+
+    $codePerms = flus_collect_permission_slugs_from_public($publicPath);
+    $installPerms = flus_collect_permission_slugs_from_sql_file($installPath);
+    $syncPerms = flus_collect_permission_slugs_from_sql_file($syncMigrationPath);
+
+    $pdo = flus_open_project_pdo($repoRoot);
+    $dbPerms = flus_fetch_first_column($pdo, 'SELECT slug FROM permissions ORDER BY slug');
+    $adminPerms = flus_fetch_first_column(
+        $pdo,
+        "SELECT p.slug
+         FROM permissions p
+         INNER JOIN role_permission rp ON rp.permission_id = p.id
+         INNER JOIN roles r ON r.id = rp.role_id
+         WHERE LOWER(r.slug) IN ('admin', 'administrador')
+         ORDER BY p.slug"
+    );
+
+    $missingInInstall = array_values(array_diff($codePerms, $installPerms));
+    $missingInSyncMigration = array_values(array_diff($codePerms, $syncPerms));
+    $missingInDb = array_values(array_diff($codePerms, $dbPerms));
+    $missingInAdmin = array_values(array_diff($codePerms, $adminPerms));
+
+    if ($missingInInstall !== [] || $missingInSyncMigration !== [] || $missingInDb !== [] || $missingInAdmin !== []) {
+        throw new RuntimeException(
+            'Permisos desalineados'
+            . ' | code->install: ' . flus_format_slug_diff($missingInInstall)
+            . ' | code->008: ' . flus_format_slug_diff($missingInSyncMigration)
+            . ' | code->db: ' . flus_format_slug_diff($missingInDb)
+            . ' | code->admin: ' . flus_format_slug_diff($missingInAdmin)
+        );
+    }
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

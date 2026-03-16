@@ -259,6 +259,56 @@ function tecnico_files_with_pattern(array $paths, string $pattern): array
     return $matches;
 }
 
+function tecnico_visible_source_for_encoding_check(string $path): string
+{
+    $raw = @file_get_contents($path);
+    if (!is_string($raw) || $raw === '') {
+        return '';
+    }
+
+    $tokens = token_get_all($raw);
+    $visible = '';
+
+    foreach ($tokens as $token) {
+        if (is_string($token)) {
+            $visible .= $token;
+            continue;
+        }
+
+        [$id, $text] = $token;
+        if ($id === T_COMMENT || $id === T_DOC_COMMENT) {
+            continue;
+        }
+
+        if ($id === T_INLINE_HTML) {
+            $text = preg_replace('/<!--.*?-->/s', ' ', $text) ?? $text;
+            $text = preg_replace('/\/\*.*?\*\//s', ' ', $text) ?? $text;
+            $text = preg_replace('/^\s*\/\/.*$/m', ' ', $text) ?? $text;
+        }
+
+        $visible .= $text;
+    }
+
+    return $visible;
+}
+
+function tecnico_files_with_visible_mojibake(array $paths, string $pattern): array
+{
+    $matches = [];
+    foreach ($paths as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
+
+        $visible = tecnico_visible_source_for_encoding_check($path);
+        if ($visible !== '' && preg_match($pattern, $visible) === 1) {
+            $matches[] = $path;
+        }
+    }
+
+    return $matches;
+}
+
 function tecnico_relative_path(string $path): string
 {
     $normalized = str_replace('\\', '/', $path);
@@ -273,79 +323,6 @@ function tecnico_build_check(string $label, bool $ok, string $okDetail, string $
         'ok' => $ok,
         'detail' => $ok ? $okDetail : $failDetail,
     ];
-}
-
-function tecnico_extract_headings(string $markdown, string $prefix): array
-{
-    $items = [];
-    foreach (preg_split('/\R/', $markdown) as $line) {
-        if (str_starts_with($line, $prefix . ' ')) {
-            $items[] = trim(substr($line, strlen($prefix) + 1));
-        }
-    }
-    return $items;
-}
-
-function tecnico_render_markdownish(string $markdown): string
-{
-    $lines = preg_split('/\R/', $markdown) ?: [];
-    $html = [];
-    $listType = null;
-
-    $closeList = static function () use (&$html, &$listType): void {
-        if ($listType !== null) {
-            $html[] = '</' . $listType . '>';
-            $listType = null;
-        }
-    };
-
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        if ($trimmed === '') {
-            $closeList();
-            continue;
-        }
-
-        if (str_starts_with($trimmed, '### ')) {
-            $closeList();
-            $html[] = '<h3>' . tecnico_h(substr($trimmed, 4)) . '</h3>';
-            continue;
-        }
-        if (str_starts_with($trimmed, '## ')) {
-            $closeList();
-            $html[] = '<h2>' . tecnico_h(substr($trimmed, 3)) . '</h2>';
-            continue;
-        }
-        if (str_starts_with($trimmed, '# ')) {
-            $closeList();
-            $html[] = '<h1>' . tecnico_h(substr($trimmed, 2)) . '</h1>';
-            continue;
-        }
-        if (preg_match('/^\d+\.\s+(.+)$/', $trimmed, $m)) {
-            if ($listType !== 'ol') {
-                $closeList();
-                $html[] = '<ol>';
-                $listType = 'ol';
-            }
-            $html[] = '<li>' . tecnico_h($m[1]) . '</li>';
-            continue;
-        }
-        if (str_starts_with($trimmed, '- ')) {
-            if ($listType !== 'ul') {
-                $closeList();
-                $html[] = '<ul>';
-                $listType = 'ul';
-            }
-            $html[] = '<li>' . tecnico_h(substr($trimmed, 2)) . '</li>';
-            continue;
-        }
-
-        $closeList();
-        $html[] = '<p>' . tecnico_h($trimmed) . '</p>';
-    }
-
-    $closeList();
-    return implode("\n", $html);
 }
 
 $pageTitle = 'Tecnico - FLUS';
@@ -378,10 +355,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $smoke = tecnico_load_json_file(tecnico_status_file());
-$roadmapPath = FLUS_ROOT . '/docs/ROADMAP_POS.md';
-$inventoryPath = FLUS_ROOT . '/docs/LEGACY_API_INVENTORY.md';
-$roadmapText = tecnico_read_text($roadmapPath);
-$inventoryText = tecnico_read_text($inventoryPath);
 $publicPages = tecnico_list_php_files(__DIR__, false);
 $publicScanPages = array_values(array_filter(
     $publicPages,
@@ -390,8 +363,6 @@ $publicScanPages = array_values(array_filter(
 $partialPages = tecnico_list_php_files(__DIR__ . '/partials');
 $publicPageCount = count($publicPages);
 $apiPageCount = tecnico_count_php_files(__DIR__ . '/api');
-$roadmapStages = tecnico_extract_headings($roadmapText, '##');
-$inventoryDomains = tecnico_extract_headings($inventoryText, '####');
 $phpBinary = tecnico_detect_php_binary();
 
 $paginationPages = array_map(
@@ -421,7 +392,7 @@ $schemaHelperPath = FLUS_ROOT . '/src/db_schema.php';
 
 $paginationDuplicates = tecnico_count_pattern_matches($paginationPages, '/function\s+render_pagination\s*\(/');
 $publicRuntimeDdlCount = tecnico_count_pattern_matches($publicScanPages, '/ALTER\\s+TABLE/i');
-$publicMojibakeFiles = tecnico_files_with_pattern(
+$publicMojibakeFiles = tecnico_files_with_visible_mojibake(
     array_merge($publicScanPages, $partialPages),
     '/(\x{00C3}|\x{00E2}|\x{00F0}|\x{00C2}|\x{FFFD})/u'
 );
@@ -467,8 +438,8 @@ $baseChecks = [
     tecnico_build_check(
         'UI sin texto roto',
         count($publicMojibakeFiles) === 0,
-        'No se detecto mojibake en paginas publicas ni en parciales visibles.',
-        'Hay archivos con texto roto: ' . implode(', ', array_map('tecnico_relative_path', array_slice($publicMojibakeFiles, 0, 4))) . (count($publicMojibakeFiles) > 4 ? '...' : '') . '.'
+        'No se detecto mojibake visible en paginas publicas ni en parciales.',
+        'Hay archivos con texto visible roto: ' . implode(', ', array_map('tecnico_relative_path', array_slice($publicMojibakeFiles, 0, 4))) . (count($publicMojibakeFiles) > 4 ? '...' : '') . '.'
     ),
 ];
 $healthChecksOk = count(array_filter($baseChecks, static fn(array $check): bool => !empty($check['ok'])));
@@ -502,12 +473,24 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel tecnico-panel">
-  <div class="panel-head">
-    <div>
-      <h1>Panel Tecnico</h1>
-      <p class="panel-subtitle">Estado tecnico del backoffice, saneamiento base y accesos operativos desde una sola pantalla.</p>
+  <header class="panel-head page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M14.7 6.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4l-7.9 7.9-3.2.8.8-3.2 7.3-7.3Z"/>
+            <path d="M16 8l-1-1"/>
+            <path d="M2 21h20"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Soporte avanzado</span>
+          <h1 class="page-title">Panel Tecnico</h1>
+          <p class="page-sub panel-subtitle">Estado técnico del backoffice, saneamiento base y accesos operativos desde una sola pantalla.</p>
+        </div>
+      </div>
     </div>
-    <div class="tecnico-actions">
+    <div class="tecnico-actions module-header-actions">
       <form method="post" class="inline-form">
         <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
         <input type="hidden" name="accion" value="run_smoke">
@@ -517,7 +500,7 @@ require __DIR__ . '/partials/header.php';
         <a href="diagnostico.php" class="btn btn-ghost">Abrir diagnostico</a>
       <?php endif; ?>
     </div>
-  </div>
+  </header>
 
   <?php if ($info): ?>
     <div class="alert alert-ok"><span><?= tecnico_h($info) ?></span></div>
@@ -545,23 +528,11 @@ require __DIR__ . '/partials/header.php';
     </div>
 
     <div class="tecnico-card stat-card">
-      <div class="stat-label">Pantallas publicas</div>
-      <div class="stat-value"><?= (int)$publicPageCount ?></div>
-      <div class="stat-note">Archivos PHP raiz en `public/`.</div>
-    </div>
-
-    <div class="tecnico-card stat-card">
       <div class="stat-label">Salud base</div>
       <div class="stat-value <?= $healthChipClass === 'ok' ? 'ok' : ($healthChipClass === 'error' ? 'error' : '') ?>">
         <?= $healthChecksOk ?>/<?= $healthChecksTotal ?>
       </div>
       <div class="stat-note">Chequeos de saneamiento activos en el repo.</div>
-    </div>
-
-    <div class="tecnico-card stat-card">
-      <div class="stat-label">Binario PHP</div>
-      <div class="stat-value small"><?= tecnico_h($phpBinary ?? 'No detectado') ?></div>
-      <div class="stat-note">CLI usado para ejecutar `tests/smoke.php`.</div>
     </div>
   </div>
 
@@ -600,9 +571,14 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Fallidas:</strong> <?= (int)($smoke['failed'] ?? 0) ?></div>
         <div><strong>Duracion:</strong> <?= $smoke ? tecnico_h((string)($smoke['duration_ms'] ?? '0')) . ' ms' : '-' ?></div>
         <div><strong>Codigo de salida:</strong> <?= $smoke ? (int)($smoke['exit_code'] ?? 0) : '-' ?></div>
+        <div><strong>PHP CLI:</strong> <?= tecnico_h($phpBinary ?? 'No detectado') ?></div>
+        <div><strong>Pantallas relevadas:</strong> <?= (int)$publicPageCount ?> public / <?= (int)$apiPageCount ?> api</div>
       </div>
 
-      <pre class="terminal-output"><?= tecnico_h(tecnico_translate_smoke_output($smoke['stdout'] ?? 'Todavia no hay salida registrada.')) ?></pre>
+      <details class="tecnico-details">
+        <summary>Ver salida completa del smoke</summary>
+        <pre class="terminal-output"><?= tecnico_h(tecnico_translate_smoke_output($smoke['stdout'] ?? 'Todavia no hay salida registrada.')) ?></pre>
+      </details>
       <?php if (!empty($smoke['stderr'])): ?>
         <details class="tecnico-details">
           <summary>Ver stderr</summary>
@@ -629,33 +605,6 @@ require __DIR__ . '/partials/header.php';
           <span><?= (int)$apiPageCount ?> endpoints PHP relevados en `public/api/`.</span>
         </div>
       </div>
-    </section>
-
-    <section class="tecnico-card">
-      <div class="section-head">
-        <h2>Hoja de ruta</h2>
-        <span class="chip ok"><?= count($roadmapStages) ?> etapas</span>
-      </div>
-      <div class="tag-row">
-        <?php foreach ($roadmapStages as $stage): ?>
-          <span class="chip chip-inline"><?= tecnico_h($stage) ?></span>
-        <?php endforeach; ?>
-      </div>
-      <div class="doc-render"><?= tecnico_render_markdownish($roadmapText) ?></div>
-    </section>
-
-    <section class="tecnico-card tecnico-card--wide">
-      <div class="section-head">
-        <h2>Inventario de compatibilidad</h2>
-        <span class="chip warning"><?= count($inventoryDomains) ?> dominios</span>
-      </div>
-      <p class="tecnico-copy">Este inventario sigue siendo la referencia para wrappers y endpoints heredados que todavia conviene vigilar antes de podarlos.</p>
-      <div class="tag-row">
-        <?php foreach ($inventoryDomains as $domain): ?>
-          <span class="chip chip-inline warning"><?= tecnico_h($domain) ?></span>
-        <?php endforeach; ?>
-      </div>
-      <div class="doc-render"><?= tecnico_render_markdownish($inventoryText) ?></div>
     </section>
   </div>
 </div>

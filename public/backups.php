@@ -135,12 +135,24 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel backups-panel">
-  <div class="panel-head">
-    <div>
-      <h1>Gestión de Backups</h1>
-      <p class="panel-subtitle">Administrá las copias de seguridad de tu base de datos</p>
+  <header class="panel-head page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <ellipse cx="12" cy="5" rx="7" ry="3"/>
+            <path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5"/>
+            <path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Resguardo operativo</span>
+          <h1 class="page-title">Gestión de Backups</h1>
+          <p class="page-sub panel-subtitle">Administrá las copias de seguridad y restauración de la base de datos.</p>
+        </div>
+      </div>
     </div>
-    <div class="bk-actions">
+    <div class="bk-actions module-header-actions">
       <form method="post" id="createBackupForm" class="inline-form">
         <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
         <input type="hidden" name="accion" value="crear">
@@ -154,7 +166,7 @@ require __DIR__ . '/partials/header.php';
         </button>
       </form>
     </div>
-  </div>
+  </header>
 
   <?php if ($maintenanceActive): ?>
     <div class="alert alert-err">

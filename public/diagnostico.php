@@ -107,12 +107,22 @@ require __DIR__ . '/partials/header.php';
 
 
 <div class="panel">
-    <div class="panel-head">
-        <div>
-            <h1>Diagnóstico del Sistema</h1>
-            <p class="panel-subtitle">Estado de salud y herramientas de soporte técnico</p>
+    <header class="panel-head page-header module-header">
+        <div class="page-header-main module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M3 12h4l2-6 4 12 2-6h6"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="module-eyebrow">Salud del sistema</span>
+                    <h1 class="page-title">Diagnóstico del Sistema</h1>
+                    <p class="page-sub panel-subtitle">Estado de salud y herramientas de soporte técnico.</p>
+                </div>
+            </div>
         </div>
-        <div class="bk-actions">
+        <div class="bk-actions module-header-actions">
             <form method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="generar_paquete">
@@ -126,7 +136,7 @@ require __DIR__ . '/partials/header.php';
                 </button>
             </form>
         </div>
-    </div>
+    </header>
 
     <div class="bk-note mt-2">
         <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

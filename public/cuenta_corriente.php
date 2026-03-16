@@ -57,18 +57,23 @@ require __DIR__ . '/partials/header.php';
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- HEADER -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="cc-header">
-    <div class="cc-header-left">
-      <h1 class="cc-title">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-          <line x1="1" y1="10" x2="23" y2="10"/>
-        </svg>
-        Cuentas Corrientes
-      </h1>
+  <div class="cc-header page-header module-header">
+    <div class="cc-header-left page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Credito y cobranza</span>
+          <h1 class="page-title">Cuentas Corrientes</h1>
       <p class="cc-subtitle">Gestión de fiado y deudas de clientes</p>
+        </div>
+      </div>
     </div>
-    <div class="cc-header-actions">
+    <div class="cc-header-actions module-header-actions">
       <?php if ($canRegistrarPago): ?>
       <button type="button" class="btn btn-primary" id="btnNuevoPago" data-action="nuevo-pago">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

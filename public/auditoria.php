@@ -169,10 +169,25 @@ $extraCss = ['assets/css/auditoria.css'];
 require __DIR__ . '/partials/header.php';
 ?>
 <div class="panel auditoria-panel">
-  <div class="panel-head">
-    <h1>Auditoría</h1>
-    <p class="muted">Registro de acciones (ventas, anulaciones, backups, etc.).</p>
-  </div>
+  <header class="panel-head page-header module-header">
+    <div class="page-header-main module-header-main">
+      <div class="module-header-hero">
+        <span class="module-header-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <path d="M9 3h6"/>
+            <path d="M10 8h4"/>
+            <rect x="5" y="5" width="14" height="16" rx="2"/>
+            <path d="m9 14 2 2 4-4"/>
+          </svg>
+        </span>
+        <div class="module-header-copy">
+          <span class="module-eyebrow">Trazabilidad interna</span>
+          <h1 class="page-title">Auditoría</h1>
+          <p class="page-sub">Registro de acciones, anulaciones, backups y eventos críticos del sistema.</p>
+        </div>
+      </div>
+    </div>
+  </header>
 
   <form method="get" class="auditoria-filters">
     <div class="grid">

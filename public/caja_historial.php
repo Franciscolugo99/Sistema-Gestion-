@@ -643,13 +643,26 @@ function pill_class_for_amount(float $v): string {
 <div class="page-wrap caja-historial-page">
   <div class="panel">
 
-    <header class="page-header">
-      <div>
-        <h1 class="page-title">Historial de Caja</h1>
+    <header class="page-header module-header">
+      <div class="page-header-main module-header-main">
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M5 4h14v16H5z"/>
+              <path d="M9 8h6"/>
+              <path d="M9 12h6"/>
+              <path d="M9 16h4"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="page-eyebrow module-eyebrow">Operacion de caja</span>
+            <h1 class="page-title">Historial de Caja</h1>
         <p class="page-sub">Revisá turnos, diferencias, conciliación de efectivo y anomalías detectadas.</p>
+          </div>
+        </div>
       </div>
 
-      <div class="page-actions">
+      <div class="page-actions module-header-actions">
         <?php if ($auditTableExistsRaw): ?>
           <?php if ($auditDisabled): ?>
             <span class="tag tag-bajo" title="Desactivada por flag en storage/ (no se borraron datos)">Auditoría desactivada</span>
@@ -697,6 +710,7 @@ function pill_class_for_amount(float $v): string {
       <div class="alert alert-error">Error: <?= h($error_msg) ?></div>
     <?php endif; ?>
 
+    <section class="caja-historial-shell">
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Sesiones</div>
@@ -1008,6 +1022,7 @@ function pill_class_for_amount(float $v): string {
     </div>
 
     <?= render_pagination($page, $totalPages, $_GET, false, 0, 0, 0, ['export']) ?>
+    </section>
 
 
   </div>

@@ -106,12 +106,23 @@ require __DIR__ . '/partials/header.php';
     <div class="roles-panel">
         
         <!-- HEADER -->
-        <header class="page-header">
-            <div class="page-header-left">
-                <h1 class="page-title">Roles y Permisos</h1>
-                <p class="page-sub"><?= count($roles) ?> rol<?= count($roles) !== 1 ? 'es' : '' ?> del sistema</p>
+        <header class="page-header module-header">
+            <div class="page-header-left page-header-main module-header-main">
+                <div class="module-header-hero">
+                    <span class="module-header-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4Z"/>
+                            <path d="M9.5 12.5l1.75 1.75L14.5 11"/>
+                        </svg>
+                    </span>
+                    <div class="module-header-copy">
+                        <span class="page-eyebrow module-eyebrow">Seguridad y permisos</span>
+                        <h1 class="page-title">Roles y Permisos</h1>
+                        <p class="page-sub"><?= count($roles) ?> rol<?= count($roles) !== 1 ? 'es' : '' ?> del sistema</p>
+                    </div>
+                </div>
             </div>
-            <div class="page-actions">
+            <div class="page-actions module-header-actions">
                 <button type="button" class="btn btn-primary" onclick="openNewRoleDrawer()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

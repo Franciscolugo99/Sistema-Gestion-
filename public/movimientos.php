@@ -580,13 +580,26 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel mov-panel">
-    <header class="page-header">
-        <div>
-            <h1 class="page-title">Movimientos</h1>
-            <p class="page-sub">Registro de ventas, compras, ajustes, anulaciones y devoluciones.</p>
+    <header class="page-header module-header">
+        <div class="page-header-main module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M7 7h10"/>
+                        <path d="M7 12h10"/>
+                        <path d="M7 17h6"/>
+                        <path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="page-eyebrow module-eyebrow">Trazabilidad operativa</span>
+                    <h1 class="page-title">Movimientos</h1>
+                    <p class="page-sub">Registro de ventas, compras, ajustes, anulaciones y devoluciones.</p>
+                </div>
+            </div>
         </div>
 
-        <div>
+        <div class="page-actions module-header-actions">
             <a href="<?= h(urlWith(['export' => 'csv', 'page' => 1])) ?>" class="v-btn v-btn--outline">
                 Exportar CSV
             </a>
