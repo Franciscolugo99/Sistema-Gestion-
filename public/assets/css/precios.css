@@ -907,6 +907,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 140px;
+}
+
+.historial-filters .filter-group--compact {
+  min-width: 180px;
 }
 
 .historial-filters label {
@@ -948,6 +953,35 @@
 .historial-filters .filter-clear:hover {
   color: var(--pm-danger);
   border-color: var(--pm-danger);
+}
+
+.historial-filters-actions {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 0.625rem;
+  margin-left: auto;
+}
+
+.historial-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.25rem 0 1rem;
+  color: var(--pm-muted);
+  font-size: 0.875rem;
+}
+
+.historial-summary__headline {
+  color: var(--pm-text-strong);
+}
+
+.historial-summary__headline strong {
+  font-size: 1rem;
+}
+
+.historial-context {
+  margin-bottom: 1rem;
 }
 
 /* Lista de historial */
@@ -1380,10 +1414,21 @@
   .historial-filters .filter-group {
     width: 100%;
   }
+
+  .historial-filters-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
   
   .historial-filters select,
   .historial-filters input[type="date"] {
     width: 100%;
+  }
+
+  .historial-summary {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

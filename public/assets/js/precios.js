@@ -820,41 +820,59 @@
   // HISTORIAL - FILTROS
   // ============================================
   function initHistorialFilters() {
+    const form = document.getElementById("historialFiltersForm");
     const tipoFilter = document.getElementById("filtroTipo");
     const fechaDesde = document.getElementById("filtroFechaDesde");
     const fechaHasta = document.getElementById("filtroFechaHasta");
+    const perPage = document.getElementById("historialPerPage");
     const clearBtn = document.getElementById("clearFiltersBtn");
 
-    if (tipoFilter) {
+    if (form && tipoFilter) {
       tipoFilter.addEventListener("change", applyHistorialFilters);
     }
-    if (fechaDesde) {
+    if (form && fechaDesde) {
       fechaDesde.addEventListener("change", applyHistorialFilters);
     }
-    if (fechaHasta) {
+    if (form && fechaHasta) {
       fechaHasta.addEventListener("change", applyHistorialFilters);
     }
-    if (clearBtn) {
+    if (form && perPage) {
+      perPage.addEventListener("change", applyHistorialFilters);
+    }
+    if (form && clearBtn && clearBtn.tagName === "BUTTON") {
       clearBtn.addEventListener("click", clearHistorialFilters);
     }
   }
   
   function clearHistorialFilters() {
+    const form = document.getElementById("historialFiltersForm");
     const tipoFilter = document.getElementById("filtroTipo");
     const fechaDesde = document.getElementById("filtroFechaDesde");
     const fechaHasta = document.getElementById("filtroFechaHasta");
+    const perPage = document.getElementById("historialPerPage");
     
     if (tipoFilter) tipoFilter.value = "";
     if (fechaDesde) fechaDesde.value = "";
     if (fechaHasta) fechaHasta.value = "";
-    
-    // Mostrar todos los items
+    if (perPage) perPage.value = perPage.dataset.defaultValue || perPage.value;
+
+    if (form) {
+      form.submit();
+      return;
+    }
+
     document.querySelectorAll(".hist-item").forEach((item) => {
       item.style.display = "";
     });
   }
 
   function applyHistorialFilters() {
+    const form = document.getElementById("historialFiltersForm");
+    if (form) {
+      form.submit();
+      return;
+    }
+
     const tipo = document.getElementById("filtroTipo")?.value || "";
     const desde = document.getElementById("filtroFechaDesde")?.value || "";
     const hasta = document.getElementById("filtroFechaHasta")?.value || "";
