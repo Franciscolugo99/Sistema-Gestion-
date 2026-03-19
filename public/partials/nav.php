@@ -9,8 +9,9 @@ require_once __DIR__ . '/../lib/terminal.php';
 require_once __DIR__ . '/../caja_lib.php';
 
 $user = $user ?? (function_exists('current_user') ? current_user() : []);
-$pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
-$esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+$pdo  = $pdo  ?? (function_exists('getPDO') ? getPDO() : null);
+$esc  = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+
 $groupCurrentLabel = static function (string $fallback, array $links, string $section): string {
     foreach ($links as $link) {
         if (($link['section'] ?? '') === $section) {
@@ -21,175 +22,558 @@ $groupCurrentLabel = static function (string $fallback, array $links, string $se
 };
 
 $can = function (string $perm) use ($user): bool {
-    if (function_exists('user_has_permission')) {
-        return user_has_permission($perm);
-    }
-
+    if (function_exists('user_has_permission')) return user_has_permission($perm);
     $perms = function_exists('session_permissions')
         ? session_permissions()
         : ($_SESSION['permissions'] ?? ($user['permissions'] ?? []));
-
-    if (!is_array($perms)) {
-        $perms = [];
-    }
-
+    if (!is_array($perms)) $perms = [];
     return in_array($perm, $perms, true);
 };
 
+/* ═══════════════════════════════════════════
+   SECCIÓN ACTIVA
+═══════════════════════════════════════════ */
 $currentSection = $currentSection ?? '';
 if ($currentSection === '') {
     $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
-    $map = [
-        'index.php' => 'inicio',
-        'dashboard.php' => 'dashboard',
-        'caja.php' => 'caja',
-        'productos.php' => 'productos',
-        'stock.php' => 'stock',
-        'inventario_analisis.php' => 'inventario_analisis',
-        'inventario_fisico.php' => 'inventario_fisico',
-        'reposicion.php' => 'reposicion',
-        'movimientos.php' => 'movimientos',
-        'ventas.php' => 'ventas',
-        'venta_detalle.php' => 'ventas',
-        'compras.php' => 'compras',
-        'proveedores.php' => 'proveedores',
-        'caja_historial.php' => 'caja_historial',
-        'caja_sesion_detalle.php' => 'caja_historial',
-        'caja_sesion_print.php' => 'caja_historial',
-        'promos.php' => 'promos',
-        'promo_form.php' => 'promos',
-        'promo_combo_form.php' => 'promos',
-        'clientes.php' => 'clientes',
-        'cuenta_corriente.php' => 'cuenta_corriente',
+    $map  = [
+        'index.php'                    => 'inicio',
+        'dashboard.php'                => 'dashboard',
+        'caja.php'                     => 'caja',
+        'productos.php'                => 'productos',
+        'stock.php'                    => 'stock',
+        'inventario_analisis.php'      => 'inventario_analisis',
+        'inventario_fisico.php'        => 'inventario_fisico',
+        'reposicion.php'               => 'reposicion',
+        'movimientos.php'              => 'movimientos',
+        'ventas.php'                   => 'ventas',
+        'venta_detalle.php'            => 'ventas',
+        'compras.php'                  => 'compras',
+        'compra_detalle.php'           => 'compras',
+        'proveedores.php'              => 'proveedores',
+        'caja_historial.php'           => 'caja_historial',
+        'caja_sesion_detalle.php'      => 'caja_historial',
+        'caja_sesion_print.php'        => 'caja_historial',
+        'promos.php'                   => 'promos',
+        'promo_form.php'               => 'promos',
+        'promo_combo_form.php'         => 'promos',
+        'clientes.php'                 => 'clientes',
+        'cuenta_corriente.php'         => 'cuenta_corriente',
         'cuenta_corriente_cliente.php' => 'cuenta_corriente',
-        'cuenta_corriente_print.php' => 'cuenta_corriente',
-        'facturacion.php' => 'facturacion',
-        'factura_nueva.php' => 'facturacion',
-        'factura_manual.php' => 'facturacion',
-        'factura_ver.php' => 'facturacion',
-        'factura_emitir.php' => 'facturacion',
-        'configuracion.php' => 'configuracion',
-        'licencia.php' => 'configuracion',
-        'usuarios.php' => 'usuarios',
-        'usuario_nuevo.php' => 'usuarios',
-        'usuario_editar.php' => 'usuarios',
-        'auditoria.php' => 'auditoria',
-        'backups.php' => 'backups',
-        'roles.php' => 'roles',
-        'rol_permisos.php' => 'roles',
-        'terminales.php' => 'configuracion',
-        'diagnostico.php' => 'diagnostico',
-        'tecnico.php' => 'tecnico',
-        'precios_historial.php' => 'precios_historial',
+        'cuenta_corriente_print.php'   => 'cuenta_corriente',
+        'facturacion.php'              => 'facturacion',
+        'factura_nueva.php'            => 'facturacion',
+        'factura_manual.php'           => 'facturacion',
+        'factura_ver.php'              => 'facturacion',
+        'factura_emitir.php'           => 'facturacion',
+        'configuracion.php'            => 'configuracion',
+        'licencia.php'                 => 'configuracion',
+        'usuarios.php'                 => 'usuarios',
+        'usuario_nuevo.php'            => 'usuarios',
+        'usuario_editar.php'           => 'usuarios',
+        'auditoria.php'                => 'auditoria',
+        'backups.php'                  => 'backups',
+        'roles.php'                    => 'roles',
+        'rol_permisos.php'             => 'roles',
+        'terminales.php'               => 'configuracion',
+        'diagnostico.php'              => 'diagnostico',
+        'tecnico.php'                  => 'tecnico',
+        'precios_historial.php'        => 'precios_historial',
     ];
-
-    if (isset($map[$file])) {
-        $currentSection = $map[$file];
-    }
+    if (isset($map[$file])) $currentSection = $map[$file];
 }
 
+/* ═══════════════════════════════════════════
+   BREADCRUMB
+   Cada página puede declarar antes del header:
+     $breadcrumb = [
+       ['label' => 'Ventas',    'url' => 'ventas.php'],
+       ['label' => 'Venta #42', 'url' => ''],   // último sin url
+     ];
+   Si la página no declara nada, no se renderiza.
+═══════════════════════════════════════════ */
+$breadcrumb = $breadcrumb ?? [];   // array de ['label'=>'', 'url'=>'']
+
+/* ═══════════════════════════════════════════
+   ESTADO DE CAJA
+═══════════════════════════════════════════ */
 $cajaAbierta = false;
-$cajaId = 0;
+$cajaId      = 0;
 try {
     if ($pdo instanceof PDO) {
-        $terminalId = current_terminal_id();
-        $cajaRow = $terminalId > 0 ? caja_get_abierta($pdo, $terminalId) : null;
+        $terminalId  = current_terminal_id();
+        $cajaRow     = $terminalId > 0 ? caja_get_abierta($pdo, $terminalId) : null;
         $cajaAbierta = $cajaRow !== null;
-        $cajaId = (int)($cajaRow['id'] ?? 0);
+        $cajaId      = (int)($cajaRow['id'] ?? 0);
     }
 } catch (Throwable $e) {
     $cajaAbierta = false;
 }
 
-$canDashboard = $can('ver_reportes');
-$canCaja = $can('realizar_ventas');
-$canProductos = $can('editar_productos');
-$canStock = $can('editar_stock');
-$canInventario = $can('editar_stock') || $can('ver_stock') || $can('stock');
-$canMovimientos = $can('ver_movimientos');
-$canVentas = $can('ver_reportes');
-$canCompras = $can('editar_stock');
-$canProveedores = $can('ver_proveedores') || $can('editar_proveedores');
-$canHistCaja = $can('ver_historial_caja');
-$canPromos = $can('editar_promos');
-$canClientes = $can('ver_clientes') || $can('editar_clientes');
-$canFacturacion = $can('ver_facturacion') || $can('emitir_factura') || $can('administrar_config');
+/* ═══════════════════════════════════════════
+   ALERTAS  — caché en sesión (TTL 2 min)
+   Las queries solo corren si el caché expiró.
+   Fallback silencioso ante cualquier error.
+═══════════════════════════════════════════ */
+$navAlerts     = [];
+$navAlertTotal = 0;
+
+$_alertCacheKey = '_flus_nav_alerts';
+$_alertTtl      = 120; // segundos
+
+$_cached   = $_SESSION[$_alertCacheKey] ?? null;
+$_cacheOk  = is_array($_cached)
+    && isset($_cached['ts'])
+    && (time() - (int)$_cached['ts']) < $_alertTtl;
+
+if ($_cacheOk) {
+    $navAlerts     = $_cached['alerts']      ?? [];
+    $navAlertTotal = $_cached['total']       ?? 0;
+} else {
+    try {
+        if ($pdo instanceof PDO) {
+
+            // 1) Stock crítico
+            $st  = $pdo->query(
+                "SELECT COUNT(*) FROM productos
+                 WHERE activo = 1
+                   AND stock_minimo IS NOT NULL AND stock_minimo > 0
+                   AND stock <= stock_minimo"
+            );
+            $cnt = $st ? (int)$st->fetchColumn() : 0;
+            if ($cnt > 0) {
+                $navAlerts[]    = ['label' => 'Stock crítico',    'url' => 'reposicion.php',        'count' => $cnt];
+                $navAlertTotal += $cnt;
+            }
+
+            // 2) Clientes morosos (solo si la columna existe)
+            $stCol = $pdo->prepare(
+                "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'clientes' AND COLUMN_NAME = 'cc_saldo' LIMIT 1"
+            );
+            $stCol->execute();
+            if ($stCol->fetchColumn()) {
+                $stMor = $pdo->query(
+                    "SELECT COUNT(*) FROM clientes
+                     WHERE cc_habilitado = 1 AND cc_saldo > 0
+                       AND cc_fecha_ultimo_pago < DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+                );
+                $mor = $stMor ? (int)$stMor->fetchColumn() : 0;
+                if ($mor > 0) {
+                    $navAlerts[]    = ['label' => 'Clientes morosos', 'url' => 'cuenta_corriente.php', 'count' => $mor];
+                    $navAlertTotal += $mor;
+                }
+            }
+
+            // 3) Caja sin cerrar de días anteriores
+            $stCj   = $pdo->query(
+                "SELECT COUNT(*) FROM caja_sesiones
+                 WHERE estado = 'abierta' AND DATE(apertura) < CURDATE()"
+            );
+            $cjOld  = $stCj ? (int)$stCj->fetchColumn() : 0;
+            if ($cjOld > 0) {
+                $navAlerts[]    = ['label' => 'Caja sin cerrar', 'url' => 'caja_historial.php', 'count' => $cjOld];
+                $navAlertTotal += $cjOld;
+            }
+        }
+    } catch (Throwable $e) {
+        $navAlerts     = [];
+        $navAlertTotal = 0;
+    }
+
+    // Guardar en sesión
+    $_SESSION[$_alertCacheKey] = [
+        'ts'     => time(),
+        'alerts' => $navAlerts,
+        'total'  => $navAlertTotal,
+    ];
+}
+
+/* Helper para invalidar el caché manualmente desde cualquier módulo:
+   $_SESSION['_flus_nav_alerts'] = null;
+   (Ej: después de recibir una compra o actualizar stock)
+*/
+
+/* ═══════════════════════════════════════════
+   PERMISOS
+═══════════════════════════════════════════ */
+$canDashboard        = $can('ver_reportes');
+$canCaja             = $can('realizar_ventas');
+$canProductos        = $can('editar_productos');
+$canStock            = $can('editar_stock');
+$canInventario       = $can('editar_stock') || $can('ver_stock') || $can('stock');
+$canMovimientos      = $can('ver_movimientos');
+$canVentas           = $can('ver_reportes');
+$canCompras          = $can('editar_stock');
+$canProveedores      = $can('ver_proveedores') || $can('editar_proveedores');
+$canHistCaja         = $can('ver_historial_caja');
+$canPromos           = $can('editar_promos');
+$canClientes         = $can('ver_clientes') || $can('editar_clientes');
+$canCuentaCorriente  = $can('ver_cuenta_corriente') && $canClientes;
+$canInventarioFisico = $can('editar_stock');
+$canPreciosHistorial = $can('editar_productos');
+$canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
+$canDiagnostico      = function_exists('user_can_access_diagnostics')
+    ? user_can_access_diagnostics()
+    : ($can('ver_diagnostico') || $can('gestionar_backups'));
+$canTecnico          = function_exists('user_can_access_technical_panel')
+    ? user_can_access_technical_panel()
+    : ($can('administrar_config') || $can('gestionar_backups'));
 
 $facturacionHabilitada = true;
 if ($pdo instanceof PDO && function_exists('config_get')) {
     $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 }
-$canFacturacion = $canFacturacion && $facturacionHabilitada;
-
-$canCuentaCorriente = $can('ver_cuenta_corriente') && $canClientes;
-$canInventarioFisico = $can('editar_stock');
-$canPreciosHistorial = $can('editar_productos');
-$canReposicion = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
-$canDiagnostico = function_exists('user_can_access_diagnostics')
-    ? user_can_access_diagnostics()
-    : ($can('ver_diagnostico') || $can('gestionar_backups'));
-$canTecnico = function_exists('user_can_access_technical_panel')
-    ? user_can_access_technical_panel()
-    : ($can('administrar_config') || $can('gestionar_backups'));
+$canFacturacion = ($can('ver_facturacion') || $can('emitir_factura') || $can('administrar_config'))
+                  && $facturacionHabilitada;
 
 $showAdminMenu =
-    $can('administrar_config') ||
-    $can('administrar_usuarios') ||
-    $can('ver_auditoria') ||
-    $can('gestionar_backups') ||
-    $canDiagnostico ||
-    $canTecnico;
+    $can('administrar_config') || $can('administrar_usuarios') ||
+    $can('ver_auditoria')      || $can('gestionar_backups')    ||
+    $canDiagnostico            || $canTecnico;
 
-$adminActive = in_array($currentSection, ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico'], true);
-$commercialSections = ['productos', 'precios_historial', 'promos', 'clientes', 'proveedores'];
-$inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
-$fiscalSections = ['cuenta_corriente', 'facturacion'];
-
-$commercialLinks = [];
-if ($canProductos) $commercialLinks[] = ['href' => 'productos.php', 'section' => 'productos', 'label' => 'Productos'];
-if ($canPreciosHistorial) $commercialLinks[] = ['href' => 'precios_historial.php', 'section' => 'precios_historial', 'label' => 'Precios'];
-if ($canPromos) $commercialLinks[] = ['href' => 'promos.php', 'section' => 'promos', 'label' => 'Promociones'];
-if ($canClientes) $commercialLinks[] = ['href' => 'clientes.php', 'section' => 'clientes', 'label' => 'Clientes'];
-if ($canProveedores) $commercialLinks[] = ['href' => 'proveedores.php', 'section' => 'proveedores', 'label' => 'Proveedores'];
-
-$inventoryLinks = [];
-if ($canStock) $inventoryLinks[] = ['href' => 'stock.php', 'section' => 'stock', 'label' => 'Stock'];
-if ($canInventario) $inventoryLinks[] = ['href' => 'inventario_analisis.php', 'section' => 'inventario_analisis', 'label' => 'Analisis'];
-if ($canInventarioFisico) $inventoryLinks[] = ['href' => 'inventario_fisico.php', 'section' => 'inventario_fisico', 'label' => 'Conteo fisico'];
-if ($canReposicion) $inventoryLinks[] = ['href' => 'reposicion.php', 'section' => 'reposicion', 'label' => 'Reposicion'];
-if ($canMovimientos) $inventoryLinks[] = ['href' => 'movimientos.php', 'section' => 'movimientos', 'label' => 'Movimientos'];
-
-$fiscalLinks = [];
-if ($canCuentaCorriente) $fiscalLinks[] = ['href' => 'cuenta_corriente.php', 'section' => 'cuenta_corriente', 'label' => 'Cuenta corriente'];
-if ($canFacturacion) $fiscalLinks[] = ['href' => 'facturacion.php', 'section' => 'facturacion', 'label' => 'Facturacion'];
-
-$commercialActive = in_array($currentSection, $commercialSections, true);
-$inventoryActive = in_array($currentSection, $inventorySections, true);
-$fiscalActive = in_array($currentSection, $fiscalSections, true);
-$commercialLabel = $groupCurrentLabel('Comercial', $commercialLinks, $currentSection);
-$inventoryLabel = $groupCurrentLabel('Inventario', $inventoryLinks, $currentSection);
-$fiscalLabel = $groupCurrentLabel('Fiscal', $fiscalLinks, $currentSection);
-
+/* ═══════════════════════════════════════════
+   GRUPOS DE NAVEGACIÓN
+═══════════════════════════════════════════ */
 $primaryLinks = [];
-if ($canDashboard) $primaryLinks[] = ['href' => 'dashboard.php', 'section' => 'dashboard', 'label' => 'Panel'];
-if ($canCaja) $primaryLinks[] = ['href' => 'caja.php', 'section' => 'caja', 'label' => 'Caja'];
-if ($canVentas) $primaryLinks[] = ['href' => 'ventas.php', 'section' => 'ventas', 'label' => 'Ventas'];
-if ($canCompras) $primaryLinks[] = ['href' => 'compras.php', 'section' => 'compras', 'label' => 'Compras'];
-if ($canHistCaja) $primaryLinks[] = ['href' => 'caja_historial.php', 'section' => 'caja_historial', 'label' => 'Historial caja'];
+if ($canDashboard) $primaryLinks[] = ['href' => 'dashboard.php', 'section' => 'dashboard', 'label' => 'Panel',   'shortcut' => 'alt+p'];
+if ($canVentas)    $primaryLinks[] = ['href' => 'ventas.php',    'section' => 'ventas',    'label' => 'Ventas',  'shortcut' => 'alt+n'];
+if ($canCompras)   $primaryLinks[] = ['href' => 'compras.php',   'section' => 'compras',   'label' => 'Compras', 'shortcut' => 'alt+c'];
 
+// Catálogo
+$catalogLinks = [];
+if ($canProductos)        $catalogLinks[] = ['href' => 'productos.php',        'section' => 'productos',        'label' => 'Productos',   'shortcut' => 'alt+k'];
+if ($canPreciosHistorial) $catalogLinks[] = ['href' => 'precios_historial.php','section' => 'precios_historial','label' => 'Precios',     'shortcut' => ''];
+if ($canPromos)           $catalogLinks[] = ['href' => 'promos.php',           'section' => 'promos',           'label' => 'Promociones', 'shortcut' => ''];
+
+// Inventario
+$inventoryLinks = [];
+if ($canStock)            $inventoryLinks[] = ['href' => 'stock.php',              'section' => 'stock',              'label' => 'Stock',          'shortcut' => 'alt+s'];
+if ($canInventario)       $inventoryLinks[] = ['href' => 'inventario_analisis.php','section' => 'inventario_analisis','label' => "An\u{00E1}lisis",      'shortcut' => ''];
+if ($canInventarioFisico) $inventoryLinks[] = ['href' => 'inventario_fisico.php',  'section' => 'inventario_fisico',  'label' => "Conteo f\u{00ED}sico", 'shortcut' => ''];
+if ($canReposicion)       $inventoryLinks[] = ['href' => 'reposicion.php',         'section' => 'reposicion',         'label' => "Reposici\u{00F3}n",    'shortcut' => ''];
+if ($canMovimientos)      $inventoryLinks[] = ['href' => 'movimientos.php',        'section' => 'movimientos',        'label' => 'Movimientos',    'shortcut' => ''];
+
+// Clientes
+$clientLinks = [];
+if ($canClientes)        $clientLinks[] = ['href' => 'clientes.php',         'section' => 'clientes',         'label' => 'Clientes',         'shortcut' => ''];
+if ($canCuentaCorriente) $clientLinks[] = ['href' => 'cuenta_corriente.php', 'section' => 'cuenta_corriente', 'label' => 'Cuenta corriente', 'shortcut' => ''];
+if ($canProveedores)     $clientLinks[] = ['href' => 'proveedores.php',      'section' => 'proveedores',      'label' => 'Proveedores',      'shortcut' => ''];
+
+// Admin
 $adminLinks = [];
-if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php', 'label' => 'Usuarios'];
-if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php', 'label' => 'Roles y permisos'];
-if ($can('administrar_config')) $adminLinks[] = ['href' => 'configuracion.php', 'label' => 'Configuracion'];
-if ($can('administrar_config')) $adminLinks[] = ['href' => 'licencia.php', 'label' => 'Licencia'];
-if ($can('administrar_config')) $adminLinks[] = ['href' => 'terminales.php', 'label' => 'Terminales'];
-if ($can('ver_auditoria')) $adminLinks[] = ['href' => 'auditoria.php', 'label' => 'Auditoria'];
-if ($can('gestionar_backups')) $adminLinks[] = ['href' => 'backups.php', 'label' => 'Backups'];
-if ($canDiagnostico) $adminLinks[] = ['href' => 'diagnostico.php', 'label' => 'Diagnostico'];
-if ($canTecnico) $adminLinks[] = ['href' => 'tecnico.php', 'label' => 'Tecnico'];
+if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php',     'label' => 'Usuarios'];
+if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php',        'label' => 'Roles y permisos'];
+if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Historial caja'];
+if ($can('administrar_config'))   $adminLinks[] = ['href' => 'configuracion.php','label' => "Configuraci\u{00F3}n"];
+if ($can('administrar_config'))   $adminLinks[] = ['href' => 'licencia.php',     'label' => 'Licencia'];
+if ($can('administrar_config'))   $adminLinks[] = ['href' => 'terminales.php',   'label' => 'Terminales'];
+if ($can('ver_auditoria'))        $adminLinks[] = ['href' => 'auditoria.php',    'label' => "Auditor\u{00ED}a"];
+if ($can('gestionar_backups'))    $adminLinks[] = ['href' => 'backups.php',      'label' => 'Backups'];
+if ($canDiagnostico)              $adminLinks[] = ['href' => 'diagnostico.php',  'label' => "Diagn\u{00F3}stico"];
+if ($canTecnico)                  $adminLinks[] = ['href' => 'tecnico.php',      'label' => "T\u{00E9}cnico"];
+
+$catalogSections   = ['productos', 'precios_historial', 'promos'];
+$inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
+$clientSections    = ['clientes', 'cuenta_corriente', 'proveedores'];
+$adminSections     = ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico', 'caja_historial'];
+
+$catalogActive   = in_array($currentSection, $catalogSections,   true);
+$inventoryActive = in_array($currentSection, $inventorySections, true);
+$clientActive    = in_array($currentSection, $clientSections,    true);
+$adminActive     = in_array($currentSection, $adminSections,     true);
+
+$catalogLabel   = $groupCurrentLabel("Cat\u{00E1}logo",   $catalogLinks,   $currentSection);
+$inventoryLabel = $groupCurrentLabel('Inventario', $inventoryLinks, $currentSection);
+$clientLabel    = $groupCurrentLabel('Clientes',   $clientLinks,    $currentSection);
+
+/* ═══════════════════════════════════════════
+   AVATAR  — iniciales + rol legible
+═══════════════════════════════════════════ */
+$userName   = (string)($user['nombre']    ?? $user['username'] ?? 'Usuario');
+$userRole   = (string)($user['role_slug'] ?? '');
+$roleLabels = [
+    'admin'         => 'Admin',
+    'administrador' => 'Admin',
+    'cajero'        => 'Cajero',
+    'vendedor'      => 'Vendedor',
+    'supervisor'    => 'Supervisor',
+    'contador'      => 'Contador',
+    'soporte'       => 'Soporte',
+];
+$roleDisplay = $roleLabels[strtolower($userRole)] ?? ucfirst($userRole);
+
+$initials = '';
+foreach (explode(' ', $userName) as $word) {
+    if ($word !== '') $initials .= strtoupper(mb_substr($word, 0, 1));
+    if (mb_strlen($initials) >= 2) break;
+}
+if ($initials === '') $initials = '?';
+
+/* ═══════════════════════════════════════════
+   MAPA DE SHORTCUTS  (para data-attrs en JS)
+   Formato: 'alt+X'
+   El JS los lee y registra el listener global.
+═══════════════════════════════════════════ */
+$shortcuts = [
+    'alt+v' => 'caja.php',          // Vender
+    'alt+p' => 'dashboard.php',     // Panel
+    'alt+n' => 'ventas.php',        // veNtas
+    'alt+c' => 'compras.php',       // Compras
+    'alt+k' => 'productos.php',     // catálogo (K)
+    'alt+s' => 'stock.php',         // Stock
+];
+// Serializado para data-shortcuts en el nav
+$shortcutsJson = json_encode($shortcuts, JSON_UNESCAPED_UNICODE);
+
+$navGroups = [];
+if ($catalogLinks !== []) {
+    $navGroups[] = [
+        'active'     => $catalogActive,
+        'buttonText' => $catalogLabel,
+        'links'      => $catalogLinks,
+        'menuLabel'  => "Cat\u{00E1}logo",
+        'title'      => "Cat\u{00E1}logo de productos",
+    ];
+}
+if ($inventoryLinks !== []) {
+    $navGroups[] = [
+        'active'     => $inventoryActive,
+        'buttonText' => $inventoryLabel,
+        'links'      => $inventoryLinks,
+        'menuLabel'  => 'Inventario',
+        'title'      => "Gesti\u{00F3}n de inventario",
+    ];
+}
+if ($clientLinks !== []) {
+    $navGroups[] = [
+        'active'     => $clientActive,
+        'buttonText' => $clientLabel,
+        'links'      => $clientLinks,
+        'menuLabel'  => 'Clientes',
+        'title'      => 'Clientes, cuenta corriente y proveedores',
+    ];
+}
+
+$buildClassName = static function (string ...$classes): string {
+    $filtered = array_values(array_filter($classes, static fn(string $class): bool => $class !== ''));
+    return implode(' ', $filtered);
+};
+
+$renderShortcutAttributes = static function (?string $shortcut, ?string $title = null) use ($esc): string {
+    if (!is_string($shortcut) || $shortcut === '') {
+        return '';
+    }
+
+    $attributes = ' data-shortcut="' . $esc($shortcut) . '"';
+    if (is_string($title) && $title !== '') {
+        $attributes .= ' title="' . $esc($title . ' (' . strtoupper($shortcut) . ')') . '"';
+    }
+
+    return $attributes;
+};
+
+$renderPrimaryLink = static function (array $link) use ($buildClassName, $currentSection, $esc, $renderShortcutAttributes): string {
+    $isActive = ($currentSection === ($link['section'] ?? ''));
+    $shortcut = (string)($link['shortcut'] ?? '');
+    $title    = (string)($link['label'] ?? '');
+
+    ob_start();
+    ?>
+    <a href="<?= $esc((string)$link['href']) ?>"
+       class="<?= $esc($buildClassName('nav-pill', $isActive ? 'active' : '')) ?>"
+       aria-current="<?= $isActive ? 'page' : 'false' ?>"<?= $renderShortcutAttributes($shortcut, $title) ?>>
+        <?= $esc((string)$link['label']) ?>
+    </a>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderGroupLink = static function (array $link) use ($currentSection, $esc, $renderShortcutAttributes): string {
+    $isActive = ($currentSection === ($link['section'] ?? ''));
+    $shortcut = (string)($link['shortcut'] ?? '');
+
+    ob_start();
+    ?>
+    <a role="menuitem"
+       href="<?= $esc((string)$link['href']) ?>"
+       class="<?= $isActive ? 'active' : '' ?>"<?= $renderShortcutAttributes($shortcut) ?>>
+        <?= $esc((string)$link['label']) ?>
+        <?php if ($shortcut !== ''): ?>
+            <span class="nav-shortcut-hint"><?= $esc(strtoupper($shortcut)) ?></span>
+        <?php endif; ?>
+    </a>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderNavGroup = static function (array $group) use ($buildClassName, $esc, $renderGroupLink): string {
+    ob_start();
+    ?>
+    <div class="nav-dropdown nav-group js-nav-dropdown">
+        <button type="button"
+                class="<?= $esc($buildClassName('nav-pill', 'nav-group-btn', !empty($group['active']) ? 'active' : '')) ?>"
+                aria-haspopup="true"
+                aria-expanded="false"
+                title="<?= $esc((string)$group['title']) ?>">
+            <?= $esc((string)$group['buttonText']) ?>
+            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="<?= $esc((string)$group['menuLabel']) ?>">
+            <?php foreach ($group['links'] as $link): ?>
+                <?= $renderGroupLink($link) ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderCajaLink = static function () use ($cajaAbierta, $currentSection): string {
+    $isActive = ($currentSection === 'caja');
+
+    ob_start();
+    ?>
+    <a href="caja.php"
+       class="nav-vender <?= $isActive ? 'active' : '' ?>"
+       data-shortcut="alt+v"
+       aria-label="<?= $cajaAbierta ? 'Ir a caja' : 'Abrir caja' ?>"
+       title="Ir a caja (ALT+V)">
+        <span class="nav-vender-icon" aria-hidden="true">+</span>
+        <span class="nav-vender-label">Vender</span>
+        <?php if (!$cajaAbierta): ?>
+            <span class="nav-vender-sub">sin caja</span>
+        <?php endif; ?>
+    </a>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderAlertsMenu = static function () use ($esc, $navAlertTotal, $navAlerts): string {
+    ob_start();
+    ?>
+    <div class="nav-dropdown js-nav-dropdown" id="navBell">
+        <button type="button"
+                class="nav-icon nav-bell-btn"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-label="<?= $navAlertTotal ?> alertas activas"
+                title="Alertas del sistema">
+            <span class="nav-bell-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+            </span>
+            <span class="nav-bell-badge" aria-hidden="true">
+                <?= $navAlertTotal > 9 ? '9+' : $navAlertTotal ?>
+            </span>
+        </button>
+        <div class="nav-dropdown-menu nav-bell-menu" role="menu" aria-label="Alertas">
+            <div class="nav-bell-header">Alertas activas</div>
+            <?php foreach ($navAlerts as $alert): ?>
+                <a role="menuitem" href="<?= $esc((string)$alert['url']) ?>" class="nav-bell-item">
+                    <span class="nav-bell-item-count"><?= (int)$alert['count'] ?></span>
+                    <span class="nav-bell-item-label"><?= $esc((string)$alert['label']) ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderAdminMenu = static function () use ($adminActive, $adminLinks, $buildClassName, $esc): string {
+    ob_start();
+    ?>
+    <div class="nav-dropdown js-nav-dropdown" id="adminMenu">
+        <button type="button"
+                class="<?= $esc($buildClassName('nav-icon', 'nav-dropdown-btn', $adminActive ? 'active' : '')) ?>"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-label="Men&uacute; de administraci&oacute;n"
+                title="Administraci&oacute;n">
+            <span aria-hidden="true">&#9881;</span>
+        </button>
+        <div class="nav-dropdown-menu" role="menu" aria-label="Administraci&oacute;n">
+            <?php foreach ($adminLinks as $link): ?>
+                <a role="menuitem" href="<?= $esc((string)$link['href']) ?>" tabindex="0">
+                    <?= $esc((string)$link['label']) ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderUserBlock = static function () use ($esc, $initials, $roleDisplay, $userName): string {
+    ob_start();
+    ?>
+    <div class="nav-user-block">
+        <div class="nav-avatar" aria-hidden="true"><?= $esc($initials) ?></div>
+        <div class="nav-user-info">
+            <span class="nav-username" title="<?= $esc($userName) ?>">
+                <?= $esc($userName) ?>
+            </span>
+            <?php if ($roleDisplay !== ''): ?>
+                <span class="nav-user-role"><?= $esc($roleDisplay) ?></span>
+            <?php endif; ?>
+        </div>
+        <a href="logout.php" class="logout-btn" aria-label="Cerrar sesi&oacute;n">
+            <span class="logout-text">Salir</span>
+        </a>
+    </div>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$renderBreadcrumb = static function (array $items) use ($esc): string {
+    ob_start();
+    ?>
+    <nav class="nav-breadcrumb" aria-label="Ubicaci&oacute;n actual">
+        <ol class="breadcrumb-list">
+            <li class="breadcrumb-item">
+                <a href="index.php" class="breadcrumb-home" aria-label="Inicio">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2.2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                </a>
+            </li>
+            <?php foreach ($items as $i => $crumb):
+                $isLast = ($i === count($items) - 1);
+            ?>
+                <li class="breadcrumb-sep" aria-hidden="true">&rsaquo;</li>
+                <li class="breadcrumb-item <?= $isLast ? 'breadcrumb-current' : '' ?>">
+                    <?php if (!$isLast && !empty($crumb['url'])): ?>
+                        <a href="<?= $esc((string)$crumb['url']) ?>"><?= $esc((string)$crumb['label']) ?></a>
+                    <?php else: ?>
+                        <span aria-current="page"><?= $esc((string)$crumb['label']) ?></span>
+                    <?php endif; ?>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+    </nav>
+    <?php
+    return trim((string)ob_get_clean());
+};
+
+$primaryNavHtml = array_map($renderPrimaryLink, $primaryLinks);
+$groupNavHtml   = array_map($renderNavGroup, $navGroups);
+$cajaNavHtml    = $canCaja ? $renderCajaLink() : '';
+$alertsNavHtml  = $navAlertTotal > 0 ? $renderAlertsMenu() : '';
+$adminNavHtml   = $showAdminMenu ? $renderAdminMenu() : '';
+$userBlockHtml  = $renderUserBlock();
+$breadcrumbHtml = !empty($breadcrumb) ? $renderBreadcrumb($breadcrumb) : '';
 ?>
 
-<nav class="nav-container" role="navigation" aria-label="Navegacion principal">
+<nav class="nav-container" role="navigation" aria-label="Navegaci&oacute;n principal" data-shortcuts='<?= $esc($shortcutsJson ?: "{}") ?>'>
     <a href="index.php" class="nav-brand" aria-label="Inicio">
         <span class="nav-logo">FLUS</span>
     </a>
@@ -197,7 +581,7 @@ if ($canTecnico) $adminLinks[] = ['href' => 'tecnico.php', 'label' => 'Tecnico']
     <button type="button"
             class="nav-hamburger"
             id="navHamburger"
-            aria-label="Menu de navegacion"
+            aria-label="Men&uacute; de navegaci&oacute;n"
             aria-expanded="false"
             aria-controls="navMenu">
         <span class="hamburger-line"></span>
@@ -207,89 +591,29 @@ if ($canTecnico) $adminLinks[] = ['href' => 'tecnico.php', 'label' => 'Tecnico']
 
     <div class="nav-menu-wrapper" id="navMenu">
         <div class="nav-left">
-            <?php foreach ($primaryLinks as $link): ?>
-                <a href="<?= $esc($link['href']) ?>"
-                   class="nav-pill <?= $currentSection === $link['section'] ? 'active' : '' ?>"
-                   aria-current="<?= $currentSection === $link['section'] ? 'page' : 'false' ?>">
-                    <?= $esc($link['label']) ?>
+            <?= implode("\n", $primaryNavHtml) ?>
+            <?= $cajaNavHtml ?>
+            <?= implode("\n", $groupNavHtml) ?>
+
+            <?php if ($canFacturacion): ?>
+                <a href="facturacion.php"
+                   class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>"
+                   aria-current="<?= $currentSection === 'facturacion' ? 'page' : 'false' ?>">
+                    Facturaci&oacute;n
                 </a>
-            <?php endforeach; ?>
-
-            <?php if ($commercialLinks !== []): ?>
-                <div class="nav-dropdown nav-group js-nav-dropdown">
-                    <button type="button"
-                            class="nav-pill nav-group-btn <?= $commercialActive ? 'active' : '' ?>"
-                            aria-haspopup="true"
-                            aria-expanded="false"
-                            title="Grupo Comercial">
-                        <?= $esc($commercialLabel) ?>
-                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
-                    </button>
-                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Comercial">
-                        <?php foreach ($commercialLinks as $link): ?>
-                            <a role="menuitem"
-                               href="<?= $esc($link['href']) ?>"
-                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
-                                <?= $esc($link['label']) ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
             <?php endif; ?>
-
-            <?php if ($inventoryLinks !== []): ?>
-                <div class="nav-dropdown nav-group js-nav-dropdown">
-                    <button type="button"
-                            class="nav-pill nav-group-btn <?= $inventoryActive ? 'active' : '' ?>"
-                            aria-haspopup="true"
-                            aria-expanded="false"
-                            title="Grupo Inventario">
-                        <?= $esc($inventoryLabel) ?>
-                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
-                    </button>
-                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Inventario">
-                        <?php foreach ($inventoryLinks as $link): ?>
-                            <a role="menuitem"
-                               href="<?= $esc($link['href']) ?>"
-                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
-                                <?= $esc($link['label']) ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($fiscalLinks !== []): ?>
-                <div class="nav-dropdown nav-group js-nav-dropdown">
-                    <button type="button"
-                            class="nav-pill nav-group-btn <?= $fiscalActive ? 'active' : '' ?>"
-                            aria-haspopup="true"
-                            aria-expanded="false"
-                            title="Grupo Fiscal">
-                        <?= $esc($fiscalLabel) ?>
-                        <span class="nav-caret" aria-hidden="true">&#9662;</span>
-                    </button>
-                    <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="Fiscal">
-                        <?php foreach ($fiscalLinks as $link): ?>
-                            <a role="menuitem"
-                               href="<?= $esc($link['href']) ?>"
-                               class="<?= $currentSection === $link['section'] ? 'active' : '' ?>">
-                                <?= $esc($link['label']) ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
+        </div><!-- /.nav-left -->
 
         <div class="nav-right">
-            <?php if ($canCaja): ?>
-                <div class="badge-mode <?= $cajaAbierta ? 'is-open' : 'is-closed' ?>"
-                     title="<?= $esc($cajaAbierta ? "Caja #{$cajaId} abierta" : 'Caja cerrada') ?>">
-                    <span class="badge-dot"></span>
-                    <span class="badge-text"><?= $cajaAbierta ? 'Caja abierta' : 'Caja cerrada' ?></span>
-                </div>
-            <?php endif; ?>
+            <?= $alertsNavHtml ?>
+
+            <button type="button"
+                    class="nav-icon nav-shortcuts-btn"
+                    id="navShortcutHelpBtn"
+                    aria-label="Ver atajos del teclado"
+                    title="Atajos del teclado (?)">
+                <span aria-hidden="true">?</span>
+            </button>
 
             <div class="theme-switch">
                 <input type="checkbox" id="toggleTheme" aria-label="Alternar tema oscuro o claro">
@@ -302,133 +626,10 @@ if ($canTecnico) $adminLinks[] = ['href' => 'tecnico.php', 'label' => 'Tecnico']
                 </label>
             </div>
 
-            <?php if ($showAdminMenu): ?>
-                <div class="nav-dropdown js-nav-dropdown" id="adminMenu">
-                    <button type="button"
-                            class="nav-icon nav-dropdown-btn <?= $adminActive ? 'active' : '' ?>"
-                            aria-haspopup="true"
-                            aria-expanded="false"
-                            aria-label="Menu de administracion"
-                            title="Ajustes">
-                        <span aria-hidden="true">&#9881;</span>
-                    </button>
-
-                    <div class="nav-dropdown-menu" role="menu" aria-label="Administracion">
-                        <?php foreach ($adminLinks as $link): ?>
-                            <a role="menuitem" href="<?= $esc($link['href']) ?>" tabindex="0">
-                                <?= $esc($link['label']) ?>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <div class="nav-user">
-                <span class="nav-username" title="Usuario actual">
-                    <?= $esc((string)($user['username'] ?? 'Usuario')) ?>
-                </span>
-                <a href="logout.php" class="logout-btn" aria-label="Cerrar sesion">
-                    <span class="logout-text">Salir</span>
-                </a>
-            </div>
-        </div>
-    </div>
+            <?= $adminNavHtml ?>
+            <?= $userBlockHtml ?>
+        </div><!-- /.nav-right -->
+    </div><!-- /.nav-menu-wrapper -->
 </nav>
 
-<script>
-(() => {
-  'use strict';
-
-  const hamburger = document.getElementById('navHamburger');
-  const navMenu = document.getElementById('navMenu');
-  const dropdowns = Array.from(document.querySelectorAll('.js-nav-dropdown'));
-  let scrollY = 0;
-
-  function lockBodyScroll() {
-    scrollY = window.scrollY || 0;
-    document.documentElement.classList.add('nav-open');
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-  }
-
-  function unlockBodyScroll() {
-    document.documentElement.classList.remove('nav-open');
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, scrollY);
-  }
-
-  function setNavOpen(open) {
-    if (!hamburger || !navMenu) return;
-    hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    hamburger.classList.toggle('active', open);
-    navMenu.classList.toggle('open', open);
-    if (open) lockBodyScroll();
-    else unlockBodyScroll();
-  }
-
-  function setDropdownOpen(wrapper, open) {
-    const button = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn');
-    const menu = wrapper.querySelector('.nav-dropdown-menu');
-    if (!button || !menu) return;
-    button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    menu.classList.toggle('open', open);
-    wrapper.classList.toggle('open', open);
-  }
-
-  function closeOtherDropdowns(current) {
-    dropdowns.forEach((wrapper) => {
-      if (wrapper !== current) setDropdownOpen(wrapper, false);
-    });
-  }
-
-  if (hamburger && navMenu) {
-    hamburger.addEventListener('click', () => {
-      const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
-      setNavOpen(!isOpen);
-    });
-
-    navMenu.addEventListener('click', (event) => {
-      const link = event.target.closest('a.nav-pill, .nav-dropdown-menu a');
-      if (link) setNavOpen(false);
-    });
-  }
-
-  dropdowns.forEach((wrapper) => {
-    const button = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn');
-    if (!button) return;
-
-    button.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const isOpen = button.getAttribute('aria-expanded') === 'true';
-      closeOtherDropdowns(wrapper);
-      setDropdownOpen(wrapper, !isOpen);
-    });
-  });
-
-  document.addEventListener('click', (event) => {
-    const navOpen = hamburger && hamburger.getAttribute('aria-expanded') === 'true';
-    if (navOpen && hamburger && navMenu && !hamburger.contains(event.target) && !navMenu.contains(event.target)) {
-      setNavOpen(false);
-    }
-
-    dropdowns.forEach((wrapper) => {
-      if (!wrapper.contains(event.target)) setDropdownOpen(wrapper, false);
-    });
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      setNavOpen(false);
-      dropdowns.forEach((wrapper) => setDropdownOpen(wrapper, false));
-    }
-  });
-})();
-</script>
+<?= $breadcrumbHtml ?>

@@ -9,6 +9,8 @@ $env      = $env ?? 'prod';
 // Cache-busting real por archivo (evita “no hace nada” por caché)
 $appJsPath = __DIR__ . '/../assets/js/app.js'; // public/partials -> public/assets/js/app.js
 $appVer    = file_exists($appJsPath) ? (string)filemtime($appJsPath) : '1';
+$navJsPath = __DIR__ . '/../assets/js/nav.js';
+$navJsVer  = file_exists($navJsPath) ? (string)filemtime($navJsPath) : '1';
 
 // Version general para otros assets
 $ver = ($env === 'dev') ? (string)time() : '1.0.0';
@@ -139,6 +141,7 @@ $aboutText =
 
 <!-- JS base del sistema -->
 <script src="assets/js/app.js?v=<?= htmlspecialchars($appVer, ENT_QUOTES, 'UTF-8') ?>"></script>
+<script src="assets/js/nav.js?v=<?= htmlspecialchars($navJsVer, ENT_QUOTES, 'UTF-8') ?>"></script>
 
 <!-- JS adicionales por página -->
 <?php foreach ($extraJs as $src): ?>

@@ -60,6 +60,7 @@ $verFor = function (string $rel) use ($defaultVer): string {
   <link rel="stylesheet" href="assets/css/app.css?v=<?= htmlspecialchars($verFor('assets/css/app.css'), ENT_QUOTES, 'UTF-8') ?>">
   <link rel="stylesheet" href="assets/css/components.css?v=<?= htmlspecialchars($verFor('assets/css/components.css'), ENT_QUOTES, 'UTF-8') ?>">
   <link rel="stylesheet" href="assets/css/utilities.css?v=<?= htmlspecialchars($verFor('assets/css/utilities.css'), ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="stylesheet" href="assets/css/nav.css?v=<?= htmlspecialchars($verFor('assets/css/nav.css'), ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- CSS especifico de pagina -->
   <?php foreach ($extraCss as $href): ?>
