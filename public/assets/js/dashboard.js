@@ -42,6 +42,22 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function numFromText(value, fallback = 0) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+
+  const normalized = text
+    .replace(/\$/g, "")
+    .replace(/\s+/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".")
+    .replace(/[^\d.-]/g, "");
+
+  const n = parseFloat(normalized);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function hasSomePositive(arr) {
   return Array.isArray(arr) && arr.length > 0 && arr.some((v) => num(v, 0) > 0);
 }
@@ -131,6 +147,67 @@ function getOrCreateEmptyMsg(canvas, emptyId, text = "Sin datos") {
   }
   e.textContent = text;
   return e;
+}
+
+function getDetailRows(detailsId) {
+  const detail = document.getElementById(detailsId);
+  if (!detail) return [];
+
+  const rows = Array.from(detail.querySelectorAll("tbody tr"));
+  return rows.filter((row) => !row.querySelector(".muted"));
+}
+
+function getDataWithDomFallback(data) {
+  const resolved = { ...(data || {}) };
+
+  if (!hasSomePositive(resolved.ventasData)) {
+    const rows = getDetailRows("chartVentasData");
+    if (rows.length) {
+      resolved.ventasLabels = rows.map((row) => row.cells[0]?.textContent?.trim() || "");
+      resolved.ventasData = rows.map((row) => numFromText(row.cells[1]?.textContent, 0));
+    }
+  }
+
+  if (!hasSomePositive(resolved.topProdData)) {
+    const rows = getDetailRows("chartTopProductosData");
+    if (rows.length) {
+      resolved.topProdLabels = rows.map((row) => row.cells[0]?.textContent?.trim() || "");
+      resolved.topProdData = rows.map((row) => numFromText(row.cells[1]?.textContent, 0));
+    }
+  }
+
+  if (!Array.isArray(resolved.metodosPago) || !hasSomePositive(resolved.metodosPago.map((m) => num(m?.monto, 0)))) {
+    const rows = getDetailRows("chartMetodosPagoData");
+    if (rows.length) {
+      resolved.metodosPago = rows.map((row) => ({
+        medio_pago: row.cells[0]?.textContent?.trim() || "N/A",
+        monto: numFromText(row.cells[1]?.textContent, 0),
+      }));
+    }
+  }
+
+  if (!Array.isArray(resolved.categorias) || !hasSomePositive(resolved.categorias.map((c) => num(c?.ventas ?? c?.monto, 0)))) {
+    const rows = getDetailRows("chartCategoriasData");
+    if (rows.length) {
+      resolved.categorias = rows.map((row) => ({
+        categoria: row.cells[0]?.textContent?.trim() || "Sin categoria",
+        ventas: numFromText(row.cells[1]?.textContent, 0),
+      }));
+    }
+  }
+
+  if (!Array.isArray(resolved.ventasPorHora) || !hasSomePositive(resolved.ventasPorHora.map((h) => num(h?.monto, 0)))) {
+    const rows = getDetailRows("chartHorariosData");
+    if (rows.length) {
+      resolved.ventasPorHora = rows.map((row) => ({
+        hora: parseInt((row.cells[0]?.textContent || "0").split(":")[0], 10) || 0,
+        cantidad: numFromText(row.cells[1]?.textContent, 0),
+        monto: numFromText(row.cells[2]?.textContent, 0),
+      }));
+    }
+  }
+
+  return resolved;
 }
 
 /* =========================
@@ -276,6 +353,7 @@ function renderAllCharts(data) {
   try {
     const theme = getTheme();
     const { textColor, gridColor } = applyChartDefaults(theme);
+    const chartData = getDataWithDomFallback(data);
 
     const palette =
       theme === "light"
@@ -329,8 +407,8 @@ function renderAllCharts(data) {
     renderLineChart(
       "chartVentas",
       "noVentasMsg",
-      data.ventasLabels,
-      data.ventasData,
+      chartData.ventasLabels,
+      chartData.ventasData,
       palette,
       textColor,
       gridColor
@@ -339,18 +417,18 @@ function renderAllCharts(data) {
     renderBarChart(
       "chartTopProductos",
       "noTopMsg",
-      data.topProdLabels,
-      data.topProdData,
+      chartData.topProdLabels,
+      chartData.topProdData,
       palette,
       textColor,
       gridColor
     );
 
-    renderMetodosPago(data.metodosPago, palette, textColor);
-    renderCategorias(data.categorias, palette, textColor, gridColor);
-    renderHorarios(data.ventasPorHora, palette, textColor, gridColor);
+    renderMetodosPago(chartData.metodosPago, palette, textColor);
+    renderCategorias(chartData.categorias, palette, textColor, gridColor);
+    renderHorarios(chartData.ventasPorHora, palette, textColor, gridColor);
     renderProductosRentables(
-      data.productosRentables,
+      chartData.productosRentables,
       palette,
       textColor,
       gridColor
