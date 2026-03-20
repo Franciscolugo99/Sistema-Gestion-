@@ -1092,7 +1092,7 @@
 ============================================ */
 .keyboard-hints {
   position: fixed;
-  bottom: 20px;
+  bottom: 54px;
   right: 20px;
   display: flex;
   flex-direction: column;
