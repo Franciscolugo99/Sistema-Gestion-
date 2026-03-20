@@ -25,7 +25,7 @@ $aperturaError = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === 'abrir') {
 
   if (!csrf_verify($_POST['csrf_token'] ?? null)) {
-    $aperturaError = 'Token inválido. Recargá la página e intentá de nuevo.';
+    $aperturaError = 'Token invalido. Recarga la pagina e intenta de nuevo.';
   } else {
     $saldoIni = parse_money_ar($_POST['saldo_inicial'] ?? '0');
 
@@ -52,12 +52,13 @@ $pageTitle      = 'Caja';
 $currentSection = 'caja';
 
 $extraCss = [
-  'assets/css/caja.css?v=2.3.4',
+  'assets/css/caja.css?v=' . filemtime(__DIR__ . '/assets/css/caja.css'),
 ];
 
-$extraJs = ['assets/js/caja.js',
-  'assets/js/caja_terminal_modal.js',
-  'assets/js/caja_cc_pago.js',
+$extraJs = [
+  'assets/js/caja.js?v=' . filemtime(__DIR__ . '/assets/js/caja.js'),
+  'assets/js/caja_terminal_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_terminal_modal.js'),
+  'assets/js/caja_cc_pago.js?v=' . filemtime(__DIR__ . '/assets/js/caja_cc_pago.js'),
 ];
 
 // Permisos para frontend (JS espera true/false)
@@ -68,9 +69,20 @@ $canModPrecio = (function_exists('user_has_permission') && user_has_permission('
 $canCC = (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc'))
   ? 'true'
   : 'false';
-$csrf = csrf_token(); // ✅ usa tu helper central
+$globalPrintDefaults = [
+  'ticket_mode' => (string)config_get($pdo, 'print_ticket_mode', 'autoprint'),
+  'ticket_paper' => (string)config_get($pdo, 'print_ticket_paper', '80'),
+  'comanda_mode' => (string)config_get($pdo, 'print_comanda_mode', 'none'),
+  'comanda_paper' => (string)config_get($pdo, 'print_comanda_paper', '80'),
+  'factura_mode' => (string)config_get($pdo, 'print_factura_mode', 'preview'),
+];
+$terminalPrintDefaults = [
+  'ticket_mode' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_print_mode', 'inherit') : 'inherit',
+  'ticket_paper' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_paper', 'inherit') : 'inherit',
+];
+$csrf = csrf_token(); // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ usa tu helper central
 
-// 🔴 IMPORTANTE: el modal/API suele leer CSRF desde <meta>
+// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â´ IMPORTANTE: el modal/API suele leer CSRF desde <meta>
 // + inyectamos permisos en window.FLUS_PERMS
   $extraHead =
     '<meta name="csrf-token" content="' . h($csrf) . '">' .
@@ -79,6 +91,10 @@ $csrf = csrf_token(); // ✅ usa tu helper central
       'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
       'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
       'window.FLUS_PERMS.registrar_cargo_cc = ' . $canCC . ';' .
+      'window.FLUS_PRINT_DEFAULTS = ' . json_encode([
+        'global' => $globalPrintDefaults,
+        'terminal' => $terminalPrintDefaults,
+      ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';' .
     '</script>';
 
 
@@ -109,7 +125,7 @@ $flashErr = trim((string)($_GET['err'] ?? ''));
 if ($cajaSesion) {
   $cajaIdTmp = (int)$cajaSesion['id'];
 
-  // últimos movimientos
+  // ÃƒÆ’Ã‚Âºltimos movimientos
   $stM = $pdo->prepare("
     SELECT id, tipo, concepto, monto, fecha, usuario_registro
     FROM caja_movimientos
@@ -146,24 +162,36 @@ if ($cajaSesion) {
 
   <?php if ($cajaSesion === null): ?>
 
-    <h1 class="caja-title">CAJA</h1>
+    <section class="caja-open-shell" aria-labelledby="cajaOpenTitle">
+      <div class="caja-open-card">
+        <div class="caja-open-header">
+          <div class="caja-open-copy">
+            <span class="caja-open-eyebrow">Inicio operativo</span>
+            <h1 class="caja-title caja-title--open" id="cajaOpenTitle">CAJA</h1>
+            <p class="caja-open-lead">No hay ninguna caja abierta.</p>
+            <p class="caja-open-sub">
+              Ingresa el saldo inicial para comenzar a registrar ventas y movimientos
+              en esta terminal.
+            </p>
+          </div>
 
-    <div class="pos-terminal-bar">
-      <div class="pos-terminal-left">
-        <span class="pos-terminal-label">Terminal:</span>
-        <b class="pos-terminal-name"><?= h($terminalName) ?></b>
-      </div>
-
-      <!--  terminal SIEMPRE permitido -->
-      <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal">
-        Cambiar
-      </button>
-    </div>
-
+          <div class="caja-open-terminal">
+            <span class="caja-open-terminal-label">Terminal activa</span>
+            <div class="caja-open-terminal-card">
+              <div class="caja-open-terminal-main">
+                <strong class="caja-open-terminal-name"><?= h($terminalName) ?></strong>
+                <span class="caja-open-terminal-hint">La apertura queda asociada a esta caja.</span>
+              </div>
+              <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal">
+                Cambiar
+              </button>
+            </div>
+          </div>
+        </div>
 
     <div class="apertura-wrapper">
       <p class="apertura-text">
-        No hay ninguna caja abierta. Ingresá el saldo inicial para comenzar.
+        No hay ninguna caja abierta. Ingresa el saldo inicial para comenzar.
       </p>
 
       <div class="apertura-card">
@@ -192,9 +220,15 @@ if ($cajaSesion) {
           <button type="submit" class="btn btn-primary apertura-btn">
             Abrir caja
           </button>
+
+          <p class="apertura-help">
+            Al abrir caja vas a poder operar ventas, cobros y movimientos desde esta terminal.
+          </p>
         </form>
       </div>
     </div>
+      </div>
+    </section>
 
   <?php else: ?>
 
@@ -214,8 +248,8 @@ if ($cajaSesion) {
       <div class="caja-topbar__item">
         <div class="caja-topbar__label">Apertura</div>
         <div class="caja-topbar__value mono">
-          #<?= (int)$cajaSesion['id'] ?> ·
-          <?= h($cajaSesion['username'] ?? '') ?> ·
+          #<?= (int)$cajaSesion['id'] ?> &middot;
+          <?= h($cajaSesion['username'] ?? '') ?> &middot;
           <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?>
         </div>
       </div>
@@ -223,6 +257,15 @@ if ($cajaSesion) {
   </div>
 
   <div class="caja-topbar__actions">
+    <div class="caja-topbar__print">
+      <label class="caja-topbar__print-label" for="ticketPrintMode">Ticket</label>
+      <select id="ticketPrintMode" class="caja-topbar__print-select" aria-label="Modo de salida del ticket">
+        <option value="autoprint">Auto imprimir</option>
+        <option value="preview">Vista previa</option>
+        <option value="none">No abrir</option>
+      </select>
+    </div>
+
     <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
 
     <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
@@ -249,7 +292,7 @@ if ($cajaSesion) {
     <h1 class="caja-title">CAJA</h1>
 
     <!-- =========================
-         MOVIMIENTOS COLAPSABLES (nativo, sin look “pegote”)
+         MOVIMIENTOS COLAPSABLES (nativo, sin look ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œpegoteÃƒÂ¢Ã¢â€šÂ¬Ã‚Â)
     ========================== -->
     <details class="caja-mov" id="cajaMov" open>
       <summary class="caja-mov__sum">
@@ -262,7 +305,7 @@ if ($cajaSesion) {
 
         <div class="caja-mov__right">
           <span class="pill pill-success">+ <?= money_ar($movIngresos) ?></span>
-          <span class="pill pill-danger">− <?= money_ar($movEgresos) ?></span>
+          <span class="pill pill-danger">- <?= money_ar($movEgresos) ?></span>
 
           <a class="btn btn-primary btn-sm"
              href="caja_movimientos.php"
@@ -274,7 +317,7 @@ if ($cajaSesion) {
 
       <div class="caja-mov__body">
         <?php if (!$movCaja): ?>
-          <div class="muted">Todavía no hay movimientos en esta apertura.</div>
+          <div class="muted">Todavia no hay movimientos en esta apertura.</div>
         <?php else: ?>
           <div class="table-wrapper">
             <table class="table">
@@ -292,14 +335,14 @@ if ($cajaSesion) {
                   <?php
                     $t = strtoupper((string)($m['tipo'] ?? 'INGRESO'));
                     $pill = ($t === 'EGRESO') ? 'pill-danger' : 'pill-success';
-                    $lbl  = ($t === 'EGRESO') ? '− Egreso' : '+ Ingreso';
+                    $lbl  = ($t === 'EGRESO') ? '- Egreso' : '+ Ingreso';
                   ?>
                   <tr>
                     <td class="mono"><?= h(format_datetime_ar($m['fecha'] ?? null)) ?></td>
                     <td><span class="pill <?= $pill ?>"><?= h($lbl) ?></span></td>
-                    <td><?= h((string)($m['concepto'] ?? '—')) ?></td>
+                    <td><?= h((string)($m['concepto'] ?? '-')) ?></td>
                     <td class="t-right"><?= money_ar($m['monto'] ?? 0) ?></td>
-                    <td><?= h((string)($m['usuario_registro'] ?? '—')) ?></td>
+                    <td><?= h((string)($m['usuario_registro'] ?? '-')) ?></td>
                   </tr>
                 <?php endforeach; ?>
               </tbody>
@@ -310,13 +353,13 @@ if ($cajaSesion) {
     </details>
 
     <!-- =========================
-         SCAN / INPUTS (mismo layout FLUS, pero más “POS”)
+         SCAN / INPUTS (mismo layout FLUS, pero mÃƒÆ’Ã‚Â¡s ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œPOSÃƒÂ¢Ã¢â€šÂ¬Ã‚Â)
     ========================== -->
     <div class="caja-scan-card">
       <div class="row caja-row-inputs">
         <div class="field">
-          <label for="codigo">Escanear código</label>
-          <input type="text" id="codigo" autocomplete="off" autofocus placeholder="Escaneá o escribí el código…">
+          <label for="codigo">Escanear codigo</label>
+          <input type="text" id="codigo" autocomplete="off" autofocus placeholder="Escanea o escribi el codigo...">
         </div>
 
         <div class="field field-narrow">
@@ -338,7 +381,7 @@ if ($cajaSesion) {
         <thead>
           <tr>
             <th>#</th>
-            <th>Código</th>
+            <th>Codigo</th>
             <th>Producto</th>
             <th class="center col-cant">Cant.</th>
             <th class="right">Precio</th>
@@ -380,8 +423,8 @@ if ($cajaSesion) {
         <select id="medioPago">
           <option value="EFECTIVO">Efectivo</option>
           <option value="MP">Mercado Pago</option>
-          <option value="DEBITO">Débito</option>
-          <option value="CREDITO">Crédito</option>
+          <option value="DEBITO">Debito</option>
+          <option value="CREDITO">Credito</option>
           <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
             <option value="CC">Cuenta Corriente</option>
           <?php endif; ?>
@@ -396,8 +439,8 @@ if ($cajaSesion) {
         <select id="medioPago2">
           <option value="EFECTIVO">Efectivo</option>
           <option value="MP">Mercado Pago</option>
-          <option value="DEBITO">Débito</option>
-          <option value="CREDITO">Crédito</option>
+          <option value="DEBITO">Debito</option>
+          <option value="CREDITO">Credito</option>
           <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
             <option value="CC">Cuenta Corriente</option>
           <?php endif; ?>
@@ -406,12 +449,12 @@ if ($cajaSesion) {
         <div class="total-label-inline">Monto</div>
         <div class="pago2-monto-row">
           <input type="number" id="montoPagado2" min="0" step="0.01" placeholder="0,00">
-          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2º pago">✕</button>
+          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago">x</button>
         </div>
       </div>
 
       <div class="field-small pagos-resumen">
-        <button type="button" id="btnAgregarPago" class="btn-mini" title="Agregar 2º medio de pago">+ Otro medio</button>
+        <button type="button" id="btnAgregarPago" class="btn-mini" title="Agregar 2do medio de pago">+ Otro medio</button>
         <div class="total-label-inline">Total pagado</div>
             <div class="total-vuelto" id="lblTotalPagado">$0,00</div>
             <div id="restaWrap" class="is-hidden">
@@ -422,11 +465,11 @@ if ($cajaSesion) {
             <div class="total-vuelto" id="lblVuelto">$0,00</div>
             </div>
     
-    <!-- Cuenta Corriente (solo si se elige CC en algún pago) -->
+    <!-- Cuenta Corriente (solo si se elige CC en algun pago) -->
     <div id="ccWrap" class="cc-wrap is-hidden">
       <div class="total-label-inline">Cliente (Cuenta Corriente)</div>
       <div class="cc-row">
-        <input type="text" id="ccClienteBuscar" placeholder="Buscar cliente (nombre / teléfono / CUIT)" autocomplete="off">
+        <input type="text" id="ccClienteBuscar" placeholder="Buscar cliente (nombre / telefono / CUIT)" autocomplete="off">
         <input type="hidden" id="ccClienteId" value="">
       </div>
       <div id="ccClienteInfo" class="cc-info"></div>
@@ -451,7 +494,7 @@ if ($cajaSesion) {
         <div class="shortcuts-list">
           <span><kbd>F2</kbd> Cobrar</span>
           <span><kbd>F4</kbd> Cancelar venta</span>
-          <span><kbd>F5</kbd> Foco en código</span>
+          <span><kbd>Click</kbd> o lector en codigo</span>
           <span><kbd>Esc</kbd> Cerrar ventana / modal</span>
         </div>
       </div>
@@ -459,10 +502,38 @@ if ($cajaSesion) {
 
     <div id="msg" class="msg"></div>
 
+    <div id="ticketPreviewModal" class="ticket-preview-modal hidden" aria-hidden="true">
+      <div class="ticket-preview-modal__backdrop" data-ticket-preview-close></div>
+      <div class="ticket-preview-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="ticketPreviewTitle">
+        <div class="ticket-preview-modal__head">
+          <div>
+            <div class="ticket-preview-modal__eyebrow">Ticket listo</div>
+            <h3 id="ticketPreviewTitle" class="ticket-preview-modal__title">
+              Venta #<span id="ticketPreviewVentaId">0</span>
+            </h3>
+          </div>
+          <button type="button" class="ticket-preview-modal__close" data-ticket-preview-close>Cerrar</button>
+        </div>
+
+        <div class="ticket-preview-modal__body">
+          <iframe id="ticketPreviewFrame" title="Vista previa del ticket"></iframe>
+        </div>
+
+        <div class="ticket-preview-modal__actions">
+          <a id="ticketPreviewOpen" class="btn btn-secondary btn-sm" href="#" target="_blank" rel="noopener">
+            Abrir aparte
+          </a>
+          <button type="button" id="ticketPreviewPrint" class="btn btn-primary btn-sm">
+            Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal custom caja -->
     <div id="modal" class="modal hidden">
       <div class="modal-content">
-        <h3 id="modal-titulo">Título</h3>
+        <h3 id="modal-titulo">Titulo</h3>
         <p id="modal-texto"></p>
 
         <div id="modal-input-container" class="input-area">
@@ -502,7 +573,7 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
     <div class="terminal-modal__head">
       <div>
         <h2 id="terminalModalTitle" class="terminal-modal__title">Elegir caja / terminal</h2>
-        <p class="terminal-modal__sub">La selección queda guardada en esta PC.</p>
+        <p class="terminal-modal__sub">La seleccion queda guardada en esta PC.</p>
       </div>
 
       <button type="button" class="terminal-modal__close" data-close>Cerrar</button>
@@ -521,9 +592,8 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     MODAL: COBRAR CUENTA CORRIENTE
-     ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
+     MODAL: COBRAR CUENTA CORRIENTE -->
 <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
 <div id="modalCcPago" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="modalCcPagoTitle">
   <div class="modal-content modal-content--md">
@@ -532,7 +602,7 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
     <div class="field">
       <label for="ccPagoBuscar">Cliente</label>
       <div style="position:relative;">
-        <input type="text" id="ccPagoBuscar" placeholder="Buscar cliente (nombre / teléfono / CUIT)" autocomplete="off">
+        <input type="text" id="ccPagoBuscar" placeholder="Buscar cliente (nombre / telefono / CUIT)" autocomplete="off">
         <input type="hidden" id="ccPagoClienteId" value="">
       </div>
       <div id="ccPagoInfo" class="cc-info" style="margin-top:4px;font-size:0.9em;color:#666;"></div>
@@ -549,8 +619,8 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
         <option value="EFECTIVO">Efectivo</option>
         <option value="TRANSFERENCIA">Transferencia</option>
         <option value="MP">Mercado Pago</option>
-        <option value="DEBITO">Débito</option>
-        <option value="CREDITO">Crédito</option>
+        <option value="DEBITO">Debito</option>
+        <option value="CREDITO">Credito</option>
       </select>
     </div>
     
@@ -568,3 +638,4 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
 <?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+

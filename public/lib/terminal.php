@@ -388,3 +388,44 @@ if (!function_exists('terminal_lock_release')) {
     }
   }
 }
+
+if (!function_exists('terminal_lock_status')) {
+  function terminal_lock_status(PDO $pdo, int $terminalId): ?array {
+    if ($terminalId <= 0) return null;
+    if (!terminal__table_exists($pdo, 'terminal_locks')) return null;
+
+    try {
+      terminal_locks_gc($pdo);
+      $s = terminal__schema_locks($pdo);
+
+      $sql = "
+        SELECT
+          `{$s['terminal_id']}` AS terminal_id,
+          `{$s['user_id']}`     AS user_id,
+          `{$s['session_id']}`  AS session_id,
+          `{$s['expires_at']}`  AS expires_at" .
+          ($s['updated_at'] ? ", `{$s['updated_at']}` AS updated_at" : "") . "
+        FROM terminal_locks
+        WHERE `{$s['terminal_id']}` = :tid
+          AND `{$s['expires_at']}` >= NOW()
+        LIMIT 1
+      ";
+
+      $st = $pdo->prepare($sql);
+      $st->execute([':tid' => $terminalId]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      if (!$row) return null;
+
+      return [
+        'terminal_id' => (int)($row['terminal_id'] ?? $terminalId),
+        'user_id'     => (int)($row['user_id'] ?? 0),
+        'session_id'  => (string)($row['session_id'] ?? ''),
+        'expires_at'  => (string)($row['expires_at'] ?? ''),
+        'updated_at'  => (string)($row['updated_at'] ?? ''),
+      ];
+    } catch (Throwable $e) {
+      error_log('terminal_lock_status: ' . $e->getMessage());
+      return null;
+    }
+  }
+}

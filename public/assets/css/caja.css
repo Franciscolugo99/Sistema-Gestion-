@@ -528,44 +528,183 @@
 /* =====================
    APERTURA DE CAJA
 ===================== */
-.caja-panel .apertura-wrapper {
-  max-width: 720px;
-  margin: 0 auto;
+.caja-panel .caja-open-shell {
+  max-width: 1080px;
+  margin: 12px auto 0;
 }
 
-.caja-panel .apertura-text {
-  margin: 0 0 12px;
-  font-size: 0.92rem;
+.caja-panel .caja-open-card {
+  padding: 28px 30px 30px;
+  border-radius: 26px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
+}
+
+body[data-theme="dark"] .caja-panel .caja-open-card {
+  background: radial-gradient(
+    circle at top left,
+    rgba(34, 211, 238, 0.1),
+    rgba(17, 24, 39, 0.95) 58%
+  );
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.42);
+}
+
+body[data-theme="light"] .caja-panel .caja-open-card {
+  background: radial-gradient(
+    circle at top left,
+    rgba(14, 165, 233, 0.08),
+    #ffffff 60%
+  );
+}
+
+.caja-panel .caja-open-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.95fr);
+  gap: 28px;
+  align-items: start;
+  margin-bottom: 20px;
+}
+
+.caja-panel .caja-title.caja-title--open {
+  text-align: left;
+  margin: 4px 0 10px;
+  font-size: clamp(2.1rem, 3vw, 2.8rem);
+  letter-spacing: 0.22em;
+}
+
+.caja-panel .caja-open-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  background: rgba(34, 211, 238, 0.08);
+  color: var(--accent-cyan);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.caja-panel .caja-open-lead {
+  margin: 0 0 8px;
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.caja-panel .caja-open-sub {
+  max-width: 58ch;
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
   color: var(--muted);
 }
 
-.caja-panel .apertura-card {
-  background: var(--panel);
-  border-radius: 16px;
-  padding: 16px 18px 18px;
+.caja-panel .caja-open-terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.caja-panel .caja-open-terminal-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.caja-panel .caja-open-terminal-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
   border: 1px solid var(--panel-border);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.1);
+  background: rgba(148, 163, 184, 0.07);
+}
+
+.caja-panel .caja-open-terminal-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.caja-panel .caja-open-terminal-name {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.caja-panel .caja-open-terminal-hint {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.caja-panel .apertura-wrapper {
+  max-width: none;
+  margin: 0;
+}
+
+.caja-panel .apertura-text {
+  display: none;
+}
+
+.caja-panel .apertura-card {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 22px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--panel-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .caja-panel .form-apertura {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 18px;
+  align-items: end;
+}
+
+.caja-panel .apertura-field {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .caja-panel .form-apertura .form-label {
-  flex: 0 0 220px;
+  margin: 0;
 }
 
 .caja-panel .apertura-input {
-  flex: 1 1 240px;
+  min-height: 54px;
   font-variant-numeric: tabular-nums;
+  font-size: 1.08rem;
 }
 
 .caja-panel .apertura-btn {
-  margin-left: auto;
-  margin-top: 4px;
+  min-width: 210px;
+  min-height: 54px;
+  align-self: end;
+}
+
+.caja-panel .form-apertura #aperturaAviso,
+.caja-panel .form-apertura .alert-error,
+.caja-panel .form-apertura .apertura-help {
+  grid-column: 1 / -1;
+}
+
+.caja-panel .apertura-help {
+  margin: 0;
+  padding-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 /* =====================
@@ -612,10 +751,114 @@
     monospace;
 }
 
+/* =========================
+   VISTA PREVIA TICKET
+========================= */
+.caja-panel .ticket-preview-modal.hidden {
+  display: none;
+}
+
+.caja-panel .ticket-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+}
+
+.caja-panel .ticket-preview-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.caja-panel .ticket-preview-modal__dialog {
+  position: relative;
+  width: min(1040px, calc(100vw - 32px));
+  height: min(92vh, 860px);
+  margin: 4vh auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.caja-panel .ticket-preview-modal__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.caja-panel .ticket-preview-modal__eyebrow {
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.caja-panel .ticket-preview-modal__title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.caja-panel .ticket-preview-modal__close {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.caja-panel .ticket-preview-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.caja-panel .ticket-preview-modal__body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.caja-panel .ticket-preview-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--panel-border);
+}
+
 /* =====================
    RESPONSIVE
 ===================== */
 @media (max-width: 900px) {
+  .caja-panel .caja-open-card {
+    padding: 22px 20px 22px;
+  }
+  .caja-panel .caja-open-header {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .caja-panel .caja-open-terminal-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .caja-panel .form-apertura {
+    grid-template-columns: 1fr;
+  }
+  .caja-panel .apertura-btn {
+    width: 100%;
+    min-width: 0;
+  }
   .caja-panel .total-row-bottom {
     grid-template-columns: 1fr;
   }
@@ -626,6 +869,27 @@
   .caja-panel .buttons-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .caja-panel .ticket-preview-modal__dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    margin: 8px auto;
+    border-radius: 18px;
+  }
+
+  .caja-panel .ticket-preview-modal__head,
+  .caja-panel .ticket-preview-modal__actions {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .caja-panel .ticket-preview-modal__actions {
+    flex-wrap: wrap;
+  }
+
+  .caja-panel .ticket-preview-modal__actions > * {
+    flex: 1 1 100%;
   }
 }
 
@@ -761,6 +1025,32 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   flex-wrap: wrap;
 }
 
+.caja-panel .caja-topbar__print {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.16);
+}
+
+.caja-panel .caja-topbar__print-label {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.caja-panel .caja-topbar__print-select {
+  min-width: 150px;
+  padding: 8px 34px 8px 10px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+
 /* botón “line” chico (si existe .btn-line, solo ajusta) */
 .caja-panel .btn-line.btn-line--sm {
   padding: 6px 10px;
@@ -784,6 +1074,14 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   }
   .caja-panel .caja-topbar__item {
     min-width: unset;
+  }
+  .caja-panel .caja-topbar__print {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .caja-panel .caja-topbar__print-select {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 }
 

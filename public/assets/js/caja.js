@@ -248,9 +248,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Papel del ticket
   const PAPER_KEY = "kiosco-ticket-paper";
+  const PRINT_MODE_KEY = "kiosco-ticket-print-mode";
+  const PRINT_DEFAULTS = window.FLUS_PRINT_DEFAULTS || {};
+  const PRINT_GLOBAL_DEFAULTS = PRINT_DEFAULTS.global || {};
+  const PRINT_TERMINAL_DEFAULTS = PRINT_DEFAULTS.terminal || {};
   function getPaper() {
-    const v = (localStorage.getItem(PAPER_KEY) || "80").trim();
+    const fallbackPaper =
+      (PRINT_TERMINAL_DEFAULTS.ticket_paper &&
+      PRINT_TERMINAL_DEFAULTS.ticket_paper !== "inherit"
+        ? PRINT_TERMINAL_DEFAULTS.ticket_paper
+        : PRINT_GLOBAL_DEFAULTS.ticket_paper) || "80";
+    const v = (localStorage.getItem(PAPER_KEY) || fallbackPaper).trim();
     return v === "58" ? "58" : "80";
+  }
+
+  function getPrintModeStorageKey() {
+    return `${PRINT_MODE_KEY}:${FLUS_TERMINAL_ID || 0}`;
+  }
+
+  function getPrintMode() {
+    const fallbackMode =
+      (PRINT_TERMINAL_DEFAULTS.ticket_mode &&
+      PRINT_TERMINAL_DEFAULTS.ticket_mode !== "inherit"
+        ? PRINT_TERMINAL_DEFAULTS.ticket_mode
+        : PRINT_GLOBAL_DEFAULTS.ticket_mode) || "autoprint";
+    const scoped = (localStorage.getItem(getPrintModeStorageKey()) || "").trim();
+    const legacy = (localStorage.getItem(PRINT_MODE_KEY) || "").trim();
+    const value = scoped || legacy || fallbackMode;
+    return ["autoprint", "preview", "none"].includes(value)
+      ? value
+      : "autoprint";
+  }
+
+  function setPrintMode(value) {
+    const next = ["autoprint", "preview", "none"].includes(value)
+      ? value
+      : "autoprint";
+    localStorage.setItem(getPrintModeStorageKey(), next);
+    localStorage.setItem(PRINT_MODE_KEY, next);
+    return next;
   }
 
   // =========================
@@ -341,30 +377,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // Caja id (si existe en el botón cerrar)
   const CAJA_ID = Number(btnCerrar?.dataset?.cajaId || 0);
 
-  // Storage por caja (evita mezclar tickets entre aperturas)
-  const STORAGE_PREFIX = "kiosco-caja-estado-v1";
-  // FLUS: Storage key estable por terminal + sesiÃ³n (evita colisiones y CAJA_ID=0)
+  // Storage por caja/terminal.
+  // Persistimos por terminal + apertura para poder recuperar un ticket si se cierra la pestaña.
+  const STORAGE_PREFIX = "kiosco-caja-v3";
   const FLUS_TERMINAL_ID =
     window.TERMINAL_ID ??
     window.terminalId ??
     document.body?.dataset?.terminalId ??
     0;
-
-  const __flusSidKey = "kiosco-caja-session-id";
-  let __flusSid = sessionStorage.getItem(__flusSidKey);
-  if (!__flusSid) {
-    __flusSid =
-      crypto?.randomUUID?.() ||
-      Date.now() + "-" + Math.random().toString(16).slice(2);
-    sessionStorage.setItem(__flusSidKey, __flusSid);
-  }
-
-  const STORAGE_KEY = `kiosco-caja-v2:${FLUS_TERMINAL_ID}:${__flusSid}`;
+  const STORAGE_SCOPE = CAJA_ID > 0 ? `caja:${CAJA_ID}` : `terminal:${FLUS_TERMINAL_ID}:sin-caja`;
+  const STORAGE_KEY = `${STORAGE_PREFIX}:${STORAGE_SCOPE}`;
+  const LEGACY_STORAGE_PREFIX = "kiosco-caja-v2";
+  const LEGACY_SESSION_KEY = sessionStorage.getItem("kiosco-caja-session-id");
+  const LEGACY_STORAGE_KEY = LEGACY_SESSION_KEY
+    ? `${LEGACY_STORAGE_PREFIX}:${FLUS_TERMINAL_ID}:${LEGACY_SESSION_KEY}`
+    : "";
 
   let promosPorProducto = {};
   let promosCombos = [];
   let carrito = [];
   let totalNetoActual = 0;
+  let estadoRecuperado = false;
 
   // Descuento global (aplica al total final)
   // { tipo: "porcentaje"|"monto", valor: number }
@@ -414,12 +447,120 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalStockAlert = document.getElementById("modal-stock-alert");
   const btnConfirm = document.getElementById("modal-confirm");
   const btnCancel = document.getElementById("modal-cancel");
+  const ticketPrintModeSelect = document.getElementById("ticketPrintMode");
+  const ticketPreviewModal = document.getElementById("ticketPreviewModal");
+  const ticketPreviewFrame = document.getElementById("ticketPreviewFrame");
+  const ticketPreviewVentaId = document.getElementById("ticketPreviewVentaId");
+  const ticketPreviewOpen = document.getElementById("ticketPreviewOpen");
+  const ticketPreviewPrint = document.getElementById("ticketPreviewPrint");
 
   let modalResolver = null;
   let modalIsInput = false;
   let modalCurrentItem = null; // Item actual para validación de stock
 
   const optPrecio = modalDescTipo?.querySelector('option[value="precio"]');
+
+  function buildTicketUrl(ventaId, opts = {}) {
+    const params = new URLSearchParams({
+      venta_id: String(ventaId),
+      paper: getPaper(),
+    });
+    if (opts.autoprint) params.set("autoprint", "1");
+    return `ticket.php?${params.toString()}`;
+  }
+
+  function closeTicketPreview() {
+    if (!ticketPreviewModal) return;
+    ticketPreviewModal.classList.add("hidden");
+    ticketPreviewModal.setAttribute("aria-hidden", "true");
+    if (ticketPreviewFrame) ticketPreviewFrame.src = "about:blank";
+    if (ticketPreviewOpen) ticketPreviewOpen.href = "#";
+    if (ticketPreviewVentaId) ticketPreviewVentaId.textContent = "0";
+  }
+
+  function openTicketPreview(ventaId) {
+    if (!ticketPreviewModal || !ticketPreviewFrame) {
+      window.open(buildTicketUrl(ventaId), "_blank", "noopener");
+      return;
+    }
+
+    const url = buildTicketUrl(ventaId);
+    ticketPreviewModal.classList.remove("hidden");
+    ticketPreviewModal.setAttribute("aria-hidden", "false");
+    if (ticketPreviewVentaId) ticketPreviewVentaId.textContent = String(ventaId);
+    if (ticketPreviewOpen) ticketPreviewOpen.href = url;
+    ticketPreviewFrame.src = url;
+  }
+
+  function printTicketSilently(ventaId) {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = buildTicketUrl(ventaId, { autoprint: true });
+    iframe.onload = () => {
+      window.setTimeout(() => {
+        iframe.remove();
+      }, 4000);
+    };
+    document.body.appendChild(iframe);
+  }
+
+  function dispatchTicketOutput(ventaId) {
+    const mode = getPrintMode();
+    if (mode === "none") return;
+    if (mode === "preview") {
+      openTicketPreview(ventaId);
+      return;
+    }
+    printTicketSilently(ventaId);
+  }
+
+  function initTicketOutputControls() {
+    if (ticketPrintModeSelect) {
+      ticketPrintModeSelect.value = getPrintMode();
+      ticketPrintModeSelect.addEventListener("change", () => {
+        const next = setPrintMode(ticketPrintModeSelect.value);
+        ticketPrintModeSelect.value = next;
+
+        if (next === "autoprint") {
+          mostrarMensaje(
+            "info",
+            "Auto imprimir activado. El navegador puede seguir mostrando su dialogo de impresion.",
+          );
+        } else if (next === "preview") {
+          mostrarMensaje(
+            "info",
+            "Vista previa activada. El ticket se abrira dentro de FLUS despues de cobrar.",
+          );
+        } else {
+          mostrarMensaje(
+            "info",
+            "No abrir ticket activado. La venta no disparara impresion automatica.",
+          );
+        }
+      });
+    }
+
+    if (ticketPreviewModal) {
+      ticketPreviewModal
+        .querySelectorAll("[data-ticket-preview-close]")
+        .forEach((el) => {
+          el.addEventListener("click", closeTicketPreview);
+        });
+    }
+
+    ticketPreviewPrint?.addEventListener("click", () => {
+      const win = ticketPreviewFrame?.contentWindow;
+      if (!win) return;
+      win.focus();
+      win.print();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && ticketPreviewModal && !ticketPreviewModal.classList.contains("hidden")) {
+        closeTicketPreview();
+      }
+    });
+  }
 
   // =========================
   // HELPERS
@@ -1016,6 +1157,18 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // STORAGE
   // =========================
+  function limpiarEstadoPersistido() {
+    localStorage.removeItem(STORAGE_KEY);
+    if (LEGACY_STORAGE_KEY) localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+
+  function migrarEstadoLegacy() {
+    if (localStorage.getItem(STORAGE_KEY) || !LEGACY_STORAGE_KEY) return;
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!legacyRaw) return;
+    localStorage.setItem(STORAGE_KEY, legacyRaw);
+  }
+
   function guardarEstado() {
     const pagosRaw = [];
 
@@ -1045,6 +1198,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function cargarEstado() {
+    migrarEstadoLegacy();
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     try {
@@ -1077,6 +1232,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selMedio && data.medio) selMedio.value = data.medio;
         if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
       }
+
+      estadoRecuperado = !!(
+        (Array.isArray(carrito) && carrito.length > 0) ||
+        (Array.isArray(pagosRaw) && pagosRaw.some((p) => Number(parseMonto(p?.monto || 0)) > 0)) ||
+        descGlobal
+      );
 
       // ✅ Si no tiene permiso, limpiar cualquier descuento/precio “guardado”
       if (!CAN_MOD_PRECIO) {
@@ -2499,7 +2660,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Limpiar estado UI
       carrito = [];
       descGlobal = null;
-      localStorage.removeItem(STORAGE_KEY);
+      limpiarEstadoPersistido();
 
       if (selMedio) selMedio.value = "EFECTIVO";
       if (inputPagado) inputPagado.value = "";
@@ -2514,13 +2675,7 @@ document.addEventListener("DOMContentLoaded", () => {
       recalcularVuelto();
       inputCodigo?.focus?.();
 
-      // Imprimir ticket
-      const iframe = document.createElement("iframe");
-      iframe.style.display = "none";
-      iframe.src = `ticket.php?venta_id=${encodeURIComponent(
-        ventaId,
-      )}&paper=${getPaper()}&autoprint=1`;
-      document.body.appendChild(iframe);
+      dispatchTicketOutput(ventaId);
 
       // ✅ Mostrar mensaje con info de CC si corresponde
       let msgExtra = "";
@@ -2563,7 +2718,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     carrito = [];
     descGlobal = null;
-    localStorage.removeItem(STORAGE_KEY);
+    limpiarEstadoPersistido();
     if (inputPagado) inputPagado.value = "";
 
     // ✅ Limpiar cliente CC
@@ -2657,20 +2812,31 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       cancelarVenta();
     }
-    if (e.key === "F5") {
-      e.preventDefault();
-      inputCodigo?.focus();
-    }
+  });
+
+  window.addEventListener("beforeunload", (e) => {
+    if (!Array.isArray(carrito) || carrito.length === 0) return;
+    guardarEstado();
+    e.preventDefault();
+    e.returnValue = "";
+    return "";
   });
 
   // =========================
   // INIT
   // =========================
   (async () => {
+    initTicketOutputControls();
     cargarEstado();
     await cargarPromos();
     actualizarVistaInmediata();
     ajustarPagoSegunMedio();
     recalcularVuelto();
+    if (estadoRecuperado) {
+      mostrarMensaje(
+        "info",
+        "Se recupero un ticket pendiente de esta caja. Revisalo antes de cobrar.",
+      );
+    }
   })();
 });

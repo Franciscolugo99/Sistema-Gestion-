@@ -64,6 +64,57 @@ $toggleFields = [
   ],
 ];
 
+$printFields = [
+  'print_ticket_mode' => [
+    'label' => 'Ticket de venta',
+    'default' => 'autoprint',
+    'hint' => 'Define como sale el ticket despues de cobrar en Caja.',
+    'options' => [
+      'autoprint' => 'Auto imprimir',
+      'preview' => 'Vista previa',
+      'none' => 'No abrir ticket',
+    ],
+  ],
+  'print_ticket_paper' => [
+    'label' => 'Papel ticket',
+    'default' => '80',
+    'hint' => 'Ancho esperado para ticket termico.',
+    'options' => [
+      '80' => '80 mm',
+      '58' => '58 mm',
+    ],
+  ],
+  'print_comanda_mode' => [
+    'label' => 'Comanda',
+    'default' => 'none',
+    'hint' => 'Perfil base para futuras comandas de cocina o preparacion.',
+    'options' => [
+      'none' => 'Desactivada',
+      'preview' => 'Vista previa',
+      'autoprint' => 'Auto imprimir',
+    ],
+  ],
+  'print_comanda_paper' => [
+    'label' => 'Papel comanda',
+    'default' => '80',
+    'hint' => 'Se usa cuando FLUS tenga salida de comanda separada.',
+    'options' => [
+      '80' => '80 mm',
+      '58' => '58 mm',
+    ],
+  ],
+  'print_factura_mode' => [
+    'label' => 'Factura / comprobante',
+    'default' => 'preview',
+    'hint' => 'Para factura o fiscal suele convenir vista previa por control.',
+    'options' => [
+      'preview' => 'Vista previa',
+      'autoprint' => 'Auto imprimir',
+      'none' => 'No abrir',
+    ],
+  ],
+];
+
 $errors = [];
 // Cargar valores actuales
 $values = [];
@@ -82,6 +133,12 @@ $toggleValues = [];
 foreach ($toggleFields as $k => $meta) {
   $default = $meta['default'] ?? '0';
   $toggleValues[$k] = (string)(config_get($pdo, $k, $default) ?? $default);
+}
+
+$printValues = [];
+foreach ($printFields as $k => $meta) {
+  $default = (string)($meta['default'] ?? '');
+  $printValues[$k] = (string)(config_get($pdo, $k, $default) ?? $default);
 }
 
 // Guardar (POST)
@@ -117,6 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $newValues[$k] = $val;
     }
 
+    $newPrintValues = [];
+    foreach ($printFields as $k => $meta) {
+      $raw = trim((string)($_POST[$k] ?? ($meta['default'] ?? '')));
+      $options = array_keys((array)($meta['options'] ?? []));
+      $default = (string)($meta['default'] ?? '');
+      $newPrintValues[$k] = in_array($raw, $options, true) ? $raw : $default;
+    }
+
     // Si no hay errores “duros”, guardamos
     if (!$errors) {
       $pdo->beginTransaction();
@@ -133,6 +198,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':v'  => $v,
             ':v2' => $v,
           ]);
+        }
+
+        foreach ($newPrintValues as $k => $v) {
+          $st->execute([
+            ':k'  => $k,
+            ':v'  => $v,
+            ':v2' => $v,
+          ]);
+          $printValues[$k] = $v;
         }
 
         // Guardar toggles
@@ -166,6 +240,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Si hubo errores, re-mostramos lo que escribió
     foreach ($newValues as $k => $v) {
       $values[$k] = $v;
+    }
+    foreach ($newPrintValues as $k => $v) {
+      $printValues[$k] = $v;
     }
   }
 }
@@ -238,6 +315,33 @@ require __DIR__ . '/partials/header.php';
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
+    </div>
+
+    <div class="config-section">
+      <h3 class="config-section-title">Perfiles de impresion</h3>
+      <p class="config-section-desc">Define el flujo base para ticket, comanda y factura. Las terminales pueden sobreescribir ticket y papel.</p>
+
+      <div class="config-print-grid">
+        <?php foreach ($printFields as $k => $meta): ?>
+          <div class="config-field config-field--print">
+            <label for="<?= h($k) ?>"><?= h($meta['label']) ?></label>
+            <select id="<?= h($k) ?>" name="<?= h($k) ?>">
+              <?php foreach (($meta['options'] ?? []) as $optValue => $optLabel): ?>
+                <option value="<?= h((string)$optValue) ?>" <?= (($printValues[$k] ?? '') === (string)$optValue) ? 'selected' : '' ?>>
+                  <?= h((string)$optLabel) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <?php if (!empty($meta['hint'])): ?>
+              <div class="config-hint"><?= h($meta['hint']) ?></div>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+
+      <div class="config-print-note">
+        La impresion realmente silenciosa depende del navegador, politicas del equipo o un agente local. Este perfil define el flujo de FLUS, pero no fuerza por si solo una impresora fisica concreta.
+      </div>
     </div>
 
     <!-- Módulos opcionales -->
