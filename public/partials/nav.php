@@ -510,7 +510,7 @@ $renderAdminMenu = static function () use ($adminActive, $adminLinks, $buildClas
     return trim((string)ob_get_clean());
 };
 
-$renderUserBlock = static function () use ($esc, $initials, $roleDisplay, $userName): string {
+$renderUserBlock = static function () use ($esc, $initials, $roleDisplay, $userName, $cajaAbierta): string {
     ob_start();
     ?>
     <div class="nav-user-block">
@@ -523,7 +523,11 @@ $renderUserBlock = static function () use ($esc, $initials, $roleDisplay, $userN
                 <span class="nav-user-role"><?= $esc($roleDisplay) ?></span>
             <?php endif; ?>
         </div>
-        <a href="logout.php" class="logout-btn" aria-label="Cerrar sesi&oacute;n">
+        <a href="logout.php"
+           class="logout-btn"
+           data-logout-link="1"
+           data-caja-open="<?= $cajaAbierta ? '1' : '0' ?>"
+           aria-label="Cerrar sesi&oacute;n">
             <span class="logout-text">Salir</span>
         </a>
     </div>
@@ -573,7 +577,11 @@ $userBlockHtml  = $renderUserBlock();
 $breadcrumbHtml = !empty($breadcrumb) ? $renderBreadcrumb($breadcrumb) : '';
 ?>
 
-<nav class="nav-container" role="navigation" aria-label="Navegaci&oacute;n principal" data-shortcuts='<?= $esc($shortcutsJson ?: "{}") ?>'>
+<nav class="nav-container"
+     role="navigation"
+     aria-label="Navegaci&oacute;n principal"
+     data-shortcuts='<?= $esc($shortcutsJson ?: "{}") ?>'
+     data-caja-open="<?= $cajaAbierta ? '1' : '0' ?>">
     <a href="index.php" class="nav-brand" aria-label="Inicio">
         <span class="nav-logo">FLUS</span>
     </a>

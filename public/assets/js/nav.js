@@ -12,6 +12,7 @@
   const navMenu = document.getElementById('navMenu');
   const dropdowns = Array.from(document.querySelectorAll('.js-nav-dropdown'));
   const shortcutHelpBtn = document.getElementById('navShortcutHelpBtn');
+  const logoutBtn = nav.querySelector('[data-logout-link="1"]');
   let scrollY = 0;
 
   function parseShortcuts() {
@@ -243,6 +244,32 @@
   if (shortcutHelpBtn) {
     shortcutHelpBtn.addEventListener('click', () => {
       openShortcutHelp();
+    });
+  }
+
+  if (logoutBtn && logoutBtn.dataset.cajaOpen === '1') {
+    logoutBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+
+      const href = logoutBtn.getAttribute('href') || 'logout.php';
+      const title = 'Caja abierta';
+      const body =
+        '<p>Hay una caja abierta en esta terminal.</p><p>Si salís ahora, la sesión se va a cerrar igual y vas a tener que volver para cerrarla correctamente.</p>';
+
+      let confirmed = false;
+      if (window.Notif && typeof window.Notif.confirmar === 'function') {
+        confirmed = await window.Notif.confirmar(title, body, {
+          icon: 'warning',
+          confirmText: 'Salir igual',
+          cancelText: 'Quedarme',
+        });
+      } else {
+        confirmed = window.confirm('Hay una caja abierta en esta terminal. Si salís ahora, vas a tener que volver para cerrarla.');
+      }
+
+      if (confirmed) {
+        window.location.href = href;
+      }
     });
   }
 

@@ -1,154 +1,280 @@
 <?php
-// public/licencia.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+
 require_login();
 require_permission('administrar_config');
 
 csrf_init();
 
 $errors = [];
-$okMsg  = '';
+$successMessage = '';
+$licenseMeta = function_exists('flus_license_meta') ? flus_license_meta() : [];
 
-$licensePath = FLUS_ROOT . '/storage/license.json';
-
-// Guardar (POST)
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-  $tok = (string)($_POST['csrf_token'] ?? '');
-  if (!csrf_verify($tok)) {
-    $errors[] = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
-  }
-
-  if (!$errors) {
-    $f = $_FILES['license_file'] ?? null;
-    if (!$f || !is_array($f)) {
-      $errors[] = 'No se recibió el archivo.';
-    } else {
-      if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        $errors[] = 'Error al subir archivo (code ' . (string)($f['error'] ?? 'N/D') . ').';
-      } else {
-        $tmp = (string)($f['tmp_name'] ?? '');
-        $raw = @file_get_contents($tmp);
-
-        if ($raw === false || trim((string)$raw) === '') {
-          $errors[] = 'Archivo vacío o ilegible.';
-        } else {
-          $data = json_decode((string)$raw, true);
-          if (!is_array($data)) {
-            $errors[] = 'JSON inválido.';
-          } else {
-            // Validación central (si existe)
-            if (function_exists('flus_license_validate_payload')) {
-              $val = flus_license_validate_payload($data);
-              if (!$val['ok']) {
-                $errors[] = 'Licencia inválida: ' . (string)($val['error'] ?? 'N/D');
-              } else {
-                $data = $val['license'];
-              }
-            }
-
-            if (!$errors) {
-              // Backup anterior
-              if (is_file($licensePath)) {
-                $bak = FLUS_ROOT . '/storage/license.json.bak_' . date('Ymd_His');
-                @copy($licensePath, $bak);
-              }
-
-              $saved = @file_put_contents(
-                $licensePath,
-                json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
-              );
-
-              if ($saved === false) {
-                $errors[] = 'No se pudo guardar storage/license.json (revisá permisos).';
-              } else {
-                header('Location: licencia.php?saved=1');
-                exit;
-              }
-            }
-          }
-        }
-      }
+$formatDate = static function (?string $value, bool $withTime = false): string {
+    $raw = trim((string)$value);
+    if ($raw === '' || $raw === 'N/D') {
+        return 'N/D';
     }
-  }
+
+    $formats = $withTime
+        ? ['d/m/Y H:i', 'd/m/Y']
+        : ['d/m/Y', 'd/m/Y H:i'];
+
+    try {
+        $date = new DateTimeImmutable($raw);
+        return $date->format($formats[0]);
+    } catch (Throwable $e) {
+        return $raw;
+    }
+};
+
+$uploadErrorMessage = static function (int $code): string {
+    return match ($code) {
+        UPLOAD_ERR_OK => '',
+        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'El archivo supera el tamaño máximo permitido.',
+        UPLOAD_ERR_PARTIAL => 'La carga quedó incompleta. Volvé a intentarlo.',
+        UPLOAD_ERR_NO_FILE => 'No se seleccionó ningún archivo.',
+        UPLOAD_ERR_NO_TMP_DIR => 'El servidor no tiene carpeta temporal para subir archivos.',
+        UPLOAD_ERR_CANT_WRITE => 'El servidor no pudo escribir el archivo temporal.',
+        UPLOAD_ERR_EXTENSION => 'La subida fue detenida por una extensión de PHP.',
+        default => 'No se pudo recibir el archivo de licencia.',
+    };
+};
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $tok = (string)($_POST['csrf_token'] ?? '');
+    if (!csrf_verify($tok)) {
+        $errors[] = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
+    }
+
+    if ($errors === []) {
+        $file = $_FILES['license_file'] ?? null;
+        if (!$file || !is_array($file)) {
+            $errors[] = 'No se recibió el archivo de licencia.';
+        } else {
+            $uploadError = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                $errors[] = $uploadErrorMessage($uploadError);
+            } else {
+                $tmp = (string)($file['tmp_name'] ?? '');
+                $raw = @file_get_contents($tmp);
+
+                if ($raw === false || trim((string)$raw) === '') {
+                    $errors[] = 'El archivo está vacío o no se puede leer.';
+                } else {
+                    $decoded = json_decode((string)$raw, true);
+                    if (!is_array($decoded)) {
+                        $errors[] = 'El archivo no contiene un JSON válido.';
+                    } else {
+                        if (function_exists('flus_license_validate_payload')) {
+                            $validation = flus_license_validate_payload($decoded);
+                            if (!$validation['ok']) {
+                                $errors[] = function_exists('flus_license_human_error')
+                                    ? flus_license_human_error((string)($validation['error'] ?? ''))
+                                    : ('Licencia inválida: ' . (string)($validation['error'] ?? 'N/D'));
+                            } else {
+                                $decoded = $validation['license'];
+                            }
+                        }
+
+                        if ($errors === []) {
+                            if (function_exists('flus_license_save')) {
+                                $saved = flus_license_save($decoded);
+                                if (!$saved['ok']) {
+                                    $errors[] = function_exists('flus_license_human_error')
+                                        ? flus_license_human_error((string)($saved['error'] ?? 'WRITE_FAILED'))
+                                        : 'No se pudo guardar la licencia.';
+                                } else {
+                                    header('Location: licencia.php?saved=1');
+                                    exit;
+                                }
+                            } else {
+                                $saved = @file_put_contents(
+                                    FLUS_ROOT . '/storage/license.json',
+                                    json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+                                );
+                                if ($saved === false) {
+                                    $errors[] = 'No se pudo guardar la licencia en storage/license.json.';
+                                } else {
+                                    header('Location: licencia.php?saved=1');
+                                    exit;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
-/* HEADER */
-$pageTitle      = 'Licencia';
+if (isset($_GET['saved']) && $_GET['saved'] === '1') {
+    $successMessage = 'Licencia guardada correctamente.';
+}
+
+$licenseMeta = function_exists('flus_license_meta') ? flus_license_meta() : $licenseMeta;
+$lockReason = (string)($_GET['reason'] ?? ($licenseMeta['reason'] ?? ''));
+$lockMessage = (isset($_GET['locked']) && $_GET['locked'] === '1' && $lockReason !== '' && function_exists('flus_license_reason_label'))
+    ? flus_license_reason_label($lockReason)
+    : '';
+
+$pageTitle = 'Licencia';
 $currentSection = 'configuracion';
-$extraCss       = []; // si querés, podemos sumar assets/css/licencia.css
+$bodyClass = trim(($bodyClass ?? '') . ' licencia-page');
+$extraCss = array_merge($extraCss ?? [], ['assets/css/licencia.css']);
 
 require __DIR__ . '/partials/header.php';
-
-$lic = (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE)) ? FLUS_LICENSE : null;
 ?>
 
-<div class="panel">
-
-  <header class="page-header module-header">
+<div class="panel licencia-shell">
+  <header class="page-header module-header licencia-header">
     <div class="page-header-main module-header-main">
       <div class="module-header-hero">
         <span class="module-header-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-            <path d="M15 7V4a3 3 0 0 0-6 0v3"/>
-            <rect x="4" y="7" width="16" height="13" rx="2"/>
-            <path d="M9 12h6"/>
-            <path d="M12 15v.01"/>
+            <path d="M15 7V4a3 3 0 0 0-6 0v3"></path>
+            <rect x="4" y="7" width="16" height="13" rx="2"></rect>
+            <path d="M9 12h6"></path>
+            <path d="M12 15v.01"></path>
           </svg>
         </span>
         <div class="module-header-copy">
           <span class="module-eyebrow">Control de licencia</span>
           <h1 class="page-title">Licencia</h1>
-          <p class="page-sub">Cargar / renovar <span class="mono">storage/license.json</span> (solo admins).</p>
+          <p class="page-sub">Administrá la licencia activa, revisá el estado actual del sistema y cargá renovaciones desde el panel.</p>
         </div>
       </div>
     </div>
   </header>
 
-  <?php if (isset($_GET['saved']) && $_GET['saved'] === '1'): ?>
-    <div class="alert alert-success">✅ Licencia guardada.</div>
+  <?php if ($lockMessage !== ''): ?>
+    <div class="alert alert-error licencia-alert"><?= h($lockMessage) ?></div>
   <?php endif; ?>
 
-  <?php if ($errors): ?>
-    <div class="alert alert-error"><?= h(implode(' ', $errors)) ?></div>
+  <?php if ($successMessage !== ''): ?>
+    <div class="alert alert-success licencia-alert"><?= h($successMessage) ?></div>
   <?php endif; ?>
 
-  <div class="card" style="padding:14px; margin-bottom:12px;">
-    <h3 style="margin:0 0 10px 0;">Estado actual</h3>
+  <?php if ($errors !== []): ?>
+    <div class="alert alert-error licencia-alert"><?= h(implode(' ', $errors)) ?></div>
+  <?php endif; ?>
 
-    <?php if ($lic): ?>
-      <div class="flus-about__grid" style="max-width:520px;">
-        <div class="flus-about__row"><span>Estado</span><b><?= h((string)($lic['status_label'] ?? $lic['status'] ?? 'N/D')) ?></b></div>
-        <div class="flus-about__row"><span>Plan</span><b><?= h((string)($lic['plan_label'] ?? $lic['plan'] ?? 'N/D')) ?></b></div>
-        <div class="flus-about__row"><span>Vence</span><b><?= h((string)($lic['valid_until'] ?? 'N/D')) ?></b></div>
-        <div class="flus-about__row"><span>Días restantes</span><b><?= h((string)($lic['days_left'] ?? 'N/D')) ?></b></div>
-        <div class="flus-about__row"><span>Modo limitado</span><b><?= (defined('FLUS_LIMITED') && FLUS_LIMITED) ? 'SI' : 'NO' ?></b></div>
+  <?php if (!empty($licenseMeta['clock_warning_label'])): ?>
+    <div class="alert alert-warning licencia-alert"><?= h((string)$licenseMeta['clock_warning_label']) ?></div>
+  <?php endif; ?>
+
+  <section class="licencia-kpis" aria-label="Resumen de licencia">
+    <article class="licencia-kpi licencia-kpi--<?= h((string)($licenseMeta['status_tone'] ?? 'muted')) ?>">
+      <span class="licencia-kpi-label">Estado</span>
+      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['status'] ?? 'N/D')) ?></strong>
+      <span class="licencia-kpi-help"><?= h((string)($licenseMeta['reason_label'] ?? 'Sin observaciones')) ?></span>
+    </article>
+    <article class="licencia-kpi">
+      <span class="licencia-kpi-label">Plan</span>
+      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['plan'] ?? 'N/D')) ?></strong>
+      <span class="licencia-kpi-help">Tipo de licencia cargada</span>
+    </article>
+    <article class="licencia-kpi">
+      <span class="licencia-kpi-label">Vence</span>
+      <strong class="licencia-kpi-value"><?= h($formatDate((string)($licenseMeta['valid_until'] ?? 'N/D'))) ?></strong>
+      <span class="licencia-kpi-help">Fecha efectiva de expiración</span>
+    </article>
+    <article class="licencia-kpi licencia-kpi--<?= ((int)($licenseMeta['days_left'] ?? 0) <= 7 && (string)($licenseMeta['days_left'] ?? 'N/D') !== 'N/D') ? 'warning' : 'info' ?>">
+      <span class="licencia-kpi-label">Días restantes</span>
+      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['days_left'] ?? 'N/D')) ?></strong>
+      <span class="licencia-kpi-help"><?= !empty($licenseMeta['limited']) ? 'El sistema está en modo limitado.' : 'Sistema operativo sin limitación.' ?></span>
+    </article>
+  </section>
+
+  <div class="licencia-grid">
+    <section class="panel licencia-card">
+      <div class="licencia-card-head">
+        <div>
+          <span class="licencia-card-kicker">Diagnóstico actual</span>
+          <h2>Estado efectivo</h2>
+          <p>Esto refleja lo que realmente está usando FLUS hoy, no solo lo que hay escrito en el JSON.</p>
+        </div>
       </div>
-    <?php else: ?>
-      <p>No hay datos de licencia cargados.</p>
-    <?php endif; ?>
+
+      <dl class="licencia-detail-list">
+        <div><dt>Estado</dt><dd><?= h((string)($licenseMeta['status'] ?? 'N/D')) ?></dd></div>
+        <div><dt>Plan</dt><dd><?= h((string)($licenseMeta['plan'] ?? 'N/D')) ?></dd></div>
+        <div><dt>Cliente</dt><dd><?= h((string)($licenseMeta['customer'] !== '' ? $licenseMeta['customer'] : 'N/D')) ?></dd></div>
+        <div><dt>Clave</dt><dd class="mono"><?= h((string)($licenseMeta['license_key'] !== '' ? $licenseMeta['license_key'] : 'N/D')) ?></dd></div>
+        <div><dt>Emitida</dt><dd><?= h($formatDate((string)($licenseMeta['issued_at'] ?? ''), true)) ?></dd></div>
+        <div><dt>Modo limitado</dt><dd><?= !empty($licenseMeta['limited']) ? 'Sí' : 'No' ?></dd></div>
+      </dl>
+
+      <?php if (!empty($licenseMeta['reason'])): ?>
+        <div class="licencia-note licencia-note--warning">
+          <strong>Motivo actual:</strong>
+          <span><?= h((string)($licenseMeta['reason_label'] ?? $licenseMeta['reason'])) ?></span>
+        </div>
+      <?php endif; ?>
+    </section>
+
+    <section class="panel licencia-card">
+      <div class="licencia-card-head">
+        <div>
+          <span class="licencia-card-kicker">Resumen administrativo</span>
+          <h2>Qué revisar acá</h2>
+          <p>Usá esta pantalla para confirmar estado, vencimiento y datos visibles de la licencia activa antes de renovarla.</p>
+        </div>
+      </div>
+
+      <div class="licencia-policy-grid">
+        <article class="licencia-policy">
+          <strong>Estado actual</strong>
+          <span>Confirmá si la licencia está operativa, vencida o con observaciones.</span>
+        </article>
+        <article class="licencia-policy">
+          <strong>Vencimiento</strong>
+          <span>Revisá la fecha vigente y los días restantes antes de una renovación.</span>
+        </article>
+        <article class="licencia-policy">
+          <strong>Datos visibles</strong>
+          <span>Cliente, plan y clave ayudan a validar que estás cargando la licencia correcta.</span>
+        </article>
+        <article class="licencia-policy">
+          <strong>Renovación</strong>
+          <span>Subí el archivo provisto para este cliente y el sistema hará la validación antes de aplicarlo.</span>
+        </article>
+      </div>
+
+      <div class="licencia-note">
+        <strong>Sugerencia</strong>
+        <span>Si una renovación no se aplica, verificá que el archivo corresponda a este cliente y que no esté vencido antes de volver a intentar.</span>
+      </div>
+    </section>
+
+    <section class="panel licencia-card licencia-card--full">
+      <div class="licencia-card-head licencia-card-head--split">
+        <div>
+          <span class="licencia-card-kicker">Renovación</span>
+          <h2>Cargar o reemplazar licencia</h2>
+          <p>La licencia nueva se valida antes de guardarse y se intenta respaldar el archivo anterior antes del reemplazo.</p>
+        </div>
+        <a class="btn btn-secondary" href="configuracion.php">Volver</a>
+      </div>
+
+      <form method="post" enctype="multipart/form-data" class="licencia-upload-form">
+        <?= csrf_field('csrf_token') ?>
+
+        <label class="licencia-upload-drop">
+          <span class="licencia-upload-title">Seleccionar archivo JSON</span>
+          <span class="licencia-upload-copy">Subí el archivo de licencia provisto para este cliente.</span>
+          <input type="file" name="license_file" accept="application/json,.json" required>
+        </label>
+
+        <div class="licencia-upload-actions">
+          <button class="btn btn-primary" type="submit">Subir licencia</button>
+          <span class="licencia-upload-hint">Usá un archivo válido en formato JSON entregado para esta instalación.</span>
+        </div>
+      </form>
+    </section>
   </div>
-
-  <div class="card" style="padding:14px;">
-    <h3 style="margin:0 0 10px 0;">Cargar / Renovar</h3>
-
-    <form method="post" enctype="multipart/form-data">
-      <?= csrf_field('csrf_token') ?>
-
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <input type="file" name="license_file" accept="application/json" required>
-        <button class="v-btn v-btn--primary" type="submit">Subir licencia</button>
-        <a class="v-btn v-btn--ghost" href="configuracion.php">Volver</a>
-      </div>
-
-      <div style="opacity:.85; margin-top:10px;">
-        Requiere JSON con <span class="mono">plan</span> y <span class="mono">expires_at</span> (YYYY-MM-DD).
-        También acepta <span class="mono">valid_until</span>.
-      </div>
-    </form>
-  </div>
-
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

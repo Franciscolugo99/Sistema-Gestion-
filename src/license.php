@@ -116,6 +116,190 @@ if (!function_exists('flus_license_normalize')) {
   }
 }
 
+if (!function_exists('flus_license_human_error')) {
+  function flus_license_human_error(?string $code): string {
+    $code = strtoupper(trim((string)$code));
+
+    $map = [
+      'SIGNATURE_REQUIRED' => 'La licencia debe venir firmada para poder instalarse en este sistema.',
+      'RSA_NOT_PRESENT' => 'Faltan los datos de firma RSA esperados.',
+      'BAD_RSA_FIELDS' => 'La licencia firmada por RSA llegó incompleta.',
+      'OPENSSL_MISSING' => 'El servidor no tiene OpenSSL disponible para verificar la firma.',
+      'PUBKEY_PEM_MISSING' => 'No se encontró la clave pública configurada para validar licencias.',
+      'PUBKEY_INVALID_PEM' => 'La clave pública configurada para licencias no es válida.',
+      'PUBKEY_MISSING' => 'No se encontró la clave pública configurada para validar licencias.',
+      'SIGNATURE_INVALID' => 'La firma digital de la licencia no es válida.',
+      'PAYLOAD_JSON_INVALID' => 'El contenido firmado de la licencia no tiene un JSON válido.',
+      'SODIUM_MISSING' => 'El servidor no tiene Sodium disponible para verificar esta firma.',
+      'B64_DECODE_FAIL' => 'No se pudo decodificar el contenido firmado de la licencia.',
+      'MISSING_PLAN' => 'La licencia no incluye el plan.',
+      'MISSING_EXPIRES' => 'La licencia no incluye fecha de vencimiento.',
+      'BAD_DATE' => 'La fecha de vencimiento debe tener formato YYYY-MM-DD.',
+      'JSON_ENCODE_FAILED' => 'No se pudo serializar la licencia para guardarla.',
+      'WRITE_TMP_FAILED' => 'No se pudo escribir el archivo temporal de licencia.',
+      'WRITE_FAILED' => 'No se pudo guardar el archivo de licencia.',
+      'DIR_MISSING' => 'La carpeta de storage no existe o no está disponible.',
+    ];
+
+    return $map[$code] ?? ($code !== '' ? $code : 'Error desconocido de licencia.');
+  }
+}
+
+if (!function_exists('flus_license_reason_label')) {
+  function flus_license_reason_label(?string $reason): string {
+    $reason = strtoupper(trim((string)$reason));
+
+    if ($reason === '') {
+      return 'Sin observaciones';
+    }
+
+    if (str_starts_with($reason, 'INVALID_')) {
+      return 'Inválida: ' . flus_license_human_error(substr($reason, 8));
+    }
+
+    $map = [
+      'LICENSE_MISSING' => 'No hay una licencia cargada.',
+      'LICENSE_EXPIRED' => 'La licencia está vencida.',
+      'TRIAL_EXPIRED' => 'Se agotó el período de prueba.',
+      'GRACE_EXCEEDED' => 'Se superó el período de gracia posterior al vencimiento.',
+      'CLOCK_ROLLBACK' => 'Se detectó que el reloj del sistema fue atrasado.',
+      'CLOCK_FORWARD_JUMP' => 'Se detectó un salto grande hacia adelante en el reloj del sistema.',
+      'BYPASS' => 'Modo bypass activo.',
+      'ACTIVE' => 'Licencia operativa.',
+      'MISSING' => 'No hay una licencia cargada.',
+      'INVALID' => 'La licencia cargada no es válida.',
+      'EXPIRED' => 'La licencia está vencida.',
+    ];
+
+    return $map[$reason] ?? $reason;
+  }
+}
+
+if (!function_exists('flus_license_clock_warning_label')) {
+  function flus_license_clock_warning_label(?string $warning): string {
+    $warning = strtoupper(trim((string)$warning));
+
+    $map = [
+      'CLOCK_ROLLBACK' => 'Se detectó que el reloj del sistema fue atrasado. FLUS mantiene el tiempo efectivo para evitar ganar días de licencia.',
+      'CLOCK_FORWARD_JUMP' => 'Se detectó un salto grande hacia adelante en el reloj del sistema. FLUS limita ese avance para no consumir la licencia de golpe.',
+    ];
+
+    return $map[$warning] ?? '';
+  }
+}
+
+if (!function_exists('flus_license_meta')) {
+  function flus_license_meta(?array $license = null): array {
+    $license = is_array($license) ? $license : null;
+
+    if (!$license && defined('FLUS_LICENSE') && is_array(FLUS_LICENSE)) {
+      $license = FLUS_LICENSE;
+    }
+
+    if (!$license && function_exists('flus_license_status')) {
+      $license = flus_license_status();
+    }
+
+    if (!$license) {
+      $license = flus_license_load() ?? [];
+    }
+
+    $plan = trim((string)($license['plan_label'] ?? $license['plan'] ?? 'N/D'));
+    $status = trim((string)($license['status_label'] ?? $license['status'] ?? 'N/D'));
+    $validUntil = trim((string)($license['valid_until'] ?? $license['expires_at'] ?? ''));
+    $daysLeftRaw = $license['days_left'] ?? null;
+    $daysLeft = $daysLeftRaw === null || $daysLeftRaw === '' ? 'N/D' : (string)$daysLeftRaw;
+    $reason = trim((string)($license['reason'] ?? ''));
+    $clockWarning = trim((string)($license['clock_warning'] ?? ''));
+    $isSigned = !empty($license['_signed']) || !empty($license['sig']) || !empty($license['sig_b64']);
+    $algorithm = trim((string)($license['_alg'] ?? $license['alg'] ?? ($isSigned ? 'Firmada' : 'Simple')));
+    $statusKey = strtolower(trim((string)($license['status'] ?? '')));
+
+    if ($statusKey === '') {
+      $statusKey = match (strtolower($status)) {
+        'activa', 'active' => 'active',
+        'vencida', 'expired' => 'expired',
+        'inválida', 'invalida', 'invalid' => 'invalid',
+        'sin licencia', 'missing' => 'missing',
+        'bypass' => 'bypass',
+        default => 'unknown',
+      };
+    }
+
+    $tone = match ($statusKey) {
+      'active', 'bypass' => 'success',
+      'expired' => 'warning',
+      'missing', 'invalid' => 'danger',
+      default => 'muted',
+    };
+
+    return [
+      'status' => $status !== '' ? $status : 'N/D',
+      'status_key' => $statusKey,
+      'status_tone' => $tone,
+      'plan' => $plan !== '' ? $plan : 'N/D',
+      'valid_until' => $validUntil !== '' ? $validUntil : 'N/D',
+      'days_left' => $daysLeft,
+      'limited' => (bool)($license['limited'] ?? false),
+      'reason' => $reason,
+      'reason_label' => flus_license_reason_label($reason),
+      'clock_warning' => $clockWarning,
+      'clock_warning_label' => flus_license_clock_warning_label($clockWarning),
+      'customer' => trim((string)($license['customer'] ?? '')),
+      'license_key' => trim((string)($license['license_key'] ?? '')),
+      'issued_at' => trim((string)($license['issued_at'] ?? '')),
+      'is_signed' => $isSigned,
+      'algorithm' => $algorithm !== '' ? $algorithm : 'Simple',
+    ];
+  }
+}
+
+if (!function_exists('flus_license_save')) {
+  function flus_license_save(array $license): array {
+    $path = flus_license_file_path();
+    $dir = dirname($path);
+
+    if (!is_dir($dir)) {
+      return ['ok' => false, 'error' => 'DIR_MISSING'];
+    }
+
+    $json = json_encode($license, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+      return ['ok' => false, 'error' => 'JSON_ENCODE_FAILED'];
+    }
+
+    $backupPath = null;
+    if (is_file($path)) {
+      $backupPath = $dir . '/license.json.bak_' . date('Ymd_His');
+      @copy($path, $backupPath);
+    }
+
+    $tmp = $path . '.tmp';
+    if (@file_put_contents($tmp, $json, LOCK_EX) === false) {
+      @unlink($tmp);
+      return ['ok' => false, 'error' => 'WRITE_TMP_FAILED'];
+    }
+
+    if (@rename($tmp, $path)) {
+      return ['ok' => true, 'backup' => $backupPath];
+    }
+
+    @unlink($path);
+    if (@rename($tmp, $path)) {
+      return ['ok' => true, 'backup' => $backupPath];
+    }
+
+    $saved = @file_put_contents($path, $json, LOCK_EX);
+    @unlink($tmp);
+
+    return [
+      'ok' => $saved !== false,
+      'error' => $saved === false ? 'WRITE_FAILED' : null,
+      'backup' => $backupPath,
+    ];
+  }
+}
+
 if (!function_exists('flus_license_try_rsa_signed_payload')) {
   /**
    * Si existe payload_b64+sig_b64, verifica RSA y devuelve lic con plan/expires extraídos del payload.
@@ -447,4 +631,3 @@ if (!function_exists('flus_license_status')) {
     ];
   }
 }
-
