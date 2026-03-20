@@ -49,6 +49,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let hasUnsavedChanges = false;
   let quickAddMode = false;
   let bulkQuickAddInProgress = false;
+  const compraIdInput = form?.querySelector('input[name="compra_id"]');
+  let autosaveTimer = null;
+  let autosaveInFlight = false;
+  let autosaveQueued = false;
+  let autosaveLastSignature = "";
+  let autosaveStatusEl = null;
+  let isManualSubmit = false;
 
   /* ============================================================================
      CONSTANTES Y UTILS
@@ -433,7 +440,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingPreview) existingPreview.remove();
 
     if (!selectedProduct) return;
-    if (!btnAdd || !btnAdd.parentElement) return;
+    const itemsGrid = document.querySelector(".items-grid");
+    if (!itemsGrid) return;
 
     const qty = parseFloat(inQty.value || 0);
     const cost = parseFloat(inCost.value || 0);
@@ -474,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    btnAdd.parentElement.appendChild(preview);
+    itemsGrid.appendChild(preview);
   }
 
   [inQty, inCost, itemDescTipo, itemDescValor].forEach((el) => {
@@ -627,6 +635,191 @@ document.addEventListener("DOMContentLoaded", () => {
       toast.classList.remove("show");
       setTimeout(() => toast.remove(), 250);
     }, 2800);
+  }
+
+  function ensureAutosaveStatus() {
+    if (autosaveStatusEl) return autosaveStatusEl;
+
+    autosaveStatusEl = document.createElement("div");
+    autosaveStatusEl.className = "autosave-status autosave-status-idle";
+    autosaveStatusEl.textContent = "Borrador automatico listo";
+
+    const host =
+      document.querySelector(".module-header-actions") ||
+      form?.querySelector(".form-grid") ||
+      form;
+
+    host?.appendChild(autosaveStatusEl);
+    return autosaveStatusEl;
+  }
+
+  function setAutosaveStatus(message, tone = "idle") {
+    const el = ensureAutosaveStatus();
+    if (!el) return;
+    el.className = `autosave-status autosave-status-${tone}`;
+    el.textContent = message;
+  }
+
+  function getDraftRows() {
+    return Array.from(tbody.querySelectorAll("tr[data-row='item']"));
+  }
+
+  function hasDraftableData() {
+    return (
+      normalizeProviderValue(proveedorInput?.value || "") !== "" &&
+      getDraftRows().length > 0
+    );
+  }
+
+  function buildAutosavePayload() {
+    const rows = getDraftRows();
+    return {
+      compraId: parseInt(compraIdInput?.value || "0", 10) || 0,
+      proveedor: String(proveedorInput?.value || "").trim(),
+      proveedorId: parseInt(proveedorIdInput?.value || "0", 10) || 0,
+      tipoComp: String(form?.querySelector('[name="tipo_comp"]')?.value || "").trim(),
+      nroComp: String(form?.querySelector('[name="nro_comp"]')?.value || "").trim(),
+      observacion: String(form?.querySelector('[name="observacion"]')?.value || "").trim(),
+      descuentoTipo: String(descuentoTipo?.value || "MONTO").toUpperCase(),
+      descuentoValor: String(descuentoValor?.value || "0").trim(),
+      items: rows.map((tr) => ({
+        productoId: String(tr.querySelector('input[name="producto_id[]"]')?.value || ""),
+        cantidad: String(tr.querySelector('input[name="cantidad[]"]')?.value || ""),
+        costo: String(tr.querySelector('input[name="costo_unitario[]"]')?.value || ""),
+        descuentoTipo: String(
+          tr.querySelector('input[name="item_descuento_tipo[]"]')?.value || "MONTO",
+        ).toUpperCase(),
+        descuentoValor: String(
+          tr.querySelector('input[name="item_descuento_valor[]"]')?.value || "0",
+        ).trim(),
+      })),
+    };
+  }
+
+  function buildAutosaveSignature() {
+    return JSON.stringify(buildAutosavePayload());
+  }
+
+  function syncDraftUrl(compraId) {
+    if (!compraId || !window.history?.replaceState) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("editar", String(compraId));
+    url.searchParams.delete("saved");
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  function updateCompraId(compraId) {
+    if (!compraIdInput || !compraId) return;
+    compraIdInput.value = String(compraId);
+    syncDraftUrl(compraId);
+  }
+
+  function scheduleAutosave(delay = 1200) {
+    if (!form || isManualSubmit) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = window.setTimeout(() => {
+      autosaveDraft();
+    }, delay);
+  }
+
+  function markDraftDirty({ immediate = false } = {}) {
+    hasUnsavedChanges = true;
+    if (autosaveInFlight) autosaveQueued = true;
+    setAutosaveStatus("Cambios pendientes", "pending");
+    scheduleAutosave(immediate ? 250 : 1200);
+  }
+
+  async function autosaveDraft() {
+    if (!form || isManualSubmit || !hasUnsavedChanges) return;
+    if (autosaveInFlight) {
+      autosaveQueued = true;
+      return;
+    }
+
+    updateProveedorState({ autocorrect: false });
+    if (!hasDraftableData()) {
+      setAutosaveStatus("Autosave listo al completar proveedor e items", "idle");
+      return;
+    }
+
+    const signature = buildAutosaveSignature();
+    if (signature === autosaveLastSignature) {
+      hasUnsavedChanges = false;
+      setAutosaveStatus("Borrador al dia", "saved");
+      return;
+    }
+
+    autosaveInFlight = true;
+    setAutosaveStatus("Guardando borrador...", "saving");
+
+    const body = new FormData(form);
+    body.set("accion", "guardar_borrador");
+    body.set("autosave", "1");
+
+    try {
+      const response = await fetch(form.getAttribute("action") || window.location.href, {
+        method: "POST",
+        body,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.message || "No se pudo guardar el borrador");
+      }
+
+      updateCompraId(parseInt(payload.compra_id || "0", 10) || 0);
+      autosaveLastSignature = buildAutosaveSignature();
+      hasUnsavedChanges = false;
+      setAutosaveStatus("Borrador guardado automaticamente", "saved");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo guardar el borrador";
+      setAutosaveStatus(message, "error");
+    } finally {
+      autosaveInFlight = false;
+      if (autosaveQueued) {
+        autosaveQueued = false;
+        hasUnsavedChanges = true;
+        scheduleAutosave(300);
+      }
+    }
+  }
+
+  function flushAutosaveBeacon() {
+    if (
+      !form ||
+      isManualSubmit ||
+      !hasUnsavedChanges ||
+      !hasDraftableData() ||
+      typeof navigator.sendBeacon !== "function"
+    ) {
+      return;
+    }
+
+    const signature = buildAutosaveSignature();
+    if (signature === autosaveLastSignature) return;
+
+    const body = new FormData(form);
+    body.set("accion", "guardar_borrador");
+    body.set("autosave", "1");
+
+    const sent = navigator.sendBeacon(
+      form.getAttribute("action") || window.location.href,
+      body,
+    );
+
+    if (sent) {
+      autosaveLastSignature = signature;
+      hasUnsavedChanges = false;
+      setAutosaveStatus("Borrador enviado al salir", "saved");
+    }
   }
 
 
@@ -789,8 +982,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ============================================================================ */
   if (proveedorInput) {
     updateProveedorState();
-    proveedorInput.addEventListener("input", updateProveedorState);
-    proveedorInput.addEventListener("change", updateProveedorState);
+    proveedorInput.addEventListener("input", () => {
+      updateProveedorState();
+      markDraftDirty();
+    });
+    proveedorInput.addEventListener("change", () => {
+      updateProveedorState();
+      markDraftDirty();
+    });
     proveedorInput.addEventListener("blur", () =>
       updateProveedorState({ autocorrect: true }),
     );
@@ -856,12 +1055,26 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       showConfirm(
         `No existe un proveedor cargado con el nombre "${proveedorInput.value.trim()}". Si continuas se creara uno nuevo.`,
-        () => form.submit(),
+        () => {
+          isManualSubmit = true;
+          clearTimeout(autosaveTimer);
+          form.submit();
+        },
         null,
         "Crear y guardar",
       );
     });
   }
+
+  [
+    form?.querySelector('[name="tipo_comp"]'),
+    form?.querySelector('[name="nro_comp"]'),
+    form?.querySelector('[name="observacion"]'),
+  ].forEach((field) => {
+    if (!field) return;
+    field.addEventListener("input", () => markDraftDirty());
+    field.addEventListener("change", () => markDraftDirty());
+  });
 
   function openDiscountEditor(tr, product) {
     const hTipo = tr.querySelector('input[name="item_descuento_tipo[]"]');
@@ -1004,7 +1217,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (hTipo) hTipo.value = norm.tipo;
         if (hVal) hVal.value = String(norm.valor);
 
-        hasUnsavedChanges = true;
+        markDraftDirty();
         recalcTotal();
 
         tr.classList.add("highlight-update");
@@ -1140,7 +1353,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tr.dataset.subtotal = String(newSubtotal);
         tr.querySelector(".subtotal-cell").textContent = fmtMoney(newSubtotal);
 
-        hasUnsavedChanges = true;
+        markDraftDirty();
         recalcTotal();
         showToast("Item actualizado", "success");
 
@@ -1254,7 +1467,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tbody.appendChild(tr);
     itemsAdded.push({ rowId, productId: product.id });
 
-    hasUnsavedChanges = true;
+    markDraftDirty();
     recalcTotal();
     if (!bulkQuickAddInProgress) {
       resetForm();
@@ -1268,7 +1481,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
         tr.remove();
         itemsAdded = itemsAdded.filter((it) => it.rowId !== rowId);
-        hasUnsavedChanges = true;
+        markDraftDirty();
         addEmptyRowIfNeeded();
         recalcTotal();
       }, 180);
@@ -1358,7 +1571,7 @@ document.addEventListener("DOMContentLoaded", () => {
           tr.classList.add("highlight-update");
           setTimeout(() => tr.classList.remove("highlight-update"), 450);
 
-          hasUnsavedChanges = true;
+          markDraftDirty();
           recalcTotal();
           resetForm();
           showToast("Item actualizado", "success");
@@ -1410,7 +1623,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tr.querySelector(".subtotal-cell").textContent = fmtMoney(newSubtotal);
       tr.classList.add("highlight-update");
       setTimeout(() => tr.classList.remove("highlight-update"), 450);
-      hasUnsavedChanges = true;
+      markDraftDirty();
       recalcTotal();
       bulkQuickAddInProgress = false;
       return { status: "merged" };
@@ -1441,12 +1654,12 @@ document.addEventListener("DOMContentLoaded", () => {
   [descuentoTipo, descuentoValor].forEach((el) => {
     if (!el) return;
     el.addEventListener("input", () => {
-      hasUnsavedChanges = true;
+      markDraftDirty();
       clearTimeout(recalcDebounceTimer);
       recalcDebounceTimer = setTimeout(recalcTotal, 150);
     });
     el.addEventListener("change", () => {
-      hasUnsavedChanges = true;
+      markDraftDirty();
       recalcTotal();
     });
   });
@@ -1469,7 +1682,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      isManualSubmit = true;
+      clearTimeout(autosaveTimer);
       hasUnsavedChanges = false;
+      setAutosaveStatus("Guardando borrador manualmente...", "saving");
     });
   }
 
@@ -1609,6 +1825,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnResetCompra) {
     btnResetCompra.addEventListener("click", () => {
       const goReset = () => {
+        flushAutosaveBeacon();
         hasUnsavedChanges = false;
         window.location.href = "compras.php";
       };
@@ -1633,6 +1850,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     event.preventDefault();
     confirmLeavePage(() => {
+      flushAutosaveBeacon();
       hasUnsavedChanges = false;
       window.location.href = link.href;
     });
@@ -1640,10 +1858,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("beforeunload", (e) => {
     if (hasUnsavedChanges && itemsAdded.length > 0) {
+      flushAutosaveBeacon();
       e.preventDefault();
       e.returnValue = "";
       return "";
     }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flushAutosaveBeacon();
+    }
+  });
+
+  window.addEventListener("pagehide", () => {
+    flushAutosaveBeacon();
   });
 
   /* ============================================================================
@@ -1674,6 +1903,12 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   };
 
+  setAutosaveStatus(
+    Number(compraIdInput?.value || 0) > 0
+      ? "Borrador automatico activo"
+      : "Borrador automatico listo",
+    "idle",
+  );
   if (searchInput) searchInput.focus();
   addEmptyRowIfNeeded();
   recalcTotal();

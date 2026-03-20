@@ -360,6 +360,10 @@ body.theme-light .compras-page {
   margin: 20px 0;
 }
 
+.compras-page .items-grid > .field {
+  min-width: 0;
+}
+
 /* Inline controls (select + input) */
 .compras-page .inline-controls {
   display: flex;
@@ -1082,6 +1086,51 @@ body.theme-light .detalle-info {
 /* ============================================================================
    RESPONSIVE
 ============================================================================ */
+@media (max-width: 1360px) {
+  .compras-page .items-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .compras-page .items-grid .field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .items-grid > .field:nth-child(2),
+  .compras-page .items-grid > .field:nth-child(3),
+  .compras-page .items-grid > .field:nth-child(4) {
+    grid-column: span 2;
+  }
+
+  .compras-page .items-grid > .field:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .items-grid > .field:last-child .btn {
+    width: 100%;
+  }
+
+  .compras-page .inline-controls {
+    flex-wrap: wrap;
+  }
+
+  .compras-page .inline-controls select,
+  .compras-page .inline-controls input {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .compras-page .discount-help-inline {
+    max-width: none;
+  }
+
+  .compras-page .subtotal-preview {
+    justify-self: stretch;
+    width: 100%;
+  }
+}
+
 @media (max-width: 980px) {
   .compras-page .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1091,6 +1140,19 @@ body.theme-light .detalle-info {
   }
   .compras-page .items-grid .field-wide {
     grid-column: 1 / -1;
+  }
+
+  .compras-page .items-grid > .field:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .items-grid > .field:last-child .btn {
+    width: 100%;
+  }
+
+  .compras-page .subtotal-preview {
+    justify-self: stretch;
+    width: 100%;
   }
 
   .compras-page .page-header {
@@ -1151,6 +1213,15 @@ body.theme-light .detalle-info {
   }
   .compras-page .items-grid {
     grid-template-columns: 1fr;
+  }
+
+  .compras-page .quick-add-toggle .toggle-label {
+    align-items: flex-start;
+  }
+
+  .compras-page .quick-add-toggle .toggle-hint {
+    display: block;
+    margin-left: 30px;
   }
 
   .compras-page .filters {
@@ -1301,6 +1372,9 @@ body.theme-light .compras-page .compras-table tfoot td {
 
 /* Vista previa de subtotal */
 .compras-page .subtotal-preview {
+  grid-column: 1 / -1;
+  justify-self: end;
+  width: min(100%, 360px);
   background: var(--c-surface-2);
   border: 1.5px solid var(--c-border);
   border-radius: 12px;
@@ -1960,4 +2034,47 @@ body.theme-light .compras-page .compras-table tfoot td {
   .compras-page .quick-add-toolbar-actions .btn {
     flex: 1 1 180px;
   }
+}
+
+.compras-page .autosave-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.compras-page .autosave-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.compras-page .autosave-status-saving,
+.compras-page .autosave-status-pending {
+  color: var(--c-primary-dark);
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.26);
+}
+
+.compras-page .autosave-status-saved {
+  color: #0f9f58;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.26);
+}
+
+.compras-page .autosave-status-error {
+  color: #d14343;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.22);
 }

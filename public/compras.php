@@ -44,10 +44,21 @@ $msgType = 'info';
 $savedFlag = (string)($_GET['saved'] ?? '');
 $editMode = false;
 $compraEdit = null;
+$isAjaxRequest = (
+  (string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest'
+  || (string)($_POST['autosave'] ?? '') === '1'
+);
 
 /* -----------------------------
    Helpers
 ------------------------------ */
+function compras_json_response(array $payload, int $status = 200): void {
+  http_response_code($status);
+  header('Content-Type: application/json; charset=UTF-8');
+  echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
 function normalizeProveedorName(string $name): string {
   $name = trim($name);
   $name = preg_replace('/\s+/', ' ', $name); // múltiples espacios → uno
@@ -158,6 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!csrf_verify($_POST['csrf_token'] ?? null)) {
     $msg = 'Token CSRF invalido. Recarga y proba de nuevo.';
     $msgType = 'error';
+    if ($isAjaxRequest) {
+      compras_json_response([
+        'ok' => false,
+        'message' => $msg,
+      ], 403);
+    }
   } else {
 
     $accion = (string)($_POST['accion'] ?? '');
@@ -168,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($accion === 'guardar_borrador') {
 
       $compraId = (int)($_POST['compra_id'] ?? 0); // 0 = crear, >0 = editar
+      $isUpdate = $compraId > 0;
       $proveedorTxt = trim((string)($_POST['proveedor'] ?? ''));
       $proveedorIdPosted = (int)($_POST['proveedor_id'] ?? 0);
       $tipoComp     = trim((string)($_POST['tipo_comp'] ?? ''));
@@ -194,6 +212,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       } elseif (!is_array($prodIds) || count($prodIds) === 0) {
         $msg = 'Agrega al menos 1 item a la compra.';
         $msgType = 'warning';
+      }
+
+      if ($msg !== '' && $isAjaxRequest) {
+        compras_json_response([
+          'ok' => false,
+          'message' => $msg,
+        ], 422);
       }
 
       // Armar items + total
@@ -275,6 +300,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $msg = 'Agrega al menos 1 item valido.';
           $msgType = 'warning';
         }
+      }
+
+      if ($msg !== '' && $isAjaxRequest) {
+        compras_json_response([
+          'ok' => false,
+          'message' => $msg,
+        ], 422);
       }
 
       if ($msg === '') {
@@ -443,13 +475,34 @@ $compraId = (int)$pdo->lastInsertId();
 
           $pdo->commit();
 
-          header("Location: compras.php?saved=" . ($editMode ? 'updated' : 'created'));
+          $savedState = $isUpdate ? 'updated' : 'created';
+          if ($isAjaxRequest) {
+            compras_json_response([
+              'ok' => true,
+              'saved' => $savedState,
+              'compra_id' => $compraId,
+              'redirect_url' => 'compras.php?editar=' . $compraId,
+              'message' => $savedState === 'updated'
+                ? 'Borrador actualizado automaticamente.'
+                : 'Borrador creado automaticamente.',
+            ]);
+          }
+
+          header("Location: compras.php?saved=" . $savedState);
           exit;
 
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
-          $msg = "Error al guardar: " . $e->getMessage();
+          $msg = $isAjaxRequest
+            ? 'No se pudo guardar el borrador automaticamente.'
+            : "Error al guardar: " . $e->getMessage();
           $msgType = 'error';
+          if ($isAjaxRequest) {
+            compras_json_response([
+              'ok' => false,
+              'message' => $msg,
+            ], 500);
+          }
         }
       }
     }
@@ -948,7 +1001,10 @@ $compras = $stList->fetchAll(PDO::FETCH_ASSOC) ?: [];
 $pageTitle = "Compras";
 $currentSection = "compras";
 $extraCss = ["assets/css/compras.css"];
-$extraJs  = ["assets/js/compras.js?v=2", "assets/js/compras_quick_add.js?v=1"];
+$extraJs  = [
+  "assets/js/compras.js?v=" . filemtime(__DIR__ . "/assets/js/compras.js"),
+  "assets/js/compras_quick_add.js?v=" . filemtime(__DIR__ . "/assets/js/compras_quick_add.js"),
+];
 require __DIR__ . "/partials/header.php";
 ?>
 
@@ -986,9 +1042,7 @@ require __DIR__ . "/partials/header.php";
     <form method="post" id="compraForm" class="compras-form" novalidate>
       <?= csrf_field() ?>
       <input type="hidden" name="accion" value="guardar_borrador">
-      <?php if ($editMode): ?>
-        <input type="hidden" name="compra_id" value="<?= (int)$compraEdit['id'] ?>">
-      <?php endif; ?>
+      <input type="hidden" name="compra_id" value="<?= $editMode ? (int)$compraEdit['id'] : 0 ?>">
 
       <select id="productosData" style="display:none;">
         <option value="">--</option>
