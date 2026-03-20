@@ -2,43 +2,43 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.4.0  
-**Build:** 2026-03-12  
+**Version:** 3.5.0  
+**Build:** 2026-03-20  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-12)
+## Estado actual (2026-03-20)
+
+### Operacion y navegacion
+- Nav refactorizado: partial mas limpio, CSS/JS externos y mejor consistencia visual.
+- Header con ayuda rapida de atajos y mejor jerarquia para modulos principales.
+- Base de perfiles de impresion para ticket, comanda y factura.
+
+### Caja y terminales
+- Caja mas robusta: recupera tickets pendientes por terminal/apertura y permite seguir cobrando despues de reabrir.
+- Nuevo selector operativo de ticket: `Auto imprimir`, `Vista previa` o `No abrir`.
+- Pantalla de apertura de caja mas clara y alineada con el resto del sistema.
+- Terminales renovado: estados operativos, edicion inline y bloqueos para no desactivar cajas abiertas o terminales en uso.
+- Terminales ahora admite override de ticket/papel por caja sin tocar esquema.
+
+### Compras
+- Borradores automaticos mientras se carga una compra.
+- Recuperacion del borrador al volver al modulo.
+- Mejor responsive en el formulario de carga y en anchos intermedios.
+
+### Dashboard y administracion
+- Dashboard parcialmente desmontado del monolito: filtros, cache y metricas extraidos a `src/Dashboard/`.
+- Graficos estabilizados despues de filtros y cache, con mejor recuperacion de datasets.
+- Modulo de licencia mas administrativo y menos expuesto a detalles internos.
 
 ### Base tecnica
 - Panel Tecnico interno para soporte, diagnostico y ejecucion de smoke tests desde la UI.
 - Smoke tests minimos en `tests/` para helpers criticos y chequeos rapidos del sistema.
 - Hardening general en login, backups/restore, usuarios y links publicos.
-
-### Productos
-- Reglas de estado extraidas a helper compartido (`src/productos_helpers.php`).
-- Busqueda mejorada con prioridad por codigo exacto y prefijo.
-- Filtro de pesables y mejor lectura de stock/unidad para productos KG/G/LT/ML.
-- Modal de edicion mas estable: ya no se cierra al guardar y evita errores JS visibles para el usuario.
-
-### Stock
-- Tabla mas alineada visualmente con productos.
-- Soporte mas claro para pesables en listado y ajuste rapido.
-- Filtro de pesables, busqueda priorizada por codigo e historial reciente dentro del modal de ajuste.
-
-### Proveedores
-- Relacion con productos mas confiable mediante sincronizacion por `proveedor_id` y re-vinculacion de legacy.
-- Re-vinculacion puntual por proveedor y accion global para re-vincular todo.
-- Vista enriquecida con resumen operativo, ultima compra, historial de compras y productos asociados con modales dedicados.
-
-### Base / Seguridad / Migrations
-- Contrato JSON estandar (`ok/error`) + CSRF reforzado en APIs.
 - Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
-- Views portables sin `DEFINER` y limpieza de inconsistencias de esquema.
-- Compras: columnas de descuentos/totales ya versionadas por migracion y no por `ALTER TABLE` en tiempo de request.
 - Baseline `install.sql` para instalacion limpia + migraciones para actualizar instalaciones existentes.
-- Modulos de soporte (factura manual, inventario, reposicion, historial de precios y cuenta corriente) preparados con migraciones SQL.
 
 > Ver `CHANGELOG.md` para el detalle historico por version.
 

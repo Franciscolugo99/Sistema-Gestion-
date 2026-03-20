@@ -6,6 +6,33 @@
 
 - Sin cambios documentados todavia.
 
+## [3.5.0] - 2026-03-20
+
+### Added
+
+- Caja: selector de salida del ticket (`Auto imprimir`, `Vista previa`, `No abrir`) con modal propio de vista previa.
+- Configuracion: nueva seccion `Perfiles de impresion` para ticket, comanda y factura.
+- Terminales: overrides de ticket/papel por terminal sin requerir cambios de esquema.
+- Compras: autosave de borradores con persistencia al navegar o cerrar la pestaña.
+- Nav: ayuda rapida de atajos accesible desde el header.
+
+### Changed
+
+- Nav refactorizado: markup mas limpio, CSS/JS externos, mejor jerarquia tipografica y espaciado general.
+- Caja: estado de apertura rediseñado, recuperacion del ticket en curso mas robusta y flujo de impresion preparado para perfiles futuros.
+- Dashboard: extraccion de filtros, cache y metricas a `src/Dashboard/*`, uso de partials para render y menor dependencia del monolito original.
+- Terminales: pantalla administrativa renovada con estados operativos, edicion inline y mayor claridad para cajas activas/bloqueadas.
+- Licencias: pantalla administrativa mas orientada a operacion y con menor exposicion de detalles internos.
+- Compras: mejor respuesta visual en anchos intermedios y mejor distribucion del formulario de carga.
+
+### Fixed
+
+- Dashboard: correccion de warnings, datasets vacios, invalidaciones de cache y graficos que dejaban de renderizar al aplicar filtros.
+- Caja: el ticket en curso ya no se pierde facilmente al cerrar pestaña/navegador y puede recuperarse para seguir cobrando.
+- Caja: se restauro `F5` como refresh normal del navegador.
+- Nav/Caja: saneado de textos visibles con problemas de codificacion en botones y mensajes operativos.
+- Terminales: bloqueo seguro para evitar desactivar la terminal actual, una caja abierta o una terminal con lock activo.
+
 ## [3.4.0] - 2026-03-12
 
 ### Added
