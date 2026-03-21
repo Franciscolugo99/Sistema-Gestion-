@@ -279,6 +279,19 @@
     });
   }
 
+  function applySearchPrefill() {
+    const searchInput = $('buscarProducto');
+    if (!searchInput) return;
+
+    const preset = new URLSearchParams(window.location.search).get('q');
+    if (!preset) return;
+
+    searchInput.value = preset;
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    searchInput.focus();
+    searchInput.select?.();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SELECCIONAR PRODUCTO
   // ═══════════════════════════════════════════════════════════════════════════
@@ -662,6 +675,7 @@
     cargarProductosContados();
     initModos();
     initBusqueda();
+    applySearchPrefill();
     initPreviewDiferencia();
     initFormSubmit();
     initFiltroTabla();

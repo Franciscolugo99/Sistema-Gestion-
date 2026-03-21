@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 
-if (!user_has_permission('ver_reportes') && !user_has_permission('ver_stock') && !user_has_permission('editar_stock')) {
+if (!user_has_permission('ver_reportes') && !user_has_permission('editar_stock')) {
     http_response_code(403);
     echo 'No tenes permisos para acceder a esta seccion.';
     exit;

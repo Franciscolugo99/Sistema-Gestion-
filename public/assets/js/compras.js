@@ -305,6 +305,18 @@ document.addEventListener("DOMContentLoaded", () => {
     inQty.select?.();
   }
 
+  function applySearchPrefill() {
+    if (!searchInput) return;
+
+    const preset = new URLSearchParams(window.location.search).get("q");
+    if (!preset) return;
+
+    searchInput.value = preset;
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.focus();
+    searchInput.select?.();
+  }
+
   if (searchInput && suggestionsBox) {
     let debounceTimer;
     let isSearchActive = false;
@@ -1910,6 +1922,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "idle",
   );
   if (searchInput) searchInput.focus();
+  applySearchPrefill();
   addEmptyRowIfNeeded();
   recalcTotal();
 });

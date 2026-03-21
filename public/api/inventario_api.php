@@ -135,7 +135,7 @@ try {
             break;
 
         case 'exportar_excel':
-            exportarExcel($analisis);
+            exportarExcelFiltrado($analisis);
             break;
 
         default:
@@ -302,6 +302,177 @@ function exportarExcel(InventarioAnalisis $analisis): void
             echo '</tr>';
         }
         echo '</table>';
+    }
+
+    echo '</body></html>';
+    exit;
+}
+
+function exportarExcelFiltrado(InventarioAnalisis $analisis): void
+{
+    $tab = (string)($_GET['tab'] ?? 'resumen');
+    if (!in_array($tab, ['resumen', 'inversion', 'rotacion', 'costos', 'parados', 'alertas', 'ventas'], true)) {
+        $tab = 'resumen';
+    }
+
+    $limitTop = min(500, max(10, (int)($_GET['limit_top'] ?? 25)));
+    $limitParados = min(500, max(10, (int)($_GET['limit_parados'] ?? 25)));
+    $limitRotacion = min(500, max(10, (int)($_GET['limit_rotacion'] ?? 25)));
+    $limitCostos = min(500, max(10, (int)($_GET['limit_costos'] ?? 50)));
+    $diasParados = max(7, (int)($_GET['dias_parados'] ?? 30));
+    $ordenRotacion = (string)($_GET['orden'] ?? 'vendidos');
+    if (!in_array($ordenRotacion, ['vendidos', 'dias_rest', 'stock', 'nombre'], true)) {
+        $ordenRotacion = 'vendidos';
+    }
+
+    $filtros = [
+        'categoria' => trim((string)($_GET['categoria'] ?? '')),
+        'proveedor_id' => (int)($_GET['proveedor_id'] ?? 0) ?: null,
+        'busqueda' => trim((string)($_GET['q'] ?? '')),
+    ];
+
+    $resumen = $analisis->getResumenGeneral();
+    $fmtMoney = static fn($value): string => '$' . number_format((float)$value, 0, ',', '.');
+    $fmtQty = static fn($value, $esPesable = 0): string => number_format((float)$value, ((int)$esPesable === 1) ? 2 : 0, ',', '.');
+
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename="inventario_' . $tab . '_' . date('Y-m-d_His') . '.xls"');
+    header('Cache-Control: no-cache');
+
+    echo '<html><head><meta charset="UTF-8"></head><body>';
+    echo '<h2>INVENTARIO - ' . strtoupper(htmlspecialchars($tab, ENT_QUOTES, 'UTF-8')) . ' - ' . date('d/m/Y H:i') . '</h2>';
+    echo '<table border="1" cellpadding="5">';
+    echo '<tr><td><b>Capital Invertido</b></td><td>' . $fmtMoney($resumen['inversion_total']) . '</td></tr>';
+    echo '<tr><td><b>Valor de Venta</b></td><td>' . $fmtMoney($resumen['valor_venta_potencial']) . '</td></tr>';
+    echo '<tr><td><b>Margen Teorico</b></td><td>' . $fmtMoney($resumen['margen_teorico']) . '</td></tr>';
+    echo '<tr><td><b>Total Productos</b></td><td>' . (int)$resumen['total_productos'] . '</td></tr>';
+    echo '<tr><td><b>Unidades en Stock</b></td><td>' . number_format((float)$resumen['total_unidades'], 0, ',', '.') . '</td></tr>';
+    echo '</table><br><br>';
+
+    switch ($tab) {
+        case 'inversion':
+            $rows = $analisis->getTopInversion($limitTop, $filtros);
+            echo '<h3>CAPITAL INVERTIDO POR PRODUCTO (' . count($rows) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#f0f0f0"><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Stock</th><th>Costo</th><th>Precio</th><th>Invertido</th><th>Valor Venta</th><th>Margen %</th></tr>';
+            foreach ($rows as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['categoria'] ?? '-')) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['costo'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['precio'] ?? 0) . '</td><td style="text-align:right;font-weight:bold">' . $fmtMoney($p['capital_invertido'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['valor_venta'] ?? 0) . '</td><td style="text-align:center">' . (($p['margen_pct'] ?? null) !== null ? number_format((float)$p['margen_pct'], 1, ',', '.') . '%' : '-') . '</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'rotacion':
+            $rows = $analisis->getRotacion(30, $limitRotacion, $ordenRotacion, $filtros);
+            echo '<h3>ROTACION DE PRODUCTOS (' . count($rows) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#eef6ff"><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Stock</th><th>Vendidos 30d</th><th>Ingresos 30d</th><th>Prom. Diario</th><th>Dias Stock</th><th>ABC</th></tr>';
+            foreach ($rows as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['categoria'] ?? '-')) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtQty($p['vendidos_30d'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['ingresos_30d'] ?? 0) . '</td><td style="text-align:right">' . number_format((float)($p['promedio_diario'] ?? 0), 2, ',', '.') . '</td><td style="text-align:center">' . (($p['dias_stock_restante'] ?? 999) >= 999 ? '∞' : number_format((float)$p['dias_stock_restante'], 0, ',', '.') . 'd') . '</td><td style="text-align:center">' . htmlspecialchars((string)($p['clasificacion_abc'] ?? 'C')) . '</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'costos':
+            $rows = $analisis->getProductosSinCosto($limitCostos, $filtros);
+            echo '<h3>PRODUCTOS SIN COSTO (' . count($rows) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#fff7ed"><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Proveedor</th><th>Stock</th><th>Precio</th></tr>';
+            foreach ($rows as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)($p['codigo'] ?? '-')) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['categoria'] ?? '-')) . '</td><td>' . htmlspecialchars((string)($p['proveedor'] ?? '-')) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['precio'] ?? 0) . '</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'parados':
+            $rows = $analisis->getProductosParados($diasParados, $limitParados, $filtros);
+            echo '<h3>PRODUCTOS SIN VENTA (' . count($rows) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#fff3cd"><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Stock</th><th>Capital Parado</th><th>Ultima Venta</th><th>Dias</th></tr>';
+            foreach ($rows as $p) {
+                $ultima = (string)($p['ultima_venta'] ?? '');
+                $ultimaFmt = $ultima === '' || $ultima === 'Nunca' ? 'Nunca' : date('d/m/Y', strtotime($ultima));
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['categoria'] ?? '-')) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['capital_parado'] ?? 0) . '</td><td style="text-align:center">' . $ultimaFmt . '</td><td style="text-align:center">' . (int)($p['dias_sin_venta'] ?? 0) . 'd</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'alertas':
+            $stockBajo = $analisis->getStockBajo();
+            $proximos = $analisis->getProximosAgotarse(7, 20);
+            echo '<h3>STOCK BAJO MINIMO (' . count($stockBajo) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#ffcccc"><th>Codigo</th><th>Producto</th><th>Proveedor</th><th>Actual</th><th>Minimo</th><th>Faltante</th></tr>';
+            foreach ($stockBajo as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['proveedor'] ?? '-')) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtQty($p['stock_minimo'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">-' . $fmtQty($p['faltante'] ?? 0, $p['es_pesable'] ?? 0) . '</td></tr>';
+            }
+            echo '</table><br><br>';
+            echo '<h3>SE AGOTAN EN 7 DIAS (' . count($proximos) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#fff3cd"><th>Codigo</th><th>Producto</th><th>Stock</th><th>Prom/Dia</th><th>Dias Rest.</th><th>Reponer</th></tr>';
+            foreach ($proximos as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . number_format((float)($p['promedio_diario'] ?? 0), 1, ',', '.') . '</td><td style="text-align:center">' . number_format((float)($p['dias_restantes'] ?? 0), 0, ',', '.') . 'd</td><td style="text-align:right">' . number_format((float)($p['cantidad_reponer'] ?? 0), 0, ',', '.') . '</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'ventas':
+            $rows = $analisis->getTopVendidos(30, 20);
+            $tendencia = $analisis->getTendenciaVentas(30);
+            echo '<h3>MAS VENDIDOS (' . count($rows) . ')</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#ecfdf5"><th>Codigo</th><th>Producto</th><th>Categoria</th><th>Vendidos</th><th>Ingresos</th><th>Veces</th></tr>';
+            foreach ($rows as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td>' . htmlspecialchars((string)($p['categoria'] ?? '-')) . '</td><td style="text-align:right">' . number_format((float)($p['unidades_vendidas'] ?? 0), 0, ',', '.') . '</td><td style="text-align:right">' . $fmtMoney($p['ingresos'] ?? 0) . '</td><td style="text-align:center">' . (int)($p['veces_vendido'] ?? 0) . '</td></tr>';
+            }
+            echo '</table><br><br>';
+            echo '<h3>TENDENCIA DE VENTAS</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#eef2ff"><th>Fecha</th><th>Ventas</th><th>Unidades</th><th>Total</th></tr>';
+            foreach ($tendencia as $row) {
+                echo '<tr><td>' . htmlspecialchars((string)($row['fecha'] ?? '')) . '</td><td style="text-align:center">' . (int)($row['cantidad_ventas'] ?? 0) . '</td><td style="text-align:right">' . number_format((float)($row['unidades'] ?? 0), 0, ',', '.') . '</td><td style="text-align:right">' . $fmtMoney($row['total'] ?? 0) . '</td></tr>';
+            }
+            echo '</table>';
+            break;
+
+        case 'resumen':
+        default:
+            $topInversion = $analisis->getTopInversion(min($limitTop, 10), $filtros);
+            $parados = $analisis->getProductosParados($diasParados, min($limitParados, 8), $filtros);
+            $stockBajo = $analisis->getStockBajo(8);
+            $topVendidos = $analisis->getTopVendidos(30, 5);
+
+            echo '<h3>TOP INVERSION</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#f0f0f0"><th>Codigo</th><th>Producto</th><th>Stock</th><th>Invertido</th><th>Margen %</th></tr>';
+            foreach ($topInversion as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">' . $fmtMoney($p['capital_invertido'] ?? 0) . '</td><td style="text-align:center">' . (($p['margen_pct'] ?? null) !== null ? number_format((float)$p['margen_pct'], 1, ',', '.') . '%' : '-') . '</td></tr>';
+            }
+            echo '</table><br><br>';
+
+            echo '<h3>PRODUCTOS PARADOS</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#fff3cd"><th>Codigo</th><th>Producto</th><th>Capital</th><th>Dias</th></tr>';
+            foreach ($parados as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td style="text-align:right">' . $fmtMoney($p['capital_parado'] ?? 0) . '</td><td style="text-align:center">' . (int)($p['dias_sin_venta'] ?? 0) . 'd</td></tr>';
+            }
+            echo '</table><br><br>';
+
+            echo '<h3>STOCK BAJO</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#ffcccc"><th>Codigo</th><th>Producto</th><th>Actual</th><th>Faltante</th></tr>';
+            foreach ($stockBajo as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td style="text-align:right">' . $fmtQty($p['stock'] ?? 0, $p['es_pesable'] ?? 0) . '</td><td style="text-align:right">-' . $fmtQty($p['faltante'] ?? 0, $p['es_pesable'] ?? 0) . '</td></tr>';
+            }
+            echo '</table><br><br>';
+
+            echo '<h3>MAS VENDIDOS</h3>';
+            echo '<table border="1" cellpadding="4">';
+            echo '<tr style="background:#ecfdf5"><th>Codigo</th><th>Producto</th><th>Vendidos</th><th>Ingresos</th></tr>';
+            foreach ($topVendidos as $p) {
+                echo '<tr><td>' . htmlspecialchars((string)$p['codigo']) . '</td><td>' . htmlspecialchars((string)$p['nombre']) . '</td><td style="text-align:right">' . number_format((float)($p['unidades_vendidas'] ?? 0), 0, ',', '.') . '</td><td style="text-align:right">' . $fmtMoney($p['ingresos'] ?? 0) . '</td></tr>';
+            }
+            echo '</table>';
+            break;
     }
 
     echo '</body></html>';

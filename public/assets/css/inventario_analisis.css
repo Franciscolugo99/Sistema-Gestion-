@@ -349,10 +349,27 @@
 
 .inv-table td{
   padding:10px 14px;
+  vertical-align: top;
 }
 
 /* ========== Elementos de tabla ========== */
 .inv-prod-name{ font-weight:500; color: var(--inv-text); }
+.inv-product-link{
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.inv-product-link:hover{
+  color: var(--inv-card-primary);
+  border-bottom-color: rgba(59,130,246,.35);
+}
+.inv-product-link--compact{
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .inv-prod-name-sm{
   font-weight:500;
   font-size:.8rem;
@@ -366,6 +383,59 @@
   font-size:.7rem;
   color: var(--inv-muted);
   margin-top:1px;
+}
+.inv-row-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:6px;
+  align-items:center;
+}
+.inv-action-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:4px 9px;
+  border-radius:999px;
+  border:1px solid var(--inv-border);
+  background: var(--inv-bg-alt);
+  color: var(--inv-text);
+  font-size:.72rem;
+  font-weight:600;
+  line-height:1;
+  text-decoration:none;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.inv-action-chip:hover{
+  transform: translateY(-1px);
+}
+.inv-action-chip--primary{
+  color:#2563eb;
+  border-color: rgba(59,130,246,.25);
+  background: rgba(59,130,246,.10);
+}
+.inv-action-chip--success{
+  color:#059669;
+  border-color: rgba(16,185,129,.24);
+  background: rgba(16,185,129,.10);
+}
+.inv-action-chip--warning{
+  color:#b45309;
+  border-color: rgba(245,158,11,.24);
+  background: rgba(245,158,11,.10);
+}
+.inv-action-chip--neutral{
+  color: var(--inv-muted);
+}
+
+.inv-table td:has(.inv-row-actions){
+  min-width: 170px;
+}
+
+.inv-table td:has(.inv-row-actions) .inv-row-actions{
+  margin-top:0;
+  justify-content:flex-start;
 }
 
 .inv-stock-badge{
@@ -496,6 +566,17 @@ code{
   .inv-filter-group{ width:100%; }
   .inv-filter-input,
   .inv-filter-select{ width:100%; }
+  .inv-table td:has(.inv-row-actions){
+    min-width: 142px;
+  }
+  .inv-row-actions{
+    gap:4px;
+  }
+  .inv-action-chip{
+    min-height:26px;
+    padding:4px 8px;
+    font-size:.68rem;
+  }
 }
 
 /* ========== Print ========== */

@@ -59,7 +59,7 @@ if (!function_exists('flus__has_perm')) {
     }
 }
 
-$canStock = flus__has_perm('editar_stock') || flus__has_perm('ver_stock') || flus__has_perm('stock');
+$canStock = flus__has_perm('editar_stock') || flus__has_perm('ver_reportes');
 if (!$canStock) {
     http_response_code(403);
     echo "Acceso denegado";
@@ -80,6 +80,10 @@ $analisis = new InventarioAnalisis($pdo);
 
 // Permisos específicos
 $canEditarProductos = flus__has_perm('editar_productos');
+$canEditarStock = flus__has_perm('editar_stock');
+$canVerReposicion = $canEditarStock || flus__has_perm('ver_reportes');
+$canVerCompras = $canEditarStock;
+$canVerConteo = $canEditarStock;
 
 // CSRF token (para POST del tab Costos)
 $csrfToken = function_exists('csrf_token') ? csrf_token() : '';
@@ -156,6 +160,10 @@ $filtros = [
 
 // Tab activo
 $tabActivo = $_GET['tab'] ?? 'resumen';
+$ordenRotacion = (string)($_GET['orden'] ?? 'vendidos');
+if (!in_array($ordenRotacion, ['vendidos', 'dias_rest', 'stock', 'nombre'], true)) {
+    $ordenRotacion = 'vendidos';
+}
 
 // Obtener datos
 $resumen = $analisis->getResumenGeneral();
@@ -185,7 +193,12 @@ if ($tabActivo === 'resumen' || $tabActivo === 'parados') {
     $productosParados = $analisis->getProductosParados($diasParados, $limitParados, $filtros);
 }
 if ($tabActivo === 'resumen' || $tabActivo === 'rotacion') {
-    $rotacion = $analisis->getRotacion(30, $limitRotacion, 'vendidos', $filtros);
+    $rotacion = $analisis->getRotacion(
+        30,
+        $limitRotacion,
+        $tabActivo === 'rotacion' ? $ordenRotacion : 'vendidos',
+        $filtros
+    );
 }
 
 if ($tabActivo === 'costos') {
@@ -213,6 +226,85 @@ $fmtQty = static function($value, $esPesable = 0): string {
 $fmtMoney = static function($value): string {
     return '$' . number_format((float)$value, 0, ',', '.');
 };
+
+if (!function_exists('inv_url')) {
+    function inv_url(array $overrides = [], array $remove = []): string {
+        $query = $_GET;
+        unset($query['costos_type'], $query['costos_msg']);
+
+        foreach ($remove as $key) {
+            unset($query[$key]);
+        }
+
+        foreach ($overrides as $key => $value) {
+            if ($value === null) {
+                unset($query[$key]);
+                continue;
+            }
+
+            $query[$key] = (string)$value;
+        }
+
+        $qs = http_build_query($query);
+        return $qs !== '' ? ('?' . $qs) : '?';
+    }
+}
+
+if (!function_exists('inv_export_url')) {
+    function inv_export_url(string $action): string {
+        $query = $_GET;
+        unset($query['costos_type'], $query['costos_msg']);
+        $query['action'] = $action;
+        return 'api/inventario_api.php?' . http_build_query($query);
+    }
+}
+
+if (!function_exists('inv_render_producto_nombre')) {
+    function inv_render_producto_nombre(array $producto, bool $compact = false): string {
+        global $canEditarProductos;
+
+        $id = (int)($producto['id'] ?? 0);
+        $nombre = htmlspecialchars((string)($producto['nombre'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if ($id <= 0 || !$canEditarProductos) {
+            return $nombre;
+        }
+
+        $class = $compact ? 'inv-product-link inv-product-link--compact' : 'inv-product-link';
+        return '<a class="' . $class . '" href="productos.php?editar=' . $id . '">' . $nombre . '</a>';
+    }
+}
+
+if (!function_exists('inv_render_producto_acciones')) {
+    function inv_render_producto_acciones(array $producto): string {
+        global $canEditarProductos, $canVerReposicion, $canVerCompras, $canVerConteo;
+
+        $id = (int)($producto['id'] ?? 0);
+        $codigo = trim((string)($producto['codigo'] ?? ''));
+        $nombre = trim((string)($producto['nombre'] ?? ''));
+        $busqueda = $codigo !== '' ? $codigo : $nombre;
+
+        if ($id <= 0) {
+            return '';
+        }
+
+        $items = [];
+
+        if ($canEditarProductos) {
+            $items[] = '<a class="inv-action-chip inv-action-chip--primary" href="productos.php?editar=' . $id . '">Editar</a>';
+        }
+        if ($canVerReposicion && $busqueda !== '') {
+            $items[] = '<a class="inv-action-chip inv-action-chip--warning" href="reposicion.php?' . http_build_query(['q' => $busqueda]) . '">Reposicion</a>';
+        }
+        if ($canVerCompras && $busqueda !== '') {
+            $items[] = '<a class="inv-action-chip inv-action-chip--success" href="compras.php?' . http_build_query(['q' => $busqueda]) . '">Comprar</a>';
+        }
+        if ($canVerConteo && $busqueda !== '') {
+            $items[] = '<a class="inv-action-chip inv-action-chip--neutral" href="inventario_fisico.php?' . http_build_query(['q' => $busqueda]) . '">Conteo</a>';
+        }
+
+        return $items === [] ? '' : '<div class="inv-row-actions">' . implode('', $items) . '</div>';
+    }
+}
 
 // Helper para tooltips de ayuda (fallback si no existe el archivo)
 if (!function_exists('renderTooltipAyuda')) {
@@ -262,7 +354,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
             </div>
             <div class="page-actions module-header-actions">
-                <a href="api/inventario_api.php?action=exportar_excel" class="btn btn-secondary" title="Exportar a Excel">
+                <a href="<?= htmlspecialchars(inv_export_url('exportar_excel'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-secondary" title="Exportar a Excel">
                     Excel
                 </a>
                 <button type="button" class="btn btn-secondary" onclick="exportarPDF()">
@@ -278,13 +370,13 @@ require __DIR__ . '/partials/header.php';
     <!-- Tabs de navegación -->
     <section class="inv-content-shell">
     <div class="inv-tabs">
-        <a href="?tab=resumen" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">📊 Resumen</a>
-        <a href="?tab=inversion" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">💰 Inversión</a>
-        <a href="?tab=rotacion" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">🔄 Rotación</a>
-        <a href="?tab=costos" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">💲 Costos</a>
-        <a href="?tab=parados" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">😴 Parados</a>
-        <a href="?tab=alertas" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">⚠️ Alertas</a>
-        <a href="?tab=ventas" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">📈 Ventas</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'resumen']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">📊 Resumen</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">💰 Inversión</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'rotacion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">🔄 Rotación</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">💲 Costos</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">😴 Parados</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">⚠️ Alertas</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">📈 Ventas</a>
     </div>
 
     <!-- ========== TARJETAS DE RESUMEN (siempre visibles) ========== -->
@@ -299,7 +391,7 @@ require __DIR__ . '/partials/header.php';
                 </span>
             </div>
             <?php if ((int)$resumen['productos_sin_costo'] > 0): ?>
-                <a href="?tab=costos" class="inv-card-footnote inv-card-footnote-link" title="Productos sin costo cargado">
+                <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-card-footnote inv-card-footnote-link" title="Productos sin costo cargado">
                     ⚠️ <?= $resumen['productos_sin_costo'] ?> sin costo
                 </a>
             <?php endif; ?>
@@ -350,7 +442,7 @@ require __DIR__ . '/partials/header.php';
                     <?= renderTooltipAyuda('stock_bajo') ?>
                 </span>
             </div>
-            <a href="?tab=alertas" class="inv-card-link">Ver detalle →</a>
+            <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-card-link">Ver detalle →</a>
         </div>
         <?php endif; ?>
 
@@ -449,7 +541,7 @@ require __DIR__ . '/partials/header.php';
             <div class="panel inv-table-panel">
                 <div class="panel-header">
                     <h2 class="panel-title">💰 Top 10 Mayor Inversión <?= renderTooltipAyuda('capital_invertido') ?></h2>
-                    <a href="?tab=inversion" class="btn btn-sm btn-link">Ver todos →</a>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos →</a>
                 </div>
                 <div class="inv-table-wrap">
                     <table class="inv-table">
@@ -465,7 +557,7 @@ require __DIR__ . '/partials/header.php';
                             <?php foreach (array_slice($topInversion, 0, 10) as $prod): ?>
                             <tr>
                                 <td>
-                                    <div class="inv-prod-name"><?= htmlspecialchars($prod['nombre']) ?></div>
+                                    <div class="inv-prod-name"><?= inv_render_producto_nombre($prod) ?></div>
                                     <div class="inv-prod-code"><?= htmlspecialchars($prod['codigo']) ?></div>
                                 </td>
                                 <td class="text-center">
@@ -492,7 +584,7 @@ require __DIR__ . '/partials/header.php';
             <div class="panel inv-table-panel">
                 <div class="panel-header">
                     <h2 class="panel-title">😴 Productos Parados (30+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
-                    <a href="?tab=parados" class="btn btn-sm btn-link">Ver todos →</a>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos →</a>
                 </div>
                 <div class="inv-table-wrap">
                     <table class="inv-table">
@@ -507,7 +599,7 @@ require __DIR__ . '/partials/header.php';
                             <?php foreach (array_slice($productosParados, 0, 8) as $prod): ?>
                             <tr>
                                 <td>
-                                    <div class="inv-prod-name"><?= htmlspecialchars($prod['nombre']) ?></div>
+                                    <div class="inv-prod-name"><?= inv_render_producto_nombre($prod) ?></div>
                                 </td>
                                 <td class="text-right inv-highlight-warning"><?= $fmtMoney($prod['capital_parado']) ?></td>
                                 <td class="text-center">
@@ -543,7 +635,7 @@ require __DIR__ . '/partials/header.php';
             <div class="panel inv-table-panel">
                 <div class="panel-header">
                     <h2 class="panel-title">🏆 Más Vendidos (30 días)</h2>
-                    <a href="?tab=ventas" class="btn btn-sm btn-link">Ver más →</a>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver más →</a>
                 </div>
                 <div class="inv-table-wrap inv-table-compact">
                     <table class="inv-table">
@@ -557,7 +649,10 @@ require __DIR__ . '/partials/header.php';
                         <tbody>
                             <?php foreach ($topVendidosResumen as $prod): ?>
                             <tr>
-                                <td><div class="inv-prod-name-sm"><?= htmlspecialchars($prod['nombre']) ?></div></td>
+                                <td>
+                                    <div class="inv-prod-name-sm"><?= inv_render_producto_nombre($prod, true) ?></div>
+                                    <?= inv_render_producto_acciones($prod) ?>
+                                </td>
                                 <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
                                 <td class="text-right"><?= $fmtMoney($prod['ingresos']) ?></td>
                             </tr>
@@ -717,7 +812,7 @@ require __DIR__ . '/partials/header.php';
         <div class="panel-header">
             <h2 class="panel-title">🔄 Rotación de Productos (últimos 30 días) <?= renderTooltipAyuda('rotacion') ?></h2>
             <div class="panel-controls">
-                <select onchange="location.href='?tab=rotacion&orden='+this.value" class="inv-filter-select">
+                <select onchange="location.href='<?= htmlspecialchars(inv_url(['tab' => 'rotacion'], ['orden']), ENT_QUOTES, 'UTF-8') ?>&orden='+encodeURIComponent(this.value)" class="inv-filter-select">
                     <option value="vendidos" <?= ($_GET['orden'] ?? '') === 'vendidos' ? 'selected' : '' ?>>Más vendidos primero</option>
                     <option value="dias_rest" <?= ($_GET['orden'] ?? '') === 'dias_rest' ? 'selected' : '' ?>>Menor stock restante</option>
                     <option value="stock" <?= ($_GET['orden'] ?? '') === 'stock' ? 'selected' : '' ?>>Mayor stock</option>
@@ -737,6 +832,7 @@ require __DIR__ . '/partials/header.php';
                         <th class="text-center">Prom. Diario</th>
                         <th class="text-center">Días Stock <?= renderTooltipAyuda('dias_stock_restante') ?></th>
                         <th class="text-center">ABC</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -744,7 +840,7 @@ require __DIR__ . '/partials/header.php';
                     <tr>
                         <td class="text-muted"><?= $i + 1 ?></td>
                         <td>
-                            <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
+                            <strong><?= inv_render_producto_nombre($prod) ?></strong>
                             <div class="inv-prod-code"><?= htmlspecialchars($prod['codigo']) ?></div>
                         </td>
                         <td><?= htmlspecialchars($prod['categoria'] ?: '-') ?></td>
@@ -772,6 +868,7 @@ require __DIR__ . '/partials/header.php';
                                 <?= $prod['clasificacion_abc'] ?>
                             </span>
                         </td>
+                        <td><?= inv_render_producto_acciones($prod) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -825,6 +922,7 @@ require __DIR__ . '/partials/header.php';
                         <th>Categoría</th>
                         <th class="text-center">Stock</th>
                         <th class="text-right">Capital Parado</th>
+                        <th>Acciones</th>
                         <th class="text-center">Última Venta</th>
                         <th class="text-center">Días</th>
                     </tr>
@@ -833,7 +931,7 @@ require __DIR__ . '/partials/header.php';
                     <?php foreach ($productosParados as $prod): ?>
                     <tr>
                         <td>
-                            <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
+                            <strong><?= inv_render_producto_nombre($prod) ?></strong>
                             <div class="inv-prod-code"><?= htmlspecialchars($prod['codigo']) ?></div>
                         </td>
                         <td><?= htmlspecialchars($prod['categoria'] ?: '-') ?></td>
@@ -841,6 +939,7 @@ require __DIR__ . '/partials/header.php';
                             <span class="inv-stock-badge"><?= $fmtQty($prod['stock'], $prod['es_pesable']) ?></span>
                         </td>
                         <td class="text-right inv-highlight-warning"><strong><?= $fmtMoney($prod['capital_parado']) ?></strong></td>
+                        <td><?= inv_render_producto_acciones($prod) ?></td>
                         <td class="text-center">
                             <?php if ($prod['ultima_venta'] === 'Nunca'): ?>
                                 <span class="tag tag-muted">Nunca</span>
@@ -895,13 +994,14 @@ require __DIR__ . '/partials/header.php';
                     <th class="text-center">Stock</th>
                     <th class="text-right">Precio</th>
                     <th class="text-right">Cargar costo</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($productosSinCosto as $p): ?>
                 <tr>
                     <td>
-                        <div class="inv-prod-name"><?= htmlspecialchars((string)($p['nombre'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+                        <div class="inv-prod-name"><?= inv_render_producto_nombre($p) ?></div>
                         <div class="inv-prod-meta">
                             <?= htmlspecialchars((string)($p['codigo'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
                             <?php if (!empty($p['categoria'])): ?>
@@ -930,6 +1030,7 @@ require __DIR__ . '/partials/header.php';
                             <a href="productos.php?editar=<?= (int)($p['id'] ?? 0) ?>" class="btn btn-sm btn-secondary">Abrir</a>
                         <?php endif; ?>
                     </td>
+                    <td><?= inv_render_producto_acciones($p) ?></td>
                 </tr>
                 <?php endforeach; ?>
 
@@ -964,6 +1065,7 @@ require __DIR__ . '/partials/header.php';
                         <tr>
                             <th>Producto</th>
                             <th>Proveedor</th>
+                            <th>Acciones</th>
                             <th class="text-center">Actual</th>
                             <th class="text-center">Mínimo</th>
                             <th class="text-center">Faltante</th>
@@ -973,10 +1075,11 @@ require __DIR__ . '/partials/header.php';
                         <?php foreach ($stockBajo as $prod): ?>
                         <tr>
                             <td>
-                                <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
+                                <strong><?= inv_render_producto_nombre($prod) ?></strong>
                                 <div class="inv-prod-code"><?= htmlspecialchars($prod['codigo']) ?></div>
                             </td>
                             <td><?= htmlspecialchars($prod['proveedor']) ?></td>
+                            <td><?= inv_render_producto_acciones($prod) ?></td>
                             <td class="text-center"><span class="inv-stock-low"><?= $fmtQty($prod['stock'], $prod['es_pesable']) ?></span></td>
                             <td class="text-center text-muted"><?= $fmtQty($prod['stock_minimo'], $prod['es_pesable']) ?></td>
                             <td class="text-center"><span class="inv-faltante">-<?= $fmtQty($prod['faltante'], $prod['es_pesable']) ?></span></td>
@@ -1005,13 +1108,14 @@ require __DIR__ . '/partials/header.php';
                             <th class="text-center">Prom/día</th>
                             <th class="text-center">Días Rest. <?= renderTooltipAyuda('dias_stock_restante') ?></th>
                             <th class="text-center">Reponer <?= renderTooltipAyuda('cantidad_reponer') ?></th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($proximosAgotarse as $prod): ?>
                         <tr>
                             <td>
-                                <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
+                                <strong><?= inv_render_producto_nombre($prod) ?></strong>
                             </td>
                             <td class="text-center"><?= $fmtQty($prod['stock'], $prod['es_pesable']) ?></td>
                             <td class="text-center"><?= number_format((float)$prod['promedio_diario'], 1, ',', '.') ?></td>
@@ -1025,6 +1129,7 @@ require __DIR__ . '/partials/header.php';
                                     <span class="text-muted">-</span>
                                 <?php endif; ?>
                             </td>
+                            <td><?= inv_render_producto_acciones($prod) ?></td>
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($proximosAgotarse)): ?>
@@ -1053,6 +1158,7 @@ require __DIR__ . '/partials/header.php';
                             <th class="text-center">Vendidos</th>
                             <th class="text-right">Ingresos</th>
                             <th class="text-center">Veces</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1060,12 +1166,13 @@ require __DIR__ . '/partials/header.php';
                         <tr>
                             <td class="text-muted"><?= $i + 1 ?></td>
                             <td>
-                                <strong><?= htmlspecialchars($prod['nombre']) ?></strong>
+                                <strong><?= inv_render_producto_nombre($prod) ?></strong>
                                 <div class="inv-prod-code"><?= htmlspecialchars($prod['categoria'] ?: '-') ?></div>
                             </td>
                             <td class="text-center"><span class="inv-vendidos"><?= number_format((float)$prod['unidades_vendidas'], 0, ',', '.') ?></span></td>
                             <td class="text-right"><strong><?= $fmtMoney($prod['ingresos']) ?></strong></td>
                             <td class="text-center"><?= $prod['veces_vendido'] ?></td>
+                            <td><?= inv_render_producto_acciones($prod) ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
