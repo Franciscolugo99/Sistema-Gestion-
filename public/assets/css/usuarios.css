@@ -178,6 +178,20 @@
   font-weight: 600; color: var(--text); font-size: 0.9rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.badge-resguardo {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(245,158,11,.12);
+  border: 1px solid rgba(245,158,11,.25);
+  color: #d97706;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
 .user-username {
   font-size: 0.78rem; color: var(--muted);
   font-family: 'Fira Code', 'Cascadia Code', monospace;
@@ -288,6 +302,19 @@
   box-shadow: 0 2px 8px rgba(34,197,94,.18);
 }
 
+.action-btn--locked {
+  color: #64748b;
+  border-color: rgba(148,163,184,.28);
+  background: rgba(148,163,184,.08);
+  cursor: default;
+}
+.action-btn--locked:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: rgba(148,163,184,.28);
+  background: rgba(148,163,184,.08);
+}
+
 .action-btn:active  { transform: translateY(0); }
 .action-btn.loading { opacity: .55; pointer-events: none; }
 
@@ -393,6 +420,12 @@
   box-shadow: 0 0 0 3px rgba(14,165,233,.1);
 }
 .form-input::placeholder { color: var(--muted); opacity: .7; }
+.form-input[readonly],
+.form-select:disabled {
+  opacity: .72;
+  cursor: not-allowed;
+  background: color-mix(in srgb, var(--bg) 88%, #94a3b8 12%);
+}
 
 /* Password input */
 .password-input-wrap { position: relative; display: flex; align-items: center; }

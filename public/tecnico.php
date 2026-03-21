@@ -91,6 +91,8 @@ function tecnico_translate_smoke_output(string $stdout): string
         'flus_is_critical_role recognizes protected admin slugs' => 'flus_is_critical_role reconoce slugs protegidos de administrador',
         'flus_validate_user_payload checks duplicates and role existence' => 'flus_validate_user_payload valida duplicados y existencia de rol',
         'flus_guard_user_admin_mutation blocks self deactivation' => 'flus_guard_user_admin_mutation bloquea la auto desactivacion',
+        'flus_guard_user_admin_mutation protects reserved admin account role' => 'flus_guard_user_admin_mutation protege el rol de la cuenta admin de resguardo',
+        'flus_guard_reserved_admin_role_mutation locks reserved role permissions' => 'flus_guard_reserved_admin_role_mutation bloquea permisos del rol admin de resguardo',
         'flus_normalize_sale_status normalizes empty and custom states' => 'flus_normalize_sale_status normaliza estados vacios y personalizados',
         'flus_sale_helpers keep annulled criteria consistent' => 'flus_sale_helpers mantiene consistente el criterio de anulacion',
         'flus_calcular_estado_producto keeps product status rules consistent' => 'flus_calcular_estado_producto mantiene consistentes las reglas de estado de producto',

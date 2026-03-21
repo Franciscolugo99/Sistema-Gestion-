@@ -1,33 +1,28 @@
 /* ============================
-   INICIO – FLUS v3.2 (2026)
-   Modo oscuro + Modo claro
+   INICIO - FLUS
 ============================ */
 
-/* ============================
-   VARIABLES (MODO OSCURO)
-============================ */
 .page-index {
   --idx-panel-bg: rgba(15, 23, 42, 0.8);
   --idx-panel-border: rgba(51, 65, 85, 0.6);
   --idx-panel-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-  
+
   --idx-title: #f1f5f9;
   --idx-subtitle: #64748b;
-  
-  --idx-card-bg: rgba(2, 6, 23, 0.8);
-  --idx-card-border: rgba(51, 65, 85, 0.5);
-  --idx-card-hover-border: rgba(148, 163, 184, 0.6);
-  --idx-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  --idx-card-hover-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-  
+
+  --idx-card-bg: rgba(2, 6, 23, 0.84);
+  --idx-card-border: rgba(51, 65, 85, 0.48);
+  --idx-card-hover-border: rgba(148, 163, 184, 0.62);
+  --idx-card-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  --idx-card-hover-shadow: 0 18px 36px rgba(15, 23, 42, 0.38);
+
   --idx-card-title: #f1f5f9;
   --idx-card-desc: #94a3b8;
-  
-  --idx-pill-bg: rgba(15, 23, 42, 0.9);
-  --idx-pill-border: rgba(148, 163, 184, 0.5);
+
+  --idx-pill-bg: rgba(15, 23, 42, 0.92);
+  --idx-pill-border: rgba(148, 163, 184, 0.46);
   --idx-pill-text: #e5e7eb;
-  
-  /* Colores de tags */
+
   --idx-tag-green: #86efac;
   --idx-tag-blue: #7dd3fc;
   --idx-tag-cyan: #67e8f9;
@@ -36,32 +31,28 @@
   --idx-tag-pink: #f9a8d4;
 }
 
-/* ============================
-   VARIABLES (MODO CLARO)
-============================ */
 body[data-theme="light"].page-index,
 html[data-theme="light"] .page-index {
   --idx-panel-bg: #ffffff;
   --idx-panel-border: #e2e8f0;
   --idx-panel-shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
-  
+
   --idx-title: #0f172a;
   --idx-subtitle: #64748b;
-  
-  --idx-card-bg: #ffffff;
-  --idx-card-border: #e2e8f0;
-  --idx-card-hover-border: #cbd5e1;
-  --idx-card-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
-  --idx-card-hover-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  
+
+  --idx-card-bg: rgba(255, 255, 255, 0.98);
+  --idx-card-border: #dbe4f0;
+  --idx-card-hover-border: #bfd0e3;
+  --idx-card-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+  --idx-card-hover-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
+
   --idx-card-title: #0f172a;
   --idx-card-desc: #64748b;
-  
+
   --idx-pill-bg: rgba(255, 255, 255, 0.95);
   --idx-pill-border: #cbd5e1;
   --idx-pill-text: #475569;
-  
-  /* Colores de tags más saturados para modo claro */
+
   --idx-tag-green: #16a34a;
   --idx-tag-blue: #0284c7;
   --idx-tag-cyan: #0891b2;
@@ -70,21 +61,18 @@ html[data-theme="light"] .page-index {
   --idx-tag-pink: #db2777;
 }
 
-/* ============================
-   PANEL PRINCIPAL
-============================ */
 .page-index .index-panel {
-  padding: 24px 26px;
-  background: var(--idx-panel-bg);
-  border-radius: 18px;
+  padding: 26px 28px;
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 24%),
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.08), transparent 22%),
+    var(--idx-panel-bg);
+  border-radius: 22px;
   border: 1px solid var(--idx-panel-border);
   box-shadow: var(--idx-panel-shadow);
   backdrop-filter: blur(12px);
 }
 
-/* ============================
-   HEADER
-============================ */
 .page-index .index-header {
   display: flex;
   justify-content: space-between;
@@ -97,9 +85,13 @@ html[data-theme="light"] .page-index {
   display: flex;
   align-items: center;
   gap: 18px;
+  min-width: 0;
 }
 
-/* Logo */
+.page-index .index-copy {
+  min-width: 0;
+}
+
 .page-index .logo-header {
   display: flex;
   align-items: center;
@@ -107,47 +99,45 @@ html[data-theme="light"] .page-index {
 }
 
 .page-index .logo-sistema {
-  height: 100px;
-  filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.45));
+  height: 92px;
+  filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.18));
   transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 .page-index .logo-sistema:hover {
-  transform: scale(1.05);
-  filter: drop-shadow(0 0 18px rgba(34, 197, 94, 0.55));
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 14px 24px rgba(34, 197, 94, 0.24));
 }
 
-/* Título / subtítulo */
 .page-index .index-title {
   margin: 0;
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.72rem;
+  font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--idx-title);
 }
 
 .page-index .index-subtitle {
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--idx-subtitle);
-  font-size: 0.9rem;
+  font-size: 0.94rem;
 }
 
-/* Pill de estado */
 .page-index .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 8px 14px;
   border-radius: 999px;
   background: var(--idx-pill-bg);
   border: 1px solid var(--idx-pill-border);
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.82rem;
+  font-weight: 600;
   color: var(--idx-pill-text);
+  white-space: nowrap;
 }
 
-/* Punto de estado */
 .page-index .status-dot {
   width: 8px;
   height: 8px;
@@ -164,101 +154,106 @@ html[data-theme="light"] .page-index {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
 }
 
-/* ============================
-   GRID DE MÓDULOS
-============================ */
 .page-index .index-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
 }
 
-/* ============================
-   TARJETAS
-============================ */
 .page-index .index-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
+  min-width: 0;
   padding: 18px 20px 20px;
-  border-radius: 14px;
+  border-radius: 18px;
   border: 1px solid var(--idx-card-border);
   background: var(--idx-card-bg);
   text-decoration: none;
   color: inherit;
   box-shadow: var(--idx-card-shadow);
   overflow: hidden;
-  transition: all 0.2s ease;
+  isolation: isolate;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
   cursor: pointer;
 }
 
 .page-index .index-card::before {
   content: "";
   position: absolute;
-  inset: -50%;
-  background: radial-gradient(
-    circle at top,
-    rgba(56, 189, 248, 0.15) 0%,
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity 0.25s ease;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 42%);
+  opacity: 0.8;
   pointer-events: none;
+  z-index: -1;
+}
+
+.page-index .index-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 16px 0 16px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.78), rgba(59, 130, 246, 0));
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
 .page-index .index-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: var(--idx-card-hover-border);
   box-shadow: var(--idx-card-hover-shadow);
 }
 
-.page-index .index-card:hover::before {
+.page-index .index-card:hover::after {
   opacity: 1;
+  transform: translateY(0);
 }
 
-/* Card icon */
 .page-index .index-card .card-icon {
-  font-size: 1.6rem;
-  margin-bottom: 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 6px;
+  border-radius: 14px;
+  color: var(--idx-card-title);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.12);
 }
 
-/* Card title */
+.page-index .index-card .card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
 .page-index .index-card .card-title {
-  font-weight: 600;
-  font-size: 1.05rem;
+  font-weight: 700;
+  font-size: 1.07rem;
   color: var(--idx-card-title);
 }
 
-/* Card description */
 .page-index .index-card .card-desc {
-  font-size: 0.82rem;
+  font-size: 0.83rem;
   color: var(--idx-card-desc);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
-/* Card tag */
 .page-index .index-card .card-tag {
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: 10px;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
 }
 
-/* ============================
-   TARJETA PRIMARIA (CAJA)
-============================ */
 .page-index .index-card-primary {
-  background: linear-gradient(
-    135deg,
-    #16a34a 0%,
-    #052e16 50%,
-    #020617 100%
-  );
-  border-color: rgba(34, 197, 94, 0.6);
-  box-shadow: 0 12px 40px rgba(34, 197, 94, 0.3);
+  background: linear-gradient(145deg, #22c55e 0%, #16a34a 55%, #0f172a 100%);
+  border-color: rgba(34, 197, 94, 0.64);
+  box-shadow: 0 16px 36px rgba(34, 197, 94, 0.22);
 }
 
 .page-index .index-card-primary .card-title,
@@ -267,52 +262,43 @@ html[data-theme="light"] .page-index {
 }
 
 .page-index .index-card-primary .card-desc {
-  color: rgba(240, 253, 244, 0.8);
+  color: rgba(240, 253, 244, 0.88);
 }
 
 .page-index .index-card-primary .card-tag {
-  color: #bbf7d0;
-}
-
-.page-index .index-card-primary:hover {
-  box-shadow: 0 20px 50px rgba(34, 197, 94, 0.4);
-  border-color: rgba(34, 197, 94, 0.8);
-}
-
-.page-index .index-card-primary::before {
-  background: radial-gradient(
-    circle at top,
-    rgba(34, 197, 94, 0.25) 0%,
-    transparent 60%
-  );
-}
-
-/* Modo claro - Tarjeta primaria */
-body[data-theme="light"].page-index .index-card-primary,
-html[data-theme="light"] .page-index .index-card-primary {
-  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-  border-color: #22c55e;
-  box-shadow: 0 12px 40px rgba(34, 197, 94, 0.35);
-}
-
-body[data-theme="light"].page-index .index-card-primary .card-title,
-html[data-theme="light"] .page-index .index-card-primary .card-title {
-  color: #ffffff;
-}
-
-body[data-theme="light"].page-index .index-card-primary .card-desc,
-html[data-theme="light"] .page-index .index-card-primary .card-desc {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-body[data-theme="light"].page-index .index-card-primary .card-tag,
-html[data-theme="light"] .page-index .index-card-primary .card-tag {
   color: #dcfce7;
 }
 
-/* ============================
-   COLORES DE TAGS
-============================ */
+.page-index .index-card-primary .card-icon {
+  color: #f0fdf4;
+  background: rgba(240, 253, 244, 0.14);
+  border-color: rgba(240, 253, 244, 0.12);
+}
+
+.page-index .index-card-primary::after {
+  background: linear-gradient(90deg, rgba(220, 252, 231, 0.95), rgba(220, 252, 231, 0));
+}
+
+.page-index .index-card-featured {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.14), transparent 32%),
+    var(--idx-card-bg);
+}
+
+body[data-theme="light"].page-index .index-card-featured,
+html[data-theme="light"] .page-index .index-card-featured {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.08), transparent 32%),
+    var(--idx-card-bg);
+}
+
+.page-index .index-card-featured .card-icon {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.14);
+}
+
 .page-index .tag-green { color: var(--idx-tag-green); }
 .page-index .tag-blue { color: var(--idx-tag-blue); }
 .page-index .tag-cyan { color: var(--idx-tag-cyan); }
@@ -320,9 +306,6 @@ html[data-theme="light"] .page-index .index-card-primary .card-tag {
 .page-index .tag-purple { color: var(--idx-tag-purple); }
 .page-index .tag-pink { color: var(--idx-tag-pink); }
 
-/* ============================
-   EMPTY STATE
-============================ */
 .page-index .empty-cell {
   grid-column: 1 / -1;
   padding: 40px;
@@ -331,12 +314,9 @@ html[data-theme="light"] .page-index .index-card-primary .card-tag {
   font-size: 0.95rem;
   background: var(--idx-card-bg);
   border: 1px dashed var(--idx-card-border);
-  border-radius: 14px;
+  border-radius: 18px;
 }
 
-/* ============================
-   RESPONSIVE
-============================ */
 @media (max-width: 768px) {
   .page-index .index-panel {
     padding: 18px 16px;
@@ -359,7 +339,7 @@ html[data-theme="light"] .page-index .index-card-primary .card-tag {
   }
 
   .page-index .index-title {
-    font-size: 1.3rem;
+    font-size: 1.34rem;
   }
 
   .page-index .status-pill {
@@ -367,24 +347,30 @@ html[data-theme="light"] .page-index .index-card-primary .card-tag {
   }
 
   .page-index .index-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px;
   }
 
   .page-index .index-card {
-    padding: 14px 16px 16px;
+    padding: 15px 16px 17px;
   }
 
   .page-index .index-card .card-icon {
-    font-size: 1.4rem;
+    width: 42px;
+    height: 42px;
+  }
+
+  .page-index .index-card .card-icon svg {
+    width: 20px;
+    height: 20px;
   }
 
   .page-index .index-card .card-title {
-    font-size: 0.95rem;
+    font-size: 0.98rem;
   }
 
   .page-index .index-card .card-desc {
-    font-size: 0.78rem;
+    font-size: 0.79rem;
   }
 }
 
@@ -394,9 +380,6 @@ html[data-theme="light"] .page-index .index-card-primary .card-tag {
   }
 }
 
-/* ============================
-   PRINT
-============================ */
 @media print {
   .page-index .status-pill {
     display: none;

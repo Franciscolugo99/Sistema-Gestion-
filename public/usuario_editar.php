@@ -38,6 +38,8 @@ try {
     exit;
 }
 
+$esUsuarioResguardo = flus_is_reserved_admin_user($usuario);
+
 /* ============================================================
    PROCESAR FORMULARIO (POST)
 ============================================================ */
@@ -65,11 +67,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userId,
             (int)$data['activo'],
             false,
-            (int)$data['role_id']
+            (int)$data['role_id'],
+            (string)$data['username']
         );
         if ($guardError !== null) {
             $errors[] = $guardError;
         }
+    }
+
+    if (empty($errors) && $esUsuarioResguardo && (int)($_SESSION['user_id'] ?? 0) !== $userId && (string)$data['password'] !== '') {
+        $errors[] = 'La contraseña de la cuenta admin de resguardo solo puede cambiarla ese mismo usuario.';
     }
 
     if (empty($errors)) {
@@ -140,6 +147,7 @@ $extraJs        = ['assets/js/usuario_form.js?v=1'];
 require __DIR__ . '/partials/header.php';
 
 $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
+$puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
 ?>
 
 <div class="panel usuarios-panel">
@@ -172,6 +180,16 @@ $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
           <?php endforeach; ?>
         </ul>
       </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($esUsuarioResguardo): ?>
+    <div class="alert alert-warning">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+      Esta es la cuenta admin de resguardo. Se puede actualizar nombre y email, pero su usuario, rol y estado quedan fijos. La contraseña solo la puede cambiar esa misma cuenta.
     </div>
   <?php endif; ?>
 
@@ -227,8 +245,9 @@ $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
               placeholder="usuario123"
               value="<?= h($usuario['username'] ?? '') ?>"
               required minlength="3" maxlength="50"
-              pattern="[a-zA-Z0-9_]+" autocomplete="username">
-            <span class="form-hint">Solo letras, números y guion bajo (_)</span>
+              pattern="[a-zA-Z0-9_]+" autocomplete="username"
+              <?= $esUsuarioResguardo ? 'readonly' : '' ?>>
+            <span class="form-hint"><?= $esUsuarioResguardo ? 'La cuenta de resguardo conserva el usuario @admin.' : 'Solo letras, números y guion bajo (_)' ?></span>
             <span class="form-error" data-error-for="username"></span>
           </div>
           <div class="form-field">
@@ -236,14 +255,15 @@ $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
             <div class="password-input-wrap">
               <input type="password" id="password" name="password" class="form-input"
                 placeholder="Dejar vacío para no cambiar"
-                minlength="6" maxlength="255" autocomplete="new-password">
-              <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false">
+                minlength="6" maxlength="255" autocomplete="new-password"
+                <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
+              <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false" <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>
             </div>
-            <span class="form-hint">Dejá vacío si no querés cambiar la contraseña</span>
+            <span class="form-hint"><?= $puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.' ?></span>
             <span class="form-error" data-error-for="password"></span>
           </div>
         </div>
@@ -262,7 +282,10 @@ $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
         <div class="form-row">
           <div class="form-field">
             <label for="role_id" class="form-label">Rol <span class="required">*</span></label>
-            <select id="role_id" name="role_id" class="form-select" required>
+            <?php if ($esUsuarioResguardo): ?>
+              <input type="hidden" name="role_id" value="<?= (int)$usuario['role_id'] ?>">
+            <?php endif; ?>
+            <select id="role_id" name="<?= $esUsuarioResguardo ? '' : 'role_id' ?>" class="form-select" required <?= $esUsuarioResguardo ? 'disabled' : '' ?>>
               <option value="">Seleccionar rol...</option>
               <?php foreach ($roles as $rol): ?>
                 <option value="<?= (int)$rol['id'] ?>"
@@ -276,17 +299,24 @@ $esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
           <div class="form-field">
             <label class="form-label">Estado</label>
             <div class="uf-toggle-wrap">
-              <label class="uf-toggle-switch<?= $esMiUsuario ? ' uf-toggle-disabled' : '' ?>">
+              <?php if ($esMiUsuario || $esUsuarioResguardo): ?>
+                <input type="hidden" name="activo" value="<?= !empty($usuario['activo']) ? '1' : '0' ?>">
+              <?php endif; ?>
+              <label class="uf-toggle-switch<?= ($esMiUsuario || $esUsuarioResguardo) ? ' uf-toggle-disabled' : '' ?>">
                 <input type="checkbox" id="activo" name="activo" class="uf-toggle-input"
                   <?= !empty($usuario['activo']) ? 'checked' : '' ?>
-                  <?= $esMiUsuario ? 'disabled' : '' ?>>
+                  <?= ($esMiUsuario || $esUsuarioResguardo) ? 'disabled' : '' ?>>
                 <span class="uf-toggle-track">
                   <span class="uf-toggle-thumb"></span>
                 </span>
                 <span class="uf-toggle-label">Usuario activo</span>
               </label>
               <span class="form-hint">
-                <?= $esMiUsuario ? 'No podés desactivar tu propio usuario' : 'Si está desactivado, no podrá iniciar sesión' ?>
+                <?=
+                  $esUsuarioResguardo
+                    ? 'La cuenta admin de resguardo siempre queda activa.'
+                    : ($esMiUsuario ? 'No podés desactivar tu propio usuario' : 'Si está desactivado, no podrá iniciar sesión')
+                ?>
               </span>
             </div>
           </div>

@@ -28,6 +28,7 @@
   border-radius: 22px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, .08);
   padding: 1.25rem;
+  min-width: 0;
 }
 
 .stat-card .stat-label {
@@ -172,10 +173,17 @@
   color: #e2e8f0;
   border-radius: 16px;
   padding: 1rem;
-  overflow: auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
   max-height: 360px;
   font-size: .92rem;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .terminal-output--error {
@@ -186,6 +194,7 @@
 
 .tecnico-details {
   margin-top: .75rem;
+  min-width: 0;
 }
 
 .tecnico-details summary {

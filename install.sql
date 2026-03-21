@@ -705,7 +705,8 @@ INSERT INTO `roles` (`id`, `nombre`, `slug`, `created_at`) VALUES
   (1, 'Administrador', 'admin', NOW()),
   (2, 'Encargado', 'encargado', NOW()),
   (3, 'Cajero', 'cajero', NOW()),
-  (4, 'Auditor', 'auditor', NOW())
+  (4, 'Auditor', 'auditor', NOW()),
+  (5, 'Operador', 'operador', NOW())
 ON DUPLICATE KEY UPDATE
   `nombre` = VALUES(`nombre`),
   `slug` = VALUES(`slug`);
@@ -773,6 +774,14 @@ INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
 SELECT 4, p.`id`
 FROM `permissions` p
 WHERE p.`slug` IN ('ver_costos','ver_reportes','ver_movimientos','ver_auditoria','ver_historial_caja','ver_diagnostico');
+
+INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
+SELECT 5, p.`id`
+FROM `permissions` p
+WHERE p.`slug` IN (
+  'realizar_ventas','cerrar_caja','ver_clientes','registrar_pago_cc','registrar_cargo_cc',
+  'ver_cuenta_corriente','editar_stock','ver_stock','ver_proveedores','editar_proveedores'
+);
 
 INSERT INTO `users` (`id`, `nombre`, `email`, `username`, `password_hash`, `role_id`, `activo`, `created_at`, `ultimo_acceso`, `updated_at`) VALUES
   (1, 'Administrador FLUS', 'admin@flus.local', 'admin', '$2y$10$yPokhUEft2w2kngTRjoBkuaq7cwygVwwfYA.oY.lKVH7Sxytlkkde', 1, 1, NOW(), NULL, NOW())

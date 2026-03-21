@@ -244,6 +244,28 @@ $results[] = flus_run_test('flus_guard_user_admin_mutation blocks self deactivat
     $error = flus_guard_user_admin_mutation($pdo, 1, 1, 0, false, null);
     flus_assert_same('No puedes desactivar tu propio usuario', $error);
 });
+
+$results[] = flus_run_test('flus_guard_user_admin_mutation protects reserved admin account role', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
+    $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin'), (2, 'Operador', 'operador')");
+    $pdo->exec("INSERT INTO users (id, email, username, role_id, activo) VALUES (1, 'admin@flus.local', 'admin', 1, 1), (2, 'owner@flus.local', 'owner', 1, 1)");
+
+    $error = flus_guard_user_admin_mutation($pdo, 2, 1, 1, false, 2, 'admin');
+    flus_assert_same('La cuenta admin de resguardo mantiene su rol original.', $error);
+});
+
+$results[] = flus_run_test('flus_guard_reserved_admin_role_mutation locks reserved role permissions', function (): void {
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
+    $pdo->exec("INSERT INTO users (id, email, username, role_id, activo) VALUES (1, 'admin@flus.local', 'admin', 7, 1)");
+
+    flus_assert_same('El rol base de la cuenta admin de resguardo no se puede editar desde Roles y Permisos.', flus_guard_reserved_admin_role_mutation($pdo, 7));
+    flus_assert_same(null, flus_guard_reserved_admin_role_mutation($pdo, 8));
+});
 $results[] = flus_run_test('flus_normalize_sale_status normalizes empty and custom states', function (): void {
     flus_assert_same('EMITIDA', flus_normalize_sale_status(null));
     flus_assert_same('ANULADA', flus_normalize_sale_status('anulada'));

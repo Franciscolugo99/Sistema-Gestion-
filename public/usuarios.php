@@ -249,6 +249,7 @@ function formatLastAccess(?string $datetime): string {
           </thead>
           <tbody>
             <?php foreach ($usuarios as $u): ?>
+              <?php $esUsuarioResguardo = flus_is_reserved_admin_user($u); ?>
               <tr data-user-id="<?= (int)$u['id'] ?>">
 
                 <!-- Usuario con avatar -->
@@ -256,7 +257,12 @@ function formatLastAccess(?string $datetime): string {
                   <div class="user-cell">
                     <div class="user-avatar"><?= h(getInitials($u['nombre'])) ?></div>
                     <div class="user-info">
-                      <div class="user-name"><?= h($u['nombre']) ?></div>
+                      <div class="user-name">
+                        <?= h($u['nombre']) ?>
+                        <?php if ($esUsuarioResguardo): ?>
+                          <span class="badge-resguardo">Resguardo</span>
+                        <?php endif; ?>
+                      </div>
                       <div class="user-username">@<?= h($u['username']) ?></div>
                     </div>
                   </div>
@@ -298,7 +304,7 @@ function formatLastAccess(?string $datetime): string {
 
                     <a href="usuario_editar.php?id=<?= (int)$u['id'] ?>"
                        class="action-btn action-btn--edit"
-                       title="Editar usuario">
+                       title="<?= $esUsuarioResguardo ? 'Editar perfil de resguardo' : 'Editar usuario' ?>">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
                       </svg>
@@ -310,23 +316,32 @@ function formatLastAccess(?string $datetime): string {
                     $toggleLabel = $isActive ? 'Desactivar' : 'Activar';
                     $toggleClass = $isActive ? 'action-btn--deactivate' : 'action-btn--activate';
                     ?>
-                    <button type="button"
-                      class="action-btn <?= $toggleClass ?> js-toggle-user"
-                      title="<?= $toggleLabel ?> usuario"
-                      data-user-id="<?= (int)$u['id'] ?>"
-                      data-active="<?= $isActive ? '1' : '0' ?>">
-                      <?php if ($isActive): ?>
+                    <?php if ($esUsuarioResguardo): ?>
+                      <span class="action-btn action-btn--locked" title="La cuenta admin de resguardo no cambia de estado">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M18.36 6.64A9 9 0 0 1 20.77 15M6.16 6.16a9 9 0 1 0 12.68 12.68M2 2l20 20"/>
-                          <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+                          <rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/>
                         </svg>
-                      <?php else: ?>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="m9 12 2 2 4-4"/>
-                        </svg>
-                      <?php endif; ?>
-                      <span><?= $toggleLabel ?></span>
-                    </button>
+                        <span>Bloqueado</span>
+                      </span>
+                    <?php else: ?>
+                      <button type="button"
+                        class="action-btn <?= $toggleClass ?> js-toggle-user"
+                        title="<?= $toggleLabel ?> usuario"
+                        data-user-id="<?= (int)$u['id'] ?>"
+                        data-active="<?= $isActive ? '1' : '0' ?>">
+                        <?php if ($isActive): ?>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18.36 6.64A9 9 0 0 1 20.77 15M6.16 6.16a9 9 0 1 0 12.68 12.68M2 2l20 20"/>
+                            <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+                          </svg>
+                        <?php else: ?>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="m9 12 2 2 4-4"/>
+                          </svg>
+                        <?php endif; ?>
+                        <span><?= $toggleLabel ?></span>
+                      </button>
+                    <?php endif; ?>
 
                   </div>
                 </td>

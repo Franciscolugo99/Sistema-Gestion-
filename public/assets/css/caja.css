@@ -529,13 +529,13 @@
    APERTURA DE CAJA
 ===================== */
 .caja-panel .caja-open-shell {
-  max-width: 1080px;
-  margin: 12px auto 0;
+  max-width: 700px;
+  margin: 8px auto 0;
 }
 
 .caja-panel .caja-open-card {
-  padding: 28px 30px 30px;
-  border-radius: 26px;
+  padding: 20px 22px 22px;
+  border-radius: 24px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
@@ -559,18 +559,22 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 }
 
 .caja-panel .caja-open-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.95fr);
-  gap: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   align-items: start;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+}
+
+.caja-panel .caja-open-copy {
+  max-width: 36rem;
 }
 
 .caja-panel .caja-title.caja-title--open {
   text-align: left;
-  margin: 4px 0 10px;
-  font-size: clamp(2.1rem, 3vw, 2.8rem);
-  letter-spacing: 0.22em;
+  margin: 4px 0 6px;
+  font-size: clamp(1.45rem, 2vw, 1.95rem);
+  letter-spacing: 0.16em;
 }
 
 .caja-panel .caja-open-eyebrow {
@@ -589,24 +593,25 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 }
 
 .caja-panel .caja-open-lead {
-  margin: 0 0 8px;
-  font-size: 1.18rem;
+  margin: 0 0 6px;
+  font-size: 1.02rem;
   font-weight: 800;
   color: var(--text);
 }
 
 .caja-panel .caja-open-sub {
-  max-width: 58ch;
+  max-width: 34ch;
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 0.92rem;
+  line-height: 1.45;
   color: var(--muted);
 }
 
 .caja-panel .caja-open-terminal {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  width: min(100%, 360px);
 }
 
 .caja-panel .caja-open-terminal-label {
@@ -622,8 +627,8 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  padding: 12px 14px;
+  border-radius: 16px;
   border: 1px solid var(--panel-border);
   background: rgba(148, 163, 184, 0.07);
 }
@@ -636,19 +641,19 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 }
 
 .caja-panel .caja-open-terminal-name {
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   font-weight: 900;
   color: var(--text);
 }
 
 .caja-panel .caja-open-terminal-hint {
   color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .caja-panel .apertura-wrapper {
-  max-width: none;
+  max-width: 460px;
   margin: 0;
 }
 
@@ -658,23 +663,25 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 
 .caja-panel .apertura-card {
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 22px;
-  padding: 20px 22px 22px;
+  border-radius: 18px;
+  padding: 14px 16px 16px;
   border: 1px solid var(--panel-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  max-width: 460px;
 }
 
 .caja-panel .form-apertura {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px 18px;
-  align-items: end;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-items: stretch;
 }
 
 .caja-panel .apertura-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .caja-panel .form-apertura .form-label {
@@ -682,15 +689,18 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 }
 
 .caja-panel .apertura-input {
-  min-height: 54px;
+  min-height: 48px;
   font-variant-numeric: tabular-nums;
-  font-size: 1.08rem;
+  font-size: 1rem;
+  max-width: none;
 }
 
 .caja-panel .apertura-btn {
-  min-width: 210px;
-  min-height: 54px;
-  align-self: end;
+  min-width: 0;
+  min-height: 48px;
+  align-self: stretch;
+  width: 100%;
+  justify-self: stretch;
 }
 
 .caja-panel .form-apertura #aperturaAviso,
@@ -701,10 +711,11 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 
 .caja-panel .apertura-help {
   margin: 0;
-  padding-top: 4px;
+  padding-top: 2px;
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.55;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  max-width: 36ch;
 }
 
 /* =====================
@@ -854,6 +865,9 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   }
   .caja-panel .form-apertura {
     grid-template-columns: 1fr;
+  }
+  .caja-panel .apertura-card {
+    max-width: none;
   }
   .caja-panel .apertura-btn {
     width: 100%;

@@ -6,7 +6,9 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 
 require_pos();
-require_permission('realizar_ventas');
+$canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
+$canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
+require_any_permission(['abrir_caja', 'realizar_ventas']);
 
 
 
@@ -23,8 +25,9 @@ $aperturaError = null;
    APERTURA DE CAJA (POST)
 -------------------------------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === 'abrir') {
-
-  if (!csrf_verify($_POST['csrf_token'] ?? null)) {
+  if (!$canAbrirCaja) {
+    $aperturaError = 'No tenes permiso para abrir caja.';
+  } elseif (!csrf_verify($_POST['csrf_token'] ?? null)) {
     $aperturaError = 'Token invalido. Recarga la pagina e intenta de nuevo.';
   } else {
     $saldoIni = parse_money_ar($_POST['saldo_inicial'] ?? '0');
@@ -149,6 +152,50 @@ if ($cajaSesion) {
   $movIngresos = (float)($rowS['ingresos'] ?? 0);
   $movEgresos  = (float)($rowS['egresos']  ?? 0);
 }
+
+if ($cajaSesion !== null && !$canRealizarVentas) {
+  ?>
+  <div class="panel caja-panel">
+    <section class="caja-open-shell" aria-labelledby="cajaRestrictedTitle">
+      <div class="caja-open-card">
+        <div class="caja-open-header">
+          <div class="caja-open-copy">
+            <span class="caja-open-eyebrow">Caja abierta</span>
+            <h1 class="caja-title caja-title--open" id="cajaRestrictedTitle">CAJA</h1>
+            <p class="caja-open-lead">La caja ya fue abierta para esta terminal.</p>
+            <p class="caja-open-sub">
+              Este usuario puede abrir caja, pero no tiene permiso para vender. La venta sigue separada en <strong>realizar_ventas</strong>.
+            </p>
+          </div>
+
+          <div class="caja-open-terminal">
+            <span class="caja-open-terminal-label">Terminal activa</span>
+            <div class="caja-open-terminal-card">
+              <div class="caja-open-terminal-main">
+                <strong class="caja-open-terminal-name"><?= h($terminalName) ?></strong>
+                <span class="caja-open-terminal-hint">Apertura #<?= (int)$cajaSesion['id'] ?> · <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="apertura-wrapper">
+          <div class="apertura-card">
+            <p class="apertura-help" style="margin:0;">
+              Si este usuario tambien necesita cobrar ventas, dale el permiso <strong>realizar_ventas</strong>.
+              <?php if (function_exists('user_has_permission') && user_has_permission('cerrar_caja')): ?>
+                Si solo debe cerrar el turno, puede continuar desde <a href="caja_cerrar.php">Cerrar caja</a>.
+              <?php endif; ?>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <?php
+  require __DIR__ . '/partials/footer.php';
+  return;
+}
 ?>
 
 <div class="panel caja-panel">
@@ -170,8 +217,7 @@ if ($cajaSesion) {
             <h1 class="caja-title caja-title--open" id="cajaOpenTitle">CAJA</h1>
             <p class="caja-open-lead">No hay ninguna caja abierta.</p>
             <p class="caja-open-sub">
-              Ingresa el saldo inicial para comenzar a registrar ventas y movimientos
-              en esta terminal.
+              Defini el saldo inicial para empezar a operar en esta terminal.
             </p>
           </div>
 
@@ -190,26 +236,24 @@ if ($cajaSesion) {
         </div>
 
     <div class="apertura-wrapper">
-      <p class="apertura-text">
-        No hay ninguna caja abierta. Ingresa el saldo inicial para comenzar.
-      </p>
-
       <div class="apertura-card">
         <form method="post" class="form-apertura" id="formAperturaCaja">
           <input type="hidden" name="accion_caja" value="abrir">
           <?= csrf_field() ?>
 
-          <label class="form-label" for="saldo_inicial">Saldo inicial en caja</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            id="saldo_inicial"
-            name="saldo_inicial"
-            value="0.00"
-            class="apertura-input"
-            required
-          >
+          <div class="apertura-field">
+            <label class="form-label" for="saldo_inicial">Saldo inicial en caja</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              id="saldo_inicial"
+              name="saldo_inicial"
+              value="0.00"
+              class="apertura-input"
+              required
+            >
+          </div>
 
           <div id="aperturaAviso" class="alert alert-warn hidden"></div>
 

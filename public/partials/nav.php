@@ -146,14 +146,16 @@ if ($_cacheOk) {
                 $navAlertTotal += $cnt;
             }
 
-            // 2) Clientes morosos (solo si la columna existe)
-            $stCol = $pdo->prepare(
-                "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-                 WHERE TABLE_SCHEMA = DATABASE()
-                   AND TABLE_NAME = 'clientes' AND COLUMN_NAME = 'cc_saldo' LIMIT 1"
-            );
-            $stCol->execute();
-            if ($stCol->fetchColumn()) {
+            // 2) Clientes morosos
+            $canCheckMorosos =
+                function_exists('flus_table_exists')
+                && function_exists('flus_column_exists')
+                && flus_table_exists($pdo, 'clientes')
+                && flus_column_exists($pdo, 'clientes', 'cc_saldo')
+                && flus_column_exists($pdo, 'clientes', 'cc_habilitado')
+                && flus_column_exists($pdo, 'clientes', 'cc_fecha_ultimo_pago');
+
+            if ($canCheckMorosos) {
                 $stMor = $pdo->query(
                     "SELECT COUNT(*) FROM clientes
                      WHERE cc_habilitado = 1 AND cc_saldo > 0
@@ -200,9 +202,11 @@ if ($_cacheOk) {
 ═══════════════════════════════════════════ */
 $canDashboard        = $can('ver_reportes');
 $canCaja             = $can('realizar_ventas');
-$canProductos        = $can('editar_productos');
-$canStock            = $can('editar_stock');
-$canInventario       = $can('editar_stock') || $can('ver_stock') || $can('stock');
+$canProductos        = $can('editar_productos') || $can('ver_productos');
+$canProductosEdit    = $can('editar_productos');
+$canStock            = $can('editar_stock') || $can('ver_stock');
+$canStockEdit        = $can('editar_stock');
+$canInventario       = $can('editar_stock') || $can('ver_reportes');
 $canMovimientos      = $can('ver_movimientos');
 $canVentas           = $can('ver_reportes');
 $canCompras          = $can('editar_stock');
@@ -213,7 +217,7 @@ $canClientes         = $can('ver_clientes') || $can('editar_clientes');
 $canCuentaCorriente  = $can('ver_cuenta_corriente') && $canClientes;
 $canInventarioFisico = $can('editar_stock');
 $canPreciosHistorial = $can('editar_productos');
-$canReposicion       = $can('ver_reportes') || $can('ver_stock') || $can('editar_stock');
+$canReposicion       = $can('ver_reportes') || $can('editar_stock');
 $canDiagnostico      = function_exists('user_can_access_diagnostics')
     ? user_can_access_diagnostics()
     : ($can('ver_diagnostico') || $can('gestionar_backups'));
@@ -243,13 +247,13 @@ if ($canCompras)   $primaryLinks[] = ['href' => 'compras.php',   'section' => 'c
 
 // Catálogo
 $catalogLinks = [];
-if ($canProductos)        $catalogLinks[] = ['href' => 'productos.php',        'section' => 'productos',        'label' => 'Productos',   'shortcut' => 'alt+k'];
+if ($canProductos)        $catalogLinks[] = ['href' => $canProductosEdit ? 'productos.php' : 'productos_consulta.php', 'section' => 'productos', 'label' => 'Productos', 'shortcut' => 'alt+k'];
 if ($canPreciosHistorial) $catalogLinks[] = ['href' => 'precios_historial.php','section' => 'precios_historial','label' => 'Precios',     'shortcut' => ''];
 if ($canPromos)           $catalogLinks[] = ['href' => 'promos.php',           'section' => 'promos',           'label' => 'Promociones', 'shortcut' => ''];
 
 // Inventario
 $inventoryLinks = [];
-if ($canStock)            $inventoryLinks[] = ['href' => 'stock.php',              'section' => 'stock',              'label' => 'Stock',          'shortcut' => 'alt+s'];
+if ($canStock)            $inventoryLinks[] = ['href' => $canStockEdit ? 'stock.php' : 'stock_consulta.php', 'section' => 'stock', 'label' => 'Stock', 'shortcut' => 'alt+s'];
 if ($canInventario)       $inventoryLinks[] = ['href' => 'inventario_analisis.php','section' => 'inventario_analisis','label' => "An\u{00E1}lisis",      'shortcut' => ''];
 if ($canInventarioFisico) $inventoryLinks[] = ['href' => 'inventario_fisico.php',  'section' => 'inventario_fisico',  'label' => "Conteo f\u{00ED}sico", 'shortcut' => ''];
 if ($canReposicion)       $inventoryLinks[] = ['href' => 'reposicion.php',         'section' => 'reposicion',         'label' => "Reposici\u{00F3}n",    'shortcut' => ''];

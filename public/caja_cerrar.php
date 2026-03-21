@@ -17,9 +17,15 @@ function caja_is_open($fechaCierre): bool {
 }
 
 function table_exists(PDO $pdo, string $table): bool {
-  $st = $pdo->prepare("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1");
-  $st->execute([$table]);
-  return (bool)$st->fetchColumn();
+  if (function_exists('flus_table_exists')) {
+    return (bool)flus_table_exists($pdo, $table);
+  }
+
+  if (function_exists('has_table')) {
+    return (bool)has_table($pdo, $table);
+  }
+
+  return false;
 }
 
 function col_exists(PDO $pdo, string $table, string $column): bool
@@ -28,16 +34,15 @@ function col_exists(PDO $pdo, string $table, string $column): bool
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) return false;
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $column)) return false;
 
-    $st = $pdo->prepare("
-        SELECT 1
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = ?
-          AND COLUMN_NAME = ?
-        LIMIT 1
-    ");
-    $st->execute([$table, $column]);
-    return (bool)$st->fetchColumn();
+    if (function_exists('flus_column_exists')) {
+        return (bool)flus_column_exists($pdo, $table, $column);
+    }
+
+    if (function_exists('has_column')) {
+        return (bool)has_column($pdo, $table, $column);
+    }
+
+    return false;
 }
 
 
@@ -297,7 +302,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $errores[] = 'No se pudo cerrar la caja (ya estaba cerrada o ID inválido).';
             } else {
               $pdo->commit();
-              header('Location: caja_historial.php');
+              $canVerHistorialCaja = function_exists('user_has_permission') && user_has_permission('ver_historial_caja');
+              $redirectTarget = $canVerHistorialCaja
+                ? 'caja_historial.php?ok=' . urlencode('Caja cerrada correctamente.')
+                : 'caja.php?ok=' . urlencode('Caja cerrada correctamente.');
+              header('Location: ' . $redirectTarget);
               exit;
             }
           }

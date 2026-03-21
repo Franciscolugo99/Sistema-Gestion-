@@ -45,6 +45,13 @@ if ($roleId > 0) {
     }
 }
 
+$reservedRoleError = $roleId > 0 ? flus_guard_reserved_admin_role_mutation($pdo, $roleId) : null;
+if ($reservedRoleError !== null) {
+    $_SESSION['flash_error'] = $reservedRoleError;
+    header('Location: roles.php');
+    exit;
+}
+
 // Si es rol crítico, forzar que el slug no cambie
 if ($isRoleCritico) {
     $slug = $originalSlug;

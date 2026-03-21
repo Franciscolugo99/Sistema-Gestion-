@@ -96,7 +96,7 @@ function getProgressColor(int $percentage): string {
 ============================================================ */
 $pageTitle = 'Roles y Permisos';
 $currentSection = 'roles';
-$extraCss = ['assets/css/roles.css?v=3.0'];
+$extraCss = ['assets/css/roles.css?v=3.3'];
 $extraJs = ['assets/js/roles.js?v=3.0'];
 
 require __DIR__ . '/partials/header.php';
@@ -185,6 +185,7 @@ require __DIR__ . '/partials/header.php';
                 <?php foreach ($roles as $rol): ?>
                     <?php 
                         $isCritico = isRoleCritico($rol['slug']);
+                        $isReservedRole = flus_is_reserved_admin_role_id($pdo, (int)$rol['id']);
                         $permisosPercentage = getPermisosPercentage(
                             (int)$rol['permisos_asignados'], 
                             (int)$rol['permisos_totales']
@@ -224,6 +225,9 @@ require __DIR__ . '/partials/header.php';
                                             </svg>
                                         </span>
                                     <?php endif; ?>
+                                    <?php if ($isReservedRole): ?>
+                                        <span class="badge badge-gold" title="Rol base de la cuenta admin de resguardo">Resguardo</span>
+                                    <?php endif; ?>
                                 </h3>
                                 <code class="role-slug"><?= h($rol['slug']) ?></code>
                             </div>
@@ -253,25 +257,35 @@ require __DIR__ . '/partials/header.php';
                         <div class="role-actions">
                             <a href="rol_permisos.php?id=<?= (int)$rol['id'] ?>" 
                                class="btn btn-primary btn-sm"
-                               title="Gestionar permisos">
+                               title="<?= $isReservedRole ? 'Ver permisos bloqueados' : 'Gestionar permisos' ?>">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                     <rect x="3" y="11" width="18" height="11" rx="2"/>
                                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                                 </svg>
-                                Permisos
+                                <?= $isReservedRole ? 'Permisos bloqueados' : 'Permisos' ?>
                             </a>
                             
-                            <button type="button" 
-                                    class="btn btn-ghost btn-sm btn-edit-role"
-                                    title="Editar rol">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                </svg>
-                                Editar
-                            </button>
+                            <?php if ($isReservedRole): ?>
+                                <button type="button" class="btn btn-ghost btn-sm" title="Rol de resguardo bloqueado" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <rect x="3" y="11" width="18" height="10" rx="2"/>
+                                        <path d="M7 11V8a5 5 0 0 1 10 0v3"/>
+                                    </svg>
+                                    Bloqueado
+                                </button>
+                            <?php else: ?>
+                                <button type="button" 
+                                        class="btn btn-ghost btn-sm btn-edit-role"
+                                        title="Editar rol">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                    Editar
+                                </button>
+                            <?php endif; ?>
 
-                            <?php if (!$isCritico): ?>
+                            <?php if (!$isCritico && !$isReservedRole): ?>
                                 <button type="button"
                                         class="btn btn-danger-ghost btn-icon btn-delete-role"
                                         title="Eliminar rol">

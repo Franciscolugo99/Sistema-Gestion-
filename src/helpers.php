@@ -878,6 +878,93 @@ if (!function_exists('flus_user_username_exists')) {
   }
 }
 
+if (!function_exists('flus_is_reserved_admin_user')) {
+  function flus_is_reserved_admin_user(array $user): bool {
+    $userId = (int)($user['id'] ?? 0);
+    $username = strtolower(trim((string)($user['username'] ?? '')));
+    $email = strtolower(trim((string)($user['email'] ?? '')));
+
+    if ($userId === 1) return true;
+    if ($username === 'admin' && $email === 'admin@flus.local') return true;
+
+    return false;
+  }
+}
+
+if (!function_exists('flus_get_user_identity')) {
+  function flus_get_user_identity(PDO $pdo, int $userId): ?array {
+    if ($userId <= 0) return null;
+
+    try {
+      $st = $pdo->prepare('SELECT id, username, email, role_id, activo FROM users WHERE id = ? LIMIT 1');
+      $st->execute([$userId]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      return is_array($row) ? $row : null;
+    } catch (Throwable $e) {
+      return null;
+    }
+  }
+}
+
+if (!function_exists('flus_guard_reserved_admin_user_mutation')) {
+  function flus_guard_reserved_admin_user_mutation(PDO $pdo, int $targetUserId, ?int $nextActivo = null, bool $deleting = false, ?int $nextRoleId = null, ?string $nextUsername = null): ?string {
+    $user = flus_get_user_identity($pdo, $targetUserId);
+    if (!$user || !flus_is_reserved_admin_user($user)) {
+      return null;
+    }
+
+    if ($deleting) {
+      return 'La cuenta admin de resguardo no se puede eliminar.';
+    }
+
+    if ($nextActivo !== null && (int)$nextActivo !== (int)($user['activo'] ?? 0)) {
+      return 'La cuenta admin de resguardo no permite cambiar su estado.';
+    }
+
+    if ($nextRoleId !== null && (int)$nextRoleId !== (int)($user['role_id'] ?? 0)) {
+      return 'La cuenta admin de resguardo mantiene su rol original.';
+    }
+
+    if ($nextUsername !== null && trim($nextUsername) !== '' && strcasecmp(trim($nextUsername), (string)($user['username'] ?? '')) !== 0) {
+      return 'La cuenta admin de resguardo mantiene su usuario de acceso.';
+    }
+
+    return null;
+  }
+}
+
+if (!function_exists('flus_reserved_admin_role_id')) {
+  function flus_reserved_admin_role_id(PDO $pdo): int {
+    try {
+      $st = $pdo->query("SELECT id, username, email, role_id FROM users ORDER BY id ASC");
+      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $user) {
+        if (flus_is_reserved_admin_user($user)) {
+          return (int)($user['role_id'] ?? 0);
+        }
+      }
+    } catch (Throwable $e) {
+      return 0;
+    }
+
+    return 0;
+  }
+}
+
+if (!function_exists('flus_is_reserved_admin_role_id')) {
+  function flus_is_reserved_admin_role_id(PDO $pdo, int $roleId): bool {
+    return $roleId > 0 && $roleId === flus_reserved_admin_role_id($pdo);
+  }
+}
+
+if (!function_exists('flus_guard_reserved_admin_role_mutation')) {
+  function flus_guard_reserved_admin_role_mutation(PDO $pdo, int $roleId): ?string {
+    if ($roleId <= 0) return null;
+    return flus_is_reserved_admin_role_id($pdo, $roleId)
+      ? 'El rol base de la cuenta admin de resguardo no se puede editar desde Roles y Permisos.'
+      : null;
+  }
+}
+
 if (!function_exists('flus_validate_user_payload')) {
   function flus_validate_user_payload(PDO $pdo, array $input, array $options = []): array {
     $existingUserId = isset($options['existing_user_id']) ? (int) $options['existing_user_id'] : 0;
@@ -945,7 +1032,7 @@ if (!function_exists('flus_validate_user_payload')) {
 }
 
 if (!function_exists('flus_guard_user_admin_mutation')) {
-  function flus_guard_user_admin_mutation(PDO $pdo, int $currentUserId, int $targetUserId, ?int $nextActivo = null, bool $deleting = false, ?int $nextRoleId = null): ?string {
+  function flus_guard_user_admin_mutation(PDO $pdo, int $currentUserId, int $targetUserId, ?int $nextActivo = null, bool $deleting = false, ?int $nextRoleId = null, ?string $nextUsername = null): ?string {
     if ($targetUserId <= 0) return null;
 
     if ($currentUserId > 0 && $targetUserId === $currentUserId) {
@@ -956,6 +1043,11 @@ if (!function_exists('flus_guard_user_admin_mutation')) {
       if ($nextActivo !== null && (int) $nextActivo === 0) {
         return 'No puedes desactivar tu propio usuario';
       }
+    }
+
+    $reservedAdminError = flus_guard_reserved_admin_user_mutation($pdo, $targetUserId, $nextActivo, $deleting, $nextRoleId, $nextUsername);
+    if ($reservedAdminError !== null) {
+      return $reservedAdminError;
     }
 
     return flus_guard_last_admin_user_change($pdo, $targetUserId, $nextActivo, $deleting, $nextRoleId);
