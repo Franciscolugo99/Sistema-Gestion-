@@ -43,6 +43,19 @@ class CuentaCorrienteController
         $this->pdo = $pdo;
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        if (function_exists('flus_column_exists')) {
+            return (bool)flus_column_exists($this->pdo, $table, $column);
+        }
+
+        if (function_exists('has_column')) {
+            return (bool)has_column($this->pdo, $table, $column);
+        }
+
+        return false;
+    }
     
     /**
      * Valida y normaliza un monto monetario
@@ -526,8 +539,7 @@ class CuentaCorrienteController
                 // Verificar si existe columna medio_pago (compatibilidad)
                 $hasMedioPagoCol = false;
                 try {
-                    $stCheck = $this->pdo->query("SHOW COLUMNS FROM caja_movimientos LIKE 'medio_pago'");
-                    $hasMedioPagoCol = (bool)$stCheck->fetch();
+                    $hasMedioPagoCol = $this->hasColumn('caja_movimientos', 'medio_pago');
                 } catch (Throwable $e) {
                     // Ignorar
                 }
@@ -622,8 +634,7 @@ class CuentaCorrienteController
         
         // Verificar que la columna existe (compatibilidad instalaciones viejas)
         try {
-            $stCheck = $this->pdo->query("SHOW COLUMNS FROM caja_sesiones LIKE '{$campo}'");
-            if ($stCheck->fetch()) {
+            if ($this->hasColumn('caja_sesiones', $campo)) {
                 $sql = "UPDATE caja_sesiones SET {$campo} = COALESCE({$campo}, 0) + ? WHERE id = ?";
                 $st = $this->pdo->prepare($sql);
                 $st->execute([$monto, $cajaId]);

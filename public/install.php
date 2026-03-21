@@ -6,6 +6,7 @@ require_once __DIR__ . '/lib/session.php';
 flus_session_start();
 require_once __DIR__ . '/lib/csrf.php';
 csrf_init();
+require_once FLUS_ROOT . '/src/db_schema.php';
 
 $cfgFile = FLUS_ROOT . '/src/config.php';
 $example = FLUS_ROOT . '/src/config.example.php';
@@ -159,25 +160,18 @@ if (is_file($cfgFile)) {
     }
     if (!$pdo instanceof PDO) throw new RuntimeException('No se pudo inicializar PDO. Revisá src/config.php (getPDO).');
 
-    // Detectar si la DB está vacía (sin tablas)
-    $dbEmpty = true;
-    $st = $pdo->query('SHOW TABLES');
-    if ($st) {
-      $rows = $st->fetchAll(PDO::FETCH_NUM);
-      foreach ($rows as $r) {
-        if (!empty($r[0])) { $dbEmpty = false; break; }
+    $coreTables = ['users', 'productos', 'ventas'];
+    $detectedTables = [];
+    foreach ($coreTables as $table) {
+      if (flus_table_exists($pdo, $table)) {
+        $detectedTables[] = $table;
       }
     }
 
-    // Detectar schema mínimo (tabla ventas)
-    $schemaReady = false;
-    if (!$dbEmpty) {
-      $chk = $pdo->query("SHOW TABLES LIKE 'ventas'");
-      $schemaReady = (bool)($chk && $chk->fetchColumn());
-    }
+    $schemaReady = in_array('ventas', $detectedTables, true);
 
-    if ($dbEmpty) {
-      $schemaMsg = '✅ Config OK. La base de datos está vacía. Instalación limpia: importá install.sql (baseline) y luego corré scripts/migrate.php.';
+    if ($detectedTables === []) {
+      $schemaMsg = '✅ Config OK. No se detectó el esquema base todavía. Instalación limpia: importá install.sql (baseline) y luego corré scripts/migrate.php.';
     } elseif ($schemaReady) {
       $schemaMsg = '✅ Estructura detectada. Ya podés ir a login.';
     } else {

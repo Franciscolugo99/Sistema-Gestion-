@@ -23,8 +23,13 @@ function whereEmitida(string $alias = 'v'): string {
 function hasVentaPagos(PDO $pdo): bool {
   static $cache = null;
   if ($cache === null) {
-    $st = $pdo->query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'venta_pagos' LIMIT 1");
-    $cache = (bool)$st->fetchColumn();
+    if (function_exists('flus_table_exists')) {
+      $cache = (bool)flus_table_exists($pdo, 'venta_pagos');
+    } elseif (function_exists('has_table')) {
+      $cache = (bool)has_table($pdo, 'venta_pagos');
+    } else {
+      $cache = false;
+    }
   }
   return $cache;
 }
@@ -266,23 +271,19 @@ try {
       // Helper local: columnas de una tabla
       $colsOf = function (string $table) use ($pdo): array {
         try {
-          $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
-          if (!$db) return [];
-          $st = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?");
-          $st->execute([(string)$db, $table]);
-          $cols = $st->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
-          return array_map('strval', $cols);
+          if (function_exists('flus_table_columns')) {
+            $cols = flus_table_columns($pdo, $table);
+            return array_map('strval', $cols ?: []);
+          }
+          return [];
         } catch (Throwable $e) { return []; }
       };
 
       $tableExists = function (string $table) use ($pdo): bool {
         try {
           if (function_exists('flus_table_exists')) return (bool)flus_table_exists($pdo, $table);
-          $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
-          if (!$db) return false;
-          $st = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1");
-          $st->execute([(string)$db, $table]);
-          return (bool)$st->fetchColumn();
+          if (function_exists('has_table')) return (bool)has_table($pdo, $table);
+          return false;
         } catch (Throwable $e) { return false; }
       };
 

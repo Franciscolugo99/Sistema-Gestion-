@@ -528,9 +528,11 @@ try {
       foreach ($tables as $t) {
         $ok = false;
         try {
-          $st = $pdo->prepare('SHOW TABLES LIKE :t');
-          $st->execute([':t' => $t]);
-          $ok = (bool)$st->fetchColumn();
+          if (function_exists('flus_table_exists')) {
+            $ok = (bool)flus_table_exists($pdo, $t);
+          } elseif (function_exists('has_table')) {
+            $ok = (bool)has_table($pdo, $t);
+          }
         } catch (Throwable $e) {
           $ok = false;
         }

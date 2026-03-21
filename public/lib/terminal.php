@@ -12,20 +12,24 @@ declare(strict_types=1);
 defined('FLUS_TERMINAL_COOKIE') || define('FLUS_TERMINAL_COOKIE', 'flus_terminal_id');
 defined('FLUS_TERMINAL_COOKIE_DAYS') || define('FLUS_TERMINAL_COOKIE_DAYS', 30);
 
+$terminalSchemaHelpers = dirname(__DIR__, 2) . '/src/db_schema.php';
+if (is_file($terminalSchemaHelpers)) {
+  require_once $terminalSchemaHelpers;
+}
+
 /* =========================================================
    Helpers internos (schema detection + cache)
 ========================================================= */
 if (!function_exists('terminal__table_exists')) {
   function terminal__table_exists(PDO $pdo, string $table): bool {
     try {
-      $st = $pdo->prepare("
-        SELECT COUNT(*)
-        FROM information_schema.tables
-        WHERE table_schema = DATABASE()
-          AND table_name = :t
-      ");
-      $st->execute([':t' => $table]);
-      return (int)$st->fetchColumn() > 0;
+      if (function_exists('flus_table_exists')) {
+        return (bool)flus_table_exists($pdo, $table);
+      }
+      if (function_exists('has_table')) {
+        return (bool)has_table($pdo, $table);
+      }
+      return false;
     } catch (Throwable $e) {
       return false;
     }
@@ -43,11 +47,9 @@ if (!function_exists('terminal__columns')) {
     }
 
     try {
-      $st = $pdo->query("SHOW COLUMNS FROM `{$table}`");
-      $cols = [];
-      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        if (isset($r['Field'])) $cols[] = (string)$r['Field'];
-      }
+      $cols = function_exists('flus_table_columns')
+        ? array_map('strval', flus_table_columns($pdo, $table) ?: [])
+        : [];
       $cache[$table] = $cols;
       return $cols;
     } catch (Throwable $e) {

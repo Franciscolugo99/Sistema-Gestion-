@@ -205,10 +205,17 @@ if ($allDefined) {
     try {
         $pdo = getPDO();
         println("✓ Conexión exitosa a: " . DB_NAME, 'ok');
-        
-        $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '" . DB_NAME . "'");
-        $count = $stmt->fetchColumn();
-        println("✓ Tablas en la base: $count", 'info');
+
+        if (function_exists('flus_table_exists')) {
+            $coreTables = ['users', 'productos', 'ventas', 'venta_items', 'backups'];
+            $detected = [];
+            foreach ($coreTables as $table) {
+                if (flus_table_exists($pdo, $table)) {
+                    $detected[] = $table;
+                }
+            }
+            println("✓ Tablas base detectadas: " . count($detected) . '/' . count($coreTables), 'info');
+        }
         
     } catch (Exception $e) {
         println("✗ Error de conexión: " . $e->getMessage(), 'error');

@@ -295,16 +295,13 @@ function generarPreviewAjuste(PDO $pdo, array $productoIds, float $porcentaje, s
  */
 function detectarColumnaCategoria(PDO $pdo): string {
     $columnas = ['categoria', 'rubro', 'familia'];
+    $disponibles = function_exists('flus_table_columns')
+        ? array_map('strval', flus_table_columns($pdo, 'productos') ?: [])
+        : [];
 
     foreach ($columnas as $col) {
-        try {
-            $stmt = $pdo->prepare("SHOW COLUMNS FROM productos LIKE ?");
-            $stmt->execute([$col]);
-            if ($stmt->fetch()) {
-                return $col;
-            }
-        } catch (Throwable $e) {
-            continue;
+        if (in_array($col, $disponibles, true)) {
+            return $col;
         }
     }
 

@@ -22,30 +22,27 @@ if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
 // -------------------------
 if (!function_exists('flus_table_has_column')) {
   function flus_table_has_column(PDO $pdo, string $table, string $column): bool {
-    $st = $pdo->prepare("
-      SELECT 1
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-        AND COLUMN_NAME = ?
-      LIMIT 1
-    ");
-    $st->execute([$table, $column]);
-    return (bool)$st->fetchColumn();
+    if (function_exists('flus_column_exists')) {
+      return (bool)flus_column_exists($pdo, $table, $column);
+    }
+    if (function_exists('has_column')) {
+      return (bool)has_column($pdo, $table, $column);
+    }
+
+    return false;
   }
 }
 
 if (!function_exists('flus_has_table')) {
   function flus_has_table(PDO $pdo, string $table): bool {
-    $st = $pdo->prepare("
-      SELECT 1
-      FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = ?
-      LIMIT 1
-    ");
-    $st->execute([$table]);
-    return (bool)$st->fetchColumn();
+    if (function_exists('flus_table_exists')) {
+      return (bool)flus_table_exists($pdo, $table);
+    }
+    if (function_exists('has_table')) {
+      return (bool)has_table($pdo, $table);
+    }
+
+    return false;
   }
 }
 

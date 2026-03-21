@@ -59,11 +59,9 @@ try {
     $pdo = getPDO();
 
     // Detectar columnas existentes
-    $stCols = $pdo->query("SHOW COLUMNS FROM productos");
-    $cols = [];
-    while ($row = $stCols->fetch(PDO::FETCH_ASSOC)) {
-        $cols[] = $row['Field'];
-    }
+    $cols = function_exists('flus_table_columns')
+        ? array_map('strval', flus_table_columns($pdo, 'productos') ?: [])
+        : [];
 
     // Verificar qué columnas tenemos disponibles
     $hasCol = function($name) use ($cols) {

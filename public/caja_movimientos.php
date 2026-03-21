@@ -94,8 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Verificar si existe columna medio_pago (compatibilidad)
 $hasMedioPagoCol = false;
 try {
-  $stCheck = $pdo->query("SHOW COLUMNS FROM caja_movimientos LIKE 'medio_pago'");
-  $hasMedioPagoCol = (bool)$stCheck->fetch();
+  if (function_exists('flus_column_exists')) {
+    $hasMedioPagoCol = (bool)flus_column_exists($pdo, 'caja_movimientos', 'medio_pago');
+  } elseif (function_exists('has_column')) {
+    $hasMedioPagoCol = (bool)has_column($pdo, 'caja_movimientos', 'medio_pago');
+  }
 } catch (Throwable $e) {}
 
 $selectMedio = $hasMedioPagoCol ? ', medio_pago' : '';
