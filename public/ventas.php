@@ -7,6 +7,7 @@ require_once __DIR__ . '/../src/db_helpers.php';
 require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_permission('ver_reportes');
+$canViewClientes = function_exists('user_has_permission') && user_has_permission('ver_clientes');
 
 // TZ: asegurar que "Hoy" coincida con Argentina/Mendoza (evita desfasajes)
 if (function_exists('date_default_timezone_set')) {
@@ -940,7 +941,13 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <span class="fecha-hora"><?= date('H:i', strtotime($v['fecha'])) ?></span>
           </td>
           <td class="col-cliente">
-            <?= h($v['cliente_nombre'] ?: 'Consumidor Final') ?>
+            <?php if ($canViewClientes && (int)($v['cliente_id'] ?? 0) > 0): ?>
+              <a href="cliente_detalle.php?id=<?= (int)$v['cliente_id'] ?>" class="cliente-link">
+                <?= h($v['cliente_nombre'] ?: 'Consumidor Final') ?>
+              </a>
+            <?php else: ?>
+              <?= h($v['cliente_nombre'] ?: 'Consumidor Final') ?>
+            <?php endif; ?>
           </td>
           <td class="col-productos">
             <div class="productos-stack">

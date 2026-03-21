@@ -11,6 +11,9 @@ require_any_permission(['ver_clientes','editar_clientes']);
 $pdo = getPDO();
 $controller = new ClienteController($pdo);
 $canEditClientes = function_exists('user_has_permission') && user_has_permission('editar_clientes');
+$canViewVentas = function_exists('user_has_permission') && user_has_permission('ver_reportes');
+$canViewFacturacion = function_exists('user_has_permission') && (user_has_permission('ver_facturacion') || user_has_permission('emitir_factura'));
+$canViewCuentaCorriente = function_exists('user_has_permission') && user_has_permission('ver_cuenta_corriente');
 
 // Detectar columnas disponibles
 $hasCC = $controller->hasColumnCC();
@@ -113,6 +116,8 @@ if ($editId > 0) {
     $editCliente = $controller->getById($editId);
 }
 
+$clienteRelacionResumen = !empty($editCliente['id']) ? $controller->getRelacionResumen((int)$editCliente['id']) : null;
+
 /* ========== FILTROS Y LISTADO ========== */
 $q = trim((string)($_GET['q'] ?? ''));
 if (strlen($q) > 120) $q = substr($q, 0, 120);
@@ -175,7 +180,7 @@ require __DIR__ . '/partials/header.php';
                     <div class="module-header-copy">
                         <span class="page-eyebrow module-eyebrow">Relacion comercial</span>
                         <h1 class="page-title">Clientes</h1>
-                <p class="page-sub">Gestión de clientes para facturación y ventas.</p>
+                <p class="page-sub">Relacion comercial, datos fiscales y credito del cliente.</p>
                     </div>
                 </div>
             </div>
@@ -301,7 +306,9 @@ require __DIR__ . '/partials/header.php';
                             ?>
                             <tr>
                                 <td>
-                                    <strong><?= h($c['nombre'] ?? '') ?></strong>
+                                    <a href="cliente_detalle.php?id=<?= (int)$c['id'] ?>" class="cli-client-link">
+                                        <strong><?= h($c['nombre'] ?? '') ?></strong>
+                                    </a>
                                     <?php if ($hasZona && !empty($c['zona_reparto'])): ?>
                                         <div class="muted small">📍 <?= h($c['zona_reparto']) ?></div>
                                     <?php endif; ?>
@@ -350,11 +357,12 @@ require __DIR__ . '/partials/header.php';
                                         <span class="tag tag-inactivo">Inactivo</span>
                                     <?php endif; ?>
                                 </td>
-                                <td class="center">
+                                <td class="center cli-col-actions">
                                     <?php if ($canEditClientes): ?>
-                                        <a class="btn-mini" href="<?= h(urlWithCli(['editar' => (int)$c['id'], 'new' => null])) ?>">Editar</a>
+                                        <div class="cli-row-actions">
+                                            <a class="btn-mini" href="<?= h(urlWithCli(['editar' => (int)$c['id'], 'new' => null])) ?>">Editar</a>
                                         
-                                        <?php if ($hasCC && $ccHab): ?>
+                                        <?php if ($hasCC && $ccHab && $canViewCuentaCorriente): ?>
                                             <a class="btn-mini btn-mini-cc" href="cuenta_corriente_cliente.php?id=<?= (int)$c['id'] ?>" title="Ver cuenta corriente">💳</a>
                                         <?php endif; ?>
 
@@ -375,6 +383,7 @@ require __DIR__ . '/partials/header.php';
                                                 <button type="submit" class="btn-mini btn-mini-ok">Activar</button>
                                             </form>
                                         <?php endif; ?>
+                                        </div>
                                     <?php else: ?>
                                         <span class="muted">—</span>
                                     <?php endif; ?>
@@ -610,6 +619,69 @@ require __DIR__ . '/partials/header.php';
                             </div>
                             <?php endif; ?>
                         </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($editCliente['id']) && ($canViewVentas || $canViewFacturacion || ($canViewCuentaCorriente && $hasCC))): ?>
+                <?php
+                $ccSaldoDrawer = (float)($editCliente['cc_saldo'] ?? 0);
+                $ccHabDrawer = (int)($editCliente['cc_habilitado'] ?? 0) === 1;
+                ?>
+                <div class="cli-related-card">
+                    <div class="cli-related-head">
+                        <h4>Actividad vinculada</h4>
+                        <p>Desde aca conviene saltar al historial del cliente, no solo editar sus datos.</p>
+                    </div>
+
+                    <div class="cli-related-grid">
+                        <?php if ($canViewVentas && !empty($clienteRelacionResumen['ventas']['disponible'])): ?>
+                        <div class="cli-related-stat">
+                            <span class="cli-related-label">Ventas</span>
+                            <strong><?= (int)($clienteRelacionResumen['ventas']['total'] ?? 0) ?></strong>
+                            <small>
+                                <?php if (!empty($clienteRelacionResumen['ventas']['ultima_fecha'])): ?>
+                                    Ultima: <?= h(date('d/m/Y', strtotime((string)$clienteRelacionResumen['ventas']['ultima_fecha']))) ?>
+                                <?php else: ?>
+                                    Sin historial cargado
+                                <?php endif; ?>
+                            </small>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if ($canViewFacturacion && !empty($clienteRelacionResumen['facturas']['disponible'])): ?>
+                        <div class="cli-related-stat">
+                            <span class="cli-related-label">Facturas</span>
+                            <strong><?= (int)($clienteRelacionResumen['facturas']['total'] ?? 0) ?></strong>
+                            <small>
+                                <?php if (!empty($clienteRelacionResumen['facturas']['ultima_fecha'])): ?>
+                                    Ultima: <?= h(date('d/m/Y', strtotime((string)$clienteRelacionResumen['facturas']['ultima_fecha']))) ?>
+                                <?php else: ?>
+                                    Sin comprobantes emitidos
+                                <?php endif; ?>
+                            </small>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if ($canViewCuentaCorriente && $hasCC): ?>
+                        <div class="cli-related-stat">
+                            <span class="cli-related-label">Cuenta corriente</span>
+                            <strong><?= $ccHabDrawer ? '$' . number_format($ccSaldoDrawer, 0, ',', '.') : 'No activa' ?></strong>
+                            <small><?= $ccHabDrawer ? 'Saldo actual del cliente' : 'Se habilita desde este formulario' ?></small>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="cli-related-links">
+                        <?php if ($canViewVentas): ?>
+                        <a href="ventas.php?cliente_id=<?= (int)$editCliente['id'] ?>" class="btn btn-secondary btn-sm">Ver ventas</a>
+                        <?php endif; ?>
+                        <?php if ($canViewFacturacion): ?>
+                        <a href="facturacion.php?cliente_id=<?= (int)$editCliente['id'] ?>" class="btn btn-secondary btn-sm">Ver facturacion</a>
+                        <?php endif; ?>
+                        <?php if ($canViewCuentaCorriente && $hasCC && $ccHabDrawer): ?>
+                        <a href="cuenta_corriente_cliente.php?id=<?= (int)$editCliente['id'] ?>" class="btn btn-secondary btn-sm">Ver cuenta corriente</a>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>

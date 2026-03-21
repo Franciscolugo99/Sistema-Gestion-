@@ -8,6 +8,7 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 
 require_login();
 require_any_permission(['ver_facturacion', 'emitir_factura']);
+$canViewClientes = function_exists('user_has_permission') && user_has_permission('ver_clientes');
 
 $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 if (!$facturacionHabilitada) {
@@ -154,6 +155,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
     $totalExpr = flus_column_exists($pdo, 'facturas', 'total') ? 'f.`total`' : '0';
     $estadoExpr = $estadoCol ? 'f.`estado`' : "'EMITIDA'";
     $ventaIdExpr = $ventaIdCol ? 'f.`venta_id`' : 'NULL';
+    $clienteIdExpr = $clienteIdCol ? 'f.`cliente_id`' : 'NULL';
     $caeExpr = $caeCol ? 'f.`cae`' : 'NULL';
     $caeVtoExpr = $caeVtoCol ? 'f.`cae_vto`' : 'NULL';
     $modoExpr = $modoCol ? 'f.`modo`' : 'NULL';
@@ -381,6 +383,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
             {$numeroExpr} AS numero,
             {$totalExpr} AS total,
             {$estadoExpr} AS estado,
+            {$clienteIdExpr} AS cliente_id,
             {$clienteNombreExpr} AS cliente_nombre,
             {$clienteCuitExpr} AS cliente_cuit,
             {$ventaIdExpr} AS venta_id,
@@ -675,6 +678,7 @@ require __DIR__ . '/partials/header.php';
           <tbody>
           <?php foreach ($facturas as $factura): ?>
             <?php
+              $clienteIdFila = (int)($factura['cliente_id'] ?? 0);
               $clienteNombre = trim((string)($factura['cliente_nombre'] ?? '')) ?: 'Consumidor Final';
               $clienteCuit = trim((string)($factura['cliente_cuit'] ?? ''));
               $numero = $factura['numero'] !== null ? (int)$factura['numero'] : null;
@@ -723,7 +727,13 @@ require __DIR__ . '/partials/header.php';
                 </div>
               </td>
               <td>
-                <div class="fact-doc-title"><?= h($clienteNombre) ?></div>
+                <div class="fact-doc-title">
+                  <?php if ($canViewClientes && $clienteIdFila > 0): ?>
+                    <a href="cliente_detalle.php?id=<?= $clienteIdFila ?>" class="fact-link-inline"><?= h($clienteNombre) ?></a>
+                  <?php else: ?>
+                    <?= h($clienteNombre) ?>
+                  <?php endif; ?>
+                </div>
                 <div class="fact-cell-sub"><?= $clienteCuit !== '' ? h($clienteCuit) : 'Sin documento fiscal cargado' ?></div>
               </td>
               <td>

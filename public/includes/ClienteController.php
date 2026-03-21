@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/CuitValidator.php';
 
+$schemaHelpersPath = dirname(__DIR__, 2) . '/src/db_schema.php';
+if (is_file($schemaHelpersPath)) {
+    require_once $schemaHelpersPath;
+}
+
 /**
  * ClienteController - Compatible con diferentes esquemas de BD
  * Detecta automáticamente qué columnas existen y se adapta.
@@ -37,6 +42,36 @@ class ClienteController
             'CORPORATIVO' => 'Corporativo',
         ];
     }
+
+    private function hasTable(string $table): bool
+    {
+        if (function_exists('flus_table_exists')) {
+            return (bool)flus_table_exists($this->pdo, $table);
+        }
+
+        if (function_exists('has_table')) {
+            return (bool)has_table($this->pdo, $table);
+        }
+
+        return false;
+    }
+
+    private function tableHasColumn(string $table, string $column): bool
+    {
+        if ($table === 'clientes') {
+            return $this->hasColumn($column);
+        }
+
+        if (function_exists('flus_column_exists')) {
+            return (bool)flus_column_exists($this->pdo, $table, $column);
+        }
+
+        if (function_exists('has_column')) {
+            return (bool)has_column($this->pdo, $table, $column);
+        }
+
+        return false;
+    }
     
     /**
      * Obtiene las columnas disponibles en la tabla clientes (cached)
@@ -45,9 +80,12 @@ class ClienteController
     {
         if ($this->availableColumns === null) {
             try {
-                $stmt = $this->pdo->query("SHOW COLUMNS FROM clientes");
-                $cols = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
-                $this->availableColumns = array_flip($cols);
+                if (function_exists('flus_table_columns')) {
+                    $cols = flus_table_columns($this->pdo, 'clientes');
+                    $this->availableColumns = array_fill_keys(array_map('strval', $cols), true);
+                } else {
+                    $this->availableColumns = [];
+                }
             } catch (Throwable $e) {
                 $this->availableColumns = [];
             }
@@ -75,9 +113,7 @@ class ClienteController
     public function getZonasReparto(): array
     {
         try {
-            // Verificar si existe la tabla
-            $check = $this->pdo->query("SHOW TABLES LIKE 'zonas_reparto'");
-            if (!$check->fetch()) {
+            if (!$this->hasTable('zonas_reparto')) {
                 return [];
             }
             
@@ -458,6 +494,155 @@ class ClienteController
                 'clientes_con_deuda' => 0,
                 'clientes_excedidos' => 0,
             ];
+        }
+    }
+
+    public function getRelacionResumen(int $clienteId): array
+    {
+        $resumen = [
+            'ventas' => [
+                'disponible' => false,
+                'total' => 0,
+                'ultima_fecha' => null,
+                'total_facturado' => 0.0,
+            ],
+            'facturas' => [
+                'disponible' => false,
+                'total' => 0,
+                'ultima_fecha' => null,
+            ],
+        ];
+
+        if ($clienteId <= 0) {
+            return $resumen;
+        }
+
+        try {
+            if ($this->hasTable('ventas') && $this->tableHasColumn('ventas', 'cliente_id')) {
+                $resumen['ventas']['disponible'] = true;
+                $ventasFechaCol = $this->tableHasColumn('ventas', 'fecha');
+                $ventasTotalCol = $this->tableHasColumn('ventas', 'total');
+
+                $sqlVentas = 'SELECT COUNT(*) AS total';
+                $sqlVentas .= $ventasFechaCol ? ', MAX(fecha) AS ultima_fecha' : ', NULL AS ultima_fecha';
+                $sqlVentas .= $ventasTotalCol ? ', COALESCE(SUM(total), 0) AS total_facturado' : ', 0 AS total_facturado';
+                $sqlVentas .= ' FROM ventas WHERE cliente_id = :cliente_id';
+
+                $stVentas = $this->pdo->prepare($sqlVentas);
+                $stVentas->execute([':cliente_id' => $clienteId]);
+                $ventasData = $stVentas->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $resumen['ventas']['total'] = (int)($ventasData['total'] ?? 0);
+                $resumen['ventas']['ultima_fecha'] = $ventasData['ultima_fecha'] ?: null;
+                $resumen['ventas']['total_facturado'] = (float)($ventasData['total_facturado'] ?? 0);
+            }
+        } catch (Throwable $e) {
+            $resumen['ventas'] = [
+                'disponible' => false,
+                'total' => 0,
+                'ultima_fecha' => null,
+                'total_facturado' => 0.0,
+            ];
+        }
+
+        try {
+            if ($this->hasTable('facturas') && $this->tableHasColumn('facturas', 'cliente_id')) {
+                $resumen['facturas']['disponible'] = true;
+                $factFechaCol = $this->tableHasColumn('facturas', 'fecha');
+
+                $sqlFacturas = 'SELECT COUNT(*) AS total';
+                $sqlFacturas .= $factFechaCol ? ', MAX(fecha) AS ultima_fecha' : ', NULL AS ultima_fecha';
+                $sqlFacturas .= ' FROM facturas WHERE cliente_id = :cliente_id';
+
+                $stFacturas = $this->pdo->prepare($sqlFacturas);
+                $stFacturas->execute([':cliente_id' => $clienteId]);
+                $facturasData = $stFacturas->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                $resumen['facturas']['total'] = (int)($facturasData['total'] ?? 0);
+                $resumen['facturas']['ultima_fecha'] = $facturasData['ultima_fecha'] ?: null;
+            }
+        } catch (Throwable $e) {
+            $resumen['facturas'] = [
+                'disponible' => false,
+                'total' => 0,
+                'ultima_fecha' => null,
+            ];
+        }
+
+        return $resumen;
+    }
+
+    public function getUltimasVentas(int $clienteId, int $limit = 6): array
+    {
+        if ($clienteId <= 0 || !$this->hasTable('ventas') || !$this->tableHasColumn('ventas', 'cliente_id')) {
+            return [];
+        }
+
+        $limit = max(1, min(20, $limit));
+        $fechaExpr = $this->tableHasColumn('ventas', 'fecha') ? 'v.fecha' : 'NULL';
+        $totalExpr = $this->tableHasColumn('ventas', 'total') ? 'v.total' : '0';
+        $estadoExpr = $this->tableHasColumn('ventas', 'estado') ? 'COALESCE(v.estado, "EMITIDA")' : '"EMITIDA"';
+        $medioExpr = $this->tableHasColumn('ventas', 'medio_pago') ? 'COALESCE(v.medio_pago, "")' : '""';
+
+        try {
+            $sql = "
+                SELECT
+                    v.id,
+                    {$fechaExpr} AS fecha,
+                    {$totalExpr} AS total,
+                    {$estadoExpr} AS estado,
+                    {$medioExpr} AS medio_pago
+                FROM ventas v
+                WHERE v.cliente_id = :cliente_id
+                ORDER BY v.id DESC
+                LIMIT {$limit}
+            ";
+
+            $st = $this->pdo->prepare($sql);
+            $st->execute([':cliente_id' => $clienteId]);
+            return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    public function getUltimasFacturas(int $clienteId, int $limit = 6): array
+    {
+        if ($clienteId <= 0 || !$this->hasTable('facturas') || !$this->tableHasColumn('facturas', 'cliente_id')) {
+            return [];
+        }
+
+        $limit = max(1, min(20, $limit));
+        $fechaExpr = $this->tableHasColumn('facturas', 'fecha') ? 'f.fecha' : 'NULL';
+        $tipoExpr = $this->tableHasColumn('facturas', 'tipo') ? 'COALESCE(f.tipo, "Factura")' : '"Factura"';
+        $numeroExpr = $this->tableHasColumn('facturas', 'numero') ? 'f.numero' : 'NULL';
+        $puntoVentaExpr = $this->tableHasColumn('facturas', 'punto_venta') ? 'f.punto_venta' : 'NULL';
+        $totalExpr = $this->tableHasColumn('facturas', 'total') ? 'f.total' : '0';
+        $estadoExpr = $this->tableHasColumn('facturas', 'estado') ? 'COALESCE(f.estado, "EMITIDA")' : '"EMITIDA"';
+        $caeExpr = $this->tableHasColumn('facturas', 'cae') ? 'f.cae' : 'NULL';
+
+        try {
+            $sql = "
+                SELECT
+                    f.id,
+                    {$fechaExpr} AS fecha,
+                    {$tipoExpr} AS tipo,
+                    {$numeroExpr} AS numero,
+                    {$puntoVentaExpr} AS punto_venta,
+                    {$totalExpr} AS total,
+                    {$estadoExpr} AS estado,
+                    {$caeExpr} AS cae
+                FROM facturas f
+                WHERE f.cliente_id = :cliente_id
+                ORDER BY f.id DESC
+                LIMIT {$limit}
+            ";
+
+            $st = $this->pdo->prepare($sql);
+            $st->execute([':cliente_id' => $clienteId]);
+            return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $e) {
+            return [];
         }
     }
 

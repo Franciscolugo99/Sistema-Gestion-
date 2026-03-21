@@ -11,6 +11,7 @@ require_permission('ver_cuenta_corriente');
 
 $pdo = getPDO();
 $cc = new CuentaCorrienteController($pdo);
+$canViewClientes = function_exists('user_has_permission') && user_has_permission('ver_clientes');
 
 // Permisos
 $canRegistrarPago = user_has_permission('registrar_pago_cc');
@@ -265,6 +266,14 @@ require __DIR__ . '/partials/header.php';
               <td class="t-center"><?= $estadoBadge ?></td>
               <td class="t-center">
                 <div class="row-actions">
+                  <?php if ($canViewClientes): ?>
+                  <a href="cliente_detalle.php?id=<?= (int)$cli['id'] ?>"
+                     class="btn-icon" title="Ver ficha del cliente">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </a>
+                  <?php endif; ?>
                   <a href="cuenta_corriente_cliente.php?id=<?= (int)$cli['id'] ?>" 
                      class="btn-icon" title="Ver estado de cuenta">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
