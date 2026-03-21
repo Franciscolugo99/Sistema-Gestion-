@@ -2,19 +2,20 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.5.0  
-**Build:** 2026-03-20  
+**Version:** 3.6.0  
+**Build:** 2026-03-21  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-20)
+## Estado actual (2026-03-21)
 
 ### Operacion y navegacion
 - Nav refactorizado: partial mas limpio, CSS/JS externos y mejor consistencia visual.
 - Header con ayuda rapida de atajos y mejor jerarquia para modulos principales.
 - Base de perfiles de impresion para ticket, comanda y factura.
+- Home principal mas directa: modulos mas claros, mejores tarjetas y accesos coherentes segun permiso real.
 
 ### Caja y terminales
 - Caja mas robusta: recupera tickets pendientes por terminal/apertura y permite seguir cobrando despues de reabrir.
@@ -22,16 +23,30 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Pantalla de apertura de caja mas clara y alineada con el resto del sistema.
 - Terminales renovado: estados operativos, edicion inline y bloqueos para no desactivar cajas abiertas o terminales en uso.
 - Terminales ahora admite override de ticket/papel por caja sin tocar esquema.
+- Flujo de permisos separado para `abrir_caja`, `realizar_ventas` y `cerrar_caja`, evitando rebotes a historial no autorizado.
+
+### Clientes y relacion comercial
+- Ficha de cliente nueva con resumen comercial, fiscal y de cuenta corriente.
+- Clientes ahora enlaza mejor con ventas, facturacion y cuenta corriente.
+- Drawer de clientes con actividad vinculada para no tratar al cliente como un ABM aislado.
+
+### Inventario y compras
+- Analisis de inventario mas operativo: conserva filtros, exporta segun la vista activa y agrega acciones rapidas por producto.
+- Nuevas vistas de solo consulta para `productos` y `stock`, separadas del ABM completo.
+- Compras e inventario fisico pueden abrir con busqueda precargada desde analisis.
 
 ### Compras
 - Borradores automaticos mientras se carga una compra.
 - Recuperacion del borrador al volver al modulo.
 - Mejor responsive en el formulario de carga y en anchos intermedios.
 
-### Dashboard y administracion
+### Dashboard, roles y administracion
 - Dashboard parcialmente desmontado del monolito: filtros, cache y metricas extraidos a `src/Dashboard/`.
 - Graficos estabilizados despues de filtros y cache, con mejor recuperacion de datasets.
 - Modulo de licencia mas administrativo y menos expuesto a detalles internos.
+- Rol `Operador` agregado para negocios chicos con caja + stock + compras sin abrir administracion sensible.
+- Pantalla de roles/permisos reorganizada por areas de negocio, impacto real y vista previa de accesos.
+- Cuenta admin de resguardo protegida: no permite cambiar rol, estado, usuario ni vaciar su rol base.
 
 ### Base tecnica
 - Panel Tecnico interno para soporte, diagnostico y ejecucion de smoke tests desde la UI.
@@ -39,6 +54,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Hardening general en login, backups/restore, usuarios y links publicos.
 - Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
 - Baseline `install.sql` para instalacion limpia + migraciones para actualizar instalaciones existentes.
+- Chequeos de esquema movidos fuera de `INFORMATION_SCHEMA` runtime en zonas calientes como nav, ventas, precios, caja, install y soporte.
 
 > Ver `CHANGELOG.md` para el detalle historico por version.
 

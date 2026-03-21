@@ -6,6 +6,30 @@
 
 - Sin cambios documentados todavia.
 
+## [3.6.0] - 2026-03-21
+
+### Added
+
+- Clientes: nueva `cliente_detalle.php` como ficha ejecutiva con resumen comercial, fiscal y de cuenta corriente.
+- Roles: nuevo rol `Operador` para negocios chicos con caja, stock, compras y cuenta corriente operativa sin abrir administracion sensible.
+- Catalogo/Inventario: nuevas vistas de solo consulta `productos_consulta.php` y `stock_consulta.php` para dar sentido real a `ver_productos` y `ver_stock`.
+
+### Changed
+
+- Home: panel principal mas directo, con mejor jerarquia visual y accesos coherentes segun permiso real.
+- Clientes: acciones mejor distribuidas, enlaces cruzados con ventas/facturacion/CC y drawer con bloque de actividad vinculada.
+- Inventario: `inventario_analisis.php` ahora conserva filtros, exporta segun la pestaña activa y suma acciones rapidas a productos, compras, reposicion y conteo.
+- Roles y permisos: pantalla rediseñada por areas de negocio, niveles de impacto y preview de modulos visibles.
+- Caja: se separo mejor el flujo de `abrir_caja`, `realizar_ventas` y `cerrar_caja`.
+
+### Fixed
+
+- Caja: al cerrar ya no redirige a historial si el usuario no tiene permiso para verlo.
+- Seguridad: la cuenta admin de resguardo ya no permite cambiar rol, estado, usuario ni editar su contraseña desde otro usuario.
+- Seguridad: el rol base de la cuenta admin de resguardo queda bloqueado en Roles/Permisos para evitar vaciarlo por error.
+- Performance/mantenibilidad: se eliminaron chequeos directos a `INFORMATION_SCHEMA`/`SHOW COLUMNS` en runtime en nav, ventas, precios, caja, soporte, instalacion y otros puntos calientes.
+- UI: `rol_permisos.php` ahora abre con categorias cerradas por defecto y se corrigieron detalles visuales de iconos/buscador.
+
 ## [3.5.0] - 2026-03-20
 
 ### Added
