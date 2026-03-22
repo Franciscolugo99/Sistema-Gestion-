@@ -6,6 +6,18 @@
 
 - Sin cambios documentados todavia.
 
+## [3.7.1] - 2026-03-22
+
+### Fixed
+
+- Cuenta Corriente: se alineo el esquema versionado con el controlador agregando soporte para `autorizado_por`, `caja_movimiento_id`, `cc_movimiento_id`, `medio_pago` y `total_transferencia`.
+- Cuenta Corriente: `CuentaCorrienteController` ahora degrada mejor en instalaciones viejas al insertar columnas opcionales solo si existen.
+- Caja/CC: los pagos de cuenta corriente desde caja ya no se rompen en instalaciones con drift de esquema y mantienen el arqueo correcto para transferencia.
+
+### Changed
+
+- Base tecnica: `install.sql` y `migrations/007_support_modules_schema.sql` quedan sincronizados con la migracion `011_cc_schema_compat.sql` para instalaciones limpias y upgrades.
+
 ## [3.7.0] - 2026-03-22
 
 ### Added

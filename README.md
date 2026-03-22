@@ -2,7 +2,7 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.7.0  
+**Version:** 3.7.1  
 **Build:** 2026-03-22  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
@@ -17,6 +17,10 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Detalle de venta rediseñado para distinguir mejor estado, metricas y productos devueltos parcial o totalmente.
 - Listado y vista rapida de ventas con mejor lectura de estados `Parcial` y `Anulada`, mostrando original/devuelto/vigente.
 - Criterio de ventas activas alineado para que `PARCIALMENTE_ANULADA` siga apareciendo en dashboard, reportes y exportaciones.
+
+### Cuenta corriente
+- Fix de compatibilidad de esquema para ventas y cobros CC en instalaciones viejas.
+- El esquema base y las migraciones quedan alineados con el controlador de cuenta corriente y el arqueo por transferencia.
 
 ### Operacion y navegacion
 - Nav refactorizado: partial mas limpio, CSS/JS externos y mejor consistencia visual.

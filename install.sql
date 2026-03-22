@@ -73,13 +73,16 @@ CREATE TABLE `caja_movimientos` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `caja_id` int(11) NOT NULL,
   `tipo` enum('ingreso','egreso') NOT NULL DEFAULT 'ingreso',
+  `medio_pago` varchar(30) DEFAULT NULL COMMENT 'EFECTIVO, MP, DEBITO, CREDITO, TRANSFERENCIA',
   `concepto` varchar(255) NOT NULL,
   `monto` decimal(10,2) NOT NULL DEFAULT 0.00,
   `fecha` datetime NOT NULL DEFAULT current_timestamp(),
   `usuario_registro` varchar(100) DEFAULT NULL,
+  `cc_movimiento_id` int(11) DEFAULT NULL COMMENT 'Referencia al movimiento de CC que genero este ingreso',
   PRIMARY KEY (`id`),
   KEY `idx_caja_sesion` (`caja_id`),
   KEY `idx_fecha` (`fecha`),
+  KEY `idx_caja_mov_cc_mov` (`cc_movimiento_id`),
   CONSTRAINT `fk_caja_movimientos_sesion` FOREIGN KEY (`caja_id`) REFERENCES `caja_sesiones` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -102,6 +105,7 @@ CREATE TABLE `caja_sesiones` (
   `total_mp` decimal(10,2) DEFAULT 0.00,
   `total_debito` decimal(10,2) DEFAULT 0.00,
   `total_credito` decimal(10,2) DEFAULT 0.00,
+  `total_transferencia` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Total de ingresos por transferencia bancaria',
   `total_productos` int(11) DEFAULT 0,
   `total_anulaciones` int(11) DEFAULT 0,
   `terminal_id` int(11) NOT NULL DEFAULT 1,
@@ -238,7 +242,9 @@ CREATE TABLE `cuenta_corriente_movimientos` (
   `reversa_de_id` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `created_by` int(11) DEFAULT NULL,
+  `autorizado_por` int(11) DEFAULT NULL COMMENT 'Usuario que autorizo exceder limite',
   `caja_id` int(11) DEFAULT NULL,
+  `caja_movimiento_id` int(11) DEFAULT NULL COMMENT 'ID del movimiento de caja generado al cobrar',
   `terminal_id` int(11) DEFAULT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -248,6 +254,7 @@ CREATE TABLE `cuenta_corriente_movimientos` (
   KEY `idx_ccm_reversa` (`reversa_de_id`),
   KEY `idx_cc_mov_estado` (`estado`),
   KEY `idx_ccm_created_by` (`created_by`),
+  KEY `idx_cc_mov_caja_mov` (`caja_movimiento_id`),
   CONSTRAINT `fk_ccm_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`),
   CONSTRAINT `fk_ccm_reversa` FOREIGN KEY (`reversa_de_id`) REFERENCES `cuenta_corriente_movimientos` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

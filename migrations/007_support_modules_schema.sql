@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos (
   reversa_de_id INT(11) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by INT(11) DEFAULT NULL,
+  autorizado_por INT(11) DEFAULT NULL COMMENT 'Usuario que autorizo exceder limite',
   caja_id INT(11) DEFAULT NULL,
+  caja_movimiento_id INT(11) DEFAULT NULL COMMENT 'ID del movimiento de caja generado al cobrar',
   terminal_id INT(11) DEFAULT NULL,
   ip_address VARCHAR(45) DEFAULT NULL,
   updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos (
   KEY idx_ccm_reversa (reversa_de_id),
   KEY idx_cc_mov_estado (estado),
   KEY idx_ccm_created_by (created_by),
+  KEY idx_cc_mov_caja_mov (caja_movimiento_id),
   CONSTRAINT fk_ccm_cliente FOREIGN KEY (cliente_id) REFERENCES clientes (id),
   CONSTRAINT fk_ccm_reversa FOREIGN KEY (reversa_de_id) REFERENCES cuenta_corriente_movimientos (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
