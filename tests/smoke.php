@@ -614,6 +614,26 @@ $results[] = flus_run_test('permissions stay aligned across code, install and ad
     }
 });
 
+$results[] = flus_run_test('fiscal scaffold bootstrap loads cleanly', function (): void {
+    $repoRoot = dirname(__DIR__);
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'bootstrap.php';
+
+    flus_assert_true(interface_exists('NotaCreditoService', false));
+    flus_assert_true(interface_exists('FiscalRecoveryService', false));
+    flus_assert_true(interface_exists('FacturaFiscalRepository', false));
+    flus_assert_true(interface_exists('AnulacionFiscalCoordinator', false));
+    flus_assert_true(class_exists('EmitirNotaCreditoCommand', false));
+    flus_assert_true(class_exists('EmitirNotaCreditoResult', false));
+    flus_assert_true(class_exists('RecoveryResult', false));
+    flus_assert_true(class_exists('AnulacionFiscalOutcome', false));
+    flus_assert_true(class_exists('PdoFacturaFiscalRepository', false));
+    flus_assert_true(class_exists('StubNotaCreditoService', false));
+    flus_assert_true(class_exists('StubFiscalRecoveryService', false));
+    flus_assert_true(class_exists('StubAnulacionFiscalCoordinator', false));
+    flus_assert_true(class_exists('ArcaNotaCreditoService', false));
+    flus_assert_true(class_exists('DbAnulacionFiscalCoordinator', false));
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {
