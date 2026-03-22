@@ -2,14 +2,21 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.6.0  
-**Build:** 2026-03-21  
+**Version:** 3.7.0  
+**Build:** 2026-03-22  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-21)
+## Estado actual (2026-03-22)
+
+### Ventas y anulaciones
+- Soporte inicial para anulacion parcial no fiscal de ventas no facturadas.
+- Historial de devoluciones dentro del detalle de venta, con motivo, usuario, fecha, monto devuelto y neto vigente.
+- Detalle de venta rediseñado para distinguir mejor estado, metricas y productos devueltos parcial o totalmente.
+- Listado y vista rapida de ventas con mejor lectura de estados `Parcial` y `Anulada`, mostrando original/devuelto/vigente.
+- Criterio de ventas activas alineado para que `PARCIALMENTE_ANULADA` siga apareciendo en dashboard, reportes y exportaciones.
 
 ### Operacion y navegacion
 - Nav refactorizado: partial mas limpio, CSS/JS externos y mejor consistencia visual.
@@ -99,7 +106,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 1. Confirmar backup de base y proyecto.
 2. Copiar archivos nuevos al servidor.
 3. Ejecutar `php scripts/migrate.php`.
-4. Validar login, ventas, compras, productos, stock y proveedores.
+4. Validar login, ventas, anulaciones parciales, compras, productos, stock y proveedores.
 5. Revisar `src/version.php` en la instancia desplegada.
 
 ---
@@ -109,6 +116,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Login + cambio de tema
 - Panel Tecnico: abrir, ejecutar smoke tests y validar salida en verde
 - Caja: venta simple / anulacion (si aplica) / no duplica por doble click
+- Ventas: anulacion parcial no fiscal, anulacion total posterior y detalle con historial consistente
 - Productos: busqueda por codigo, edicion basica, pesables y cambio de estado
 - Stock: ajuste rapido, historial reciente y visualizacion de pesables
 - Proveedores: editar, ver historial/productos y probar re-vinculacion puntual o global

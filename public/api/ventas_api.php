@@ -10,11 +10,11 @@ require_once __DIR__ . '/secure_actions_guard.php';
 ========================= */
 
 /**
- * Condición SQL para ventas emitidas (NO anuladas)
- * Unifica el criterio: NULL o 'EMITIDA' = emitida
+ * Condición SQL para ventas activas.
+ * Unifica el criterio: solo ANULADA queda afuera.
  */
 function whereEmitida(string $alias = 'v'): string {
-  return "({$alias}.estado IS NULL OR {$alias}.estado = 'EMITIDA')";
+  return "({$alias}.estado IS NULL OR {$alias}.estado <> 'ANULADA')";
 }
 
 /**
@@ -296,6 +296,25 @@ try {
         success_fail('Venta no encontrada', 404);
       }
 
+      $montoAnulado = 0.0;
+      $anulacionesCount = 0;
+      try {
+        if ($tableExists('venta_anulaciones')) {
+          $stAn = $pdo->prepare("
+            SELECT COALESCE(SUM(monto_total), 0) AS monto_anulado, COUNT(*) AS anulaciones_count
+            FROM venta_anulaciones
+            WHERE venta_id = ? AND estado = 'CONFIRMADA'
+          ");
+          $stAn->execute([$id]);
+          $anData = $stAn->fetch(PDO::FETCH_ASSOC) ?: [];
+          $montoAnulado = round((float)($anData['monto_anulado'] ?? 0), 2);
+          $anulacionesCount = (int)($anData['anulaciones_count'] ?? 0);
+        }
+      } catch (Throwable $e) {
+        $montoAnulado = 0.0;
+        $anulacionesCount = 0;
+      }
+
       // Cliente (opcional)
       $clienteNombre = 'Consumidor Final';
       try {
@@ -398,6 +417,7 @@ try {
       // Campos principales con fallback
       $fecha  = $venta[$vFechaCol]  ?? ($venta['fecha'] ?? '');
       $total  = isset($venta[$vTotalCol]) ? (float)$venta[$vTotalCol] : (float)($venta['total'] ?? 0);
+      $netoVigente = max(0, round($total - $montoAnulado, 2));
       $estado = function_exists('flus_normalize_sale_status')
         ? flus_normalize_sale_status($venta[$vEstadoCol] ?? ($venta['estado'] ?? null))
         : (string)($venta[$vEstadoCol] ?? ($venta['estado'] ?? 'EMITIDA'));
@@ -409,6 +429,9 @@ try {
           'fecha' => $fecha,
           'cliente' => $clienteNombre,
           'total' => $total,
+          'monto_anulado' => $montoAnulado,
+          'neto_vigente' => $netoVigente,
+          'anulaciones_count' => $anulacionesCount,
           'medio_pago' => $medioPago,
           'estado' => $estado,
           'items' => $items,
@@ -432,7 +455,7 @@ try {
         FROM ventas
         WHERE 
           fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          AND (estado IS NULL OR estado = 'EMITIDA')
+          AND (estado IS NULL OR estado <> 'ANULADA')
         GROUP BY DATE(fecha)
         ORDER BY fecha ASC
       ");
@@ -591,7 +614,7 @@ try {
           COALESCE(AVG(total), 0) AS promedio
         FROM ventas
         WHERE 
-          (estado IS NULL OR estado = 'EMITIDA')
+          (estado IS NULL OR estado <> 'ANULADA')
           AND fecha >= :desde
           AND fecha <= :hasta
       ");
@@ -649,7 +672,7 @@ try {
           COUNT(*) AS cantidad
         FROM ventas
         WHERE 
-          (estado IS NULL OR estado = 'EMITIDA')
+          (estado IS NULL OR estado <> 'ANULADA')
           AND fecha >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
         GROUP BY dia_semana, hora
         ORDER BY dia_semana, hora

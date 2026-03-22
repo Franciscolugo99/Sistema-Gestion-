@@ -106,7 +106,7 @@ $lineExprForAlias = function(string $alias) use ($viLineCol, $viQtyCol, $viPrice
 
 $ventasDateSQL = ($ventasFechaCol) ? "`{$ventasFechaCol}`" : "fecha";
 $ventasTotalSQL = ($ventasTotalCol) ? "`{$ventasTotalCol}`" : "total";
-$emitidaCond = ($ventasEstadoCol) ? " AND `{$ventasEstadoCol}`='EMITIDA' " : "";
+$emitidaCond = ($ventasEstadoCol) ? " AND (`{$ventasEstadoCol}` IS NULL OR `{$ventasEstadoCol}` <> 'ANULADA') " : "";
 
 // Construir condición de filtro de categoría
 $esSinCategoria = ($categoriaFiltro === 'Sin Categoría');

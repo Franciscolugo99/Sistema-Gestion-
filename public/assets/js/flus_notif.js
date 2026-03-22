@@ -177,6 +177,11 @@
       t?.fire({ icon: 'success', title: escHtml(msg) });
     },
 
+    /** Alias compat */
+    success(msg) {
+      Notif.exito(msg);
+    },
+
     /** Toast rojo — error */
     error(msg) {
       const t = makeToast('#2d1515','#fef2f2','#f87171','#991b1b', 3500);

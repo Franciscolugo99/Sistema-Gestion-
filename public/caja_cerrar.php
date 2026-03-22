@@ -107,7 +107,7 @@ $stmt = $pdo->prepare("
   SELECT COALESCE(SUM(total),0)
   FROM ventas
   WHERE caja_id = ?
-    AND (estado IS NULL OR estado = 'EMITIDA')
+    AND (estado IS NULL OR estado <> 'ANULADA')
 ");
 $stmt->execute([$cajaId]);
 $totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
@@ -120,7 +120,7 @@ if ($hasMontoCC) {
     SELECT COALESCE(SUM(monto_cc),0)
     FROM ventas
     WHERE caja_id = ?
-      AND (estado IS NULL OR estado = 'EMITIDA')
+      AND (estado IS NULL OR estado <> 'ANULADA')
   ");
   $stmt->execute([$cajaId]);
   $totalVentasCC = (float)($stmt->fetchColumn() ?: 0.0);
@@ -132,7 +132,7 @@ $stmt = $pdo->prepare("
   FROM ventas v
   JOIN venta_items vi ON vi.venta_id = v.id
   WHERE v.caja_id = ?
-    AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+    AND (v.estado IS NULL OR v.estado <> 'ANULADA')
 ");
 $stmt->execute([$cajaId]);
 $itemsVendidos = (float)($stmt->fetchColumn() ?: 0);

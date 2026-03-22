@@ -1,5 +1,5 @@
 /* ==========================================================
-   VENTA DETALLE – LAYOUT GENERAL
+   VENTA DETALLE
 ========================================================== */
 
 .venta-page {
@@ -8,272 +8,503 @@
 }
 
 .venta-panel {
-  /* .panel ya da fondo/sombra, acá solo layout interno */
+  overflow: hidden;
 }
 
-.venta-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-  flex-wrap: wrap;
+.venta-header-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 28px;
+  align-items: start;
 }
 
-.venta-header-left {
+.venta-header-copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.venta-title {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  gap: 14px;
+  min-width: 0;
 }
 
 .link-back {
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
+  font-size: var(--text-sm, 14px);
   text-decoration: none;
 }
 
 .link-back:hover {
-  text-decoration: underline;
+  color: var(--text);
 }
 
-/* ===== Resumen derecha ===== */
-
-.venta-header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  min-width: 260px;
+.venta-title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.375rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
-.venta-resumen {
+.venta-meta-line {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px 18px;
-}
-
-.venta-resumen-item {
-  min-width: 120px;
-}
-
-.venta-resumen-item .label {
-  display: block;
-  font-size: 0.75rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 3px;
-}
-
-.venta-resumen-item .value {
-  font-size: 0.98rem;
-  font-weight: 600;
-}
-
-.monto-total {
-  font-size: 1.08rem;
-}
-
-/* ==========================================================
-   MEDIOS DE PAGO (BADGES)
-========================================================== */
-
-.badge-medio {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 0.78rem;
+  gap: 10px;
+  color: var(--muted);
+  font-size: var(--text-sm, 14px);
+}
+
+.venta-meta-text {
+  color: var(--text);
+}
+
+.venta-meta-dot {
+  color: var(--muted);
+}
+
+.venta-inline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+}
+
+.anulacion-nota {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--danger-border, var(--panel-border));
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-md, 12px);
+  background: var(--danger-bg, var(--bg-alt));
+}
+
+.anulacion-nota-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.anulacion-nota-label {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.anulacion-nota-text {
+  color: var(--text);
+}
+
+.anulacion-nota-quien {
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+}
+
+.metric-row {
+  display: grid;
+  gap: 12px;
+}
+
+.metric-row-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric-row-wide {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 88px;
+  padding: 14px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-alt);
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-/* Colores por tipo – ajustá si querés otra paleta */
-.badge-medio-efectivo {
-  background: rgba(22, 163, 74, 0.15);
-  color: #bbf7d0;
-  border: 1px solid rgba(34, 197, 94, 0.7);
+.metric-value {
+  color: var(--text-strong);
+  font-size: var(--text-lg, 18px);
+  font-weight: 500;
+  line-height: 1.2;
 }
 
-.badge-medio-debito,
-.badge-medio-credito {
-  background: rgba(59, 130, 246, 0.16);
-  color: #bfdbfe;
-  border: 1px solid rgba(59, 130, 246, 0.7);
+.metric-value.devuelto {
+  color: var(--danger);
 }
 
-.badge-medio-mercado_pago,
-.badge-medio-mp {
-  background: rgba(56, 189, 248, 0.16);
-  color: #e0f2fe;
-  border: 1px solid rgba(56, 189, 248, 0.7);
+.metric-value.neto-vigente {
+  color: var(--success);
 }
 
-/* Tema claro – texto más oscuro */
-body[data-theme="light"] .badge-medio-efectivo,
-body[data-theme="light"] .badge-medio-debito,
-body[data-theme="light"] .badge-medio-credito,
-body[data-theme="light"] .badge-medio-mercado_pago,
-body[data-theme="light"] .badge-medio-mp {
-  color: #052e16;
+.metric-value.neto-cero {
+  color: var(--muted);
 }
 
-/* ==========================================================
-   BLOQUE FACTURACIÓN (ARRIBA A LA DERECHA)
-========================================================== */
+.metric-value-html {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.metric-card-detail {
+  grid-column: 1 / -1;
+}
 
 .venta-acciones {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .venta-acciones .btn {
-  /* reutiliza .btn global, solo tamaño */
-  padding-inline: 16px;
+  width: 100%;
+  justify-content: center;
 }
 
-/* Caja cuando ya hay factura */
 .factura-info {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--panel-border);
-  background: rgba(15, 23, 42, 0.75);
-  max-width: 320px;
-}
-
-body[data-theme="light"] .factura-info {
-  background: rgba(248, 250, 252, 0.9);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--bg-alt);
 }
 
 .factura-text {
-  font-size: 0.86rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text);
+  font-size: var(--text-sm, 14px);
 }
 
 .factura-text strong {
-  font-weight: 700;
+  color: var(--text-strong);
 }
 
 .factura-links {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
-/* badge “Facturada” */
-.venta-page .badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-}
-
-.venta-page .badge-pill {
-  border-radius: 999px;
-}
-
-.venta-page .badge-green {
-  background: rgba(34, 197, 94, 0.18);
-  border: 1px solid rgba(34, 197, 94, 0.8);
-  color: #bbf7d0;
-}
-
-body[data-theme="light"] .venta-page .badge-green {
-  background: #ecfdf3;
-  color: #166534;
-}
-
-/* Hint cuando no hay config de facturación */
 .venta-hint {
-  max-width: 320px;
-  font-size: 0.82rem;
   color: var(--muted);
+  font-size: var(--text-xs, 12px);
+  line-height: 1.45;
   text-align: right;
 }
 
-/* Botón chico reutilizable */
 .btn-sm {
-  padding: 5px 10px;
-  font-size: 0.8rem;
+  font-size: var(--text-xs, 12px);
 }
 
-/* ==========================================================
-   TABLA DETALLE PRODUCTOS
-========================================================== */
+.venta-page .badge,
+.venta-page .badge-medio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-full, 999px);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
-.venta-detalle-header h2 {
-  margin: 0 0 10px;
-  font-size: 1.1rem;
+.venta-page .badge {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.venta-page .badge-success,
+.venta-page .badge-medio-efectivo {
+  background: var(--success-bg, var(--bg-alt));
+  border-color: var(--success-border, var(--panel-border));
+  color: var(--success);
+}
+
+.venta-page .badge-warning {
+  background: var(--warning-bg, var(--bg-alt));
+  border-color: var(--warning-border, var(--panel-border));
+  color: var(--warning);
+}
+
+.venta-page .badge-danger {
+  background: var(--danger-bg, var(--bg-alt));
+  border-color: var(--danger-border, var(--panel-border));
+  color: var(--danger);
+}
+
+.venta-page .badge-medio-debito,
+.venta-page .badge-medio-credito,
+.venta-page .badge-medio-mercado_pago,
+.venta-page .badge-medio-mp,
+.venta-page .badge-medio-transferencia,
+.venta-page .badge-medio-mixto {
+  background: var(--info-bg, var(--bg-alt));
+  border-color: var(--info-border, var(--panel-border));
+  color: var(--info);
+}
+
+.venta-page .badge-medio-sin_especificar {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.section-title {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.table-wrapper {
+  overflow-x: auto;
 }
 
 .venta-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
-}
-
-.venta-table th,
-.venta-table td {
-  padding: 10px 8px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  border-spacing: 0;
+  font-size: 0.8125rem;
 }
 
 .venta-table thead th {
-  text-align: left;
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--panel-border);
   color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.venta-table tbody tr {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.venta-table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.venta-table tbody td {
+  padding: 11px 12px;
+  color: var(--text);
+  vertical-align: top;
+}
+
+.venta-table tfoot th,
+.venta-table tfoot td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--panel-border);
+  color: var(--text-strong);
 }
 
 .venta-table .right {
   text-align: right;
 }
 
-.empty-cell {
-  text-align: center;
-  padding: 18px 10px;
+.venta-table .col-codigo {
   color: var(--muted);
+  white-space: nowrap;
 }
 
-/* ==========================================================
-   RESPONSIVE
-========================================================== */
+.venta-table .col-nombre {
+  color: var(--text-strong);
+  font-weight: 500;
+}
 
-@media (max-width: 900px) {
-  .venta-header {
-    flex-direction: column;
-    align-items: stretch;
+.venta-table .col-monto {
+  color: var(--text-strong);
+  font-weight: 500;
+}
+
+.venta-table-compact thead th,
+.venta-table-compact tbody td {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.empty-cell {
+  padding: 18px 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.table-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.table-note.item-status-partial {
+  background: var(--warning-bg, var(--bg-alt));
+  color: var(--warning);
+}
+
+.table-note.item-status-full {
+  background: var(--danger-bg, var(--bg-alt));
+  color: var(--danger);
+}
+
+.item-status-full {
+  opacity: 0.5;
+}
+
+.anulacion-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.anulacion-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 108px;
+  padding: 14px 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--panel);
+}
+
+.anulacion-kpi-label {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.anulacion-kpi-value {
+  color: var(--text-strong);
+  font-size: var(--text-lg, 18px);
+  line-height: 1.2;
+}
+
+.anulacion-kpi-help {
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+  line-height: 1.45;
+}
+
+.anulacion-history {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.anulacion-card {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.anulacion-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-alt);
+}
+
+.anulacion-card-head-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.anulacion-card-title {
+  color: var(--text-strong);
+  font-size: var(--text-sm, 14px);
+}
+
+.anulacion-card-total {
+  color: var(--text-strong);
+  font-size: var(--text-base, 16px);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.anulacion-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-size: var(--text-xs, 12px);
+}
+
+@media (max-width: 960px) {
+  .venta-header-main {
+    grid-template-columns: 1fr;
   }
 
-  .venta-header-right,
   .venta-acciones {
+    width: 100%;
+  }
+
+  .venta-hint {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .venta-page {
+    margin-top: 18px;
+  }
+
+  .metric-row-compact,
+  .metric-row-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .venta-meta-line,
+  .venta-inline-meta,
+  .anulacion-card-head,
+  .anulacion-card-head-main {
     align-items: flex-start;
   }
 
-  .venta-hint,
-  .factura-info {
-    text-align: left;
-    max-width: 100%;
-  }
-
-  .venta-resumen {
-    justify-content: flex-start;
+  .venta-table thead th,
+  .venta-table tbody td,
+  .venta-table tfoot th,
+  .venta-table tfoot td {
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }

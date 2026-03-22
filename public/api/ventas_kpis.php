@@ -100,7 +100,7 @@ if ($medio !== '' && in_array($medio, $allowedMedios, true)) {
 // Estado
 if ($estado !== '' && in_array($estado, $allowedEstados, true)) {
   if ($estado === 'EMITIDA') {
-    $whereParts[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+    $whereParts[] = "(v.estado IS NULL OR v.estado <> 'ANULADA')";
   } else {
     $whereParts[] = "v.estado = 'ANULADA'";
   }
@@ -174,9 +174,9 @@ try {
   // Emitidas
   $sql = "
     SELECT
-      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN 1 ELSE 0 END),0) AS tickets,
-      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN v.total ELSE 0 END),0) AS facturacion,
-      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado='EMITIDA') THEN $descExpr ELSE 0 END),0) AS descuentos
+      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN 1 ELSE 0 END),0) AS tickets,
+      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN v.total ELSE 0 END),0) AS facturacion,
+      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN $descExpr ELSE 0 END),0) AS descuentos
     FROM ventas v
     WHERE $whereSQL
   ";
@@ -213,7 +213,7 @@ try {
       SELECT COALESCE(SUM(vp.descuento_monto),0) AS desc_promos
       FROM venta_promos vp
       JOIN ventas v ON v.id = vp.venta_id
-      WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
+      WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
     ";
     $sqlP = apply_catfilter_to_sql($sqlP, __catFilter($pdo));
     $stP  = $pdo->prepare($sqlP);
@@ -227,7 +227,7 @@ try {
       SELECT UPPER(p.medio_pago) AS medio, COALESCE(SUM(p.monto),0) AS total
       FROM venta_pagos p
       JOIN ventas v ON v.id = p.venta_id
-      WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
+      WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       GROUP BY UPPER(p.medio_pago)
       ORDER BY total DESC
     ";
@@ -239,7 +239,7 @@ try {
     $sqlM = "
       SELECT UPPER(v.medio_pago) AS medio, COALESCE(SUM(v.total),0) AS total
       FROM ventas v
-      WHERE $whereSQL AND (v.estado IS NULL OR v.estado='EMITIDA')
+      WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       GROUP BY UPPER(v.medio_pago)
       ORDER BY total DESC
     ";

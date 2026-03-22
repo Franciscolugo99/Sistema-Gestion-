@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 if (!function_exists('insert_dynamic')) { @require_once FLUS_ROOT . '/src/api_helpers.php'; }
 if (!function_exists('getPDO')) { require_once __DIR__ . '/../../../src/db_helpers.php'; }
+require_once FLUS_ROOT . '/src/venta_anulaciones_lib.php';
 $pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
 if (!$pdo instanceof PDO) { http_response_code(500); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'error'=>'PDO no disponible']); exit; }
 if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
@@ -114,6 +115,9 @@ try {
     : (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA');
   $ccReversa = null;
   $items = [];
+  $yaAnulado = flus_venta_items_anulados_map($pdo, $ventaId);
+  $ventaItems = flus_venta_items_cargar($pdo, $ventaId);
+  $itemsRestantes = flus_venta_items_restantes($ventaItems, $yaAnulado);
   // -------------------------
   // 1) Marcar ANULADA (solo columnas que existan)
   // -------------------------
@@ -166,152 +170,14 @@ try {
     );
 
     if ($ccSoportable) {
-      // Recolectar IDs de movimientos CC vinculados a esta venta
-      $movIds = [];
-
-      // 1) Preferido: por venta_id (si la columna existe)
-      if (flus_table_has_column($pdo, $tCc, 'venta_id')) {
-        $stCC = $pdo->prepare("SELECT id FROM {$tCc} WHERE venta_id = ? AND estado = 'ACTIVO' AND tipo = 'CARGO'");
-        $stCC->execute([$ventaId]);
-        $movIds = array_map('intval', $stCC->fetchAll(PDO::FETCH_COLUMN) ?: []);
-      }
-
-      // 2) Fallback: por venta_pagos.cc_movimiento_id
-      if (!$movIds && flus_has_table($pdo, $tVp) && flus_table_has_column($pdo, $tVp, 'venta_id') && flus_table_has_column($pdo, $tVp, 'cc_movimiento_id')) {
-        $stVP = $pdo->prepare("SELECT DISTINCT cc_movimiento_id FROM {$tVp} WHERE venta_id = ? AND cc_movimiento_id IS NOT NULL");
-        $stVP->execute([$ventaId]);
-        $ids = $stVP->fetchAll(PDO::FETCH_COLUMN) ?: [];
-        foreach ($ids as $x) {
-          $ix = (int)$x;
-          if ($ix > 0) $movIds[] = $ix;
-        }
-        $movIds = array_values(array_unique($movIds));
-      }
-
-      if ($movIds) {
-        $reversados = [];
-        $omitidos   = [];
-
-        // Reversa idempotente (si ya está reversado, no duplica)
-        foreach ($movIds as $movId) {
-          // Lock movimiento
-          $stMov = $pdo->prepare("SELECT * FROM {$tCc} WHERE id = ? FOR UPDATE");
-          $stMov->execute([$movId]);
-          $mov = $stMov->fetch(PDO::FETCH_ASSOC);
-
-          if (!$mov) {
-            $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'NO_EXISTE'];
-            continue;
-          }
-
-          $tipo = strtoupper((string)($mov['tipo'] ?? ''));
-          $estado = strtoupper((string)($mov['estado'] ?? ''));
-          if ($estado !== 'ACTIVO') {
-            $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'NO_ACTIVO'];
-            continue;
-          }
-          if ($tipo === 'REVERSA') {
-            $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'ES_REVERSA'];
-            continue;
-          }
-
-          // Si ya tiene una reversa activa, no duplicar
-          if (flus_table_has_column($pdo, $tCc, 'reversa_de_id')) {
-            $stChk = $pdo->prepare("SELECT id FROM {$tCc} WHERE reversa_de_id = ? AND estado = 'ACTIVO' LIMIT 1");
-            $stChk->execute([$movId]);
-            if ($stChk->fetchColumn()) {
-              $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'YA_REVERSADO'];
-              continue;
-            }
-          }
-
-          $clienteId = (int)($mov['cliente_id'] ?? 0);
-          $monto     = (float)($mov['monto'] ?? 0);
-
-          if ($clienteId <= 0 || $monto <= 0) {
-            $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'DATOS_INVALIDOS'];
-            continue;
-          }
-
-          // Lock cliente
-          $stCli = $pdo->prepare("SELECT cc_saldo FROM {$tCli} WHERE id = ? FOR UPDATE");
-          $stCli->execute([$clienteId]);
-          $cli = $stCli->fetch(PDO::FETCH_ASSOC);
-          if (!$cli) {
-            $omitidos[] = ['movimiento_id' => $movId, 'reason' => 'CLIENTE_NO_ENCONTRADO'];
-            continue;
-          }
-
-          $saldoAnterior = (float)($cli['cc_saldo'] ?? 0);
-
-          // Reversa = operación inversa
-          if ($tipo === 'CARGO' || $tipo === 'AJUSTE_POS') {
-            $saldoPosterior = $saldoAnterior - $monto;
-          } elseif ($tipo === 'PAGO' || $tipo === 'AJUSTE_NEG') {
-            $saldoPosterior = $saldoAnterior + $monto;
-          } else {
-            $saldoPosterior = $saldoAnterior;
-          }
-          $saldoPosterior = round($saldoPosterior, 2);
-
-          $motBase = "Anulación venta #{$ventaId}";
-          if ($motivo !== '') {
-            $motBase .= ': ' . (function_exists('mb_substr') ? mb_substr($motivo, 0, 180) : substr($motivo, 0, 180));
-          }
-
-          // Insertar movimiento REVERSA (sin editar historial)
-          $reversaId = insert_dynamic($pdo, $tCc, [
-            'cliente_id'     => $clienteId,
-            'venta_id'       => $ventaId,
-            'tipo'           => 'REVERSA',
-            'estado'         => 'ACTIVO',
-            'monto'          => $monto,
-            'saldo_anterior' => $saldoAnterior,
-            'saldo_posterior'=> $saldoPosterior,
-            'reversa_de_id'  => $movId,
-            'concepto'       => "REVERSA: {$motBase}",
-            'created_by'     => $userId,
-            'caja_id'        => $venta['caja_id'] ?? null,
-            'terminal_id'    => $in['terminal_id'] ?? null,
-            'ip_address'     => $_SERVER['REMOTE_ADDR'] ?? null,
-          ]);
-
-          // Marcar original ANULADO
-          $setMov = ["estado = 'ANULADO'"];
-          if (flus_table_has_column($pdo, $tCc, 'updated_at')) $setMov[] = 'updated_at = NOW()';
-          $stMk = $pdo->prepare("UPDATE {$tCc} SET " . implode(', ', $setMov) . " WHERE id = ?");
-          $stMk->execute([$movId]);
-
-          // Actualizar cache cliente
-          $stUpd = $pdo->prepare("UPDATE {$tCli} SET cc_saldo = ? WHERE id = ?");
-          $stUpd->execute([$saldoPosterior, $clienteId]);
-
-          // Si se reversó un PAGO (no aplica a ventas, pero lo dejamos robusto)
-          if ($tipo === 'PAGO' && flus_table_has_column($pdo, $tCli, 'cc_fecha_ultimo_pago')) {
-            $stF = $pdo->prepare("SELECT MAX(DATE(created_at)) FROM {$tCc} WHERE cliente_id = ? AND tipo = 'PAGO' AND estado = 'ACTIVO'");
-            $stF->execute([$clienteId]);
-            $nuevaFecha = $stF->fetchColumn() ?: null;
-            $stUF = $pdo->prepare("UPDATE {$tCli} SET cc_fecha_ultimo_pago = ? WHERE id = ?");
-            $stUF->execute([$nuevaFecha, $clienteId]);
-          }
-
-          $reversados[] = [
-            'movimiento_id' => $movId,
-            'reversa_id'    => $reversaId,
-            'cliente_id'    => $clienteId,
-            'monto'         => $monto,
-            'saldo_anterior'=> $saldoAnterior,
-            'saldo_posterior'=> $saldoPosterior,
-          ];
+      $ccTotalOriginal = flus_venta_cc_total_original($pdo, $ventaId);
+      if ($ccTotalOriginal > 0) {
+        $motBase = "Anulación venta #{$ventaId}";
+        if ($motivo !== '') {
+          $motBase .= ': ' . (function_exists('mb_substr') ? mb_substr($motivo, 0, 180) : substr($motivo, 0, 180));
         }
 
-        if ($reversados || $omitidos) {
-          $ccReversa = [
-            'venta_id' => $ventaId,
-            'reversados' => $reversados,
-            'omitidos' => $omitidos,
-          ];
-        }
+        $ccReversa = flus_venta_cc_revertir_monto($pdo, $venta, $ventaId, $ccTotalOriginal, $userId, $motBase);
       }
     }
   } catch (Throwable $ccE) {
@@ -323,45 +189,16 @@ try {
     // -------------------------
     // 3) Reponer stock (si existen tablas)
     // -------------------------
-    if (flus_has_table($pdo, 'venta_items') && flus_has_table($pdo, 'productos')) {
-      $stIt = $pdo->prepare("SELECT producto_id, cantidad FROM venta_items WHERE venta_id = ?");
-      $stIt->execute([$ventaId]);
-      $items = $stIt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-      if ($items) {
-        $stProd = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
-        foreach ($items as $it) {
-          $pid = (int)($it['producto_id'] ?? 0);
-          $qty = (float)($it['cantidad'] ?? 0);
-          if ($pid > 0 && $qty > 0) {
-            $stProd->execute([':qty' => $qty, ':pid' => $pid]);
-          }
-        }
-      }
-    }
-
-    // -------------------------
-    // 3b) Registrar movimientos_stock (para auditoría / módulo Movimientos)
-    // -------------------------
-    if (flus_has_table($pdo, 'movimientos_stock') && $items) {
+    if ($itemsRestantes) {
       $comBase = "Anulación venta #{$ventaId}" . ($motivo !== '' ? (": " . mb_substr($motivo, 0, 180)) : "");
-      foreach ($items as $it) {
-        $pid = (int)($it['producto_id'] ?? 0);
-        $qty = (float)($it['cantidad'] ?? 0);
-        if ($pid > 0 && $qty > 0) {
-          // En ventas guardamos cantidad positiva (el signo lo normaliza el visor por tipo)
-          if (function_exists('insert_dynamic')) {
-            insert_dynamic($pdo, 'movimientos_stock', [
-              'producto_id'         => $pid,
-              'tipo'                => 'ANULACION',
-              'cantidad'            => $qty,
-              'venta_id'            => $ventaId,
-              'referencia_venta_id' => $ventaId,
-              'comentario'          => $comBase,
-              'fecha'               => date('Y-m-d H:i:s'),
-            ]);
-          }
-        }
+      flus_venta_stock_reponer_items($pdo, $itemsRestantes, $ventaId, $userId, $comBase);
+
+      foreach ($itemsRestantes as $row) {
+        $item = $row['item'] ?? [];
+        $items[] = [
+          'producto_id' => $item['producto_id'] ?? null,
+          'cantidad' => $row['cantidad_restante'] ?? 0,
+        ];
       }
     }
   } // end if (!$ventaYaAnulada) — stock restoration

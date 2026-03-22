@@ -115,6 +115,7 @@ $permissionMeta = [
     'abrir_caja' => ['category' => 'caja', 'summary' => 'Permite abrir una caja en la terminal actual.', 'impact' => 'Sirve para la apertura; vender sigue yendo por realizar_ventas.', 'level' => 'operativo'],
     'caja_modificar_precio' => ['category' => 'caja', 'summary' => 'Permite tocar precios al cobrar.', 'impact' => 'Cambia importes en mostrador.', 'level' => 'sensible'],
     'anular_venta' => ['category' => 'caja', 'summary' => 'Permite anular ventas.', 'impact' => 'Afecta ventas, stock y CC.', 'level' => 'admin'],
+    'anular_items_venta' => ['category' => 'caja', 'summary' => 'Permite devoluciones parciales por ítems.', 'impact' => 'Reversa stock y puede ajustar cuenta corriente.', 'level' => 'sensible'],
     'ver_clientes' => ['category' => 'clientes', 'summary' => 'Consulta padron de clientes.', 'impact' => 'Abre clientes.php.', 'level' => 'consulta'],
     'editar_clientes' => ['category' => 'clientes', 'summary' => 'Edita datos de clientes.', 'impact' => 'Permite alta y edicion.', 'level' => 'sensible'],
     'ver_cuenta_corriente' => ['category' => 'clientes', 'summary' => 'Consulta saldos y movimientos.', 'impact' => 'Abre cuenta corriente.', 'level' => 'consulta'],

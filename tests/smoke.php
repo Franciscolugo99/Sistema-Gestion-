@@ -276,8 +276,9 @@ $results[] = flus_run_test('flus_sale_helpers keep annulled criteria consistent'
     flus_assert_true(flus_sale_is_annulled(['estado' => 'ANULADA']));
     flus_assert_false(flus_sale_can_be_annulled(['estado' => 'ANULADA']));
     flus_assert_true(flus_sale_can_be_annulled(['estado' => null]));
-    flus_assert_same("(v.estado IS NULL OR v.estado = 'EMITIDA')", flus_sale_emitida_where('v'));
-    flus_assert_same("(estado IS NULL OR estado = 'EMITIDA')", flus_sale_emitida_where(''));
+    flus_assert_true(flus_sale_can_be_annulled(['estado' => 'PARCIALMENTE_ANULADA']));
+    flus_assert_same("(v.estado IS NULL OR v.estado <> 'ANULADA')", flus_sale_emitida_where('v'));
+    flus_assert_same("(estado IS NULL OR estado <> 'ANULADA')", flus_sale_emitida_where(''));
 });
 
 $results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {

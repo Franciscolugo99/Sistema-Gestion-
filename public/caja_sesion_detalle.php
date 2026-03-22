@@ -501,7 +501,7 @@ require __DIR__ . '/partials/header.php';
                   $vid = (int)($venta['id'] ?? 0);
                   $estadoRaw = (string)($venta['estado'] ?? 'EMITIDA');
                   $estadoUp  = strtoupper($estadoRaw);
-                  $isAnulada = ($estadoUp !== '' && str_contains($estadoUp, 'ANUL'));
+                  $isAnulada = ($estadoUp === 'ANULADA');
                   $estadoClass = $isAnulada ? 'pill-danger' : 'pill-success';
                   
                   // Normalizar método de pago para filtros

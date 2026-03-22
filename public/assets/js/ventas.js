@@ -67,6 +67,11 @@ const VentasManager = {
     return div.innerHTML;
   },
 
+  formatMoney(value) {
+    const number = Number(value || 0);
+    return '$' + number.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
   // ============================================
   // SISTEMA DE TOASTS
   // ============================================
@@ -739,14 +744,26 @@ const VentasManager = {
             // Construir items con escape XSS
             const itemsHtml = (v.items || []).map(i => {
               const cant = parseFloat(i.cantidad).toFixed(i.cantidad == Math.floor(i.cantidad) ? 0 : 2);
-              const subtotal = parseFloat(i.subtotal || i.precio * i.cantidad).toFixed(2);
-              return `<li>${this.escapeHtml(cant)}x ${this.escapeHtml(i.nombre)} - $${this.escapeHtml(subtotal)}</li>`;
+              const subtotal = parseFloat(i.subtotal || i.precio * i.cantidad);
+              return `<li>${this.escapeHtml(cant)}x ${this.escapeHtml(i.nombre)} - ${this.escapeHtml(this.formatMoney(subtotal))}</li>`;
             }).join('');
 
             // Badge de estado
             const estadoBadge = (v.estado === 'ANULADA')
               ? '<span class="badge-estado anulada">Anulada</span>'
-              : '<span class="badge-estado emitida">Confirmada</span>';
+              : (v.estado === 'PARCIALMENTE_ANULADA'
+                ? '<span class="badge-estado parcial">Parcial</span>'
+                : '<span class="badge-estado emitida">Confirmada</span>');
+
+            const resumenAnulacion = Number(v.monto_anulado || 0) > 0
+              ? `
+                <div style="display:grid; gap:6px; padding:10px 12px; border:1px solid var(--panel-border); border-radius:12px; background:rgba(245,158,11,.08);">
+                  <div><strong>Original:</strong> ${this.escapeHtml(this.formatMoney(v.total))}</div>
+                  <div><strong>Devuelto:</strong> ${this.escapeHtml(this.formatMoney(v.monto_anulado))}</div>
+                  <div><strong>Vigente:</strong> ${this.escapeHtml(this.formatMoney(v.neto_vigente))}</div>
+                </div>
+              `
+              : '';
 
             previewBody.innerHTML = `
               <div style="display:grid; gap:12px;">
@@ -756,6 +773,7 @@ const VentasManager = {
                 </div>
                 <div><strong>Cliente:</strong> ${this.escapeHtml(v.cliente || 'Consumidor Final')}</div>
                 <div><strong>Medio:</strong> <span class="badge-medio">${this.escapeHtml(v.medio_pago || 'N/A')}</span></div>
+                ${resumenAnulacion}
                 <hr style="border:none;border-top:1px solid var(--panel-border);">
                 <div><strong>Productos:</strong></div>
                 <ul style="margin:0; padding-left:20px; font-size:0.9rem;">
@@ -763,7 +781,7 @@ const VentasManager = {
                 </ul>
                 <hr style="border:none;border-top:1px solid var(--panel-border);">
                 <div style="text-align:right; font-size:1.3rem; font-weight:700;">
-                  Total: $${this.escapeHtml(parseFloat(v.total).toFixed(2))}
+                  ${Number(v.monto_anulado || 0) > 0 ? 'Neto vigente' : 'Total'}: ${this.escapeHtml(this.formatMoney(Number(v.monto_anulado || 0) > 0 ? v.neto_vigente : v.total))}
                 </div>
               </div>
             `;

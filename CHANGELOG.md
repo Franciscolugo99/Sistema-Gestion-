@@ -6,6 +6,28 @@
 
 - Sin cambios documentados todavia.
 
+## [3.7.0] - 2026-03-22
+
+### Added
+
+- Ventas: soporte inicial para anulaciones parciales no fiscales con migracion `010_anulaciones_parciales.sql`, tablas `venta_anulaciones` y `venta_anulacion_items`, helper compartido y permiso `anular_items_venta`.
+- Ventas: nuevo endpoint `anular_items_venta.php` y modal/UI para devolver items de una venta no facturada sin reponer stock ni cuenta corriente de mas.
+- Ventas: historial visible de devoluciones dentro de `venta_detalle.php`, con resumen de anulaciones, neto vigente, items afectados y trazabilidad por usuario/motivo.
+- Docs: plan operativo inicial para seguir el track de anulaciones y futura integracion ARCA en `docs/anulaciones-parciales-plan.md`.
+
+### Changed
+
+- Ventas: el detalle se rediseño para mostrar mejor estado, motivo de anulacion, metricas comerciales y estado real de cada item vendido/devuelto.
+- Ventas: el listado general y la vista rapida ahora distinguen mejor ventas parciales/anuladas y muestran montos originales, devueltos y neto vigente.
+- Reportes/KPIs: las ventas `PARCIALMENTE_ANULADA` se mantienen dentro del criterio de venta activa y dejan de desaparecer de listados, dashboard y exportaciones.
+- Permisos/instalacion: el catalogo base, `install.sql` y la migracion de sync de permisos quedan alineados con `anular_items_venta`.
+
+### Fixed
+
+- Ventas: `anular_venta.php` ya no duplica reposicion de stock ni reversa de cuenta corriente cuando la venta tenia anulaciones parciales previas.
+- UX: se corrigio la notificacion final del flujo de devolucion y se agrego proteccion contra doble submit en anulaciones parciales.
+- Tests: smoke tests actualizados para reflejar el nuevo criterio de venta activa y verificar que el permiso `anular_items_venta` exista en codigo e instalacion.
+
 ## [3.6.0] - 2026-03-21
 
 ### Added

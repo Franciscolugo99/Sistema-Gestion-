@@ -745,7 +745,8 @@ INSERT INTO `permissions` (`id`, `nombre`, `slug`, `created_at`) VALUES
   (50, 'Anular movimiento CC', 'anular_movimiento_cc', NOW()),
   (51, 'Recalcular saldo CC', 'recalcular_saldo_cc', NOW()),
   (52, 'Gestionar stock', 'gestionar_stock', NOW()),
-  (53, 'Ver diagnostico', 'ver_diagnostico', NOW())
+  (53, 'Ver diagnostico', 'ver_diagnostico', NOW()),
+  (54, 'Anular items de venta', 'anular_items_venta', NOW())
 ON DUPLICATE KEY UPDATE
   `nombre` = VALUES(`nombre`),
   `slug` = VALUES(`slug`);

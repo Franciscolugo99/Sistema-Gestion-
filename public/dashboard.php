@@ -114,7 +114,7 @@ $ventasDateSQL = ($hasVentas && $ventasFechaCol) ? "`{$ventasFechaCol}`" : "fech
 $ventasTotalSQL = ($hasVentas && $ventasTotalCol) ? "`{$ventasTotalCol}`" : "total";
 
 $ventasEmitidaCond = ($hasVentas && $ventasEstadoCol)
-  ? " AND `{$ventasEstadoCol}`='EMITIDA' "
+  ? " AND (`{$ventasEstadoCol}` IS NULL OR `{$ventasEstadoCol}` <> 'ANULADA') "
   : "";
 
 $ventasAnuladaCond = ($hasVentas && $ventasEstadoCol)

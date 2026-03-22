@@ -1079,7 +1079,7 @@ if (!function_exists('flus_sale_can_be_annulled')) {
 if (!function_exists('flus_sale_emitida_where')) {
   function flus_sale_emitida_where(string $alias = 'v'): string {
     $prefix = trim($alias) !== '' ? trim($alias) . '.' : '';
-    return "({$prefix}estado IS NULL OR {$prefix}estado = 'EMITIDA')";
+    return "({$prefix}estado IS NULL OR {$prefix}estado <> 'ANULADA')";
   }
 }
 /* ----------------------------

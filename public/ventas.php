@@ -1,5 +1,5 @@
 <?php
-// public/ventas.php - MÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³dulo de Ventas FLUS v5.0 (Refactorizado - Consistente con Productos/Stock)
+// public/ventas.php - Modulo de Ventas FLUS v5.0 (Refactorizado - Consistente con Productos/Stock)
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
@@ -21,7 +21,7 @@ if (function_exists('date_default_timezone_set')) {
 /* =========================
 
 /* =========================
-   InicializaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+   Inicializacion
 ========================= */
 $pdo = getPDO();
 $stats = ['cnt_hoy' => 0, 'sum_hoy' => 0, 'avg_hoy' => 0, 'cnt_ayer' => 0, 'sum_ayer' => 0, 'diff_ventas' => 0, 'diff_total' => 0, 'top_medio' => 'N/A', 'top_medio_pct' => 0, 'periodo_label' => 'Hoy', 'cnt_anuladas' => 0, 'sum_anuladas' => 0];
@@ -41,6 +41,7 @@ $hasTerminalId = has_column($pdo, 'ventas', 'terminal_id');
 $hasDescuentoMonto = has_column($pdo, 'ventas', 'descuento_monto');
 $hasDescuentoTotal = has_column($pdo, 'ventas', 'descuento_total');
 $hasMontoCC = has_column($pdo, 'ventas', 'monto_cc');
+$hasVentaAnulaciones = has_table($pdo, 'venta_anulaciones');
 
 // Columna de descuento (compat: descuento_monto / descuento_total / ninguno)
 $descuentoCol = $hasDescuentoMonto ? 'v.descuento_monto' : ($hasDescuentoTotal ? 'v.descuento_total' : '0');
@@ -70,7 +71,7 @@ $hora_hasta = trim($_GET['hora_hasta'] ?? '');
 if ($hora_desde && !preg_match('/^\d{2}:\d{2}$/', $hora_desde)) $hora_desde = '';
 if ($hora_hasta && !preg_match('/^\d{2}:\d{2}$/', $hora_hasta)) $hora_hasta = '';
 
-// FIX: ValidaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n segura de per_page
+// FIX: Validacion segura de per_page
 $perPage = (int)($_GET['per_page'] ?? 20);
 if (!in_array($perPage, [20, 50, 100], true)) {
     $perPage = 20;
@@ -78,7 +79,7 @@ if (!in_array($perPage, [20, 50, 100], true)) {
 $page = max(1, (int)($_GET['page'] ?? 1));
 
 /* =========================
-   WHERE dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡mico
+   WHERE dinamico
 ========================= */
 $whereParts = ['1=1'];
 $params = [];
@@ -94,7 +95,7 @@ if ($medio && in_array($medio, $allowedMedios, true)) {
 }
 
 if ($estado === 'EMITIDA') {
-  $whereParts[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+  $whereParts[] = "(v.estado IS NULL OR v.estado <> 'ANULADA')";
 } elseif ($estado === 'ANULADA') {
   $whereParts[] = "v.estado = 'ANULADA'";
 }
@@ -113,7 +114,7 @@ if ($hasta) {
   $params[':hasta'] = $hasta . ' ' . $horaFin;
 }
 
-// Si solo hay filtro de hora sin fechas, aplicar a cualquier dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­a
+// Si solo hay filtro de hora sin fechas, aplicar a cualquier dia
 if (!$desde && !$hasta && ($hora_desde || $hora_hasta)) {
   if ($hora_desde && $hora_hasta) {
     $minD = intval(substr($hora_desde, 0, 2)) * 60 + intval(substr($hora_desde, 3, 2));
@@ -244,11 +245,11 @@ $stats['periodo_label'] = 'Hoy';
 
 try {
   if ($hayFiltros) {
-    // KPIs del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo FILTRADO
+    // KPIs del periodo
     $stFiltrado = $pdo->prepare("
       SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
       FROM ventas v 
-      WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+      WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
     ");
     $stFiltrado->execute($params);
     $rowFiltrado = $stFiltrado->fetch(PDO::FETCH_ASSOC);
@@ -256,7 +257,7 @@ try {
     $stats['sum_hoy'] = (float)$rowFiltrado['sum'];
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
-    // Anuladas en el perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo
+    // Anuladas en el periodo
     $stAnuladas = $pdo->prepare("
       SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
       FROM ventas v 
@@ -267,7 +268,7 @@ try {
     $stats['cnt_anuladas'] = (int)$rowAnuladas['cnt'];
     $stats['sum_anuladas'] = (float)$rowAnuladas['sum'];
     
-    // Determinar label del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo
+    // Determinar label del periodo
     if ($desde && $hasta) {
       if ($desde === $hasta) {
         $stats['periodo_label'] = date('d/m', strtotime($desde));
@@ -282,13 +283,13 @@ try {
       $stats['periodo_label'] = 'Filtrado';
     }
     
-    // ComparaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: calcular perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo anterior equivalente
+    // Comparacion vs periodo anterior
     if ($desde && $hasta) {
       $diasRango = (strtotime($hasta) - strtotime($desde)) / 86400 + 1;
       $desdeAnterior = date('Y-m-d', strtotime($desde) - ($diasRango * 86400));
       $hastaAnterior = date('Y-m-d', strtotime($desde) - 86400);
       
-      // Construir WHERE para perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo anterior (sin filtros de fecha pero con otros filtros)
+      // Construir WHERE para periodo anterior
       $wherePartsAnterior = ['1=1'];
       $paramsAnterior = [];
       
@@ -301,7 +302,7 @@ try {
         $paramsAnterior[':medio'] = $medio;
       }
       if ($estado === 'EMITIDA') {
-        $wherePartsAnterior[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+        $wherePartsAnterior[] = "(v.estado IS NULL OR v.estado <> 'ANULADA')";
       } elseif ($estado === 'ANULADA') {
         $wherePartsAnterior[] = "v.estado = 'ANULADA'";
       }
@@ -320,7 +321,7 @@ try {
       $stAnterior = $pdo->prepare("
         SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
         FROM ventas v 
-        WHERE $whereAnterior AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        WHERE $whereAnterior AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       ");
       $stAnterior->execute($paramsAnterior);
       $rowAnterior = $stAnterior->fetch(PDO::FETCH_ASSOC);
@@ -328,13 +329,13 @@ try {
       $stats['sum_ayer'] = (float)$rowAnterior['sum'];
     }
     
-    // Top medio de pago del perÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­odo filtrado
+    // Top medio de pago del periodo
     if ($hasVentaPagos) {
       $stMedio = $pdo->prepare("
         SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
         FROM venta_pagos vp
         JOIN ventas v ON v.id = vp.venta_id
-        WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
         GROUP BY UPPER(vp.medio_pago)
         ORDER BY cnt DESC
         LIMIT 1
@@ -344,7 +345,7 @@ try {
       $stMedio = $pdo->prepare("
         SELECT UPPER(v.medio_pago) as medio, COUNT(*) as cnt
         FROM ventas v
-        WHERE $whereSQL AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
         GROUP BY UPPER(v.medio_pago)
         ORDER BY cnt DESC
         LIMIT 1
@@ -358,15 +359,15 @@ try {
     $hoy = date('Y-m-d');
     $ayer = date('Y-m-d', strtotime('-1 day'));
     
-    // Ventas de hoy (total facturado y total que entrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ a caja)
+    // Ventas de hoy (total facturado y total que entro por caja)
     $selectMontoCCHoy = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
-    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCHoy FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCHoy FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado <> 'ANULADA')");
     $stHoy->execute([$hoy]);
     $rowHoy = $stHoy->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_hoy'] = (int)$rowHoy['cnt'];
     $stats['sum_hoy'] = (float)$rowHoy['sum'];
     $stats['sum_cc_hoy'] = (float)$rowHoy['sum_cc'];
-    $stats['sum_caja_hoy'] = $stats['sum_hoy'] - $stats['sum_cc_hoy']; // Lo que entrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ a caja
+    $stats['sum_caja_hoy'] = $stats['sum_hoy'] - $stats['sum_cc_hoy']; // Lo que entro realmente a caja
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
     // Anuladas hoy
@@ -378,7 +379,7 @@ try {
     
     // Ventas de ayer
     $selectMontoCCAyer = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
-    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCAyer FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado = 'EMITIDA')");
+    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCAyer FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado <> 'ANULADA')");
     $stAyer->execute([$ayer]);
     $rowAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_ayer'] = (int)$rowAyer['cnt'];
@@ -392,7 +393,7 @@ try {
         SELECT UPPER(vp.medio_pago) as medio, COUNT(DISTINCT vp.venta_id) as cnt
         FROM venta_pagos vp
         JOIN ventas v ON v.id = vp.venta_id
-        WHERE DATE(v.fecha) = CURDATE() AND (v.estado IS NULL OR v.estado = 'EMITIDA')
+        WHERE DATE(v.fecha) = CURDATE() AND (v.estado IS NULL OR v.estado <> 'ANULADA')
         GROUP BY UPPER(vp.medio_pago)
         ORDER BY cnt DESC
         LIMIT 1
@@ -401,7 +402,7 @@ try {
       $stMedio = $pdo->query("
         SELECT UPPER(medio_pago) as medio, COUNT(*) as cnt
         FROM ventas
-        WHERE DATE(fecha) = CURDATE() AND (estado IS NULL OR estado = 'EMITIDA')
+        WHERE DATE(fecha) = CURDATE() AND (estado IS NULL OR estado <> 'ANULADA')
         GROUP BY UPPER(medio_pago)
         ORDER BY cnt DESC
         LIMIT 1
@@ -427,7 +428,7 @@ try {
 }
 
 /* =========================
-   Datos para grÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ficos
+   Datos para graficos
 ========================= */
 $chartData = ['labels' => [], 'ventas' => [], 'totales' => []];
 $chartMedios = ['labels' => [], 'data' => [], 'colors' => []];
@@ -438,7 +439,7 @@ try {
   $chartParams = $params;
 
   if ($estado === '') {
-    $chartWhereParts[] = "(v.estado IS NULL OR v.estado = 'EMITIDA')";
+    $chartWhereParts[] = "(v.estado IS NULL OR v.estado <> 'ANULADA')";
   }
   if (!$desde && !$hasta) {
     $chartWhereParts[] = 'v.fecha >= :chart_since';
@@ -500,7 +501,7 @@ $fromRow = $totalRows > 0 ? $offset + 1 : 0;
 $toRow = min($offset + $perPage, $totalRows);
 
 /* =========================
-   Query principal - Detectar columnas dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡micamente
+   Query principal - Detectar columnas dinamicas
 ========================= */
 // Vendedor (compat: usuario_id / user_id / vendedor_id)
 $hasUsuarioId  = has_column($pdo, 'ventas', 'usuario_id');
@@ -529,6 +530,20 @@ $vendedorSelect = ($joinVendedor !== '')
 $terminalJoin = $hasTerminalId ? "LEFT JOIN terminales t ON t.id = v.terminal_id" : '';
 $terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
 $montoCCSelect = $hasMontoCC ? 'COALESCE(v.monto_cc, 0) AS monto_cc,' : '0 AS monto_cc,';
+$anulacionesJoin = $hasVentaAnulaciones
+  ? "LEFT JOIN (
+      SELECT venta_id,
+             COALESCE(SUM(monto_total), 0) AS monto_anulado_total,
+             COUNT(*) AS anulaciones_count,
+             MAX(anulado_en) AS ultima_anulacion_en
+      FROM venta_anulaciones
+      WHERE estado = 'CONFIRMADA'
+      GROUP BY venta_id
+    ) vaa ON vaa.venta_id = v.id"
+  : '';
+$anulacionesSelect = $hasVentaAnulaciones
+  ? 'COALESCE(vaa.monto_anulado_total, 0) AS monto_anulado_total, COALESCE(vaa.anulaciones_count, 0) AS anulaciones_count, vaa.ultima_anulacion_en,'
+  : '0 AS monto_anulado_total, 0 AS anulaciones_count, NULL AS ultima_anulacion_en,';
 
 
 $sql = "
@@ -536,6 +551,7 @@ $sql = "
          $descuentoCol AS descuento_monto,
          $terminalSelect
          $montoCCSelect
+         $anulacionesSelect
          c.nombre AS cliente_nombre,
          $vendedorSelect
          (SELECT COUNT(*) FROM venta_items vi WHERE vi.venta_id = v.id) AS items_count,
@@ -548,6 +564,7 @@ $sql = "
   LEFT JOIN clientes c ON c.id = v.cliente_id
   $joinVendedor
   $terminalJoin
+  $anulacionesJoin
   WHERE $whereSQL
   ORDER BY v.id DESC
   LIMIT $perPage OFFSET $offset
@@ -593,9 +610,9 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
-$extraCss = ['assets/css/ventas.css?v=7','assets/css/ventas_kpis.css?v=3'];
+$extraCss = ['assets/css/ventas.css?v=8','assets/css/ventas_kpis.css?v=3'];
 $extraJs = [
-  'assets/js/ventas.js?v=5.0',
+  'assets/js/ventas.js?v=5.1',
   'assets/js/ventas_kpis.js?v=2'
 ];
 
@@ -834,7 +851,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
         </div>
       </div>
       
-      <!-- Chips rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidos -->
+      <!-- Chips rapidos -->
       <input type="hidden" name="page" id="hiddenPage" value="1">
     </form>
   </div>
@@ -845,7 +862,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   if ($medio) $filtrosActivos[] = ['key' => 'medio', 'label' => "Medio: $medio"];
   if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
   
-  // Mostrar fecha+hora combinados si ambos estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡n presentes
+  // Mostrar fecha+hora combinados si ambos estan presentes
   if ($desde || $hasta || $hora_desde || $hora_hasta) {
     $label = 'Rango: ';
     
@@ -901,7 +918,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
     </label>
   </div>
 
-  <!-- PaginaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n superior -->
+  <!-- Paginacion superior -->
   <?= render_pagination($page, $totalPages, $queryParams, true, $totalRows, $fromRow, $toRow) ?>
 
   <!-- Tabla -->
@@ -925,16 +942,22 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
       <tbody>
       <?php if ($ventas): ?>
         <?php foreach ($ventas as $v): 
-          $esAnulada = strtoupper($v['estado'] ?? '') === 'ANULADA';
+          $estadoVenta = strtoupper((string)($v['estado'] ?? 'EMITIDA'));
+          $esAnulada = $estadoVenta === 'ANULADA';
+          $esParcial = $estadoVenta === 'PARCIALMENTE_ANULADA';
           $medioMostrar = $hasVentaPagos ? ($v['medio_real'] ?? 'N/A') : ($v['medio_pago'] ?: 'N/A');
           $montoCC = (float)($v['monto_cc'] ?? 0);
           $totalVenta = (float)($v['total'] ?? 0);
+          $montoAnulado = round((float)($v['monto_anulado_total'] ?? 0), 2);
+          $netoVigente = max(0, round($totalVenta - $montoAnulado, 2));
+          $anulacionesCount = (int)($v['anulaciones_count'] ?? 0);
+          $mostrarResumenAnulacion = $esParcial || ($esAnulada && $montoAnulado > 0);
           // Determinar si es venta mixta (parte efectivo/otro + parte CC)
           $esMixto = strpos($medioMostrar, '+') !== false;
           $esMixtoCC = ($montoCC > 0 && $montoCC < $totalVenta);
           $es100CC = ($montoCC > 0 && abs($montoCC - $totalVenta) < 0.01);
         ?>
-        <tr class="<?= $esAnulada ? 'row-anulada' : '' ?>">
+        <tr class="<?= $esAnulada ? 'row-anulada' : ($esParcial ? 'row-parcial' : '') ?>">
           <td class="col-id"><?= (int)$v['id'] ?></td>
           <td class="col-fecha">
             <span class="fecha-dia"><?= date('d/m/Y', strtotime($v['fecha'])) ?></span>
@@ -962,7 +985,9 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
           </td>
           <td class="col-estado">
             <?php if ($esAnulada): ?>
-              <span class="badge-estado anulada">Anulada</span>
+              <span class="badge-estado anulada" title="<?= $anulacionesCount > 0 ? h($anulacionesCount . ' movimiento(s) de anulacion') : '' ?>">Anulada</span>
+            <?php elseif ($esParcial): ?>
+              <span class="badge-estado parcial" title="Devuelto <?= h(money($montoAnulado)) ?> | Vigente <?= h(money($netoVigente)) ?>">Parcial</span>
             <?php else: ?>
               <span class="badge-estado emitida">Confirmada</span>
             <?php endif; ?>
@@ -971,7 +996,11 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
             <?php if ((float)($v['descuento_monto'] ?? 0) > 0): ?>
               <span class="descuento-tag">-<?= money($v['descuento_monto']) ?></span>
             <?php endif; ?>
-            <?= money($v['total']) ?>
+            <span class="total-main"><?= money($mostrarResumenAnulacion ? $netoVigente : $totalVenta) ?></span>
+            <?php if ($mostrarResumenAnulacion): ?>
+              <small class="text-muted d-block">Orig. <?= money($totalVenta) ?></small>
+              <small class="text-muted d-block">Dev. <?= money($montoAnulado) ?></small>
+            <?php endif; ?>
             <?php if ($esMixtoCC): ?>
               <small class="text-muted d-block" title="Entro a caja">(<?= money($totalVenta - $montoCC) ?> caja)</small>
             <?php endif; ?>
@@ -1008,7 +1037,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
     </table>
   </div>
 
-  <!-- PaginaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n inferior -->
+  <!-- Paginacion inferior -->
   <?= render_pagination($page, $totalPages, $queryParams, false) ?>
 
   </div>
