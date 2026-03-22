@@ -238,6 +238,7 @@ const StockManager = {
 
     // Reset form
     form.reset();
+    this.resetAdjustSubmitState(form);
     document.getElementById('motivo_chars').textContent = '0';
 
     // Set producto_id
@@ -358,12 +359,22 @@ const StockManager = {
   // ============================================
   closeModal() {
     document.getElementById('modalAjusteStock')?.classList.remove('show');
+    this.resetAdjustSubmitState(document.getElementById('formAjusteStock'));
     this.state.pendingFormData = null;
     this.state.modalOpen = false; // Para beforeunload
   },
 
   closeConfirmModal() {
     document.getElementById('modalConfirmacion')?.classList.remove('show');
+  },
+
+  resetAdjustSubmitState(form) {
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (!submitBtn) return;
+
+    const defaultText = submitBtn.dataset.defaultText || 'Confirmar';
+    submitBtn.disabled = false;
+    submitBtn.textContent = defaultText;
   },
 
   // ============================================
@@ -542,9 +553,10 @@ const StockManager = {
   // ============================================
   async executeAdjust(form, formData = null) {
     const submitBtn = form.querySelector('button[type="submit"]');
-    const originalText = submitBtn?.textContent || 'Confirmar';
+    const originalText = submitBtn?.dataset.defaultText || submitBtn?.textContent || 'Confirmar';
 
     if (submitBtn) {
+      submitBtn.dataset.defaultText = originalText;
       submitBtn.disabled = true;
       submitBtn.textContent = 'Procesando...';
     }
@@ -601,11 +613,8 @@ const StockManager = {
     } catch (err) {
       console.error('Stock adjust error:', err);
       this.showToast(err?.message || 'Error al procesar la solicitud', 'error', 4500);
-
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-      }
+    } finally {
+      this.resetAdjustSubmitState(form);
     }
   },
 

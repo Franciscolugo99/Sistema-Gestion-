@@ -1,9 +1,10 @@
 ﻿// public/assets/js/terminal_select.js
 (() => {
+  const configEl = document.getElementById("terminalSelectConfig");
   const script = document.currentScript;
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
 
-  const rawNext = script?.dataset?.next || "";
+  const rawNext = configEl?.dataset?.next || script?.dataset?.next || "";
   const nextUrl = (() => {
     // Normaliza \caja.php -> /caja.php y evita host raros tipo http://caja.php/
     let n = String(rawNext || "").trim();
@@ -170,8 +171,8 @@
           }
 
           if (err === "LOCK_SCHEMA" || err === "DB_ERROR" || status === 503) {
-            toast("Error de tabla terminal_locks (schema). Corregí el lock y reintentá.", "error", 4200);
-            setMsg("Error de locks. Aplicá el fix de terminal.php y limpiá locks.");
+            toast("No se pudo validar la terminal en este momento. Reintentá.", "error", 4200);
+            setMsg("Hubo un problema al validar las terminales. Reintentá en unos segundos.");
             return;
           }
 
@@ -182,6 +183,7 @@
           }
 
           if (!json || json.ok !== true) {
+            console.error("terminal_select invalid response", { status, json });
             throw new Error("Respuesta inválida del servidor");
           }
 
@@ -189,7 +191,7 @@
           setTimeout(() => { window.location.href = nextUrl; }, 450);
 
         } catch (e) {
-          console.error(e);
+          console.error("terminal_select select error", e);
           toast("No se pudo seleccionar la terminal. Reintentá.", "error", 2800);
           setMsg('Error al seleccionar. <button id="tsRetry" class="btn-mini" type="button">Reintentar</button>');
           const btn = document.getElementById("tsRetry");
@@ -225,7 +227,7 @@
       );
 
     } catch (e) {
-      console.error(e);
+      console.error("terminal_select load error", e);
       setMsg('No se pudo cargar la lista de terminales. <button id="tsRetry" class="btn-mini" type="button">Reintentar</button>');
       toast("Error cargando terminales. Recargá o reintentá.", "error", 3500);
       const btn = document.getElementById("tsRetry");
