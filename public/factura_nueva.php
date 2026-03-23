@@ -8,7 +8,7 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 require_login();
 require_permission('emitir_factura');
 
-$facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+$facturacionHabilitada = flus_facturacion_habilitada($pdo);
 if (!$facturacionHabilitada) {
     header('Location: index.php');
     exit;
@@ -48,6 +48,11 @@ if ($facturaExistenteId !== null && !isset($_GET['force'])) {
 
 $config = flus_facturacion_config_activa($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
+$modoFacturacionActual = is_array($config) ? flus_facturacion_modo_actual($config) : 'demo';
+$arcaEstado = flus_facturacion_arca_status_current($pdo, $modoFacturacionActual, false);
+$arcaEmitWarning = is_array($config)
+    && !empty($arcaEstado['required'])
+    && (($arcaEstado['status'] ?? 'unknown') === 'unavailable' || ($arcaEstado['status'] ?? 'unknown') === 'unknown');
 $lookupArcaEnv = flus_facturacion_arca_env_actual();
 $lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
 $clientes = flus_facturacion_clientes_disponibles($pdo);
@@ -151,6 +156,13 @@ require __DIR__ . '/partials/header.php';
     <?php if ($cfgError !== null): ?>
       <div class="alert alert-error" style="margin-top:12px;">
         <?= h($cfgError) ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($arcaEmitWarning): ?>
+      <div class="alert alert-warning" style="margin-top:12px;">
+        <strong><?= h((string)($arcaEstado['label'] ?? 'ARCA no disponible')) ?>:</strong>
+        <?= h((string)($arcaEstado['last_error'] ?? 'No hay verificacion reciente. Usa "Probar conexion con ARCA" antes de emitir.')) ?>
       </div>
     <?php endif; ?>
 

@@ -254,6 +254,7 @@ if ($configArcaExists) {
 $mensaje = '';
 $error = '';
 $tableReady = factcfg_table_ready($pdo);
+$facturacionHabilitada = flus_facturacion_habilitada($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -331,6 +332,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     config_set($pdo, 'facturacion_print_item_limit', (string)$printItemLimit);
                     $pdo->commit();
                     config_clear_cache();
+                    if (!$facturacionHabilitada || !flus_facturacion_modo_requires_arca($modo)) {
+                        flus_facturacion_arca_status_write($pdo, 'not_required', $modo, '');
+                    } else {
+                        flus_facturacion_arca_status_write($pdo, 'unknown', $modo, 'Sin verificacion reciente. Usa "Probar conexion con ARCA".');
+                    }
                     $mensaje = 'Configuracion guardada correctamente.';
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) {
@@ -342,15 +348,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($accion === 'test_conexion') {
-            require_once __DIR__ . '/../src/facturacion_lib.php';
-            $resultado = verificarConexionAfip();
-            if (!empty($resultado['conectado'])) {
-                $mensaje = (string)($resultado['mensaje'] ?? 'Conexion exitosa.');
-                if (!empty($resultado['detalles']['ambiente'])) {
-                    $mensaje .= ' (Ambiente: ' . $resultado['detalles']['ambiente'] . ')';
-                }
+            $configActual = factcfg_defaults($pdo, factcfg_fetch_current($pdo, false) ?? []);
+            $modoActual = flus_facturacion_modo_actual($configActual);
+
+            if (!$facturacionHabilitada || !flus_facturacion_modo_requires_arca($modoActual)) {
+                $mensaje = 'ARCA no requerida para la configuracion actual.';
             } else {
-                $error = (string)($resultado['mensaje'] ?? 'No se pudo conectar con AFIP.');
+                $estadoArca = flus_facturacion_arca_status_current($pdo, $modoActual, true);
+                if (!empty($estadoArca['available'])) {
+                    $mensaje = 'ARCA disponible.';
+                    if (!empty($estadoArca['checked_at'])) {
+                        $mensaje .= ' (Chequeado: ' . $estadoArca['checked_at'] . ')';
+                    }
+                } else {
+                    $error = (string)($estadoArca['last_error'] ?? 'No se pudo conectar con ARCA.');
+                }
             }
         }
 
@@ -407,6 +419,13 @@ $printItemLimit = flus_facturacion_print_item_limit($pdo);
 $configModo = flus_facturacion_modo_actual($config);
 $configModoLabel = flus_facturacion_modo_label($configModo);
 $modoNoDemo = flus_facturacion_modo_requires_arca($configModo);
+$arcaEstado = flus_facturacion_arca_status_current($pdo, $configModo, false);
+$arcaStatusClass = match ((string)($arcaEstado['status'] ?? 'unavailable')) {
+    'available' => 'ok',
+    'not_required' => 'warning',
+    'unknown' => 'warning',
+    default => 'error',
+};
 $preflightArca = flus_facturacion_preflight_arca($configModo);
 $soapOk = extension_loaded('soap');
 $opensslOk = extension_loaded('openssl');
@@ -442,6 +461,24 @@ require __DIR__ . '/partials/header.php';
         <h2 class="section-title">Estado del sistema</h2>
 
         <div class="status-grid">
+            <div class="status-item <?= $facturacionHabilitada ? 'ok' : 'warning' ?>">
+                <span class="status-icon"><?= $facturacionHabilitada ? 'ON' : 'OFF' ?></span>
+                <span class="status-label">Modulo de facturacion</span>
+                <span class="status-value"><?= $facturacionHabilitada ? 'Habilitado' : 'Deshabilitado' ?></span>
+            </div>
+
+            <div class="status-item <?= h($arcaStatusClass) ?>">
+                <span class="status-icon"><?= ($arcaEstado['status'] ?? '') === 'available' ? 'OK' : (($arcaEstado['status'] ?? '') === 'not_required' ? 'N/A' : (($arcaEstado['status'] ?? '') === 'unknown' ? 'INFO' : 'ERR')) ?></span>
+                <span class="status-label">Estado ARCA</span>
+                <span class="status-value"><?= h((string)($arcaEstado['label'] ?? 'ARCA no disponible')) ?></span>
+            </div>
+
+            <div class="status-item <?= trim((string)($arcaEstado['last_error'] ?? '')) === '' ? 'ok' : 'warning' ?>">
+                <span class="status-icon"><?= trim((string)($arcaEstado['last_error'] ?? '')) === '' ? 'OK' : 'INFO' ?></span>
+                <span class="status-label">Ultimo error</span>
+                <span class="status-value"><?= h(trim((string)($arcaEstado['last_error'] ?? '')) !== '' ? (string)$arcaEstado['last_error'] : 'Sin novedades') ?></span>
+            </div>
+
             <div class="status-item <?= $soapOk ? 'ok' : 'error' ?>">
                 <span class="status-icon"><?= $soapOk ? 'OK' : 'NO' ?></span>
                 <span class="status-label">Extension SOAP</span>
@@ -475,7 +512,7 @@ require __DIR__ . '/partials/header.php';
             </div>
         </div>
 
-        <?php if ($configArcaExists && $soapOk && $opensslOk): ?>
+        <?php if ($configArcaExists && $soapOk && $opensslOk && $facturacionHabilitada && $modoNoDemo): ?>
             <form method="post" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= h((string)($_SESSION['csrf_token'] ?? '')) ?>">
                 <input type="hidden" name="accion" value="test_conexion">
@@ -635,7 +672,7 @@ require __DIR__ . '/partials/header.php';
         </form>
     </section>
 
-    <?php if ($configArcaExists && $configModo !== 'demo' && $tableReady): ?>
+    <?php if ($configArcaExists && $facturacionHabilitada && $configModo !== 'demo' && $tableReady): ?>
         <section class="config-section">
             <h2 class="section-title">Sincronizar numeracion</h2>
             <p class="section-desc">Consulta a ARCA el ultimo numero autorizado en <?= h($configModoLabel) ?> y alinea el consecutivo local.</p>

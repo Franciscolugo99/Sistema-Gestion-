@@ -493,6 +493,219 @@ function flus_facturacion_modo_label(string $modo): string
     };
 }
 
+function flus_facturacion_arca_emision_bloqueada_message(): string
+{
+    return 'No se puede emitir ahora porque ARCA no responde.';
+}
+
+function flus_facturacion_arca_status_label(string $status): string
+{
+    return match ($status) {
+        'available' => 'ARCA disponible',
+        'not_required' => 'ARCA no requerida',
+        'unknown' => 'Estado ARCA sin verificar',
+        default => 'ARCA no disponible',
+    };
+}
+
+function flus_facturacion_arca_status_read(PDO $pdo): array
+{
+    $status = trim((string) config_get($pdo, 'facturacion_arca_status', ''));
+    $status = in_array($status, ['available', 'unavailable', 'not_required', 'unknown'], true) ? $status : 'unknown';
+
+    return [
+        'status' => $status,
+        'mode' => flus_facturacion_normalizar_modo((string) config_get($pdo, 'facturacion_arca_status_mode', 'demo')),
+        'last_error' => trim((string) config_get($pdo, 'facturacion_arca_last_error', '')),
+        'checked_at' => trim((string) config_get($pdo, 'facturacion_arca_checked_at', '')),
+    ];
+}
+
+function flus_facturacion_arca_status_write(PDO $pdo, string $status, string $modo, ?string $lastError = null): array
+{
+    $status = in_array($status, ['available', 'unavailable', 'not_required', 'unknown'], true) ? $status : 'unknown';
+    $modo = flus_facturacion_normalizar_modo($modo);
+    $checkedAt = date('Y-m-d H:i:s');
+    $lastError = trim((string) $lastError);
+
+    config_set($pdo, 'facturacion_arca_status', $status);
+    config_set($pdo, 'facturacion_arca_status_mode', $modo);
+    config_set($pdo, 'facturacion_arca_last_error', $lastError);
+    config_set($pdo, 'facturacion_arca_checked_at', $checkedAt);
+
+    $canEmit = in_array($status, ['available', 'not_required'], true);
+
+    return [
+        'status' => $status,
+        'label' => flus_facturacion_arca_status_label($status),
+        'mode' => $modo,
+        'required' => $status !== 'not_required',
+        'available' => $status === 'available',
+        'can_emit' => $canEmit,
+        'last_error' => $lastError,
+        'checked_at' => $checkedAt,
+    ];
+}
+
+function flus_facturacion_arca_is_availability_error(?string $raw): bool
+{
+    $message = trim((string) $raw);
+    if ($message === '') {
+        return false;
+    }
+
+    if (preg_match('/\[\d+\]/', $message) === 1) {
+        return false;
+    }
+
+    $normalized = function_exists('mb_strtolower')
+        ? mb_strtolower($message, 'UTF-8')
+        : strtolower($message);
+
+    foreach ([
+        'soap fault',
+        'soap-error: parsing wsdl',
+        'parsing wsdl',
+        'couldn\'t load from',
+        'failed to load external entity',
+        'no se pudo conectar al wsfe',
+        'no es posible conectar con el servidor remoto',
+        'could not connect to server',
+        'error wsfe',
+        'error invocando wsaa',
+        'timeout',
+        'timed out',
+        'actively refused',
+        'tcp connect',
+    ] as $needle) {
+        if (str_contains($normalized, $needle)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function flus_facturacion_arca_preflight_error(array $preflight): string
+{
+    foreach ((array) ($preflight['items'] ?? []) as $item) {
+        if (($item['status'] ?? '') !== 'error') {
+            continue;
+        }
+
+        $label = trim((string) ($item['label'] ?? 'ARCA'));
+        $value = trim((string) ($item['value'] ?? ''));
+        $hint = trim((string) ($item['hint'] ?? ''));
+
+        $parts = array_values(array_filter([$label, $value !== '' ? $value : null, $hint !== '' ? $hint : null]));
+        if ($parts !== []) {
+            return implode(' - ', $parts);
+        }
+    }
+
+    $warnings = array_values(array_filter(array_map('strval', (array) ($preflight['warnings'] ?? []))));
+    if ($warnings !== []) {
+        return trim($warnings[0]);
+    }
+
+    return 'Sin verificacion reciente. Usa "Probar conexion con ARCA".';
+}
+
+function flus_facturacion_arca_status_current(PDO $pdo, ?string $modoEsperado = null, bool $forceProbe = false): array
+{
+    $modo = flus_facturacion_normalizar_modo($modoEsperado ?? (string) config_get($pdo, 'facturacion_modo', 'demo'));
+    $facturacionActiva = flus_facturacion_habilitada($pdo);
+    $requiereArca = $facturacionActiva && flus_facturacion_modo_requires_arca($modo);
+
+    if (!$requiereArca) {
+        return [
+            'status' => 'not_required',
+            'label' => flus_facturacion_arca_status_label('not_required'),
+            'mode' => $modo,
+            'required' => false,
+            'available' => true,
+            'can_emit' => true,
+            'last_error' => '',
+            'checked_at' => '',
+        ];
+    }
+
+    $preflight = flus_facturacion_preflight_arca($modo);
+    if (!($preflight['ok'] ?? false)) {
+        $lastError = flus_facturacion_arca_preflight_error($preflight);
+        if ($forceProbe) {
+            return flus_facturacion_arca_status_write($pdo, 'unavailable', $modo, $lastError);
+        }
+
+        return [
+            'status' => 'unavailable',
+            'label' => flus_facturacion_arca_status_label('unavailable'),
+            'mode' => $modo,
+            'required' => true,
+            'available' => false,
+            'can_emit' => false,
+            'last_error' => $lastError,
+            'checked_at' => '',
+        ];
+    }
+
+    $cached = flus_facturacion_arca_status_read($pdo);
+    if (!$forceProbe && $cached['status'] !== 'unknown' && $cached['mode'] === $modo) {
+        return [
+            'status' => $cached['status'],
+            'label' => flus_facturacion_arca_status_label($cached['status']),
+            'mode' => $modo,
+            'required' => true,
+            'available' => $cached['status'] === 'available',
+            'can_emit' => $cached['status'] === 'available',
+            'last_error' => (string) $cached['last_error'],
+            'checked_at' => (string) $cached['checked_at'],
+        ];
+    }
+
+    if (!$forceProbe) {
+        return [
+            'status' => 'unknown',
+            'label' => flus_facturacion_arca_status_label('unknown'),
+            'mode' => $modo,
+            'required' => true,
+            'available' => false,
+            'can_emit' => false,
+            'last_error' => 'Sin verificacion reciente. Usa "Probar conexion con ARCA".',
+            'checked_at' => '',
+        ];
+    }
+
+    $resultado = verificarConexionAfip();
+    if (!empty($resultado['conectado'])) {
+        return flus_facturacion_arca_status_write($pdo, 'available', $modo, '');
+    }
+
+    return flus_facturacion_arca_status_write(
+        $pdo,
+        'unavailable',
+        $modo,
+        trim((string) ($resultado['mensaje'] ?? 'No se pudo validar la conexion con ARCA.'))
+    );
+}
+
+function flus_facturacion_arca_assert_emitible(PDO $pdo, string $modo): void
+{
+    if (!flus_facturacion_modo_requires_arca($modo)) {
+        return;
+    }
+
+    $estado = flus_facturacion_arca_status_current($pdo, $modo, true);
+    if (!empty($estado['can_emit'])) {
+        return;
+    }
+
+    $detalle = trim((string) ($estado['last_error'] ?? ''));
+    throw new RuntimeException(
+        flus_facturacion_humanizar_error_arca($detalle !== '' ? $detalle : flus_facturacion_arca_emision_bloqueada_message())
+    );
+}
+
 function flus_facturacion_humanizar_error_arca(?string $raw): string
 {
     $message = trim((string)$raw);
@@ -502,6 +715,10 @@ function flus_facturacion_humanizar_error_arca(?string $raw): string
 
     if (str_starts_with($message, 'Error de AFIP: ')) {
         $message = substr($message, strlen('Error de AFIP: '));
+    }
+
+    if (flus_facturacion_arca_is_availability_error($message)) {
+        return flus_facturacion_arca_emision_bloqueada_message();
     }
 
     if (preg_match('/\[(\d+)\]/', $message, $matches) === 1) {
@@ -658,18 +875,22 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion));
 
     if (!$modoDemo) {
-        flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
-
         $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
         $envActual = flus_facturacion_arca_env_actual();
         if ($envEsperado !== '' && $envActual !== $envEsperado) {
             throw new Exception('El modo ' . flus_facturacion_modo_label($modoOperacion) . ' requiere FLUS_ARCA_ENV=' . strtoupper($envEsperado) . ' pero hoy esta en ' . strtoupper($envActual) . '.');
         }
 
+        flus_facturacion_arca_assert_emitible($pdo, $modoOperacion);
+        flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
+
         require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
         $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
         if ($ultimoAfip !== null) {
             $numero = max($numero, $ultimoAfip + 1);
+        } elseif (flus_facturacion_arca_is_availability_error(ArcaWsfe::getLastError())) {
+            flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, (string) ArcaWsfe::getLastError());
+            throw new Exception(flus_facturacion_arca_emision_bloqueada_message());
         }
     }
 
@@ -724,12 +945,17 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         }
 
         if (!$resultado) {
-            throw new Exception(flus_facturacion_humanizar_error_arca(ArcaWsfe::getLastError()));
+            $lastError = (string) (ArcaWsfe::getLastError() ?: '');
+            if (flus_facturacion_arca_is_availability_error($lastError)) {
+                flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, $lastError);
+            }
+            throw new Exception(flus_facturacion_humanizar_error_arca($lastError));
         }
 
         $cae = (string)($resultado['cae'] ?? '');
         $caeVto = flus_facturacion_normalizar_cae_vto((string)($resultado['vencimiento'] ?? ''));
         $numero = (int)($resultado['numero'] ?? $numero);
+        flus_facturacion_arca_status_write($pdo, 'available', $modoOperacion, '');
     }
 
     flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
@@ -1182,7 +1408,7 @@ function flus_facturacion_preflight_arca(?string $modoEsperado = null): array
     ];
     $items[] = [
         'label' => 'Entorno ARCA',
-        'status' => $envEsperado === '' || $envActual === $envEsperado ? 'ok' : 'warning',
+        'status' => $envEsperado === '' || $envActual === $envEsperado ? 'ok' : ($requiereArca ? 'error' : 'warning'),
         'value' => strtoupper($envActual),
         'hint' => $envEsperado !== '' ? 'Esperado: ' . strtoupper($envEsperado) : 'Sin exigencia en demo',
     ];

@@ -634,6 +634,30 @@ $results[] = flus_run_test('fiscal scaffold bootstrap loads cleanly', function (
     flus_assert_true(class_exists('DbAnulacionFiscalCoordinator', false));
 });
 
+$results[] = flus_run_test('facturacion arca degradation keeps availability criteria consistent', function (): void {
+    flus_assert_true(
+        flus_facturacion_arca_is_availability_error(
+            "Error invocando WSAA: SOAP-ERROR: Parsing WSDL: Couldn't load from 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'"
+        )
+    );
+    flus_assert_false(flus_facturacion_arca_is_availability_error('[10016] Comprobante duplicado'));
+    flus_assert_same(
+        'No se puede emitir ahora porque ARCA no responde.',
+        flus_facturacion_humanizar_error_arca(
+            "Error invocando WSAA: SOAP-ERROR: Parsing WSDL: Couldn't load from 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'"
+        )
+    );
+
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE app_config (k TEXT PRIMARY KEY, v TEXT)');
+    $pdo->exec("INSERT INTO app_config (k, v) VALUES ('facturacion_habilitada', '0')");
+
+    $estado = flus_facturacion_arca_status_current($pdo, 'demo', false);
+    flus_assert_same('not_required', $estado['status']);
+    flus_assert_true((bool)$estado['can_emit']);
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

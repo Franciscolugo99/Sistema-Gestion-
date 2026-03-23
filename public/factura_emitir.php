@@ -9,7 +9,7 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 require_login();
 require_permission('emitir_factura');
 
-$facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
+$facturacionHabilitada = flus_facturacion_habilitada($pdo);
 if (!$facturacionHabilitada) {
     header('Location: index.php');
     exit;
