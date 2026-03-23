@@ -658,6 +658,34 @@ $results[] = flus_run_test('facturacion arca degradation keeps availability crit
     flus_assert_true((bool)$estado['can_emit']);
 });
 
+$results[] = flus_run_test('EmitirNotaCreditoCommand normalizes partial items safely', function (): void {
+    require_once dirname(__DIR__) . '/src/Fiscal/bootstrap.php';
+
+    $cmd = EmitirNotaCreditoCommand::fromArray([
+        'venta_id' => 10,
+        'venta_anulacion_id' => 20,
+        'usuario_id' => 30,
+        'scope' => 'partial',
+        'modo' => 'HOMO',
+        'legacy_tolerance' => '0.07',
+        'partial_items' => [
+            ['item_id' => 5, 'cantidad' => '1.250'],
+            ['item_id' => 5, 'cantidad' => '0.250'],
+            ['item_id' => 9, 'cantidad' => '2'],
+            ['item_id' => 0, 'cantidad' => '9'],
+        ],
+    ]);
+
+    flus_assert_same('PARTIAL', $cmd->scope);
+    flus_assert_same('homo', $cmd->modo);
+    flus_assert_same(0.07, $cmd->legacyTolerance);
+    flus_assert_same(2, count($cmd->partialItems));
+    flus_assert_same(5, $cmd->partialItems[0]['item_id']);
+    flus_assert_same(1.5, $cmd->partialItems[0]['cantidad']);
+    flus_assert_same(9, $cmd->partialItems[1]['item_id']);
+    flus_assert_same(2.0, $cmd->partialItems[1]['cantidad']);
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

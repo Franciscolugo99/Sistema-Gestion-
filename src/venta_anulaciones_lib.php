@@ -36,13 +36,30 @@ if (!function_exists('flus_venta_items_anulados_map')) {
             return [];
         }
 
-        $st = $pdo->prepare(
-            'SELECT vai.venta_item_id, SUM(vai.cantidad_anulada) AS total_anulado
-             FROM venta_anulacion_items vai
-             JOIN venta_anulaciones va ON va.id = vai.anulacion_id
-             WHERE va.venta_id = ?
-             GROUP BY vai.venta_item_id'
-        );
+        $where = ['va.venta_id = ?'];
+
+        if (flus_column_exists($pdo, 'venta_anulaciones', 'estado')) {
+            $permitidos = ["va.estado = 'CONFIRMADA'"];
+
+            if (
+                flus_column_exists($pdo, 'venta_anulaciones', 'requiere_nc')
+                && flus_column_exists($pdo, 'venta_anulaciones', 'estado_fiscal')
+            ) {
+                $permitidos[] = "(COALESCE(va.requiere_nc, 0) = 1 AND COALESCE(va.estado_fiscal, 'NO_APLICA') IN ('APROBADA_PENDIENTE_APLICACION', 'APLICADA', 'ERROR_POST_ARCA'))";
+            }
+
+            $where[] = '(' . implode(' OR ', $permitidos) . ')';
+        }
+
+        $sql = '
+            SELECT vai.venta_item_id, SUM(vai.cantidad_anulada) AS total_anulado
+            FROM venta_anulacion_items vai
+            JOIN venta_anulaciones va ON va.id = vai.anulacion_id
+            WHERE ' . implode(' AND ', $where) . '
+            GROUP BY vai.venta_item_id'
+        ;
+
+        $st = $pdo->prepare($sql);
         $st->execute([$ventaId]);
 
         $map = [];
@@ -75,6 +92,20 @@ if (!function_exists('flus_venta_items_restantes')) {
         }
 
         return $restantes;
+    }
+}
+
+if (!function_exists('flus_venta_anulacion_items_cargar')) {
+    function flus_venta_anulacion_items_cargar(PDO $pdo, int $anulacionId): array
+    {
+        if ($anulacionId <= 0 || !flus_table_exists($pdo, 'venta_anulacion_items')) {
+            return [];
+        }
+
+        $st = $pdo->prepare('SELECT * FROM venta_anulacion_items WHERE anulacion_id = ? ORDER BY id ASC');
+        $st->execute([$anulacionId]);
+
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }
 

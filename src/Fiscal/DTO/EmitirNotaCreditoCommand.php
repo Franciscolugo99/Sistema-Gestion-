@@ -10,6 +10,10 @@ final class EmitirNotaCreditoCommand
     public string $modo = 'demo';
     public string $requestUid = '';
     public bool $rebuildOriginalItemsIfMissing = true;
+    public float $legacyTolerance = 0.05;
+
+    /** @var array<int,array{item_id:int,cantidad:float}> */
+    public array $partialItems = [];
 
     /**
      * @param array<string,mixed> $data
@@ -24,6 +28,9 @@ final class EmitirNotaCreditoCommand
         $dto->modo = strtolower(trim((string)($data['modo'] ?? 'demo')));
         $dto->requestUid = trim((string)($data['requestUid'] ?? $data['request_uid'] ?? ''));
         $dto->rebuildOriginalItemsIfMissing = (bool)($data['rebuildOriginalItemsIfMissing'] ?? $data['rebuild_original_items_if_missing'] ?? true);
+        $dto->legacyTolerance = max(0.01, round((float)($data['legacyTolerance'] ?? $data['legacy_tolerance'] ?? 0.05), 2));
+        $dto->partialItems = self::normalizePartialItems((array)($data['partialItems'] ?? $data['partial_items'] ?? []));
+
         return $dto;
     }
 
@@ -40,6 +47,52 @@ final class EmitirNotaCreditoCommand
             'modo' => $this->modo,
             'request_uid' => $this->requestUid,
             'rebuild_original_items_if_missing' => $this->rebuildOriginalItemsIfMissing,
+            'legacy_tolerance' => $this->legacyTolerance,
+            'partial_items' => $this->partialItems,
         ];
+    }
+
+    /**
+     * @param array<int,mixed> $items
+     * @return array<int,array{item_id:int,cantidad:float}>
+     */
+    private static function normalizePartialItems(array $items): array
+    {
+        $acc = [];
+
+        foreach ($items as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $itemId = (int)($row['item_id'] ?? $row['itemId'] ?? 0);
+            $cantidad = round((float)($row['cantidad'] ?? 0), 3);
+
+            if ($itemId <= 0 || $cantidad <= 0) {
+                continue;
+            }
+
+            if (!isset($acc[$itemId])) {
+                $acc[$itemId] = 0.0;
+            }
+
+            $acc[$itemId] = round($acc[$itemId] + $cantidad, 3);
+        }
+
+        ksort($acc, SORT_NUMERIC);
+
+        $out = [];
+        foreach ($acc as $itemId => $cantidad) {
+            if ($cantidad <= 0) {
+                continue;
+            }
+
+            $out[] = [
+                'item_id' => (int)$itemId,
+                'cantidad' => round((float)$cantidad, 3),
+            ];
+        }
+
+        return $out;
     }
 }
