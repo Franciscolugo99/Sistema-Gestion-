@@ -4,7 +4,28 @@
 
 ### Changed
 
-- Sin cambios documentados todavia.
+- Sin cambios documentados todavía.
+
+## [3.8.0] - 2026-03-23
+
+### Added
+
+- **Nuevo módulo de facturación electrónica:**
+  - **Listado de facturas** con filtros por fecha, estado, cliente, tipo y número. Se muestran KPIs del periodo (total facturado, ticket promedio, cantidad de facturas) y se pueden exportar los resultados a CSV.
+  - **Emisión manual de facturas** desde `factura_manual.php`: permite seleccionar el concepto (productos o servicios), buscar productos/servicios con autocompletado, agregar múltiples líneas con cantidad, precio e IVA y visualizar el total antes de emitir. El módulo calcula automáticamente alícuotas y solicita CAE a ARCA/AFIP, generando el PDF oficial.
+  - **Emisión de facturas desde ventas:** desde el detalle de una venta puede emitirse la factura fiscal correspondiente. La librería de facturación determina el tipo de comprobante, genera la numeración y registra el CAE, marcando la venta como facturada.
+  - **Panel de configuración de facturación** (`facturacion_config.php`): permite definir datos de la empresa (razón social, CUIT, domicilio, ingreso bruto, fecha de inicio de actividades), punto de venta y condición IVA, subir certificados y claves para AFIP/ARCA, elegir el modo (Demo/Homologación/Producción), cargar el logo de la factura y establecer un límite máximo de ítems por comprobante. Incluye pruebas de conectividad y sincronización de numeración con ARCA.
+  - **Biblioteca de facturación** (`src/facturacion_lib.php`) que centraliza la lógica de emisión, cálculo de importes, determinación de tipo de factura y comunicación con AFIP/ARCA. Incluye funciones para emitir desde ventas y manualmente.
+
+### Changed
+
+- **Navegación principal** actualizada para incluir el módulo de facturación y enlaces cruzados desde clientes y ventas hacia las facturas asociadas.
+- **Esquema de base de datos** (`install.sql` y migraciones) actualizado con tablas y columnas para facturas y configuración fiscal.
+- **Módulos de clientes y cuenta corriente** enlazados a facturas para mostrar documentos fiscales vinculados.
+
+### Fixed
+
+- Correcciones menores en la visualización de clientes y ventas para soportar la nueva relación con facturas.
 
 ## [3.7.1] - 2026-03-22
 
@@ -23,38 +44,38 @@
 ### Added
 
 - Ventas: soporte inicial para anulaciones parciales no fiscales con migracion `010_anulaciones_parciales.sql`, tablas `venta_anulaciones` y `venta_anulacion_items`, helper compartido y permiso `anular_items_venta`.
-- Ventas: nuevo endpoint `anular_items_venta.php` y modal/UI para devolver items de una venta no facturada sin reponer stock ni cuenta corriente de mas.
+- Ventas: nuevo endpoint `anular_items_venta.php` y modal/UI para devolver items de una venta no facturada sin reponer stock ni cuenta corriente de más.
 - Ventas: historial visible de devoluciones dentro de `venta_detalle.php`, con resumen de anulaciones, neto vigente, items afectados y trazabilidad por usuario/motivo.
-- Docs: plan operativo inicial para seguir el track de anulaciones y futura integracion ARCA en `docs/anulaciones-parciales-plan.md`.
+- Docs: plan operativo inicial para seguir el track de anulaciones y futura integración ARCA en `docs/anulaciones-parciales-plan.md`.
 
 ### Changed
 
-- Ventas: el detalle se rediseño para mostrar mejor estado, motivo de anulacion, metricas comerciales y estado real de cada item vendido/devuelto.
-- Ventas: el listado general y la vista rapida ahora distinguen mejor ventas parciales/anuladas y muestran montos originales, devueltos y neto vigente.
+- Ventas: el detalle se rediseñó para mostrar mejor estado, motivo de anulación, métricas comerciales y estado real de cada item vendido/devuelto.
+- Ventas: el listado general y la vista rápida ahora distinguen mejor ventas parciales/anuladas y muestran montos originales, devueltos y neto vigente.
 - Reportes/KPIs: las ventas `PARCIALMENTE_ANULADA` se mantienen dentro del criterio de venta activa y dejan de desaparecer de listados, dashboard y exportaciones.
-- Permisos/instalacion: el catalogo base, `install.sql` y la migracion de sync de permisos quedan alineados con `anular_items_venta`.
+- Permisos/instalacion: el catálogo base, `install.sql` y la migración de sync de permisos quedan alineados con `anular_items_venta`.
 
 ### Fixed
 
-- Ventas: `anular_venta.php` ya no duplica reposicion de stock ni reversa de cuenta corriente cuando la venta tenia anulaciones parciales previas.
-- UX: se corrigio la notificacion final del flujo de devolucion y se agrego proteccion contra doble submit en anulaciones parciales.
-- Tests: smoke tests actualizados para reflejar el nuevo criterio de venta activa y verificar que el permiso `anular_items_venta` exista en codigo e instalacion.
+- Ventas: `anular_venta.php` ya no duplica reposición de stock ni reversa de cuenta corriente cuando la venta tenía anulaciones parciales previas.
+- UX: se corrigió la notificación final del flujo de devolución y se agregó protección contra doble submit en anulaciones parciales.
+- Tests: smoke tests actualizados para reflejar el nuevo criterio de venta activa y verificar que el permiso `anular_items_venta` exista en código e instalación.
 
 ## [3.6.0] - 2026-03-21
 
 ### Added
 
 - Clientes: nueva `cliente_detalle.php` como ficha ejecutiva con resumen comercial, fiscal y de cuenta corriente.
-- Roles: nuevo rol `Operador` para negocios chicos con caja, stock, compras y cuenta corriente operativa sin abrir administracion sensible.
+- Roles: nuevo rol `Operador` para negocios chicos con caja, stock, compras y cuenta corriente operativa sin abrir administración sensible.
 - Catalogo/Inventario: nuevas vistas de solo consulta `productos_consulta.php` y `stock_consulta.php` para dar sentido real a `ver_productos` y `ver_stock`.
 
 ### Changed
 
-- Home: panel principal mas directo, con mejor jerarquia visual y accesos coherentes segun permiso real.
-- Clientes: acciones mejor distribuidas, enlaces cruzados con ventas/facturacion/CC y drawer con bloque de actividad vinculada.
-- Inventario: `inventario_analisis.php` ahora conserva filtros, exporta segun la pestaña activa y suma acciones rapidas a productos, compras, reposicion y conteo.
-- Roles y permisos: pantalla rediseñada por areas de negocio, niveles de impacto y preview de modulos visibles.
-- Caja: se separo mejor el flujo de `abrir_caja`, `realizar_ventas` y `cerrar_caja`.
+- Home: panel principal más directo, con mejor jerarquía visual y accesos coherentes según permiso real.
+- Clientes: acciones mejor distribuidas, enlaces cruzados con ventas/facturación/CC y drawer con bloque de actividad vinculada.
+- Inventario: `inventario_analisis.php` ahora conserva filtros, exporta según la pestaña activa y suma acciones rápidas a productos, compras, reposición y conteo.
+- Roles y permisos: pantalla rediseñada por áreas de negocio, niveles de impacto y preview de modulos visibles.
+- Caja: se separó mejor el flujo de `abrir_caja`, `realizar_ventas` y `cerrar_caja`.
 
 ### Fixed
 
