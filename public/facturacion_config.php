@@ -245,6 +245,62 @@ function factcfg_defaults(PDO $pdo, array $row = []): array
     ];
 }
 
+function factcfg_humanize_arca_status_error(?string $raw): string
+{
+    $message = trim((string)$raw);
+    if ($message === '') {
+        return 'Sin novedades';
+    }
+
+    $normalized = function_exists('mb_strtolower')
+        ? mb_strtolower($message, 'UTF-8')
+        : strtolower($message);
+
+    if (
+        str_contains($normalized, 'parsing wsdl')
+        || str_contains($normalized, "couldn't load from")
+        || str_contains($normalized, 'failed to load external entity')
+    ) {
+        return 'WSAA no accesible desde esta red';
+    }
+
+    if (
+        str_contains($normalized, 'error invocando wsaa')
+        || str_contains($normalized, 'logincms')
+    ) {
+        return 'No se pudo abrir conexion con WSAA';
+    }
+
+    if (str_contains($normalized, 'timeout') || str_contains($normalized, 'timed out')) {
+        return 'WSAA no respondio a tiempo';
+    }
+
+    if (
+        str_contains($normalized, 'no se pudo conectar al wsfe')
+        || str_contains($normalized, 'error wsfe')
+    ) {
+        return 'WSFE no accesible desde esta red';
+    }
+
+    $friendly = flus_facturacion_humanizar_error_arca($message);
+    if ($friendly === flus_facturacion_arca_emision_bloqueada_message()) {
+        return 'No se pudo conectar con ARCA';
+    }
+
+    return $friendly;
+}
+
+function factcfg_format_checked_at(?string $raw): string
+{
+    $value = trim((string)$raw);
+    if ($value === '') {
+        return 'Sin verificacion reciente';
+    }
+
+    $ts = strtotime($value);
+    return $ts === false ? $value : date('d/m/Y H:i', $ts);
+}
+
 $configArcaPath = __DIR__ . '/../src/config_arca.php';
 $configArcaExists = file_exists($configArcaPath);
 if ($configArcaExists) {
@@ -253,6 +309,7 @@ if ($configArcaExists) {
 
 $mensaje = '';
 $error = '';
+$errorDetail = '';
 $tableReady = factcfg_table_ready($pdo);
 $facturacionHabilitada = flus_facturacion_habilitada($pdo);
 
@@ -332,11 +389,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     config_set($pdo, 'facturacion_print_item_limit', (string)$printItemLimit);
                     $pdo->commit();
                     config_clear_cache();
+
                     if (!$facturacionHabilitada || !flus_facturacion_modo_requires_arca($modo)) {
                         flus_facturacion_arca_status_write($pdo, 'not_required', $modo, '');
                     } else {
                         flus_facturacion_arca_status_write($pdo, 'unknown', $modo, 'Sin verificacion reciente. Usa "Probar conexion con ARCA".');
                     }
+
                     $mensaje = 'Configuracion guardada correctamente.';
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) {
@@ -358,10 +417,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($estadoArca['available'])) {
                     $mensaje = 'ARCA disponible.';
                     if (!empty($estadoArca['checked_at'])) {
-                        $mensaje .= ' (Chequeado: ' . $estadoArca['checked_at'] . ')';
+                        $mensaje .= ' (Chequeado: ' . factcfg_format_checked_at((string)$estadoArca['checked_at']) . ')';
                     }
                 } else {
-                    $error = (string)($estadoArca['last_error'] ?? 'No se pudo conectar con ARCA.');
+                    $error = 'ARCA no responde en este momento. No se puede emitir factura ahora.';
+                    $errorDetail = trim((string)($estadoArca['last_error'] ?? ''));
                 }
             }
         }
@@ -426,6 +486,13 @@ $arcaStatusClass = match ((string)($arcaEstado['status'] ?? 'unavailable')) {
     'unknown' => 'warning',
     default => 'error',
 };
+$arcaLastErrorTechnical = trim((string)($arcaEstado['last_error'] ?? ''));
+$arcaLastErrorSummary = factcfg_humanize_arca_status_error($arcaLastErrorTechnical);
+$arcaHasTechnicalDetail = $arcaLastErrorTechnical !== '' && $arcaLastErrorTechnical !== $arcaLastErrorSummary;
+$arcaLastErrorClass = $arcaLastErrorTechnical === '' ? 'ok' : 'warning';
+$arcaCheckedAtRaw = trim((string)($arcaEstado['checked_at'] ?? ''));
+$arcaCheckedAtLabel = factcfg_format_checked_at($arcaCheckedAtRaw);
+$arcaCheckedAtClass = $arcaCheckedAtRaw !== '' ? 'ok' : 'warning';
 $preflightArca = flus_facturacion_preflight_arca($configModo);
 $soapOk = extension_loaded('soap');
 $opensslOk = extension_loaded('openssl');
@@ -450,7 +517,17 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <?php if ($error !== ''): ?>
-        <div class="alert alert-error"><?= h($error) ?></div>
+        <div class="alert alert-error">
+            <div><?= h($error) ?></div>
+            <?php if ($errorDetail !== ''): ?>
+                <details style="margin-top:8px;">
+                    <summary>Ver detalle tecnico</summary>
+                    <div class="muted" style="margin-top:8px; overflow-wrap:anywhere; word-break:break-word;">
+                        <?= nl2br(h($errorDetail)) ?>
+                    </div>
+                </details>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
     <?php if (!$tableReady): ?>
@@ -473,10 +550,24 @@ require __DIR__ . '/partials/header.php';
                 <span class="status-value"><?= h((string)($arcaEstado['label'] ?? 'ARCA no disponible')) ?></span>
             </div>
 
-            <div class="status-item <?= trim((string)($arcaEstado['last_error'] ?? '')) === '' ? 'ok' : 'warning' ?>">
-                <span class="status-icon"><?= trim((string)($arcaEstado['last_error'] ?? '')) === '' ? 'OK' : 'INFO' ?></span>
+            <div class="status-item <?= $arcaLastErrorClass ?>">
+                <span class="status-icon"><?= $arcaLastErrorTechnical === '' ? 'OK' : 'INFO' ?></span>
                 <span class="status-label">Ultimo error</span>
-                <span class="status-value"><?= h(trim((string)($arcaEstado['last_error'] ?? '')) !== '' ? (string)$arcaEstado['last_error'] : 'Sin novedades') ?></span>
+                <span class="status-value"><?= h($arcaLastErrorSummary) ?></span>
+                <?php if ($arcaHasTechnicalDetail): ?>
+                    <details style="margin-top:8px;">
+                        <summary>Ver detalle tecnico</summary>
+                        <div class="muted" style="margin-top:8px; overflow-wrap:anywhere; word-break:break-word;">
+                            <?= nl2br(h($arcaLastErrorTechnical)) ?>
+                        </div>
+                    </details>
+                <?php endif; ?>
+            </div>
+
+            <div class="status-item <?= $arcaCheckedAtClass ?>">
+                <span class="status-icon"><?= $arcaCheckedAtRaw !== '' ? 'OK' : 'INFO' ?></span>
+                <span class="status-label">Ultima verificacion</span>
+                <span class="status-value"><?= h($arcaCheckedAtLabel) ?></span>
             </div>
 
             <div class="status-item <?= $soapOk ? 'ok' : 'error' ?>">
@@ -751,10 +842,3 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
-
-
-
-
-
-
-
