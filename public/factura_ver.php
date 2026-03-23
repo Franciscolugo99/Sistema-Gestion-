@@ -392,19 +392,53 @@ if (flus_table_exists($pdo, 'venta_fiscal')) {
     }
 }
 
-$sqlItems = '
-  SELECT vi.*, p.codigo, p.nombre, p.iva AS producto_iva
-  FROM venta_items vi
-  JOIN productos p ON p.id = vi.producto_id
-  WHERE vi.venta_id = ?
-  ORDER BY vi.id ASC
-';
-$stmtItems = $pdo->prepare($sqlItems);
-$stmtItems->execute([(int)$factura['venta_id']]);
-$itemRows = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
-if ($itemRows === []) {
-    $itemRows = flus_facturacion_manual_items_fetch($pdo, (int)$factura['venta_id']);
+$itemRows = [];
+
+if (flus_table_exists($pdo, 'factura_items')) {
+    $usaProductos = flus_table_exists($pdo, 'productos');
+    $joinProductos = $usaProductos ? 'LEFT JOIN productos p ON p.id = fi.producto_id' : '';
+    $codigoExpr = $usaProductos && flus_column_exists($pdo, 'productos', 'codigo')
+        ? 'COALESCE(fi.codigo_snapshot, p.codigo)'
+        : 'fi.codigo_snapshot';
+    $descripcionExpr = $usaProductos && flus_column_exists($pdo, 'productos', 'nombre')
+        ? 'COALESCE(fi.descripcion_snapshot, p.nombre)'
+        : 'fi.descripcion_snapshot';
+    $ivaExpr = 'COALESCE(fi.iva_porcentaje, 21)';
+
+    $sqlFacturaItems = "
+      SELECT
+        fi.*,
+        {$codigoExpr} AS codigo,
+        {$descripcionExpr} AS descripcion,
+        fi.precio_unitario_bruto AS precio_unitario,
+        fi.subtotal_total AS subtotal,
+        {$ivaExpr} AS iva_porcentaje
+      FROM factura_items fi
+      {$joinProductos}
+      WHERE fi.factura_id = ?
+      ORDER BY COALESCE(fi.linea_orden, fi.id) ASC, fi.id ASC
+    ";
+    $stFacturaItems = $pdo->prepare($sqlFacturaItems);
+    $stFacturaItems->execute([(int)$factura['id']]);
+    $itemRows = $stFacturaItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
+
+if ($itemRows === []) {
+    $sqlItems = '
+      SELECT vi.*, p.codigo, p.nombre, p.iva AS producto_iva
+      FROM venta_items vi
+      JOIN productos p ON p.id = vi.producto_id
+      WHERE vi.venta_id = ?
+      ORDER BY vi.id ASC
+    ';
+    $stmtItems = $pdo->prepare($sqlItems);
+    $stmtItems->execute([(int)$factura['venta_id']]);
+    $itemRows = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if ($itemRows === []) {
+        $itemRows = flus_facturacion_manual_items_fetch($pdo, (int)$factura['venta_id']);
+    }
+}
+
 $items = factura_normalizar_items($itemRows, $factura);
 $resumenFiscal = factura_resumen_fiscal($items, $factura);
 
@@ -599,7 +633,10 @@ if ($itemsCount <= 8) {
     $pageClasses[] = 'factura-page--filled';
 }
 
-$pageTitle = 'Factura ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
+$esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
+    || str_starts_with(strtoupper($tipo), 'NC');
+$comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
+$pageTitle = $comprobanteTitulo . ' ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
 $currentSection = 'facturacion';
 $extraCss = ['assets/css/factura.css?v=7'];
 $bodyClass = 'factura-view';
@@ -680,7 +717,7 @@ if ($pdfMode) {
       </section>
 
       <section class="hero-box hero-box--meta">
-        <div class="meta-main-title">Factura</div>
+        <div class="meta-main-title"><?= h($comprobanteTitulo) ?></div>
         <div class="meta-main-number">Nro. <?= sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']) ?></div>
         <div class="meta-list">
           <div><strong>Fecha:</strong> <?= h($fechaCorta) ?></div>

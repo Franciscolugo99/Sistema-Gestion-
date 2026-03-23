@@ -480,6 +480,9 @@ require __DIR__ . '/partials/header.php';
       </div>
 
       <div class="promo-actions-top module-header-actions">
+        <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de crédito">
+          Notas de crédito
+        </a>
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
           <a href="facturacion_config.php" class="v-btn v-btn--outline" title="Configuracion de facturacion">
             Configuracion

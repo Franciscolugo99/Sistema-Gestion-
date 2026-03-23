@@ -359,9 +359,12 @@ require __DIR__ . '/partials/header.php';
                   </strong>
                 </div>
 
-                <div class="factura-links">
+                  <div class="factura-links">
                   <a href="facturacion.php?venta_id=<?= (int)$id ?>" class="btn btn-secondary btn-sm">
                     Ver en facturacion
+                  </a>
+                  <a href="facturacion_nc.php?factura_id=<?= (int)($factura['id'] ?? 0) ?>" class="btn btn-primary btn-sm">
+                    Gestionar NC
                   </a>
                 </div>
               </div>

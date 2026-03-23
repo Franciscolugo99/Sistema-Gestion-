@@ -1,0 +1,251 @@
+.nc-page {
+  --nc-border: rgba(148, 163, 184, .18);
+  --nc-muted: #64748b;
+}
+
+.nc-search-card,
+.nc-block,
+.panel-muted,
+.nc-empty-state {
+  border: 1px solid var(--nc-border);
+  border-radius: 18px;
+  background: rgba(255,255,255,.72);
+}
+
+.nc-search-card {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.nc-search-card h2,
+.nc-block h3,
+.nc-empty-state h3 {
+  margin: 0 0 6px;
+}
+
+.nc-search-card p,
+.nc-block p,
+.nc-empty-state p {
+  margin: 0;
+  color: var(--nc-muted);
+}
+
+.nc-search-form {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.6fr) minmax(140px, .7fr) auto auto;
+  gap: 10px;
+  width: min(100%, 720px);
+}
+
+.nc-search-form input {
+  width: 100%;
+}
+
+.nc-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.nc-sidebar {
+  padding: 16px;
+}
+
+.nc-sidebar-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: .95rem;
+  margin-bottom: 12px;
+}
+
+.nc-invoice-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nc-invoice-card {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--nc-border);
+  text-decoration: none;
+  color: inherit;
+  background: rgba(248,250,252,.85);
+}
+
+.nc-invoice-card strong,
+.nc-invoice-card span,
+.nc-invoice-card small {
+  display: block;
+}
+
+.nc-invoice-card span,
+.nc-invoice-card small {
+  color: var(--nc-muted);
+  margin-top: 4px;
+}
+
+.nc-invoice-card.is-active {
+  border-color: rgba(14,165,233,.45);
+  box-shadow: 0 0 0 1px rgba(14,165,233,.25) inset;
+}
+
+.nc-main {
+  display: grid;
+  gap: 18px;
+}
+
+.nc-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nc-summary-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--nc-border);
+  background: rgba(248,250,252,.78);
+}
+
+.nc-summary-card--wide {
+  grid-column: span 2;
+}
+
+.nc-summary-label,
+.nc-summary-help {
+  display: block;
+}
+
+.nc-summary-label {
+  text-transform: uppercase;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  color: var(--nc-muted);
+}
+
+.nc-summary-value {
+  display: block;
+  font-size: 1.2rem;
+  margin: 6px 0 4px;
+}
+
+.nc-summary-help {
+  color: var(--nc-muted);
+  font-size: .92rem;
+}
+
+.nc-block {
+  padding: 18px;
+}
+
+.nc-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.nc-empty-state,
+.nc-empty-box {
+  padding: 26px;
+  text-align: center;
+  color: var(--nc-muted);
+}
+
+.nc-product-title {
+  font-weight: 700;
+}
+
+.nc-product-meta {
+  font-size: .88rem;
+  color: var(--nc-muted);
+  margin-top: 3px;
+}
+
+.nc-qty-input,
+.nc-form-block input[type="text"],
+.nc-total-form input[type="text"] {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--nc-border);
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.nc-qty-input {
+  min-width: 110px;
+  text-align: right;
+}
+
+.nc-form-footer,
+.nc-total-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nc-form-fields,
+.nc-total-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.nc-total-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nc-total-kpis > div {
+  border: 1px solid var(--nc-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(248,250,252,.75);
+}
+
+.nc-total-kpis span {
+  display: block;
+  color: var(--nc-muted);
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.nc-total-kpis strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.04rem;
+}
+
+@media (max-width: 1180px) {
+  .nc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .nc-search-card {
+    align-items: stretch;
+  }
+
+  .nc-search-form,
+  .nc-total-kpis,
+  .nc-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-summary-card--wide {
+    grid-column: auto;
+  }
+}

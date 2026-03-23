@@ -8,7 +8,18 @@ declare(strict_types=1);
  * - Corrige validate_numeric (PHP_FLOAT_MIN -> -INF)
  * - Agrega db_ident para evitar inyección en identificadores
  */
-
+if (!function_exists('array_is_list')) {
+    function array_is_list(array $array): bool
+    {
+        $expectedKey = 0;
+        foreach ($array as $key => $_) {
+            if ($key !== $expectedKey++) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
 // =============================================================================
 // HTML & SEGURIDAD
 // =============================================================================

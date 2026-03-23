@@ -25,16 +25,13 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             if (!$venta) {
                 throw new RuntimeException('Venta no encontrada.');
             }
-            if ((int)($venta['facturada'] ?? 0) !== 1) {
-                throw new RuntimeException('La venta no esta facturada.');
-            }
-            if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA') {
-                throw new RuntimeException('La venta ya esta anulada.');
-            }
-
             $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
             if (!$facturaOrigen) {
                 throw new RuntimeException('No se encontro la factura original.');
+            }
+
+            if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA') {
+                throw new RuntimeException('La venta ya esta anulada.');
             }
             $facturaOrigenId = (int)($facturaOrigen['id'] ?? 0) ?: null;
 
@@ -265,18 +262,15 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                 throw new RuntimeException('Venta no encontrada.');
             }
 
-            if ((int)($venta['facturada'] ?? 0) !== 1) {
-                throw new RuntimeException('La venta no está facturada; la anulación parcial comercial directa debe seguir por el flujo no fiscal.');
+            $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
+            if (!$facturaOrigen) {
+                throw new RuntimeException('No se encontró la factura original asociada a la venta.');
             }
 
             if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA') {
                 throw new RuntimeException('La venta ya está anulada.');
             }
 
-            $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
-            if (!$facturaOrigen) {
-                throw new RuntimeException('No se encontró la factura original asociada a la venta.');
-            }
             $facturaOrigenId = (int)($facturaOrigen['id'] ?? 0) ?: null;
 
             $stOpen = $this->pdo->prepare("
