@@ -13,6 +13,10 @@ interface FacturaFiscalRepository
 
     public function findFacturaById(int $facturaId): ?array;
 
+    public function lockFacturaById(int $facturaId): array;
+
+    public function findFacturaByRequestUid(string $requestUid): ?array;
+
     /**
      * @return array<int,array<string,mixed>>
      */
@@ -30,6 +34,10 @@ interface FacturaFiscalRepository
     public function findArcaEventByRequestUid(string $requestUid): ?array;
 
     public function updateArcaEventResult(string $requestUid, array $patch): void;
+
+    public function updateFactura(int $facturaId, array $patch): void;
+
+    public function updateFacturaFiscalState(int $facturaId, string $estadoFiscal, array $patch = []): void;
 
     public function updateVentaAnulacionFiscalState(int $ventaAnulacionId, string $estadoFiscal, array $patch = []): void;
 

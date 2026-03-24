@@ -326,6 +326,159 @@ function flus_facturacion_cliente_lookup_confirmado(array $source): bool
     return trim((string)($source['cliente_lookup_confirmado'] ?? '0')) === '1';
 }
 
+function flus_facturacion_resolver_cliente_desde_input(PDO $pdo, array $source, array $options = []): array
+{
+    $mensajeVacio = trim((string)($options['mensaje_vacio'] ?? 'Debes seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.'));
+    $mensajeInvalido = trim((string)($options['mensaje_invalido'] ?? 'El cliente seleccionado no es valido.'));
+    $mensajeConfirmacionLookup = trim((string)($options['mensaje_lookup_confirmacion'] ?? 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.'));
+    $clienteSeleccionadoRaw = trim((string)($source['cliente_id'] ?? ''));
+
+    $result = [
+        'cliente_id' => null,
+        'cliente_raw' => $clienteSeleccionadoRaw,
+        'resolved_cliente' => null,
+        'errors' => [],
+    ];
+
+    $clienteLookup = flus_facturacion_cliente_lookup_post($source);
+    if ($clienteLookup !== null) {
+        if (!flus_facturacion_cliente_lookup_confirmado($source)) {
+            $result['errors'][] = $mensajeConfirmacionLookup;
+            return $result;
+        }
+
+        try {
+            $resolvedCliente = flus_facturacion_resolver_cliente_padron($pdo, $clienteLookup);
+            $result['cliente_id'] = (int)($resolvedCliente['cliente_id'] ?? 0);
+            $result['resolved_cliente'] = $resolvedCliente;
+        } catch (Throwable $e) {
+            $result['errors'][] = $e->getMessage();
+        }
+
+        return $result;
+    }
+
+    if ($clienteSeleccionadoRaw === '') {
+        $result['errors'][] = $mensajeVacio;
+        return $result;
+    }
+
+    if ($clienteSeleccionadoRaw !== '0' && !ctype_digit($clienteSeleccionadoRaw)) {
+        $result['errors'][] = $mensajeInvalido;
+        return $result;
+    }
+
+    $clienteId = $clienteSeleccionadoRaw === '0' ? 0 : (int)$clienteSeleccionadoRaw;
+    try {
+        $resolvedCliente = flus_facturacion_resolver_cliente($pdo, $clienteId);
+        $result['cliente_id'] = (int)($resolvedCliente['cliente_id'] ?? $clienteId);
+        $result['resolved_cliente'] = $resolvedCliente;
+    } catch (Throwable $e) {
+        $result['errors'][] = $clienteId > 0 ? $mensajeInvalido : $e->getMessage();
+    }
+
+    return $result;
+}
+
+function flus_facturacion_manual_retry_fingerprint(int $clienteId, array $items, array $meta = [], array $opciones = []): string
+{
+    $rows = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $rows[] = [
+            'codigo' => trim((string)($item['codigo'] ?? '')),
+            'descripcion' => trim((string)($item['descripcion'] ?? '')),
+            'cantidad' => round((float)($item['cantidad'] ?? 0), 3),
+            'precio' => round((float)($item['precio'] ?? $item['precio_unitario'] ?? 0), 2),
+            'iva_porcentaje' => round((float)($item['iva_porcentaje'] ?? 21), 2),
+            'subtotal' => round((float)($item['subtotal'] ?? 0), 2),
+        ];
+    }
+
+    $payload = [
+        'cliente_id' => max(0, $clienteId),
+        'items' => $rows,
+    ];
+
+    return sha1((string)json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function flus_facturacion_manual_retry_state_bucket(): array
+{
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        $_SESSION = [];
+    }
+
+    $bucket = $_SESSION['flus_facturacion_manual_retry'] ?? [];
+    return is_array($bucket) ? $bucket : [];
+}
+
+function flus_facturacion_manual_retry_state_guardar(
+    string $requestUid,
+    int $ventaId,
+    int $clienteId,
+    array $items,
+    string $estadoFiscal = 'PENDIENTE_ENVIO',
+    ?int $facturaId = null
+): void {
+    $requestUid = trim($requestUid);
+    if ($requestUid === '') {
+        return;
+    }
+
+    if (!isset($_SESSION) || !is_array($_SESSION)) {
+        $_SESSION = [];
+    }
+
+    $fingerprint = flus_facturacion_manual_retry_fingerprint($clienteId, $items);
+    $_SESSION['flus_facturacion_manual_retry'][$fingerprint] = [
+        'request_uid' => $requestUid,
+        'venta_id' => max(0, $ventaId),
+        'factura_id' => $facturaId !== null ? max(0, $facturaId) : 0,
+        'estado_fiscal' => trim($estadoFiscal) !== '' ? trim($estadoFiscal) : 'PENDIENTE_ENVIO',
+        'updated_at' => date('Y-m-d H:i:s'),
+    ];
+}
+
+function flus_facturacion_manual_retry_state_es_reutilizable(string $estadoFiscal): bool
+{
+    $estado = strtoupper(trim($estadoFiscal));
+    if ($estado === 'APROBADA') {
+        $estado = 'AUTORIZADA';
+    }
+
+    return in_array($estado, ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'AUTORIZADA'], true);
+}
+
+function flus_facturacion_manual_retry_state_buscar(int $clienteId, array $items): ?array
+{
+    $fingerprint = flus_facturacion_manual_retry_fingerprint($clienteId, $items);
+    $bucket = flus_facturacion_manual_retry_state_bucket();
+    $row = $bucket[$fingerprint] ?? null;
+    if (!is_array($row)) {
+        return null;
+    }
+
+    $requestUid = trim((string)($row['request_uid'] ?? ''));
+    if ($requestUid === '') {
+        return null;
+    }
+
+    $estadoFiscal = (string)($row['estado_fiscal'] ?? 'PENDIENTE_ENVIO');
+    if (!flus_facturacion_manual_retry_state_es_reutilizable($estadoFiscal)) {
+        return null;
+    }
+
+    $row['request_uid'] = $requestUid;
+    $row['venta_id'] = (int)($row['venta_id'] ?? 0);
+    $row['factura_id'] = (int)($row['factura_id'] ?? 0);
+    $row['estado_fiscal'] = $estadoFiscal;
+    return $row;
+}
+
 function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $items, array $meta = []): int
 {
     if (!flus_table_exists($pdo, 'ventas')) {

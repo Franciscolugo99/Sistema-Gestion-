@@ -816,26 +816,207 @@ function flus_facturacion_normalizar_cae_vto(?string $caeVto): ?string
 }
 
 /**
- * Emite una factura para una venta dentro de una transaccion ya abierta.
+ * Estados fiscales acotados para factura común.
  */
-function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): int
+function flus_facturacion_estado_fiscal_normalizar(?string $raw): string
 {
-    $st = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1 FOR UPDATE');
+    $estado = strtoupper(trim((string)$raw));
+    $allowed = ['NO_APLICA', 'PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'AUTORIZADA', 'RECHAZADA'];
+    return in_array($estado, $allowed, true) ? $estado : 'NO_APLICA';
+}
+
+function flus_facturacion_estado_fiscal_label(string $raw): string
+{
+    return match (flus_facturacion_estado_fiscal_normalizar($raw)) {
+        'PENDIENTE_ENVIO' => 'Pendiente de envío',
+        'ERROR_TRANSITORIO' => 'Error transitorio',
+        'AUTORIZADA' => 'Autorizada',
+        'RECHAZADA' => 'Rechazada',
+        default => 'No aplica',
+    };
+}
+
+function flus_facturacion_error_es_transitorio(?string $raw): bool
+{
+    $message = trim((string)$raw);
+    if ($message === '') {
+        return false;
+    }
+
+    if (flus_facturacion_arca_is_availability_error($message)) {
+        return true;
+    }
+
+    $normalized = function_exists('mb_strtolower')
+        ? mb_strtolower($message, 'UTF-8')
+        : strtolower($message);
+
+    foreach (['soap fault', 'timeout', 'tempor', 'transitor', 'connection', 'network', 'unavailable', 'wsfe', 'wsaa'] as $needle) {
+        if (str_contains($normalized, $needle)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function flus_facturacion_estado_fiscal_por_error(?string $raw): string
+{
+    return flus_facturacion_error_es_transitorio($raw) ? 'ERROR_TRANSITORIO' : 'RECHAZADA';
+}
+
+function flus_facturacion_error_code(?string $raw): string
+{
+    $message = trim((string)$raw);
+    if ($message === '') {
+        return 'ARCA_ERROR';
+    }
+
+    if (preg_match('/\b(\d{4,})\b/', $message, $matches) === 1) {
+        return (string)$matches[1];
+    }
+
+    return flus_facturacion_error_es_transitorio($message) ? 'TRANSIENT' : 'ARCA_ERROR';
+}
+
+function flus_facturacion_uuid_from_seed(string $seed): string
+{
+    $hex = substr(sha1($seed), 0, 32);
+    $timeHi = (hexdec(substr($hex, 12, 4)) & 0x0fff) | 0x5000;
+    $clock = (hexdec(substr($hex, 16, 4)) & 0x3fff) | 0x8000;
+
+    return sprintf(
+        '%s-%s-%04x-%04x-%s',
+        substr($hex, 0, 8),
+        substr($hex, 8, 4),
+        $timeHi,
+        $clock,
+        substr($hex, 20, 12)
+    );
+}
+
+function flus_facturacion_request_uid_manual(int $clienteId, array $items, array $meta = [], array $opciones = []): string
+{
+    $provided = trim((string)($opciones['request_uid'] ?? ''));
+    if ($provided !== '') {
+        return $provided;
+    }
+
+    $retryState = flus_facturacion_manual_retry_state_buscar($clienteId, $items);
+    if (is_array($retryState) && trim((string)($retryState['request_uid'] ?? '')) !== '') {
+        return (string)$retryState['request_uid'];
+    }
+
+    $fingerprint = flus_facturacion_manual_retry_fingerprint($clienteId, $items, $meta, $opciones);
+    return flus_facturacion_uuid_from_seed('FACTURA_MANUAL|' . $fingerprint);
+}
+
+function flus_facturacion_json_decode_assoc(?string $raw): array
+{
+    $raw = trim((string)$raw);
+    if ($raw === '') {
+        return [];
+    }
+
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
+
+function flus_facturacion_evento_operacion(array $opciones = []): string
+{
+    return !empty($opciones['origen_manual']) ? 'FACTURA_MANUAL' : 'FACTURA_VENTA';
+}
+
+function flus_facturacion_fiscal_repository(PDO $pdo): FacturaFiscalRepository
+{
+    require_once __DIR__ . '/Fiscal/bootstrap.php';
+    return new PdoFacturaFiscalRepository($pdo);
+}
+
+function flus_facturacion_request_uid_from_context(array $context, array $opciones = []): string
+{
+    $provided = trim((string)($opciones['request_uid'] ?? ''));
+    if ($provided !== '') {
+        return $provided;
+    }
+
+    $seed = implode('|', [
+        !empty($opciones['origen_manual']) ? 'FACTURA_MANUAL' : 'FACTURA_VENTA',
+        'venta:' . (int)($context['venta']['id'] ?? 0),
+        'cliente:' . (int)($context['cliente_id_fiscal'] ?? 0),
+        'tipo_cbte:' . (int)($context['tipo_cbte'] ?? 0),
+        'pto:' . (int)($context['punto_venta'] ?? 0),
+        'modo:' . (string)($context['modo_operacion'] ?? 'demo'),
+        'concepto:' . (int)($context['concepto'] ?? 1),
+        'total:' . number_format((float)($context['importes']['total'] ?? 0), 2, '.', ''),
+    ]);
+
+    return flus_facturacion_uuid_from_seed($seed);
+}
+
+function flus_facturacion_request_payload(array $context): array
+{
+    return [
+        'venta_id' => (int)($context['venta']['id'] ?? 0),
+        'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0),
+        'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
+        'tipo' => (string)($context['tipo_str'] ?? ''),
+        'punto_venta' => (int)($context['punto_venta'] ?? 0),
+        'numero' => (int)($context['numero'] ?? 0),
+        'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+        'concepto' => (int)($context['concepto'] ?? 1),
+        'importe_total' => round((float)($context['importes']['total'] ?? 0), 2),
+        'origen_manual' => !empty($context['origen_manual']),
+    ];
+}
+
+function flus_facturacion_resultado_normalizado(?array $response): ?array
+{
+    if (!is_array($response) || $response === []) {
+        return null;
+    }
+
+    $cae = trim((string)($response['cae'] ?? ''));
+    if ($cae === '') {
+        return null;
+    }
+
+    $numero = (int)($response['numero'] ?? $response['CbteNro'] ?? 0);
+    $vencimiento = flus_facturacion_normalizar_cae_vto((string)($response['vencimiento'] ?? $response['cae_vto'] ?? $response['CAEFchVto'] ?? ''));
+
+    return [
+        'cae' => $cae,
+        'vencimiento' => $vencimiento,
+        'numero' => $numero,
+    ];
+}
+
+function flus_facturacion_actualizar_cliente_venta_si_corresponde(PDO $pdo, array $venta, int $clienteIdFiscal): void
+{
+    if ($clienteIdFiscal <= 0 || !flus_column_exists($pdo, 'ventas', 'cliente_id')) {
+        return;
+    }
+
+    $ventaId = (int)($venta['id'] ?? 0);
+    if ($ventaId <= 0 || (int)($venta['cliente_id'] ?? 0) === $clienteIdFiscal) {
+        return;
+    }
+
+    $st = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
+    $st->execute([$clienteIdFiscal, $ventaId]);
+}
+
+function flus_facturacion_preparar_contexto_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): array
+{
+    $st = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1');
     $st->execute([$ventaId]);
     $venta = $st->fetch(PDO::FETCH_ASSOC);
-
     if (!$venta) {
         throw new Exception('Venta no encontrada.');
     }
 
-
     $printItemCount = flus_facturacion_count_items_venta($pdo, $ventaId);
     flus_facturacion_assert_print_item_limit($printItemCount);
-    $st = $pdo->prepare('SELECT id FROM facturas WHERE venta_id = ? ORDER BY id DESC LIMIT 1');
-    $st->execute([$ventaId]);
-    if ($st->fetchColumn()) {
-        throw new Exception('La venta ya tiene una factura emitida.');
-    }
 
     $clienteData = $opciones['resolved_cliente'] ?? flus_facturacion_resolver_cliente($pdo, $clienteId);
     if (!is_array($clienteData)) {
@@ -846,13 +1027,7 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
     $clienteIdFiscal = (int)($clienteData['cliente_id'] ?? 0);
     $consumidorFinal = !empty($clienteData['consumidor_final']);
 
-    if ($clienteIdFiscal > 0 && flus_column_exists($pdo, 'ventas', 'cliente_id') && (int)($venta['cliente_id'] ?? 0) !== $clienteIdFiscal) {
-        $stVentaCliente = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
-        $stVentaCliente->execute([$clienteIdFiscal, $ventaId]);
-        $venta['cliente_id'] = $clienteIdFiscal;
-    }
-
-    $config = flus_facturacion_config_activa($pdo, true);
+    $config = flus_facturacion_config_activa($pdo, false);
     if (!$config) {
         throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
     }
@@ -870,31 +1045,15 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         throw new Exception('El CUIT del cliente coincide con el CUIT emisor configurado. Selecciona otro cliente o emite como Consumidor Final.');
     }
 
-    $numero = $modoDemo
-        ? max(1, (int)($config['proximo_numero'] ?? 1), flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion))
-        : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion));
-
-    if (!$modoDemo) {
-        $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
-        $envActual = flus_facturacion_arca_env_actual();
-        if ($envEsperado !== '' && $envActual !== $envEsperado) {
-            throw new Exception('El modo ' . flus_facturacion_modo_label($modoOperacion) . ' requiere FLUS_ARCA_ENV=' . strtoupper($envEsperado) . ' pero hoy esta en ' . strtoupper($envActual) . '.');
-        }
-
-        flus_facturacion_arca_assert_emitible($pdo, $modoOperacion);
-        flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
-
-        require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
-        $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
-        if ($ultimoAfip !== null) {
-            $numero = max($numero, $ultimoAfip + 1);
-        } elseif (flus_facturacion_arca_is_availability_error(ArcaWsfe::getLastError())) {
-            flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, (string) ArcaWsfe::getLastError());
-            throw new Exception(flus_facturacion_arca_emision_bloqueada_message());
-        }
-    }
+    $numeroPreferido = isset($opciones['numero_preferido']) ? (int)$opciones['numero_preferido'] : 0;
+    $numero = $numeroPreferido > 0
+        ? $numeroPreferido
+        : ($modoDemo
+            ? max(1, (int)($config['proximo_numero'] ?? 1), flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion))
+            : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion)));
 
     $importes = calcularImportesFactura($pdo, $ventaId, $venta, $tipoCbte);
+    $docData = determinarDocumentoCliente($cliente, $consumidorFinal);
 
     $comprobante = [
         'tipo_cbte' => $tipoCbte,
@@ -909,122 +1068,545 @@ function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $client
         'importe_no_gravado' => $importes['no_gravado'],
         'moneda_id' => 'PES',
         'moneda_cotiz' => 1,
+        'tipo_doc' => $docData['tipo'],
+        'nro_doc' => $docData['numero'],
+        'condicion_iva_receptor_id' => determinarCondicionIvaReceptorAfip($cliente, $consumidorFinal),
     ];
-
-    $docData = determinarDocumentoCliente($cliente, $consumidorFinal);
-    $comprobante['tipo_doc'] = $docData['tipo'];
-    $comprobante['nro_doc'] = $docData['numero'];
-    $comprobante['condicion_iva_receptor_id'] = determinarCondicionIvaReceptorAfip($cliente, $consumidorFinal);
 
     if ($importes['iva'] > 0 && !empty($importes['iva_detalle'])) {
         $comprobante['iva'] = $importes['iva_detalle'];
     }
 
-    $cae = null;
-    $caeVto = null;
-    $estado = 'EMITIDA';
+    $context = [
+        'venta' => $venta,
+        'cliente' => $cliente,
+        'cliente_data' => $clienteData,
+        'cliente_id_fiscal' => $clienteIdFiscal,
+        'consumidor_final' => $consumidorFinal,
+        'config' => $config,
+        'punto_venta' => $puntoVenta,
+        'modo_operacion' => $modoOperacion,
+        'modo_demo' => $modoDemo,
+        'modo_factura' => $modoFactura,
+        'tipo_cbte' => $tipoCbte,
+        'tipo_str' => $tipoStr,
+        'numero' => $numero,
+        'concepto' => (int)$comprobante['concepto'],
+        'importes' => $importes,
+        'doc_data' => $docData,
+        'comprobante' => $comprobante,
+        'origen_manual' => !empty($opciones['origen_manual']),
+    ];
+    $context['request_uid'] = flus_facturacion_request_uid_from_context($context, $opciones);
 
-    if ($modoDemo) {
-        $cae = 'DEMO' . str_pad((string)$numero, 14, '0', STR_PAD_LEFT);
-        $caeVto = date('Y-m-d', strtotime('+10 days'));
-    } else {
-        require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+    return $context;
+}
 
-        $resultado = ArcaWsfe::solicitarCAE($comprobante);
-
-        if (!$resultado) {
-            $errorMsg = ArcaWsfe::getLastError() ?: '';
-            if (strpos($errorMsg, '10016') !== false || stripos($errorMsg, 'ya fue') !== false) {
-                $ultimoAfip = ArcaWsfe::getUltimoAutorizado($puntoVenta, $tipoCbte);
-                if ($ultimoAfip !== null) {
-                    $numero = max(flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion), $ultimoAfip + 1);
-                    $comprobante['numero'] = $numero;
-                    $resultado = ArcaWsfe::solicitarCAE($comprobante);
-                }
-            }
-        }
-
-        if (!$resultado) {
-            $lastError = (string) (ArcaWsfe::getLastError() ?: '');
-            if (flus_facturacion_arca_is_availability_error($lastError)) {
-                flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, $lastError);
-            }
-            throw new Exception(flus_facturacion_humanizar_error_arca($lastError));
-        }
-
-        $cae = (string)($resultado['cae'] ?? '');
-        $caeVto = flus_facturacion_normalizar_cae_vto((string)($resultado['vencimiento'] ?? ''));
-        $numero = (int)($resultado['numero'] ?? $numero);
-        flus_facturacion_arca_status_write($pdo, 'available', $modoOperacion, '');
-    }
-
-    flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
-
+function flus_facturacion_factura_header_base(array $context, string $estadoFiscal = 'PENDIENTE_ENVIO'): array
+{
     $timestamp = date('Y-m-d H:i:s');
 
-    try {
-        $facturaId = flus_facturacion_insert_dynamic($pdo, 'facturas', [
-        'venta_id' => $ventaId,
-        'cliente_id' => $clienteIdFiscal > 0 ? $clienteIdFiscal : null,
-        'tipo' => $tipoStr,
-        'punto_venta' => $puntoVenta,
-        'numero' => $numero,
+    return [
+        'venta_id' => (int)($context['venta']['id'] ?? 0),
+        'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+        'naturaleza' => 'FACTURA',
+        'tipo' => (string)($context['tipo_str'] ?? ''),
+        'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
+        'punto_venta' => (int)($context['punto_venta'] ?? 0),
+        'numero' => (int)($context['numero'] ?? 0),
         'fecha' => $timestamp,
-        'importe_neto' => $importes['neto'],
-        'importe_iva' => $importes['iva'],
-        'importe_exento' => $importes['exento'],
-        'total' => $importes['total'],
-        'cae' => $cae,
-        'cae_vto' => flus_facturacion_normalizar_cae_vto($caeVto),
-        'estado' => $estado,
-        'modo' => $modoFactura,
+        'importe_neto' => round((float)($context['importes']['neto'] ?? 0), 2),
+        'importe_iva' => round((float)($context['importes']['iva'] ?? 0), 2),
+        'importe_exento' => round((float)($context['importes']['exento'] ?? 0), 2),
+        'importe_no_gravado' => round((float)($context['importes']['no_gravado'] ?? 0), 2),
+        'total' => round((float)($context['importes']['total'] ?? 0), 2),
+        'cae' => null,
+        'cae_vto' => null,
+        'estado' => 'PENDIENTE',
+        'modo' => (string)($context['modo_factura'] ?? 'demo'),
+        'doc_tipo' => (int)($context['doc_data']['tipo'] ?? 0) ?: null,
+        'doc_numero' => (string)($context['doc_data']['numero'] ?? '') ?: null,
+        'condicion_iva_receptor_id' => $context['comprobante']['condicion_iva_receptor_id'] ?? null,
+        'moneda_id' => 'PES',
+        'moneda_cotiz' => 1,
         'creado_en' => $timestamp,
-    ]);
-    } catch (PDOException $e) {
-        $isDuplicate = ($e->errorInfo[0] ?? '') === '23000' || str_contains((string)$e->getMessage(), '1062 Duplicate entry');
-        if ($isDuplicate && flus_facturacion_facturas_scope_requires_migration($pdo)) {
-            flus_facturacion_assert_facturas_scope_compatible($pdo, $puntoVenta, $tipoStr, $numero, $modoOperacion);
+        'estado_fiscal' => $estadoFiscal,
+        'fiscal_request_uid' => (string)($context['request_uid'] ?? ''),
+        'fiscal_intentos' => 0,
+        'fiscal_error_code' => null,
+        'fiscal_error_message' => null,
+        'fiscal_requested_at' => null,
+        'fiscal_approved_at' => null,
+    ];
+}
+
+function flus_facturacion_asegurar_registro_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): array
+{
+    $repo = flus_facturacion_fiscal_repository($pdo);
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $ventaLocked = $repo->lockVenta($ventaId);
+        if ($ventaLocked === []) {
+            throw new RuntimeException('Venta no encontrada.');
+        }
+
+        $context = flus_facturacion_preparar_contexto_desde_venta($pdo, $ventaId, $clienteId, $opciones);
+        flus_facturacion_actualizar_cliente_venta_si_corresponde($pdo, $ventaLocked, (int)($context['cliente_id_fiscal'] ?? 0));
+
+        $requestUid = trim((string)($context['request_uid'] ?? ''));
+        $factura = $requestUid !== '' ? $repo->findFacturaByRequestUid($requestUid) : null;
+        $facturaVenta = $repo->findFacturaOrigenByVentaId($ventaId);
+
+        if ($factura === null && $facturaVenta !== null) {
+            $factura = $facturaVenta;
+        }
+
+        if ($factura !== null) {
+            $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? (($factura['cae'] ?? '') !== '' ? 'AUTORIZADA' : 'NO_APLICA')));
+            if ($estadoFiscal !== 'AUTORIZADA' && trim((string)($factura['cae'] ?? '')) === '') {
+                $patch = flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
+                $patch['fiscal_request_uid'] = $requestUid !== '' ? $requestUid : ($factura['fiscal_request_uid'] ?? null);
+                $repo->updateFactura((int)$factura['id'], $patch);
+                $factura = $repo->findFacturaById((int)$factura['id']) ?: ($factura + $patch);
+            }
+        } else {
+            $facturaId = $repo->insertFactura(flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO'));
+            $factura = $repo->findFacturaById($facturaId) ?: ['id' => $facturaId] + flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
+        }
+
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->commit();
+        }
+
+        return [
+            'factura' => $factura,
+            'context' => $context,
+        ];
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
         }
         throw $e;
     }
+}
 
-    flus_facturacion_upsert_venta_fiscal($pdo, $ventaId, [
-        'punto_venta' => $puntoVenta,
-        'tipo_cbte' => $tipoCbte,
-        'numero' => $numero,
-        'cae' => $cae,
-        'cae_vto' => $caeVto,
-        'moneda_id' => 'PES',
-        'moneda_cotiz' => 1,
-    ]);
+function flus_facturacion_ejecutar_envio_arca(PDO $pdo, array $context, array $opciones = []): array
+{
+    $emitCallback = $opciones['emit_callback'] ?? null;
+    if (is_callable($emitCallback)) {
+        $resultado = $emitCallback($context);
+        if (!is_array($resultado)) {
+            throw new RuntimeException('Emit callback invalido.');
+        }
+        $resultado['raw_request'] = $resultado['raw_request'] ?? ($context['comprobante'] ?? []);
+        $resultado['raw_response'] = $resultado['raw_response'] ?? $resultado;
+        return $resultado;
+    }
 
-    if ($modoDemo && flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
-        $st = $pdo->prepare('UPDATE config_facturacion SET proximo_numero = :nuevo WHERE id = :id');
-        $st->execute([
-            ':nuevo' => $numero + 1,
-            ':id' => $config['id'],
+    $comprobante = $context['comprobante'];
+    $modoOperacion = (string)($context['modo_operacion'] ?? 'demo');
+    $modoDemo = !empty($context['modo_demo']);
+
+    if ($modoDemo) {
+        return [
+            'cae' => 'DEMO' . str_pad((string)($comprobante['numero'] ?? 0), 14, '0', STR_PAD_LEFT),
+            'vencimiento' => date('Y-m-d', strtotime('+10 days')),
+            'numero' => (int)($comprobante['numero'] ?? 0),
+            'raw_request' => $comprobante,
+            'raw_response' => ['demo' => true, 'numero' => (int)($comprobante['numero'] ?? 0)],
+        ];
+    }
+
+    $envEsperado = flus_facturacion_arca_env_esperado($modoOperacion);
+    $envActual = flus_facturacion_arca_env_actual();
+    if ($envEsperado !== '' && $envActual !== $envEsperado) {
+        throw new RuntimeException('El modo ' . flus_facturacion_modo_label($modoOperacion) . ' requiere FLUS_ARCA_ENV=' . strtoupper($envEsperado) . ' pero hoy esta en ' . strtoupper($envActual) . '.');
+    }
+
+    flus_facturacion_arca_assert_emitible($pdo, $modoOperacion);
+
+    require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+
+    $ultimoAfip = ArcaWsfe::getUltimoAutorizado((int)$comprobante['punto_venta'], (int)$comprobante['tipo_cbte']);
+    if ($ultimoAfip !== null) {
+        $comprobante['numero'] = max((int)$comprobante['numero'], $ultimoAfip + 1);
+    } elseif (flus_facturacion_arca_is_availability_error(ArcaWsfe::getLastError())) {
+        flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, (string)ArcaWsfe::getLastError());
+        throw new RuntimeException(flus_facturacion_arca_emision_bloqueada_message());
+    }
+
+    flus_facturacion_assert_facturas_scope_compatible($pdo, (int)$comprobante['punto_venta'], (string)($context['tipo_str'] ?? ''), (int)$comprobante['numero'], $modoOperacion);
+
+    $resultado = ArcaWsfe::solicitarCAE($comprobante);
+    if (!$resultado) {
+        $lastError = (string)(ArcaWsfe::getLastError() ?: '');
+        if (strpos($lastError, '10016') !== false || stripos($lastError, 'ya fue') !== false) {
+            $consulta = ArcaWsfe::consultarComprobante((int)$comprobante['punto_venta'], (int)$comprobante['tipo_cbte'], (int)$comprobante['numero']);
+            $normalizadoConsulta = flus_facturacion_resultado_normalizado(is_array($consulta) ? $consulta : []);
+            if ($normalizadoConsulta !== null) {
+                flus_facturacion_arca_status_write($pdo, 'available', $modoOperacion, '');
+                return [
+                    'cae' => $normalizadoConsulta['cae'],
+                    'vencimiento' => $normalizadoConsulta['vencimiento'],
+                    'numero' => $normalizadoConsulta['numero'] > 0 ? $normalizadoConsulta['numero'] : (int)$comprobante['numero'],
+                    'raw_request' => $comprobante,
+                    'raw_response' => $consulta,
+                ];
+            }
+        }
+
+        if (flus_facturacion_arca_is_availability_error($lastError)) {
+            flus_facturacion_arca_status_write($pdo, 'unavailable', $modoOperacion, $lastError);
+        }
+        throw new RuntimeException(flus_facturacion_humanizar_error_arca($lastError));
+    }
+
+    flus_facturacion_arca_status_write($pdo, 'available', $modoOperacion, '');
+    $resultado['raw_request'] = $comprobante;
+    $resultado['raw_response'] = ArcaWsfe::getLastResponse() ?? $resultado;
+    return $resultado;
+}
+
+function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context, array $resultado, array $meta = []): int
+{
+    $normalizado = flus_facturacion_resultado_normalizado($resultado);
+    if ($normalizado === null) {
+        throw new RuntimeException('No se pudo normalizar la respuesta de ARCA para finalizar la factura.');
+    }
+
+    $facturaId = (int)($factura['id'] ?? 0);
+    if ($facturaId <= 0) {
+        throw new RuntimeException('Factura local inexistente para finalizar.');
+    }
+
+    $requestUid = trim((string)($context['request_uid'] ?? $factura['fiscal_request_uid'] ?? ''));
+    $ventaId = (int)($factura['venta_id'] ?? $context['venta']['id'] ?? 0);
+    $intentoNo = max(1, (int)($factura['fiscal_intentos'] ?? 0));
+    $timestamp = date('Y-m-d H:i:s');
+
+    try {
+        $pdo->beginTransaction();
+
+        $facturaLocked = $repo->lockFacturaById($facturaId);
+        if ($facturaLocked === []) {
+            throw new RuntimeException('La factura local ya no existe.');
+        }
+        if ($ventaId > 0) {
+            $repo->lockVenta($ventaId);
+        }
+
+        $numero = (int)($normalizado['numero'] ?? 0);
+        if ($numero <= 0) {
+            $numero = (int)($context['numero'] ?? $facturaLocked['numero'] ?? 0);
+        }
+
+        $repo->updateFactura($facturaId, [
+            'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+            'naturaleza' => 'FACTURA',
+            'tipo' => (string)($context['tipo_str'] ?? $facturaLocked['tipo'] ?? ''),
+            'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
+            'punto_venta' => (int)($context['punto_venta'] ?? 0),
+            'numero' => $numero,
+            'importe_neto' => round((float)($context['importes']['neto'] ?? 0), 2),
+            'importe_iva' => round((float)($context['importes']['iva'] ?? 0), 2),
+            'importe_exento' => round((float)($context['importes']['exento'] ?? 0), 2),
+            'importe_no_gravado' => round((float)($context['importes']['no_gravado'] ?? 0), 2),
+            'total' => round((float)($context['importes']['total'] ?? 0), 2),
+            'cae' => (string)$normalizado['cae'],
+            'cae_vto' => flus_facturacion_normalizar_cae_vto((string)$normalizado['vencimiento']),
+            'estado' => 'EMITIDA',
+            'modo' => (string)($context['modo_factura'] ?? 'demo'),
+            'doc_tipo' => (int)($context['doc_data']['tipo'] ?? 0) ?: null,
+            'doc_numero' => (string)($context['doc_data']['numero'] ?? '') ?: null,
+            'condicion_iva_receptor_id' => $context['comprobante']['condicion_iva_receptor_id'] ?? null,
+            'moneda_id' => 'PES',
+            'moneda_cotiz' => 1,
+            'estado_fiscal' => 'AUTORIZADA',
+            'fiscal_request_uid' => $requestUid !== '' ? $requestUid : null,
+            'fiscal_intentos' => $intentoNo,
+            'fiscal_error_code' => null,
+            'fiscal_error_message' => null,
+            'fiscal_requested_at' => $facturaLocked['fiscal_requested_at'] ?? $timestamp,
+            'fiscal_approved_at' => $timestamp,
+        ]);
+
+        if ($ventaId > 0) {
+            flus_facturacion_upsert_venta_fiscal($pdo, $ventaId, [
+                'punto_venta' => (int)($context['punto_venta'] ?? 0),
+                'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
+                'numero' => $numero,
+                'cae' => (string)$normalizado['cae'],
+                'cae_vto' => (string)$normalizado['vencimiento'],
+                'moneda_id' => 'PES',
+                'moneda_cotiz' => 1,
+            ]);
+
+            if (flus_column_exists($pdo, 'ventas', 'facturada')) {
+                $st = $pdo->prepare('UPDATE ventas SET facturada = 1 WHERE id = ?');
+                $st->execute([$ventaId]);
+            }
+        }
+
+        if (!empty($context['modo_demo']) && flus_column_exists($pdo, 'config_facturacion', 'proximo_numero')) {
+            $configId = (int)($context['config']['id'] ?? 0);
+            if ($configId > 0) {
+                $stCfg = $pdo->prepare('UPDATE config_facturacion SET proximo_numero = GREATEST(COALESCE(proximo_numero, 1), :nuevo) WHERE id = :id');
+                $stCfg->execute([
+                    ':nuevo' => $numero + 1,
+                    ':id' => $configId,
+                ]);
+            }
+        }
+
+        if ($requestUid !== '') {
+            $repo->updateArcaEventResult($requestUid, [
+                'venta_id' => $ventaId > 0 ? $ventaId : null,
+                'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+                'factura_id' => $facturaId,
+                'operacion' => flus_facturacion_evento_operacion($context),
+                'resultado' => 'OK',
+                'intento_no' => $intentoNo,
+                'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+                'error_code' => null,
+                'error_message' => null,
+                'request_json' => json_encode($meta['raw_request'] ?? $context['comprobante'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'response_json' => json_encode($meta['raw_response'] ?? $resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'finished_at' => $timestamp,
+            ]);
+        }
+
+        $pdo->commit();
+        return $facturaId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ($requestUid !== '') {
+            try {
+                $repo->updateArcaEventResult($requestUid, [
+                    'venta_id' => $ventaId > 0 ? $ventaId : null,
+                    'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+                    'factura_id' => $facturaId,
+                    'operacion' => flus_facturacion_evento_operacion($context),
+                    'resultado' => 'OK',
+                    'intento_no' => $intentoNo,
+                    'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+                    'error_code' => 'ERROR_POST_ARCA',
+                    'error_message' => $e->getMessage(),
+                    'request_json' => json_encode($meta['raw_request'] ?? $context['comprobante'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'response_json' => json_encode($meta['raw_response'] ?? $resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'finished_at' => date('Y-m-d H:i:s'),
+                ]);
+            } catch (Throwable $ignored) {
+            }
+        }
+
+        try {
+            $repo->updateFacturaFiscalState($facturaId, 'ERROR_TRANSITORIO', [
+                'fiscal_error_code' => 'ERROR_POST_ARCA',
+                'fiscal_error_message' => $e->getMessage(),
+            ]);
+        } catch (Throwable $ignored) {
+        }
+
+        throw new RuntimeException('ARCA autorizó el comprobante pero FLUS no pudo cerrar la registración local. Reintenta para recovery simple. Detalle: ' . $e->getMessage(), 0, $e);
+    }
+}
+
+function flus_facturacion_intentar_recovery_simple(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context): ?int
+{
+    $requestUid = trim((string)($factura['fiscal_request_uid'] ?? $context['request_uid'] ?? ''));
+    if ($requestUid === '') {
+        return null;
+    }
+
+    $evento = $repo->findArcaEventByRequestUid($requestUid);
+    if (is_array($evento)) {
+        $response = flus_facturacion_json_decode_assoc((string)($evento['response_json'] ?? ''));
+        $normalizado = flus_facturacion_resultado_normalizado($response);
+        if ($normalizado !== null) {
+            return flus_facturacion_finalizar_factura_autorizada($pdo, $repo, $factura, $context, $normalizado, [
+                'raw_request' => flus_facturacion_json_decode_assoc((string)($evento['request_json'] ?? '')),
+                'raw_response' => $response,
+            ]);
+        }
+    }
+
+    if (!empty($context['modo_demo'])) {
+        return null;
+    }
+
+    $numero = (int)($factura['numero'] ?? $context['numero'] ?? 0);
+    if ($numero <= 0) {
+        return null;
+    }
+
+    require_once __DIR__ . '/../public/includes/ArcaWsfe.php';
+    $consulta = ArcaWsfe::consultarComprobante((int)($context['punto_venta'] ?? 0), (int)($context['tipo_cbte'] ?? 0), $numero);
+    $normalizado = flus_facturacion_resultado_normalizado(is_array($consulta) ? $consulta : []);
+    if ($normalizado === null) {
+        return null;
+    }
+
+    if ($requestUid !== '') {
+        $repo->updateArcaEventResult($requestUid, [
+            'venta_id' => (int)($factura['venta_id'] ?? 0) > 0 ? (int)$factura['venta_id'] : null,
+            'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+            'factura_id' => (int)($factura['id'] ?? 0) > 0 ? (int)$factura['id'] : null,
+            'operacion' => flus_facturacion_evento_operacion($context),
+            'resultado' => 'OK',
+            'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+            'response_json' => json_encode($consulta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'finished_at' => date('Y-m-d H:i:s'),
         ]);
     }
 
-    if (flus_column_exists($pdo, 'ventas', 'facturada')) {
-        $st = $pdo->prepare('UPDATE ventas SET facturada = 1 WHERE id = ?');
-        $st->execute([$ventaId]);
+    return flus_facturacion_finalizar_factura_autorizada($pdo, $repo, $factura, $context, $normalizado, [
+        'raw_request' => $context['comprobante'] ?? [],
+        'raw_response' => $consulta,
+    ]);
+}
+
+function flus_facturacion_procesar_factura_registrada(PDO $pdo, array $registro, array $opciones = []): int
+{
+    $repo = flus_facturacion_fiscal_repository($pdo);
+    $factura = is_array($registro['factura'] ?? null) ? $registro['factura'] : [];
+    $context = is_array($registro['context'] ?? null) ? $registro['context'] : [];
+
+    $facturaId = (int)($factura['id'] ?? 0);
+    if ($facturaId <= 0) {
+        throw new RuntimeException('No se pudo registrar la factura local.');
     }
 
-    return $facturaId;
+    $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? (($factura['cae'] ?? '') !== '' ? 'AUTORIZADA' : 'NO_APLICA')));
+    if ($estadoFiscal === 'AUTORIZADA' || trim((string)($factura['cae'] ?? '')) !== '') {
+        return $facturaId;
+    }
+
+    if ($estadoFiscal === 'RECHAZADA') {
+        $msg = trim((string)($factura['fiscal_error_message'] ?? ''));
+        throw new RuntimeException($msg !== '' ? $msg : 'La factura ya fue rechazada por ARCA.');
+    }
+
+    $recovered = flus_facturacion_intentar_recovery_simple($pdo, $repo, $factura, $context);
+    if ($recovered !== null) {
+        return $recovered;
+    }
+
+    $requestUid = trim((string)($context['request_uid'] ?? $factura['fiscal_request_uid'] ?? ''));
+    $intentoNo = max(1, (int)($factura['fiscal_intentos'] ?? 0) + 1);
+    $timestamp = date('Y-m-d H:i:s');
+    $ventaId = (int)($factura['venta_id'] ?? $context['venta']['id'] ?? 0);
+
+    $repo->updateFactura($facturaId, [
+        'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+        'tipo' => (string)($context['tipo_str'] ?? ''),
+        'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
+        'punto_venta' => (int)($context['punto_venta'] ?? 0),
+        'numero' => (int)($factura['numero'] ?? $context['numero'] ?? 0),
+        'importe_neto' => round((float)($context['importes']['neto'] ?? 0), 2),
+        'importe_iva' => round((float)($context['importes']['iva'] ?? 0), 2),
+        'importe_exento' => round((float)($context['importes']['exento'] ?? 0), 2),
+        'importe_no_gravado' => round((float)($context['importes']['no_gravado'] ?? 0), 2),
+        'total' => round((float)($context['importes']['total'] ?? 0), 2),
+        'estado' => 'PENDIENTE',
+        'estado_fiscal' => 'PENDIENTE_ENVIO',
+        'fiscal_request_uid' => $requestUid !== '' ? $requestUid : null,
+        'fiscal_intentos' => $intentoNo,
+        'fiscal_requested_at' => $timestamp,
+        'fiscal_error_code' => null,
+        'fiscal_error_message' => null,
+    ]);
+
+    $requestPayload = flus_facturacion_request_payload($context);
+    $requestJson = json_encode($requestPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $existingEvent = $requestUid !== '' ? $repo->findArcaEventByRequestUid($requestUid) : null;
+    if ($requestUid !== '') {
+        if ($existingEvent === null) {
+            $repo->insertArcaEvent([
+                'venta_id' => $ventaId > 0 ? $ventaId : null,
+                'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+                'factura_id' => $facturaId,
+                'request_uid' => $requestUid,
+                'operacion' => flus_facturacion_evento_operacion($context),
+                'resultado' => 'PENDIENTE',
+                'intento_no' => $intentoNo,
+                'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+                'request_json' => $requestJson,
+                'created_at' => $timestamp,
+            ]);
+        } else {
+            $repo->updateArcaEventResult($requestUid, [
+                'venta_id' => $ventaId > 0 ? $ventaId : null,
+                'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+                'factura_id' => $facturaId,
+                'operacion' => flus_facturacion_evento_operacion($context),
+                'resultado' => 'PENDIENTE',
+                'intento_no' => $intentoNo,
+                'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+                'error_code' => null,
+                'error_message' => null,
+                'request_json' => $requestJson,
+                'finished_at' => null,
+            ]);
+        }
+    }
+
+    try {
+        $resultado = flus_facturacion_ejecutar_envio_arca($pdo, $context, $opciones);
+    } catch (Throwable $e) {
+        $message = trim((string)$e->getMessage());
+        $estadoError = flus_facturacion_estado_fiscal_por_error($message);
+        $errorCode = flus_facturacion_error_code($message);
+
+        if ($requestUid !== '') {
+            $repo->updateArcaEventResult($requestUid, [
+                'venta_id' => $ventaId > 0 ? $ventaId : null,
+                'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
+                'factura_id' => $facturaId,
+                'operacion' => flus_facturacion_evento_operacion($context),
+                'resultado' => 'ERROR',
+                'intento_no' => $intentoNo,
+                'modo' => (string)($context['modo_operacion'] ?? 'demo'),
+                'error_code' => $errorCode,
+                'error_message' => $message,
+                'request_json' => $requestJson,
+                'finished_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        $repo->updateFacturaFiscalState($facturaId, $estadoError, [
+            'estado' => $estadoError === 'RECHAZADA' ? 'RECHAZADA' : 'PENDIENTE',
+            'fiscal_intentos' => $intentoNo,
+            'fiscal_error_code' => $errorCode,
+            'fiscal_error_message' => $message,
+            'fiscal_requested_at' => $timestamp,
+        ]);
+        throw $e;
+    }
+
+    return flus_facturacion_finalizar_factura_autorizada($pdo, $repo, $factura + ['fiscal_intentos' => $intentoNo], $context, $resultado, [
+        'raw_request' => $resultado['raw_request'] ?? ($context['comprobante'] ?? []),
+        'raw_response' => $resultado['raw_response'] ?? $resultado,
+    ]);
+}
+
+/**
+ * Emite una factura para una venta usando una capa unificada de registro + envío.
+ */
+function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): int
+{
+    $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $opciones);
+    return flus_facturacion_procesar_factura_registrada($pdo, $registro, $opciones);
 }
 
 /**
  * Crea una factura desde una venta existente.
- *
- * @param int $ventaId ID de la venta
- * @param int $clienteId ID del cliente (puede ser 0 para consumidor final)
- * @param array $opciones Opciones adicionales:
- *   - modo: 'demo', 'homologacion' o 'produccion' (default: segun config)
- *   - tipo_cbte: int (forzar tipo de comprobante)
- *   - concepto: int (1=Productos, 2=Servicios, 3=Ambos)
- * @return int ID de la factura creada
- * @throws Exception Si hay error
  */
 function crearFacturaDesdeVenta(int $ventaId, int $clienteId, array $opciones = []): int
 {
@@ -1034,22 +1616,11 @@ function crearFacturaDesdeVenta(int $ventaId, int $clienteId, array $opciones = 
         throw new Exception('El modulo de facturacion no esta habilitado.');
     }
 
-    $pdo->beginTransaction();
-
-    try {
-        $facturaId = flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones);
-        $pdo->commit();
-        return $facturaId;
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $e;
-    }
+    return flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones);
 }
 
 /**
- * Crea una venta manual y emite su factura dentro de la misma transaccion.
+ * Crea o reutiliza una venta manual y luego emite por la misma capa de negocio.
  */
 function crearFacturaManual(array $payload): int
 {
@@ -1066,21 +1637,96 @@ function crearFacturaManual(array $payload): int
         'medio_pago' => trim((string)($payload['medio_pago'] ?? 'FACTURA_MANUAL')),
     ];
     $opciones = isset($payload['opciones']) && is_array($payload['opciones']) ? $payload['opciones'] : [];
+    $clienteData = (isset($opciones['resolved_cliente']) && is_array($opciones['resolved_cliente']))
+        ? $opciones['resolved_cliente']
+        : flus_facturacion_resolver_cliente($pdo, $clienteId);
 
-    $pdo->beginTransaction();
+    if (!is_array($clienteData)) {
+        throw new RuntimeException('No se pudo resolver el cliente para la factura manual.');
+    }
+
+    $clienteFiscalId = (int)($clienteData['cliente_id'] ?? 0);
+    $requestUid = flus_facturacion_request_uid_manual($clienteFiscalId, $items, $meta, $opciones);
+
+    $repo = flus_facturacion_fiscal_repository($pdo);
+    $facturaExistente = $repo->findFacturaByRequestUid($requestUid);
+    $ventaId = (int)($facturaExistente['venta_id'] ?? 0);
+
+    if (is_array($facturaExistente)) {
+        flus_facturacion_manual_retry_state_guardar(
+            $requestUid,
+            $ventaId,
+            $clienteFiscalId,
+            $items,
+            (string)($facturaExistente['estado_fiscal'] ?? 'PENDIENTE_ENVIO'),
+            (int)($facturaExistente['id'] ?? 0)
+        );
+    }
+
+    if ($ventaId <= 0) {
+        $pdo->beginTransaction();
+        try {
+            $ventaId = flus_facturacion_crear_venta_manual($pdo, $clienteFiscalId, $items, $meta);
+            $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $opciones + [
+                'resolved_cliente' => $clienteData,
+                'request_uid' => $requestUid,
+                'origen_manual' => true,
+            ]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    } else {
+        $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $opciones + [
+            'resolved_cliente' => $clienteData,
+            'request_uid' => $requestUid,
+            'origen_manual' => true,
+        ]);
+    }
+
+    $facturaBase = is_array($registro['factura'] ?? null) ? $registro['factura'] : [];
+    flus_facturacion_manual_retry_state_guardar(
+        $requestUid,
+        $ventaId,
+        $clienteFiscalId,
+        $items,
+        (string)($facturaBase['estado_fiscal'] ?? 'PENDIENTE_ENVIO'),
+        (int)($facturaBase['id'] ?? 0)
+    );
 
     try {
-        $clienteData = (isset($opciones['resolved_cliente']) && is_array($opciones['resolved_cliente'])) ? $opciones['resolved_cliente'] : flus_facturacion_resolver_cliente($pdo, $clienteId);
-        $ventaId = flus_facturacion_crear_venta_manual($pdo, (int)($clienteData['cliente_id'] ?? 0), $items, $meta);
-        $facturaId = flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones + ['resolved_cliente' => $clienteData]);
-        $pdo->commit();
-        return $facturaId;
+        $facturaId = flus_facturacion_procesar_factura_registrada($pdo, $registro, $opciones + [
+            'resolved_cliente' => $clienteData,
+            'request_uid' => $requestUid,
+            'origen_manual' => true,
+        ]);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
+        $facturaActual = (int)($facturaBase['id'] ?? 0) > 0 ? $repo->findFacturaById((int)$facturaBase['id']) : null;
+        flus_facturacion_manual_retry_state_guardar(
+            $requestUid,
+            $ventaId,
+            $clienteFiscalId,
+            $items,
+            (string)($facturaActual['estado_fiscal'] ?? $facturaBase['estado_fiscal'] ?? 'PENDIENTE_ENVIO'),
+            (int)($facturaActual['id'] ?? $facturaBase['id'] ?? 0)
+        );
         throw $e;
     }
+
+    $facturaEmitida = $repo->findFacturaById($facturaId);
+    flus_facturacion_manual_retry_state_guardar(
+        $requestUid,
+        $ventaId,
+        $clienteFiscalId,
+        $items,
+        (string)($facturaEmitida['estado_fiscal'] ?? 'AUTORIZADA'),
+        $facturaId
+    );
+
+    return $facturaId;
 }
 
 function flus_facturacion_print_item_limit(?PDO $pdo = null): int

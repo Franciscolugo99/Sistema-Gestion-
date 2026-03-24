@@ -86,29 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
         $errores[] = flus_facturacion_print_item_limit_message($itemCountVenta, $itemLimit);
     }
 
-    $clienteId = null;
-    $resolvedCliente = null;
-    $clienteLookup = flus_facturacion_cliente_lookup_post($_POST);
-    if ($clienteLookup !== null && !flus_facturacion_cliente_lookup_confirmado($_POST)) {
-        $errores[] = 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.';
-    } elseif ($clienteLookup !== null) {
-        try {
-            $resolvedCliente = flus_facturacion_resolver_cliente_padron($pdo, $clienteLookup);
-            $clienteId = (int)($resolvedCliente['cliente_id'] ?? 0);
-        } catch (Throwable $e) {
-            $errores[] = $e->getMessage();
-        }
-    } elseif ($clienteSeleccionadoRaw === '') {
-        $errores[] = 'Tienes que seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.';
-    } elseif ($clienteSeleccionadoRaw === '0') {
-        $clienteId = 0;
-    } elseif (!ctype_digit($clienteSeleccionadoRaw)) {
-        $errores[] = 'El cliente seleccionado no es valido.';
-    } else {
-        $clienteId = (int)$clienteSeleccionadoRaw;
-        if (!flus_facturacion_cliente_activo($pdo, $clienteId)) {
-            $errores[] = 'El cliente seleccionado no es valido.';
-        }
+    $clienteResult = flus_facturacion_resolver_cliente_desde_input($pdo, $_POST, [
+        'mensaje_vacio' => 'Tienes que seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.',
+        'mensaje_invalido' => 'El cliente seleccionado no es valido.',
+        'mensaje_lookup_confirmacion' => 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.',
+    ]);
+    $clienteId = $clienteResult['cliente_id'];
+    $resolvedCliente = is_array($clienteResult['resolved_cliente']) ? $clienteResult['resolved_cliente'] : null;
+    foreach ((array)($clienteResult['errors'] ?? []) as $errorCliente) {
+        $errores[] = (string)$errorCliente;
     }
 
     if ($errores === [] && $clienteId !== null) {

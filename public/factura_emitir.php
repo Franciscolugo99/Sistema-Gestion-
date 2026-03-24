@@ -32,40 +32,24 @@ if (!csrf_verify($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
-$clienteIdRaw = isset($_POST['cliente_id']) ? trim((string)$_POST['cliente_id']) : '';
-if ($clienteIdRaw === '') {
-    header('Location: factura_nueva.php?venta_id=' . $ventaId);
-    exit;
-}
-
-$clienteId = ctype_digit($clienteIdRaw) ? (int)$clienteIdRaw : -1;
-if ($clienteId < 0) {
-    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode('Cliente invalido.'));
+$clienteResult = flus_facturacion_resolver_cliente_desde_input($pdo, $_POST, [
+    'mensaje_vacio' => 'Tienes que seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.',
+    'mensaje_invalido' => 'Cliente invalido o no disponible.',
+    'mensaje_lookup_confirmacion' => 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.',
+]);
+$errores = array_values(array_filter(array_map('strval', (array)($clienteResult['errors'] ?? []))));
+if ($errores !== []) {
+    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode($errores[0]));
     exit;
 }
 
 try {
-    if (!flus_table_exists($pdo, 'ventas')) {
-        throw new RuntimeException('La tabla ventas no existe.');
+    $opciones = [];
+    if (is_array($clienteResult['resolved_cliente'] ?? null)) {
+        $opciones['resolved_cliente'] = $clienteResult['resolved_cliente'];
     }
 
-    $stVenta = $pdo->prepare('SELECT id FROM ventas WHERE id = ? LIMIT 1');
-    $stVenta->execute([$ventaId]);
-    if (!$stVenta->fetch(PDO::FETCH_ASSOC)) {
-        throw new RuntimeException('Venta inexistente.');
-    }
-
-    $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
-    if ($facturaExistenteId !== null) {
-        header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
-        exit;
-    }
-
-    if ($clienteId > 0 && !flus_facturacion_cliente_activo($pdo, $clienteId)) {
-        throw new RuntimeException('Cliente invalido o no disponible.');
-    }
-
-    crearFacturaDesdeVenta($ventaId, $clienteId);
+    crearFacturaDesdeVenta($ventaId, (int)($clienteResult['cliente_id'] ?? 0), $opciones);
     header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
     exit;
 } catch (Throwable $e) {

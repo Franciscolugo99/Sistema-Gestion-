@@ -381,6 +381,15 @@ if (!$factura) {
     flus_abort(404, 'Factura no encontrada');
 }
 
+$estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
+$estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscal);
+$fiscalRequestUid = trim((string)($factura['fiscal_request_uid'] ?? ''));
+$fiscalIntentos = max(0, (int)($factura['fiscal_intentos'] ?? 0));
+$fiscalErrorCode = trim((string)($factura['fiscal_error_code'] ?? ''));
+$fiscalErrorMessage = trim((string)($factura['fiscal_error_message'] ?? ''));
+$fiscalRequestedAt = trim((string)($factura['fiscal_requested_at'] ?? ''));
+$fiscalApprovedAt = trim((string)($factura['fiscal_approved_at'] ?? ''));
+
 $fiscalData = null;
 if (flus_table_exists($pdo, 'venta_fiscal')) {
     try {
@@ -851,8 +860,24 @@ if ($pdfMode) {
       <section class="factura-box factura-box--fiscal">
         <div class="box-title">Datos fiscales</div>
         <div class="fiscal-stack">
+          <div><strong>Estado fiscal:</strong> <?= h($estadoFiscalLabel) ?></div>
           <div><strong>CAE:</strong> <?= h($cae) ?></div>
           <div><strong>Vto. CAE:</strong> <?= h($caeVto) ?></div>
+          <?php if ($fiscalRequestUid !== ''): ?>
+            <div><strong>Request UID:</strong> <span class="mono"><?= h($fiscalRequestUid) ?></span></div>
+          <?php endif; ?>
+          <?php if ($fiscalIntentos > 0): ?>
+            <div><strong>Intentos:</strong> <?= (int)$fiscalIntentos ?></div>
+          <?php endif; ?>
+          <?php if ($fiscalRequestedAt !== ''): ?>
+            <div><strong>Solicitado:</strong> <?= h($fiscalRequestedAt) ?></div>
+          <?php endif; ?>
+          <?php if ($fiscalApprovedAt !== ''): ?>
+            <div><strong>Aprobado:</strong> <?= h($fiscalApprovedAt) ?></div>
+          <?php endif; ?>
+          <?php if ($fiscalErrorCode !== '' || $fiscalErrorMessage !== ''): ?>
+            <div><strong>Error fiscal:</strong> <?= h(trim($fiscalErrorCode . ' ' . $fiscalErrorMessage)) ?></div>
+          <?php endif; ?>
           <div class="fiscal-note"><?= h($footerModo) ?></div>
           <?php if ($qrData !== null): ?>
             <div class="qr-area">

@@ -108,6 +108,7 @@ $clienteLookupUi = [
     'estado' => trim((string)($_POST['cliente_lookup_estado'] ?? '')),
 ];
 $nota = trim((string)($_POST['nota'] ?? 'Factura manual sin caja'));
+$manualRequestUid = trim((string)($_POST['request_uid'] ?? ''));
 $concepto = (int)($_POST['concepto'] ?? 1);
 if (!in_array($concepto, [1, 2, 3], true)) {
     $concepto = 1;
@@ -122,29 +123,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
         $errores[] = flus_facturacion_print_item_limit_message($itemCountPreview, $itemLimit);
     }
 
-    $resolvedCliente = null;
-    $clienteLookup = flus_facturacion_cliente_lookup_post($_POST);
-    if ($clienteLookup !== null && !flus_facturacion_cliente_lookup_confirmado($_POST)) {
-        $errores[] = 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.';
-    } elseif ($clienteLookup !== null) {
-        try {
-            $resolvedCliente = flus_facturacion_resolver_cliente_padron($pdo, $clienteLookup);
-        } catch (Throwable $e) {
-            $errores[] = $e->getMessage();
-        }
-    } else {
-        if ($clienteSeleccionadoRaw === '') {
-            $errores[] = 'Debes seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.';
-        } elseif ($clienteSeleccionadoRaw !== '0' && !ctype_digit($clienteSeleccionadoRaw)) {
-            $errores[] = 'El cliente seleccionado no es valido.';
-        }
+    $clienteResult = flus_facturacion_resolver_cliente_desde_input($pdo, $_POST, [
+        'mensaje_vacio' => 'Debes seleccionar un cliente, Consumidor Final o consultar un CUIT/CUIL.',
+        'mensaje_invalido' => 'El cliente seleccionado no es valido.',
+        'mensaje_lookup_confirmacion' => 'Confirma que quieres emitir con los datos consultados en ARCA. Si no los vas a usar, descartalos y sigue con el cliente seleccionado.',
+    ]);
+    $resolvedCliente = is_array($clienteResult['resolved_cliente']) ? $clienteResult['resolved_cliente'] : null;
+    foreach ((array)($clienteResult['errors'] ?? []) as $errorCliente) {
+        $errores[] = (string)$errorCliente;
     }
 
     if ($errores === []) {
         try {
-            $clienteId = $resolvedCliente !== null
-                ? (int)($resolvedCliente['cliente_id'] ?? 0)
-                : ($clienteSeleccionadoRaw === '0' ? 0 : (int)$clienteSeleccionadoRaw);
+            $clienteId = (int)($clienteResult['cliente_id'] ?? 0);
 
             $opciones = [
                 'concepto' => $concepto,
@@ -153,18 +144,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
                 $opciones['resolved_cliente'] = $resolvedCliente;
             }
 
+            $manualItemsPayload = array_map(static function (array $row): array {
+                return [
+                    'codigo' => $row['codigo'],
+                    'descripcion' => $row['descripcion'],
+                    'cantidad' => $row['cantidad'] === '' ? 0 : (float)$row['cantidad'],
+                    'precio' => $row['precio'] === '' ? 0 : (float)$row['precio'],
+                    'iva_porcentaje' => $row['iva_porcentaje'] === '' ? 21 : (float)$row['iva_porcentaje'],
+                ];
+            }, $rows);
+
+            $manualRequestUid = flus_facturacion_request_uid_manual($clienteId, $manualItemsPayload, [
+                'nota' => $nota,
+                'medio_pago' => 'FACTURA_MANUAL',
+            ], $opciones + ['request_uid' => $manualRequestUid]);
+            $opciones['request_uid'] = $manualRequestUid;
+
             $facturaId = crearFacturaManual([
                 'cliente_id' => $clienteId,
                 'nota' => $nota,
-                'items' => array_map(static function (array $row): array {
-                    return [
-                        'codigo' => $row['codigo'],
-                        'descripcion' => $row['descripcion'],
-                        'cantidad' => $row['cantidad'] === '' ? 0 : (float)$row['cantidad'],
-                        'precio' => $row['precio'] === '' ? 0 : (float)$row['precio'],
-                        'iva_porcentaje' => $row['iva_porcentaje'] === '' ? 21 : (float)$row['iva_porcentaje'],
-                    ];
-                }, $rows),
+                'items' => $manualItemsPayload,
                 'opciones' => $opciones,
             ]);
             header('Location: factura_ver.php?id=' . $facturaId);
@@ -221,6 +220,7 @@ require __DIR__ . '/partials/header.php';
       data-fm-disabled="<?= $cfgError !== null ? '1' : '0' ?>"
     >
       <?= csrf_field() ?>
+      <input type="hidden" name="request_uid" value="<?= h($manualRequestUid) ?>">
 
       <div class="fact-manual-layout fact-manual-layout--mock">
         <section class="fact-manual-main">

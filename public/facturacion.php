@@ -146,6 +146,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
     $caeCol = flus_column_exists($pdo, 'facturas', 'cae');
     $caeVtoCol = flus_column_exists($pdo, 'facturas', 'cae_vto');
     $modoCol = flus_column_exists($pdo, 'facturas', 'modo');
+    $estadoFiscalCol = flus_column_exists($pdo, 'facturas', 'estado_fiscal');
     $joinClientes = $clienteIdCol && flus_table_exists($pdo, 'clientes');
 
     $fechaExpr = $fechaCol ? 'f.`' . $fechaCol . '`' : 'NULL';
@@ -159,6 +160,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
     $caeExpr = $caeCol ? 'f.`cae`' : 'NULL';
     $caeVtoExpr = $caeVtoCol ? 'f.`cae_vto`' : 'NULL';
     $modoExpr = $modoCol ? 'f.`modo`' : 'NULL';
+    $estadoFiscalExpr = $estadoFiscalCol ? "COALESCE(f.`estado_fiscal`, 'NO_APLICA')" : "'NO_APLICA'";
     $clienteNombreExpr = $joinClientes
         ? (flus_column_exists($pdo, 'clientes', 'nombre') ? 'c.`nombre`' : 'CONCAT("Cliente #", c.id)')
         : 'NULL';
@@ -267,6 +269,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
                 {$clienteCuitExpr} AS cliente_cuit,
                 {$totalExpr} AS total,
                 {$estadoExpr} AS estado,
+                {$estadoFiscalExpr} AS estado_fiscal,
                 {$ventaIdExpr} AS venta_id,
                 {$caeExpr} AS cae,
                 {$caeVtoExpr} AS cae_vto,
@@ -285,7 +288,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
 
         $out = fopen('php://output', 'w');
         fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($out, ['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Venta', 'CAE', 'CAE vto', 'Modo'], ';');
+        fputcsv($out, ['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo'], ';');
 
         foreach ($stExport->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
             fputcsv($out, [
@@ -297,6 +300,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
                 (string)($row['cliente_cuit'] ?? ''),
                 number_format((float)($row['total'] ?? 0), 2, ',', ''),
                 (string)($row['estado'] ?? 'EMITIDA'),
+                (string)($row['estado_fiscal'] ?? 'NO_APLICA'),
                 (string)($row['venta_id'] ?? ''),
                 (string)($row['cae'] ?? ''),
                 (string)($row['cae_vto'] ?? ''),
@@ -383,6 +387,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
             {$numeroExpr} AS numero,
             {$totalExpr} AS total,
             {$estadoExpr} AS estado,
+            {$estadoFiscalExpr} AS estado_fiscal,
             {$clienteIdExpr} AS cliente_id,
             {$clienteNombreExpr} AS cliente_nombre,
             {$clienteCuitExpr} AS cliente_cuit,
@@ -693,6 +698,8 @@ require __DIR__ . '/partials/header.php';
               $fechaTs = $fechaLista !== '' ? strtotime($fechaLista) : false;
               $fechaMostrar = $fechaTs !== false ? date('d/m/Y H:i', $fechaTs) : ($fechaLista !== '' ? $fechaLista : '-');
               $estadoFila = strtoupper(trim((string)($factura['estado'] ?? 'EMITIDA')));
+              $estadoFiscalFila = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
+              $estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscalFila);
               $modoFilaRaw = trim((string)($factura['modo'] ?? ''));
               $modoFila = $modoFilaRaw !== '' ? flus_facturacion_normalizar_modo($modoFilaRaw) : '';
               $cae = trim((string)($factura['cae'] ?? ''));
@@ -757,6 +764,9 @@ require __DIR__ . '/partials/header.php';
                 <span class="fact-status-badge <?= $estadoFila === 'ANULADA' ? 'fact-status-badge--danger' : 'fact-status-badge--ok' ?>">
                   <?= h($estadoFila) ?>
                 </span>
+                <?php if ($estadoFiscalFila !== 'NO_APLICA'): ?>
+                  <div class="fact-cell-sub">Fiscal: <?= h($estadoFiscalLabel) ?></div>
+                <?php endif; ?>
               </td>
               <td>
                 <?php if (!empty($factura['venta_id'])): ?>

@@ -64,6 +64,28 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
         return is_array($row) ? $row : null;
     }
 
+    public function lockFacturaById(int $facturaId): array
+    {
+        if ($facturaId <= 0) {
+            return [];
+        }
+        $st = $this->pdo->prepare('SELECT * FROM facturas WHERE id = ? LIMIT 1 FOR UPDATE');
+        $st->execute([$facturaId]);
+        return $st->fetch(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function findFacturaByRequestUid(string $requestUid): ?array
+    {
+        if ($requestUid === '' || !flus_table_exists($this->pdo, 'facturas') || !flus_column_exists($this->pdo, 'facturas', 'fiscal_request_uid')) {
+            return null;
+        }
+
+        $st = $this->pdo->prepare('SELECT * FROM facturas WHERE fiscal_request_uid = ? LIMIT 1');
+        $st->execute([$requestUid]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        return is_array($row) ? $row : null;
+    }
+
     public function findFacturaItems(int $facturaId): array
     {
         if ($facturaId <= 0 || !flus_table_exists($this->pdo, 'factura_items')) {
@@ -169,7 +191,7 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
     public function updateArcaEventResult(string $requestUid, array $patch): void
     {
         if ($requestUid === '' || !flus_table_exists($this->pdo, 'factura_eventos_arca')) return;
-        $allowed = ['venta_anulacion_id','factura_id','resultado','intento_no','modo','error_code','error_message','request_json','response_json','finished_at'];
+        $allowed = ['venta_anulacion_id','venta_id','cliente_id','factura_id','operacion','resultado','intento_no','modo','error_code','error_message','request_json','response_json','finished_at'];
         $sets = [];
         $params = [':request_uid' => $requestUid];
         foreach ($allowed as $col) {
@@ -181,6 +203,45 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
         $sql = 'UPDATE factura_eventos_arca SET ' . implode(', ', $sets) . ' WHERE request_uid = :request_uid';
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
+    }
+
+    public function updateFactura(int $facturaId, array $patch): void
+    {
+        if ($facturaId <= 0 || !flus_table_exists($this->pdo, 'facturas')) return;
+
+        $schema = flus_current_db($this->pdo);
+        if ($schema === '') return;
+
+        $colsSet = flus_columns_set($this->pdo, $schema, 'facturas');
+        $allowed = [
+            'venta_id','venta_anulacion_id','factura_asociada_id','cliente_id','naturaleza','tipo','tipo_cbte','punto_venta','numero',
+            'doc_tipo','doc_numero','condicion_iva_receptor_id','importe_neto','importe_iva','importe_exento','importe_no_gravado',
+            'total','cae','cae_vto','estado','modo','moneda_id','moneda_cotiz','fiscal_request_uid','fiscal_intentos',
+            'fiscal_error_code','fiscal_error_message','fiscal_requested_at','fiscal_approved_at','estado_fiscal'
+        ];
+
+        $sets = [];
+        $params = [':id' => $facturaId];
+        foreach ($allowed as $col) {
+            if (!array_key_exists($col, $patch) || !isset($colsSet[$col])) continue;
+            $sets[] = sprintf('`%s` = :%s', $col, $col);
+            $params[':' . $col] = $patch[$col];
+        }
+
+        if ($sets === []) return;
+
+        $sql = 'UPDATE facturas SET ' . implode(', ', $sets) . ' WHERE id = :id';
+        $st = $this->pdo->prepare($sql);
+        $st->execute($params);
+    }
+
+    public function updateFacturaFiscalState(int $facturaId, string $estadoFiscal, array $patch = []): void
+    {
+        $payload = $patch;
+        if (flus_column_exists($this->pdo, 'facturas', 'estado_fiscal')) {
+            $payload['estado_fiscal'] = $estadoFiscal;
+        }
+        $this->updateFactura($facturaId, $payload);
     }
 
     public function updateVentaAnulacionFiscalState(int $ventaAnulacionId, string $estadoFiscal, array $patch = []): void

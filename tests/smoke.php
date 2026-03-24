@@ -716,6 +716,151 @@ $results[] = flus_run_test('EmitirNotaCreditoCommand normalizes partial items sa
     flus_assert_same(2.0, $cmd->partialItems[1]['cantidad']);
 });
 
+$results[] = flus_run_test('facturacion desde venta entra por la capa unificada', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $emitirPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_emitir.php');
+    $libPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+
+    flus_assert_contains('crearFacturaDesdeVenta(', $emitirPhp);
+    flus_assert_contains('flus_facturacion_asegurar_registro_desde_venta', $libPhp);
+    flus_assert_contains('flus_facturacion_procesar_factura_registrada', $libPhp);
+
+    $bodyStart = strpos($libPhp, 'function flus_facturacion_emitir_desde_venta');
+    flus_assert_true($bodyStart !== false, 'No se encontró flus_facturacion_emitir_desde_venta');
+    $body = substr($libPhp, $bodyStart, 1200);
+    flus_assert_contains('flus_facturacion_asegurar_registro_desde_venta', $body);
+    flus_assert_contains('flus_facturacion_procesar_factura_registrada', $body);
+});
+
+$results[] = flus_run_test('facturacion manual usa la misma capa y reusa request_uid', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
+    $libPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+
+    flus_assert_contains('crearFacturaManual([', $manualPhp);
+    flus_assert_contains('findFacturaByRequestUid', $libPhp);
+    flus_assert_contains('flus_facturacion_request_uid_manual', $libPhp);
+    flus_assert_true(
+        strpos($libPhp, 'findFacturaByRequestUid') < strpos($libPhp, 'flus_facturacion_crear_venta_manual'),
+        'La búsqueda idempotente debería ocurrir antes de crear una nueva venta manual.'
+    );
+
+    $uidA = flus_facturacion_request_uid_manual(10, [
+        ['descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+    ], ['nota' => 'nota original', 'medio_pago' => 'EFECTIVO'], ['concepto' => 1]);
+    $uidB = flus_facturacion_request_uid_manual(10, [
+        ['descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+    ], ['nota' => 'nota cambiada', 'medio_pago' => 'CTA CTE'], ['concepto' => 3]);
+    $uidC = flus_facturacion_request_uid_manual(10, [
+        ['descripcion' => 'Prod A', 'cantidad' => 2, 'precio' => 100, 'iva_porcentaje' => 21],
+    ], ['nota' => 'nota original'], ['concepto' => 1]);
+
+    flus_assert_same($uidA, $uidB);
+    flus_assert_false($uidA === $uidC);
+    flus_assert_contains('name="request_uid"', $manualPhp);
+});
+
+$results[] = flus_run_test('retry manual preserva request_uid y no duplica venta manual base', function (): void {
+    $_SESSION = [];
+
+    $items = [
+        ['codigo' => 'A1', 'descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+        ['codigo' => 'B2', 'descripcion' => 'Prod B', 'cantidad' => 2, 'precio' => 50, 'iva_porcentaje' => 21],
+    ];
+
+    $uidPrimerIntento = flus_facturacion_request_uid_manual(25, $items, ['nota' => 'primer intento'], ['concepto' => 1]);
+    flus_facturacion_manual_retry_state_guardar($uidPrimerIntento, 501, 25, $items, 'ERROR_TRANSITORIO', 9001);
+
+    $retry = flus_facturacion_manual_retry_state_buscar(25, $items);
+    flus_assert_true(is_array($retry), 'El estado de retry debería existir después del primer intento.');
+    flus_assert_same(501, (int)($retry['venta_id'] ?? 0));
+    flus_assert_same('ERROR_TRANSITORIO', (string)($retry['estado_fiscal'] ?? ''));
+
+    $uidSegundoIntento = flus_facturacion_request_uid_manual(25, $items, [
+        'nota' => 'cambió la nota',
+        'medio_pago' => 'TARJETA',
+    ], ['concepto' => 3]);
+
+    flus_assert_same($uidPrimerIntento, $uidSegundoIntento);
+
+    $retrySegundo = flus_facturacion_manual_retry_state_buscar(25, $items);
+    flus_assert_true(is_array($retrySegundo), 'El segundo intento debería reutilizar el estado manual existente.');
+    flus_assert_same(501, (int)($retrySegundo['venta_id'] ?? 0));
+    flus_assert_same(9001, (int)($retrySegundo['factura_id'] ?? 0));
+});
+
+$results[] = flus_run_test('errores ARCA se clasifican en estados fiscales consistentes', function (): void {
+    flus_assert_same('Pendiente de envío', flus_facturacion_estado_fiscal_label('PENDIENTE_ENVIO'));
+    flus_assert_same('Autorizada', flus_facturacion_estado_fiscal_label('AUTORIZADA'));
+    flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('SOAP Fault: timeout al conectar con WSAA'));
+    flus_assert_same('RECHAZADA', flus_facturacion_estado_fiscal_por_error('[10015] El numero de documento es invalido'));
+    flus_assert_same('TRANSIENT', flus_facturacion_error_code('SOAP Fault: timeout al conectar con WSAA'));
+    flus_assert_same('10015', flus_facturacion_error_code('[10015] El numero de documento es invalido'));
+});
+
+$results[] = flus_run_test('baseline install.sql mas migraciones no superpone columnas de fase 1', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $migrationsDir = $repoRoot . DIRECTORY_SEPARATOR . 'migrations';
+    $migratePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'migrate.php');
+
+    $extractColumns = static function (string $sql, string $table): array {
+        $columns = [];
+        if (preg_match('/CREATE TABLE(?: IF NOT EXISTS)? `?' . preg_quote($table, '/') . '`? \((.*?)\) ENGINE=/is', $sql, $m) === 1) {
+            if (preg_match_all('/^\s*`([^`]+)`\s+/m', $m[1], $matches)) {
+                $columns = array_values(array_unique(array_map('strval', $matches[1])));
+            }
+        }
+        return $columns;
+    };
+
+    $extractAlterAdds = static function (string $sql, string $table): array {
+        $columns = [];
+        if (preg_match_all('/ALTER TABLE `?' . preg_quote($table, '/') . '`?\s+ADD COLUMN `([^`]+)`/i', $sql, $matches)) {
+            $columns = array_values(array_unique(array_map('strval', $matches[1])));
+        }
+        return $columns;
+    };
+
+    $extractAddsFromGlob = static function (string $dir, string $table, int $until) use ($extractAlterAdds): array {
+        $columns = [];
+        foreach (glob($dir . DIRECTORY_SEPARATOR . '*.sql') ?: [] as $path) {
+            $base = basename($path);
+            if ((int)substr($base, 0, 3) >= $until) {
+                continue;
+            }
+            $columns = array_merge($columns, $extractAlterAdds((string)file_get_contents($path), $table));
+        }
+        $columns = array_values(array_unique($columns));
+        sort($columns, SORT_STRING);
+        return $columns;
+    };
+
+    $facturasInstall = $extractColumns($installSql, 'facturas');
+    $eventosInstall = $extractColumns($installSql, 'factura_eventos_arca');
+    $facturasPre016 = $extractAddsFromGlob($migrationsDir, 'facturas', 16);
+    $eventosPre016 = $extractAddsFromGlob($migrationsDir, 'factura_eventos_arca', 16);
+    $mig016 = (string)file_get_contents($migrationsDir . DIRECTORY_SEPARATOR . '016_factura_comun_fiscal_flow.sql');
+    $facturas016 = $extractAlterAdds($mig016, 'facturas');
+    $eventos016 = $extractAlterAdds($mig016, 'factura_eventos_arca');
+
+    foreach ($facturas016 as $col) {
+        flus_assert_false(in_array($col, $facturasInstall, true), 'install.sql no debe traer ' . $col . ' porque vive en migraciones.');
+        flus_assert_false(in_array($col, $facturasPre016, true), 'La migración 016 no debe duplicar columna previa: ' . $col);
+    }
+    foreach ($eventos016 as $col) {
+        flus_assert_false(in_array($col, $eventosInstall, true), 'install.sql no debe traer ' . $col . ' porque vive en migraciones.');
+        flus_assert_false(in_array($col, $eventosPre016, true), 'La migración 016 no debe duplicar columna previa: ' . $col);
+    }
+
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `factura_eventos_arca`', (string)file_get_contents($migrationsDir . DIRECTORY_SEPARATOR . '014_factura_items_eventos_arca.sql'));
+    flus_assert_contains('ADD COLUMN `estado_fiscal`', $mig016);
+    flus_assert_contains('ADD COLUMN `venta_id`', $mig016);
+    flus_assert_contains('install.sql (baseline) + scripts/migrate.php', $mig016);
+    flus_assert_contains('$migrationsDir = $root . \'/migrations\';', $migratePhp);
+});
+
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {
