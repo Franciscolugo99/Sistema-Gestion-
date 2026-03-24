@@ -8,6 +8,10 @@ require_permission('editar_promos');
 
 $pageTitle = 'Nueva promocion - Plantillas';
 $currentSection = 'promos';
+$breadcrumb = [
+  ['label' => 'Promociones', 'url' => 'promos.php'],
+  ['label' => 'Plantillas', 'url' => null],
+];
 $extraCss = [
   'assets/css/promos.css',
   'assets/css/promo_builder.css',

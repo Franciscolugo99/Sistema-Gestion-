@@ -617,6 +617,71 @@ $sectionBreadcrumbLabels = [
     'caja_historial'      => 'Historial caja',
 ];
 
+$currentFile = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+$promoIsEditing = (int)($_GET['id'] ?? $_POST['id'] ?? 0) > 0;
+$autoBreadcrumbsByFile = [
+    'caja_movimientos.php' => [
+        ['label' => 'Caja', 'url' => 'caja.php'],
+        ['label' => 'Movimiento de caja', 'url' => null],
+    ],
+    'promo_builder.php' => [
+        ['label' => 'Promociones', 'url' => 'promos.php'],
+        ['label' => 'Nueva promoción', 'url' => null],
+    ],
+    'promo_form.php' => [
+        ['label' => 'Promociones', 'url' => 'promos.php'],
+        ['label' => $promoIsEditing ? 'Editar promoción' : 'Nueva promoción', 'url' => null],
+    ],
+    'promo_combo_form.php' => [
+        ['label' => 'Promociones', 'url' => 'promos.php'],
+        ['label' => $promoIsEditing ? 'Editar promoción' : 'Nueva promoción', 'url' => null],
+    ],
+    'usuario_nuevo.php' => [
+        ['label' => 'Usuarios', 'url' => 'usuarios.php'],
+        ['label' => 'Nuevo usuario', 'url' => null],
+    ],
+    'usuario_editar.php' => [
+        ['label' => 'Usuarios', 'url' => 'usuarios.php'],
+        ['label' => 'Editar usuario', 'url' => null],
+    ],
+    'rol_permisos.php' => [
+        ['label' => 'Roles y permisos', 'url' => 'roles.php'],
+        ['label' => 'Editar rol', 'url' => null],
+    ],
+    'cliente_detalle.php' => [
+        ['label' => 'Clientes', 'url' => 'clientes.php'],
+        ['label' => 'Detalle del cliente', 'url' => null],
+    ],
+    'cuenta_corriente_cliente.php' => [
+        ['label' => 'Cuenta corriente', 'url' => 'cuenta_corriente.php'],
+        ['label' => 'Detalle del cliente', 'url' => null],
+    ],
+    'venta_detalle.php' => [
+        ['label' => 'Ventas', 'url' => 'ventas.php'],
+        ['label' => 'Detalle de venta', 'url' => null],
+    ],
+    'factura_ver.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Comprobante', 'url' => null],
+    ],
+    'factura_manual.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Factura manual', 'url' => null],
+    ],
+    'facturacion_config.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Configuración', 'url' => null],
+    ],
+    'facturacion_nc.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Notas de crédito', 'url' => null],
+    ],
+];
+
+if ($breadcrumb === [] && isset($autoBreadcrumbsByFile[$currentFile])) {
+    $breadcrumb = $autoBreadcrumbsByFile[$currentFile];
+}
+
 if ($breadcrumb === [] && $currentSection !== '' && $currentSection !== 'inicio') {
     $fallbackLabel = trim((string)($sectionBreadcrumbLabels[$currentSection] ?? ''));
     if ($fallbackLabel === '') {

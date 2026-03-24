@@ -199,6 +199,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
+$promoTemplateLabel = match ($templateTipo) {
+  'NTH_PCT' => 'Promo % en unidad',
+  default => 'Promo NxM',
+};
+
+$breadcrumb = $editing
+  ? [
+      ['label' => 'Promociones', 'url' => 'promos.php'],
+      ['label' => 'Editar promoción', 'url' => null],
+    ]
+  : [
+      ['label' => 'Promociones', 'url' => 'promos.php'],
+      ['label' => 'Plantillas', 'url' => 'promo_builder.php'],
+      ['label' => $promoTemplateLabel, 'url' => null],
+    ];
+
 $pageTitle = ($editing ? 'Editar promo' : 'Nueva promo') . ' - Promociones';
 $currentSection = 'promos';
 $extraCss = [

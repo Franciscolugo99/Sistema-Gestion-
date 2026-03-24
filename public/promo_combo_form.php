@@ -206,6 +206,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
+$breadcrumb = $id > 0
+  ? [
+      ['label' => 'Promociones', 'url' => 'promos.php'],
+      ['label' => 'Editar combo', 'url' => null],
+    ]
+  : [
+      ['label' => 'Promociones', 'url' => 'promos.php'],
+      ['label' => 'Plantillas', 'url' => 'promo_builder.php'],
+      ['label' => 'Promo combo', 'url' => null],
+    ];
+
 $pageTitle = ($id > 0 ? 'Editar combo fijo' : 'Nuevo combo fijo') . ' - Promociones';
 $currentSection = 'promos';
 $extraCss = [
