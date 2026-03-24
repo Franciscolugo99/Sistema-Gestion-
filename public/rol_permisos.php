@@ -138,6 +138,7 @@ $permissionMeta = [
     'editar_proveedores' => ['category' => 'inventario', 'summary' => 'Edita proveedores.', 'impact' => 'Alta y edicion de proveedores.', 'level' => 'sensible'],
     'ver_facturacion' => ['category' => 'facturacion', 'summary' => 'Consulta comprobantes.', 'impact' => 'Abre facturacion.', 'level' => 'consulta'],
     'emitir_factura' => ['category' => 'facturacion', 'summary' => 'Emite comprobantes.', 'impact' => 'Abre emision fiscal.', 'level' => 'sensible'],
+    'emitir_nota_credito' => ['category' => 'facturacion', 'summary' => 'Emite notas de credito.', 'impact' => 'Permite revertir IVA, stock y CC. Mas sensible que emitir_factura.', 'level' => 'sensible'],
     'ver_reportes' => ['category' => 'reportes', 'summary' => 'Ve dashboard, ventas e informes.', 'impact' => 'Tambien abre analisis de inventario.', 'level' => 'sensible'],
     'ver_historial_caja' => ['category' => 'reportes', 'summary' => 'Consulta cierres historicos.', 'impact' => 'Abre historial de caja.', 'level' => 'sensible'],
     'ver_auditoria' => ['category' => 'reportes', 'summary' => 'Consulta auditoria.', 'impact' => 'Expone actividad sensible.', 'level' => 'admin'],

@@ -18,6 +18,21 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         $itemsRestantes = [];
         $venta = [];
 
+        // Idempotencia: si ya existe una anulación con este request_uid, retornar su estado
+        // sin crear un duplicado. Cubre doble-click, retry por timeout y reenvío manual.
+        $existing = $this->repository->findVentaAnulacionByRequestUid($requestUid);
+        if ($existing !== null) {
+            $out = new AnulacionFiscalOutcome();
+            $out->ventaId          = $ventaId;
+            $out->ventaAnulacionId = (int)$existing['id'];
+            $out->estado           = (string)($existing['estado'] ?? 'PENDIENTE');
+            $out->estadoFiscal     = (string)($existing['estado_fiscal'] ?? 'PENDIENTE');
+            $out->ncFacturaId      = (int)($existing['nc_factura_id'] ?? 0) ?: null;
+            $out->requestUid       = $requestUid;
+            $out->message          = 'Solicitud ya procesada (idempotente). Estado: ' . $out->estadoFiscal;
+            return $out;
+        }
+
         // TX1: crear anulacion pendiente + snapshot
         $this->pdo->beginTransaction();
         try {
@@ -35,7 +50,23 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             }
             $facturaOrigenId = (int)($facturaOrigen['id'] ?? 0) ?: null;
 
-            $stDup = $this->pdo->prepare("SELECT id FROM venta_anulaciones WHERE venta_id = ? AND tipo = 'TOTAL' AND requiere_nc = 1 AND estado <> 'CANCELADA' ORDER BY id DESC LIMIT 1 FOR UPDATE");
+            // Bloquear solo si hay una anulación total fiscal en curso o ya aplicada.
+            // NO bloquear si el intento anterior fue rechazado por ARCA o cancelado:
+            // en esos casos el operador debe poder reintentar.
+            // Alineado con el check de procesarParcial que usa estados_fiscal "en curso".
+            $stDup = $this->pdo->prepare("
+                SELECT id FROM venta_anulaciones
+                WHERE venta_id = ?
+                  AND tipo = 'TOTAL'
+                  AND COALESCE(requiere_nc, 0) = 1
+                  AND estado <> 'CANCELADA'
+                  AND COALESCE(estado_fiscal, 'NO_APLICA') IN (
+                      'PENDIENTE', 'ENVIANDO', 'APROBADA_PENDIENTE_APLICACION', 'APLICADA'
+                  )
+                ORDER BY id DESC
+                LIMIT 1
+                FOR UPDATE
+            ");
             $stDup->execute([$ventaId]);
             $dup = $stDup->fetchColumn();
             if ($dup !== false) {
@@ -45,6 +76,13 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             $ventaItems = flus_venta_items_cargar($this->pdo, $ventaId);
             $yaAnulado = flus_venta_items_anulados_map($this->pdo, $ventaId);
             $itemsRestantes = flus_venta_items_restantes($ventaItems, $yaAnulado);
+
+            // Batch-carga IVA de productos para el snapshot — una query por todos los items.
+            $productoIdsTotal = array_filter(array_map(
+                static fn(array $r): int => (int)(($r['item'] ?? [])['producto_id'] ?? 0),
+                $itemsRestantes
+            ));
+            $ivaPctMap = $this->fetchProductosIvaPct(array_values($productoIdsTotal));
 
             $anulacionId = flus_facturacion_insert_dynamic($this->pdo, 'venta_anulaciones', [
                 'venta_id' => $ventaId,
@@ -75,6 +113,12 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                 }
                 $subtotalSnapshot = round((float)($item['subtotal'] ?? 0), 2);
                 $subtotalAnulado = round($precioUnit * $qty, 2);
+                // Resolución de IVA: primero mapa batch (sin N+1), luego columna legacy,
+                // finalmente 0.0 si el item no tiene producto vinculado.
+                $productoIdItem = (int)($item['producto_id'] ?? 0);
+                $ivaSnapshotTotal = $productoIdItem > 0
+                    ? ($ivaPctMap[$productoIdItem] ?? (float)($item['iva_porcentaje'] ?? 0.0))
+                    : (float)($item['iva_porcentaje'] ?? 0.0);
                 flus_facturacion_insert_dynamic($this->pdo, 'venta_anulacion_items', [
                     'anulacion_id' => $anulacionId,
                     'venta_item_id' => $itemId,
@@ -82,7 +126,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                     'cantidad_anulada' => $qty,
                     'precio_unitario_snapshot' => $precioUnit,
                     'descuento_monto_snapshot' => round((float)($item['descuento_monto'] ?? 0), 2),
-                    'iva_porcentaje_snapshot' => 0.0,
+                    'iva_porcentaje_snapshot' => round($ivaSnapshotTotal, 2),
                     'subtotal_snapshot' => $subtotalSnapshot,
                     'subtotal_anulado' => $subtotalAnulado,
                 ]);
@@ -248,6 +292,20 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             throw new RuntimeException('Debes indicar al menos un item con cantidad válida para la anulación parcial fiscal.');
         }
 
+        // Idempotencia: misma cobertura que procesarTotal.
+        $existing = $this->repository->findVentaAnulacionByRequestUid($requestUid);
+        if ($existing !== null) {
+            $out = new AnulacionFiscalOutcome();
+            $out->ventaId          = $ventaId;
+            $out->ventaAnulacionId = (int)$existing['id'];
+            $out->estado           = (string)($existing['estado'] ?? 'PENDIENTE');
+            $out->estadoFiscal     = (string)($existing['estado_fiscal'] ?? 'PENDIENTE');
+            $out->ncFacturaId      = (int)($existing['nc_factura_id'] ?? 0) ?: null;
+            $out->requestUid       = $requestUid;
+            $out->message          = 'Solicitud ya procesada (idempotente). Estado: ' . $out->estadoFiscal;
+            return $out;
+        }
+
         $anulacionId = 0;
         $facturaOrigenId = null;
         $venta = [];
@@ -297,6 +355,13 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             $yaAnulado = flus_venta_items_anulados_map($this->pdo, $ventaId);
             $restantes = flus_venta_items_restantes($ventaItems, $yaAnulado);
 
+            // Batch-carga IVA para todos los items solicitados — una query, sin N+1.
+            $productoIdsParcial = array_filter(array_map(
+                static fn(array $req): int => (int)(($restantes[(int)$req['item_id']]['item'] ?? [])['producto_id'] ?? 0),
+                $requestedItems
+            ));
+            $ivaPctMapParcial = $this->fetchProductosIvaPct(array_values($productoIdsParcial));
+
             $montoBruto = 0.0;
             $anulacionId = flus_facturacion_insert_dynamic($this->pdo, 'venta_anulaciones', [
                 'venta_id' => $ventaId,
@@ -345,14 +410,19 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                 $subtotalAnulado = round($precioUnit * $qty, 2);
                 $montoBruto += $subtotalAnulado;
 
+                $productoIdParcial = (int)($item['producto_id'] ?? 0);
+                $ivaSnapshotParcial = $productoIdParcial > 0
+                    ? ($ivaPctMapParcial[$productoIdParcial] ?? (float)($item['iva_porcentaje'] ?? 0.0))
+                    : (float)($item['iva_porcentaje'] ?? 0.0);
+
                 flus_facturacion_insert_dynamic($this->pdo, 'venta_anulacion_items', [
                     'anulacion_id' => $anulacionId,
                     'venta_item_id' => $itemId,
-                    'producto_id' => (int)($item['producto_id'] ?? 0) ?: null,
+                    'producto_id' => $productoIdParcial ?: null,
                     'cantidad_anulada' => $qty,
                     'precio_unitario_snapshot' => round($precioUnit, 6),
                     'descuento_monto_snapshot' => round((float)($item['descuento_monto'] ?? 0), 2),
-                    'iva_porcentaje_snapshot' => 0.00,
+                    'iva_porcentaje_snapshot' => round($ivaSnapshotParcial, 2),
                     'subtotal_snapshot' => $subtotalSnapshot,
                     'subtotal_anulado' => $subtotalAnulado,
                 ]);
@@ -641,6 +711,42 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         $sql = 'UPDATE venta_anulaciones SET ' . implode(', ', $sets) . ' WHERE id = :id';
         $st = $this->pdo->prepare($sql);
         $st->execute($params);
+    }
+
+    /**
+     * Carga la alícuota IVA real de un conjunto de productos en una sola query.
+     * Evita el N+1 cuando se construyen snapshots de anulación con múltiples items.
+     *
+     * @param  int[]                $productoIds
+     * @return array<int,float>     mapa productoId => iva_porcentaje
+     */
+    private function fetchProductosIvaPct(array $productoIds): array
+    {
+        if (
+            $productoIds === []
+            || !flus_table_exists($this->pdo, 'productos')
+            || !flus_column_exists($this->pdo, 'productos', 'iva_porcentaje')
+        ) {
+            return [];
+        }
+
+        $ids = array_unique(array_filter(array_map('intval', $productoIds)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $st = $this->pdo->prepare(
+            "SELECT id, iva_porcentaje FROM productos WHERE id IN ({$placeholders})"
+        );
+        $st->execute($ids);
+
+        $map = [];
+        foreach ($st->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $row) {
+            $map[(int)$row['id']] = round((float)$row['iva_porcentaje'], 2);
+        }
+
+        return $map;
     }
 
     private function uuid4(): string

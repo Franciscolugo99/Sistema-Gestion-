@@ -404,6 +404,9 @@ require __DIR__ . '/partials/header.php';
       </div>
 
       <div class="promo-actions-top module-header-actions">
+        <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
+          <a href="facturacion_nc_recovery.php" class="v-btn v-btn--outline" style="color:var(--color-danger,#dc2626);">Recovery ERROR_POST_ARCA</a>
+        <?php endif; ?>
         <a href="facturacion.php" class="v-btn v-btn--outline">Volver a facturación</a>
       </div>
     </header>

@@ -8,12 +8,17 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
 
 require_login();
-require_any_permission(['ver_facturacion', 'emitir_factura']);
-
+// Emitir NC es una acción fiscal destructiva — requiere permiso de escritura explícito.
+// ver_facturacion solo habilita la lectura del módulo; quien intente llegar acá con GET
+// es redirigido antes de que se valide cualquier otra cosa.
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: facturacion_nc.php');
     exit;
 }
+
+// El check de permiso va DESPUÉS del guard de método para no exponer información
+// al usuario que solo tiene ver_facturacion. Si llegó hasta acá por POST: requiere emitir.
+require_permission('emitir_nota_credito');
 
 $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 if (!$facturacionHabilitada) {
@@ -61,8 +66,21 @@ try {
         throw new RuntimeException('Solo se pueden gestionar NC sobre facturas origen.');
     }
 
+    // Validar que la factura pertenece a la venta indicada.
+    // Evita que un POST manipulado cruce una factura de una venta con el venta_id de otra.
+    $facturaVentaId = (int)($factura['venta_id'] ?? 0);
+    if ($facturaVentaId !== $ventaId) {
+        throw new RuntimeException(
+            'La factura #' . $facturaId . ' no corresponde a la venta #' . $ventaId . '.'
+        );
+    }
+
     $configFact = flus_facturacion_config_activa($pdo);
     $modo = flus_facturacion_modo_actual($configFact ?? []);
+
+    // Verificar que las migraciones 010 + 012 estén ambas aplicadas antes de continuar.
+    // Falla explícito con mensaje claro en lugar de error de columna desconocida en runtime.
+    flus_fiscal_nc_assert_schema_ready($pdo);
 
     $repo = new PdoFacturaFiscalRepository($pdo);
     $notaSvc = new ArcaNotaCreditoService($pdo, $repo);
