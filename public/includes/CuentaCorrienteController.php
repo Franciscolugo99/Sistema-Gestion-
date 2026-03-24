@@ -2,6 +2,8 @@
 // public/includes/CuentaCorrienteController.php
 declare(strict_types=1);
 
+require_once dirname(__DIR__, 2) . '/src/cobranzas_lib.php';
+
 /**
  * FLUS - Controlador de Cuenta Corriente (Fiado)
  * 
@@ -602,6 +604,18 @@ class CuentaCorrienteController
                 // Actualizar totales de caja_sesiones según el medio de pago
                 $this->actualizarTotalesCaja($cajaId, $medioPago, $monto);
             }
+
+            flus_cobranzas_register_cc_payment($this->pdo, [
+                'cliente_id' => $clienteId,
+                'cc_movimiento_id' => $movimientoId,
+                'caja_id' => $cajaId,
+                'caja_movimiento_id' => $cajaMovId,
+                'medio_pago' => $medioPago,
+                'monto' => $monto,
+                'referencia' => $referencia,
+                'observaciones' => $concepto ?? 'Pago de cuenta',
+                'created_by' => $usuarioId,
+            ]);
 
             // Actualizar cliente
             $stUpd = $this->pdo->prepare("

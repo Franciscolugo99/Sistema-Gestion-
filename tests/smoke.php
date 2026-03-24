@@ -6,6 +6,7 @@ require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/compras_helpers.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once __DIR__ . '/../src/cobranzas_lib.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
 
 final class FlusFakePdoStatement extends PDOStatement
@@ -337,6 +338,50 @@ final class FlusFakePdo extends PDO
             return ['rows' => $rows];
         }
 
+        if (preg_match('/^SELECT \* FROM cobranzas WHERE external_key = \? ORDER BY id DESC LIMIT 1$/i', $normalized) === 1) {
+            $externalKey = (string)($params[0] ?? '');
+            $rows = array_values(array_filter($this->tables['cobranzas']['rows'] ?? [], static function (array $row) use ($externalKey): bool {
+                return (string)($row['external_key'] ?? '') === $externalKey;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0));
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
+        if (preg_match('/^SELECT \* FROM cobranza_aplicaciones WHERE application_key = \? ORDER BY id DESC LIMIT 1$/i', $normalized) === 1) {
+            $applicationKey = (string)($params[0] ?? '');
+            $rows = array_values(array_filter($this->tables['cobranza_aplicaciones']['rows'] ?? [], static function (array $row) use ($applicationKey): bool {
+                return (string)($row['application_key'] ?? '') === $applicationKey;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0));
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
+        if (preg_match('/^SELECT \* FROM cobranza_aplicaciones WHERE venta_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
+            $ventaId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['cobranza_aplicaciones']['rows'] ?? [], static function (array $row) use ($ventaId): bool {
+                return (int)($row['venta_id'] ?? 0) === $ventaId;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+            return ['rows' => $rows];
+        }
+
+        if (preg_match('/^SELECT \* FROM cobranza_aplicaciones WHERE factura_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
+            $facturaId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['cobranza_aplicaciones']['rows'] ?? [], static function (array $row) use ($facturaId): bool {
+                return (int)($row['factura_id'] ?? 0) === $facturaId;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+            return ['rows' => $rows];
+        }
+
+        if (preg_match('/^SELECT \* FROM cobranzas WHERE id = \? LIMIT 1$/i', $normalized) === 1) {
+            $cobranzaId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['cobranzas']['rows'] ?? [], static function (array $row) use ($cobranzaId): bool {
+                return (int)($row['id'] ?? 0) === $cobranzaId;
+            }));
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
         throw new RuntimeException('SQL fake no soportado: ' . $normalized);
     }
 }
@@ -400,6 +445,15 @@ function flus_test_facturacion_fake_pdo(): FlusFakePdo
     ]);
     $pdo->seedTable('facturas', [
         'id', 'venta_id', 'documento_id', 'fiscal_request_uid', 'estado_fiscal', 'naturaleza'
+    ]);
+    $pdo->seedTable('cobranzas', [
+        'id', 'external_key', 'origen', 'estado', 'venta_id', 'cliente_id', 'cc_movimiento_id',
+        'caja_id', 'caja_movimiento_id', 'medio_pago', 'importe_total', 'referencia',
+        'observaciones', 'created_by', 'created_at', 'updated_at'
+    ]);
+    $pdo->seedTable('cobranza_aplicaciones', [
+        'id', 'cobranza_id', 'application_key', 'tipo_aplicacion', 'venta_id', 'documento_id',
+        'factura_id', 'cc_movimiento_id', 'monto', 'created_at'
     ]);
     return $pdo;
 }
@@ -1272,6 +1326,119 @@ $results[] = flus_run_test('fase 2A factura_ver puede reconstruir detalle desde 
     flus_assert_same(2, count($rows));
     flus_assert_same('Prod A', (string)($rows[0]['nombre'] ?? ''));
     flus_assert_same('Prod B', (string)($rows[1]['nombre'] ?? ''));
+});
+
+
+$results[] = flus_run_test('fase 3 registra cobranza base desde pago real de venta sin tocar deuda CC', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+
+    $cobranzaId = flus_cobranzas_register_sale_payment($pdo, [
+        'venta_id' => 701,
+        'cliente_id' => null,
+        'caja_id' => 9,
+        'medio_pago' => 'EFECTIVO',
+        'monto' => 1500.00,
+        'linea' => 1,
+        'created_by' => 3,
+    ]);
+
+    flus_assert_true($cobranzaId > 0, 'La cobranza de venta debería haberse creado.');
+    flus_assert_same(1, count($pdo->rows('cobranzas')));
+    flus_assert_same(1, count($pdo->rows('cobranza_aplicaciones')));
+
+    $row = $pdo->rows('cobranzas')[0] ?? [];
+    flus_assert_same('VENTA', (string)($row['origen'] ?? ''));
+    flus_assert_same(701, (int)($row['venta_id'] ?? 0));
+    flus_assert_same('EFECTIVO', (string)($row['medio_pago'] ?? ''));
+    flus_assert_same(1500.0, (float)($row['importe_total'] ?? 0));
+
+    $app = $pdo->rows('cobranza_aplicaciones')[0] ?? [];
+    flus_assert_same('VENTA', (string)($app['tipo_aplicacion'] ?? ''));
+    flus_assert_same(701, (int)($app['venta_id'] ?? 0));
+    flus_assert_same(1500.0, (float)($app['monto'] ?? 0));
+});
+
+$results[] = flus_run_test('fase 3 retry reutiliza misma cobranza por external_key de venta', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+
+    $a = flus_cobranzas_register_sale_payment($pdo, [
+        'venta_id' => 702,
+        'medio_pago' => 'DEBITO',
+        'monto' => 800.00,
+        'linea' => 1,
+        'created_by' => 4,
+    ]);
+    $b = flus_cobranzas_register_sale_payment($pdo, [
+        'venta_id' => 702,
+        'medio_pago' => 'DEBITO',
+        'monto' => 800.00,
+        'linea' => 1,
+        'created_by' => 4,
+    ]);
+
+    flus_assert_same($a, $b);
+    flus_assert_same(1, count($pdo->rows('cobranzas')));
+    flus_assert_same(1, count($pdo->rows('cobranza_aplicaciones')));
+});
+
+$results[] = flus_run_test('fase 3 registra pago CC como cobranza real separada de la venta', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+
+    $cobranzaId = flus_cobranzas_register_cc_payment($pdo, [
+        'cliente_id' => 55,
+        'cc_movimiento_id' => 9901,
+        'caja_id' => 11,
+        'caja_movimiento_id' => 123,
+        'medio_pago' => 'TRANSFERENCIA',
+        'monto' => 450.00,
+        'created_by' => 8,
+    ]);
+
+    flus_assert_true($cobranzaId > 0, 'El pago CC debería generar cobranza base.');
+    flus_assert_same(1, count($pdo->rows('cobranzas')));
+    flus_assert_same('CC_PAGO', (string)(($pdo->rows('cobranzas')[0] ?? [])['origen'] ?? ''));
+    flus_assert_same(9901, (int)(($pdo->rows('cobranzas')[0] ?? [])['cc_movimiento_id'] ?? 0));
+    flus_assert_same(123, (int)(($pdo->rows('cobranzas')[0] ?? [])['caja_movimiento_id'] ?? 0));
+    flus_assert_same(1, count($pdo->rows('cobranza_aplicaciones')));
+    flus_assert_same('CC_MOVIMIENTO', (string)(($pdo->rows('cobranza_aplicaciones')[0] ?? [])['tipo_aplicacion'] ?? ''));
+});
+
+$results[] = flus_run_test('fase 3 enlaza cobranzas de venta con factura y documento sin duplicar aplicaciones', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+
+    $cobranzaId = flus_cobranzas_register_sale_payment($pdo, [
+        'venta_id' => 703,
+        'medio_pago' => 'MP',
+        'monto' => 999.99,
+        'linea' => 1,
+        'created_by' => 4,
+    ]);
+    flus_assert_true($cobranzaId > 0);
+
+    flus_cobranzas_link_factura_from_sale($pdo, 703, 5001, 77);
+    flus_cobranzas_link_factura_from_sale($pdo, 703, 5001, 77);
+
+    $apps = flus_cobranzas_fetch_by_factura($pdo, 5001);
+    flus_assert_same(1, count($apps));
+    flus_assert_same(703, (int)($apps[0]['venta_id'] ?? 0));
+    flus_assert_same(77, (int)($apps[0]['documento_id'] ?? 0));
+    flus_assert_same(5001, (int)($apps[0]['factura_id'] ?? 0));
+    flus_assert_same('MP', (string)($apps[0]['medio_pago'] ?? ''));
+});
+
+$results[] = flus_run_test('fase 3 migracion y wiring mantienen alcance minimo y no destructivo', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '018_cobranzas_base.sql');
+    $apiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $ccControllerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'CuentaCorrienteController.php');
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `cobranzas`', $migrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `cobranza_aplicaciones`', $migrationSql);
+    flus_assert_contains('flus_cobranzas_register_sale_payment', $apiPhp);
+    flus_assert_contains('flus_cobranzas_register_cc_payment', $ccControllerPhp);
+    flus_assert_contains('flus_cobranzas_link_factura_from_sale', $facturacionLib);
+    flus_assert_false(str_contains($migrationSql, 'DROP TABLE venta_pagos'));
 });
 
 $results[] = flus_run_test('errores ARCA se clasifican en estados fiscales consistentes', function (): void {

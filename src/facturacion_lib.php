@@ -6,6 +6,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db_schema.php';
 require_once __DIR__ . '/facturacion_manual_lib.php';
+require_once __DIR__ . '/cobranzas_lib.php';
 
 $flusConfigArcaPath = __DIR__ . '/config_arca.php';
 if (file_exists($flusConfigArcaPath)) {
@@ -1243,6 +1244,13 @@ function flus_facturacion_asegurar_registro_desde_documento(PDO $pdo, int $docum
             $factura = $repo->findFacturaById($facturaId) ?: ['id' => $facturaId] + flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
         }
 
+        flus_cobranzas_link_factura_from_sale(
+            $pdo,
+            $ventaId,
+            (int)($factura['id'] ?? 0),
+            (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null
+        );
+
         if ($ownsTx && $pdo->inTransaction()) {
             $pdo->commit();
         }
@@ -1431,6 +1439,13 @@ function flus_facturacion_asegurar_registro_desde_venta(PDO $pdo, int $ventaId, 
             $facturaId = $repo->insertFactura(flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO'));
             $factura = $repo->findFacturaById($facturaId) ?: ['id' => $facturaId] + flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
         }
+
+        flus_cobranzas_link_factura_from_sale(
+            $pdo,
+            $ventaId,
+            (int)($factura['id'] ?? 0),
+            null
+        );
 
         if ($ownsTx && $pdo->inTransaction()) {
             $pdo->commit();
@@ -1632,6 +1647,13 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
                 'finished_at' => $timestamp,
             ]);
         }
+
+        flus_cobranzas_link_factura_from_sale(
+            $pdo,
+            $ventaId,
+            $facturaId,
+            (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null
+        );
 
         $pdo->commit();
         return $facturaId;

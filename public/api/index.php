@@ -40,6 +40,7 @@ if (!is_file($cfg)) {
 
 require_once $cfg;
 require_once __DIR__ . '/../../src/api_helpers.php';  // âœ… Helpers centralizados
+require_once __DIR__ . '/../../src/cobranzas_lib.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';
 require_once __DIR__ . '/../lib/terminal.php';
@@ -1401,6 +1402,8 @@ case 'buscar_producto': {
           throw new RuntimeException('El vuelto supera el efectivo ingresado');
         }
 
+        $pagosCajaCobranza = $pagosCaja;
+
         // Medio principal por compatibilidad (el de mayor monto, excluyendo CC)
         if (!empty($pagosCaja)) {
           usort($pagosCaja, fn($a,$b) => $b['monto'] <=> $a['monto']);
@@ -1494,6 +1497,23 @@ case 'buscar_producto': {
             }
             
             insert_dynamic($pdo, 'venta_pagos', $insertPago);
+          }
+        }
+
+        if (flus_cobranzas_tables_ready($pdo)) {
+          $lineaCobranza = 0;
+          foreach ($pagosCajaCobranza as $pg) {
+            $lineaCobranza++;
+            flus_cobranzas_register_sale_payment($pdo, [
+              'venta_id' => $ventaId,
+              'cliente_id' => $ccClienteId > 0 ? $ccClienteId : null,
+              'caja_id' => $cajaId,
+              'medio_pago' => (string)$pg['medio'],
+              'monto' => (float)$pg['monto'],
+              'linea' => $lineaCobranza,
+              'created_by' => $userId,
+              'observaciones' => 'Cobro registrado desde venta de mostrador',
+            ]);
           }
         }
 
