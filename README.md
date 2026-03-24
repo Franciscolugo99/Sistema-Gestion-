@@ -2,7 +2,7 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.8.0  
+**Version:** 3.8.1  
 **Build:** 2026-03-23  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
