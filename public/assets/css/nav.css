@@ -366,57 +366,75 @@
     opacity: 0.7;
 }
 
+
 .nav-breadcrumb {
-    background: var(--nav-bg);
-    border-bottom: 1px solid var(--nav-border);
-    padding: 0 20px;
+    padding: 10px 20px 0;
+    background: transparent;
+    border-bottom: 0;
 }
 
 .breadcrumb-list {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    flex-wrap: wrap;
     list-style: none;
     margin: 0;
-    padding: 7px 0;
-    flex-wrap: wrap;
+    padding: 0;
 }
 
 .breadcrumb-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    min-width: 0;
+}
+
+.breadcrumb-item a,
+.breadcrumb-home,
+.breadcrumb-current span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
 
 .breadcrumb-item a,
 .breadcrumb-home {
-    font-size: 0.78rem;
-    font-weight: 500;
     color: var(--nav-pill-text);
-    opacity: 0.6;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    transition: opacity 0.15s;
+    opacity: 0.72;
+    background: color-mix(in srgb, var(--nav-pill-text) 8%, transparent);
 }
 
 .breadcrumb-item a:hover,
 .breadcrumb-home:hover {
     opacity: 1;
+    background: color-mix(in srgb, var(--nav-pill-text) 12%, transparent);
+}
+
+.breadcrumb-home {
+    padding: 0 9px;
 }
 
 .breadcrumb-sep {
-    font-size: 0.75rem;
-    opacity: 0.35;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--nav-pill-text);
+    opacity: 0.35;
     user-select: none;
-    padding: 0 2px;
+    font-size: 0.8rem;
 }
 
 .breadcrumb-current span {
-    font-size: 0.78rem;
-    font-weight: 600;
     color: var(--nav-pill-text);
-    opacity: 0.9;
+    font-weight: 700;
+    opacity: 0.98;
+    background: color-mix(in srgb, var(--nav-pill-text) 14%, transparent);
 }
 
 @media (max-width: 767px) {
@@ -451,7 +469,7 @@
     }
 
     .nav-breadcrumb {
-        padding: 0 12px;
+        padding: 10px 12px 0;
     }
 
     .nav-shortcut-help {

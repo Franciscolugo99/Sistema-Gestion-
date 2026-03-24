@@ -40,7 +40,10 @@ if ($currentSection === '') {
         'index.php'                    => 'inicio',
         'dashboard.php'                => 'dashboard',
         'caja.php'                     => 'caja',
+        'caja_cerrar.php'              => 'caja',
+        'caja_movimientos.php'         => 'caja',
         'productos.php'                => 'productos',
+        'productos_consulta.php'       => 'productos',
         'stock.php'                    => 'stock',
         'inventario_analisis.php'      => 'inventario_analisis',
         'inventario_fisico.php'        => 'inventario_fisico',
@@ -53,18 +56,25 @@ if ($currentSection === '') {
         'proveedores.php'              => 'proveedores',
         'caja_historial.php'           => 'caja_historial',
         'caja_sesion_detalle.php'      => 'caja_historial',
+        'caja_sesion_export.php'       => 'caja_historial',
         'caja_sesion_print.php'        => 'caja_historial',
         'promos.php'                   => 'promos',
         'promo_form.php'               => 'promos',
         'promo_combo_form.php'         => 'promos',
+        'promo_builder.php'            => 'promos',
         'clientes.php'                 => 'clientes',
+        'proveedores.php'              => 'proveedores',
         'cuenta_corriente.php'         => 'cuenta_corriente',
         'cuenta_corriente_cliente.php' => 'cuenta_corriente',
         'cuenta_corriente_print.php'   => 'cuenta_corriente',
         'facturacion.php'              => 'facturacion',
+        'facturacion_nc.php'           => 'facturacion',
+        'facturacion_nc_emitir.php'    => 'facturacion',
+        'facturacion_nc_recovery.php'  => 'facturacion',
         'factura_nueva.php'            => 'facturacion',
         'factura_manual.php'           => 'facturacion',
         'factura_ver.php'              => 'facturacion',
+        'factura_pdf.php'              => 'facturacion',
         'factura_emitir.php'           => 'facturacion',
         'configuracion.php'            => 'configuracion',
         'licencia.php'                 => 'configuracion',
@@ -78,6 +88,8 @@ if ($currentSection === '') {
         'terminales.php'               => 'configuracion',
         'diagnostico.php'              => 'diagnostico',
         'tecnico.php'                  => 'tecnico',
+        'stock_consulta.php'           => 'stock',
+        'ticket.php'                   => 'ventas',
         'precios_historial.php'        => 'precios_historial',
     ];
     if (isset($map[$file])) $currentSection = $map[$file];
@@ -90,9 +102,14 @@ if ($currentSection === '') {
        ['label' => 'Ventas',    'url' => 'ventas.php'],
        ['label' => 'Venta #42', 'url' => ''],   // último sin url
      ];
-   Si la página no declara nada, no se renderiza.
+   Si la página no declara nada, se arma un fallback automático:
+     Inicio > módulo actual
+   (solo cuando se puede detectar la sección).
 ═══════════════════════════════════════════ */
-$breadcrumb = $breadcrumb ?? [];   // array de ['label'=>'', 'url'=>'']
+$rawBreadcrumb = $breadcrumbs ?? ($breadcrumb ?? []);   // compat: plural o singular
+$breadcrumb = function_exists('flus_normalize_breadcrumbs')
+    ? flus_normalize_breadcrumbs($rawBreadcrumb)
+    : (is_array($rawBreadcrumb) ? $rawBreadcrumb : []);
 
 /* ═══════════════════════════════════════════
    ESTADO DE CAJA
@@ -571,6 +588,46 @@ $renderBreadcrumb = static function (array $items) use ($esc): string {
     <?php
     return trim((string)ob_get_clean());
 };
+
+$sectionBreadcrumbLabels = [
+    'inicio'              => 'Inicio',
+    'dashboard'           => 'Panel',
+    'caja'                => 'Caja',
+    'ventas'              => 'Ventas',
+    'compras'             => 'Compras',
+    'productos'           => 'Productos',
+    'precios_historial'   => 'Precios',
+    'promos'              => 'Promociones',
+    'stock'               => 'Stock',
+    'inventario_analisis' => "An\u{00E1}lisis",
+    'inventario_fisico'   => "Conteo f\u{00ED}sico",
+    'reposicion'          => "Reposici\u{00F3}n",
+    'movimientos'         => 'Movimientos',
+    'clientes'            => 'Clientes',
+    'cuenta_corriente'    => 'Cuenta corriente',
+    'proveedores'         => 'Proveedores',
+    'facturacion'         => "Facturaci\u{00F3}n",
+    'configuracion'       => "Configuraci\u{00F3}n",
+    'usuarios'            => 'Usuarios',
+    'roles'               => 'Roles y permisos',
+    'auditoria'           => "Auditor\u{00ED}a",
+    'backups'             => 'Backups',
+    'diagnostico'         => "Diagn\u{00F3}stico",
+    'tecnico'             => "T\u{00E9}cnico",
+    'caja_historial'      => 'Historial caja',
+];
+
+if ($breadcrumb === [] && $currentSection !== '' && $currentSection !== 'inicio') {
+    $fallbackLabel = trim((string)($sectionBreadcrumbLabels[$currentSection] ?? ''));
+    if ($fallbackLabel === '') {
+        $fallbackLabel = ucwords(str_replace('_', ' ', $currentSection));
+    }
+    if ($fallbackLabel !== '') {
+        $breadcrumb = [
+            ['label' => $fallbackLabel, 'url' => null],
+        ];
+    }
+}
 
 $primaryNavHtml = array_map($renderPrimaryLink, $primaryLinks);
 $groupNavHtml   = array_map($renderNavGroup, $navGroups);

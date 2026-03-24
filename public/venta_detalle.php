@@ -264,6 +264,10 @@ if ($pagos) {
 ========================= */
 $pageTitle = "Venta #$id - FLUS";
 $currentSection = 'ventas';
+$breadcrumbs = [
+    ['label' => 'Ventas', 'url' => 'ventas.php'],
+    ['label' => 'Venta #' . $id, 'url' => null],
+];
 $extraCss = ['assets/css/venta_detalle.css?v=5'];
 $extraJs = ['assets/js/venta_anular.js', 'assets/js/venta_anular_items.js?v=2'];
 

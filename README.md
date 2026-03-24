@@ -90,7 +90,39 @@ Las principales capacidades son:
 Estas funciones marcan el primer paso hacia un sistema de gestión más completo, permitiendo emitir comprobantes fiscales directamente desde FLUS.
 
 > Ver `CHANGELOG.md` para el detalle histórico por versión.
+### Notas de Crédito fiscales
 
+FLUS incorpora gestión de **Notas de Crédito (NC)** sobre comprobantes ya emitidos, integrada al módulo de Facturación.
+
+Capacidades principales:
+
+- **NC total** sobre una factura origen.
+- **NC parcial por ítem**, acreditando solo cantidades seleccionadas.
+- Visualización de:
+  - total original,
+  - cantidad ya acreditada,
+  - saldo fiscal restante,
+  - estado comercial/fiscal asociado.
+- Protección contra reenvíos y doble submit mediante idempotencia reforzada.
+- Pantalla de recovery para casos `ERROR_POST_ARCA`, donde la parte fiscal fue aprobada pero falló la aplicación local/comercial.
+
+Permiso específico:
+- `emitir_nota_credito`
+
+Archivos principales:
+- `public/facturacion_nc.php`
+- `public/facturacion_nc_emitir.php`
+- `public/facturacion_nc_recovery.php`
+- `src/Fiscal/Service/DbAnulacionFiscalCoordinator.php`
+- `src/Fiscal/Service/DbFiscalRecoveryService.php`
+
+Migraciones relacionadas:
+- `010_anulaciones_parciales.sql`
+- `011_cc_schema_compat.sql`
+- `012_venta_anulaciones_fiscal.sql`
+- `013_facturas_fiscal_ext.sql`
+- `014_factura_items_eventos_arca.sql`
+- `015_fiscal_nc_hardening.sql`
 ## Actualizacion de instalaciones existentes
 
 - Hacer backup de archivos y base de datos antes de desplegar.

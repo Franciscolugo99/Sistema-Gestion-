@@ -3,7 +3,41 @@
 ## [Unreleased]
 
 ### Changed
+## [3.8.1] - 2026-03-22
 
+### Added
+- **Facturación / Notas de Crédito (NC):**
+  - Nuevo módulo `facturacion_nc.php` para gestionar notas de crédito fiscales sobre comprobantes emitidos.
+  - Soporte para **NC total** y **NC parcial por ítem**, mostrando cantidad original, acreditada y saldo fiscal disponible.
+  - Nueva pantalla `facturacion_nc_recovery.php` para resolver casos `ERROR_POST_ARCA` reaplicando la parte comercial/local sin reemitir fiscalmente.
+  - Nuevo permiso específico `emitir_nota_credito`.
+
+### Changed
+- **Facturación:** se endureció el flujo fiscal de NC con validación explícita entre factura origen y venta asociada.
+- **Facturación:** se incorporó control de estados fiscales en `venta_anulaciones`:
+  - `NO_APLICA`
+  - `PENDIENTE`
+  - `ENVIANDO`
+  - `APROBADA_PENDIENTE_APLICACION`
+  - `APLICADA`
+  - `RECHAZADA`
+  - `ERROR_POST_ARCA`
+- **Facturación:** se agregó `fiscal_request_uid` único para reforzar idempotencia y evitar duplicados por doble envío o reintentos.
+- **Instalación y permisos:** `install.sql`, catálogo de permisos y seeds quedaron alineados con `emitir_nota_credito` para instalaciones limpias y upgrades.
+- **UI / Navegación:** se incorporó breadcrumb contextual en vistas clave para mejorar orientación dentro del sistema.
+
+### Fixed
+- **Facturación / NC:** se corrigieron inconsistencias entre código, migraciones y permisos efectivos del rol administrador.
+- **Facturación / NC:** se reforzó la compatibilidad de esquema previa a ejecutar el flujo fiscal.
+- **Facturación / NC:** se mejoró el manejo de datos legacy para controlar saldo fiscal e ítems reconstruidos en comprobantes más viejos.
+
+### Migrations
+- `010_anulaciones_parciales.sql`
+- `011_cc_schema_compat.sql`
+- `012_venta_anulaciones_fiscal.sql`
+- `013_facturas_fiscal_ext.sql`
+- `014_factura_items_eventos_arca.sql`
+- `015_fiscal_nc_hardening.sql`
 - Sin cambios documentados todavía.
 
 ## [3.8.0] - 2026-03-23

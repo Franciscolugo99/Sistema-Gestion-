@@ -444,6 +444,9 @@ if ($desde !== '' || $hasta !== '') {
 
 $pageTitle = 'Facturacion';
 $currentSection = 'facturacion';
+$breadcrumbs = [
+    ['label' => 'Facturación', 'url' => null],
+];
 $extraCss = ['assets/css/facturacion.css?v=10'];
 
 require __DIR__ . '/partials/header.php';

@@ -162,6 +162,48 @@ if (!function_exists('urlWith')) {
   }
 }
 
+
+if (!function_exists('flus_normalize_breadcrumbs')) {
+  /**
+   * Normaliza breadcrumbs declarados como $breadcrumb o $breadcrumbs.
+   *
+   * @param mixed $items
+   * @return array<int, array{label:string,url:?string}>
+   */
+  function flus_normalize_breadcrumbs($items): array {
+    if (!is_array($items)) {
+      return [];
+    }
+
+    $normalized = [];
+    foreach ($items as $item) {
+      if (!is_array($item)) {
+        continue;
+      }
+
+      $label = trim((string)($item['label'] ?? ''));
+      if ($label === '') {
+        continue;
+      }
+
+      $url = $item['url'] ?? null;
+      if ($url !== null) {
+        $url = trim((string)$url);
+        if ($url === '') {
+          $url = null;
+        }
+      }
+
+      $normalized[] = [
+        'label' => $label,
+        'url' => $url,
+      ];
+    }
+
+    return $normalized;
+  }
+}
+
 if (!function_exists('render_pagination')) {
   /**
    * Paginacion numerica compartida para listados.

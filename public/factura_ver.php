@@ -638,6 +638,16 @@ $esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
 $comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
 $pageTitle = $comprobanteTitulo . ' ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
 $currentSection = 'facturacion';
+$breadcrumbs = $esNc
+    ? [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Notas de crédito', 'url' => 'facturacion_nc.php'],
+        ['label' => $comprobanteTitulo . ' ' . $tipo . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']), 'url' => null],
+    ]
+    : [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => $comprobanteTitulo . ' ' . $tipo . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']), 'url' => null],
+    ];
 $extraCss = ['assets/css/factura.css?v=7'];
 $bodyClass = 'factura-view';
 

@@ -573,6 +573,9 @@ if (!empty($kpis['ultimo_movimiento'])) {
 
 $pageTitle = 'Movimientos';
 $currentSection = 'movimientos';
+$breadcrumbs = [
+    ['label' => 'Movimientos', 'url' => null],
+];
 $extraCss = ['assets/css/movimientos.css'];
 $extraJs = ['assets/js/movimientos.js'];
 

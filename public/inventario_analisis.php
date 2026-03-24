@@ -316,6 +316,9 @@ if (!function_exists('renderTooltipAyuda')) {
 /* ========== HEADER ========== */
 $pageTitle = 'Análisis de Inventario';
 $currentSection = 'inventario_analisis';
+$breadcrumbs = [
+    ['label' => 'Análisis', 'url' => null],
+];
 $extraCss = [
     'assets/css/inventario_analisis.css',
     'assets/css/inventario_ayuda.css'

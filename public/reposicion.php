@@ -23,6 +23,9 @@ if (empty($_SESSION['csrf_token'])) {
 
 $pageTitle = 'Reposicion Sugerida - FLUS';
 $currentSection = 'reposicion';
+$breadcrumbs = [
+    ['label' => 'Reposición sugerida', 'url' => null],
+];
 
 // Separacion de assets
 $extraCss = ['assets/css/reposicion.css', 'assets/css/reposicion_mejoras.css'];

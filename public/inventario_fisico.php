@@ -24,6 +24,9 @@ if (empty($_SESSION['csrf_token'])) {
 
 $pageTitle = 'Inventario Físico - FLUS';
 $currentSection = 'inventario_fisico';
+$breadcrumbs = [
+    ['label' => 'Inventario físico', 'url' => null],
+];
 
 $extraCss = ['assets/css/inventario_fisico.css?v=2.0'];
 $extraJs  = ['assets/js/inventario_fisico.js?v=2.0'];

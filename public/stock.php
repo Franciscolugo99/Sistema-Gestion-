@@ -97,6 +97,9 @@ function stock_search_order_sql(string $buscar): array {
 ============================ */
 $pageTitle      = "Stock";
 $currentSection = "stock";
+$breadcrumbs    = [
+    ['label' => 'Stock', 'url' => null],
+];
 $extraCss       = ["assets/css/stock.css", "assets/css/stock-enhanced.css?v=1"];
 $extraJs        = ["assets/js/stock.js?v=5.0"];
 

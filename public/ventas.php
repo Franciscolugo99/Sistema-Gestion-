@@ -610,6 +610,9 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
+$breadcrumbs = [
+    ['label' => 'Ventas', 'url' => null],
+];
 $extraCss = ['assets/css/ventas.css?v=8','assets/css/ventas_kpis.css?v=3'];
 $extraJs = [
   'assets/js/ventas.js?v=5.1',

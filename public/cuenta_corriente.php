@@ -46,6 +46,10 @@ function urlCC(array $overrides = []): string {
 // Header
 $pageTitle = 'Cuentas Corrientes - FLUS';
 $currentSection = 'cuenta_corriente';
+$breadcrumbs = [
+    ['label' => 'Clientes', 'url' => 'clientes.php'],
+    ['label' => 'Cuenta corriente', 'url' => null],
+];
 $extraCss = ['assets/css/cuenta_corriente.css?v=1'];
 $extraJs = ['assets/js/cuenta_corriente.js?v=1'];
 $bodyClass = 'cuenta-corriente-page';

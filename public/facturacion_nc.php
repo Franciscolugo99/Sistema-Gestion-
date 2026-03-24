@@ -370,9 +370,9 @@ if ($factura) {
 
 $pageTitle = 'Notas de crédito';
 $currentSection = 'facturacion';
-$breadcrumb = [
+$breadcrumbs = [
     ['label' => 'Facturación', 'url' => 'facturacion.php'],
-    ['label' => 'Notas de crédito', 'url' => ''],
+    ['label' => 'Notas de crédito', 'url' => null],
 ];
 $extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/facturacion_nc.css?v=1'];
 

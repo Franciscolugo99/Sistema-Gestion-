@@ -179,6 +179,10 @@ $totalPreview = factura_manual_preview_total($rows);
 $itemProgressPct = max(8, min(100, (int)round(($itemCountPreview / max(1, $itemLimit)) * 100)));
 $pageTitle = 'Factura manual';
 $currentSection = 'facturacion';
+$breadcrumbs = [
+    ['label' => 'Facturación', 'url' => 'facturacion.php'],
+    ['label' => 'Factura manual', 'url' => null],
+];
 $extraCss = ['assets/css/facturacion.css?v=18'];
 $extraJs = ['assets/js/facturacion_cliente_lookup.js?v=7', 'assets/js/factura_manual.js?v=5'];
 require __DIR__ . '/partials/header.php';

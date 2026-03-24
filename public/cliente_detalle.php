@@ -67,6 +67,10 @@ $ccHabilitada = $hasCC && (int)($cliente['cc_habilitado'] ?? 0) === 1;
 
 $pageTitle = 'Cliente: ' . $clienteNombre . ' - FLUS';
 $currentSection = 'clientes';
+$breadcrumbs = [
+    ['label' => 'Clientes', 'url' => 'clientes.php'],
+    ['label' => $clienteNombre, 'url' => null],
+];
 $bodyClass = 'cliente-detalle-page';
 $extraCss = ['assets/css/cliente_detalle.css'];
 

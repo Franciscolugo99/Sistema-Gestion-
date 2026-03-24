@@ -498,6 +498,10 @@ $soapOk = extension_loaded('soap');
 $opensslOk = extension_loaded('openssl');
 $pageTitle = 'Configuracion de Facturacion';
 $currentSection = 'facturacion';
+$breadcrumbs = [
+    ['label' => 'Facturación', 'url' => 'facturacion.php'],
+    ['label' => 'Configuración', 'url' => null],
+];
 $extraCss = ['assets/css/facturacion_config.css?v=2'];
 
 require __DIR__ . '/partials/header.php';

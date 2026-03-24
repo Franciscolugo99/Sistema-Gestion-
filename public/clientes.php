@@ -157,6 +157,9 @@ $drawerOpen = $canEditClientes && ($isNew || !empty($editCliente) || !empty($err
 /* ========== HEADER ========== */
 $pageTitle = 'Clientes';
 $currentSection = 'clientes';
+$breadcrumbs = [
+    ['label' => 'Clientes', 'url' => null],
+];
 $extraCss = ['assets/css/clientes.css'];
 $extraJs = ['assets/js/clientes.js'];
 

@@ -124,6 +124,11 @@ $estadoCC = match(true) {
 // Header
 $pageTitle = 'Estado de Cuenta: ' . h($cliente['nombre']) . ' - FLUS';
 $currentSection = 'cuenta_corriente';
+$breadcrumbs = [
+    ['label' => 'Clientes', 'url' => 'clientes.php'],
+    ['label' => 'Cuenta corriente', 'url' => 'cuenta_corriente.php'],
+    ['label' => (string)$cliente['nombre'], 'url' => null],
+];
 $extraCss = ['assets/css/cuenta_corriente.css?v=1', 'assets/css/cuenta_corriente_cliente.css?v=1'];
 $extraJs = ['assets/js/cuenta_corriente.js?v=1'];
 $bodyClass = 'cuenta-corriente-page cc-cliente-page';
