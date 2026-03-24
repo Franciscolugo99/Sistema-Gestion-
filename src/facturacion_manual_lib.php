@@ -58,6 +58,161 @@ function flus_facturacion_manual_items_fetch(PDO $pdo, int $ventaId): array
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function flus_facturacion_documentos_table_ready(PDO $pdo): bool
+{
+    return flus_table_exists($pdo, 'documentos_comerciales') && flus_table_exists($pdo, 'documento_items');
+}
+
+function flus_facturacion_documento_buscar(PDO $pdo, int $documentoId): ?array
+{
+    if ($documentoId <= 0 || !flus_facturacion_documentos_table_ready($pdo)) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE id = ? LIMIT 1');
+    $st->execute([$documentoId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_buscar_por_request_uid(PDO $pdo, string $requestUid): ?array
+{
+    $requestUid = trim($requestUid);
+    if ($requestUid === '' || !flus_facturacion_documentos_table_ready($pdo)) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE request_uid = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$requestUid]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_items_fetch(PDO $pdo, int $documentoId): array
+{
+    if ($documentoId <= 0 || !flus_facturacion_documentos_table_ready($pdo)) {
+        return [];
+    }
+
+    $st = $pdo->prepare('
+        SELECT
+            codigo,
+            descripcion AS nombre,
+            cantidad,
+            precio_unitario AS precio,
+            subtotal,
+            iva_porcentaje
+        FROM documento_items
+        WHERE documento_id = ?
+        ORDER BY id ASC
+    ');
+    $st->execute([$documentoId]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function flus_facturacion_documento_crear_manual(PDO $pdo, int $clienteId, array $items, array $meta = [], array $opciones = []): int
+{
+    if (!flus_facturacion_documentos_table_ready($pdo)) {
+        throw new RuntimeException(
+            'Faltan las tablas documentales de facturación manual. Aplica primero la migracion migrations/017_facturacion_documentos_manual.sql.'
+        );
+    }
+
+    $requestUid = trim((string)($opciones['request_uid'] ?? ''));
+    if ($requestUid !== '') {
+        $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+        if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+            return (int)$existing['id'];
+        }
+    }
+
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $timestamp = date('Y-m-d H:i:s');
+        $total = 0.0;
+        foreach ($items as $item) {
+            $total += (float)($item['subtotal'] ?? 0);
+        }
+        $total = round($total, 2);
+
+        $documentoId = flus_facturacion_insert_dynamic($pdo, 'documentos_comerciales', [
+            'request_uid' => $requestUid !== '' ? $requestUid : null,
+            'tipo_documento' => 'FACTURA_MANUAL',
+            'origen' => 'MANUAL',
+            'estado' => 'PENDIENTE',
+            'cliente_id' => $clienteId > 0 ? $clienteId : null,
+            'venta_id' => isset($opciones['venta_id']) && (int)$opciones['venta_id'] > 0 ? (int)$opciones['venta_id'] : null,
+            'nota' => trim((string)($meta['nota'] ?? 'Factura manual sin caja')) ?: 'Factura manual sin caja',
+            'medio_pago' => trim((string)($meta['medio_pago'] ?? 'FACTURA_MANUAL')) ?: 'FACTURA_MANUAL',
+            'total' => $total,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ]);
+
+        foreach ($items as $item) {
+            flus_facturacion_insert_dynamic($pdo, 'documento_items', [
+                'documento_id' => $documentoId,
+                'codigo' => $item['codigo'] ?? null,
+                'descripcion' => $item['descripcion'],
+                'cantidad' => $item['cantidad'],
+                'precio_unitario' => $item['precio_unitario'],
+                'subtotal' => $item['subtotal'],
+                'iva_porcentaje' => $item['iva_porcentaje'],
+                'created_at' => $timestamp,
+            ]);
+        }
+
+        if ($ownsTx) {
+            $pdo->commit();
+        }
+
+        return $documentoId;
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ($requestUid !== '') {
+            $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+            if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+                return (int)$existing['id'];
+            }
+        }
+
+        throw $e;
+    }
+}
+
+function flus_facturacion_documento_actualizar_venta(PDO $pdo, int $documentoId, int $ventaId): void
+{
+    if ($documentoId <= 0 || $ventaId <= 0 || !flus_facturacion_documentos_table_ready($pdo)) {
+        return;
+    }
+
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    $ventaActual = (int)($documento['venta_id'] ?? 0);
+    if ($ventaActual > 0 && $ventaActual !== $ventaId) {
+        return;
+    }
+
+    $st = $pdo->prepare('UPDATE documentos_comerciales SET venta_id = ?, updated_at = ? WHERE id = ?');
+    $st->execute([$ventaId, date('Y-m-d H:i:s'), $documentoId]);
+}
+
+function flus_facturacion_documento_actualizar_estado(PDO $pdo, int $documentoId, string $estado): void
+{
+    if ($documentoId <= 0 || !flus_facturacion_documentos_table_ready($pdo)) {
+        return;
+    }
+
+    $st = $pdo->prepare('UPDATE documentos_comerciales SET estado = ?, updated_at = ? WHERE id = ?');
+    $st->execute([trim($estado) !== '' ? trim($estado) : 'PENDIENTE', date('Y-m-d H:i:s'), $documentoId]);
+}
+
 function flus_facturacion_normalize_manual_items(array $items): array
 {
     $normalized = [];
@@ -477,6 +632,132 @@ function flus_facturacion_manual_retry_state_buscar(int $clienteId, array $items
     $row['factura_id'] = (int)($row['factura_id'] ?? 0);
     $row['estado_fiscal'] = $estadoFiscal;
     return $row;
+}
+
+function flus_facturacion_manual_resolver_base_existente(PDO $pdo, $repo, string $requestUid, int $clienteId, array $items): array
+{
+    $requestUid = trim($requestUid);
+    $base = [
+        'factura' => null,
+        'documento' => null,
+        'factura_id' => 0,
+        'documento_id' => 0,
+        'venta_id' => 0,
+    ];
+
+    if ($requestUid === '') {
+        return $base;
+    }
+
+    if (is_object($repo) && method_exists($repo, 'findFacturaByRequestUid')) {
+        $factura = $repo->findFacturaByRequestUid($requestUid);
+        if (is_array($factura)) {
+            $base['factura'] = $factura;
+            $base['factura_id'] = (int)($factura['id'] ?? 0);
+            $base['documento_id'] = (int)($factura['documento_id'] ?? 0);
+            $base['venta_id'] = (int)($factura['venta_id'] ?? 0);
+        }
+    }
+
+    $documento = null;
+    if ($base['documento_id'] > 0) {
+        $documento = flus_facturacion_documento_buscar($pdo, $base['documento_id']);
+    }
+    if (!is_array($documento)) {
+        $documento = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+    }
+    if (is_array($documento)) {
+        $base['documento'] = $documento;
+        $base['documento_id'] = (int)($documento['id'] ?? 0);
+        if ($base['venta_id'] <= 0) {
+            $base['venta_id'] = (int)($documento['venta_id'] ?? 0);
+        }
+    }
+
+    $retryState = flus_facturacion_manual_retry_state_buscar($clienteId, $items);
+    if (is_array($retryState) && trim((string)($retryState['request_uid'] ?? '')) === $requestUid) {
+        if ($base['venta_id'] <= 0) {
+            $base['venta_id'] = (int)($retryState['venta_id'] ?? 0);
+        }
+        if ($base['factura_id'] <= 0) {
+            $base['factura_id'] = (int)($retryState['factura_id'] ?? 0);
+        }
+    }
+
+    if ($base['factura_id'] > 0 && !is_array($base['factura']) && is_object($repo) && method_exists($repo, 'findFacturaById')) {
+        $factura = $repo->findFacturaById($base['factura_id']);
+        if (is_array($factura)) {
+            $base['factura'] = $factura;
+            $base['documento_id'] = max($base['documento_id'], (int)($factura['documento_id'] ?? 0));
+            $base['venta_id'] = max($base['venta_id'], (int)($factura['venta_id'] ?? 0));
+        }
+    }
+
+    if ($base['documento_id'] > 0 && !is_array($base['documento'])) {
+        $base['documento'] = flus_facturacion_documento_buscar($pdo, $base['documento_id']);
+    }
+
+    return $base;
+}
+
+function flus_facturacion_factura_detalle_items_fetch(PDO $pdo, array $factura): array
+{
+    $facturaId = (int)($factura['id'] ?? 0);
+    $documentoId = (int)($factura['documento_id'] ?? 0);
+    $ventaId = (int)($factura['venta_id'] ?? 0);
+    $itemRows = [];
+
+    if ($facturaId > 0 && flus_table_exists($pdo, 'factura_items')) {
+        $usaProductos = flus_table_exists($pdo, 'productos');
+        $joinProductos = $usaProductos ? 'LEFT JOIN productos p ON p.id = fi.producto_id' : '';
+        $codigoExpr = $usaProductos && flus_column_exists($pdo, 'productos', 'codigo')
+            ? 'COALESCE(fi.codigo_snapshot, p.codigo)'
+            : 'fi.codigo_snapshot';
+        $descripcionExpr = $usaProductos && flus_column_exists($pdo, 'productos', 'nombre')
+            ? 'COALESCE(fi.descripcion_snapshot, p.nombre)'
+            : 'fi.descripcion_snapshot';
+        $ivaExpr = 'COALESCE(fi.iva_porcentaje, 21)';
+
+        $sqlFacturaItems = "
+          SELECT
+            fi.*,
+            {$codigoExpr} AS codigo,
+            {$descripcionExpr} AS descripcion,
+            fi.precio_unitario_bruto AS precio_unitario,
+            fi.subtotal_total AS subtotal,
+            {$ivaExpr} AS iva_porcentaje
+          FROM factura_items fi
+          {$joinProductos}
+          WHERE fi.factura_id = ?
+          ORDER BY COALESCE(fi.linea_orden, fi.id) ASC, fi.id ASC
+        ";
+        $stFacturaItems = $pdo->prepare($sqlFacturaItems);
+        $stFacturaItems->execute([$facturaId]);
+        $itemRows = $stFacturaItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    if ($itemRows === [] && $documentoId > 0) {
+        $itemRows = flus_facturacion_documento_items_fetch($pdo, $documentoId);
+    }
+
+    if ($itemRows === [] && $ventaId > 0 && flus_table_exists($pdo, 'venta_items') && flus_table_exists($pdo, 'productos')) {
+        $sqlItems = '
+          SELECT vi.*, p.codigo, p.nombre, p.iva AS producto_iva
+          FROM venta_items vi
+          JOIN productos p ON p.id = vi.producto_id
+          WHERE vi.venta_id = ?
+          ORDER BY vi.id ASC
+        ';
+        $stmtItems = $pdo->prepare($sqlItems);
+        $stmtItems->execute([$ventaId]);
+        $itemRows = $stmtItems->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    if ($itemRows === [] && $ventaId > 0) {
+        $itemRows = flus_facturacion_manual_items_fetch($pdo, $ventaId);
+    }
+
+    return $itemRows;
 }
 
 function flus_facturacion_crear_venta_manual(PDO $pdo, int $clienteId, array $items, array $meta = []): int

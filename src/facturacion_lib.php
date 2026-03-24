@@ -958,6 +958,7 @@ function flus_facturacion_request_payload(array $context): array
 {
     return [
         'venta_id' => (int)($context['venta']['id'] ?? 0),
+        'documento_id' => (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null,
         'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0),
         'tipo_cbte' => (int)($context['tipo_cbte'] ?? 0),
         'tipo' => (string)($context['tipo_str'] ?? ''),
@@ -1004,6 +1005,258 @@ function flus_facturacion_actualizar_cliente_venta_si_corresponde(PDO $pdo, arra
 
     $st = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
     $st->execute([$clienteIdFiscal, $ventaId]);
+}
+
+function flus_facturacion_importes_desde_items(array $items, float $fallbackTotal, int $tipoCbte): array
+{
+    $total = round($fallbackTotal > 0 ? $fallbackTotal : array_reduce($items, static function (float $carry, array $item): float {
+        return $carry + (float)($item['subtotal'] ?? 0);
+    }, 0.0), 2);
+    $esFacturaC = in_array($tipoCbte, [11, 12, 13], true);
+
+    if ($esFacturaC) {
+        return [
+            'total' => $total,
+            'neto' => $total,
+            'iva' => 0.0,
+            'exento' => 0.0,
+            'no_gravado' => 0.0,
+            'iva_detalle' => [],
+        ];
+    }
+
+    if ($items === []) {
+        $neto = round($total / 1.21, 2);
+        $iva = round($total - $neto, 2);
+        return [
+            'total' => $total,
+            'neto' => $neto,
+            'iva' => $iva,
+            'exento' => 0.0,
+            'no_gravado' => 0.0,
+            'iva_detalle' => [['id' => 5, 'base' => $neto, 'importe' => $iva]],
+        ];
+    }
+
+    $neto = 0.0;
+    $iva = 0.0;
+    $ivaDetalleMap = [];
+
+    foreach ($items as $item) {
+        $pct = (float)($item['iva_porcentaje'] ?? 21);
+        $subtotal = (float)($item['subtotal'] ?? 0);
+
+        if ($pct <= 0) {
+            $neto += $subtotal;
+            continue;
+        }
+
+        $baseImp = $subtotal / (1 + $pct / 100);
+        $impIva = $subtotal - $baseImp;
+        $neto += $baseImp;
+        $iva += $impIva;
+
+        $alicuotaId = obtenerIdAlicuotaAfip($pct);
+        $ivaKey = (string)$alicuotaId;
+        if (!isset($ivaDetalleMap[$ivaKey])) {
+            $ivaDetalleMap[$ivaKey] = [
+                'id' => $alicuotaId,
+                'base' => 0.0,
+                'importe' => 0.0,
+            ];
+        }
+        $ivaDetalleMap[$ivaKey]['base'] += $baseImp;
+        $ivaDetalleMap[$ivaKey]['importe'] += $impIva;
+    }
+
+    $ivaDetalle = array_map(static function (array $item): array {
+        $item['base'] = round((float)$item['base'], 2);
+        $item['importe'] = round((float)$item['importe'], 2);
+        return $item;
+    }, array_values($ivaDetalleMap));
+
+    return [
+        'total' => $total,
+        'neto' => round($neto, 2),
+        'iva' => round($iva, 2),
+        'exento' => 0.0,
+        'no_gravado' => 0.0,
+        'iva_detalle' => $ivaDetalle,
+    ];
+}
+
+function flus_facturacion_preparar_contexto_desde_documento(PDO $pdo, int $documentoId, int $clienteId, array $opciones = []): array
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        throw new RuntimeException('Documento comercial no encontrado.');
+    }
+
+    $documentoItems = flus_facturacion_documento_items_fetch($pdo, $documentoId);
+    if ($documentoItems === []) {
+        throw new RuntimeException('El documento comercial no tiene items.');
+    }
+
+    flus_facturacion_assert_print_item_limit(count($documentoItems));
+
+    $clienteIdBase = $clienteId > 0 ? $clienteId : (int)($documento['cliente_id'] ?? 0);
+    $clienteData = $opciones['resolved_cliente'] ?? flus_facturacion_resolver_cliente($pdo, $clienteIdBase);
+    if (!is_array($clienteData)) {
+        throw new Exception('No se pudo resolver el cliente para la factura.');
+    }
+
+    $cliente = isset($clienteData['cliente']) && is_array($clienteData['cliente']) ? $clienteData['cliente'] : null;
+    $clienteIdFiscal = (int)($clienteData['cliente_id'] ?? 0);
+    $consumidorFinal = !empty($clienteData['consumidor_final']);
+
+    $config = flus_facturacion_config_activa($pdo, false);
+    if (!$config) {
+        throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
+    }
+
+    $puntoVenta = max(1, (int)($config['punto_venta'] ?? 1));
+    $modoOperacion = flus_facturacion_modo_actual($config, $opciones);
+    $modoDemo = $modoOperacion === 'demo';
+    $modoFactura = flus_facturacion_facturas_modo_value($pdo, $modoOperacion);
+    $tipoCbte = flus_facturacion_resolver_tipo_cbte($config, $cliente, $opciones);
+    $tipoStr = obtenerNombreTipoComprobante($tipoCbte);
+
+    $clienteCuit = flus_facturacion_normalizar_doc((string)($cliente['cuit'] ?? ''));
+    $emisorCuit = flus_facturacion_cuit_emisor($config);
+    if (!$consumidorFinal && $clienteCuit !== '' && $emisorCuit !== '' && $clienteCuit === $emisorCuit) {
+        throw new Exception('El CUIT del cliente coincide con el CUIT emisor configurado. Selecciona otro cliente o emite como Consumidor Final.');
+    }
+
+    $numeroPreferido = isset($opciones['numero_preferido']) ? (int)$opciones['numero_preferido'] : 0;
+    $numero = $numeroPreferido > 0
+        ? $numeroPreferido
+        : ($modoDemo
+            ? max(1, (int)($config['proximo_numero'] ?? 1), flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion))
+            : max(1, flus_facturacion_numero_local_siguiente($pdo, $puntoVenta, $tipoStr, $modoOperacion)));
+
+    $documentoTotal = round((float)($documento['total'] ?? 0), 2);
+    $importes = flus_facturacion_importes_desde_items($documentoItems, $documentoTotal, $tipoCbte);
+    $docData = determinarDocumentoCliente($cliente, $consumidorFinal);
+
+    $venta = [
+        'id' => (int)($documento['venta_id'] ?? 0),
+        'fecha' => (string)($documento['created_at'] ?? date('Y-m-d H:i:s')),
+        'total' => $importes['total'],
+        'medio_pago' => trim((string)($documento['medio_pago'] ?? 'FACTURA_MANUAL')) ?: 'FACTURA_MANUAL',
+        'nota' => trim((string)($documento['nota'] ?? 'Factura manual sin caja')) ?: 'Factura manual sin caja',
+        'cliente_id' => $clienteIdFiscal > 0 ? $clienteIdFiscal : null,
+    ];
+
+    if ((int)$venta['id'] > 0) {
+        $stVenta = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1');
+        $stVenta->execute([(int)$venta['id']]);
+        $ventaDb = $stVenta->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (is_array($ventaDb)) {
+            $venta = $ventaDb + $venta;
+        }
+    }
+
+    $comprobante = [
+        'tipo_cbte' => $tipoCbte,
+        'punto_venta' => $puntoVenta,
+        'numero' => $numero,
+        'concepto' => isset($opciones['concepto']) ? (int)$opciones['concepto'] : 1,
+        'fecha' => date('Y-m-d'),
+        'importe_total' => $importes['total'],
+        'importe_neto' => $importes['neto'],
+        'importe_iva' => $importes['iva'],
+        'importe_exento' => $importes['exento'],
+        'importe_no_gravado' => $importes['no_gravado'],
+        'moneda_id' => 'PES',
+        'moneda_cotiz' => 1,
+        'tipo_doc' => $docData['tipo'],
+        'nro_doc' => $docData['numero'],
+        'condicion_iva_receptor_id' => determinarCondicionIvaReceptorAfip($cliente, $consumidorFinal),
+    ];
+
+    if ($importes['iva'] > 0 && !empty($importes['iva_detalle'])) {
+        $comprobante['iva'] = $importes['iva_detalle'];
+    }
+
+    $context = [
+        'venta' => $venta,
+        'documento' => $documento,
+        'documento_items' => $documentoItems,
+        'cliente' => $cliente,
+        'cliente_data' => $clienteData,
+        'cliente_id_fiscal' => $clienteIdFiscal,
+        'consumidor_final' => $consumidorFinal,
+        'config' => $config,
+        'punto_venta' => $puntoVenta,
+        'modo_operacion' => $modoOperacion,
+        'modo_demo' => $modoDemo,
+        'modo_factura' => $modoFactura,
+        'tipo_cbte' => $tipoCbte,
+        'tipo_str' => $tipoStr,
+        'numero' => $numero,
+        'concepto' => (int)$comprobante['concepto'],
+        'importes' => $importes,
+        'doc_data' => $docData,
+        'comprobante' => $comprobante,
+        'origen_manual' => true,
+    ];
+    $context['request_uid'] = flus_facturacion_request_uid_from_context($context, $opciones);
+
+    return $context;
+}
+
+function flus_facturacion_asegurar_registro_desde_documento(PDO $pdo, int $documentoId, int $clienteId, array $opciones = []): array
+{
+    $repo = flus_facturacion_fiscal_repository($pdo);
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $context = flus_facturacion_preparar_contexto_desde_documento($pdo, $documentoId, $clienteId, $opciones);
+        flus_facturacion_actualizar_cliente_venta_si_corresponde($pdo, (array)($context['venta'] ?? []), (int)($context['cliente_id_fiscal'] ?? 0));
+
+        $requestUid = trim((string)($context['request_uid'] ?? ''));
+        $factura = $requestUid !== '' ? $repo->findFacturaByRequestUid($requestUid) : null;
+        $facturaDocumento = $repo->findFacturaOrigenByDocumentoId($documentoId);
+        $ventaId = (int)($context['venta']['id'] ?? 0);
+        $facturaVenta = $ventaId > 0 ? $repo->findFacturaOrigenByVentaId($ventaId) : null;
+
+        if ($factura === null && $facturaDocumento !== null) {
+            $factura = $facturaDocumento;
+        }
+        if ($factura === null && $facturaVenta !== null) {
+            $factura = $facturaVenta;
+        }
+
+        if ($factura !== null) {
+            $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? (($factura['cae'] ?? '') !== '' ? 'AUTORIZADA' : 'NO_APLICA')));
+            if ($estadoFiscal !== 'AUTORIZADA' && trim((string)($factura['cae'] ?? '')) === '') {
+                $patch = flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
+                $patch['fiscal_request_uid'] = $requestUid !== '' ? $requestUid : ($factura['fiscal_request_uid'] ?? null);
+                $repo->updateFactura((int)$factura['id'], $patch);
+                $factura = $repo->findFacturaById((int)$factura['id']) ?: ($factura + $patch);
+            }
+        } else {
+            $facturaId = $repo->insertFactura(flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO'));
+            $factura = $repo->findFacturaById($facturaId) ?: ['id' => $facturaId] + flus_facturacion_factura_header_base($context, 'PENDIENTE_ENVIO');
+        }
+
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->commit();
+        }
+
+        return [
+            'factura' => $factura,
+            'context' => $context,
+        ];
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function flus_facturacion_preparar_contexto_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): array
@@ -1108,6 +1361,7 @@ function flus_facturacion_factura_header_base(array $context, string $estadoFisc
 
     return [
         'venta_id' => (int)($context['venta']['id'] ?? 0),
+        'documento_id' => (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null,
         'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
         'naturaleza' => 'FACTURA',
         'tipo' => (string)($context['tipo_str'] ?? ''),
@@ -1649,10 +1903,34 @@ function crearFacturaManual(array $payload): int
     $requestUid = flus_facturacion_request_uid_manual($clienteFiscalId, $items, $meta, $opciones);
 
     $repo = flus_facturacion_fiscal_repository($pdo);
-    $facturaExistente = $repo->findFacturaByRequestUid($requestUid);
-    $ventaId = (int)($facturaExistente['venta_id'] ?? 0);
+    $baseExistente = flus_facturacion_manual_resolver_base_existente($pdo, $repo, $requestUid, $clienteFiscalId, $items);
+    $facturaExistente = is_array($baseExistente['factura'] ?? null) ? $baseExistente['factura'] : null;
+    $ventaId = (int)($baseExistente['venta_id'] ?? 0);
+    $documentoId = (int)($baseExistente['documento_id'] ?? 0);
 
     if (is_array($facturaExistente)) {
+        flus_facturacion_manual_retry_state_guardar(
+            $requestUid,
+            $ventaId,
+            $clienteFiscalId,
+            $items,
+            (string)($facturaExistente['estado_fiscal'] ?? 'PENDIENTE_ENVIO'),
+            (int)($facturaExistente['id'] ?? 0)
+        );
+    }
+
+    if ($documentoId <= 0 && flus_facturacion_documentos_table_ready($pdo)) {
+        $documentoId = flus_facturacion_documento_crear_manual($pdo, $clienteFiscalId, $items, $meta, [
+            'request_uid' => $requestUid,
+        ]);
+    }
+
+    if ($documentoId > 0 && $ventaId <= 0) {
+        $documentoBase = flus_facturacion_documento_buscar($pdo, $documentoId);
+        $ventaId = (int)($documentoBase['venta_id'] ?? 0);
+    }
+
+    if ($ventaId > 0) {
         flus_facturacion_manual_retry_state_guardar(
             $requestUid,
             $ventaId,
@@ -1667,18 +1945,38 @@ function crearFacturaManual(array $payload): int
         $pdo->beginTransaction();
         try {
             $ventaId = flus_facturacion_crear_venta_manual($pdo, $clienteFiscalId, $items, $meta);
-            $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $opciones + [
-                'resolved_cliente' => $clienteData,
-                'request_uid' => $requestUid,
-                'origen_manual' => true,
-            ]);
+            if ($documentoId > 0) {
+                flus_facturacion_documento_actualizar_venta($pdo, $documentoId, $ventaId);
+            }
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
+            if ($documentoId > 0) {
+                flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'ERROR');
+            }
             throw $e;
         }
+
+        flus_facturacion_manual_retry_state_guardar(
+            $requestUid,
+            $ventaId,
+            $clienteFiscalId,
+            $items,
+            is_array($facturaExistente) ? (string)($facturaExistente['estado_fiscal'] ?? 'PENDIENTE_ENVIO') : 'PENDIENTE_ENVIO',
+            is_array($facturaExistente) ? (int)($facturaExistente['id'] ?? 0) : 0
+        );
+    } elseif ($documentoId > 0) {
+        flus_facturacion_documento_actualizar_venta($pdo, $documentoId, $ventaId);
+    }
+
+    if ($documentoId > 0) {
+        $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteId, $opciones + [
+            'resolved_cliente' => $clienteData,
+            'request_uid' => $requestUid,
+            'origen_manual' => true,
+        ]);
     } else {
         $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $opciones + [
             'resolved_cliente' => $clienteData,
@@ -1713,6 +2011,9 @@ function crearFacturaManual(array $payload): int
             (string)($facturaActual['estado_fiscal'] ?? $facturaBase['estado_fiscal'] ?? 'PENDIENTE_ENVIO'),
             (int)($facturaActual['id'] ?? $facturaBase['id'] ?? 0)
         );
+        if ($documentoId > 0) {
+            flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'ERROR');
+        }
         throw $e;
     }
 
@@ -1725,6 +2026,10 @@ function crearFacturaManual(array $payload): int
         (string)($facturaEmitida['estado_fiscal'] ?? 'AUTORIZADA'),
         $facturaId
     );
+
+    if ($documentoId > 0) {
+        flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'FACTURADO');
+    }
 
     return $facturaId;
 }
@@ -1863,51 +2168,7 @@ function calcularImportesFactura(PDO $pdo, int $ventaId, array $venta, int $tipo
 
     $manualItems = flus_facturacion_manual_items_fetch($pdo, $ventaId);
     if ($manualItems !== []) {
-        $neto = 0.0;
-        $iva = 0.0;
-        $ivaDetalleMap = [];
-
-        foreach ($manualItems as $item) {
-            $pct = (float)($item['iva_porcentaje'] ?? 21);
-            $subtotal = (float)($item['subtotal'] ?? 0);
-
-            if ($pct <= 0) {
-                $neto += $subtotal;
-                continue;
-            }
-
-            $baseImp = $subtotal / (1 + $pct / 100);
-            $impIva = $subtotal - $baseImp;
-            $neto += $baseImp;
-            $iva += $impIva;
-
-            $alicuotaId = obtenerIdAlicuotaAfip($pct);
-            $ivaKey = (string)$alicuotaId;
-            if (!isset($ivaDetalleMap[$ivaKey])) {
-                $ivaDetalleMap[$ivaKey] = [
-                    'id' => $alicuotaId,
-                    'base' => 0.0,
-                    'importe' => 0.0,
-                ];
-            }
-            $ivaDetalleMap[$ivaKey]['base'] += $baseImp;
-            $ivaDetalleMap[$ivaKey]['importe'] += $impIva;
-        }
-
-        $ivaDetalle = array_map(static function (array $item): array {
-            $item['base'] = round((float)$item['base'], 2);
-            $item['importe'] = round((float)$item['importe'], 2);
-            return $item;
-        }, array_values($ivaDetalleMap));
-
-        return [
-            'total' => round($total, 2),
-            'neto' => round($neto, 2),
-            'iva' => round($iva, 2),
-            'exento' => 0.0,
-            'no_gravado' => 0.0,
-            'iva_detalle' => $ivaDetalle,
-        ];
+        return flus_facturacion_importes_desde_items($manualItems, $total, $tipoCbte);
     }
 
     if (!flus_table_exists($pdo, 'venta_items')) {

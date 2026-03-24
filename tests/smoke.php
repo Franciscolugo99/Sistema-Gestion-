@@ -6,6 +6,403 @@ require __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/compras_helpers.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
+
+final class FlusFakePdoStatement extends PDOStatement
+{
+    private FlusFakePdo $pdo;
+    private string $sql = '';
+    private array $rows = [];
+    private int $cursor = 0;
+    private mixed $scalar = null;
+
+    protected function __construct()
+    {
+    }
+
+    public static function create(FlusFakePdo $pdo, string $sql): self
+    {
+        $ref = new ReflectionClass(self::class);
+        /** @var self $stmt */
+        $stmt = $ref->newInstanceWithoutConstructor();
+        $stmt->pdo = $pdo;
+        $stmt->sql = $sql;
+        return $stmt;
+    }
+
+    public function execute(?array $params = null): bool
+    {
+        $result = $this->pdo->runStatement($this->sql, $params ?? []);
+        $this->rows = $result['rows'] ?? [];
+        $this->scalar = $result['scalar'] ?? null;
+        $this->cursor = 0;
+        return true;
+    }
+
+    public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed
+    {
+        if (!isset($this->rows[$this->cursor])) {
+            return false;
+        }
+
+        $row = $this->rows[$this->cursor];
+        $this->cursor++;
+        if ($mode === PDO::FETCH_COLUMN) {
+            return array_values($row)[0] ?? false;
+        }
+        return $row;
+    }
+
+    public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array
+    {
+        if ($mode === PDO::FETCH_COLUMN) {
+            $column = isset($args[0]) ? (int)$args[0] : 0;
+            return array_map(static function (array $row) use ($column) {
+                $values = array_values($row);
+                return $values[$column] ?? null;
+            }, $this->rows);
+        }
+        return $this->rows;
+    }
+
+    public function fetchColumn(int $column = 0): mixed
+    {
+        if ($this->scalar !== null) {
+            return $this->scalar;
+        }
+        if (!isset($this->rows[0])) {
+            return false;
+        }
+        $values = array_values($this->rows[0]);
+        return $values[$column] ?? false;
+    }
+}
+
+final class FlusFakePdo extends PDO
+{
+    private string $schemaName = 'flus_test';
+    /** @var array<string,array{columns:array<int,string>,rows:array<int,array<string,mixed>>,auto:int}> */
+    private array $tables = [];
+    private int $lastInsertIdValue = 0;
+    private bool $inTx = false;
+    private array $snapshot = [];
+
+    public function __construct()
+    {
+    }
+
+    public function seedTable(string $table, array $columns, array $rows = []): void
+    {
+        $normalizedRows = [];
+        $maxId = 0;
+        foreach ($rows as $row) {
+            $normalizedRows[] = $row;
+            $maxId = max($maxId, (int)($row['id'] ?? 0));
+        }
+
+        $this->tables[$table] = [
+            'columns' => array_values(array_unique(array_map('strval', $columns))),
+            'rows' => $normalizedRows,
+            'auto' => $maxId + 1,
+        ];
+    }
+
+    public function rows(string $table): array
+    {
+        return $this->tables[$table]['rows'] ?? [];
+    }
+
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
+    {
+        $stmt = $this->prepare($query);
+        if ($stmt === false) {
+            return false;
+        }
+        $stmt->execute();
+        return $stmt;
+    }
+
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        return FlusFakePdoStatement::create($this, $query);
+    }
+
+    public function beginTransaction(): bool
+    {
+        $this->inTx = true;
+        $this->snapshot = [
+            'tables' => unserialize(serialize($this->tables)),
+            'lastInsertIdValue' => $this->lastInsertIdValue,
+        ];
+        return true;
+    }
+
+    public function commit(): bool
+    {
+        $this->inTx = false;
+        $this->snapshot = [];
+        return true;
+    }
+
+    public function rollBack(): bool
+    {
+        if ($this->snapshot !== []) {
+            $this->tables = $this->snapshot['tables'];
+            $this->lastInsertIdValue = (int)$this->snapshot['lastInsertIdValue'];
+        }
+        $this->inTx = false;
+        $this->snapshot = [];
+        return true;
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->inTx;
+    }
+
+    public function lastInsertId(?string $name = null): string|false
+    {
+        return (string)$this->lastInsertIdValue;
+    }
+
+    public function runStatement(string $sql, array $params): array
+    {
+        $normalized = preg_replace('/\s+/', ' ', trim($sql)) ?? trim($sql);
+
+        if (strcasecmp($normalized, 'SELECT DATABASE()') === 0) {
+            return ['rows' => [[0 => $this->schemaName]], 'scalar' => $this->schemaName];
+        }
+
+        if (preg_match('/^SELECT 1 FROM `?(\w+)`? LIMIT 0$/i', $normalized, $m) === 1) {
+            if (!isset($this->tables[$m[1]])) {
+                throw new RuntimeException('Tabla inexistente en fake PDO: ' . $m[1]);
+            }
+            return ['rows' => []];
+        }
+
+        if (str_contains($normalized, 'FROM information_schema.TABLES')) {
+            $table = (string)($params[1] ?? '');
+            $exists = isset($this->tables[$table]);
+            return ['rows' => $exists ? [[1]] : [], 'scalar' => $exists ? 1 : false];
+        }
+
+        if (str_contains($normalized, 'FROM information_schema.COLUMNS')) {
+            $table = (string)($params[1] ?? '');
+            $columns = $this->tables[$table]['columns'] ?? [];
+            if (count($params) >= 3) {
+                $column = (string)($params[2] ?? '');
+                if (in_array($column, $columns, true)) {
+                    return ['rows' => [[
+                        'COLUMN_NAME' => $column,
+                        'COLUMN_TYPE' => 'int',
+                        'DATA_TYPE' => 'int',
+                        'IS_NULLABLE' => 'YES',
+                        'COLUMN_DEFAULT' => null,
+                    ]]];
+                }
+                return ['rows' => []];
+            }
+            return ['rows' => array_map(static fn(string $column): array => ['COLUMN_NAME' => $column], $columns)];
+        }
+
+        if (preg_match('/^SHOW COLUMNS FROM `?(\w+)`?$/i', $normalized, $m) === 1) {
+            $columns = $this->tables[$m[1]]['columns'] ?? [];
+            return ['rows' => array_map(static fn(string $column): array => ['Field' => $column], $columns)];
+        }
+
+        if (preg_match('/^INSERT INTO `?(\w+)`? \((.+)\) VALUES \((.+)\)$/i', $normalized, $m) === 1) {
+            $table = $m[1];
+            if (!isset($this->tables[$table])) {
+                throw new RuntimeException('Tabla inexistente en insert fake: ' . $table);
+            }
+            preg_match_all('/`([^`]+)`/', $m[2], $colMatches);
+            $columns = $colMatches[1] ?? [];
+            $row = [];
+            $position = 0;
+            foreach ($columns as $column) {
+                if ($params !== [] && array_is_list($params)) {
+                    $row[$column] = $params[$position] ?? null;
+                    $position++;
+                    continue;
+                }
+                $row[$column] = $params[':' . $column] ?? null;
+            }
+            if (in_array('request_uid', $this->tables[$table]['columns'], true) && !empty($row['request_uid'])) {
+                foreach ($this->tables[$table]['rows'] as $existing) {
+                    if ((string)($existing['request_uid'] ?? '') === (string)$row['request_uid']) {
+                        throw new RuntimeException('Duplicate request_uid');
+                    }
+                }
+            }
+            if (in_array('id', $this->tables[$table]['columns'], true) && !isset($row['id'])) {
+                $row['id'] = $this->tables[$table]['auto'];
+                $this->tables[$table]['auto']++;
+            }
+            $this->tables[$table]['rows'][] = $row;
+            $this->lastInsertIdValue = (int)($row['id'] ?? 0);
+            return ['rows' => []];
+        }
+
+        if (preg_match('/^UPDATE `?(\w+)`? SET (.+) WHERE (.+)$/i', $normalized, $m) === 1) {
+            $table = $m[1];
+            $assignments = array_map('trim', explode(',', $m[2]));
+            $position = 0;
+            $updates = [];
+            foreach ($assignments as $assignment) {
+                if (preg_match('/`?(\w+)`?\s*=\s*(:\w+|\?)/', $assignment, $assignMatch) !== 1) {
+                    continue;
+                }
+                $column = $assignMatch[1];
+                $token = $assignMatch[2];
+                $updates[$column] = $token === '?' ? ($params[$position++] ?? null) : ($params[$token] ?? null);
+            }
+
+            if (preg_match('/id\s*=\s*(:\w+|\?)/i', $m[3], $whereMatch) !== 1) {
+                throw new RuntimeException('WHERE id no soportado en fake PDO: ' . $normalized);
+            }
+            $token = $whereMatch[1];
+            $id = $token === '?' ? ($params[$position] ?? null) : ($params[$token] ?? null);
+
+            foreach ($this->tables[$table]['rows'] as &$row) {
+                if ((int)($row['id'] ?? 0) !== (int)$id) {
+                    continue;
+                }
+                foreach ($updates as $column => $value) {
+                    $row[$column] = $value;
+                }
+                unset($row);
+                return ['rows' => []];
+            }
+            unset($row);
+            return ['rows' => []];
+        }
+
+        if (preg_match('/^SELECT \* FROM (\w+) WHERE (\w+) = \? (?:ORDER BY id DESC )?LIMIT 1$/i', $normalized, $m) === 1) {
+            $table = $m[1];
+            $column = $m[2];
+            $value = $params[0] ?? null;
+            $rows = array_values(array_filter($this->tables[$table]['rows'] ?? [], static function (array $row) use ($column, $value): bool {
+                return (string)($row[$column] ?? '') === (string)$value;
+            }));
+            if (str_contains($normalized, 'ORDER BY id DESC')) {
+                usort($rows, static fn(array $a, array $b): int => (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0));
+            }
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
+        if (preg_match("/^SELECT \\* FROM facturas WHERE documento_id = \\? AND naturaleza = 'FACTURA' ORDER BY id DESC LIMIT 1$/i", $normalized) === 1) {
+            $value = $params[0] ?? null;
+            $rows = array_values(array_filter($this->tables['facturas']['rows'] ?? [], static function (array $row) use ($value): bool {
+                return (int)($row['documento_id'] ?? 0) === (int)$value && (string)($row['naturaleza'] ?? '') === 'FACTURA';
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0));
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
+        if (preg_match('/^SELECT codigo, descripcion AS nombre, cantidad, precio_unitario AS precio, subtotal, iva_porcentaje FROM documento_items WHERE documento_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
+            $documentoId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['documento_items']['rows'] ?? [], static function (array $row) use ($documentoId): bool {
+                return (int)($row['documento_id'] ?? 0) === $documentoId;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+            $rows = array_map(static function (array $row): array {
+                return [
+                    'codigo' => $row['codigo'] ?? null,
+                    'nombre' => $row['descripcion'] ?? '',
+                    'cantidad' => $row['cantidad'] ?? 0,
+                    'precio' => $row['precio_unitario'] ?? 0,
+                    'subtotal' => $row['subtotal'] ?? 0,
+                    'iva_porcentaje' => $row['iva_porcentaje'] ?? 21,
+                ];
+            }, $rows);
+            return ['rows' => $rows];
+        }
+
+        if (preg_match('/^SELECT codigo, descripcion AS nombre, cantidad, precio_unitario AS precio, subtotal, iva_porcentaje FROM factura_manual_items WHERE venta_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
+            $ventaId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['factura_manual_items']['rows'] ?? [], static function (array $row) use ($ventaId): bool {
+                return (int)($row['venta_id'] ?? 0) === $ventaId;
+            }));
+            usort($rows, static fn(array $a, array $b): int => (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
+            $rows = array_map(static function (array $row): array {
+                return [
+                    'codigo' => $row['codigo'] ?? null,
+                    'nombre' => $row['descripcion'] ?? '',
+                    'cantidad' => $row['cantidad'] ?? 0,
+                    'precio' => $row['precio_unitario'] ?? 0,
+                    'subtotal' => $row['subtotal'] ?? 0,
+                    'iva_porcentaje' => $row['iva_porcentaje'] ?? 21,
+                ];
+            }, $rows);
+            return ['rows' => $rows];
+        }
+
+        throw new RuntimeException('SQL fake no soportado: ' . $normalized);
+    }
+}
+
+final class FlusFakeFacturaRepository implements FacturaFiscalRepository
+{
+    /** @param array<int,array<string,mixed>> $facturas */
+    public function __construct(private array $facturas = [])
+    {
+    }
+
+    public function lockVenta(int $ventaId): array { return []; }
+    public function lockVentaAnulacion(int $ventaAnulacionId): array { return []; }
+    public function findVentaAnulacionByRequestUid(string $requestUid): ?array { return null; }
+    public function findFacturaOrigenByVentaId(int $ventaId): ?array { return null; }
+    public function findFacturaOrigenByDocumentoId(int $documentoId): ?array { return null; }
+    public function findFacturaById(int $facturaId): ?array {
+        foreach ($this->facturas as $factura) {
+            if ((int)($factura['id'] ?? 0) === $facturaId) {
+                return $factura;
+            }
+        }
+        return null;
+    }
+    public function lockFacturaById(int $facturaId): array { return []; }
+    public function findFacturaByRequestUid(string $requestUid): ?array {
+        foreach ($this->facturas as $factura) {
+            if ((string)($factura['fiscal_request_uid'] ?? '') === $requestUid) {
+                return $factura;
+            }
+        }
+        return null;
+    }
+    public function findFacturaItems(int $facturaId): array { return []; }
+    public function insertFactura(array $header): int { return 0; }
+    public function insertFacturaItems(int $facturaId, array $items): void {}
+    public function insertArcaEvent(array $event): int { return 0; }
+    public function findArcaEventByRequestUid(string $requestUid): ?array { return null; }
+    public function updateArcaEventResult(string $requestUid, array $patch): void {}
+    public function updateFactura(int $facturaId, array $patch): void {}
+    public function updateFacturaFiscalState(int $facturaId, string $estadoFiscal, array $patch = []): void {}
+    public function updateVentaAnulacionFiscalState(int $ventaAnulacionId, string $estadoFiscal, array $patch = []): void {}
+    public function updateVentaAnulacionLinkage(int $ventaAnulacionId, ?int $facturaOrigenId, ?int $ncFacturaId, bool $updateFacturaOrigenId = false, bool $updateNcFacturaId = false): void {}
+    public function linkNotaCreditoToAnulacion(int $ventaAnulacionId, int $ncFacturaId): void {}
+}
+
+function flus_test_facturacion_fake_pdo(): FlusFakePdo
+{
+    $pdo = new FlusFakePdo();
+    $pdo->seedTable('documentos_comerciales', [
+        'id', 'request_uid', 'tipo_documento', 'origen', 'estado', 'cliente_id', 'venta_id',
+        'nota', 'medio_pago', 'total', 'created_at', 'updated_at'
+    ]);
+    $pdo->seedTable('documento_items', [
+        'id', 'documento_id', 'codigo', 'descripcion', 'cantidad', 'precio_unitario',
+        'subtotal', 'iva_porcentaje', 'created_at'
+    ]);
+    $pdo->seedTable('factura_manual_items', [
+        'id', 'venta_id', 'codigo', 'descripcion', 'cantidad', 'precio_unitario',
+        'subtotal', 'iva_porcentaje', 'created_at'
+    ]);
+    $pdo->seedTable('facturas', [
+        'id', 'venta_id', 'documento_id', 'fiscal_request_uid', 'estado_fiscal', 'naturaleza'
+    ]);
+    return $pdo;
+}
 
 $results = [];
 
@@ -760,33 +1157,121 @@ $results[] = flus_run_test('facturacion manual usa la misma capa y reusa request
     flus_assert_contains('name="request_uid"', $manualPhp);
 });
 
-$results[] = flus_run_test('retry manual preserva request_uid y no duplica venta manual base', function (): void {
-    $_SESSION = [];
-
-    $items = [
+$results[] = flus_run_test('fase 2A manual crea documento base e items sin duplicar request_uid', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+    $items = flus_facturacion_normalize_manual_items([
         ['codigo' => 'A1', 'descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
         ['codigo' => 'B2', 'descripcion' => 'Prod B', 'cantidad' => 2, 'precio' => 50, 'iva_porcentaje' => 21],
-    ];
+    ]);
 
-    $uidPrimerIntento = flus_facturacion_request_uid_manual(25, $items, ['nota' => 'primer intento'], ['concepto' => 1]);
-    flus_facturacion_manual_retry_state_guardar($uidPrimerIntento, 501, 25, $items, 'ERROR_TRANSITORIO', 9001);
+    $documentoId = flus_facturacion_documento_crear_manual($pdo, 25, $items, ['nota' => 'primer intento'], [
+        'request_uid' => 'req-f2a-1',
+    ]);
+    $documentoIdRetry = flus_facturacion_documento_crear_manual($pdo, 25, $items, ['nota' => 'segundo intento'], [
+        'request_uid' => 'req-f2a-1',
+    ]);
 
-    $retry = flus_facturacion_manual_retry_state_buscar(25, $items);
-    flus_assert_true(is_array($retry), 'El estado de retry debería existir después del primer intento.');
-    flus_assert_same(501, (int)($retry['venta_id'] ?? 0));
-    flus_assert_same('ERROR_TRANSITORIO', (string)($retry['estado_fiscal'] ?? ''));
+    flus_assert_same($documentoId, $documentoIdRetry);
+    flus_assert_same(1, count($pdo->rows('documentos_comerciales')));
+    flus_assert_same(2, count($pdo->rows('documento_items')));
 
-    $uidSegundoIntento = flus_facturacion_request_uid_manual(25, $items, [
-        'nota' => 'cambió la nota',
-        'medio_pago' => 'TARJETA',
-    ], ['concepto' => 3]);
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    flus_assert_true(is_array($documento), 'El documento manual debería existir.');
+    flus_assert_same('req-f2a-1', (string)($documento['request_uid'] ?? ''));
+    flus_assert_same(200.0, (float)($documento['total'] ?? 0));
+});
 
-    flus_assert_same($uidPrimerIntento, $uidSegundoIntento);
+$results[] = flus_run_test('fase 2A retry reutiliza la misma venta legacy enlazada al documento', function (): void {
+    $_SESSION = [];
 
-    $retrySegundo = flus_facturacion_manual_retry_state_buscar(25, $items);
-    flus_assert_true(is_array($retrySegundo), 'El segundo intento debería reutilizar el estado manual existente.');
-    flus_assert_same(501, (int)($retrySegundo['venta_id'] ?? 0));
-    flus_assert_same(9001, (int)($retrySegundo['factura_id'] ?? 0));
+    $pdo = flus_test_facturacion_fake_pdo();
+    $items = flus_facturacion_normalize_manual_items([
+        ['codigo' => 'A1', 'descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+    ]);
+    $requestUid = 'req-f2a-venta-1';
+
+    $documentoId = flus_facturacion_documento_crear_manual($pdo, 25, $items, ['nota' => 'base'], [
+        'request_uid' => $requestUid,
+    ]);
+    flus_facturacion_documento_actualizar_venta($pdo, $documentoId, 501);
+    flus_facturacion_manual_retry_state_guardar($requestUid, 501, 25, $items, 'PENDIENTE_ENVIO', null);
+
+    $base = flus_facturacion_manual_resolver_base_existente($pdo, new FlusFakeFacturaRepository(), $requestUid, 25, $items);
+    flus_assert_same($documentoId, (int)($base['documento_id'] ?? 0));
+    flus_assert_same(501, (int)($base['venta_id'] ?? 0));
+
+    flus_facturacion_documento_actualizar_venta($pdo, $documentoId, 999);
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    flus_assert_same(501, (int)($documento['venta_id'] ?? 0));
+});
+
+$results[] = flus_run_test('fase 2A retry no toma otra venta si el request_uid no coincide', function (): void {
+    $_SESSION = [];
+
+    $pdo = flus_test_facturacion_fake_pdo();
+    $items = flus_facturacion_normalize_manual_items([
+        ['codigo' => 'A1', 'descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+    ]);
+
+    flus_facturacion_manual_retry_state_guardar('req-distinto', 777, 25, $items, 'PENDIENTE_ENVIO', null);
+    $base = flus_facturacion_manual_resolver_base_existente($pdo, new FlusFakeFacturaRepository(), 'req-real', 25, $items);
+
+    flus_assert_same(0, (int)($base['venta_id'] ?? 0));
+    flus_assert_same(0, (int)($base['documento_id'] ?? 0));
+});
+
+$results[] = flus_run_test('fase 2A persiste documento_id en facturas via repository', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+    $pdo->seedTable('facturas', ['id', 'venta_id', 'documento_id', 'fiscal_request_uid', 'estado_fiscal', 'naturaleza'], [[
+        'id' => 9001,
+        'venta_id' => 501,
+        'documento_id' => null,
+        'fiscal_request_uid' => 'req-f2a-factura',
+        'estado_fiscal' => 'PENDIENTE_ENVIO',
+        'naturaleza' => 'FACTURA',
+    ]]);
+
+    $repo = new PdoFacturaFiscalRepository($pdo);
+    $repo->updateFactura(9001, ['documento_id' => 77]);
+    $factura = $repo->findFacturaById(9001);
+
+    flus_assert_true(is_array($factura), 'La factura fake debería existir.');
+    flus_assert_same(77, (int)($factura['documento_id'] ?? 0));
+});
+
+$results[] = flus_run_test('fase 2A factura_ver puede reconstruir detalle desde documento_items', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+    $items = flus_facturacion_normalize_manual_items([
+        ['codigo' => 'A1', 'descripcion' => 'Prod A', 'cantidad' => 1, 'precio' => 100, 'iva_porcentaje' => 21],
+        ['codigo' => 'B2', 'descripcion' => 'Prod B', 'cantidad' => 2, 'precio' => 50, 'iva_porcentaje' => 21],
+    ]);
+    $documentoId = flus_facturacion_documento_crear_manual($pdo, 25, $items, ['nota' => 'detalle'], [
+        'request_uid' => 'req-f2a-detalle',
+    ]);
+
+    $pdo->seedTable('factura_manual_items', [
+        'id', 'venta_id', 'codigo', 'descripcion', 'cantidad', 'precio_unitario', 'subtotal', 'iva_porcentaje', 'created_at'
+    ], [[
+        'id' => 1,
+        'venta_id' => 501,
+        'codigo' => 'LEG',
+        'descripcion' => 'Legacy',
+        'cantidad' => 1,
+        'precio_unitario' => 999,
+        'subtotal' => 999,
+        'iva_porcentaje' => 21,
+        'created_at' => date('Y-m-d H:i:s'),
+    ]]);
+
+    $rows = flus_facturacion_factura_detalle_items_fetch($pdo, [
+        'id' => 9001,
+        'documento_id' => $documentoId,
+        'venta_id' => 501,
+    ]);
+
+    flus_assert_same(2, count($rows));
+    flus_assert_same('Prod A', (string)($rows[0]['nombre'] ?? ''));
+    flus_assert_same('Prod B', (string)($rows[1]['nombre'] ?? ''));
 });
 
 $results[] = flus_run_test('errores ARCA se clasifican en estados fiscales consistentes', function (): void {

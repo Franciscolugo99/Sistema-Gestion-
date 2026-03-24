@@ -53,6 +53,24 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
         return is_array($row) ? $row : null;
     }
 
+    public function findFacturaOrigenByDocumentoId(int $documentoId): ?array
+    {
+        if ($documentoId <= 0 || !flus_table_exists($this->pdo, 'facturas') || !flus_column_exists($this->pdo, 'facturas', 'documento_id')) {
+            return null;
+        }
+
+        $sql = "SELECT * FROM facturas WHERE documento_id = ?";
+        if (flus_column_exists($this->pdo, 'facturas', 'naturaleza')) {
+            $sql .= " AND naturaleza = 'FACTURA'";
+        }
+        $sql .= ' ORDER BY id DESC LIMIT 1';
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$documentoId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        return is_array($row) ? $row : null;
+    }
+
     public function findFacturaById(int $facturaId): ?array
     {
         if ($facturaId <= 0) {
@@ -214,7 +232,7 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
 
         $colsSet = flus_columns_set($this->pdo, $schema, 'facturas');
         $allowed = [
-            'venta_id','venta_anulacion_id','factura_asociada_id','cliente_id','naturaleza','tipo','tipo_cbte','punto_venta','numero',
+            'venta_id','documento_id','venta_anulacion_id','factura_asociada_id','cliente_id','naturaleza','tipo','tipo_cbte','punto_venta','numero',
             'doc_tipo','doc_numero','condicion_iva_receptor_id','importe_neto','importe_iva','importe_exento','importe_no_gravado',
             'total','cae','cae_vto','estado','modo','moneda_id','moneda_cotiz','fiscal_request_uid','fiscal_intentos',
             'fiscal_error_code','fiscal_error_message','fiscal_requested_at','fiscal_approved_at','estado_fiscal'

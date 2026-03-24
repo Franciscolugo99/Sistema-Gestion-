@@ -11,6 +11,8 @@ interface FacturaFiscalRepository
 
     public function findFacturaOrigenByVentaId(int $ventaId): ?array;
 
+    public function findFacturaOrigenByDocumentoId(int $documentoId): ?array;
+
     public function findFacturaById(int $facturaId): ?array;
 
     public function lockFacturaById(int $facturaId): array;
