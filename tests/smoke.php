@@ -71,6 +71,36 @@ function flus_collect_permission_slugs_from_sql_file(string $path): array
     return $slugs;
 }
 
+function flus_collect_permission_slugs_from_sql_paths(array $paths): array
+{
+    $slugs = [];
+
+    foreach ($paths as $path) {
+        $slugs = array_merge($slugs, flus_collect_permission_slugs_from_sql_file($path));
+    }
+
+    $slugs = array_values(array_unique(array_map('strval', $slugs)));
+    sort($slugs, SORT_STRING);
+
+    return $slugs;
+}
+
+function flus_collect_permission_slugs_from_migrations(string $migrationsRoot): array
+{
+    if (!is_dir($migrationsRoot)) {
+        throw new RuntimeException('Missing migrations root for permission scan');
+    }
+
+    $paths = glob($migrationsRoot . DIRECTORY_SEPARATOR . '*.sql');
+    if ($paths === false) {
+        throw new RuntimeException('Could not enumerate migration SQL files');
+    }
+
+    sort($paths, SORT_STRING);
+
+    return flus_collect_permission_slugs_from_sql_paths($paths);
+}
+
 function flus_open_project_pdo(string $repoRoot): PDO
 {
     $configPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.php';
@@ -570,13 +600,13 @@ $results[] = flus_run_test('admin pages rely on bootstrap session startup', func
     }
 });
 
-$results[] = flus_run_test('permissions stay aligned across code, install and admin role', function (): void {
+$results[] = flus_run_test('permissions stay aligned across code, install, migrations and admin role', function (): void {
     $repoRoot = dirname(__DIR__);
     $publicPath = $repoRoot . DIRECTORY_SEPARATOR . 'public';
     $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
-    $syncMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '008_permissions_catalog_sync.sql';
+    $migrationsPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations';
 
-    foreach ([$publicPath, $installPath, $syncMigrationPath] as $requiredPath) {
+    foreach ([$publicPath, $installPath, $migrationsPath] as $requiredPath) {
         if (!file_exists($requiredPath)) {
             throw new RuntimeException('Missing file or directory: ' . $requiredPath);
         }
@@ -584,7 +614,7 @@ $results[] = flus_run_test('permissions stay aligned across code, install and ad
 
     $codePerms = flus_collect_permission_slugs_from_public($publicPath);
     $installPerms = flus_collect_permission_slugs_from_sql_file($installPath);
-    $syncPerms = flus_collect_permission_slugs_from_sql_file($syncMigrationPath);
+    $migrationPerms = flus_collect_permission_slugs_from_migrations($migrationsPath);
 
     $pdo = flus_open_project_pdo($repoRoot);
     $dbPerms = flus_fetch_first_column($pdo, 'SELECT slug FROM permissions ORDER BY slug');
@@ -599,15 +629,15 @@ $results[] = flus_run_test('permissions stay aligned across code, install and ad
     );
 
     $missingInInstall = array_values(array_diff($codePerms, $installPerms));
-    $missingInSyncMigration = array_values(array_diff($codePerms, $syncPerms));
+    $missingInMigrations = array_values(array_diff($codePerms, $migrationPerms));
     $missingInDb = array_values(array_diff($codePerms, $dbPerms));
     $missingInAdmin = array_values(array_diff($codePerms, $adminPerms));
 
-    if ($missingInInstall !== [] || $missingInSyncMigration !== [] || $missingInDb !== [] || $missingInAdmin !== []) {
+    if ($missingInInstall !== [] || $missingInMigrations !== [] || $missingInDb !== [] || $missingInAdmin !== []) {
         throw new RuntimeException(
             'Permisos desalineados'
             . ' | code->install: ' . flus_format_slug_diff($missingInInstall)
-            . ' | code->008: ' . flus_format_slug_diff($missingInSyncMigration)
+            . ' | code->migrations: ' . flus_format_slug_diff($missingInMigrations)
             . ' | code->db: ' . flus_format_slug_diff($missingInDb)
             . ' | code->admin: ' . flus_format_slug_diff($missingInAdmin)
         );

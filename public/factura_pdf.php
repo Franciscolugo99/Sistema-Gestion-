@@ -65,7 +65,8 @@ if ($browserPath === null) {
     factura_pdf_redirect_error($facturaId, 'No se encontro un navegador compatible para generar PDF.');
 }
 
-$cacheDir = STORAGE_PATH . '/cache/facturas_pdf';
+$storageRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage';
+$cacheDir = $storageRoot . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'facturas_pdf';
 if (!is_dir($cacheDir) && !@mkdir($cacheDir, 0755, true) && !is_dir($cacheDir)) {
     factura_pdf_redirect_error($facturaId, 'No se pudo preparar la carpeta temporal para el PDF.');
 }

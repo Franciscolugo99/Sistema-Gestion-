@@ -376,35 +376,59 @@ CREATE TABLE `movimientos_stock` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
 DELIMITER ;;
-CREATE TRIGGER `before_insert_movimiento_stock` BEFORE INSERT ON `movimientos_stock` FOR EACH ROW BEGIN
-  DECLARE stock_actual DECIMAL(10,3);
-  
+CREATE TRIGGER `before_insert_movimiento_stock` BEFORE INSERT ON `movimientos_stock` FOR EACH ROW BEGIN
+
+  DECLARE stock_actual DECIMAL(10,3);
+
   
-  SELECT stock INTO stock_actual
-  FROM productos
-  WHERE id = NEW.producto_id;
-  
+
   
-  SET NEW.stock_anterior = stock_actual;
-  
+  SELECT stock INTO stock_actual
+
+  FROM productos
+
+  WHERE id = NEW.producto_id;
+
   
-  CASE NEW.tipo
-    WHEN 'COMPRA' THEN
+
+  
+  SET NEW.stock_anterior = stock_actual;
+
+  
+
+  
+  CASE NEW.tipo
+
+    WHEN 'COMPRA' THEN
+
       SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
 
-    WHEN 'VENTA' THEN
-      SET NEW.stock_nuevo = stock_actual - NEW.cantidad;
-    WHEN 'AJUSTE_POSITIVO' THEN
-      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
-    WHEN 'AJUSTE_NEGATIVO' THEN
-      SET NEW.stock_nuevo = stock_actual - NEW.cantidad;
-    WHEN 'ANULACION' THEN
-      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
-    WHEN 'DEVOLUCION' THEN
-      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
-    ELSE
-      SET NEW.stock_nuevo = stock_actual;
-  END CASE;
+    WHEN 'VENTA' THEN
+
+      SET NEW.stock_nuevo = stock_actual - NEW.cantidad;
+
+    WHEN 'AJUSTE_POSITIVO' THEN
+
+      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
+
+    WHEN 'AJUSTE_NEGATIVO' THEN
+
+      SET NEW.stock_nuevo = stock_actual - NEW.cantidad;
+
+    WHEN 'ANULACION' THEN
+
+      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
+
+    WHEN 'DEVOLUCION' THEN
+
+      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
+
+    ELSE
+
+      SET NEW.stock_nuevo = stock_actual;
+
+  END CASE;
+
 END;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -677,8 +701,10 @@ CREATE TABLE `users` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'NO_AUTO_VALUE_ON_ZERO' */ ;
 DELIMITER ;;
-CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
-    SET NEW.updated_at = NOW();
+CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
+
+    SET NEW.updated_at = NOW();
+
 END;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
@@ -743,6 +769,7 @@ INSERT INTO `permissions` (`id`, `nombre`, `slug`, `created_at`) VALUES
   (27, 'Ver stock', 'ver_stock', NOW()),
   (41, 'Ver proveedores', 'ver_proveedores', NOW()),
   (42, 'Editar proveedores', 'editar_proveedores', NOW()),
+  (43, 'Emitir nota de crédito', 'emitir_nota_credito', NOW()),
   (44, 'Ver cuenta corriente', 'ver_cuenta_corriente', NOW()),
   (45, 'Caja: vender en CC', 'registrar_cargo_cc', NOW()),
   (46, 'Registrar pago CC', 'registrar_pago_cc', NOW()),
@@ -768,7 +795,7 @@ FROM `permissions` p
 WHERE p.`slug` IN (
   'ver_costos','editar_productos','editar_stock','abrir_caja','cerrar_caja','ver_reportes','ver_movimientos',
   'realizar_ventas','ver_historial_caja','administrar_config','caja_modificar_precio','emitir_factura',
-  'editar_promos','ver_productos','ver_stock','ver_proveedores','editar_proveedores','ver_facturacion'
+  'emitir_nota_credito','editar_promos','ver_productos','ver_stock','ver_proveedores','editar_proveedores','ver_facturacion'
 );
 
 INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
