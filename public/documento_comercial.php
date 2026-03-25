@@ -73,6 +73,17 @@ function documento_comercial_venta_existe(PDO $pdo, int $ventaId): bool
     return (bool)($st->fetch(PDO::FETCH_ASSOC) ?: null);
 }
 
+function documento_comercial_cliente_nombre(array $clientes, int $clienteId): string
+{
+    foreach ($clientes as $cliente) {
+        if ((int)($cliente['id'] ?? 0) === $clienteId) {
+            return trim((string)($cliente['nombre'] ?? '')) ?: 'Cliente #' . $clienteId;
+        }
+    }
+
+    return $clienteId > 0 ? 'Cliente #' . $clienteId : 'Sin cliente';
+}
+
 $canEmitir = function_exists('user_has_permission') && user_has_permission('emitir_factura');
 $facturacionHabilitada = flus_facturacion_habilitada($pdo);
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
@@ -143,33 +154,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Documento comercial no encontrado.');
             }
 
+            if ($action === 'actualizar_documento_base') {
+                flus_facturacion_documento_actualizar_cabecera($pdo, (int)$documento['id'], [
+                    'cliente_id' => (int)($_POST['cliente_id_edit'] ?? $clienteIdForm),
+                    'nota' => trim((string)($_POST['nota_edit'] ?? $nota)),
+                ]);
+                header('Location: documento_comercial.php?id=' . (int)$documento['id'] . '&ok=actualizado');
+                exit;
+            }
+
+            $accionesDocumento = flus_facturacion_documento_acciones($pdo, (int)$documento['id']);
+
             if ($action === 'crear_remito') {
+                if (!$accionesDocumento['puede_generar_remito']) {
+                    throw new RuntimeException((string)($accionesDocumento['motivo_generar_remito'] ?? 'No se puede generar remito para este documento.'));
+                }
                 $remitoId = flus_facturacion_documento_clonar($pdo, (int)$documento['id'], 'REMITO', [], [
-                    'reusar_existente' => true,
+                    'reusar_existente' => false,
                 ]);
                 header('Location: documento_comercial.php?id=' . $remitoId);
                 exit;
             }
 
             if ($action === 'crear_venta') {
+                if (!$accionesDocumento['puede_generar_venta']) {
+                    throw new RuntimeException((string)($accionesDocumento['motivo_generar_venta'] ?? 'No se puede generar una venta para este documento.'));
+                }
                 $ventaId = flus_facturacion_documento_convertir_a_venta_manual($pdo, (int)$documento['id']);
                 header('Location: documento_comercial.php?id=' . (int)$documento['id'] . '&ok=venta&venta_id=' . $ventaId);
                 exit;
             }
 
             if ($action === 'vincular_venta') {
+                if (!$accionesDocumento['puede_vincular_venta']) {
+                    throw new RuntimeException((string)($accionesDocumento['motivo_vincular_venta'] ?? 'No se puede vincular una venta a este documento.'));
+                }
                 if (!documento_comercial_venta_existe($pdo, $ventaIdLink)) {
                     throw new RuntimeException('La venta indicada no existe.');
                 }
-                flus_facturacion_documento_actualizar_venta($pdo, (int)$documento['id'], $ventaIdLink);
-                if (flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? '')) === 'PRESUPUESTO') {
-                    flus_facturacion_documento_actualizar_estado($pdo, (int)$documento['id'], 'CONVERTIDO_VENTA');
-                }
+                flus_facturacion_documento_vincular_venta($pdo, (int)$documento['id'], $ventaIdLink);
                 header('Location: documento_comercial.php?id=' . (int)$documento['id'] . '&ok=vinculo');
                 exit;
             }
 
             if ($action === 'emitir_factura') {
+                if (!$accionesDocumento['puede_emitir_factura']) {
+                    throw new RuntimeException((string)($accionesDocumento['motivo_emitir_factura'] ?? 'No se puede emitir factura para este documento.'));
+                }
                 if (!$facturacionHabilitada) {
                     throw new RuntimeException('La facturacion fiscal esta desactivada en esta instalacion.');
                 }
@@ -190,6 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $documento = $id > 0 ? flus_facturacion_documento_buscar($pdo, $id) : $documento;
 $relaciones = $documento ? flus_facturacion_documento_relaciones($pdo, (int)$documento['id']) : ['origen' => null, 'hijos' => [], 'factura' => null];
 $documentoItems = $documento ? flus_facturacion_documento_items_fetch($pdo, (int)$documento['id']) : [];
+$accionesDocumento = $documento ? flus_facturacion_documento_acciones($pdo, (int)$documento['id']) : null;
 
 if ($documento && $documentoItems !== [] && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $rows = array_map(static function (array $item): array {
@@ -221,6 +253,11 @@ $facturaRelacionada = is_array($relaciones['factura'] ?? null) ? $relaciones['fa
 $documentoOrigen = is_array($relaciones['origen'] ?? null) ? $relaciones['origen'] : null;
 $documentoHijos = is_array($relaciones['hijos'] ?? null) ? $relaciones['hijos'] : [];
 $ok = trim((string)($_GET['ok'] ?? ''));
+$clienteActualNombre = $documento ? documento_comercial_cliente_nombre($clientes, (int)($documento['cliente_id'] ?? 0)) : '';
+$remitoRelacionado = is_array($accionesDocumento['remito'] ?? null) ? $accionesDocumento['remito'] : null;
+$ventaRelacionada = is_array($accionesDocumento['venta'] ?? null) ? $accionesDocumento['venta'] : null;
+$siguienteAccionLabel = (string)($accionesDocumento['siguiente_accion_label'] ?? 'Sin acción disponible');
+$impactoOperativo = (string)($accionesDocumento['impacto_operativo'] ?? 'El documento por sí solo no impacta stock ni caja.');
 ?>
 
 <div class="page-wrap facturacion-page">
@@ -231,23 +268,35 @@ $ok = trim((string)($_GET['ok'] ?? ''));
         <h1 class="page-title"><?= h($documento ? ((string)($documento['tipo_documento'] ?? 'Documento') . ' #' . (int)$documento['id']) : ($tipoActual === 'REMITO' ? 'Nuevo remito' : 'Nuevo presupuesto')) ?></h1>
         <p class="page-sub">
           <?php if ($documento): ?>
-            Documento comercial interno sin reemplazar el flujo legacy. Puede vincular venta, remito y factura cuando corresponda.
+            El documento sirve como trazabilidad comercial. La operación real solo ocurre al vincular una venta o emitir factura cuando corresponda.
           <?php else: ?>
-            Crea un <?= strtolower($tipoActual) ?> reutilizando documentos_comerciales y documento_items. No impacta stock ni caja en esta fase.
+            Puedes guardarlo sin cliente como borrador documental. Para generar remito, venta o factura después, primero deberá tener cliente válido.
           <?php endif; ?>
         </p>
       </div>
     </header>
 
     <?php if ($ok === 'venta' && !empty($_GET['venta_id'])): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;">Se genero la venta #<?= (int)$_GET['venta_id'] ?> y quedo vinculada al documento.</div>
+      <div class="alert alert-success" style="margin-bottom:12px;">Se generó la venta #<?= (int)$_GET['venta_id'] ?> y quedó vinculada al documento. El impacto operativo quedó en esa venta.</div>
     <?php elseif ($ok === 'vinculo'): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;">La venta quedo vinculada al documento.</div>
+      <div class="alert alert-success" style="margin-bottom:12px;">La venta quedó vinculada al documento.</div>
+    <?php elseif ($ok === 'actualizado'): ?>
+      <div class="alert alert-success" style="margin-bottom:12px;">La cabecera del documento se actualizó correctamente.</div>
     <?php endif; ?>
 
     <?php foreach ($errores as $error): ?>
       <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
     <?php endforeach; ?>
+
+    <?php if ($documento && is_array($accionesDocumento)): ?>
+      <div class="alert <?= !empty($accionesDocumento['tiene_cliente']) ? 'alert-success' : 'alert-error' ?>" style="margin-bottom:12px;">
+        <strong><?= h($siguienteAccionLabel) ?>.</strong>
+        <?= h($impactoOperativo) ?>
+        <?php if (empty($accionesDocumento['tiene_cliente'])): ?>
+          Agrega un cliente para habilitar remito, venta, factura o vínculo con venta existente.
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
 
     <?php if (!$documento): ?>
       <form method="post" class="fact-form fact-manual-form">
@@ -335,7 +384,7 @@ $ok = trim((string)($_GET['ok'] ?? ''));
                 <span>Total estimado</span>
                 <strong><?= money_ar($previewTotal) ?></strong>
               </div>
-              <p class="fact-sidebar-card__text">La carga documental no emite fiscalmente ni impacta stock/caja en esta fase.</p>
+              <p class="fact-sidebar-card__text">Si lo guardas sin cliente quedará como borrador. Para pasar a operación real, luego deberás asignarle un cliente.</p>
             </article>
 
             <div class="fact-actions fact-actions--sidebar">
@@ -358,14 +407,14 @@ $ok = trim((string)($_GET['ok'] ?? ''));
           <span class="fact-kpi-card__help">Origen <?= h((string)($documento['origen'] ?? 'MANUAL')) ?></span>
         </article>
         <article class="fact-kpi-card">
-          <span class="fact-kpi-card__label">Total</span>
-          <strong class="fact-kpi-card__value"><?= money_ar($previewTotal) ?></strong>
-          <span class="fact-kpi-card__help">Cliente #<?= (int)($documento['cliente_id'] ?? 0) ?: 0 ?></span>
+          <span class="fact-kpi-card__label">Cliente operativo</span>
+          <strong class="fact-kpi-card__value"><?= !empty($accionesDocumento['tiene_cliente']) ? h($clienteActualNombre) : 'BORRADOR' ?></strong>
+          <span class="fact-kpi-card__help"><?= !empty($accionesDocumento['tiene_cliente']) ? 'Listo para operar' : 'Sin cliente: solo documental' ?></span>
         </article>
         <article class="fact-kpi-card">
-          <span class="fact-kpi-card__label">Venta vinculada</span>
-          <strong class="fact-kpi-card__value"><?= (int)($documento['venta_id'] ?? 0) > 0 ? '#' . (int)$documento['venta_id'] : '—' ?></strong>
-          <span class="fact-kpi-card__help">Sin tocar el flujo legacy</span>
+          <span class="fact-kpi-card__label">Siguiente acción</span>
+          <strong class="fact-kpi-card__value"><?= h($siguienteAccionLabel) ?></strong>
+          <span class="fact-kpi-card__help"><?= h($impactoOperativo) ?></span>
         </article>
       </section>
 
@@ -379,11 +428,28 @@ $ok = trim((string)($_GET['ok'] ?? ''));
               </div>
             </div>
             <div class="fact-card-body fact-card-body-cabecera">
-              <div class="fact-form-grid">
-                <div class="ff-field"><label>Cliente</label><input type="text" readonly value="<?= h((string)($documento['cliente_id'] ?? 0) > 0 ? ((string)($clientes[array_search((int)$documento['cliente_id'], array_column($clientes, 'id'), true)]['nombre'] ?? ('Cliente #' . (int)$documento['cliente_id']))) : 'Sin cliente') ?>"></div>
-                <div class="ff-field"><label>Creado</label><input type="text" readonly value="<?= h((string)($documento['created_at'] ?? '')) ?>"></div>
-                <div class="ff-field ff-field-wide"><label>Nota</label><input type="text" readonly value="<?= h((string)($documento['nota'] ?? '')) ?>"></div>
-              </div>
+              <form method="post">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
+                <input type="hidden" name="action" value="actualizar_documento_base">
+                <div class="fact-form-grid">
+                  <div class="ff-field">
+                    <label>Cliente</label>
+                    <select name="cliente_id_edit">
+                      <option value="0">Sin cliente / borrador</option>
+                      <?php foreach ($clientes as $cli): ?>
+                        <option value="<?= (int)$cli['id'] ?>" <?= (int)($documento['cliente_id'] ?? 0) === (int)$cli['id'] ? 'selected' : '' ?>><?= h((string)($cli['nombre'] ?? 'Cliente')) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </div>
+                  <div class="ff-field"><label>Creado</label><input type="text" readonly value="<?= h((string)($documento['created_at'] ?? '')) ?>"></div>
+                  <div class="ff-field ff-field-wide"><label>Nota</label><input type="text" name="nota_edit" value="<?= h((string)($documento['nota'] ?? '')) ?>"></div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                  <button type="submit" class="btn btn-secondary">Guardar cabecera</button>
+                  <span class="fact-cell-sub">Usa este bloque para sacar el documento de borrador sin rehacerlo.</span>
+                </div>
+              </form>
             </div>
           </article>
 
@@ -461,11 +527,15 @@ $ok = trim((string)($_GET['ok'] ?? ''));
                     <?php endif; ?>
                   </div>
                 </div>
+                <div class="ff-field">
+                  <label>Operación real</label>
+                  <div><span class="fact-cell-sub"><?= h($impactoOperativo) ?></span></div>
+                </div>
                 <div class="ff-field ff-field-wide">
                   <label>Documentos derivados</label>
                   <div>
                     <?php if ($documentoHijos === []): ?>
-                      <span class="fact-cell-sub">Todavia no hay documentos derivados.</span>
+                      <span class="fact-cell-sub">Todavía no hay documentos derivados.</span>
                     <?php else: ?>
                       <?php foreach ($documentoHijos as $hijo): ?>
                         <div><a href="documento_comercial.php?id=<?= (int)$hijo['id'] ?>" class="fact-link-inline"><?= h((string)($hijo['tipo_documento'] ?? 'Documento')) ?> #<?= (int)$hijo['id'] ?></a> <span class="fact-cell-sub">(<?= h((string)($hijo['estado'] ?? 'PENDIENTE')) ?>)</span></div>
@@ -481,49 +551,77 @@ $ok = trim((string)($_GET['ok'] ?? ''));
         <aside class="fact-manual-sidebar">
           <article class="fact-sidebar-card">
             <h3>Acciones</h3>
-            <p class="fact-sidebar-card__text">Estas acciones reusan la capa documental ya existente. No reemplazan caja ni stock legacy.</p>
+            <p class="fact-sidebar-card__text">FLUS muestra solo la siguiente acción válida y bloquea los pasos que ya no corresponden.</p>
+          </article>
+
+          <article class="fact-sidebar-card">
+            <h3>Estado operativo</h3>
+            <div class="fact-sidebar-card__metric">
+              <span>Próximo paso</span>
+              <strong><?= h($siguienteAccionLabel) ?></strong>
+            </div>
+            <p class="fact-sidebar-card__text"><?= h($impactoOperativo) ?></p>
           </article>
 
           <div class="fact-actions fact-actions--sidebar" style="display:flex;flex-direction:column;gap:10px;">
-            <?php if ($tipoActual === 'PRESUPUESTO'): ?>
+            <?php if ($ventaRelacionada): ?>
+              <a href="venta_detalle.php?id=<?= (int)$ventaRelacionada['id'] ?>" class="btn btn-secondary" style="text-align:center;">Ver venta #<?= (int)$ventaRelacionada['id'] ?></a>
+            <?php elseif ($tipoActual === 'PRESUPUESTO' && !empty($accionesDocumento['puede_generar_venta'])): ?>
               <form method="post">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
                 <input type="hidden" name="action" value="crear_venta">
-                <button type="submit" class="btn btn-secondary" style="width:100%;">Generar venta interna</button>
+                <button type="submit" class="btn btn-secondary" style="width:100%;">Generar venta vinculada</button>
               </form>
+            <?php else: ?>
+              <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_generar_venta'] ?? '')) ?></div>
+            <?php endif; ?>
 
+            <?php if ($tipoActual === 'PRESUPUESTO'): ?>
+              <?php if ($remitoRelacionado): ?>
+                <a href="documento_comercial.php?id=<?= (int)$remitoRelacionado['id'] ?>" class="btn btn-secondary" style="text-align:center;">Ver remito #<?= (int)$remitoRelacionado['id'] ?></a>
+                <div class="fact-cell-sub">El remito ya fue generado para este presupuesto.</div>
+              <?php elseif (!empty($accionesDocumento['puede_generar_remito'])): ?>
+                <form method="post">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
+                  <input type="hidden" name="action" value="crear_remito">
+                  <button type="submit" class="btn btn-secondary" style="width:100%;">Generar remito</button>
+                </form>
+              <?php else: ?>
+                <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_generar_remito'] ?? '')) ?></div>
+              <?php endif; ?>
+            <?php endif; ?>
+
+            <?php if ($facturaRelacionada): ?>
+              <a href="factura_ver.php?id=<?= (int)$facturaRelacionada['id'] ?>" class="btn btn-primary" style="text-align:center;">Ver factura #<?= (int)$facturaRelacionada['id'] ?></a>
+              <div class="fact-cell-sub">Ya no corresponde volver a emitir otra factura desde este documento.</div>
+            <?php else: ?>
               <form method="post">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
-                <input type="hidden" name="action" value="crear_remito">
-                <button type="submit" class="btn btn-secondary" style="width:100%;">Generar remito</button>
+                <input type="hidden" name="action" value="emitir_factura">
+                <button type="submit" class="btn btn-primary" style="width:100%;" <?= empty($accionesDocumento['puede_emitir_factura']) ? 'disabled' : '' ?>>Emitir factura</button>
               </form>
+              <?php if (empty($accionesDocumento['puede_emitir_factura'])): ?>
+                <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_emitir_factura'] ?? '')) ?></div>
+              <?php endif; ?>
             <?php endif; ?>
 
-            <form method="post">
-              <?= csrf_field() ?>
-              <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
-              <input type="hidden" name="action" value="emitir_factura">
-              <button type="submit" class="btn btn-primary" style="width:100%;" <?= (!$facturacionHabilitada || $facturaRelacionada) ? 'disabled' : '' ?>>Emitir factura</button>
-            </form>
-            <?php if (!$facturacionHabilitada): ?>
-              <div class="fact-cell-sub">La facturación fiscal está desactivada.</div>
-            <?php elseif ($facturaRelacionada): ?>
-              <div class="fact-cell-sub">Ya existe una factura vinculada a este documento.</div>
-            <?php endif; ?>
-
-            <form method="post">
-              <?= csrf_field() ?>
-              <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
-              <input type="hidden" name="action" value="vincular_venta">
-              <label for="venta_id_link" class="fact-cell-sub">Vincular venta existente</label>
-              <input id="venta_id_link" type="number" name="venta_id_link" min="1" step="1" class="input-search" placeholder="Venta #" value="<?= (int)($documento['venta_id'] ?? 0) > 0 ? (int)$documento['venta_id'] : '' ?>">
-              <button type="submit" class="btn btn-secondary" style="width:100%;margin-top:8px;">Guardar vínculo</button>
-            </form>
-
-            <?php if ((int)($documento['venta_id'] ?? 0) > 0): ?>
-              <a href="venta_detalle.php?id=<?= (int)$documento['venta_id'] ?>" class="btn btn-secondary" style="text-align:center;">Ver venta</a>
+            <?php if (empty($ventaRelacionada)): ?>
+              <form method="post">
+                <?= csrf_field() ?>
+                <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
+                <input type="hidden" name="action" value="vincular_venta">
+                <label for="venta_id_link" class="fact-cell-sub">Vincular venta existente</label>
+                <input id="venta_id_link" type="number" name="venta_id_link" min="1" step="1" class="input-search" placeholder="Venta #" value="">
+                <button type="submit" class="btn btn-secondary" style="width:100%;margin-top:8px;" <?= empty($accionesDocumento['puede_vincular_venta']) ? 'disabled' : '' ?>>Guardar vínculo</button>
+              </form>
+              <?php if (empty($accionesDocumento['puede_vincular_venta'])): ?>
+                <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_vincular_venta'] ?? '')) ?></div>
+              <?php else: ?>
+                <div class="fact-cell-sub">Solo se aceptan ventas del mismo cliente. Si la venta no tiene cliente, FLUS la completa con el del documento.</div>
+              <?php endif; ?>
             <?php endif; ?>
           </div>
         </aside>

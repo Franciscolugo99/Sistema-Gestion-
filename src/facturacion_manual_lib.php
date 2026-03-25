@@ -889,7 +889,7 @@ function flus_facturacion_manual_retry_state_es_reutilizable(string $estadoFisca
         $estado = 'AUTORIZADA';
     }
 
-    return in_array($estado, ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'AUTORIZADA'], true);
+    return in_array($estado, ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'AUTORIZADA', 'RECUPERADA'], true);
 }
 
 function flus_facturacion_manual_retry_state_buscar(int $clienteId, array $items): ?array

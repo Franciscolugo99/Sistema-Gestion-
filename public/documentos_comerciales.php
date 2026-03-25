@@ -21,6 +21,36 @@ $q = trim((string)($_GET['q'] ?? ''));
 $clienteId = (int)($_GET['cliente_id'] ?? 0);
 $ventaId = (int)($_GET['venta_id'] ?? 0);
 
+function documentos_comerciales_resumen_operativo(array $row): array
+{
+    $tipo = strtoupper(trim((string)($row['tipo_documento'] ?? '')));
+    $estado = strtoupper(trim((string)($row['estado'] ?? 'PENDIENTE')));
+    $clienteId = (int)($row['cliente_id'] ?? 0);
+    $ventaId = (int)($row['venta_id'] ?? 0);
+    $facturaId = (int)($row['factura_id'] ?? 0);
+
+    if ($facturaId > 0 || $estado === 'FACTURADO') {
+        return ['estado' => 'Facturado', 'siguiente' => 'Ver factura'];
+    }
+    if ($ventaId > 0 || $estado === 'CONVERTIDO_VENTA') {
+        return ['estado' => 'Venta vinculada', 'siguiente' => 'Ver venta'];
+    }
+    if ($clienteId <= 0) {
+        return ['estado' => 'Borrador', 'siguiente' => 'Completar cliente'];
+    }
+    if ($tipo === 'PRESUPUESTO' && $estado === 'REMITADO') {
+        return ['estado' => 'Remito generado', 'siguiente' => 'Ver remito / continuar operación'];
+    }
+    if ($tipo === 'PRESUPUESTO') {
+        return ['estado' => 'Listo para operar', 'siguiente' => 'Generar remito o venta'];
+    }
+    if ($tipo === 'REMITO') {
+        return ['estado' => 'Listo para cierre', 'siguiente' => 'Emitir factura o vincular venta'];
+    }
+
+    return ['estado' => 'Documental', 'siguiente' => 'Ver detalle'];
+}
+
 $pageTitle = 'Documentos comerciales';
 $currentSection = 'facturacion';
 $breadcrumbs = [
@@ -98,7 +128,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
         <div class="module-header-copy">
           <span class="module-eyebrow">Capa documental</span>
           <h1 class="page-title module-title">Documentos comerciales</h1>
-          <p class="page-sub module-subtitle">Base mínima de presupuestos y remitos sobre documentos_comerciales, sin forzar flujo fiscal.</p>
+          <p class="page-sub module-subtitle">Los documentos pueden quedar como borrador sin cliente, pero solo pasan a operación real cuando tienen cliente y una acción válida pendiente.</p>
         </div>
       </div>
       <div class="promo-actions-top module-header-actions">
@@ -165,7 +195,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               <th>Documento</th>
               <th>Cliente</th>
               <th class="t-right">Total</th>
-              <th>Estado</th>
+              <th>Estado / siguiente</th>
               <th>Venta</th>
               <th>Origen / factura</th>
               <th>Acciones</th>
@@ -183,6 +213,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               $facturaLinked = (int)($row['factura_id'] ?? 0);
               $origenId = (int)($row['origen_id'] ?? 0);
               $origenTipo = trim((string)($row['origen_tipo'] ?? ''));
+              $operativo = documentos_comerciales_resumen_operativo($row);
             ?>
             <tr>
               <td class="mono">
@@ -195,17 +226,20 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               </td>
               <td>
                 <div class="fact-doc-title"><?= h($clienteNombre) ?></div>
-                <div class="fact-cell-sub"><?= $clienteCuit !== '' ? h($clienteCuit) : 'Sin CUIT/documento' ?></div>
+                <div class="fact-cell-sub"><?= (int)($row['cliente_id'] ?? 0) > 0 ? ($clienteCuit !== '' ? h($clienteCuit) : 'Cliente sin CUIT/documento') : 'Borrador sin cliente' ?></div>
               </td>
               <td class="t-right"><div class="fact-doc-title"><?= money_ar((float)($row['total'] ?? 0)) ?></div></td>
               <td>
                 <span class="fact-status-badge <?= in_array(strtoupper(trim((string)($row['estado'] ?? ''))), ['ANULADO', 'CANCELADO'], true) ? 'fact-status-badge--danger' : 'fact-status-badge--ok' ?>">
                   <?= h((string)($row['estado'] ?? 'PENDIENTE')) ?>
                 </span>
+                <div class="fact-cell-sub"><?= h((string)($operativo['estado'] ?? 'Documental')) ?></div>
+                <div class="fact-cell-sub"><?= h((string)($operativo['siguiente'] ?? 'Ver detalle')) ?></div>
               </td>
               <td>
                 <?php if ($ventaLinked > 0): ?>
                   <a href="venta_detalle.php?id=<?= $ventaLinked ?>" class="fact-link-inline">Venta #<?= $ventaLinked ?></a>
+                  <div class="fact-cell-sub">La venta es la que impacta stock/caja.</div>
                 <?php else: ?>
                   <span class="fact-cell-sub">Sin venta</span>
                 <?php endif; ?>

@@ -822,7 +822,7 @@ function flus_facturacion_normalizar_cae_vto(?string $caeVto): ?string
 function flus_facturacion_estado_fiscal_normalizar(?string $raw): string
 {
     $estado = strtoupper(trim((string)$raw));
-    $allowed = ['NO_APLICA', 'PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'AUTORIZADA', 'RECHAZADA'];
+    $allowed = ['NO_APLICA', 'PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'AUTORIZADA', 'RECUPERADA', 'RECHAZADA'];
     return in_array($estado, $allowed, true) ? $estado : 'NO_APLICA';
 }
 
@@ -831,9 +831,62 @@ function flus_facturacion_estado_fiscal_label(string $raw): string
     return match (flus_facturacion_estado_fiscal_normalizar($raw)) {
         'PENDIENTE_ENVIO' => 'Pendiente de envío',
         'ERROR_TRANSITORIO' => 'Error transitorio',
+        'ERROR_POST_ARCA' => 'Error post-ARCA',
         'AUTORIZADA' => 'Autorizada',
+        'RECUPERADA' => 'Recuperada',
         'RECHAZADA' => 'Rechazada',
         default => 'No aplica',
+    };
+}
+
+function flus_facturacion_estado_fiscal_requiere_intervencion(?string $raw): bool
+{
+    return in_array(
+        flus_facturacion_estado_fiscal_normalizar($raw),
+        ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA'],
+        true
+    );
+}
+
+function flus_facturacion_estado_fiscal_regularizable(?string $raw): bool
+{
+    return flus_facturacion_estado_fiscal_requiere_intervencion($raw);
+}
+
+function flus_facturacion_estado_fiscal_detalle_operativo(?string $raw): string
+{
+    return match (flus_facturacion_estado_fiscal_normalizar($raw)) {
+        'PENDIENTE_ENVIO' => 'Registrada localmente y pendiente de envío o confirmación ante ARCA.',
+        'ERROR_TRANSITORIO' => 'Falló el envío o la disponibilidad de ARCA. Se puede reintentar en forma segura.',
+        'ERROR_POST_ARCA' => 'ARCA pudo haber autorizado el comprobante, pero FLUS no cerró la registración local. Requiere regularización sin reenvío automático.',
+        'RECUPERADA' => 'La factura quedó regularizada desde trazas/eventos sin duplicar emisión.',
+        'AUTORIZADA' => 'La factura quedó autorizada y cerrada localmente.',
+        'RECHAZADA' => 'ARCA rechazó el comprobante. Revisa los datos antes de volver a emitir.',
+        default => 'Sin incidencia fiscal pendiente.',
+    };
+}
+
+function flus_facturacion_evento_arca_resultado_label(?string $raw): string
+{
+    return match (strtoupper(trim((string)$raw))) {
+        'PENDIENTE' => 'Pendiente',
+        'OK' => 'Confirmado',
+        'ERROR' => 'Error',
+        default => 'Sin traza visible',
+    };
+}
+
+function flus_facturacion_evento_arca_operacion_label(?string $raw): string
+{
+    return match (strtoupper(trim((string)$raw))) {
+        'FACTURA_VENTA' => 'Factura desde venta',
+        'FACTURA_MANUAL' => 'Factura manual',
+        'FACTURA_RECOVERY' => 'Recovery factura',
+        'NC_TOTAL' => 'NC total',
+        'NC_PARCIAL' => 'NC parcial',
+        'CONSULTA' => 'Consulta',
+        'RECOVERY' => 'Recovery',
+        default => trim((string)$raw),
     };
 }
 
@@ -1566,6 +1619,7 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
     $ventaId = (int)($factura['venta_id'] ?? $context['venta']['id'] ?? 0);
     $intentoNo = max(1, (int)($factura['fiscal_intentos'] ?? 0));
     $timestamp = date('Y-m-d H:i:s');
+    $estadoFinal = !empty($meta['recovered']) ? 'RECUPERADA' : 'AUTORIZADA';
 
     try {
         $pdo->beginTransaction();
@@ -1604,7 +1658,7 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
             'condicion_iva_receptor_id' => $context['comprobante']['condicion_iva_receptor_id'] ?? null,
             'moneda_id' => 'PES',
             'moneda_cotiz' => 1,
-            'estado_fiscal' => 'AUTORIZADA',
+            'estado_fiscal' => $estadoFinal,
             'fiscal_request_uid' => $requestUid !== '' ? $requestUid : null,
             'fiscal_intentos' => $intentoNo,
             'fiscal_error_code' => null,
@@ -1698,7 +1752,7 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
         }
 
         try {
-            $repo->updateFacturaFiscalState($facturaId, 'ERROR_TRANSITORIO', [
+            $repo->updateFacturaFiscalState($facturaId, 'ERROR_POST_ARCA', [
                 'fiscal_error_code' => 'ERROR_POST_ARCA',
                 'fiscal_error_message' => $e->getMessage(),
             ]);
@@ -1724,6 +1778,8 @@ function flus_facturacion_intentar_recovery_simple(PDO $pdo, FacturaFiscalReposi
             return flus_facturacion_finalizar_factura_autorizada($pdo, $repo, $factura, $context, $normalizado, [
                 'raw_request' => flus_facturacion_json_decode_assoc((string)($evento['request_json'] ?? '')),
                 'raw_response' => $response,
+                'recovered' => true,
+                'recovery_source' => 'EVENTO_ARCA',
             ]);
         }
     }
@@ -1760,6 +1816,8 @@ function flus_facturacion_intentar_recovery_simple(PDO $pdo, FacturaFiscalReposi
     return flus_facturacion_finalizar_factura_autorizada($pdo, $repo, $factura, $context, $normalizado, [
         'raw_request' => $context['comprobante'] ?? [],
         'raw_response' => $consulta,
+        'recovered' => true,
+        'recovery_source' => 'CONSULTA_ARCA',
     ]);
 }
 
@@ -1787,6 +1845,10 @@ function flus_facturacion_procesar_factura_registrada(PDO $pdo, array $registro,
     $recovered = flus_facturacion_intentar_recovery_simple($pdo, $repo, $factura, $context);
     if ($recovered !== null) {
         return $recovered;
+    }
+
+    if ($estadoFiscal === 'ERROR_POST_ARCA') {
+        throw new RuntimeException('La factura quedó en ERROR_POST_ARCA. FLUS no la reenviará automáticamente a ARCA: primero hay que regularizarla o confirmar manualmente el resultado remoto.');
     }
 
     $requestUid = trim((string)($context['request_uid'] ?? $factura['fiscal_request_uid'] ?? ''));
@@ -1939,6 +2001,77 @@ function flus_facturacion_emitir_desde_documento(PDO $pdo, int $documentoId, int
     flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'FACTURADO');
 
     return $facturaId;
+}
+
+
+function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $opciones = []): int
+{
+    if ($facturaId <= 0) {
+        throw new RuntimeException('Factura inválida para regularizar.');
+    }
+    if (!flus_facturacion_habilitada($pdo)) {
+        throw new RuntimeException('El módulo de facturación no está habilitado.');
+    }
+
+    $repo = flus_facturacion_fiscal_repository($pdo);
+    $factura = $repo->findFacturaById($facturaId);
+    if (!is_array($factura)) {
+        throw new RuntimeException('Factura no encontrada para regularizar.');
+    }
+
+    $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
+    if ($estadoFiscal === 'AUTORIZADA' || $estadoFiscal === 'RECUPERADA' || trim((string)($factura['cae'] ?? '')) !== '') {
+        return (int)$factura['id'];
+    }
+    if ($estadoFiscal === 'RECHAZADA') {
+        $msg = trim((string)($factura['fiscal_error_message'] ?? ''));
+        throw new RuntimeException($msg !== '' ? $msg : 'La factura fue rechazada y no se puede regularizar automáticamente.');
+    }
+
+    $requestUid = trim((string)($factura['fiscal_request_uid'] ?? $opciones['request_uid'] ?? ''));
+    $clienteId = (int)($factura['cliente_id'] ?? 0);
+    $documentoId = (int)($factura['documento_id'] ?? 0);
+    $ventaId = (int)($factura['venta_id'] ?? 0);
+
+    if ($clienteId <= 0 && $documentoId > 0) {
+        $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+        $clienteId = (int)($documento['cliente_id'] ?? 0);
+    }
+    if ($clienteId <= 0 && $ventaId > 0 && flus_table_exists($pdo, 'ventas')) {
+        $stVenta = $pdo->prepare('SELECT cliente_id FROM ventas WHERE id = ? LIMIT 1');
+        $stVenta->execute([$ventaId]);
+        $clienteId = (int)($stVenta->fetchColumn() ?: 0);
+    }
+    if ($clienteId <= 0) {
+        throw new RuntimeException('La factura no tiene cliente suficiente para rearmar el contexto fiscal.');
+    }
+
+    $baseOpciones = $opciones;
+    if ($requestUid !== '') {
+        $baseOpciones['request_uid'] = $requestUid;
+    }
+
+    if ($documentoId > 0) {
+        $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + [
+            'origen_regularizacion' => true,
+        ]);
+    } elseif ($ventaId > 0) {
+        $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + [
+            'origen_regularizacion' => true,
+        ]);
+    } else {
+        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automáticamente.');
+    }
+
+    return flus_facturacion_procesar_factura_registrada($pdo, $registro, $baseOpciones + [
+        'origen_regularizacion' => true,
+    ]);
+}
+
+function regularizarFacturaFiscal(int $facturaId, array $opciones = []): int
+{
+    $pdo = getPDO();
+    return flus_facturacion_regularizar_factura($pdo, $facturaId, $opciones);
 }
 
 function emitirFacturaDesdeDocumento(int $documentoId, int $clienteId, array $opciones = []): int

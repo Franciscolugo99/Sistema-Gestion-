@@ -58,6 +58,7 @@ function factRangeUrl(string $desde, string $hasta): string
 $desdeRaw = (string)($_GET['desde'] ?? '');
 $hastaRaw = (string)($_GET['hasta'] ?? '');
 $estado = trim((string)($_GET['estado'] ?? ''));
+$estadoFiscalFiltro = strtoupper(trim((string)($_GET['estado_fiscal'] ?? '')));
 $tipoFiltro = strtoupper(trim((string)($_GET['tipo'] ?? '')));
 $search = trim((string)($_GET['q'] ?? ''));
 $clienteId = (int)($_GET['cliente_id'] ?? 0);
@@ -75,6 +76,7 @@ if (!in_array($perPage, [20, 50, 100], true)) {
 }
 $page = max(1, (int)($_GET['page'] ?? 1));
 $allowedEstados = ['EMITIDA', 'ANULADA'];
+$allowedEstadosFiscales = ['NO_APLICA', 'PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'AUTORIZADA', 'RECUPERADA', 'RECHAZADA'];
 $today = new DateTimeImmutable('today');
 $quickRanges = [
     [
@@ -124,6 +126,12 @@ $stats = [
     'tipo_b' => 0,
     'sin_cae_real' => 0,
     'cae_por_vencer' => 0,
+];
+$incidencias = [
+    'pendientes' => 0,
+    'transitorios' => 0,
+    'post_arca' => 0,
+    'recuperadas' => 0,
 ];
 
 $modoFacturacion = 'demo';
@@ -195,6 +203,15 @@ if (!flus_table_exists($pdo, 'facturas')) {
     if ($estado !== '' && in_array($estado, $allowedEstados, true) && $estadoCol) {
         $where[] = 'f.`estado` = :estado';
         $params[':estado'] = $estado;
+    }
+
+    if ($estadoFiscalFiltro !== '' && $estadoFiscalCol) {
+        if (in_array($estadoFiscalFiltro, $allowedEstadosFiscales, true)) {
+            $where[] = "COALESCE(f.`estado_fiscal`, 'NO_APLICA') = :estado_fiscal";
+            $params[':estado_fiscal'] = $estadoFiscalFiltro;
+        } else {
+            $estadoFiscalFiltro = '';
+        }
     }
 
     if ($tipoFiltro !== '' && $tipoCol) {
@@ -378,6 +395,28 @@ if (!flus_table_exists($pdo, 'facturas')) {
         'cae_por_vencer' => (int)($statsRow['cae_por_vencer'] ?? 0),
     ];
 
+    if ($estadoFiscalCol) {
+        $sqlIncidencias = "
+            SELECT
+                SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'PENDIENTE_ENVIO' THEN 1 ELSE 0 END) AS pendientes,
+                SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_TRANSITORIO' THEN 1 ELSE 0 END) AS transitorios,
+                SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_POST_ARCA' THEN 1 ELSE 0 END) AS post_arca,
+                SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECUPERADA' THEN 1 ELSE 0 END) AS recuperadas
+            FROM facturas f
+            {$joinSql}
+            {$whereSql}
+        ";
+        $stIncidencias = $pdo->prepare($sqlIncidencias);
+        $stIncidencias->execute($params);
+        $incidenciasRow = $stIncidencias->fetch(PDO::FETCH_ASSOC) ?: [];
+        $incidencias = [
+            'pendientes' => (int)($incidenciasRow['pendientes'] ?? 0),
+            'transitorios' => (int)($incidenciasRow['transitorios'] ?? 0),
+            'post_arca' => (int)($incidenciasRow['post_arca'] ?? 0),
+            'recuperadas' => (int)($incidenciasRow['recuperadas'] ?? 0),
+        ];
+    }
+
     $sqlList = "
         SELECT
             f.id,
@@ -412,7 +451,7 @@ if (!flus_table_exists($pdo, 'facturas')) {
     $facturas = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
-$hasActiveFilters = $search !== '' || $estado !== '' || $tipoFiltro !== '' || $clienteId > 0 || $ventaIdFiltro > 0 || $desde !== '' || $hasta !== '';
+$hasActiveFilters = $search !== '' || $estado !== '' || $estadoFiscalFiltro !== '' || $tipoFiltro !== '' || $clienteId > 0 || $ventaIdFiltro > 0 || $desde !== '' || $hasta !== '';
 foreach ($quickRanges as &$range) {
     $range['active'] = $desde === $range['desde'] && $hasta === $range['hasta'];
     $range['url'] = factRangeUrl($range['desde'], $range['hasta']);
@@ -426,6 +465,9 @@ if ($tipoFiltro !== '') {
 }
 if ($estado !== '') {
     $filterTags[] = ['label' => 'Estado: ' . $estado, 'url' => urlWithFact(['estado' => null, 'page' => 1])];
+}
+if ($estadoFiscalFiltro !== '') {
+    $filterTags[] = ['label' => 'Fiscal: ' . flus_facturacion_estado_fiscal_label($estadoFiscalFiltro), 'url' => urlWithFact(['estado_fiscal' => null, 'page' => 1])];
 }
 if ($clienteId > 0) {
     $clienteLabel = 'Cliente #' . $clienteId;
@@ -494,6 +536,9 @@ require __DIR__ . '/partials/header.php';
         <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de crédito">
           Notas de crédito
         </a>
+        <a href="facturacion_recovery.php" class="v-btn v-btn--outline" title="Incidencias fiscales y regularización">
+          Incidencias fiscales
+        </a>
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
           <a href="facturacion_config.php" class="v-btn v-btn--outline" title="Configuracion de facturacion">
             Configuracion
@@ -528,6 +573,10 @@ require __DIR__ . '/partials/header.php';
         <div class="fact-overview__item">
           <span>Por pagina</span>
           <strong><?= (int)$perPage ?></strong>
+        </div>
+        <div class="fact-overview__item">
+          <span>Incidencias</span>
+          <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong>
         </div>
       </div>
     </section>
@@ -565,6 +614,20 @@ require __DIR__ . '/partials/header.php';
       </article>
     </section>
 
+    <?php if (($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) > 0): ?>
+      <section class="fact-summary-bar" aria-label="Incidencias fiscales" style="margin-bottom:16px;">
+        <div class="fact-summary-bar__top">
+          <div class="fact-summary-bar__headline">
+            <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong> incidencia<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?> fiscal<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 'es' ?> visible<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?>
+            <span class="muted">| Pendientes <?= number_format($incidencias['pendientes']) ?> · Transitorios <?= number_format($incidencias['transitorios']) ?> · Post-ARCA <?= number_format($incidencias['post_arca']) ?><?php if ($incidencias['recuperadas'] > 0): ?> · Recuperadas <?= number_format($incidencias['recuperadas']) ?><?php endif; ?></span>
+          </div>
+          <div class="fact-summary-bar__actions">
+            <a href="facturacion_recovery.php" class="fact-summary-bar__export">Abrir incidencias</a>
+          </div>
+        </div>
+      </section>
+    <?php endif; ?>
+
     <?php foreach ($avisos as $aviso): ?>
       <div class="alert alert-error" style="margin-bottom:12px;"><?= h($aviso) ?></div>
     <?php endforeach; ?>
@@ -601,6 +664,13 @@ require __DIR__ . '/partials/header.php';
           <option value="">Todos los estados</option>
           <option value="EMITIDA" <?= $estado === 'EMITIDA' ? 'selected' : '' ?>>Emitidas</option>
           <option value="ANULADA" <?= $estado === 'ANULADA' ? 'selected' : '' ?>>Anuladas</option>
+        </select>
+
+        <select name="estado_fiscal">
+          <option value="">Todos los estados fiscales</option>
+          <?php foreach ($allowedEstadosFiscales as $_estadoFiscalOpt): ?>
+            <option value="<?= h($_estadoFiscalOpt) ?>" <?= $estadoFiscalFiltro === $_estadoFiscalOpt ? 'selected' : '' ?>><?= h(flus_facturacion_estado_fiscal_label($_estadoFiscalOpt)) ?></option>
+          <?php endforeach; ?>
         </select>
 
         <?php if ($tiposDisponibles !== []): ?>
@@ -786,6 +856,9 @@ require __DIR__ . '/partials/header.php';
                 <div class="fact-row-actions">
                   <a href="factura_ver.php?id=<?= (int)$factura['id'] ?>" class="btn-mini">Ver</a>
                   <a href="factura_pdf.php?id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--ghost">PDF</a>
+                  <?php if (flus_facturacion_estado_fiscal_regularizable($estadoFiscalFila)): ?>
+                    <a href="facturacion_recovery.php?factura_id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--danger">Regularizar</a>
+                  <?php endif; ?>
                 </div>
               </td>
             </tr>

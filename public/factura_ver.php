@@ -390,6 +390,28 @@ $fiscalErrorCode = trim((string)($factura['fiscal_error_code'] ?? ''));
 $fiscalErrorMessage = trim((string)($factura['fiscal_error_message'] ?? ''));
 $fiscalRequestedAt = trim((string)($factura['fiscal_requested_at'] ?? ''));
 $fiscalApprovedAt = trim((string)($factura['fiscal_approved_at'] ?? ''));
+$envioUltimoCanal = trim((string)($factura['envio_ultimo_canal'] ?? ''));
+$envioUltimoEstado = trim((string)($factura['envio_ultimo_estado'] ?? ''));
+$envioUltimoDestino = trim((string)($factura['envio_ultimo_destino'] ?? ''));
+$envioUltimoAt = trim((string)($factura['envio_ultimo_at'] ?? ''));
+$envioUltimoError = trim((string)($factura['envio_ultimo_error'] ?? ''));
+$fiscalDetalleOperativo = flus_facturacion_estado_fiscal_detalle_operativo($estadoFiscal);
+$fiscalRegularizable = flus_facturacion_estado_fiscal_regularizable($estadoFiscal);
+$fiscalEventoArca = null;
+if ($fiscalRequestUid !== '' && flus_table_exists($pdo, 'factura_eventos_arca')) {
+    try {
+        $stEventoArca = $pdo->prepare('SELECT * FROM factura_eventos_arca WHERE request_uid = ? LIMIT 1');
+        $stEventoArca->execute([$fiscalRequestUid]);
+        $fiscalEventoArca = $stEventoArca->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) {
+        $fiscalEventoArca = null;
+    }
+}
+$arcaResultado = trim((string)($fiscalEventoArca['resultado'] ?? ''));
+$arcaOperacion = trim((string)($fiscalEventoArca['operacion'] ?? ''));
+$arcaModo = trim((string)($fiscalEventoArca['modo'] ?? ''));
+$arcaAt = trim((string)($fiscalEventoArca['finished_at'] ?? $fiscalEventoArca['created_at'] ?? ''));
+$arcaError = trim((string)($fiscalEventoArca['error_message'] ?? ''));
 
 $fiscalData = null;
 if (flus_table_exists($pdo, 'venta_fiscal')) {
@@ -942,6 +964,19 @@ if ($pdfMode) {
         <?php endif; ?>
       <?php endif; ?>
 
+      <?php if (!$pdfMode && flus_facturacion_estado_fiscal_requiere_intervencion($estadoFiscal)): ?>
+        <section class="factura-box factura-box--payment no-print" style="border-color:var(--color-warning,#f59e0b);">
+          <div class="box-title">Incidencia fiscal</div>
+          <div class="payment-stack">
+            <div><strong><?= h($estadoFiscalLabel) ?>:</strong> <?= h($fiscalDetalleOperativo) ?></div>
+            <?php if ($fiscalErrorMessage !== ''): ?>
+              <div><strong>Ultimo error:</strong> <?= h($fiscalErrorMessage) ?></div>
+            <?php endif; ?>
+            <div><a href="facturacion_recovery.php?factura_id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--danger">Regularizar factura</a></div>
+          </div>
+        </section>
+      <?php endif; ?>
+
       <section class="factura-box factura-box--fiscal">
         <div class="box-title">Datos fiscales</div>
         <div class="fiscal-stack">
@@ -964,6 +999,21 @@ if ($pdfMode) {
           <?php endif; ?>
           <?php if (!$pdfMode && ($fiscalErrorCode !== '' || $fiscalErrorMessage !== '')): ?>
             <div class="fiscal-row--internal"><strong>Error fiscal:</strong> <?= h(trim($fiscalErrorCode . ' ' . $fiscalErrorMessage)) ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && $arcaResultado !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Ultima interaccion ARCA:</strong> <?= h(flus_facturacion_evento_arca_resultado_label($arcaResultado)) ?><?= $arcaOperacion !== '' ? ' · ' . h(flus_facturacion_evento_arca_operacion_label($arcaOperacion)) : '' ?><?= $arcaModo !== '' ? ' · ' . h(flus_facturacion_modo_label($arcaModo)) : '' ?><?= $arcaAt !== '' ? ' · ' . h($arcaAt) : '' ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && $arcaError !== '' && $arcaError !== $fiscalErrorMessage): ?>
+            <div class="fiscal-row--internal"><strong>Traza ARCA:</strong> <?= h($arcaError) ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && $fiscalDetalleOperativo !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Operativamente:</strong> <?= h($fiscalDetalleOperativo) ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && ($envioUltimoCanal !== '' || $envioUltimoEstado !== '' || $envioUltimoDestino !== '' || $envioUltimoAt !== '' || $envioUltimoError !== '')): ?>
+            <div class="fiscal-row--internal"><strong>Ultimo envio comercial:</strong> <?= h($envioUltimoCanal !== '' ? $envioUltimoCanal : 'Canal no informado') ?><?= $envioUltimoEstado !== '' ? ' · ' . h($envioUltimoEstado) : '' ?><?= $envioUltimoDestino !== '' ? ' · ' . h($envioUltimoDestino) : '' ?><?= $envioUltimoAt !== '' ? ' · ' . h($envioUltimoAt) : '' ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && $envioUltimoError !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Error de envio comercial:</strong> <?= h($envioUltimoError) ?></div>
           <?php endif; ?>
           <div class="fiscal-note<?= $pdfMode ? '' : ' fiscal-note--internal' ?>"><?= h($footerModo) ?></div>
           <?php if ($qrData !== null): ?>

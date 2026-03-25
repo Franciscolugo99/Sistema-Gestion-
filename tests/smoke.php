@@ -1797,10 +1797,39 @@ $results[] = flus_run_test('fase 3 migracion y wiring mantienen alcance minimo y
 $results[] = flus_run_test('errores ARCA se clasifican en estados fiscales consistentes', function (): void {
     flus_assert_same('Pendiente de envío', flus_facturacion_estado_fiscal_label('PENDIENTE_ENVIO'));
     flus_assert_same('Autorizada', flus_facturacion_estado_fiscal_label('AUTORIZADA'));
+    flus_assert_same('Error post-ARCA', flus_facturacion_estado_fiscal_label('ERROR_POST_ARCA'));
+    flus_assert_same('Recuperada', flus_facturacion_estado_fiscal_label('RECUPERADA'));
+    flus_assert_true(flus_facturacion_estado_fiscal_requiere_intervencion('ERROR_POST_ARCA'));
+    flus_assert_false(flus_facturacion_estado_fiscal_requiere_intervencion('RECUPERADA'));
     flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('SOAP Fault: timeout al conectar con WSAA'));
     flus_assert_same('RECHAZADA', flus_facturacion_estado_fiscal_por_error('[10015] El numero de documento es invalido'));
     flus_assert_same('TRANSIENT', flus_facturacion_error_code('SOAP Fault: timeout al conectar con WSAA'));
     flus_assert_same('10015', flus_facturacion_error_code('[10015] El numero de documento es invalido'));
+    flus_assert_true(flus_facturacion_manual_retry_state_es_reutilizable('ERROR_POST_ARCA'));
+    flus_assert_true(flus_facturacion_manual_retry_state_es_reutilizable('RECUPERADA'));
+});
+
+$results[] = flus_run_test('fase 7 deja recovery comun cableado sin romper baseline', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '022_facturas_fiscal_contingencia.sql');
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $repoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'Repository' . DIRECTORY_SEPARATOR . 'PdoFacturaFiscalRepository.php');
+    $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+    $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+
+    flus_assert_contains('ERROR_POST_ARCA', $migrationSql);
+    flus_assert_contains('RECUPERADA', $migrationSql);
+    flus_assert_not_contains('ERROR_POST_ARCA', $installSql);
+    flus_assert_not_contains('RECUPERADA', $installSql);
+    flus_assert_contains('flus_facturacion_regularizar_factura', $facturacionLib);
+    flus_assert_not_contains('envio_ultimo_estado', $facturacionLib);
+    flus_assert_not_contains("'envio_ultimo_estado'", $repoPhp);
+    flus_assert_contains('facturacion_recovery.php', $facturacionPhp);
+    flus_assert_contains('Regularizar factura', $facturaVerPhp);
+    flus_assert_contains('Ultima interaccion ARCA', $recoveryPhp);
+    flus_assert_contains('Ultimo envio comercial', $facturaVerPhp);
 });
 
 $results[] = flus_run_test('baseline install.sql mas migraciones no superpone columnas de fase 1', function (): void {
