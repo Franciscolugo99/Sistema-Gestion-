@@ -1250,6 +1250,11 @@ function flus_facturacion_asegurar_registro_desde_documento(PDO $pdo, int $docum
             (int)($factura['id'] ?? 0),
             (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null
         );
+        flus_cobranzas_link_receipt_factura_from_documento(
+            $pdo,
+            (int)($context['documento']['id'] ?? 0),
+            (int)($factura['id'] ?? 0)
+        );
 
         if ($ownsTx && $pdo->inTransaction()) {
             $pdo->commit();
@@ -1445,6 +1450,11 @@ function flus_facturacion_asegurar_registro_desde_venta(PDO $pdo, int $ventaId, 
             $ventaId,
             (int)($factura['id'] ?? 0),
             null
+        );
+        flus_cobranzas_link_receipt_factura_from_documento(
+            $pdo,
+            (int)($context['documento']['id'] ?? 0),
+            (int)($factura['id'] ?? 0)
         );
 
         if ($ownsTx && $pdo->inTransaction()) {
@@ -1653,6 +1663,11 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
             $ventaId,
             $facturaId,
             (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null
+        );
+        flus_cobranzas_link_receipt_factura_from_documento(
+            $pdo,
+            (int)($context['documento']['id'] ?? 0),
+            $facturaId
         );
 
         $pdo->commit();

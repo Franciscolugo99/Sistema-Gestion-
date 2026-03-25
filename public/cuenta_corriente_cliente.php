@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/includes/CuentaCorrienteController.php';
+require_once __DIR__ . '/../src/cobranzas_lib.php';
 
 require_login();
 require_permission('ver_cuenta_corriente');
@@ -75,6 +76,66 @@ if ($focusMov > 0) {
 
 $resultado = $cc->getMovimientos($clienteId, $filtros);
 $movimientos = $resultado['movimientos'];
+
+// ── Recibos: enriquecer filas PAGO con cobranza_id, recibo_documento_id y tipo_aplicacion ──
+// La tabla cuenta_corriente_movimientos no tiene estos campos; el vínculo está en cobranzas.cc_movimiento_id
+$cobranzaByMovId = [];
+if (!empty($movimientos) && flus_cobranzas_tables_ready($pdo)) {
+    $pagoMovIds = [];
+    foreach ($movimientos as $_m) {
+        if (($_m['tipo'] ?? '') === 'PAGO') {
+            $_mid = (int)($_m['id'] ?? 0);
+            if ($_mid > 0) $pagoMovIds[] = $_mid;
+        }
+    }
+    if ($pagoMovIds !== []) {
+        $ph = implode(',', array_fill(0, count($pagoMovIds), '?'));
+        $selectRecibo = flus_column_exists($pdo, 'cobranzas', 'recibo_documento_id')
+            ? 'c.recibo_documento_id'
+            : '0 AS recibo_documento_id';
+        try {
+            $stCob = $pdo->prepare("
+                SELECT c.cc_movimiento_id, c.id AS cobranza_id, {$selectRecibo}
+                FROM cobranzas c
+                WHERE c.cc_movimiento_id IN ({$ph})
+            ");
+            $stCob->execute($pagoMovIds);
+            foreach ($stCob->fetchAll(PDO::FETCH_ASSOC) as $_row) {
+                $cobranzaByMovId[(int)$_row['cc_movimiento_id']] = $_row;
+            }
+        } catch (Throwable $_e) { /* no fatal */ }
+
+        // Agregar tipo_aplicacion desde recibo_aplicaciones si la tabla existe
+        if ($cobranzaByMovId !== [] && flus_table_exists($pdo, 'recibo_aplicaciones')) {
+            $cobIds = array_values(array_map(fn($_r) => (int)$_r['cobranza_id'], $cobranzaByMovId));
+            $ph2 = implode(',', array_fill(0, count($cobIds), '?'));
+            try {
+                $stApl = $pdo->prepare("
+                    SELECT ra.cobranza_id, ra.tipo_aplicacion, ra.factura_id, ra.documento_id
+                    FROM recibo_aplicaciones ra
+                    WHERE ra.cobranza_id IN ({$ph2})
+                    ORDER BY ra.id DESC
+                ");
+                $stApl->execute($cobIds);
+                $_aplByCobId = [];
+                foreach ($stApl->fetchAll(PDO::FETCH_ASSOC) as $_apl) {
+                    $cid = (int)$_apl['cobranza_id'];
+                    if (!isset($_aplByCobId[$cid])) $_aplByCobId[$cid] = $_apl;
+                }
+                foreach ($cobranzaByMovId as &$_cr) {
+                    $cid = (int)($_cr['cobranza_id'] ?? 0);
+                    if ($cid > 0 && isset($_aplByCobId[$cid])) {
+                        $_cr['tipo_aplicacion'] = $_aplByCobId[$cid]['tipo_aplicacion'];
+                        $_cr['factura_id']      = $_aplByCobId[$cid]['factura_id'];
+                        $_cr['documento_id']    = $_aplByCobId[$cid]['documento_id'];
+                    }
+                }
+                unset($_cr);
+            } catch (Throwable $_e) { /* no fatal */ }
+        }
+    }
+}
+unset($pagoMovIds, $ph, $ph2, $stCob, $stApl, $_m, $_mid, $_row, $_apl, $_cr, $_aplByCobId, $_e, $cobIds, $selectRecibo);
 
 // IDs presentes en la página actual (para decidir entre salto local o focus_mov)
 $idsOnPage = [];
@@ -291,6 +352,9 @@ require __DIR__ . '/partials/header.php';
       </svg>
       <h3>Sin movimientos</h3>
       <p>No hay movimientos registrados con los filtros seleccionados.</p>
+      <?php if ($filtros['tipo'] || $filtros['desde'] || $filtros['hasta']): ?>
+        <p><a href="<?= urlEstado(['tipo' => null, 'desde' => null, 'hasta' => null, 'page' => null, 'incluir_anulados' => null]) ?>">Limpiar filtros</a> para ver todos los movimientos.</p>
+      <?php endif; ?>
     </div>
   <?php else: ?>
     <div class="table-wrap">
@@ -356,6 +420,32 @@ require __DIR__ . '/partials/header.php';
                   $revId = (int)$reversaByOriginal[$movId];
                   $hrefRev = isset($idsOnPage[$revId]) ? '#mov-' . $revId : urlEstado(['focus_mov' => $revId]);
                   $concepto .= ' <a class="rel-link" href="' . h($hrefRev) . '" title="Ir a la reversa asociada">↪ Reversa #' . $revId . '</a>';
+              }
+
+              // ── Recibo: badge de tipo + link para movimientos PAGO ──────────────
+              if ($tipo === 'PAGO' && isset($cobranzaByMovId[$movId])) {
+                  $_cob = $cobranzaByMovId[$movId];
+                  $_reciboDocId  = (int)($_cob['recibo_documento_id'] ?? 0);
+                  $_tipoApl      = trim((string)($_cob['tipo_aplicacion'] ?? ''));
+                  $_tipoAplMeta  = match($_tipoApl) {
+                      'SALDO_CC'  => ['Saldo CC',  'badge-info'],
+                      'FACTURA'   => ['Factura',   'badge-warning'],
+                      'DOCUMENTO' => ['Documento', 'badge-secondary'],
+                      default     => ($_tipoApl !== '' ? [$_tipoApl, 'badge-secondary'] : null),
+                  };
+                  if ($_tipoAplMeta !== null) {
+                      $concepto .= ' <span class="badge ' . $_tipoAplMeta[1] . '" title="Tipo de aplicación del pago">' . h($_tipoAplMeta[0]) . '</span>';
+                  }
+                  if ($_reciboDocId > 0) {
+                      $concepto .= ' <span class="rel-link" title="Documento comercial RECIBO generado por la cobranza">Recibo doc #' . $_reciboDocId . '</span>';
+                  } elseif ($_tipoApl === '') {
+                      $concepto .= ' <span class="text-muted" style="font-size:.82em">(sin recibo)</span>';
+                  }
+                  if ((int)($_cob['factura_id'] ?? 0) > 0) {
+                      $concepto .= ' <a class="rel-link" href="factura_ver.php?id=' . (int)$_cob['factura_id'] . '" title="Ver factura asociada">Factura #' . (int)$_cob['factura_id'] . '</a>';
+                  } elseif ((int)($_cob['documento_id'] ?? 0) > 0) {
+                      $concepto .= ' <span class="text-muted" style="font-size:.82em">Doc #' . (int)$_cob['documento_id'] . '</span>';
+                  }
               }
 
               $rowClass = $esAnulado ? 'row-anulado' : '';

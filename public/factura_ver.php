@@ -6,6 +6,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
+require_once __DIR__ . '/../src/cobranzas_lib.php';
 
 $requestedFacturaId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $pdfToken = trim((string)($_GET['pdf_token'] ?? ''));
@@ -405,6 +406,7 @@ $itemRows = flus_facturacion_factura_detalle_items_fetch($pdo, $factura);
 
 $items = factura_normalizar_items($itemRows, $factura);
 $resumenFiscal = factura_resumen_fiscal($items, $factura);
+$recibosAsociados = flus_cobranzas_fetch_receipts_by_factura($pdo, $id, (int)($factura['documento_id'] ?? 0));
 
 $configEmpresa = null;
 try {
@@ -634,6 +636,14 @@ if ($pdfMode) {
     require __DIR__ . '/partials/header.php';
 }
 ?>
+<style>
+  @media print {
+    .fiscal-row--internal,
+    .fiscal-note--internal {
+      display: none !important;
+    }
+  }
+</style>
 
 <div class="<?= h(implode(' ', $pageClasses)) ?>">
   <div class="factura-shell">
@@ -812,28 +822,127 @@ if ($pdfMode) {
         </section>
       <?php endif; ?>
 
+      <?php if (!$pdfMode): ?>
+        <?php if ($recibosAsociados !== []): ?>
+          <section class="factura-box factura-box--payment no-print">
+            <div class="box-title">Cobros / recibos asociados</div>
+            <div class="payment-stack">
+              <?php
+                $_tipoLabels = [
+                    'SALDO_CC'  => ['Saldo CC',  'badge-info'],
+                    'FACTURA'   => ['Factura',   'badge-warning'],
+                    'DOCUMENTO' => ['Documento', 'badge-secondary'],
+                    'VENTA'     => ['Venta',     'badge-secondary'],
+                ];
+              ?>
+              <?php foreach ($recibosAsociados as $_recibo): ?>
+                <?php
+                  $_reciboDocId    = (int)($_recibo['recibo_documento_id'] ?? 0);
+                  $_reciboFactId   = (int)($_recibo['factura_id'] ?? 0);
+                  $_cobranzaId     = (int)($_recibo['cobranza_id'] ?? 0);
+                  $_aplicacionId   = (int)($_recibo['recibo_aplicacion_id'] ?? 0);
+                  $_ccMovimientoId = (int)($_recibo['cc_movimiento_id'] ?? 0);
+                  $_cajaMovimientoId = (int)($_recibo['caja_movimiento_id'] ?? 0);
+                  $_tipoApl        = trim((string)($_recibo['tipo_aplicacion'] ?? 'SALDO_CC'));
+                  $_tipoMeta       = $_tipoLabels[$_tipoApl] ?? [$_tipoApl, 'badge-secondary'];
+                  $_montoApl       = (float)($_recibo['monto_aplicado'] ?? 0);
+                  $_medioPago      = strtoupper(trim((string)($_recibo['medio_pago'] ?? '')));
+                  $_referencia     = trim((string)($_recibo['referencia'] ?? ''));
+                  $_nota           = trim((string)($_recibo['nota'] ?? ''));
+                  $_createdAt      = trim((string)($_recibo['created_at'] ?? ''));
+                  $_fechaFmt       = '';
+                  if ($_createdAt !== '') {
+                      $_ts = strtotime($_createdAt);
+                      $_fechaFmt = $_ts !== false ? date('d/m/Y H:i', $_ts) : $_createdAt;
+                  }
+                ?>
+                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
+                  <strong>
+                    <?php if ($_reciboFactId > 0): ?>
+                      <a href="factura_ver.php?id=<?= $_reciboFactId ?>" title="Ver factura asociada al recibo">Factura asociada #<?= $_reciboFactId ?></a>
+                    <?php elseif ($_reciboDocId > 0): ?>
+                      Recibo doc #<?= $_reciboDocId ?>
+                    <?php else: ?>
+                      Recibo (pendiente de documento)
+                    <?php endif; ?>
+                  </strong>
+                  <span class="badge <?= h($_tipoMeta[1]) ?>"><?= h($_tipoMeta[0]) ?></span>
+                  <span style="font-weight:600"><?= money($_montoApl) ?></span>
+                  <?php if ($_medioPago !== ''): ?>
+                    <span class="text-muted" style="font-size:.85em"><?= h($_medioPago) ?></span>
+                  <?php endif; ?>
+                  <?php if ($_fechaFmt !== ''): ?>
+                    <span class="text-muted" style="font-size:.82em"><?= h($_fechaFmt) ?></span>
+                  <?php endif; ?>
+                </div>
+                <div style="font-size:.82em;display:flex;gap:.75rem;flex-wrap:wrap">
+                  <?php if ($_cobranzaId > 0): ?>
+                    <span class="text-muted">Cobranza #<?= $_cobranzaId ?></span>
+                  <?php endif; ?>
+                  <?php if ($_aplicacionId > 0): ?>
+                    <span class="text-muted">Aplicación #<?= $_aplicacionId ?></span>
+                  <?php endif; ?>
+                  <?php if ($_ccMovimientoId > 0): ?>
+                    <span class="text-muted">CC mov. #<?= $_ccMovimientoId ?></span>
+                  <?php endif; ?>
+                  <?php if ($_cajaMovimientoId > 0): ?>
+                    <span class="text-muted">Caja mov. #<?= $_cajaMovimientoId ?></span>
+                  <?php endif; ?>
+                </div>
+                <?php if ($_referencia !== ''): ?>
+                  <div style="font-size:.85em"><span class="text-muted">Ref:</span> <?= h($_referencia) ?></div>
+                <?php endif; ?>
+                <?php if ($_nota !== '' && $_nota !== 'Recibo de cobranza'): ?>
+                  <div style="font-size:.85em"><span class="text-muted">Nota:</span> <?= h($_nota) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($factura['cliente_id'])): ?>
+                  <div style="font-size:.82em;margin-top:.15rem">
+                    <a href="cuenta_corriente_cliente.php?id=<?= (int)$factura['cliente_id'] ?>" class="text-muted">Ver cuenta corriente del cliente</a>
+                  </div>
+                <?php endif; ?>
+                <hr style="margin:.4rem 0;opacity:.35">
+              <?php endforeach; ?>
+            </div>
+          </section>
+        <?php elseif (flus_cobranzas_receipts_ready($pdo)): ?>
+          <section class="factura-box factura-box--payment no-print" style="opacity:.7">
+            <div class="box-title">Cobros / recibos asociados</div>
+            <div class="payment-stack">
+              <span class="text-muted" style="font-size:.88em">No hay recibos registrados para esta factura.</span>
+              <?php if (!empty($factura['cliente_id'])): ?>
+                <div style="font-size:.82em;margin-top:.4rem">
+                  <a href="cuenta_corriente_cliente.php?id=<?= (int)$factura['cliente_id'] ?>">Ver cuenta corriente del cliente</a>
+                </div>
+              <?php endif; ?>
+            </div>
+          </section>
+        <?php endif; ?>
+      <?php endif; ?>
+
       <section class="factura-box factura-box--fiscal">
         <div class="box-title">Datos fiscales</div>
         <div class="fiscal-stack">
-          <div><strong>Estado fiscal:</strong> <?= h($estadoFiscalLabel) ?></div>
+          <?php if (!$pdfMode): ?>
+            <div class="fiscal-row--internal"><strong>Estado fiscal:</strong> <?= h($estadoFiscalLabel) ?></div>
+          <?php endif; ?>
           <div><strong>CAE:</strong> <?= h($cae) ?></div>
           <div><strong>Vto. CAE:</strong> <?= h($caeVto) ?></div>
-          <?php if ($fiscalRequestUid !== ''): ?>
-            <div><strong>Request UID:</strong> <span class="mono"><?= h($fiscalRequestUid) ?></span></div>
+          <?php if (!$pdfMode && $fiscalRequestUid !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Request UID:</strong> <span class="mono"><?= h($fiscalRequestUid) ?></span></div>
           <?php endif; ?>
-          <?php if ($fiscalIntentos > 0): ?>
-            <div><strong>Intentos:</strong> <?= (int)$fiscalIntentos ?></div>
+          <?php if (!$pdfMode && $fiscalIntentos > 0): ?>
+            <div class="fiscal-row--internal"><strong>Intentos:</strong> <?= (int)$fiscalIntentos ?></div>
           <?php endif; ?>
-          <?php if ($fiscalRequestedAt !== ''): ?>
-            <div><strong>Solicitado:</strong> <?= h($fiscalRequestedAt) ?></div>
+          <?php if (!$pdfMode && $fiscalRequestedAt !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Solicitado:</strong> <?= h($fiscalRequestedAt) ?></div>
           <?php endif; ?>
-          <?php if ($fiscalApprovedAt !== ''): ?>
-            <div><strong>Aprobado:</strong> <?= h($fiscalApprovedAt) ?></div>
+          <?php if (!$pdfMode && $fiscalApprovedAt !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Aprobado:</strong> <?= h($fiscalApprovedAt) ?></div>
           <?php endif; ?>
-          <?php if ($fiscalErrorCode !== '' || $fiscalErrorMessage !== ''): ?>
-            <div><strong>Error fiscal:</strong> <?= h(trim($fiscalErrorCode . ' ' . $fiscalErrorMessage)) ?></div>
+          <?php if (!$pdfMode && ($fiscalErrorCode !== '' || $fiscalErrorMessage !== '')): ?>
+            <div class="fiscal-row--internal"><strong>Error fiscal:</strong> <?= h(trim($fiscalErrorCode . ' ' . $fiscalErrorMessage)) ?></div>
           <?php endif; ?>
-          <div class="fiscal-note"><?= h($footerModo) ?></div>
+          <div class="fiscal-note<?= $pdfMode ? '' : ' fiscal-note--internal' ?>"><?= h($footerModo) ?></div>
           <?php if ($qrData !== null): ?>
             <div class="qr-area">
               <img src="<?= h($qrData['image_url']) ?>" alt="QR AFIP" class="factura-qr-image" referrerpolicy="no-referrer">

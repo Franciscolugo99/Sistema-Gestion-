@@ -2,7 +2,51 @@
 
 ## [Unreleased]
 
+### Added
+- **Facturación / Fase 1 (factura común):**
+  - Trazabilidad fiscal mínima para factura común con `fiscal_request_uid`, eventos ARCA y soporte base para recovery simple sin rediseñar todavía el modelo documental.
+  - Nuevos smoke tests orientados a validar unificación de entrada, retry manual y compatibilidad baseline + migraciones.
+- **Facturación / Fase 2 (base documental mínima):**
+  - Nueva base documental mínima con `documentos_comerciales`, `documento_items` y soporte no destructivo para `facturas.documento_id`.
+  - Nuevos smoke tests de comportamiento para validar creación/reutilización de documento manual, retry por `request_uid`, persistencia de `documento_id` y reconstrucción de detalle desde `documento_items`.
+- **Facturación / Fase 3 (base mínima de cobranzas):**
+  - Nueva capa mínima con `cobranzas` y `cobranza_aplicaciones` para registrar cobros reales y su aplicación comercial/documental sin reemplazar todavía `venta_pagos`, caja ni cuenta corriente.
+  - Smoke tests iniciales para validar alta idempotente de cobranzas, aplicaciones y enlace con factura/documento cuando corresponda.
+
 ### Changed
+- **Facturación / Fase 1 (factura común):**
+  - La emisión desde venta y la emisión manual quedan cerradas sobre la misma capa de negocio, manteniendo `facturas.venta_id` y compatibilidad legacy.
+  - `public/factura_nueva.php`, `public/factura_emitir.php` y `public/factura_manual.php` quedan como entrypoints más finos, con mejor resolución de cliente y menos lógica duplicada.
+  - Se unifica la preparación/finalización del flujo fiscal para factura común: validaciones, determinación del comprobante, numeración, manejo de disponibilidad ARCA, request UID e idempotencia básica.
+  - Factura común pasa a manejar estados fiscales explícitos para evitar ambigüedad cuando ARCA falla o cuando queda un caso recuperable.
+  - La emisión manual preserva y reutiliza el mismo `request_uid` y la misma `venta_id` en retries del mismo caso operativo, evitando duplicar ventas manuales por reenvíos con cambios menores no fiscales.
+  - La compatibilidad de instalación se mantiene por baseline + migraciones: `install.sql` no absorbe columnas de esta fase y el upgrade sigue soportado vía `scripts/migrate.php`.
+- **Facturación / Fase 2 (base documental mínima):**
+  - La factura manual pasa a preparar o reutilizar primero una base documental propia y luego convive con la venta manual legacy como puente de compatibilidad.
+  - `factura_ver.php` queda preparada para reconstruir detalle desde `documento_items` con fallback a rutas legacy (`factura_items`, `venta_items`, `factura_manual_items`).
+  - La fase deja explícitamente lista la transición hacia un modelo documental más limpio, pero todavía sin eliminar `facturas.venta_id` ni la venta manual fake.
+- **Facturación / Fase 3 (base mínima de cobranzas):**
+  - El sistema empieza a distinguir mejor entre pago real, deuda en cuenta corriente y aplicación a venta/documento/factura, sin rehacer todavía caja ni CC.
+  - Los pagos reales de venta y los pagos posteriores de cuenta corriente pueden dejar una base de cobranza propia para fases futuras.
+  - La nueva capa se mantiene complementaria y no destructiva respecto del modo no fiscal y de la operación legacy existente.
+
+### Fixed
+- **Facturación / Fase 1 (factura común):**
+  - Se reduce la duplicación real entre emisión desde venta y emisión manual sin reescribir toda la arquitectura.
+  - Si ARCA falla, la factura común deja estado fiscal consistente y trazabilidad mínima para reintento/recovery.
+  - Se corrige la deuda de baseline vs migraciones para que columnas de Fase 1 como `estado_fiscal` vivan únicamente en migraciones y no en `install.sql`.
+- **Facturación / Fase 2 (base documental mínima):**
+  - Se endurece el retry manual para evitar duplicar documento base del mismo caso y para reutilizar la misma venta manual legacy cuando ya estaba vinculada al documento.
+  - Se reduce la posibilidad de relink accidental entre documento y otra `venta_id` distinta en reintentos o reaplicaciones.
+- **Facturación / Fase 3 (base mínima de cobranzas):**
+  - Se evita tratar la porción `CC` de una venta como si fuera una cobranza real de caja.
+  - Se refuerza la idempotencia de cobranzas/aplicaciones para no duplicar el mismo cobro en retries razonables del flujo.
+
+### Migrations
+- `016_factura_comun_fiscal_flow.sql`
+- `017_facturacion_documentos_manual.sql`
+- `018_cobranzas_base.sql`
+
 ## [3.8.1] - 2026-03-22
 
 ### Added

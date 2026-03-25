@@ -157,6 +157,133 @@ class CuentaCorrienteController
         return ['valid' => true, 'monto' => $montoNormalizado, 'error' => null];
     }
 
+    private function normalizeRequestUid(mixed $value): ?string
+    {
+        $requestUid = trim((string)$value);
+        if ($requestUid === '') {
+            return null;
+        }
+
+        return function_exists('mb_substr') ? mb_substr($requestUid, 0, 64) : substr($requestUid, 0, 64);
+    }
+
+    private function findPagoByRequestUid(string $requestUid): ?array
+    {
+        if ($requestUid === '' || !$this->hasColumn('cuenta_corriente_movimientos', 'request_uid')) {
+            return null;
+        }
+
+        $st = $this->pdo->prepare('SELECT * FROM cuenta_corriente_movimientos WHERE request_uid = ? LIMIT 1');
+        $st->execute([$requestUid]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($row) ? $row : null;
+    }
+
+    private function findRecentDuplicatePago(
+        int $clienteId,
+        float $monto,
+        string $medioPago,
+        int $usuarioId,
+        ?string $referencia,
+        ?string $concepto,
+        ?int $cajaId,
+        ?int $terminalId,
+        int $maxAgeSeconds = 20
+    ): ?array {
+        $st = $this->pdo->prepare('SELECT * FROM cuenta_corriente_movimientos WHERE cliente_id = ? AND tipo = ? AND estado = ? AND monto = ? AND medio_pago = ? AND created_by = ? ORDER BY id DESC');
+        $st->execute([$clienteId, self::TIPO_PAGO, self::ESTADO_ACTIVO, $monto, $medioPago, $usuarioId]);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $nowTs = time();
+
+        foreach ($rows as $row) {
+            if (trim((string)($row['referencia'] ?? '')) !== trim((string)$referencia)) {
+                continue;
+            }
+            if (trim((string)($row['concepto'] ?? '')) !== trim((string)$concepto)) {
+                continue;
+            }
+            if ((int)($row['caja_id'] ?? 0) !== (int)($cajaId ?? 0)) {
+                continue;
+            }
+            if ((int)($row['terminal_id'] ?? 0) !== (int)($terminalId ?? 0)) {
+                continue;
+            }
+
+            $createdAt = trim((string)($row['created_at'] ?? ''));
+            if ($createdAt !== '') {
+                $createdTs = strtotime($createdAt);
+                if ($createdTs !== false && ($nowTs - $createdTs) > $maxAgeSeconds) {
+                    continue;
+                }
+            }
+
+            return $row;
+        }
+
+        return null;
+    }
+
+    private function existingPagoMatchesTarget(array $movimiento, ?array $targetRecibo, int $documentoId, int $facturaId): bool
+    {
+        $ccMovimientoId = (int)($movimiento['id'] ?? 0);
+        if ($ccMovimientoId <= 0) {
+            return false;
+        }
+
+        $cobranza = flus_cobranzas_find_by_cc_movimiento_id($this->pdo, $ccMovimientoId);
+        if (!is_array($cobranza)) {
+            return false;
+        }
+
+        $expectedDocumentoId = (int)($targetRecibo['documento_id'] ?? $documentoId);
+        $expectedFacturaId = (int)($targetRecibo['factura_id'] ?? $facturaId);
+        if ($expectedDocumentoId <= 0 && $expectedFacturaId <= 0) {
+            return true;
+        }
+
+        $reciboApp = flus_cobranzas_find_receipt_application_by_cobranza($this->pdo, (int)($cobranza['id'] ?? 0));
+        if (!is_array($reciboApp)) {
+            return false;
+        }
+
+        if ($expectedDocumentoId > 0 && (int)($reciboApp['documento_id'] ?? 0) !== $expectedDocumentoId) {
+            return false;
+        }
+        if ($expectedFacturaId > 0 && (int)($reciboApp['factura_id'] ?? 0) !== $expectedFacturaId) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function buildExistingPagoResponse(array $movimiento): array
+    {
+        $ccMovimientoId = (int)($movimiento['id'] ?? 0);
+        $cobranza = flus_cobranzas_find_by_cc_movimiento_id($this->pdo, $ccMovimientoId);
+        $reciboApp = is_array($cobranza)
+            ? flus_cobranzas_find_receipt_application_by_cobranza($this->pdo, (int)($cobranza['id'] ?? 0))
+            : null;
+
+        return [
+            'success' => true,
+            'movimiento_id' => $ccMovimientoId,
+            'saldo_anterior' => (float)($movimiento['saldo_anterior'] ?? 0),
+            'saldo_posterior' => (float)($movimiento['saldo_posterior'] ?? 0),
+            'caja_movimiento_id' => is_array($cobranza)
+                ? ((int)($cobranza['caja_movimiento_id'] ?? 0) ?: null)
+                : ((int)($movimiento['caja_movimiento_id'] ?? 0) ?: null),
+            'cobranza_id' => is_array($cobranza) ? (int)($cobranza['id'] ?? 0) : 0,
+            'recibo_documento_id' => is_array($cobranza) ? (int)($cobranza['recibo_documento_id'] ?? 0) : 0,
+            'recibo_aplicacion_id' => is_array($reciboApp) ? (int)($reciboApp['id'] ?? 0) : 0,
+            'recibo_tipo_aplicacion' => is_array($reciboApp) ? ($reciboApp['tipo_aplicacion'] ?? null) : null,
+            'monto_aplicado' => is_array($reciboApp)
+                ? round((float)($reciboApp['monto'] ?? 0), 2)
+                : round((float)($movimiento['monto'] ?? 0), 2),
+            'duplicate_guard' => true,
+        ];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // CONSULTAS
     // ═══════════════════════════════════════════════════════════════════════
@@ -504,6 +631,28 @@ class CuentaCorrienteController
             return ['success' => false, 'error' => 'Medio de pago inválido'];
         }
 
+        $targetDocumentoId = (int)($extras['documento_id'] ?? 0);
+        $targetFacturaId = (int)($extras['factura_id'] ?? 0);
+        $requestUid = $this->normalizeRequestUid($extras['request_uid'] ?? null);
+        $targetRecibo = null;
+
+        if ($targetDocumentoId > 0 || $targetFacturaId > 0) {
+            if (!flus_cobranzas_receipts_ready($this->pdo)) {
+                return [
+                    'success' => false,
+                    'error' => 'Faltan las migraciones de recibos/aplicaciones para vincular el pago a un documento o factura.',
+                ];
+            }
+
+            $targetRecibo = flus_cobranzas_resolve_receipt_target($this->pdo, $clienteId, $targetFacturaId, $targetDocumentoId);
+            if (($targetRecibo['ok'] ?? false) !== true) {
+                return [
+                    'success' => false,
+                    'error' => (string)($targetRecibo['error'] ?? 'No se pudo validar la aplicación del recibo.'),
+                ];
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // SOPORTE TRANSACCIÓN EXTERNA (para llamadas desde otros procesos)
         // ═══════════════════════════════════════════════════════════════
@@ -526,6 +675,32 @@ class CuentaCorrienteController
             }
 
             $saldoAnterior = (float)$cliente['cc_saldo'];
+            $cajaId = (int)($extras['caja_id'] ?? 0) ?: null;
+            $terminalId = (int)($extras['terminal_id'] ?? 0) ?: null;
+
+            $duplicateMovimiento = null;
+            if ($requestUid !== null) {
+                $duplicateMovimiento = $this->findPagoByRequestUid($requestUid);
+            }
+            if (!is_array($duplicateMovimiento)) {
+                $duplicateMovimiento = $this->findRecentDuplicatePago(
+                    $clienteId,
+                    $monto,
+                    $medioPago,
+                    $usuarioId,
+                    $referencia,
+                    $concepto ?? 'Pago de cuenta',
+                    $cajaId,
+                    $terminalId
+                );
+            }
+
+            if (is_array($duplicateMovimiento) && $this->existingPagoMatchesTarget($duplicateMovimiento, $targetRecibo, $targetDocumentoId, $targetFacturaId)) {
+                if ($ownTransaction) {
+                    $this->pdo->rollBack();
+                }
+                return $this->buildExistingPagoResponse($duplicateMovimiento);
+            }
 
             // Validar que no se pague más de lo que debe (opcional: permitir saldo a favor)
             // Por ahora: NO permitimos sobrepago
@@ -538,9 +713,6 @@ class CuentaCorrienteController
             }
 
             $saldoPosterior = $saldoAnterior - $monto;
-
-            $cajaId = (int)($extras['caja_id'] ?? 0) ?: null;
-            $terminalId = (int)($extras['terminal_id'] ?? 0) ?: null;
 
             // Insertar movimiento CC
             $movimientoId = $this->insertCompat(
@@ -559,6 +731,9 @@ class CuentaCorrienteController
                     'caja_id' => $cajaId,
                     'terminal_id' => $terminalId,
                     'ip_address' => $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
+                ],
+                [
+                    'request_uid' => $requestUid,
                 ]
             );
 
@@ -605,7 +780,7 @@ class CuentaCorrienteController
                 $this->actualizarTotalesCaja($cajaId, $medioPago, $monto);
             }
 
-            flus_cobranzas_register_cc_payment($this->pdo, [
+            $cobranzaId = flus_cobranzas_register_cc_payment($this->pdo, [
                 'cliente_id' => $clienteId,
                 'cc_movimiento_id' => $movimientoId,
                 'caja_id' => $cajaId,
@@ -616,6 +791,23 @@ class CuentaCorrienteController
                 'observaciones' => $concepto ?? 'Pago de cuenta',
                 'created_by' => $usuarioId,
             ]);
+
+            $reciboData = [
+                'cobranza_id' => $cobranzaId,
+                'recibo_documento_id' => 0,
+                'recibo_aplicacion_id' => 0,
+                'tipo_aplicacion' => null,
+            ];
+
+            if ($cobranzaId > 0 && flus_cobranzas_receipts_ready($this->pdo)) {
+                $reciboData = flus_cobranzas_attach_receipt_to_cobranza($this->pdo, $cobranzaId, [
+                    'cliente_id' => $clienteId,
+                    'cc_movimiento_id' => $movimientoId,
+                    'documento_id' => ($targetRecibo['documento_id'] ?? $targetDocumentoId) ?: null,
+                    'factura_id' => ($targetRecibo['factura_id'] ?? $targetFacturaId) ?: null,
+                    'monto' => $monto,
+                ]);
+            }
 
             // Actualizar cliente
             $stUpd = $this->pdo->prepare("
@@ -633,6 +825,11 @@ class CuentaCorrienteController
                 'saldo_anterior' => $saldoAnterior,
                 'saldo_posterior' => $saldoPosterior,
                 'caja_movimiento_id' => $cajaMovId,
+                'cobranza_id' => (int)($cobranzaId ?? 0),
+                'recibo_documento_id' => (int)($reciboData['recibo_documento_id'] ?? 0),
+                'recibo_aplicacion_id' => (int)($reciboData['recibo_aplicacion_id'] ?? 0),
+                'recibo_tipo_aplicacion' => $reciboData['tipo_aplicacion'] ?? null,
+                'monto_aplicado' => round((float)($reciboData['monto_aplicado'] ?? $monto), 2),
             ];
 
         } catch (Throwable $e) {

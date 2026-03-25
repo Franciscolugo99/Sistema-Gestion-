@@ -132,8 +132,9 @@ try {
             $medioPago = strtoupper(trim($_POST['medio_pago'] ?? 'EFECTIVO'));
             $referencia = trim($_POST['referencia'] ?? '') ?: null;
             $concepto = trim($_POST['concepto'] ?? '') ?: null;
-            
-
+            $documentoId = (int)($_POST['documento_id'] ?? 0);
+            $facturaId = (int)($_POST['factura_id'] ?? 0);
+            $requestUid = trim((string)($_POST['request_uid'] ?? '')) ?: null;
 
             $fromCaja = ((int)($_POST['from_caja'] ?? 0) === 1);
             if ($fromCaja) {
@@ -168,8 +169,12 @@ try {
                     'terminal_id' => $terminalId,
                     'usuario_nombre' => $usuarioNombre,
                     'registrar_caja_mov' => $fromCaja,
+                    'documento_id' => $documentoId > 0 ? $documentoId : null,
+                    'factura_id' => $facturaId > 0 ? $facturaId : null,
+                    'request_uid' => $requestUid,
                 ]
-            );echo json_encode($result);
+            );
+            echo json_encode($result);
             break;
             
         // ═══════════════════════════════════════════════════════════════

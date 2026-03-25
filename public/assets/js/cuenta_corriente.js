@@ -31,6 +31,7 @@
   // Estado
   let currentSaldo = window.currentSaldo || 0;
   let searchTimeout = null;
+  let currentRequestUid = "";
 
   // ═══════════════════════════════════════════════════════════════════
   // UTILIDADES
@@ -50,11 +51,32 @@
   }
 
   function showToast(message, type = "success") {
-    if (window.FLUS && window.FLUS.toast) {
+    if (window.FLUS && typeof window.FLUS.toast === "function") {
       window.FLUS.toast(message, type);
-    } else {
-      Notif.error(message);
+      return;
     }
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(message);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(message);
+        return;
+      }
+      if (typeof window.Notif.error === "function") {
+        window.Notif.error(message);
+        return;
+      }
+    }
+    console[type === "error" ? "error" : "log"](message);
+  }
+
+  function buildRequestUid() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return "ccpago-" + Date.now() + "-" + Math.random().toString(16).slice(2, 10);
   }
 
   function getCsrfToken() {
@@ -75,6 +97,7 @@
   function openDrawer(clienteId = null, clienteNombre = null, saldo = null) {
     if (!drawer) return;
 
+    currentRequestUid = buildRequestUid();
     if (formPago) formPago.reset();
 
     if (clienteId && clienteNombre) {
@@ -115,6 +138,7 @@
     drawer.classList.remove("active");
     if (overlay) overlay.classList.remove("active");
     document.body.style.overflow = "";
+    currentRequestUid = "";
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -215,6 +239,7 @@
       const formData = new FormData(formPago);
       formData.set("monto", monto);
       formData.append("action", "registrar_pago");
+      formData.set("request_uid", currentRequestUid || buildRequestUid());
 
       const response = await fetch("api/cuenta_corriente_api.php", {
         method: "POST",
@@ -224,9 +249,20 @@
       const result = await response.json();
 
       if (result.ok || result.success) {
-        showToast("Pago registrado correctamente", "success");
+        const reciboId  = parseInt(result.recibo_documento_id  || 0, 10);
+        const tipoAplRaw = result.recibo_tipo_aplicacion || '';
+        const tipoLabels = { SALDO_CC: 'Saldo CC', FACTURA: 'Factura', DOCUMENTO: 'Documento' };
+        const tipoLabel  = tipoLabels[tipoAplRaw] || tipoAplRaw;
+
+        let msg = 'Pago registrado correctamente';
+        if (reciboId > 0) {
+          msg += ' · Recibo #' + reciboId + ' emitido';
+          if (tipoLabel) msg += ' (' + tipoLabel + ')';
+        }
+
+        showToast(msg, "success");
         closeDrawer();
-        setTimeout(() => location.reload(), 500);
+        setTimeout(() => location.reload(), 800);
       } else {
         showToast(result.error || "Error al registrar el pago", "error");
       }

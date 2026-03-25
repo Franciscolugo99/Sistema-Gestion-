@@ -89,7 +89,69 @@ Las principales capacidades son:
 
 Estas funciones marcan el primer paso hacia un sistema de gestión más completo, permitiendo emitir comprobantes fiscales directamente desde FLUS.
 
+
+### Estado actual de Facturación – Fase 1 (factura común)
+
+Esta primera fase no rediseña todavía el modelo documental completo. El foco quedó puesto en **endurecer y unificar la emisión fiscal actual** sin romper compatibilidad legacy.
+
+Avances concretos de Fase 1:
+
+- **Entrada unificada:** la emisión desde venta y la emisión manual terminan en la misma capa de negocio, evitando seguir separando la lógica fiscal principal.
+- **Entrypoints más finos:** `factura_nueva.php`, `factura_emitir.php` y `factura_manual.php` quedan más enfocados en entrada/resolución de datos y menos cargados de lógica fiscal.
+- **Estados fiscales claros para factura común:** la factura común pasa a manejar estados explícitos para evitar ambigüedad ante fallas, rechazos o casos pendientes/reintentables.
+- **Idempotencia y trazabilidad:** se incorpora `fiscal_request_uid` para reforzar el control de reenvíos, doble submit y retries.
+- **Eventos ARCA:** se guarda rastro mínimo de request/response y errores para recovery simple y diagnóstico.
+- **Retry manual endurecido:** si una factura manual ya inició un intento fiscal recuperable, el sistema reutiliza el mismo `request_uid` y la misma `venta_id` en vez de crear otra venta manual por cambios menores no fiscales.
+- **Compatibilidad de esquema preservada:** esta fase se soporta por migración nueva y mantiene el contrato del proyecto: instalación limpia con `install.sql` y upgrades con `php scripts/migrate.php`.
+- **Sin ampliar alcance:** todavía **no** se crean `documentos/documento_items`, no se elimina `venta_id`, y no se abre todavía Fase 2 ni Fase 3.
+
+Migración asociada:
+- `016_factura_comun_fiscal_flow.sql`
+
+Esto deja la base preparada para una etapa posterior de recovery más fuerte y para la futura evolución documental, pero sin forzar ese cambio en esta fase.
+
 > Ver `CHANGELOG.md` para el detalle histórico por versión.
+
+### Estado actual de Facturación – Fase 2 (base documental mínima)
+
+Esta segunda fase **no elimina todavía la venta manual legacy** ni rehace el modelo comercial completo. El objetivo fue introducir una base documental mínima, no destructiva y compatible con el flujo actual.
+
+Avances concretos de Fase 2:
+
+- **Capa documental mínima:** se incorporan `documentos_comerciales` y `documento_items` como base propia para preparar comprobantes manuales sin depender conceptualmente solo de `ventas`.
+- **Compatibilidad preservada:** `facturas.venta_id` se mantiene vigente para el flujo legacy y se agrega `facturas.documento_id` como vínculo complementario, no destructivo.
+- **Factura manual con base documental real:** la factura manual ahora puede crear o reutilizar primero un documento comercial interno y luego convivir con la venta manual legacy como puente de compatibilidad.
+- **Idempotencia documental:** el flujo manual reutiliza el mismo documento por `request_uid`, evitando duplicar la base documental del mismo caso operativo.
+- **Retry manual endurecido:** si el documento ya quedó vinculado a una `venta_id` base, el retry reutiliza esa misma venta manual legacy en vez de crear otra.
+- **Compatibilidad del visor:** `factura_ver.php` queda preparado para reconstruir detalle desde `documento_items` cuando corresponda, con fallback legacy a `factura_items`, `venta_items` o `factura_manual_items`.
+- **Modo no fiscal intacto:** si el módulo de facturación está desactivado, FLUS sigue funcionando como sistema no fiscal sin forzar lógica documental/fiscal adicional.
+- **Sin agrandar alcance:** esta fase todavía **no** elimina la venta manual fake, **no** migra masivamente ventas a documentos y **no** abre todavía el desacople final del modelo.
+
+Migración asociada:
+- `017_facturacion_documentos_manual.sql`
+
+Esto deja preparada una base documental real para una etapa posterior, pero manteniendo el puente legacy actual para no romper compatibilidad.
+
+### Estado actual de Facturación – Fase 3 (base mínima de cobranzas)
+
+Esta tercera fase **no implementa todavía recibos ni una conciliación completa**, y tampoco reemplaza `venta_pagos`, caja o cuenta corriente. El foco fue introducir una base mínima para empezar a separar **venta**, **cobro real**, **deuda CC** y **aplicación a documento/factura**.
+
+Avances concretos de Fase 3:
+
+- **Base mínima de cobranzas:** se incorporan `cobranzas` y `cobranza_aplicaciones` para registrar el hecho de cobro y su aplicación comercial/documental.
+- **Complemento no destructivo:** la nueva capa convive con `venta_pagos`, `cuenta_corriente_movimientos` y `caja_movimientos`, sin reemplazar esos flujos en esta etapa.
+- **Pagos reales de venta:** los pagos efectivamente cobrados pueden registrar una cobranza base ligada a la venta.
+- **Cuenta corriente diferenciada:** la porción `CC` de una venta no se trata como cobranza real; el cobro posterior de CC puede registrar su propia cobranza ligada al movimiento correspondiente.
+- **Enlace con factura/documento:** cuando una venta termina vinculada a factura o documento, la aplicación de cobranza puede enriquecerse con `factura_id` y `documento_id`.
+- **Idempotencia básica:** la capa nueva contempla claves externas y aplicaciones para evitar duplicación del mismo cobro en retries razonables.
+- **Modo no fiscal intacto:** esta fase no fuerza facturación ni altera el comportamiento del sistema cuando el módulo fiscal está apagado.
+- **Sin abrir alcance mayor:** todavía **no** hay recibos, **no** hay notas de débito, **no** hay aplicación múltiple avanzada y **no** se reemplaza la operatoria actual de caja/CC.
+
+Migración asociada:
+- `018_cobranzas_base.sql`
+
+Esto deja lista una base mínima para fases posteriores donde sí pueda crecer un subsistema más completo de cobranzas y aplicaciones, pero sin romper la operación actual.
+
 ### Notas de Crédito fiscales
 
 FLUS incorpora gestión de **Notas de Crédito (NC)** sobre comprobantes ya emitidos, integrada al módulo de Facturación.
@@ -123,6 +185,7 @@ Migraciones relacionadas:
 - `013_facturas_fiscal_ext.sql`
 - `014_factura_items_eventos_arca.sql`
 - `015_fiscal_nc_hardening.sql`
+- `016_factura_comun_fiscal_flow.sql`
 ## Actualizacion de instalaciones existentes
 
 - Hacer backup de archivos y base de datos antes de desplegar.
