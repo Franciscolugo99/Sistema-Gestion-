@@ -488,6 +488,9 @@ require __DIR__ . '/partials/header.php';
       </div>
 
       <div class="promo-actions-top module-header-actions">
+        <a href="documentos_comerciales.php" class="v-btn v-btn--outline" title="Presupuestos y remitos">
+          Documentos comerciales
+        </a>
         <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de crédito">
           Notas de crédito
         </a>
@@ -496,6 +499,9 @@ require __DIR__ . '/partials/header.php';
             Configuracion
           </a>
         <?php endif; ?>
+        <a href="documento_comercial.php?tipo=PRESUPUESTO" class="v-btn v-btn--outline">
+          + Presupuesto
+        </a>
         <a href="factura_manual.php" class="v-btn v-btn--primary">
           + Factura manual
         </a>
@@ -668,6 +674,7 @@ require __DIR__ . '/partials/header.php';
           <?php if ($hasActiveFilters): ?>
             <a href="facturacion.php" class="btn btn-secondary">Quitar filtros</a>
           <?php endif; ?>
+          <a href="documento_comercial.php?tipo=PRESUPUESTO" class="btn btn-secondary">Nuevo presupuesto</a>
           <a href="factura_manual.php" class="btn btn-primary">Crear factura manual</a>
         </div>
       </section>

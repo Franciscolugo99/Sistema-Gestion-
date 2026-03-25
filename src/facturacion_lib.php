@@ -1910,6 +1910,43 @@ function crearFacturaDesdeVenta(int $ventaId, int $clienteId, array $opciones = 
     return flus_facturacion_emitir_desde_venta($pdo, $ventaId, $clienteId, $opciones);
 }
 
+function flus_facturacion_emitir_desde_documento(PDO $pdo, int $documentoId, int $clienteId, array $opciones = []): int
+{
+    if (!flus_facturacion_habilitada($pdo)) {
+        throw new RuntimeException('El modulo de facturacion no esta habilitado.');
+    }
+
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        throw new RuntimeException('Documento comercial no encontrado.');
+    }
+
+    $tipoDocumento = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
+    if (!in_array($tipoDocumento, ['FACTURA_MANUAL', 'PRESUPUESTO', 'REMITO'], true)) {
+        throw new RuntimeException('El documento indicado no se puede facturar en esta fase.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($documento['estado'] ?? ''))) {
+        throw new RuntimeException('El documento indicado esta anulado o cancelado.');
+    }
+
+    $clienteIdBase = $clienteId > 0 ? $clienteId : (int)($documento['cliente_id'] ?? 0);
+    if ($clienteIdBase <= 0) {
+        throw new RuntimeException('El documento debe tener cliente vinculado para emitir factura.');
+    }
+
+    $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteIdBase, $opciones);
+    $facturaId = flus_facturacion_procesar_factura_registrada($pdo, $registro, $opciones);
+    flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'FACTURADO');
+
+    return $facturaId;
+}
+
+function emitirFacturaDesdeDocumento(int $documentoId, int $clienteId, array $opciones = []): int
+{
+    $pdo = getPDO();
+    return flus_facturacion_emitir_desde_documento($pdo, $documentoId, $clienteId, $opciones);
+}
+
 /**
  * Crea o reutiliza una venta manual y luego emite por la misma capa de negocio.
  */

@@ -110,6 +110,32 @@ function flus_facturacion_documento_items_fetch(PDO $pdo, int $documentoId): arr
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function flus_facturacion_documento_items_normalizar_payload(array $items): array
+{
+    $normalized = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $descripcion = trim((string)($item['descripcion'] ?? $item['nombre'] ?? ''));
+        if ($descripcion === '') {
+            continue;
+        }
+
+        $normalized[] = [
+            'codigo' => $item['codigo'] ?? null,
+            'descripcion' => $descripcion,
+            'cantidad' => (float)($item['cantidad'] ?? 0),
+            'precio_unitario' => round((float)($item['precio_unitario'] ?? $item['precio'] ?? 0), 2),
+            'subtotal' => round((float)($item['subtotal'] ?? 0), 2),
+            'iva_porcentaje' => round((float)($item['iva_porcentaje'] ?? 21), 2),
+        ];
+    }
+
+    return $normalized;
+}
+
 function flus_facturacion_documento_crear_manual(PDO $pdo, int $clienteId, array $items, array $meta = [], array $opciones = []): int
 {
     if (!flus_facturacion_documentos_table_ready($pdo)) {
@@ -211,6 +237,264 @@ function flus_facturacion_documento_actualizar_estado(PDO $pdo, int $documentoId
 
     $st = $pdo->prepare('UPDATE documentos_comerciales SET estado = ?, updated_at = ? WHERE id = ?');
     $st->execute([trim($estado) !== '' ? trim($estado) : 'PENDIENTE', date('Y-m-d H:i:s'), $documentoId]);
+}
+
+function flus_facturacion_documento_tipo_normalizar(string $tipoDocumento): string
+{
+    $tipo = strtoupper(trim($tipoDocumento));
+    $permitidos = ['FACTURA_MANUAL', 'RECIBO', 'PRESUPUESTO', 'REMITO'];
+    return in_array($tipo, $permitidos, true) ? $tipo : 'FACTURA_MANUAL';
+}
+
+function flus_facturacion_documento_estado_bloqueado(string $estado): bool
+{
+    return in_array(strtoupper(trim($estado)), ['ANULADO', 'CANCELADO'], true);
+}
+
+function flus_facturacion_documento_estado_inicial(string $tipoDocumento): string
+{
+    return match (flus_facturacion_documento_tipo_normalizar($tipoDocumento)) {
+        'REMITO', 'RECIBO' => 'EMITIDO',
+        'PRESUPUESTO' => 'PENDIENTE',
+        default => 'PENDIENTE',
+    };
+}
+
+function flus_facturacion_documento_crear(PDO $pdo, string $tipoDocumento, int $clienteId, array $items, array $meta = [], array $opciones = []): int
+{
+    if (!flus_facturacion_documentos_table_ready($pdo)) {
+        throw new RuntimeException(
+            'Faltan las tablas documentales. Aplica primero la migracion migrations/017_facturacion_documentos_manual.sql.'
+        );
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDocumento);
+    $requestUid = trim((string)($opciones['request_uid'] ?? ''));
+    if ($requestUid !== '') {
+        $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+        if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+            return (int)$existing['id'];
+        }
+    }
+
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $timestamp = date('Y-m-d H:i:s');
+        $total = 0.0;
+        foreach ($items as $item) {
+            $total += (float)($item['subtotal'] ?? 0);
+        }
+        $total = round($total, 2);
+
+        $payload = [
+            'request_uid' => $requestUid !== '' ? $requestUid : null,
+            'tipo_documento' => $tipo,
+            'origen' => trim((string)($opciones['origen'] ?? 'MANUAL')) ?: 'MANUAL',
+            'estado' => trim((string)($opciones['estado'] ?? flus_facturacion_documento_estado_inicial($tipo))) ?: flus_facturacion_documento_estado_inicial($tipo),
+            'cliente_id' => $clienteId > 0 ? $clienteId : null,
+            'venta_id' => isset($opciones['venta_id']) && (int)$opciones['venta_id'] > 0 ? (int)$opciones['venta_id'] : null,
+            'nota' => trim((string)($meta['nota'] ?? '')) ?: null,
+            'medio_pago' => trim((string)($meta['medio_pago'] ?? $tipo)) ?: $tipo,
+            'total' => $total,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ];
+
+        if (flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+            $payload['documento_origen_id'] = isset($opciones['documento_origen_id']) && (int)$opciones['documento_origen_id'] > 0
+                ? (int)$opciones['documento_origen_id']
+                : null;
+        }
+
+        $documentoId = flus_facturacion_insert_dynamic($pdo, 'documentos_comerciales', $payload);
+
+        foreach ($items as $item) {
+            flus_facturacion_insert_dynamic($pdo, 'documento_items', [
+                'documento_id' => $documentoId,
+                'codigo' => $item['codigo'] ?? null,
+                'descripcion' => $item['descripcion'],
+                'cantidad' => $item['cantidad'],
+                'precio_unitario' => $item['precio_unitario'],
+                'subtotal' => $item['subtotal'],
+                'iva_porcentaje' => $item['iva_porcentaje'],
+                'created_at' => $timestamp,
+            ]);
+        }
+
+        if ($ownsTx) {
+            $pdo->commit();
+        }
+
+        return $documentoId;
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ($requestUid !== '') {
+            $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+            if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+                return (int)$existing['id'];
+            }
+        }
+
+        throw $e;
+    }
+}
+
+function flus_facturacion_documento_buscar_hijo_por_tipo(PDO $pdo, int $documentoOrigenId, string $tipoDocumento): ?array
+{
+    if ($documentoOrigenId <= 0 || !flus_facturacion_documentos_table_ready($pdo) || !flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+        return null;
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDocumento);
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE documento_origen_id = ? AND tipo_documento = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$documentoOrigenId, $tipo]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_hijos(PDO $pdo, int $documentoOrigenId): array
+{
+    if ($documentoOrigenId <= 0 || !flus_facturacion_documentos_table_ready($pdo) || !flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+        return [];
+    }
+
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE documento_origen_id = ? ORDER BY id DESC');
+    $st->execute([$documentoOrigenId]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function flus_facturacion_documento_factura_vinculada(PDO $pdo, int $documentoId): ?array
+{
+    if ($documentoId <= 0 || !flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'documento_id')) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM facturas WHERE documento_id = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$documentoId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_relaciones(PDO $pdo, int $documentoId): array
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        return [
+            'documento' => null,
+            'origen' => null,
+            'hijos' => [],
+            'factura' => null,
+        ];
+    }
+
+    $origenId = (int)($documento['documento_origen_id'] ?? 0);
+
+    return [
+        'documento' => $documento,
+        'origen' => $origenId > 0 ? flus_facturacion_documento_buscar($pdo, $origenId) : null,
+        'hijos' => flus_facturacion_documento_hijos($pdo, $documentoId),
+        'factura' => flus_facturacion_documento_factura_vinculada($pdo, $documentoId),
+    ];
+}
+
+function flus_facturacion_documento_clonar(PDO $pdo, int $documentoOrigenId, string $tipoDestino, array $meta = [], array $opciones = []): int
+{
+    $origen = flus_facturacion_documento_buscar($pdo, $documentoOrigenId);
+    if (!is_array($origen)) {
+        throw new RuntimeException('El documento origen no existe.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($origen['estado'] ?? ''))) {
+        throw new RuntimeException('El documento origen esta anulado o cancelado.');
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDestino);
+    if (!empty($opciones['reusar_existente'])) {
+        $existing = flus_facturacion_documento_buscar_hijo_por_tipo($pdo, $documentoOrigenId, $tipo);
+        if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+            return (int)$existing['id'];
+        }
+    }
+
+    $items = flus_facturacion_documento_items_normalizar_payload(flus_facturacion_documento_items_fetch($pdo, $documentoOrigenId));
+    if ($items === []) {
+        throw new RuntimeException('El documento origen no tiene items para clonar.');
+    }
+
+    $clienteId = (int)($origen['cliente_id'] ?? 0);
+    $notaBase = trim((string)($meta['nota'] ?? ''));
+    if ($notaBase === '') {
+        $notaOrigen = trim((string)($origen['nota'] ?? ''));
+        $notaBase = ($tipo === 'REMITO' ? 'Remito generado desde documento #' : 'Documento generado desde documento #') . $documentoOrigenId;
+        if ($notaOrigen !== '') {
+            $notaBase .= ' - ' . $notaOrigen;
+        }
+    }
+
+    $requestUid = trim((string)($opciones['request_uid'] ?? ''));
+    if ($requestUid === '') {
+        $requestUid = flus_facturacion_uuid_v4();
+    }
+
+    $nuevoId = flus_facturacion_documento_crear($pdo, $tipo, $clienteId, $items, [
+        'nota' => $notaBase,
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? ($origen['medio_pago'] ?? $tipo))) ?: $tipo,
+    ], [
+        'request_uid' => $requestUid,
+        'origen' => trim((string)($opciones['origen'] ?? ($origen['tipo_documento'] ?? 'DOCUMENTO'))) ?: 'DOCUMENTO',
+        'estado' => trim((string)($opciones['estado'] ?? flus_facturacion_documento_estado_inicial($tipo))) ?: flus_facturacion_documento_estado_inicial($tipo),
+        'venta_id' => (int)($opciones['venta_id'] ?? ($origen['venta_id'] ?? 0)) > 0 ? (int)($opciones['venta_id'] ?? ($origen['venta_id'] ?? 0)) : null,
+        'documento_origen_id' => $documentoOrigenId,
+    ]);
+
+    if (strtoupper(trim((string)($origen['tipo_documento'] ?? ''))) === 'PRESUPUESTO' && $tipo === 'REMITO') {
+        flus_facturacion_documento_actualizar_estado($pdo, $documentoOrigenId, 'REMITADO');
+    }
+
+    return $nuevoId;
+}
+
+function flus_facturacion_documento_convertir_a_venta_manual(PDO $pdo, int $documentoId, array $meta = []): int
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        throw new RuntimeException('El documento comercial no existe.');
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
+    if ($tipo !== 'PRESUPUESTO') {
+        throw new RuntimeException('Solo los presupuestos se pueden convertir a venta en esta fase.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($documento['estado'] ?? ''))) {
+        throw new RuntimeException('El presupuesto esta anulado o cancelado.');
+    }
+
+    $ventaExistente = (int)($documento['venta_id'] ?? 0);
+    if ($ventaExistente > 0) {
+        return $ventaExistente;
+    }
+
+    $items = flus_facturacion_documento_items_normalizar_payload(flus_facturacion_documento_items_fetch($pdo, $documentoId));
+    if ($items === []) {
+        throw new RuntimeException('El presupuesto no tiene items para convertir.');
+    }
+
+    $clienteId = (int)($documento['cliente_id'] ?? 0);
+    $ventaId = flus_facturacion_crear_venta_manual($pdo, $clienteId, $items, [
+        'nota' => trim((string)($meta['nota'] ?? ($documento['nota'] ?? 'Presupuesto convertido a venta'))) ?: 'Presupuesto convertido a venta',
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? 'PRESUPUESTO')) ?: 'PRESUPUESTO',
+    ]);
+
+    flus_facturacion_documento_actualizar_venta($pdo, $documentoId, $ventaId);
+    flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'CONVERTIDO_VENTA');
+
+    return $ventaId;
 }
 
 function flus_facturacion_normalize_manual_items(array $items): array

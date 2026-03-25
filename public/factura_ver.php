@@ -407,6 +407,14 @@ $itemRows = flus_facturacion_factura_detalle_items_fetch($pdo, $factura);
 $items = factura_normalizar_items($itemRows, $factura);
 $resumenFiscal = factura_resumen_fiscal($items, $factura);
 $recibosAsociados = flus_cobranzas_fetch_receipts_by_factura($pdo, $id, (int)($factura['documento_id'] ?? 0));
+$documentoComercial = null;
+$documentoComercialOrigen = null;
+if ((int)($factura['documento_id'] ?? 0) > 0) {
+    $documentoComercial = flus_facturacion_documento_buscar($pdo, (int)$factura['documento_id']);
+    if (is_array($documentoComercial) && (int)($documentoComercial['documento_origen_id'] ?? 0) > 0) {
+        $documentoComercialOrigen = flus_facturacion_documento_buscar($pdo, (int)$documentoComercial['documento_origen_id']);
+    }
+}
 
 $configEmpresa = null;
 try {
@@ -823,6 +831,21 @@ if ($pdfMode) {
       <?php endif; ?>
 
       <?php if (!$pdfMode): ?>
+        <?php if (is_array($documentoComercial)): ?>
+          <section class="factura-box factura-box--payment no-print">
+            <div class="box-title">Documento comercial asociado</div>
+            <div class="payment-stack">
+              <div><strong>Documento:</strong> <a href="documento_comercial.php?id=<?= (int)$documentoComercial['id'] ?>"><?= h((string)($documentoComercial['tipo_documento'] ?? 'Documento')) ?> #<?= (int)$documentoComercial['id'] ?></a></div>
+              <div><strong>Estado documental:</strong> <?= h((string)($documentoComercial['estado'] ?? 'PENDIENTE')) ?></div>
+              <?php if ((int)($documentoComercial['venta_id'] ?? 0) > 0): ?>
+                <div><strong>Venta vinculada:</strong> <a href="venta_detalle.php?id=<?= (int)$documentoComercial['venta_id'] ?>">Venta #<?= (int)$documentoComercial['venta_id'] ?></a></div>
+              <?php endif; ?>
+              <?php if (is_array($documentoComercialOrigen)): ?>
+                <div><strong>Origen:</strong> <a href="documento_comercial.php?id=<?= (int)$documentoComercialOrigen['id'] ?>"><?= h((string)($documentoComercialOrigen['tipo_documento'] ?? 'Documento')) ?> #<?= (int)$documentoComercialOrigen['id'] ?></a></div>
+              <?php endif; ?>
+            </div>
+          </section>
+        <?php endif; ?>
         <?php if ($recibosAsociados !== []): ?>
           <section class="factura-box factura-box--payment no-print">
             <div class="box-title">Cobros / recibos asociados</div>

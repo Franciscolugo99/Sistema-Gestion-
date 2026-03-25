@@ -73,6 +73,8 @@ if ($currentSection === '') {
         'facturacion_nc_recovery.php'  => 'facturacion',
         'factura_nueva.php'            => 'facturacion',
         'factura_manual.php'           => 'facturacion',
+        'documentos_comerciales.php'   => 'facturacion',
+        'documento_comercial.php'      => 'facturacion',
         'factura_ver.php'              => 'facturacion',
         'factura_pdf.php'              => 'facturacion',
         'factura_emitir.php'           => 'facturacion',
@@ -667,6 +669,15 @@ $autoBreadcrumbsByFile = [
     'factura_manual.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
         ['label' => 'Factura manual', 'url' => null],
+    ],
+    'documentos_comerciales.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Documentos comerciales', 'url' => null],
+    ],
+    'documento_comercial.php' => [
+        ['label' => 'Facturación', 'url' => 'facturacion.php'],
+        ['label' => 'Documentos comerciales', 'url' => 'documentos_comerciales.php'],
+        ['label' => 'Documento', 'url' => null],
     ],
     'facturacion_config.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
