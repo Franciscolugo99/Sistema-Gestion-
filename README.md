@@ -9,7 +9,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ---
 
-## Estado actual (2026-03-23)
+## Estado actual (2026-03-25)
 
 ### Ventas y anulaciones
 
@@ -89,7 +89,6 @@ Las principales capacidades son:
 
 Estas funciones marcan el primer paso hacia un sistema de gestión más completo, permitiendo emitir comprobantes fiscales directamente desde FLUS.
 
-
 ### Estado actual de Facturación – Fase 1 (factura común)
 
 Esta primera fase no rediseña todavía el modelo documental completo. El foco quedó puesto en **endurecer y unificar la emisión fiscal actual** sin romper compatibilidad legacy.
@@ -106,6 +105,7 @@ Avances concretos de Fase 1:
 - **Sin ampliar alcance:** todavía **no** se crean `documentos/documento_items`, no se elimina `venta_id`, y no se abre todavía Fase 2 ni Fase 3.
 
 Migración asociada:
+
 - `016_factura_comun_fiscal_flow.sql`
 
 Esto deja la base preparada para una etapa posterior de recovery más fuerte y para la futura evolución documental, pero sin forzar ese cambio en esta fase.
@@ -128,6 +128,7 @@ Avances concretos de Fase 2:
 - **Sin agrandar alcance:** esta fase todavía **no** elimina la venta manual fake, **no** migra masivamente ventas a documentos y **no** abre todavía el desacople final del modelo.
 
 Migración asociada:
+
 - `017_facturacion_documentos_manual.sql`
 
 Esto deja preparada una base documental real para una etapa posterior, pero manteniendo el puente legacy actual para no romper compatibilidad.
@@ -148,9 +149,81 @@ Avances concretos de Fase 3:
 - **Sin abrir alcance mayor:** todavía **no** hay recibos, **no** hay notas de débito, **no** hay aplicación múltiple avanzada y **no** se reemplaza la operatoria actual de caja/CC.
 
 Migración asociada:
+
 - `018_cobranzas_base.sql`
 
 Esto deja lista una base mínima para fases posteriores donde sí pueda crecer un subsistema más completo de cobranzas y aplicaciones, pero sin romper la operación actual.
+
+### Estado actual de Facturación – Fase 4 (recibos y aplicaciones mínimas)
+
+Esta cuarta fase **no reemplaza todavía cobranzas, caja, cuenta corriente ni recibos impresos legacy**. El foco fue sumar una capa mínima para distinguir mejor el **recibo** como constancia documental del cobro y su aplicación comercial.
+
+Avances concretos de Fase 4:
+
+- **Base mínima de recibos:** se incorporan `recibos` y `recibo_aplicaciones` para dejar constancia documental del recibo sin rehacer todavía el resto de la operatoria.
+- **Complemento no destructivo:** la nueva capa convive con cobranzas, caja y cuenta corriente ya existentes.
+- **Vínculos básicos:** un recibo puede asociarse a la cobranza, venta, documento o factura cuando corresponda.
+- **Idempotencia mínima:** el alta y la aplicación del recibo evitan duplicaciones razonables del mismo caso comercial.
+- **Modo no fiscal intacto:** el sistema sigue pudiendo operar como no fiscal sin exigir recibos/documentos nuevos en todos los flujos.
+- **Sin agrandar alcance:** esta fase todavía **no** reemplaza el circuito completo de cobranzas/recibos, **no** rehace caja y **no** introduce conciliación avanzada.
+
+Migración asociada:
+
+- `019_recibos_aplicaciones.sql`
+
+### Estado actual de Facturación – Fase 5 (reportes fiscales y reenvío comercial)
+
+Esta quinta fase **no rehace todavía el módulo de facturación completo**. El objetivo fue volver más operativa la lectura de la facturación y sumar trazabilidad mínima del reenvío comercial al cliente.
+
+Avances concretos de Fase 5:
+
+- **Reportes fiscales mínimos:** la facturación gana mejor lectura operativa por estado fiscal, cliente, comprobante, CAE y vínculos asociados.
+- **Trazabilidad de reenvío comercial:** se incorporan `envio_ultimo_canal`, `envio_ultimo_destino`, `envio_ultimo_estado`, `envio_ultimo_error`, `envio_ultimo_at` y `envio_intentos` para seguir el último reenvío comercial/email de la factura.
+- **Reenvío mínimo al cliente:** la fase deja preparada una base de seguimiento de reenvíos sin acoplarla a la lógica fiscal con ARCA.
+- **Compatibilidad preservada:** esta trazabilidad comercial convive con las fases fiscales anteriores sin cambiar el modelo principal de factura.
+- **Sin mezclar dominios:** la semántica de `envio_ultimo_*` queda reservada al envío comercial al cliente y no a la interacción fiscal con ARCA.
+
+Migración asociada:
+
+- `020_facturas_envio_trazabilidad.sql`
+
+### Estado actual de Facturación – Fase 6 (presupuestos/remitos documentales)
+
+Esta sexta fase **no convierte todavía FLUS en un módulo comercial completo** ni elimina la compatibilidad legacy. El objetivo fue aprovechar la base documental existente para soportar **presupuestos** y **remitos** con una operatoria mínima pero realista.
+
+Avances concretos de Fase 6:
+
+- **Documentos comerciales reales:** `documentos_comerciales` pasa a soportar `PRESUPUESTO` y `REMITO` como documentos operativos visibles desde su propio listado y detalle.
+- **Relaciones documentales mínimas:** queda lista la base para vincular presupuesto → remito → factura / venta sin rehacer todavía toda la cadena comercial.
+- **Borrador vs operación real:** un presupuesto o remito puede existir sin cliente solo como borrador; para generar remito, generar venta, vincular venta o emitir factura debe tener cliente.
+- **Acciones guiadas en UI:** el detalle documental muestra mejor el siguiente paso operativo, el impacto real en stock y cuándo el documento ya hizo “lo suyo”.
+- **No hacer dos veces lo mismo:** si el documento ya tiene remito, venta o factura vinculada, la UI y el backend dejan de ofrecer o aceptar repetir esa misma acción.
+- **Conversión operativa real a venta:** cuando todos los ítems matchean de forma estricta por `productos.codigo` y hay stock suficiente, la conversión usa `ventas`, `venta_items`, baja stock y registra `movimientos_stock`.
+- **Fallback legacy controlado:** si el documento no puede mapear confiablemente a productos reales, la conversión cae a venta manual legacy sin tocar stock.
+- **Hardening de stock:** la conversión operativa valida de nuevo dentro de transacción, bloquea productos con `FOR UPDATE`, suma demanda por SKU repetido y evita dobles descargas silenciosas.
+- **Cliente cruzado protegido:** al vincular una venta existente se bloquean clientes cruzados y, si la venta no tenía cliente, se puede completar con el del documento.
+- **Modo no fiscal intacto:** toda la capa documental sigue conviviendo con el módulo de facturación apagado, sin romper anulaciones ni la operación no fiscal.
+
+Migración asociada:
+
+- `021_documentos_relaciones_presupuestos_remitos.sql`
+
+### Estado actual de Facturación – Fase 7 (contingencia fiscal mínima de factura común)
+
+Esta séptima fase **no introduce CAEA, colas en background ni una arquitectura nueva de conciliación**. El foco fue cerrar una contingencia mínima y más segura para factura común cuando el problema ocurre entre la autorización remota y la aplicación local.
+
+Avances concretos de Fase 7:
+
+- **Regularización mínima de factura común:** se incorpora `facturacion_recovery.php` para seguir y regularizar casos `PENDIENTE_ENVIO`, `ERROR_TRANSITORIO` y `ERROR_POST_ARCA`.
+- **Estados fiscales más claros:** `ERROR_POST_ARCA` queda formalizado para distinguir fallos locales posteriores a una autorización remota, y `RECUPERADA` permite marcar un cierre correcto por recovery.
+- **Recovery simple reutilizado:** la regularización reutiliza `request_uid`, `factura_eventos_arca` y la consulta/recovery simple ya disponible, sin reemitir a ARCA a ciegas.
+- **Visibilidad operativa:** `facturacion.php` y `factura_ver.php` muestran mejor qué casos requieren intervención mínima y permiten iniciar la regularización.
+- **Separación correcta de dominios:** la contingencia fiscal se apoya en `estado_fiscal`, `fiscal_error_code`, `fiscal_error_message`, `fiscal_requested_at`, `fiscal_approved_at` y `factura_eventos_arca`; la trazabilidad `envio_ultimo_*` queda reservada exclusivamente al reenvío comercial/email al cliente.
+- **Sin agrandar alcance:** esta fase todavía **no** implementa CAEA, **no** agrega workers/schedulers y **no** rehace el modelo fiscal entero.
+
+Migración asociada:
+
+- `022_facturas_fiscal_contingencia.sql`
 
 ### Notas de Crédito fiscales
 
@@ -169,9 +242,11 @@ Capacidades principales:
 - Pantalla de recovery para casos `ERROR_POST_ARCA`, donde la parte fiscal fue aprobada pero falló la aplicación local/comercial.
 
 Permiso específico:
+
 - `emitir_nota_credito`
 
 Archivos principales:
+
 - `public/facturacion_nc.php`
 - `public/facturacion_nc_emitir.php`
 - `public/facturacion_nc_recovery.php`
@@ -179,6 +254,7 @@ Archivos principales:
 - `src/Fiscal/Service/DbFiscalRecoveryService.php`
 
 Migraciones relacionadas:
+
 - `010_anulaciones_parciales.sql`
 - `011_cc_schema_compat.sql`
 - `012_venta_anulaciones_fiscal.sql`
@@ -186,11 +262,13 @@ Migraciones relacionadas:
 - `014_factura_items_eventos_arca.sql`
 - `015_fiscal_nc_hardening.sql`
 - `016_factura_comun_fiscal_flow.sql`
+
 ## Actualizacion de instalaciones existentes
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Validar modulos criticos despues del deploy.
+- Verificar que corran las migraciones pendientes hasta `022_facturas_fiscal_contingencia.sql`.
+- Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.4.0.md](docs/UPGRADE_3.4.0.md).
 
 ## Instalacion limpia
@@ -228,7 +306,8 @@ Migraciones relacionadas:
 2. Copiar archivos nuevos al servidor.
 3. Ejecutar `php scripts/migrate.php`.
 4. Validar login, ventas, anulaciones parciales, compras, productos, stock y proveedores.
-5. Revisar `src/version.php` en la instancia desplegada.
+5. Validar facturación, documentos comerciales (presupuesto/remito), cobranzas/recibos y recovery fiscal mínimo.
+6. Revisar `src/version.php` en la instancia desplegada.
 
 ---
 
@@ -244,6 +323,10 @@ Migraciones relacionadas:
 - Backups: crear + validar
 - Diagnostico: generar paquete ZIP
 - Inventario fisico: crear sesion + conteo + cerrar + aplicar ajustes
+- Facturación: emitir desde venta, emitir manual, revisar `factura_ver.php` y probar filtro/listado fiscal
+- Documentos comerciales: crear presupuesto, convertir a remito/venta cuando corresponda y validar bloqueo de doble acción
+- Cobranzas/Recibos: registrar caso base, revisar vínculo con factura/documento y validar que no duplique razonablemente
+- Recovery fiscal mínimo: revisar un caso `PENDIENTE_ENVIO`/`ERROR_TRANSITORIO`/`ERROR_POST_ARCA` y confirmar que la regularización no pisa la trazabilidad de email
 
 ---
 
