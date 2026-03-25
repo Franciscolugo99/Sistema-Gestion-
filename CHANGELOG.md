@@ -12,6 +12,11 @@
 - **Facturación / Fase 3 (base mínima de cobranzas):**
   - Nueva capa mínima con `cobranzas` y `cobranza_aplicaciones` para registrar cobros reales y su aplicación comercial/documental sin reemplazar todavía `venta_pagos`, caja ni cuenta corriente.
   - Smoke tests iniciales para validar alta idempotente de cobranzas, aplicaciones y enlace con factura/documento cuando corresponda.
+- **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
+  - Nueva capa mínima de recibos sobre `documentos_comerciales` usando `tipo_documento = 'RECIBO'` y `origen = 'COBRANZA'`, con vínculo directo desde `cobranzas.recibo_documento_id`.
+  - Nueva tabla `recibo_aplicaciones` para dejar aplicación explícita de un recibo a `SALDO_CC`, `DOCUMENTO` o `FACTURA`, sin reemplazar todavía caja, cuenta corriente ni `venta_pagos`.
+  - Primeras vistas internas de trazabilidad de cobros/recibos asociados en factura y cuenta corriente del cliente, manteniendo esa información fuera del PDF/impresión para el cliente.
+  - Smoke tests y validaciones nuevas para recibos, coherencia cliente↔documento↔factura e idempotencia reforzada en pagos de cuenta corriente.
 
 ### Changed
 - **Facturación / Fase 1 (factura común):**
@@ -29,6 +34,11 @@
   - El sistema empieza a distinguir mejor entre pago real, deuda en cuenta corriente y aplicación a venta/documento/factura, sin rehacer todavía caja ni CC.
   - Los pagos reales de venta y los pagos posteriores de cuenta corriente pueden dejar una base de cobranza propia para fases futuras.
   - La nueva capa se mantiene complementaria y no destructiva respecto del modo no fiscal y de la operación legacy existente.
+- **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
+  - Los pagos de cuenta corriente pueden informar opcionalmente `documento_id`, `factura_id` y `request_uid`, reforzando trazabilidad e idempotencia sin abrir todavía una UI de conciliación avanzada.
+  - `factura_ver.php` y `cuenta_corriente_cliente.php` empiezan a mostrar la trazabilidad interna de cobranzas/recibos asociados, pero el render para PDF/impresión oculta recibos y telemetría técnica para no mezclar datos internos con el comprobante del cliente.
+  - La vista de factura deja en impresión solo lo fiscalmente útil (`CAE`, `Vto. CAE`, QR/validación y leyendas operativas) y reserva `request_uid`, intentos y timestamps para uso interno.
+  - `cuenta_corriente.js` incorpora `request_uid` en el flujo de pago y corrige el fallback de notificaciones para no degradar la UX en retries o respuestas exitosas.
 
 ### Fixed
 - **Facturación / Fase 1 (factura común):**
@@ -41,11 +51,18 @@
 - **Facturación / Fase 3 (base mínima de cobranzas):**
   - Se evita tratar la porción `CC` de una venta como si fuera una cobranza real de caja.
   - Se refuerza la idempotencia de cobranzas/aplicaciones para no duplicar el mismo cobro en retries razonables del flujo.
+- **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
+  - Se evita duplicar pagos de cuenta corriente, cobranzas y recibos en retries razonables mediante `request_uid` y una guarda adicional de doble submit reciente.
+  - Se endurece la coherencia entre `cliente_id`, `documento_id` y `factura_id`, rechazando cruces inconsistentes y evitando aplicar un recibo a entidades de otro cliente.
+  - Se impide crear más de una aplicación distinta sobre la misma cobranza en esta fase, dejando explícito que todavía no hay split múltiple de recibos.
+  - Se corrige el uso incorrecto de `recibo_documento_id` como si fuera `facturas.id` en la UI interna, evitando enlaces rotos o asociaciones engañosas.
+  - Se evita imprimir en la factura datos internos de telemetría fiscal (`request_uid`, intentos, timestamps, errores internos) y el bloque de cobros/recibos asociados.
 
 ### Migrations
 - `016_factura_comun_fiscal_flow.sql`
 - `017_facturacion_documentos_manual.sql`
 - `018_cobranzas_base.sql`
+- `019_recibos_aplicaciones.sql`
 
 ## [3.8.1] - 2026-03-22
 
