@@ -352,6 +352,16 @@ final class FlusFakePdo extends PDO
             ]] : []];
         }
 
+        if (preg_match('/^SELECT cc_saldo FROM clientes WHERE id = \? FOR UPDATE$/i', $normalized) === 1) {
+            $clienteId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['clientes']['rows'] ?? [], static function (array $row) use ($clienteId): bool {
+                return (int)($row['id'] ?? 0) === $clienteId;
+            }));
+            return ['rows' => $rows !== [] ? [[
+                'cc_saldo' => $rows[0]['cc_saldo'] ?? 0,
+            ]] : []];
+        }
+
         if (preg_match('/^SELECT \* FROM cuenta_corriente_movimientos WHERE cliente_id = \? AND tipo = \? AND estado = \? AND monto = \? AND medio_pago = \? AND created_by = \? ORDER BY id DESC$/i', $normalized) === 1) {
             $clienteId = (int)($params[0] ?? 0);
             $tipo = (string)($params[1] ?? '');
@@ -369,6 +379,47 @@ final class FlusFakePdo extends PDO
             }));
             usort($rows, static fn(array $a, array $b): int => (int)($b['id'] ?? 0) <=> (int)($a['id'] ?? 0));
             return ['rows' => $rows];
+        }
+
+        if (preg_match('/^SELECT \* FROM cuenta_corriente_movimientos WHERE id = \? FOR UPDATE$/i', $normalized) === 1) {
+            $movimientoId = (int)($params[0] ?? 0);
+            $rows = array_values(array_filter($this->tables['cuenta_corriente_movimientos']['rows'] ?? [], static function (array $row) use ($movimientoId): bool {
+                return (int)($row['id'] ?? 0) === $movimientoId;
+            }));
+            return ['rows' => $rows !== [] ? [$rows[0]] : []];
+        }
+
+        if (preg_match('/^SELECT id FROM cuenta_corriente_movimientos WHERE reversa_de_id = \? AND estado = \?$/i', $normalized) === 1) {
+            $reversaDeId = (int)($params[0] ?? 0);
+            $estado = (string)($params[1] ?? '');
+            $rows = array_values(array_filter($this->tables['cuenta_corriente_movimientos']['rows'] ?? [], static function (array $row) use ($reversaDeId, $estado): bool {
+                return (int)($row['reversa_de_id'] ?? 0) === $reversaDeId
+                    && (string)($row['estado'] ?? '') === $estado;
+            }));
+            return ['rows' => $rows !== [] ? [['id' => (int)($rows[0]['id'] ?? 0)]] : []];
+        }
+
+        if (preg_match('/^SELECT MAX\(DATE\(created_at\)\) FROM cuenta_corriente_movimientos WHERE cliente_id = \? AND tipo = \? AND estado = \?$/i', $normalized) === 1) {
+            $clienteId = (int)($params[0] ?? 0);
+            $tipo = (string)($params[1] ?? '');
+            $estado = (string)($params[2] ?? '');
+            $maxDate = null;
+            foreach ($this->tables['cuenta_corriente_movimientos']['rows'] ?? [] as $row) {
+                if ((int)($row['cliente_id'] ?? 0) !== $clienteId
+                    || (string)($row['tipo'] ?? '') !== $tipo
+                    || (string)($row['estado'] ?? '') !== $estado) {
+                    continue;
+                }
+                $createdAt = (string)($row['created_at'] ?? '');
+                $candidate = $createdAt !== '' ? substr($createdAt, 0, 10) : null;
+                if ($candidate === null || $candidate === '') {
+                    continue;
+                }
+                if ($maxDate === null || strcmp($candidate, $maxDate) > 0) {
+                    $maxDate = $candidate;
+                }
+            }
+            return ['rows' => $maxDate !== null ? [[0 => $maxDate]] : [], 'scalar' => $maxDate];
         }
 
         if (preg_match("/^SELECT \\* FROM facturas WHERE documento_id = \\? AND naturaleza = 'FACTURA' ORDER BY id DESC LIMIT 1$/i", $normalized) === 1) {
@@ -596,6 +647,27 @@ function flus_test_cc_controller_fake_pdo(): FlusFakePdo
         ['id' => 88, 'nombre' => 'Cliente B', 'cc_habilitado' => 1, 'cc_saldo' => 900.00, 'cc_fecha_ultimo_pago' => '2026-03-01'],
     ]);
     return $pdo;
+}
+
+function flus_seed_cc_movimientos(FlusFakePdo $pdo, array $rows): void
+{
+    $pdo->seedTable('cuenta_corriente_movimientos', [
+        'id', 'cliente_id', 'tipo', 'estado', 'monto', 'saldo_anterior', 'saldo_posterior',
+        'venta_id', 'concepto', 'medio_pago', 'referencia', 'request_uid', 'reversa_de_id',
+        'created_at', 'created_by', 'autorizado_por', 'caja_id', 'caja_movimiento_id',
+        'terminal_id', 'ip_address', 'updated_at'
+    ], $rows);
+}
+
+function flus_find_row_by_id(array $rows, int $id): ?array
+{
+    foreach ($rows as $row) {
+        if ((int)($row['id'] ?? 0) === $id) {
+            return $row;
+        }
+    }
+
+    return null;
 }
 
 $results = [];
@@ -1758,6 +1830,216 @@ $results[] = flus_run_test('fase 4 controller detecta doble submit reciente sin 
     flus_assert_same(1, count($pdo->rows('cuenta_corriente_movimientos')));
     flus_assert_same(1, count($pdo->rows('cobranzas')));
     flus_assert_same(1, count($pdo->rows('recibo_aplicaciones')));
+});
+
+$results[] = flus_run_test('cuenta corriente no permite reversar una reversa', function (): void {
+    $pdo = flus_test_cc_controller_fake_pdo();
+    flus_seed_cc_movimientos($pdo, [
+        [
+            'id' => 501,
+            'cliente_id' => 77,
+            'tipo' => 'REVERSA',
+            'estado' => 'ACTIVO',
+            'monto' => 100.00,
+            'saldo_anterior' => 200.00,
+            'saldo_posterior' => 100.00,
+            'reversa_de_id' => 500,
+            'concepto' => 'REVERSA: test',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 10:00:00',
+        ],
+    ]);
+    $controller = new CuentaCorrienteController($pdo);
+
+    $result = $controller->reversarMovimiento(501, 'Reversa invalida', 9);
+
+    flus_assert_false((bool)($result['success'] ?? false));
+    flus_assert_same('No se puede reversar una reversa', (string)($result['error'] ?? ''));
+    flus_assert_same(1, count($pdo->rows('cuenta_corriente_movimientos')));
+});
+
+$results[] = flus_run_test('cuenta corriente no permite reversar dos veces el mismo movimiento', function (): void {
+    $pdo = flus_test_cc_controller_fake_pdo();
+    flus_seed_cc_movimientos($pdo, [
+        [
+            'id' => 601,
+            'cliente_id' => 77,
+            'tipo' => 'PAGO',
+            'estado' => 'ACTIVO',
+            'monto' => 120.00,
+            'saldo_anterior' => 1020.00,
+            'saldo_posterior' => 900.00,
+            'medio_pago' => 'EFECTIVO',
+            'concepto' => 'Pago ya reversado',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 10:00:00',
+        ],
+        [
+            'id' => 602,
+            'cliente_id' => 77,
+            'tipo' => 'REVERSA',
+            'estado' => 'ACTIVO',
+            'monto' => 120.00,
+            'saldo_anterior' => 900.00,
+            'saldo_posterior' => 1020.00,
+            'reversa_de_id' => 601,
+            'concepto' => 'REVERSA: previa',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 10:05:00',
+        ],
+    ]);
+    $controller = new CuentaCorrienteController($pdo);
+
+    $result = $controller->reversarMovimiento(601, 'Segunda reversa', 9);
+
+    flus_assert_false((bool)($result['success'] ?? false));
+    flus_assert_same('Este movimiento ya fue reversado', (string)($result['error'] ?? ''));
+    flus_assert_same(2, count($pdo->rows('cuenta_corriente_movimientos')));
+});
+
+$results[] = flus_run_test('cuenta corriente reversa un pago y recalcula ultimo pago', function (): void {
+    $pdo = flus_test_cc_controller_fake_pdo();
+    $pdo->seedTable('clientes', [
+        'id', 'nombre', 'cc_habilitado', 'cc_saldo', 'cc_fecha_ultimo_pago'
+    ], [
+        ['id' => 77, 'nombre' => 'Cliente Demo', 'cc_habilitado' => 1, 'cc_saldo' => 150.00, 'cc_fecha_ultimo_pago' => '2026-03-24'],
+    ]);
+    flus_seed_cc_movimientos($pdo, [
+        [
+            'id' => 701,
+            'cliente_id' => 77,
+            'tipo' => 'PAGO',
+            'estado' => 'ACTIVO',
+            'monto' => 200.00,
+            'saldo_anterior' => 350.00,
+            'saldo_posterior' => 150.00,
+            'medio_pago' => 'EFECTIVO',
+            'concepto' => 'Pago reciente',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 15:00:00',
+        ],
+        [
+            'id' => 702,
+            'cliente_id' => 77,
+            'tipo' => 'PAGO',
+            'estado' => 'ACTIVO',
+            'monto' => 50.00,
+            'saldo_anterior' => 400.00,
+            'saldo_posterior' => 350.00,
+            'medio_pago' => 'EFECTIVO',
+            'concepto' => 'Pago anterior',
+            'created_by' => 9,
+            'created_at' => '2026-03-10 09:00:00',
+        ],
+    ]);
+    $controller = new CuentaCorrienteController($pdo);
+
+    $result = $controller->reversarMovimiento(701, 'Anular pago', 9);
+    $movimientos = $pdo->rows('cuenta_corriente_movimientos');
+    $original = flus_find_row_by_id($movimientos, 701);
+    $reversa = flus_find_row_by_id($movimientos, (int)($result['reversa_id'] ?? 0));
+    $cliente = flus_find_row_by_id($pdo->rows('clientes'), 77);
+
+    flus_assert_true((bool)($result['success'] ?? false));
+    flus_assert_true(array_key_exists('success', $result));
+    flus_assert_true(array_key_exists('reversa_id', $result));
+    flus_assert_true(array_key_exists('saldo_anterior', $result));
+    flus_assert_true(array_key_exists('saldo_posterior', $result));
+    flus_assert_same(150.00, (float)($result['saldo_anterior'] ?? 0));
+    flus_assert_same(350.00, (float)($result['saldo_posterior'] ?? 0));
+    flus_assert_same('ANULADO', (string)($original['estado'] ?? ''));
+    flus_assert_same('REVERSA', (string)($reversa['tipo'] ?? ''));
+    flus_assert_same('ACTIVO', (string)($reversa['estado'] ?? ''));
+    flus_assert_same(701, (int)($reversa['reversa_de_id'] ?? 0));
+    flus_assert_same(350.00, round((float)($cliente['cc_saldo'] ?? 0), 2));
+    flus_assert_same('2026-03-10', (string)($cliente['cc_fecha_ultimo_pago'] ?? ''));
+});
+
+$results[] = flus_run_test('cuenta corriente reversa un cargo en el sentido correcto', function (): void {
+    $pdo = flus_test_cc_controller_fake_pdo();
+    $pdo->seedTable('clientes', [
+        'id', 'nombre', 'cc_habilitado', 'cc_saldo', 'cc_fecha_ultimo_pago'
+    ], [
+        ['id' => 77, 'nombre' => 'Cliente Demo', 'cc_habilitado' => 1, 'cc_saldo' => 320.00, 'cc_fecha_ultimo_pago' => '2026-03-01'],
+    ]);
+    flus_seed_cc_movimientos($pdo, [
+        [
+            'id' => 801,
+            'cliente_id' => 77,
+            'tipo' => 'CARGO',
+            'estado' => 'ACTIVO',
+            'monto' => 120.00,
+            'saldo_anterior' => 200.00,
+            'saldo_posterior' => 320.00,
+            'concepto' => 'Cargo demo',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 10:00:00',
+        ],
+    ]);
+    $controller = new CuentaCorrienteController($pdo);
+
+    $result = $controller->reversarMovimiento(801, 'Anular cargo', 9);
+    $movimientos = $pdo->rows('cuenta_corriente_movimientos');
+    $original = flus_find_row_by_id($movimientos, 801);
+    $reversa = flus_find_row_by_id($movimientos, (int)($result['reversa_id'] ?? 0));
+    $cliente = flus_find_row_by_id($pdo->rows('clientes'), 77);
+
+    flus_assert_true((bool)($result['success'] ?? false));
+    flus_assert_same(320.00, (float)($result['saldo_anterior'] ?? 0));
+    flus_assert_same(200.00, (float)($result['saldo_posterior'] ?? 0));
+    flus_assert_same('ANULADO', (string)($original['estado'] ?? ''));
+    flus_assert_same('REVERSA', (string)($reversa['tipo'] ?? ''));
+    flus_assert_same('ACTIVO', (string)($reversa['estado'] ?? ''));
+    flus_assert_same(801, (int)($reversa['reversa_de_id'] ?? 0));
+    flus_assert_same(200.00, round((float)($cliente['cc_saldo'] ?? 0), 2));
+});
+
+$results[] = flus_run_test('cuenta corriente reversa exitosa mantiene claves de respuesta', function (): void {
+    $pdo = flus_test_cc_controller_fake_pdo();
+    $pdo->seedTable('clientes', [
+        'id', 'nombre', 'cc_habilitado', 'cc_saldo', 'cc_fecha_ultimo_pago'
+    ], [
+        ['id' => 77, 'nombre' => 'Cliente Demo', 'cc_habilitado' => 1, 'cc_saldo' => 500.00, 'cc_fecha_ultimo_pago' => '2026-03-01'],
+    ]);
+    flus_seed_cc_movimientos($pdo, [
+        [
+            'id' => 901,
+            'cliente_id' => 77,
+            'tipo' => 'CARGO',
+            'estado' => 'ACTIVO',
+            'monto' => 100.00,
+            'saldo_anterior' => 400.00,
+            'saldo_posterior' => 500.00,
+            'concepto' => 'Cargo contrato',
+            'created_by' => 9,
+            'created_at' => '2026-03-24 10:00:00',
+        ],
+    ]);
+    $controller = new CuentaCorrienteController($pdo);
+
+    $result = $controller->reversarMovimiento(901, 'Anular cargo contrato', 9);
+
+    flus_assert_true((bool)($result['success'] ?? false));
+    flus_assert_true(array_key_exists('success', $result));
+    flus_assert_true(array_key_exists('reversa_id', $result));
+    flus_assert_true(array_key_exists('saldo_anterior', $result));
+    flus_assert_true(array_key_exists('saldo_posterior', $result));
+});
+
+$results[] = flus_run_test('facturacion panel delega lectura y export a helper dedicado', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $panelHelper = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
+    $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+
+    flus_assert_contains("function flus_facturacion_panel_read", $panelHelper);
+    flus_assert_contains("function flus_facturacion_panel_export_rows", $panelHelper);
+    flus_assert_contains("require_once __DIR__ . '/../src/facturacion_panel_lib.php';", $facturacionPhp);
+    flus_assert_contains("\$panel = flus_facturacion_panel_read(\$pdo", $facturacionPhp);
+    flus_assert_contains("\$exportRows = flus_facturacion_panel_export_rows(\$pdo, \$panel['plan']);", $facturacionPhp);
+    flus_assert_not_contains('$sqlCount = "', $facturacionPhp);
+    flus_assert_not_contains('$sqlStats = "', $facturacionPhp);
+    flus_assert_not_contains('$sqlList = "', $facturacionPhp);
+    flus_assert_contains("['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo']", $facturacionPhp);
 });
 
 $results[] = flus_run_test('fase 4 migracion y wiring agregan recibos sin tocar baseline', function (): void {

@@ -30,6 +30,12 @@
 
 ### Changed
 
+- **Cuenta Corriente / refuerzo técnico:**
+  - `registrarPago()`, `registrarCargo()` y `reversarMovimiento()` quedan reorganizados como orquestadores cortos con pasos internos explícitos, manteniendo firma pública, respuestas, transacciones y compatibilidad legacy.
+  - El controlador de cuenta corriente reduce concentración de lógica sensible separando validación, locks, dedupe, persistencia, actualización de cliente y construcción de respuesta sin abrir una arquitectura nueva.
+- **Facturación / panel de historial fiscal:**
+  - `public/facturacion.php` deja de construir inline toda la capa de lectura/reporting y pasa a delegarla a `src/facturacion_panel_lib.php`, manteniendo los mismos parámetros GET, la misma UI y el mismo CSV exportado.
+  - La lectura del panel queda separada en resolución de capacidades legacy del esquema, armado del plan de consulta y ejecución de datasets operativos (tipos, count, stats, incidencias, listado y export).
 - **Facturación / Fase 1 (factura común):**
   - La emisión desde venta y la emisión manual quedan cerradas sobre la misma capa de negocio, manteniendo `facturas.venta_id` y compatibilidad legacy.
   - `public/factura_nueva.php`, `public/factura_emitir.php` y `public/factura_manual.php` quedan como entrypoints más finos, con mejor resolución de cliente y menos lógica duplicada.
@@ -63,6 +69,11 @@
 
 ### Fixed
 
+- **Caja / Cuenta Corriente:**
+  - El cobro de cuenta corriente desde Caja ahora muestra una confirmación visible y contextual al registrar el pago, evitando la sensación de operación “muda” cuando el modal se cierra enseguida.
+- **Testing / documentación técnica:**
+  - Se amplía la cobertura smoke para reversas de cuenta corriente y para el wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
+  - Se normalizan referencias internas de versión/fechas para alinear changelog y build actual del repo.
 - **Facturación / Fase 1 (factura común):**
   - Se reduce la duplicación real entre emisión desde venta y emisión manual sin reescribir toda la arquitectura.
   - Si ARCA falla, la factura común deja estado fiscal consistente y trazabilidad mínima para reintento/recovery.
@@ -98,7 +109,7 @@
 - `021_documentos_relaciones_presupuestos_remitos.sql`
 - `022_facturas_fiscal_contingencia.sql`
 
-## [3.8.1] - 2026-03-22
+## [3.8.1] - 2026-03-23
 
 ### Added
 
@@ -139,7 +150,7 @@
 - `015_fiscal_nc_hardening.sql`
 - Sin cambios documentados todavía.
 
-## [3.8.0] - 2026-03-23
+## [3.8.0] - 2026-03-22
 
 ### Added
 

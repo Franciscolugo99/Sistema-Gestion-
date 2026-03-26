@@ -24,15 +24,44 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showMsg(type, text) {
-    if (!msgEl) return Notif.error(text);
+    const msg = String(text || "").trim();
+    if (!msg) return;
+
+    if (window.Notif) {
+      if (type === "success" || type === "ok") return window.Notif.exito(msg);
+      if (type === "warning" || type === "warn") return window.Notif.advertencia(msg);
+      return window.Notif.error(msg);
+    }
+
+    if (typeof window.showToast === "function") {
+      window.showToast(msg, type);
+      return;
+    }
+
+    if (!msgEl) {
+      console[type === "error" ? "error" : "log"](msg);
+      return;
+    }
+
     msgEl.classList.remove("msg-ok","msg-error","msg-success","msg-warning","msg-visible");
     const cls = (type === "success" || type === "ok") ? "msg-success" :
                 (type === "warning") ? "msg-warning" : "msg-error";
     msgEl.classList.add(cls, "msg-visible");
-    msgEl.textContent = text;
+    msgEl.textContent = msg;
     setTimeout(() => {
       msgEl.classList.remove("msg-visible");
     }, 4500);
+  }
+
+  function buildSuccessMessage(data) {
+    const saldoPost = Number(data?.saldo_posterior ?? NaN);
+    const reciboId = Number(data?.recibo_documento_id ?? 0);
+    const partes = ["Pago CC registrado"];
+
+    if (reciboId > 0) partes.push(`Recibo #${reciboId}`);
+    if (Number.isFinite(saldoPost)) partes.push(`Nuevo saldo: $${saldoPost.toFixed(2)}`);
+
+    return partes.join(" · ");
   }
 
   function openModal() {
@@ -237,10 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const msg = data?.error || data?.message || `Error (HTTP ${res.status})`;
         throw new Error(msg);
       }
-
-      const saldoPost = Number(data?.saldo_posterior ?? NaN);
-      const txtSaldo = Number.isFinite(saldoPost) ? ` · Nuevo saldo: $${saldoPost.toFixed(2)}` : "";
-      showMsg("success", `✓ Pago CC registrado${txtSaldo}`);
+      showMsg("success", buildSuccessMessage(data));
       closeModal();
 
     } catch (e) {
@@ -267,3 +293,4 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") closeModal();
   });
 });
+
