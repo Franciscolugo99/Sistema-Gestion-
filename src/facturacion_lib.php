@@ -707,6 +707,177 @@ function flus_facturacion_arca_assert_emitible(PDO $pdo, string $modo): void
     );
 }
 
+function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array
+{
+    $config = is_array($config) ? $config : flus_facturacion_config_activa($pdo, false);
+    $modo = $config !== null
+        ? flus_facturacion_modo_actual($config, $opciones)
+        : flus_facturacion_normalizar_modo((string)($opciones['modo'] ?? config_get($pdo, 'facturacion_modo', 'demo')));
+    $requiereArca = flus_facturacion_modo_requires_arca($modo);
+
+    $items = [];
+
+    $items[] = [
+        'key' => 'config_activa',
+        'label' => 'Configuracion activa',
+        'status' => $config !== null ? 'ok' : 'error',
+        'value' => $config !== null ? 'Detectada' : 'Pendiente',
+        'hint' => $config !== null ? 'Se encontro un punto de venta activo para emitir.' : 'Completa Configuracion de Facturacion antes de emitir.',
+    ];
+
+    if ($config === null) {
+        return [
+            'ok' => false,
+            'modo' => $modo,
+            'requiere_arca' => $requiereArca,
+            'items' => $items,
+            'warnings' => [],
+            'arca' => null,
+        ];
+    }
+
+    $puntoVenta = max(0, (int)($config['punto_venta'] ?? 0));
+    $razonSocial = trim((string)($config['razon_social'] ?? config_get($pdo, 'business_name', '')));
+    $cuit = flus_facturacion_normalizar_doc((string)($config['cuit'] ?? config_get($pdo, 'business_cuit', '')));
+    $domicilio = trim((string)($config['domicilio'] ?? config_get($pdo, 'business_address', '')));
+    $condIva = strtoupper(trim((string)($config['cond_iva'] ?? '')));
+    $iibb = trim((string)config_get($pdo, 'business_iibb', ''));
+    $inicioActividades = trim((string)config_get($pdo, 'business_inicio_actividades', ''));
+    $proximoNumero = max(0, (int)($config['proximo_numero'] ?? 0));
+
+    $items[] = [
+        'key' => 'modo',
+        'label' => 'Modo de facturacion',
+        'status' => in_array($modo, ['demo', 'homologacion', 'produccion'], true) ? 'ok' : 'error',
+        'value' => flus_facturacion_modo_label($modo),
+        'hint' => $requiereArca ? 'La emision fiscal usa ARCA en este modo.' : 'En demo no se emite contra ARCA.',
+    ];
+    $items[] = [
+        'key' => 'punto_venta',
+        'label' => 'Punto de venta',
+        'status' => $puntoVenta > 0 ? 'ok' : 'error',
+        'value' => $puntoVenta > 0 ? str_pad((string)$puntoVenta, 4, '0', STR_PAD_LEFT) : 'Pendiente',
+        'hint' => 'Debe coincidir con un punto de venta habilitado en ARCA.',
+    ];
+    $items[] = [
+        'key' => 'razon_social',
+        'label' => 'Razon social',
+        'status' => $razonSocial !== '' ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $razonSocial !== '' ? $razonSocial : 'Pendiente',
+        'hint' => 'Se usa en el encabezado fiscal del comprobante.',
+    ];
+    $items[] = [
+        'key' => 'cuit',
+        'label' => 'CUIT emisor local',
+        'status' => strlen($cuit) === 11 ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $cuit !== '' ? $cuit : 'Pendiente',
+        'hint' => 'Debe coincidir con la configuracion fiscal activa.',
+    ];
+    $items[] = [
+        'key' => 'domicilio',
+        'label' => 'Domicilio fiscal',
+        'status' => $domicilio !== '' ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => $domicilio !== '' ? $domicilio : 'Pendiente',
+        'hint' => 'Se imprime en la representacion del comprobante.',
+    ];
+    $items[] = [
+        'key' => 'cond_iva',
+        'label' => 'Condicion IVA emisor',
+        'status' => in_array($condIva, ['RI', 'MT', 'EX'], true) ? 'ok' : 'error',
+        'value' => $condIva !== '' ? $condIva : 'Pendiente',
+        'hint' => 'Se usa para resolver el tipo de comprobante.',
+    ];
+    $items[] = [
+        'key' => 'numeracion_local',
+        'label' => 'Proximo numero local',
+        'status' => $proximoNumero > 0 ? 'ok' : 'error',
+        'value' => $proximoNumero > 0 ? (string)$proximoNumero : 'Pendiente',
+        'hint' => $requiereArca
+            ? 'Si cambiaste modo o punto de venta, sincroniza antes de emitir.'
+            : 'En demo se usa numeracion local de trabajo.',
+    ];
+
+    $warnings = [];
+    if ($requiereArca && $iibb === '') {
+        $warnings[] = 'Falta cargar Ingresos Brutos en la configuracion general.';
+    }
+    if ($requiereArca && $inicioActividades === '') {
+        $warnings[] = 'Falta cargar inicio de actividades en la configuracion general.';
+    }
+
+    $arcaEstado = flus_facturacion_arca_status_current($pdo, $modo, false);
+    $items[] = [
+        'key' => 'arca',
+        'label' => 'Estado ARCA',
+        'status' => !empty($arcaEstado['can_emit']) ? 'ok' : ($requiereArca ? 'error' : 'warning'),
+        'value' => (string)($arcaEstado['label'] ?? 'ARCA no disponible'),
+        'hint' => trim((string)($arcaEstado['last_error'] ?? '')) !== ''
+            ? trim((string)$arcaEstado['last_error'])
+            : (trim((string)($arcaEstado['checked_at'] ?? '')) !== ''
+                ? 'Ultima verificacion: ' . (string)$arcaEstado['checked_at']
+                : 'Usa "Probar conexion con ARCA" antes de emitir.'),
+    ];
+
+    $ok = true;
+    foreach ($items as $item) {
+        if (($item['status'] ?? 'ok') === 'error') {
+            $ok = false;
+            break;
+        }
+    }
+
+    return [
+        'ok' => $ok,
+        'modo' => $modo,
+        'requiere_arca' => $requiereArca,
+        'items' => $items,
+        'warnings' => $warnings,
+        'arca' => $arcaEstado,
+    ];
+}
+
+function flus_facturacion_preflight_emision_error(array $preflight): string
+{
+    foreach ((array)($preflight['items'] ?? []) as $item) {
+        if (($item['status'] ?? '') !== 'error') {
+            continue;
+        }
+
+        $label = trim((string)($item['label'] ?? 'Preflight'));
+        $value = trim((string)($item['value'] ?? ''));
+        $hint = trim((string)($item['hint'] ?? ''));
+        $parts = array_values(array_filter([
+            $label,
+            $value !== '' ? $value : null,
+            $hint !== '' ? $hint : null,
+        ]));
+        if ($parts !== []) {
+            return implode(' - ', $parts);
+        }
+    }
+
+    $warnings = array_values(array_filter(array_map('strval', (array)($preflight['warnings'] ?? []))));
+    if ($warnings !== []) {
+        return $warnings[0];
+    }
+
+    return 'La emision fiscal no esta lista para producir comprobantes.';
+}
+
+function flus_facturacion_assert_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array
+{
+    $preflight = flus_facturacion_preflight_emision($pdo, $config, $opciones);
+    if (!($preflight['ok'] ?? false)) {
+        throw new RuntimeException(flus_facturacion_preflight_emision_error($preflight));
+    }
+
+    if (!empty($preflight['requiere_arca'])) {
+        flus_facturacion_arca_assert_emitible($pdo, (string)($preflight['modo'] ?? 'demo'));
+    }
+
+    return $preflight;
+}
+
 function flus_facturacion_humanizar_error_arca(?string $raw): string
 {
     $message = trim((string)$raw);
@@ -2711,5 +2882,4 @@ function flus_factura_pdf_browser_path(): ?string
     $cached = '';
     return null;
 }
-
 

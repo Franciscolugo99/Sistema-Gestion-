@@ -34,8 +34,9 @@ $can = function (string $perm) use ($user): bool {
    SECCIÓN ACTIVA
 ═══════════════════════════════════════════ */
 $currentSection = $currentSection ?? '';
+$currentFile = basename((string)($_SERVER['PHP_SELF'] ?? ''));
 if ($currentSection === '') {
-    $file = basename((string)($_SERVER['PHP_SELF'] ?? ''));
+    $file = $currentFile;
     $map  = [
         'index.php'                    => 'inicio',
         'dashboard.php'                => 'dashboard',
@@ -68,6 +69,8 @@ if ($currentSection === '') {
         'cuenta_corriente_cliente.php' => 'cuenta_corriente',
         'cuenta_corriente_print.php'   => 'cuenta_corriente',
         'facturacion.php'              => 'facturacion',
+        'facturacion_recovery.php'     => 'facturacion',
+        'facturacion_config.php'       => 'facturacion',
         'facturacion_nc.php'           => 'facturacion',
         'facturacion_nc_emitir.php'    => 'facturacion',
         'facturacion_nc_recovery.php'  => 'facturacion',
@@ -284,6 +287,21 @@ if ($canClientes)        $clientLinks[] = ['href' => 'clientes.php',         'se
 if ($canCuentaCorriente) $clientLinks[] = ['href' => 'cuenta_corriente.php', 'section' => 'cuenta_corriente', 'label' => 'Cuenta corriente', 'shortcut' => ''];
 if ($canProveedores)     $clientLinks[] = ['href' => 'proveedores.php',      'section' => 'proveedores',      'label' => 'Proveedores',      'shortcut' => ''];
 
+// Facturacion
+$facturacionLinks = [];
+if ($canFacturacion) {
+    $facturacionLinks[] = ['href' => 'facturacion.php',            'section' => 'facturacion', 'label' => 'Panel fiscal',     'shortcut' => '', 'active_files' => ['facturacion.php', 'factura_nueva.php', 'factura_emitir.php', 'factura_ver.php', 'factura_pdf.php']];
+    if ($can('emitir_factura')) {
+        $facturacionLinks[] = ['href' => 'factura_manual.php',     'section' => 'facturacion', 'label' => 'Factura manual',   'shortcut' => '', 'active_files' => ['factura_manual.php']];
+    }
+    $facturacionLinks[] = ['href' => 'documentos_comerciales.php', 'section' => 'facturacion', 'label' => 'Documentos',       'shortcut' => '', 'active_files' => ['documentos_comerciales.php', 'documento_comercial.php']];
+    $facturacionLinks[] = ['href' => 'facturacion_nc.php',         'section' => 'facturacion', 'label' => 'Notas de credito', 'shortcut' => '', 'active_files' => ['facturacion_nc.php', 'facturacion_nc_emitir.php', 'facturacion_nc_recovery.php']];
+    $facturacionLinks[] = ['href' => 'facturacion_recovery.php',   'section' => 'facturacion', 'label' => 'Incidencias',      'shortcut' => '', 'active_files' => ['facturacion_recovery.php']];
+    if ($can('administrar_config')) {
+        $facturacionLinks[] = ['href' => 'facturacion_config.php', 'section' => 'facturacion', 'label' => 'Configuracion',    'shortcut' => '', 'active_files' => ['facturacion_config.php']];
+    }
+}
+
 // Admin
 $adminLinks = [];
 if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php',     'label' => 'Usuarios'];
@@ -300,16 +318,19 @@ if ($canTecnico)                  $adminLinks[] = ['href' => 'tecnico.php',     
 $catalogSections   = ['productos', 'precios_historial', 'promos'];
 $inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
 $clientSections    = ['clientes', 'cuenta_corriente', 'proveedores'];
+$facturacionSections = ['facturacion'];
 $adminSections     = ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico', 'caja_historial'];
 
 $catalogActive   = in_array($currentSection, $catalogSections,   true);
 $inventoryActive = in_array($currentSection, $inventorySections, true);
 $clientActive    = in_array($currentSection, $clientSections,    true);
+$facturacionActive = in_array($currentSection, $facturacionSections, true);
 $adminActive     = in_array($currentSection, $adminSections,     true);
 
 $catalogLabel   = $groupCurrentLabel("Cat\u{00E1}logo",   $catalogLinks,   $currentSection);
 $inventoryLabel = $groupCurrentLabel('Inventario', $inventoryLinks, $currentSection);
 $clientLabel    = $groupCurrentLabel('Clientes',   $clientLinks,    $currentSection);
+$facturacionLabel = 'Facturacion';
 
 /* ═══════════════════════════════════════════
    AVATAR  — iniciales + rol legible
@@ -378,6 +399,15 @@ if ($clientLinks !== []) {
         'title'      => 'Clientes, cuenta corriente y proveedores',
     ];
 }
+if ($facturacionLinks !== []) {
+    $navGroups[] = [
+        'active'     => $facturacionActive,
+        'buttonText' => $facturacionLabel,
+        'links'      => $facturacionLinks,
+        'menuLabel'  => 'Facturacion',
+        'title'      => 'Panel fiscal, documentos y herramientas de facturacion',
+    ];
+}
 
 $buildClassName = static function (string ...$classes): string {
     $filtered = array_values(array_filter($classes, static fn(string $class): bool => $class !== ''));
@@ -413,8 +443,11 @@ $renderPrimaryLink = static function (array $link) use ($buildClassName, $curren
     return trim((string)ob_get_clean());
 };
 
-$renderGroupLink = static function (array $link) use ($currentSection, $esc, $renderShortcutAttributes): string {
-    $isActive = ($currentSection === ($link['section'] ?? ''));
+$renderGroupLink = static function (array $link) use ($currentSection, $currentFile, $esc, $renderShortcutAttributes): string {
+    $activeFiles = $link['active_files'] ?? [];
+    $isActive = is_array($activeFiles) && $activeFiles !== []
+        ? in_array($currentFile, array_map('strval', $activeFiles), true)
+        : ($currentSection === ($link['section'] ?? ''));
     $shortcut = (string)($link['shortcut'] ?? '');
 
     ob_start();
@@ -619,7 +652,6 @@ $sectionBreadcrumbLabels = [
     'caja_historial'      => 'Historial caja',
 ];
 
-$currentFile = basename((string)($_SERVER['PHP_SELF'] ?? ''));
 $promoIsEditing = (int)($_GET['id'] ?? $_POST['id'] ?? 0) > 0;
 $autoBreadcrumbsByFile = [
     'caja_movimientos.php' => [
@@ -740,13 +772,6 @@ $breadcrumbHtml = !empty($breadcrumb) ? $renderBreadcrumb($breadcrumb) : '';
             <?= $cajaNavHtml ?>
             <?= implode("\n", $groupNavHtml) ?>
 
-            <?php if ($canFacturacion): ?>
-                <a href="facturacion.php"
-                   class="nav-pill <?= $currentSection === 'facturacion' ? 'active' : '' ?>"
-                   aria-current="<?= $currentSection === 'facturacion' ? 'page' : 'false' ?>">
-                    Facturaci&oacute;n
-                </a>
-            <?php endif; ?>
         </div><!-- /.nav-left -->
 
         <div class="nav-right">

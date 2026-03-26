@@ -87,6 +87,8 @@ function factura_manual_print_item_count(array $rows): int
 $config = flus_facturacion_config_activa($pdo);
 $cfgError = $config ? null : 'Falta configurar la facturacion (config_facturacion).';
 $modoConfigLabel = flus_facturacion_modo_label(is_array($config) ? flus_facturacion_modo_actual($config) : 'demo');
+$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);
+$emitReady = (bool)($emitPreflight['ok'] ?? false);
 $lookupArcaEnv = flus_facturacion_arca_env_actual();
 $lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
 $clientes = flus_facturacion_clientes_disponibles($pdo);
@@ -135,6 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
 
     if ($errores === []) {
         try {
+            flus_facturacion_assert_preflight_emision($pdo, $config);
             $clienteId = (int)($clienteResult['cliente_id'] ?? 0);
 
             $opciones = [
@@ -200,6 +203,29 @@ require __DIR__ . '/partials/header.php';
     <?php if ($cfgError !== null): ?>
       <div class="alert alert-error" style="margin-top:12px;"><?= h($cfgError) ?></div>
     <?php endif; ?>
+
+    <?php if (!$emitReady): ?>
+      <div class="alert alert-error" style="margin-top:12px;">
+        <strong>Preflight de emision bloqueado:</strong>
+        <?= h(flus_facturacion_preflight_emision_error($emitPreflight)) ?>
+        <ul style="margin:8px 0 0 18px;">
+          <?php foreach ((array)($emitPreflight['items'] ?? []) as $preflightItem): ?>
+            <?php if (($preflightItem['status'] ?? '') !== 'error') { continue; } ?>
+            <li>
+              <strong><?= h((string)($preflightItem['label'] ?? 'Chequeo')) ?>:</strong>
+              <?= h((string)($preflightItem['value'] ?? 'Pendiente')) ?>
+              <?php if (trim((string)($preflightItem['hint'] ?? '')) !== ''): ?>
+                - <?= h((string)$preflightItem['hint']) ?>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+    <?php endif; ?>
+
+    <?php foreach ((array)($emitPreflight['warnings'] ?? []) as $emitWarning): ?>
+      <div class="alert alert-warning" style="margin-top:12px;"><?= h((string)$emitWarning) ?></div>
+    <?php endforeach; ?>
 
     <?php if ($errores !== []): ?>
       <div class="msg msg-visible msg-error" style="margin:12px 0;">
@@ -516,7 +542,7 @@ require __DIR__ . '/partials/header.php';
 
           <article class="fact-card fact-card-actions">
             <div class="pf-actions fact-summary-actions">
-              <button type="submit" class="btn btn-primary" <?= ($cfgError !== null || $itemCountExceeded) ? 'disabled' : '' ?>>Emitir factura manual</button>
+              <button type="submit" class="btn btn-primary" <?= ($cfgError !== null || $itemCountExceeded || !$emitReady) ? 'disabled' : '' ?>>Emitir factura manual</button>
               <a href="facturacion.php" class="btn btn-secondary">Cancelar</a>
             </div>
           </article>

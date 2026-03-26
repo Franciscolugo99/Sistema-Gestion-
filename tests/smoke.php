@@ -2042,12 +2042,25 @@ $results[] = flus_run_test('facturacion panel delega lectura y export a helper d
     flus_assert_contains("['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo']", $facturacionPhp);
 });
 
+$results[] = flus_run_test('factura_ver delega hidratacion a helper dedicado', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $viewHelper = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'factura_view_lib.php');
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+
+    flus_assert_contains('function flus_factura_view_load(PDO $pdo, int $facturaId): ?array', $viewHelper);
+    flus_assert_contains('function flus_factura_view_fetch_factura(PDO $pdo, int $facturaId): ?array', $viewHelper);
+    flus_assert_contains("require_once __DIR__ . '/../src/factura_view_lib.php';", $facturaVerPhp);
+    flus_assert_contains('$viewData = flus_factura_view_load($pdo, $id);', $facturaVerPhp);
+    flus_assert_not_contains('$sql = \'', $facturaVerPhp);
+});
+
 $results[] = flus_run_test('fase 4 migracion y wiring agregan recibos sin tocar baseline', function (): void {
     $repoRoot = dirname(__DIR__);
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '019_recibos_aplicaciones.sql');
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
     $ccControllerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'CuentaCorrienteController.php');
     $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $facturaViewLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'factura_view_lib.php');
     $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
 
     flus_assert_contains('CREATE TABLE IF NOT EXISTS `recibo_aplicaciones`', $migrationSql);
@@ -2056,7 +2069,8 @@ $results[] = flus_run_test('fase 4 migracion y wiring agregan recibos sin tocar 
     flus_assert_contains('findRecentDuplicatePago', $ccControllerPhp);
     flus_assert_contains('flus_cobranzas_attach_receipt_to_cobranza', $ccControllerPhp);
     flus_assert_contains('flus_cobranzas_link_receipt_factura_from_documento', $facturacionLib);
-    flus_assert_contains('flus_cobranzas_fetch_receipts_by_factura', $facturaVerPhp);
+    flus_assert_contains('flus_cobranzas_fetch_receipts_by_factura', $facturaViewLib);
+    flus_assert_contains("require_once __DIR__ . '/../src/factura_view_lib.php';", $facturaVerPhp);
     flus_assert_false(str_contains($installSql, 'recibo_aplicaciones'));
     flus_assert_false(str_contains($installSql, 'recibo_documento_id'));
 });
@@ -2280,6 +2294,94 @@ $results[] = flus_run_test('fase 6 migracion y wiring agregan relaciones documen
     flus_assert_contains('Documentos comerciales', $documentosPhp);
     flus_assert_contains('documento_comercial.php', $facturaVerPhp);
     flus_assert_false(str_contains($installSql, 'documento_origen_id'));
+});
+
+$results[] = flus_run_test('preflight de emision fiscal bloquea configuracion incompleta y tolera demo', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+    config_clear_cache();
+
+    $demo = flus_facturacion_preflight_emision($pdo, [
+        'modo' => 'demo',
+        'punto_venta' => 1,
+        'razon_social' => 'FLUS Demo',
+        'cuit' => '',
+        'domicilio' => '',
+        'cond_iva' => 'RI',
+        'proximo_numero' => 1,
+    ], ['modo' => 'demo']);
+    flus_assert_true((bool)($demo['ok'] ?? false));
+
+    $prod = flus_facturacion_preflight_emision($pdo, [
+        'modo' => 'produccion',
+        'punto_venta' => 1,
+        'razon_social' => 'FLUS Produccion',
+        'cuit' => '',
+        'domicilio' => 'San Martin 123',
+        'cond_iva' => 'RI',
+        'proximo_numero' => 1,
+    ], ['modo' => 'produccion']);
+    flus_assert_false((bool)($prod['ok'] ?? true));
+    flus_assert_contains('CUIT emisor local', flus_facturacion_preflight_emision_error($prod));
+});
+
+$results[] = flus_run_test('preflight de emision queda cableado en pantallas y configuracion', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $facturaNuevaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_nueva.php');
+    $facturaManualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
+    $facturaEmitirPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_emitir.php');
+    $facturacionConfigPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_config.php');
+
+    flus_assert_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $facturacionLib);
+    flus_assert_contains('function flus_facturacion_preflight_emision_error(array $preflight): string', $facturacionLib);
+    flus_assert_contains('function flus_facturacion_assert_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $facturacionLib);
+    flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaNuevaPhp);
+    flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaNuevaPhp);
+    flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaManualPhp);
+    flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaManualPhp);
+    flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaEmitirPhp);
+    flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $configRow ?? null, [\'modo\' => $configModo]);', $facturacionConfigPhp);
+    flus_assert_contains('Preflight de emision', $facturacionConfigPhp);
+});
+
+$results[] = flus_run_test('facturacion recovery tolera collations mixtas y navega desde el nav principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+    $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
+    $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+    $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
+    $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
+    $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+
+    flus_assert_contains('CONVERT(fe.request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(f.fiscal_request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci', $recoveryPhp);
+    flus_assert_contains('$facturacionLinks[] = [\'href\' => \'facturacion.php\'', $navPhp);
+    flus_assert_contains('$facturacionLinks[] = [\'href\' => \'documentos_comerciales.php\'', $navPhp);
+    flus_assert_contains('$facturacionLinks[] = [\'href\' => \'facturacion_recovery.php\'', $navPhp);
+    flus_assert_contains('\'facturacion_recovery.php\'     => \'facturacion\'', $navPhp);
+    flus_assert_contains('\'facturacion_config.php\'       => \'facturacion\'', $navPhp);
+    flus_assert_not_contains('facturacion_subnav', $facturacionPhp);
+    flus_assert_not_contains('facturacion_subnav', $documentosPhp);
+    flus_assert_not_contains('facturacion_subnav', $ncPhp);
+    flus_assert_not_contains('facturacion_subnav', $manualPhp);
+    flus_assert_not_contains('facturacion_subnav', $facturaVerPhp);
+});
+
+$results[] = flus_run_test('factura_ver imprime desde vista limpia y documentos comerciales recupera acciones propias', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $manualLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_manual_lib.php');
+    $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+    $facturaCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'factura.css');
+
+    flus_assert_contains('function flus_facturacion_documento_actualizar_cabecera(PDO $pdo, int $documentoId, array $data): void', $manualLib);
+    flus_assert_contains('function flus_facturacion_documento_vincular_venta(PDO $pdo, int $documentoId, int $ventaId): void', $manualLib);
+    flus_assert_contains('function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array', $manualLib);
+    flus_assert_contains('require_once __DIR__ . \'/../src/facturacion_manual_lib.php\';', $documentoPhp);
+    flus_assert_contains("autoprint=1&pdf_token='", $facturaVerPhp);
+    flus_assert_contains("window.print();", $facturaVerPhp);
+    flus_assert_not_contains('onclick="window.print()"', $facturaVerPhp);
+    flus_assert_contains('.nav-breadcrumb,', $facturaCss);
 });
 
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 
 require_login();
 require_any_permission(['ver_facturacion', 'emitir_factura']);

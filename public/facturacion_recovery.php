@@ -63,7 +63,7 @@ if (flus_table_exists($pdo, 'facturas') && flus_column_exists($pdo, 'facturas', 
             {$clienteNombreExpr} AS cliente_nombre{$eventoSelect}
         FROM facturas f
         " . ($joinClientes ? 'LEFT JOIN clientes c ON c.id = f.cliente_id' : '') . "
-        " . ($joinEventosArca ? 'LEFT JOIN factura_eventos_arca fe ON fe.request_uid = f.fiscal_request_uid' : '') . "
+        " . ($joinEventosArca ? 'LEFT JOIN factura_eventos_arca fe ON CONVERT(fe.request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(f.fiscal_request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci' : '') . "
         WHERE COALESCE(f.estado_fiscal, 'NO_APLICA') IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA')
         ORDER BY COALESCE(f.fiscal_requested_at, f.fiscal_approved_at) DESC, f.id DESC
         LIMIT 200

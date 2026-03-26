@@ -44,6 +44,9 @@ if ($errores !== []) {
 }
 
 try {
+    $config = flus_facturacion_config_activa($pdo);
+    flus_facturacion_assert_preflight_emision($pdo, $config);
+
     $opciones = [];
     if (is_array($clienteResult['resolved_cliente'] ?? null)) {
         $opciones['resolved_cliente'] = $clienteResult['resolved_cliente'];

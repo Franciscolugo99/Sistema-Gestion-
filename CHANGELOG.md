@@ -36,6 +36,19 @@
 - **Facturación / panel de historial fiscal:**
   - `public/facturacion.php` deja de construir inline toda la capa de lectura/reporting y pasa a delegarla a `src/facturacion_panel_lib.php`, manteniendo los mismos parámetros GET, la misma UI y el mismo CSV exportado.
   - La lectura del panel queda separada en resolución de capacidades legacy del esquema, armado del plan de consulta y ejecución de datasets operativos (tipos, count, stats, incidencias, listado y export).
+- **Facturación / preflight de producción:**
+  - La emisión desde venta y la factura manual quedan bloqueadas antes de emitir cuando falta configuración operativa/fiscal crítica, con mensajes más accionables y visibles para soporte.
+  - `factura_nueva.php`, `factura_manual.php` y `factura_emitir.php` pasan a reutilizar un preflight centralizado de emisión, manteniendo contratos públicos y sin tocar el modo no fiscal.
+  - `facturacion_config.php` ahora muestra un estado explícito de "Preflight de emisión" para dejar más claro si el sistema está realmente listo para emitir en homologación/producción.
+- **Facturación / navegación y soporte:**
+  - Facturación pasa a integrarse en la navegación principal como grupo del mismo nivel que Inventario y Clientes, evitando duplicar acciones dentro de cada pantalla.
+  - `facturacion_recovery.php` se vuelve tolerante a collations mixtas entre `facturas.fiscal_request_uid` y `factura_eventos_arca.request_uid`, evitando el crash por `Illegal mix of collations` en instalaciones reales.
+- **Facturación / lectura operativa del comprobante:**
+  - `public/factura_ver.php` deja de hidratar inline la factura completa y pasa a delegar la lectura base a `src/factura_view_lib.php`, manteniendo la misma vista, los mismos fallbacks y el mismo comportamiento visible.
+  - La carga del comprobante, estado fiscal, evento ARCA, documentos asociados, recibos y configuración fiscal queda separada del render para bajar complejidad accidental sin tocar emisión ni modo no fiscal.
+- **Facturación / QA de salida a producción:**
+  - Se agrega `docs/QA_FACTURACION_PRODUCCION.md` como checklist operativo real para validar configuración, preflight, numeración, emisión, visor, PDF, recovery, NC y navegación antes de habilitar producción.
+  - El checklist deja explícito qué puntos sí son exigibles hoy y cuáles siguen fuera de alcance inmediato, para no mezclar salida a producción con features todavía no cerradas end-to-end.
 - **Facturación / Fase 1 (factura común):**
   - La emisión desde venta y la emisión manual quedan cerradas sobre la misma capa de negocio, manteniendo `facturas.venta_id` y compatibilidad legacy.
   - `public/factura_nueva.php`, `public/factura_emitir.php` y `public/factura_manual.php` quedan como entrypoints más finos, con mejor resolución de cliente y menos lógica duplicada.
@@ -71,6 +84,10 @@
 
 - **Caja / Cuenta Corriente:**
   - El cobro de cuenta corriente desde Caja ahora muestra una confirmación visible y contextual al registrar el pago, evitando la sensación de operación “muda” cuando el modal se cierra enseguida.
+- **Facturación / visor, impresión y documentos:**
+  - El botón `Imprimir` de `factura_ver.php` ahora abre una vista limpia/autoprint del comprobante, evitando arrastrar breadcrumbs del sistema y alineando mejor la salida impresa con el visor/PDF.
+  - La impresión del comprobante oculta también la navegación contextual en `@media print`, reduciendo ruido visual en copias físicas o guardadas desde el navegador.
+  - `documento_comercial.php` recupera el soporte operativo para abrir presupuestos y remitos existentes, con helpers locales para acciones documentales, actualización de cabecera y vínculo controlado con venta.
 - **Testing / documentación técnica:**
   - Se amplía la cobertura smoke para reversas de cuenta corriente y para el wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
   - Se normalizan referencias internas de versión/fechas para alinear changelog y build actual del repo.

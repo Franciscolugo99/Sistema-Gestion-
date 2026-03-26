@@ -558,7 +558,6 @@ require __DIR__ . '/partials/header.php';
       </div>
     </header>
 
-    <!-- ── Stepper ───────────────────────────────────────── -->
     <nav class="nc-stepper" aria-label="Pasos">
       <div class="nc-step-item" data-step="1">
         <div class="nc-step-badge">

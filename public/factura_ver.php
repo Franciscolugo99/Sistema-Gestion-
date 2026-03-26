@@ -6,12 +6,14 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
+require_once __DIR__ . '/../src/factura_view_lib.php';
 require_once __DIR__ . '/../src/cobranzas_lib.php';
 
 $requestedFacturaId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $pdfToken = trim((string)($_GET['pdf_token'] ?? ''));
 $pdfMode = isset($_GET['pdf']) && $_GET['pdf'] === '1';
 $pdfTokenValid = $pdfMode && flus_factura_pdf_token_validate($pdfToken, $requestedFacturaId);
+$autoPrint = $pdfMode && $pdfTokenValid && isset($_GET['autoprint']) && $_GET['autoprint'] === '1';
 
 if (!$pdfTokenValid) {
     require_login();
@@ -356,106 +358,42 @@ if ($id <= 0) {
     flus_abort(400, 'ID de factura invalido');
 }
 
-$sql = '
-  SELECT
-    f.*, 
-    v.fecha AS venta_fecha,
-    v.total AS venta_total,
-    v.medio_pago AS venta_medio_pago,
-    v.nota AS venta_nota,
-    c.nombre AS cliente_nombre,
-    c.cuit AS cliente_cuit,
-    c.cond_iva AS cliente_cond_iva,
-    c.direccion AS cliente_direccion
-  FROM facturas f
-  LEFT JOIN ventas v ON v.id = f.venta_id
-  LEFT JOIN clientes c ON c.id = f.cliente_id
-  WHERE f.id = ?
-  LIMIT 1
-';
-$stmt = $pdo->prepare($sql);
-$stmt->execute([$id]);
-$factura = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$factura) {
+$viewData = flus_factura_view_load($pdo, $id);
+if (!is_array($viewData)) {
     http_response_code(404);
     flus_abort(404, 'Factura no encontrada');
 }
 
-$estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
-$estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscal);
-$fiscalRequestUid = trim((string)($factura['fiscal_request_uid'] ?? ''));
-$fiscalIntentos = max(0, (int)($factura['fiscal_intentos'] ?? 0));
-$fiscalErrorCode = trim((string)($factura['fiscal_error_code'] ?? ''));
-$fiscalErrorMessage = trim((string)($factura['fiscal_error_message'] ?? ''));
-$fiscalRequestedAt = trim((string)($factura['fiscal_requested_at'] ?? ''));
-$fiscalApprovedAt = trim((string)($factura['fiscal_approved_at'] ?? ''));
-$envioUltimoCanal = trim((string)($factura['envio_ultimo_canal'] ?? ''));
-$envioUltimoEstado = trim((string)($factura['envio_ultimo_estado'] ?? ''));
-$envioUltimoDestino = trim((string)($factura['envio_ultimo_destino'] ?? ''));
-$envioUltimoAt = trim((string)($factura['envio_ultimo_at'] ?? ''));
-$envioUltimoError = trim((string)($factura['envio_ultimo_error'] ?? ''));
-$fiscalDetalleOperativo = flus_facturacion_estado_fiscal_detalle_operativo($estadoFiscal);
-$fiscalRegularizable = flus_facturacion_estado_fiscal_regularizable($estadoFiscal);
-$fiscalEventoArca = null;
-if ($fiscalRequestUid !== '' && flus_table_exists($pdo, 'factura_eventos_arca')) {
-    try {
-        $stEventoArca = $pdo->prepare('SELECT * FROM factura_eventos_arca WHERE request_uid = ? LIMIT 1');
-        $stEventoArca->execute([$fiscalRequestUid]);
-        $fiscalEventoArca = $stEventoArca->fetch(PDO::FETCH_ASSOC) ?: null;
-    } catch (Throwable $e) {
-        $fiscalEventoArca = null;
-    }
-}
-$arcaResultado = trim((string)($fiscalEventoArca['resultado'] ?? ''));
-$arcaOperacion = trim((string)($fiscalEventoArca['operacion'] ?? ''));
-$arcaModo = trim((string)($fiscalEventoArca['modo'] ?? ''));
-$arcaAt = trim((string)($fiscalEventoArca['finished_at'] ?? $fiscalEventoArca['created_at'] ?? ''));
-$arcaError = trim((string)($fiscalEventoArca['error_message'] ?? ''));
-
-$fiscalData = null;
-if (flus_table_exists($pdo, 'venta_fiscal')) {
-    try {
-        $stFiscal = $pdo->prepare('SELECT * FROM venta_fiscal WHERE venta_id = ? LIMIT 1');
-        $stFiscal->execute([(int)$factura['venta_id']]);
-        $fiscalData = $stFiscal->fetch(PDO::FETCH_ASSOC) ?: null;
-    } catch (Throwable $e) {
-        $fiscalData = null;
-    }
-}
-
-$itemRows = flus_facturacion_factura_detalle_items_fetch($pdo, $factura);
-
-$items = factura_normalizar_items($itemRows, $factura);
-$resumenFiscal = factura_resumen_fiscal($items, $factura);
-$recibosAsociados = flus_cobranzas_fetch_receipts_by_factura($pdo, $id, (int)($factura['documento_id'] ?? 0));
-$documentoComercial = null;
-$documentoComercialOrigen = null;
-if ((int)($factura['documento_id'] ?? 0) > 0) {
-    $documentoComercial = flus_facturacion_documento_buscar($pdo, (int)$factura['documento_id']);
-    if (is_array($documentoComercial) && (int)($documentoComercial['documento_origen_id'] ?? 0) > 0) {
-        $documentoComercialOrigen = flus_facturacion_documento_buscar($pdo, (int)$documentoComercial['documento_origen_id']);
-    }
-}
-
-$configEmpresa = null;
-try {
-    if (flus_table_exists($pdo, 'config_facturacion')) {
-        $orderCfg = flus_column_exists($pdo, 'config_facturacion', 'id') ? ' ORDER BY id DESC' : '';
-
-        if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
-            $stCfg = $pdo->query('SELECT * FROM config_facturacion WHERE activo = 1' . $orderCfg . ' LIMIT 1');
-            $configEmpresa = $stCfg ? ($stCfg->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-        }
-
-        if ($configEmpresa === null) {
-            $stCfg = $pdo->query('SELECT * FROM config_facturacion' . $orderCfg . ' LIMIT 1');
-            $configEmpresa = $stCfg ? ($stCfg->fetch(PDO::FETCH_ASSOC) ?: null) : null;
-        }
-    }
-} catch (Throwable $e) {
-    $configEmpresa = null;
-}
+$factura = $viewData['factura'];
+$estadoFiscal = (string)$viewData['estado_fiscal'];
+$estadoFiscalLabel = (string)$viewData['estado_fiscal_label'];
+$fiscalRequestUid = (string)$viewData['fiscal_request_uid'];
+$fiscalIntentos = (int)$viewData['fiscal_intentos'];
+$fiscalErrorCode = (string)$viewData['fiscal_error_code'];
+$fiscalErrorMessage = (string)$viewData['fiscal_error_message'];
+$fiscalRequestedAt = (string)$viewData['fiscal_requested_at'];
+$fiscalApprovedAt = (string)$viewData['fiscal_approved_at'];
+$envioUltimoCanal = (string)$viewData['envio_ultimo_canal'];
+$envioUltimoEstado = (string)$viewData['envio_ultimo_estado'];
+$envioUltimoDestino = (string)$viewData['envio_ultimo_destino'];
+$envioUltimoAt = (string)$viewData['envio_ultimo_at'];
+$envioUltimoError = (string)$viewData['envio_ultimo_error'];
+$fiscalDetalleOperativo = (string)$viewData['fiscal_detalle_operativo'];
+$fiscalRegularizable = (bool)$viewData['fiscal_regularizable'];
+$fiscalEventoArca = $viewData['fiscal_evento_arca'];
+$arcaResultado = (string)$viewData['arca_resultado'];
+$arcaOperacion = (string)$viewData['arca_operacion'];
+$arcaModo = (string)$viewData['arca_modo'];
+$arcaAt = (string)$viewData['arca_at'];
+$arcaError = (string)$viewData['arca_error'];
+$fiscalData = $viewData['fiscal_data'];
+$itemRows = $viewData['item_rows'];
+$items = $viewData['items'];
+$resumenFiscal = $viewData['resumen_fiscal'];
+$recibosAsociados = $viewData['recibos_asociados'];
+$documentoComercial = $viewData['documento_comercial'];
+$documentoComercialOrigen = $viewData['documento_comercial_origen'];
+$configEmpresa = $viewData['config_empresa'];
 
 $mapCondIva = [
     'RI' => 'Responsable Inscripto',
@@ -633,6 +571,9 @@ $esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
     || str_starts_with(strtoupper($tipo), 'NC');
 $comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
 $pageTitle = $comprobanteTitulo . ' ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
+$printHref = 'factura_ver.php?id=' . (int)($factura['id'] ?? 0)
+    . '&pdf=1&autoprint=1&pdf_token='
+    . rawurlencode(flus_factura_pdf_token_create((int)($factura['id'] ?? 0), time() + 300));
 $currentSection = 'facturacion';
 $breadcrumbs = $esNc
     ? [
@@ -681,7 +622,7 @@ if ($pdfMode) {
       <a href="facturacion.php" class="link-back-print">Volver a facturacion</a>
       <div class="factura-topbar-actions">
         <a href="factura_pdf.php?id=<?= (int)$id ?>" class="btn btn-secondary">PDF</a>
-        <button class="btn btn-primary btn-print" onclick="window.print()">Imprimir</button>
+        <a href="<?= h($printHref) ?>" class="btn btn-primary btn-print" target="_blank" rel="noopener">Imprimir</a>
       </div>
     </div>
 
@@ -1039,16 +980,57 @@ if ($pdfMode) {
 </div>
 
 <?php if ($pdfMode): ?>
+<?php if ($autoPrint): ?>
+<script>
+  (function () {
+    var fired = false;
+    var triggerPrint = function () {
+      if (fired) {
+        return;
+      }
+      fired = true;
+      window.setTimeout(function () {
+        window.print();
+      }, 120);
+    };
+
+    var images = Array.prototype.slice.call(document.images || []);
+    if (images.length === 0) {
+      window.addEventListener('load', triggerPrint, { once: true });
+      window.setTimeout(triggerPrint, 900);
+      return;
+    }
+
+    var pending = 0;
+    images.forEach(function (img) {
+      if (img.complete && img.naturalWidth > 0) {
+        return;
+      }
+      pending += 1;
+      var settle = function () {
+        pending -= 1;
+        if (pending <= 0) {
+          triggerPrint();
+        }
+      };
+      img.addEventListener('load', settle, { once: true });
+      img.addEventListener('error', settle, { once: true });
+    });
+
+    window.addEventListener('load', function () {
+      if (pending <= 0) {
+        triggerPrint();
+      }
+    }, { once: true });
+    window.setTimeout(triggerPrint, 1500);
+  }());
+</script>
+<?php endif; ?>
 </body>
 </html>
 <?php else: ?>
 <?php require __DIR__ . '/partials/footer.php'; ?>
 <?php endif; ?>
-
-
-
-
-
 
 
 
