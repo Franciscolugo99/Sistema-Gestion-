@@ -1678,6 +1678,836 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected {
   color: #fbbf24;
 }
 
+/* ============================================================================
+   CAJA POS REDESIGN v2
+   - Jerarquía: escanear + ticket + cobro
+============================================================================ */
+
+.caja-panel--pos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-areas:
+    "topbar topbar"
+    "kpis kpis"
+    "scan total"
+    "tickethead exact"
+    "ticket pay"
+    "ticket cc"
+    "ticket actions"
+    "mov shortcuts"
+    "msg msg";
+  gap: 16px 18px;
+  padding: 16px 18px 24px;
+  min-height: calc(100vh - 118px);
+}
+
+.caja-panel--pos > .caja-topbar {
+  grid-area: topbar;
+  margin: 0;
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 30%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 24%),
+    var(--panel);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+.caja-panel--pos > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caja-panel--pos .caja-kpi {
+  min-height: 74px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.caja-panel--pos > .caja-title,
+.caja-panel--pos > .sidepanel-block-title {
+  display: none;
+}
+
+.caja-panel--pos > .caja-scan-card,
+.caja-panel--pos > .ticket-panel-head,
+.caja-panel--pos > .ticket-wrapper,
+.caja-panel--pos > .total-panel,
+.caja-panel--pos > .btn-cobrar-exacto,
+.caja-panel--pos > .pagos-row,
+.caja-panel--pos > .cc-wrap,
+.caja-panel--pos > .buttons-row,
+.caja-panel--pos > .shortcuts-box,
+.caja-panel--pos > .caja-mov {
+  border-radius: 22px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.1);
+}
+
+.caja-panel--pos > .caja-scan-card {
+  grid-area: scan;
+  margin-top: 0;
+  padding: 18px;
+  position: relative;
+  overflow: visible !important;
+}
+
+.caja-panel--pos > .caja-scan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 22px 0 0 22px;
+  background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+}
+
+.caja-panel--pos .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 124px 180px;
+  gap: 12px;
+}
+
+.caja-panel--pos .caja-scan-card label {
+  letter-spacing: 0.16em;
+}
+
+.caja-panel--pos .caja-scan-card input,
+.caja-panel--pos .caja-scan-card select {
+  height: 48px;
+  border-radius: 14px;
+}
+
+.caja-panel--pos .caja-scan-card .btn-add {
+  height: 48px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .caja-scan-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.caja-panel--pos .caja-scan-hints kbd,
+.caja-panel--pos .shortcuts-list kbd {
+  padding: 3px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.caja-panel--pos > .ticket-panel-head {
+  grid-area: tickethead;
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.caja-panel--pos .ticket-panel-head__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .ticket-panel-head__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.caja-panel--pos .ticket-panel-head__status {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .ticket-wrapper {
+  grid-area: ticket;
+  margin: 0;
+  min-height: 520px;
+  max-height: calc(100vh - 250px);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.caja-panel--pos > .total-panel {
+  grid-area: total;
+  margin: 0;
+  padding: 18px;
+  position: sticky;
+  top: 16px;
+}
+
+.caja-panel--pos > .total-panel::before {
+  content: "Cobro";
+  display: block;
+  margin-bottom: 12px;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .total-row-strong .total-label {
+  font-size: 1.45rem;
+  letter-spacing: 0.08em;
+}
+
+.caja-panel--pos .total-row-strong .total-value {
+  font-size: 1.9rem;
+}
+
+.caja-panel--pos > .btn-cobrar-exacto {
+  grid-area: exact;
+  margin: 0;
+  padding: 14px 16px;
+  min-height: 74px;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.03)),
+    var(--panel);
+  text-align: left;
+  font-weight: 800;
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.caja-panel--pos > .pagos-row {
+  grid-area: pay;
+  margin: 0;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.caja-panel--pos .pagos-row > .field-small {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: rgba(148, 163, 184, 0.06);
+  display: grid;
+  gap: 8px;
+}
+
+.caja-panel--pos .pagos-row > .field-small:first-child,
+.caja-panel--pos #pago2Wrap {
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.06), transparent),
+    rgba(148, 163, 184, 0.06);
+}
+
+.caja-panel--pos .pagos-row select,
+.caja-panel--pos .pagos-row input {
+  min-height: 46px;
+  border-radius: 14px;
+}
+
+.caja-panel--pos .total-label-inline {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .denom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.caja-panel--pos .denom-chip {
+  border-radius: 999px;
+  padding: 7px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.caja-panel--pos .denom-chip:hover {
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.caja-panel--pos .pagos-resumen {
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.08), transparent),
+    rgba(148, 163, 184, 0.05);
+}
+
+.caja-panel--pos .total-vuelto {
+  font-size: 1.16rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--pos > .cc-wrap {
+  grid-area: cc;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos > .buttons-row {
+  grid-area: actions;
+  margin: 0;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.caja-panel--pos > .buttons-row button {
+  width: 100%;
+  min-height: 52px;
+}
+
+.caja-panel--pos .btn-cancelar {
+  border-radius: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger, #ef4444);
+  font-weight: 700;
+}
+
+.caja-panel--pos .btn-cobrar {
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos > .shortcuts-box {
+  grid-area: shortcuts;
+  margin: 0;
+  padding: 0;
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-card {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+
+.caja-panel--pos > .caja-mov {
+  grid-area: mov;
+  margin-top: 0;
+}
+
+.caja-panel--pos .caja-mov__body {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.caja-panel--pos > #msg {
+  grid-area: msg;
+}
+
+@media (max-width: 1180px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "kpis"
+      "scan"
+      "tickethead"
+      "ticket"
+      "total"
+      "exact"
+      "pay"
+      "cc"
+      "actions"
+      "shortcuts"
+      "mov"
+      "msg";
+  }
+
+  .caja-panel--pos > .ticket-wrapper {
+    min-height: 320px;
+    max-height: none;
+  }
+
+  .caja-panel--pos > .total-panel {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos .row.caja-row-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   CAJA POS REFRESH
+   - Layout operativo compatible con light/dark
+============================================================================ */
+
+.caja-panel--pos {
+  --caja-card-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+  --caja-glass: rgba(148, 163, 184, 0.08);
+  padding: 18px 20px;
+  min-height: calc(100vh - 132px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-areas:
+    "topbar topbar"
+    "kpis kpis"
+    "title sumtitle"
+    "scan totals"
+    "tickethead exact"
+    "ticket exact"
+    "ticket pay"
+    "ticket cc"
+    "ticket actions"
+    "ticket shortcuts"
+    "mov mov"
+    "msg msg";
+  gap: 16px 18px;
+  align-items: start;
+}
+
+.caja-panel--pos > .caja-topbar {
+  grid-area: topbar;
+  margin: 0;
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid var(--panel-border);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 34%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.14), transparent 28%),
+    var(--panel);
+  box-shadow: var(--caja-card-shadow);
+}
+
+body[data-theme="light"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98));
+}
+
+body[data-theme="dark"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 28%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.88));
+}
+
+.caja-panel--pos > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caja-panel--pos .caja-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--caja-card-shadow);
+  min-height: 74px;
+}
+
+.caja-panel--pos .caja-kpi__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .caja-kpi__value {
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--pos .caja-kpi--green .caja-kpi__value {
+  color: var(--accent-green);
+}
+
+.caja-panel--pos .caja-kpi--live {
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos > .caja-title {
+  grid-area: title;
+  margin: 2px 0 0;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .caja-mov {
+  grid-area: mov;
+  margin-top: 4px;
+}
+
+.caja-panel--pos > .caja-scan-card {
+  grid-area: scan;
+  margin-top: 0;
+  padding: 14px;
+  border-radius: 20px;
+}
+
+.caja-panel--pos > .ticket-wrapper,
+.caja-panel--pos > .ticket-panel-head,
+.caja-panel--pos > .sidepanel-block-title,
+.caja-panel--pos > .btn-cobrar-exacto,
+.caja-panel--pos > .total-panel,
+.caja-panel--pos > .pagos-row,
+.caja-panel--pos > .cc-wrap,
+.caja-panel--pos > .buttons-row,
+.caja-panel--pos > .shortcuts-box {
+  border-radius: 20px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--caja-card-shadow);
+}
+
+.caja-panel--pos > .ticket-wrapper {
+  grid-area: ticket;
+  margin-top: 0;
+  min-height: 520px;
+  max-height: calc(100vh - 250px);
+}
+
+.caja-panel--pos > .ticket-panel-head {
+  grid-area: tickethead;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-bottom: -2px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.caja-panel--pos > .ticket-wrapper {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.caja-panel--pos .ticket-panel-head__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.caja-panel--pos .ticket-panel-head__eyebrow,
+.caja-panel--pos .sidepanel-block-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .ticket-panel-head__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.caja-panel--pos .ticket-panel-head__status {
+  font-size: 0.88rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.caja-panel--pos > .sidepanel-block-title {
+  grid-area: sumtitle;
+  align-self: start;
+  padding: 0 4px;
+  margin: 2px 0 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--pos > .total-panel {
+  grid-area: totals;
+  margin: 0;
+  padding: 18px;
+  position: relative;
+}
+
+.caja-panel--pos > .btn-cobrar-exacto {
+  grid-area: exact;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.12), rgba(34, 197, 94, 0.04)),
+    var(--panel);
+  color: var(--text);
+  font-weight: 800;
+  text-align: left;
+  min-height: 72px;
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  box-shadow: 0 14px 30px rgba(34, 197, 94, 0.15);
+}
+
+.caja-panel--pos > .pagos-row {
+  grid-area: pay;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 18px;
+}
+
+.caja-panel--pos > .cc-wrap {
+  grid-area: cc;
+  margin-top: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos > .buttons-row {
+  grid-area: actions;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos > .shortcuts-box {
+  grid-area: shortcuts;
+  margin: 0;
+  padding: 0;
+}
+
+.caja-panel--pos > #msg {
+  grid-area: msg;
+}
+
+.caja-panel--pos > .ticketPreviewModal,
+.caja-panel--pos > .modal {
+  grid-column: 1 / -1;
+}
+
+.caja-panel--pos .caja-scan-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.caja-panel--pos .caja-scan-hints kbd,
+.caja-panel--pos .shortcuts-list kbd {
+  padding: 4px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: var(--caja-glass);
+  color: var(--text);
+}
+
+.caja-panel--pos .field-small {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+body[data-theme="dark"] .caja-panel--pos .field-small {
+  background: rgba(2, 6, 23, 0.34);
+}
+
+.caja-panel--pos .total-label-inline {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .total-vuelto {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--pos .pagos-resumen {
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.08), transparent),
+    rgba(15, 23, 42, 0.04);
+}
+
+body[data-theme="dark"] .caja-panel--pos .pagos-resumen {
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.08), transparent),
+    rgba(2, 6, 23, 0.4);
+}
+
+.caja-panel--pos .pago2-monto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.caja-panel--pos > .buttons-row button {
+  width: 100%;
+  min-height: 50px;
+}
+
+.caja-panel--pos .btn-cancelar {
+  border-radius: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger, #ef4444);
+  font-weight: 700;
+}
+
+.caja-panel--pos .btn-cancelar:hover {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.caja-panel--pos .btn-cobrar {
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos .caja-mov__body {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.caja-panel--pos .caja-mov__sum {
+  padding: 14px 16px;
+}
+
+.caja-panel--pos .caja-mov__title {
+  font-size: 0.98rem;
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-title {
+  padding-top: 16px;
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-list {
+  padding-bottom: 16px;
+}
+
+@media (max-width: 1200px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "kpis"
+      "title"
+      "scan"
+      "sumtitle"
+      "tickethead"
+      "ticket"
+      "exact"
+      "totals"
+      "pay"
+      "cc"
+      "actions"
+      "shortcuts"
+      "mov"
+      "msg";
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos > .ticket-wrapper {
+    max-height: none;
+    min-height: 300px;
+  }
+
+  .caja-panel--pos > .ticket-panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .caja-panel--pos > .sidepanel-block-title {
+    margin: 0;
+  }
+
+  .caja-panel--pos > .caja-topbar {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos .caja-scan-hints {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 [data-theme="dark"] .cc-cliente-info {
   background: var(--card-bg-dark, #1e293b);
   border-color: var(--border-color-dark, #334155);
@@ -1931,4 +2761,1988 @@ body.dark #sugerencias-dropdown .autocomplete-item.selected {
 
 [data-theme="light"] #modalCcPago .btn-cancel:hover {
   background: #f1f5f9;
+}
+
+/* ============================================================================
+   MEJORAS UX CAJA v3.6 — solo adiciones, no modifica estilos previos
+   Autor: mejoras quirúrgicas sin tocar backend
+============================================================================ */
+
+/* ── Chips de denominación ─────────────────────────────────────────────── */
+.denom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.denom-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.09);
+  color: var(--accent-amber, #f59e0b);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.07s;
+  line-height: 1.5;
+}
+
+.denom-chip:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.65);
+}
+
+.denom-chip:active {
+  transform: scale(0.95);
+}
+
+/* light theme override */
+body[data-theme="light"] .denom-chip {
+  color: #92400e;
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+body[data-theme="light"] .denom-chip:hover {
+  background: rgba(217, 119, 6, 0.18);
+}
+
+/* ── Overlay de vuelto grande ───────────────────────────────────────────── */
+.vuelto-overlay-flus {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 30, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 19999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.vuelto-overlay-flus.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vuelto-overlay-flus__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: vueltoScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes vueltoScaleIn {
+  from { transform: scale(0.65); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.vuelto-overlay-flus__eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+}
+
+.vuelto-overlay-flus__amount {
+  font-size: clamp(72px, 14vw, 120px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fbbf24;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 60px rgba(251, 191, 36, 0.35);
+}
+
+.vuelto-overlay-flus__sub {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.45);
+  min-height: 1.2em;
+}
+
+.vuelto-overlay-flus__close {
+  margin-top: 18px;
+  padding: 9px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.vuelto-overlay-flus__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.vuelto-overlay-flus__close kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.72rem;
+  font-family: ui-monospace, monospace;
+  margin-left: 4px;
+}
+
+/* ── Snack "Deshacer quitar ítem" ──────────────────────────────────────── */
+.undo-snack-container {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+  align-items: center;
+}
+
+.undo-snack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--panel, #1e293b);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  font-size: 0.88rem;
+  color: var(--text);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: snackIn 0.2s ease;
+}
+
+@keyframes snackIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.undo-snack.is-leaving {
+  animation: snackOut 0.2s ease forwards;
+}
+
+@keyframes snackOut {
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+.undo-snack__btn {
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--accent-cyan, #22d3ee);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.undo-snack__btn:hover {
+  background: rgba(34, 211, 238, 0.2);
+}
+
+/* ── Hint visual "doble click = editar" en col-cant ────────────────────── */
+#tabla .col-cant {
+  cursor: default;
+}
+
+#tabla .col-cant span[data-editable="1"] {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background 0.1s;
+}
+
+#tabla .col-cant span[data-editable="1"]:hover {
+  background: rgba(34, 211, 238, 0.1);
+}
+
+/* ── Hilo de progreso "Procesando cobro" en btn-cobrar ─────────────────── */
+.btn-cobrar.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-cobrar.is-loading::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; height: 100%;
+  width: 40%;
+  background: rgba(255, 255, 255, 0.3);
+  animation: btnProgress 1s ease-in-out infinite;
+}
+
+@keyframes btnProgress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* ==========================================================================
+   CAJA POS REDISENO FINAL
+   - Prioriza escaneo, ticket y cobro
+   - Medios de pago mas claros y menos ruidosos
+   - Compatible con light / dark
+============================================================================ */
+
+.caja-panel--pos {
+  --caja-final-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  --caja-soft-glow: rgba(34, 211, 238, 0.12);
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 420px);
+  grid-template-areas:
+    "topbar topbar"
+    "kpis kpis"
+    "scan total"
+    "tickethead exact"
+    "ticket pay"
+    "ticket cc"
+    "ticket actions"
+    "mov shortcuts"
+    "msg msg";
+  gap: 18px 20px;
+  padding: 18px 22px 28px;
+}
+
+.caja-panel--pos > .caja-title,
+.caja-panel--pos > .sidepanel-block-title {
+  display: none;
+}
+
+.caja-panel--pos > .caja-topbar,
+.caja-panel--pos > .caja-kpis .caja-kpi,
+.caja-panel--pos > .caja-scan-card,
+.caja-panel--pos > .ticket-panel-head,
+.caja-panel--pos > .ticket-wrapper,
+.caja-panel--pos > .total-panel,
+.caja-panel--pos > .btn-cobrar-exacto,
+.caja-panel--pos > .pagos-row,
+.caja-panel--pos > .cc-wrap,
+.caja-panel--pos > .buttons-row,
+.caja-panel--pos > .shortcuts-box,
+.caja-panel--pos > .caja-mov {
+  border-radius: 24px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--caja-final-shadow);
+}
+
+.caja-panel--pos > .caja-topbar {
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 26%),
+    var(--panel);
+}
+
+body[data-theme="light"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.11), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+}
+
+body[data-theme="dark"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.09), transparent 26%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
+}
+
+.caja-panel--pos > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.caja-panel--pos .caja-kpi {
+  min-height: 78px;
+  padding: 14px 15px;
+}
+
+.caja-panel--pos .caja-kpi__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+}
+
+.caja-panel--pos .caja-kpi__value {
+  font-size: 1.22rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos > .caja-scan-card {
+  grid-area: scan;
+  position: relative;
+  overflow: visible !important;
+  padding: 18px;
+  margin: 0;
+}
+
+.caja-panel--pos > .caja-scan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  border-radius: 24px 0 0 24px;
+  background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+}
+
+.caja-panel--pos .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 128px 180px;
+  gap: 12px;
+}
+
+.caja-panel--pos .caja-scan-card label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.caja-panel--pos .caja-scan-card input,
+.caja-panel--pos .caja-scan-card select,
+.caja-panel--pos .pagos-row input,
+.caja-panel--pos .pagos-row select,
+.caja-panel--pos .cc-wrap input {
+  min-height: 50px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .caja-scan-card .btn-add {
+  height: 50px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .caja-scan-hints {
+  gap: 8px 10px;
+  margin-top: 14px;
+}
+
+.caja-panel--pos > .ticket-panel-head {
+  grid-area: tickethead;
+  padding: 16px 18px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos .ticket-panel-head__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .ticket-panel-head__title {
+  font-size: 1.04rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos .ticket-panel-head__status {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .ticket-wrapper {
+  grid-area: ticket;
+  margin: 0;
+  min-height: 560px;
+  max-height: calc(100vh - 244px);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  overflow: auto;
+}
+
+.caja-panel--pos #tabla thead th {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.caja-panel--pos #tabla td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.caja-panel--pos > .total-panel {
+  grid-area: total;
+  position: sticky;
+  top: 16px;
+  margin: 0;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 28%),
+    var(--panel);
+}
+
+.caja-panel--pos > .total-panel::before {
+  content: "Cobro";
+  display: block;
+  margin-bottom: 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .total-row-strong .total-label {
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+}
+
+.caja-panel--pos .total-row-strong .total-value {
+  font-size: 2rem;
+  color: var(--accent-green);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto {
+  grid-area: exact;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 96px;
+  padding: 16px 18px;
+  margin: 0;
+  text-align: left;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.04)),
+    var(--panel);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.44);
+  box-shadow: 0 16px 30px rgba(34, 197, 94, 0.18);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-cobrar-exacto__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.btn-cobrar-exacto__title {
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.btn-cobrar-exacto__hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .pagos-row {
+  grid-area: pay;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos .pagos-row__head,
+.caja-panel--pos .payment-summary {
+  grid-column: 1 / -1;
+}
+
+.caja-panel--pos .pagos-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caja-panel--pos .pagos-row__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.caja-panel--pos .pagos-row__eyebrow,
+.caja-panel--pos .payment-summary__head {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .pagos-row__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.caja-panel--pos .pagos-row__add {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.caja-panel--pos .payment-card,
+.caja-panel--pos .payment-summary {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.06), transparent),
+    rgba(148, 163, 184, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+body[data-theme="dark"] .caja-panel--pos .payment-card,
+body[data-theme="dark"] .caja-panel--pos .payment-summary {
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.38), transparent),
+    rgba(2, 6, 23, 0.34);
+}
+
+.caja-panel--pos .payment-card.is-active,
+.caja-panel--pos .payment-card:focus-within {
+  border-color: rgba(34, 211, 238, 0.36);
+  box-shadow: 0 12px 26px rgba(34, 211, 238, 0.12);
+  transform: translateY(-1px);
+}
+
+.caja-panel--pos .payment-card.is-cash {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-card.is-digital {
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-card.is-cc {
+  background:
+    linear-gradient(180deg, rgba(168, 85, 247, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-summary {
+  display: grid;
+  gap: 6px;
+  padding-top: 16px;
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.1), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-summary .total-vuelto {
+  font-size: 1.22rem;
+}
+
+.caja-panel--pos .pagos-row--split .payment-summary {
+  order: 4;
+}
+
+.caja-panel--pos .pago2-monto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.caja-panel--pos #btnQuitarPago2 {
+  min-width: 78px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+.caja-panel--pos .denom-chips {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.caja-panel--pos .denom-chip {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border-color: rgba(245, 158, 11, 0.34);
+  color: var(--text);
+}
+
+.caja-panel--pos .denom-chips[data-target-slot="2"] .denom-chip {
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.caja-panel--pos > .cc-wrap {
+  grid-area: cc;
+  margin: 0;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos > .buttons-row {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos > .buttons-row button {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .btn-cancelar {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--pos .btn-cobrar {
+  font-size: 1.02rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos > .shortcuts-box {
+  grid-area: shortcuts;
+  margin: 0;
+  padding: 0;
+  align-self: start;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.06), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--pos > .caja-mov {
+  grid-area: mov;
+  margin: 0;
+  align-self: start;
+}
+
+.caja-panel--pos > .caja-mov:not([open]) {
+  box-shadow: none;
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos .caja-mov__sum {
+  padding: 14px 16px;
+}
+
+.caja-panel--pos .caja-mov__body {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.caja-panel--pos > #msg {
+  grid-area: msg;
+}
+
+@media (max-width: 1260px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos > .pagos-row {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos .pagos-row__head,
+  .caja-panel--pos .payment-summary {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "kpis"
+      "scan"
+      "tickethead"
+      "ticket"
+      "total"
+      "exact"
+      "pay"
+      "cc"
+      "actions"
+      "mov"
+      "shortcuts"
+      "msg";
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos > .ticket-wrapper {
+    min-height: 320px;
+    max-height: none;
+  }
+
+  .caja-panel--pos > .total-panel {
+    position: static;
+  }
+
+  .caja-panel--pos > .buttons-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .caja-panel--pos {
+    padding-inline: 14px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos .row.caja-row-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos > .ticket-panel-head,
+  .caja-panel--pos .pagos-row__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .caja-panel--pos .caja-scan-hints {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* ==========================================================================
+   CAJA NEO
+   - Rediseño inspirado en mockup operativo
+   - Misma lógica, otra jerarquía visual
+============================================================================ */
+
+.caja-panel--neo {
+  --neo-bg: #f3f6fb;
+  --neo-surface: #ffffff;
+  --neo-surface-2: #f8fbff;
+  --neo-border: rgba(15, 23, 42, 0.08);
+  --neo-border-strong: rgba(59, 130, 246, 0.22);
+  --neo-text: #0f172a;
+  --neo-muted: #64748b;
+  --neo-kpi-bg: #eef3fb;
+  --neo-green: #22c55e;
+  --neo-red: #ef4444;
+  --neo-blue: #3b82f6;
+  --neo-amber: #f59e0b;
+  --neo-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "topbar"
+    "kpis"
+    "shell"
+    "mov"
+    "msg";
+  gap: 14px;
+  padding: 14px 16px 22px;
+  min-height: calc(100vh - 126px);
+  border: 1px solid var(--neo-border);
+  border-radius: 24px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-shadow);
+  color: var(--neo-text);
+}
+
+body[data-theme="dark"] .caja-panel--neo {
+  --neo-bg: #0f1420;
+  --neo-surface: #171e2c;
+  --neo-surface-2: #101722;
+  --neo-border: rgba(148, 163, 184, 0.14);
+  --neo-border-strong: rgba(59, 130, 246, 0.28);
+  --neo-text: #e5edf9;
+  --neo-muted: #8fa0bf;
+  --neo-kpi-bg: #1b2434;
+  --neo-shadow: 0 18px 54px rgba(0, 0, 0, 0.34);
+}
+
+.caja-panel--neo > .caja-topbar,
+.caja-panel--neo > .caja-kpis,
+.caja-panel--neo > .caja-neo-shell,
+.caja-panel--neo > .caja-mov,
+.caja-panel--neo > #msg {
+  min-width: 0;
+}
+
+.caja-panel--neo > .caja-topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: var(--neo-shadow);
+}
+
+.caja-panel--neo .caja-topbar__left,
+.caja-panel--neo .caja-topbar__actions,
+.caja-panel--neo .caja-topbar__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.caja-panel--neo .caja-topbar__left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-topbar__badge {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--neo-green);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.caja-panel--neo .caja-topbar__item {
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo .caja-topbar__item:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.caja-panel--neo .caja-topbar__label,
+.caja-panel--neo .caja-topbar__print-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-topbar__value,
+.caja-panel--neo .caja-topbar__strong {
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-topbar__value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.caja-panel--neo .caja-topbar__actions .btn,
+.caja-panel--neo .caja-topbar__print-select,
+.caja-panel--neo .btn-line--sm {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+  box-shadow: none;
+}
+
+.caja-panel--neo .caja-topbar__actions .btn:hover,
+.caja-panel--neo .btn-line--sm:hover {
+  border-color: var(--neo-border-strong);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.caja-panel--neo .caja-topbar__actions .btn-danger {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--neo > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caja-panel--neo .caja-kpi {
+  min-height: 72px;
+  padding: 11px 13px;
+  border: 1px solid var(--neo-border);
+  border-radius: 16px;
+  background: var(--neo-kpi-bg);
+  box-shadow: none;
+}
+
+.caja-panel--neo .caja-kpi__label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-kpi__value {
+  font-size: 1.16rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-kpi--green .caja-kpi__value,
+.caja-panel--neo #lblTotal,
+.caja-panel--neo #kpiTotalSesion {
+  color: var(--neo-green);
+}
+
+.caja-panel--neo > .caja-neo-shell {
+  grid-area: shell;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.caja-panel--neo .caja-neo-main {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-neo-footer {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-neo-sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-self: start;
+  min-height: 0;
+  position: sticky;
+  top: 14px;
+}
+
+.caja-panel--neo .caja-scan-card,
+.caja-panel--neo .caja-neo-ticket,
+.caja-panel--neo .total-panel,
+.caja-panel--neo .btn-cobrar-exacto,
+.caja-panel--neo .pagos-row,
+.caja-panel--neo .buttons-row,
+.caja-panel--neo .shortcuts-box,
+.caja-panel--neo .cc-wrap {
+  margin: 0;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: var(--neo-shadow);
+}
+
+.caja-panel--neo .caja-scan-card {
+  padding: 14px;
+  position: relative;
+  overflow: visible !important;
+}
+
+.caja-panel--neo .caja-scan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 18px 0 0 18px;
+  background: linear-gradient(180deg, var(--neo-blue), var(--neo-green));
+}
+
+.caja-panel--neo .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 94px 140px;
+  gap: 10px;
+}
+
+.caja-panel--neo .caja-scan-card label,
+.caja-panel--neo .total-label-inline,
+.caja-panel--neo .shortcuts-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-scan-card input,
+.caja-panel--neo .caja-scan-card select,
+.caja-panel--neo .pagos-row input,
+.caja-panel--neo .pagos-row select,
+.caja-panel--neo .cc-wrap input {
+  min-height: 48px;
+  border-radius: 13px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-scan-card input::placeholder,
+.caja-panel--neo .pagos-row input::placeholder,
+.caja-panel--neo .cc-wrap input::placeholder {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-scan-card .btn-add {
+  height: 48px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, #22c55e, #34d399);
+  color: #03210f;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.25);
+}
+
+.caja-panel--neo .caja-scan-hints {
+  display: none;
+}
+
+.caja-panel--neo .caja-neo-utility {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.caja-panel--neo .caja-neo-utility__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface);
+  color: var(--neo-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.caja-panel--neo .caja-neo-utility kbd,
+.caja-panel--neo .shortcuts-list kbd {
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-neo-ticket {
+  display: grid;
+  grid-template-rows: auto minmax(240px, auto);
+  overflow: hidden;
+}
+
+.caja-panel--neo .ticket-panel-head {
+  margin: 0;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--neo-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.caja-panel--neo .ticket-panel-head__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.caja-panel--neo .ticket-panel-head__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .ticket-panel-head__title {
+  font-size: 1.18rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .ticket-panel-head__status {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-muted);
+  font-size: 0.83rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.caja-panel--neo .ticket-wrapper {
+  min-height: 260px;
+  max-height: min(38vh, 340px);
+  overflow: auto;
+  border-radius: 0;
+  border: 0;
+  background: var(--neo-surface);
+  box-shadow: none;
+}
+
+.caja-panel--neo #tabla {
+  font-size: 0.92rem;
+  table-layout: fixed;
+}
+
+.caja-panel--neo #tabla thead th {
+  top: 0;
+  background: var(--neo-surface);
+  color: var(--neo-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo #tabla tbody tr:nth-child(odd),
+.caja-panel--neo #tabla tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+.caja-panel--neo #tabla tbody tr:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.caja-panel--neo #tabla td {
+  border-bottom: 1px solid var(--neo-border);
+  color: var(--neo-text);
+  vertical-align: middle;
+}
+
+.caja-panel--neo #tabla th.col-precio,
+.caja-panel--neo #tabla td.col-precio {
+  width: 170px;
+  text-align: center;
+}
+
+.caja-panel--neo #tabla th.col-subtotal,
+.caja-panel--neo #tabla td.col-subtotal {
+  width: 160px;
+  text-align: center;
+}
+
+.caja-panel--neo #tabla td.col-precio,
+.caja-panel--neo #tabla td.col-subtotal {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--neo #tabla td.col-precio > div {
+  text-align: center;
+}
+
+.caja-panel--neo #tabla .precio-lista {
+  margin-top: 2px;
+  color: var(--neo-muted);
+  font-size: 0.78rem;
+}
+
+.caja-panel--neo .acciones {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.caja-panel--neo .btn-accion {
+  min-height: 34px;
+  margin-left: 0;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+}
+
+.caja-panel--neo .total-panel {
+  padding: 16px;
+}
+
+.caja-panel--neo .total-row {
+  margin: 0;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo .total-row:last-child {
+  border-bottom: 0;
+}
+
+.caja-panel--neo .total-label {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .total-value {
+  color: var(--neo-text);
+  font-weight: 900;
+}
+
+.caja-panel--neo .total-row-strong {
+  padding-top: 14px;
+}
+
+.caja-panel--neo .total-row-strong .total-label {
+  font-size: 1rem;
+  color: var(--neo-text);
+  letter-spacing: 0;
+}
+
+.caja-panel--neo .total-row-strong .total-value {
+  font-size: 2rem;
+  color: var(--neo-green);
+}
+
+.caja-panel--neo .btn-link-total {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--neo-blue);
+}
+
+.caja-panel--neo .btn-cobrar-exacto {
+  display: grid;
+  gap: 3px;
+  min-height: 88px;
+  padding: 15px 16px;
+  border-color: rgba(34, 197, 94, 0.24);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.04));
+  color: var(--neo-text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.caja-panel--neo .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.caja-panel--neo .btn-cobrar-exacto--inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: auto;
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: none;
+  text-align: center;
+}
+
+.caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__eyebrow,
+.caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__hint {
+  display: none;
+}
+
+.caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__title {
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.caja-panel--neo .pagos-row {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  align-content: start;
+  overflow: auto;
+  padding: 15px;
+}
+
+.caja-panel--neo .pagos-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caja-panel--neo .pagos-row__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.caja-panel--neo .pagos-row__eyebrow,
+.caja-panel--neo .payment-summary__head {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .pagos-row__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .pagos-row__add,
+.caja-panel--neo #btnQuitarPago2,
+.caja-panel--neo .btn-mini {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .payment-card,
+.caja-panel--neo .payment-summary,
+.caja-panel--neo .cc-wrap {
+  padding: 14px;
+  border: 1px solid var(--neo-border);
+  border-radius: 16px;
+  background: var(--neo-surface-2);
+  box-shadow: none;
+}
+
+.caja-panel--neo .payment-card {
+  display: grid;
+  gap: 8px;
+}
+
+.caja-panel--neo .payment-card.is-active,
+.caja-panel--neo .payment-card:focus-within {
+  border-color: var(--neo-border-strong);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+.caja-panel--neo .payment-card.is-cash {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .payment-card.is-digital {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .payment-card.is-cc {
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .payment-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.caja-panel--neo .payment-summary .total-vuelto {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .pago2-monto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.caja-panel--neo .btn-mini-danger {
+  color: var(--neo-red);
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--neo .denom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.caja-panel--neo .denom-chip {
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+body[data-theme="dark"] .caja-panel--neo .denom-chip {
+  color: #fbbf24;
+}
+
+.caja-panel--neo .denom-chips[data-target-slot="2"] .denom-chip {
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.caja-panel--neo .buttons-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.caja-panel--neo .buttons-row button {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 14px;
+}
+
+.caja-panel--neo .btn-cancelar {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--neo-red);
+}
+
+.caja-panel--neo .btn-cobrar {
+  border: 0;
+  background: linear-gradient(135deg, #1dd75f, #34d399);
+  color: #052814;
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.24);
+}
+
+.caja-panel--neo .shortcuts-box {
+  padding: 0;
+}
+
+.caja-panel--neo .shortcuts-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--neo .shortcuts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.caja-panel--neo .shortcuts-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-muted);
+  font-size: 0.8rem;
+}
+
+.caja-panel--neo > .caja-mov {
+  grid-area: mov;
+  margin: 0;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.caja-panel--neo .caja-mov__sum {
+  padding: 13px 16px;
+}
+
+.caja-panel--neo .caja-mov__title {
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-mov__sub {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-mov__body {
+  border-top-color: var(--neo-border);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.caja-panel--neo > #msg {
+  grid-area: msg;
+}
+
+@media (max-width: 1240px) {
+  .caja-panel--neo > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--neo > .caja-topbar,
+  .caja-panel--neo .caja-topbar__left,
+  .caja-panel--neo .caja-topbar__actions {
+    align-items: flex-start;
+  }
+
+  .caja-panel--neo > .caja-topbar {
+    flex-direction: column;
+  }
+
+  .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--neo .caja-neo-sidebar {
+    position: static;
+  }
+
+  .caja-panel--neo .ticket-wrapper {
+    max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .caja-panel--neo {
+    padding-inline: 10px;
+  }
+
+  .caja-panel--neo > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--neo .row.caja-row-inputs,
+  .caja-panel--neo .buttons-row {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--neo .pagos-row__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ==========================================================================
+   CAJA FULLSCREEN
+   - Caja rompe el contenedor global y usa ancho operativo real
+============================================================================ */
+
+body.caja-fullscreen-page .root.container-global {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-inline: 12px;
+}
+
+body.caja-fullscreen-page .nav-breadcrumb {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo {
+  width: 100%;
+  max-width: none;
+  margin: 4px 0 10px;
+  min-height: calc(100vh - 102px);
+  max-height: calc(100vh - 102px);
+  padding: 12px;
+  border-radius: 20px;
+  gap: 8px;
+  overflow: hidden;
+  grid-template-areas:
+    "topbar"
+    "shell"
+    "msg";
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-kpis {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
+  grid-template-columns: minmax(0, 1fr) 382px;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: static;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+  padding-left: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print {
+  display: flex;
+  align-items: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+  padding: 6px 10px;
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label {
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-utility {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 82px 128px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+  font-size: 0.64rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select {
+  min-height: 44px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+  height: 44px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row.total-row-bottom {
+  grid-template-columns: 1fr !important;
+  align-items: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row > *,
+body.caja-fullscreen-page .caja-panel--neo .buttons-row > *,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap > * {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket,
+body.caja-fullscreen-page .caja-panel--neo .total-panel,
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row,
+body.caja-fullscreen-page .caja-panel--neo .buttons-row,
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-box,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  border-radius: 16px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-panel {
+  padding: 12px 14px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row {
+  padding: 4px 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row-strong .total-value {
+  font-size: 1.65rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline {
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 12px;
+  justify-self: end;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__title {
+  font-size: 0.82rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  gap: 8px;
+  padding: 10px;
+  padding-bottom: 12px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__eyebrow,
+body.caja-fullscreen-page .caja-panel--neo .payment-summary__head,
+body.caja-fullscreen-page .caja-panel--neo .total-label-inline {
+  font-size: 0.64rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+  font-size: 0.9rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .payment-summary,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  padding: 10px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card {
+  gap: 7px;
+  width: 100%;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row input,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row select,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap input {
+  min-height: 40px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  min-height: 30px;
+  padding-inline: 10px;
+  font-size: 0.76rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap .cc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-info {
+  margin-top: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
+  gap: 2px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
+  font-size: 0.92rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-summary__head,
+body.caja-fullscreen-page .caja-panel--neo #restaWrap {
+  grid-column: 1 / -1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #restaWrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-summary .total-vuelto,
+body.caja-fullscreen-page .caja-panel--neo #restaWrap .total-vuelto {
+  min-width: 94px;
+  padding: 8px 10px;
+  border: 1px solid var(--neo-border);
+  border-radius: 10px;
+  background: var(--neo-surface);
+  text-align: right;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  padding: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  min-height: 46px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-box {
+  padding: 7px 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-list {
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-list span {
+  min-height: 26px;
+  padding-inline: 7px;
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
+  margin-top: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__sum {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__title {
+  font-size: 0.82rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__sub {
+  font-size: 0.74rem;
+}
+
+@media (min-width: 1400px) {
+  body.caja-fullscreen-page .root.container-global {
+    padding-inline: 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 392px;
+  }
 }
