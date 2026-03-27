@@ -21,7 +21,7 @@ $q = trim((string)($_GET['q'] ?? ''));
 $clienteId = (int)($_GET['cliente_id'] ?? 0);
 $ventaId = (int)($_GET['venta_id'] ?? 0);
 
-function documentos_comerciales_resumen_operativo(array $row): array
+function documentos_comerciales_resumen_operativo(array $row, bool $ventaRequeridaParaFacturar = false): array
 {
     $tipo = strtoupper(trim((string)($row['tipo_documento'] ?? '')));
     $estado = strtoupper(trim((string)($row['estado'] ?? 'PENDIENTE')));
@@ -45,6 +45,9 @@ function documentos_comerciales_resumen_operativo(array $row): array
         return ['estado' => 'Listo para operar', 'siguiente' => 'Generar remito o venta'];
     }
     if ($tipo === 'REMITO') {
+        if ($ventaRequeridaParaFacturar && $ventaId <= 0) {
+            return ['estado' => 'Listo para cierre', 'siguiente' => 'Generar o vincular venta'];
+        }
         return ['estado' => 'Listo para cierre', 'siguiente' => 'Emitir factura o vincular venta'];
     }
 
@@ -62,6 +65,7 @@ require __DIR__ . '/partials/header.php';
 
 $rows = [];
 $errores = [];
+$ventaRequeridaParaFacturar = flus_facturacion_facturas_require_venta($pdo);
 
 if (!flus_facturacion_documentos_table_ready($pdo)) {
     $errores[] = 'Faltan las tablas documentales. Aplica primero la migracion 017 para usar presupuestos y remitos.';
@@ -138,6 +142,29 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
       </div>
     </header>
 
+    <section class="fact-doc-guide" aria-label="Guia rapida de documentos comerciales">
+      <article class="fact-doc-guide__card">
+        <span class="fact-doc-guide__eyebrow">Donde verlos</span>
+        <h3>Presupuestos y remitos viven aca</h3>
+        <p>En este modulo ves, buscas y reabris los presupuestos y remitos ya creados. La factura fiscal sigue viendose en Facturacion.</p>
+      </article>
+      <article class="fact-doc-guide__card">
+        <span class="fact-doc-guide__eyebrow">Presupuesto</span>
+        <h3>Ordena la propuesta</h3>
+        <p>Sirve para cotizar o dejar armado un pedido. No impacta caja ni stock por si solo.</p>
+      </article>
+      <article class="fact-doc-guide__card">
+        <span class="fact-doc-guide__eyebrow">Remito</span>
+        <h3>Documenta la entrega</h3>
+        <p>El remito deja trazabilidad comercial. Segun la instalacion, despues puede requerir una venta valida antes de facturar.</p>
+      </article>
+      <article class="fact-doc-guide__card">
+        <span class="fact-doc-guide__eyebrow">Items</span>
+        <h3>Pueden ser manuales</h3>
+        <p>El codigo es opcional. Presupuesto y remito aceptan items cargados a mano aunque no exista un producto dado de alta.</p>
+      </article>
+    </section>
+
     <?php foreach ($errores as $error): ?>
       <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
     <?php endforeach; ?>
@@ -213,7 +240,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               $facturaLinked = (int)($row['factura_id'] ?? 0);
               $origenId = (int)($row['origen_id'] ?? 0);
               $origenTipo = trim((string)($row['origen_tipo'] ?? ''));
-              $operativo = documentos_comerciales_resumen_operativo($row);
+              $operativo = documentos_comerciales_resumen_operativo($row, $ventaRequeridaParaFacturar);
             ?>
             <tr>
               <td class="mono">
@@ -223,6 +250,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               <td>
                 <div class="fact-doc-title"><?= h((string)($row['tipo_documento'] ?? 'DOCUMENTO')) ?></div>
                 <div class="fact-cell-sub"><?= h((string)($row['nota'] ?? 'Sin nota')) ?></div>
+                <div class="fact-cell-sub"><?= strtoupper(trim((string)($row['tipo_documento'] ?? ''))) === 'REMITO' ? 'Documento de entrega / trazabilidad' : 'Documento de propuesta / borrador comercial' ?></div>
               </td>
               <td>
                 <div class="fact-doc-title"><?= h($clienteNombre) ?></div>
@@ -256,7 +284,7 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
               </td>
               <td>
                 <div class="fact-row-actions">
-                  <a href="documento_comercial.php?id=<?= (int)$row['id'] ?>" class="btn-mini">Ver</a>
+                  <a href="documento_comercial.php?id=<?= (int)$row['id'] ?>" class="btn-mini">Abrir</a>
                 </div>
               </td>
             </tr>

@@ -343,6 +343,20 @@ function flus_facturacion_documento_vincular_venta(PDO $pdo, int $documentoId, i
     $stDocumento->execute($params);
 }
 
+function flus_facturacion_facturas_require_venta(PDO $pdo): bool
+{
+    if (!flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
+        return false;
+    }
+
+    $meta = flus_column_metadata($pdo, 'facturas', 'venta_id');
+    if (!is_array($meta)) {
+        return false;
+    }
+
+    return strtoupper(trim((string)($meta['IS_NULLABLE'] ?? 'YES'))) === 'NO';
+}
+
 function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array
 {
     $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
@@ -370,12 +384,15 @@ function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array
     $tieneCliente = (int)($documento['cliente_id'] ?? 0) > 0;
     $bloqueado = flus_facturacion_documento_estado_bloqueado($estado);
     $ventaId = (int)($documento['venta_id'] ?? 0);
+    $ventaRequeridaParaFacturar = flus_facturacion_facturas_require_venta($pdo);
     $venta = null;
     if ($ventaId > 0 && flus_table_exists($pdo, 'ventas')) {
         $stVenta = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1');
         $stVenta->execute([$ventaId]);
         $venta = $stVenta->fetch(PDO::FETCH_ASSOC) ?: null;
     }
+    $ventaVinculadaValida = $ventaId > 0 && is_array($venta);
+    $ventaVinculoRoto = $ventaId > 0 && !is_array($venta);
 
     $factura = flus_facturacion_documento_factura_vinculada($pdo, $documentoId);
     $remito = $tipo === 'PRESUPUESTO'
@@ -410,11 +427,17 @@ function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array
         default => 'No corresponde vincular una venta a este documento.',
     };
 
-    $puedeEmitirFactura = $tieneCliente && !$bloqueado && !is_array($factura);
+    $puedeEmitirFactura = $tieneCliente
+        && !$bloqueado
+        && !is_array($factura)
+        && !$ventaVinculoRoto
+        && (!$ventaRequeridaParaFacturar || $ventaVinculadaValida);
     $motivoEmitirFactura = $puedeEmitirFactura ? '' : match (true) {
         !$tieneCliente => 'Vincula un cliente antes de emitir la factura.',
         $bloqueado => 'El documento esta anulado o cancelado.',
         is_array($factura) => 'El documento ya tiene una factura asociada.',
+        $ventaVinculoRoto => 'La venta vinculada ya no existe. Vincula una venta valida antes de facturar.',
+        $ventaRequeridaParaFacturar && !$ventaVinculadaValida => 'Genera o vincula una venta antes de emitir la factura desde este documento.',
         default => 'No corresponde emitir factura para este documento.',
     };
 
@@ -436,8 +459,13 @@ function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array
         $siguienteAccion = 'Generar remito o venta';
         $impactoOperativo = 'El presupuesto ordena la trazabilidad comercial; la operacion real empieza al generar remito, venta o factura.';
     } elseif ($tipo === 'REMITO') {
-        $siguienteAccion = 'Emitir factura o vincular venta';
-        $impactoOperativo = 'El remito mantiene trazabilidad documental; la venta o la factura son las que cierran la operacion.';
+        if ($ventaRequeridaParaFacturar && !$ventaVinculadaValida) {
+            $siguienteAccion = 'Generar o vincular venta';
+            $impactoOperativo = 'En esta instalacion la factura requiere una venta valida vinculada. Primero genera o vincula la venta y despues emite la factura.';
+        } else {
+            $siguienteAccion = 'Emitir factura o vincular venta';
+            $impactoOperativo = 'El remito mantiene trazabilidad documental; la venta o la factura son las que cierran la operacion.';
+        }
     }
 
     return [

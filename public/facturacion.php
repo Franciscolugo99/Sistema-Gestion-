@@ -499,6 +499,13 @@ require __DIR__ . '/partials/header.php';
               $estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscalFila);
               $modoFilaRaw = trim((string)($factura['modo'] ?? ''));
               $modoFila = $modoFilaRaw !== '' ? flus_facturacion_normalizar_modo($modoFilaRaw) : '';
+              $tipoFila = strtoupper(trim((string)($factura['tipo'] ?? '')));
+              $isNcFila = str_starts_with($tipoFila, 'NC');
+              $isNdFila = str_starts_with($tipoFila, 'ND');
+              $naturalezaLabel = $isNcFila ? 'NC' : ($isNdFila ? 'ND' : 'FACTURA');
+              $naturalezaClass = $isNcFila
+                  ? 'fact-inline-badge--nc'
+                  : ($isNdFila ? 'fact-inline-badge--nd' : 'fact-inline-badge--doc');
               $cae = trim((string)($factura['cae'] ?? ''));
               $caeVtoRaw = trim((string)($factura['cae_vto'] ?? ''));
               $tieneCaeReal = $cae !== '' && !str_starts_with(strtoupper($cae), 'DEMO');
@@ -526,6 +533,9 @@ require __DIR__ . '/partials/header.php';
               <td>
                 <div class="fact-doc-title"><?= h($comprobanteLabel) ?></div>
                 <div class="fact-doc-meta">
+                  <span class="fact-inline-badge <?= h($naturalezaClass) ?>">
+                    <?= h($naturalezaLabel) ?>
+                  </span>
                   <?php if ($modoFila !== ''): ?>
                     <span class="fact-inline-badge <?= $modoFila === 'demo' ? 'fact-inline-badge--demo' : 'fact-inline-badge--real' ?>">
                       <?= h($modoFila === 'demo' ? 'Demo' : 'ARCA') ?>

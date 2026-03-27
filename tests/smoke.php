@@ -2384,6 +2384,73 @@ $results[] = flus_run_test('factura_ver imprime desde vista limpia y documentos 
     flus_assert_contains('.nav-breadcrumb,', $facturaCss);
 });
 
+$results[] = flus_run_test('facturacion nc muestra flash visible y conserva historial especifico por factura', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
+    $ncJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'facturacion_nc.js');
+    $panelLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
+
+    flus_assert_contains('data-nc-ok="<?= nc_h($ncOk) ?>"', $ncPhp);
+    flus_assert_contains('data-nc-error="<?= nc_h($ncError) ?>"', $ncPhp);
+    flus_assert_contains('Historial de NC emitidas sobre esta factura', $ncPhp);
+    flus_assert_contains('function initFlashNotifications()', $ncJs);
+    flus_assert_contains("window.Notif.exito", $ncJs);
+    flus_assert_contains("window.Notif.error", $ncJs);
+    flus_assert_contains("FROM facturas f", $panelLib);
+});
+
+$results[] = flus_run_test('facturacion general distingue factura, nc y nd visualmente en el historial', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
+
+    flus_assert_contains("\$naturalezaLabel = \$isNcFila ? 'NC' : (\$isNdFila ? 'ND' : 'FACTURA');", $facturacionPhp);
+    flus_assert_contains("fact-inline-badge--nc", $facturacionPhp);
+    flus_assert_contains("fact-inline-badge--doc", $facturacionPhp);
+    flus_assert_contains('.fact-inline-badge--nc {', $facturacionCss);
+    flus_assert_contains('.fact-inline-badge--doc {', $facturacionCss);
+    flus_assert_contains('.fact-inline-badge--nd {', $facturacionCss);
+});
+
+$results[] = flus_run_test('facturacion desde documento no fuerza venta_id invalido y humaniza remitos con venta rota', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
+    $documentoJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'documento_comercial.js');
+    $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
+
+    flus_assert_contains("'venta_id' => (int)(\$context['venta']['id'] ?? 0) > 0 ? (int)(\$context['venta']['id'] ?? 0) : null,", $facturacionLib);
+    flus_assert_contains('El documento comercial apunta a una venta inexistente. Vincula una venta valida antes de facturar o genera una nueva desde el documento.', $facturacionLib);
+    flus_assert_contains('function documento_comercial_humanizar_error(Throwable $e): string', $documentoPhp);
+    flus_assert_contains('if (flus_facturacion_facturas_require_venta($pdo)) {', $documentoPhp);
+    flus_assert_contains('Genera o vincula una venta antes de emitir la factura desde este documento.', $documentoPhp);
+    flus_assert_contains("\$errores[] = documento_comercial_humanizar_error(\$e);", $documentoPhp);
+    flus_assert_contains('data-doc-flash-ok="<?= h($flashOk) ?>"', $documentoPhp);
+    flus_assert_contains('data-doc-flash-error="<?= h($flashError) ?>"', $documentoPhp);
+    flus_assert_contains('function initDocumentoComercialFlash()', $documentoJs);
+    flus_assert_contains('window.Notif.exito', $documentoJs);
+    flus_assert_contains('window.Notif.error', $documentoJs);
+    flus_assert_contains('elseif (!empty($accionesDocumento[\'puede_generar_venta\']))', $documentoPhp);
+    flus_assert_contains('Si generás la venta desde este remito, FLUS la deja vinculada y después ya podés emitir la factura.', $documentoPhp);
+    flus_assert_contains("return ['estado' => 'Listo para cierre', 'siguiente' => 'Generar o vincular venta'];", $documentosPhp);
+});
+
+$results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
+    $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
+
+    flus_assert_contains('Presupuestos y remitos viven aca', $documentosPhp);
+    flus_assert_contains('Pueden ser manuales', $documentosPhp);
+    flus_assert_contains('Qué hace este documento', $documentoPhp);
+    flus_assert_contains('Cómo cargar ítems', $documentoPhp);
+    flus_assert_contains('Emitir factura desde este documento', $documentoPhp);
+    flus_assert_contains('Generar remito con estos ítems', $documentoPhp);
+    flus_assert_contains('.fact-doc-guide {', $facturacionCss);
+    flus_assert_contains('.fact-doc-guide__inline-help {', $facturacionCss);
+});
+
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {

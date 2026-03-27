@@ -1378,6 +1378,8 @@ function flus_facturacion_preparar_contexto_desde_documento(PDO $pdo, int $docum
         $ventaDb = $stVenta->fetch(PDO::FETCH_ASSOC) ?: null;
         if (is_array($ventaDb)) {
             $venta = $ventaDb + $venta;
+        } else {
+            throw new RuntimeException('El documento comercial apunta a una venta inexistente. Vincula una venta valida antes de facturar o genera una nueva desde el documento.');
         }
     }
 
@@ -1597,7 +1599,7 @@ function flus_facturacion_factura_header_base(array $context, string $estadoFisc
     $timestamp = date('Y-m-d H:i:s');
 
     return [
-        'venta_id' => (int)($context['venta']['id'] ?? 0),
+        'venta_id' => (int)($context['venta']['id'] ?? 0) > 0 ? (int)($context['venta']['id'] ?? 0) : null,
         'documento_id' => (int)($context['documento']['id'] ?? 0) > 0 ? (int)$context['documento']['id'] : null,
         'cliente_id' => (int)($context['cliente_id_fiscal'] ?? 0) > 0 ? (int)$context['cliente_id_fiscal'] : null,
         'naturaleza' => 'FACTURA',
@@ -2882,4 +2884,3 @@ function flus_factura_pdf_browser_path(): ?string
     $cached = '';
     return null;
 }
-

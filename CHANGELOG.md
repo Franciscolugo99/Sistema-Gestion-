@@ -49,6 +49,10 @@
 - **Facturación / QA de salida a producción:**
   - Se agrega `docs/QA_FACTURACION_PRODUCCION.md` como checklist operativo real para validar configuración, preflight, numeración, emisión, visor, PDF, recovery, NC y navegación antes de habilitar producción.
   - El checklist deja explícito qué puntos sí son exigibles hoy y cuáles siguen fuera de alcance inmediato, para no mezclar salida a producción con features todavía no cerradas end-to-end.
+- **Facturación / UX operacional de NC y documentos:**
+  - Las notas de crédito pasan a mostrar confirmaciones visibles con `Notif`/toast además del mensaje inline, y el historial general de facturación distingue mejor `FACTURA`, `NC` y `ND`.
+  - El módulo documental explica mejor qué hace un presupuesto, qué hace un remito, qué paso sigue después y que los ítems pueden cargarse manualmente sin depender de un producto previamente dado de alta.
+  - Los remitos muestran un camino más claro cuando la instalación exige una venta válida antes de facturar, incluyendo generación o vínculo de venta desde la propia pantalla.
 - **Facturación / Fase 1 (factura común):**
   - La emisión desde venta y la emisión manual quedan cerradas sobre la misma capa de negocio, manteniendo `facturas.venta_id` y compatibilidad legacy.
   - `public/factura_nueva.php`, `public/factura_emitir.php` y `public/factura_manual.php` quedan como entrypoints más finos, con mejor resolución de cliente y menos lógica duplicada.
@@ -88,6 +92,8 @@
   - El botón `Imprimir` de `factura_ver.php` ahora abre una vista limpia/autoprint del comprobante, evitando arrastrar breadcrumbs del sistema y alineando mejor la salida impresa con el visor/PDF.
   - La impresión del comprobante oculta también la navegación contextual en `@media print`, reduciendo ruido visual en copias físicas o guardadas desde el navegador.
   - `documento_comercial.php` recupera el soporte operativo para abrir presupuestos y remitos existentes, con helpers locales para acciones documentales, actualización de cabecera y vínculo controlado con venta.
+  - Al facturar desde remitos sin venta válida, el sistema ya no expone SQL/FK crudo y devuelve mensajes operativos entendibles para el usuario.
+  - `documento_comercial.php` muestra también los flashes importantes como notificación visible, evitando que el resultado quede perdido si la pantalla está scrolleada.
 - **Testing / documentación técnica:**
   - Se amplía la cobertura smoke para reversas de cuenta corriente y para el wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
   - Se normalizan referencias internas de versión/fechas para alinear changelog y build actual del repo.
