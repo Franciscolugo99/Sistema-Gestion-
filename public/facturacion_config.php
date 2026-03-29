@@ -494,6 +494,9 @@ $arcaCheckedAtRaw = trim((string)($arcaEstado['checked_at'] ?? ''));
 $arcaCheckedAtLabel = factcfg_format_checked_at($arcaCheckedAtRaw);
 $arcaCheckedAtClass = $arcaCheckedAtRaw !== '' ? 'ok' : 'warning';
 $preflightArca = flus_facturacion_preflight_arca($configModo);
+$emitPreflight = flus_facturacion_preflight_emision($pdo, $configRow ?? null, ['modo' => $configModo]);
+$emitReadyClass = ($emitPreflight['ok'] ?? false) ? 'ok' : 'error';
+$emitReadyLabel = ($emitPreflight['ok'] ?? false) ? 'Listo para emitir' : 'Bloqueado';
 $soapOk = extension_loaded('soap');
 $opensslOk = extension_loaded('openssl');
 $pageTitle = 'Configuracion de Facturacion';
@@ -605,6 +608,12 @@ require __DIR__ . '/partials/header.php';
                 <span class="status-label">Modo actual</span>
                 <span class="status-value"><?= h($configModoLabel) ?></span>
             </div>
+
+            <div class="status-item <?= h($emitReadyClass) ?>">
+                <span class="status-icon"><?= ($emitPreflight['ok'] ?? false) ? 'OK' : 'ERR' ?></span>
+                <span class="status-label">Preflight de emision</span>
+                <span class="status-value"><?= h($emitReadyLabel) ?></span>
+            </div>
         </div>
 
         <?php if ($configArcaExists && $soapOk && $opensslOk && $facturacionHabilitada && $modoNoDemo): ?>
@@ -617,6 +626,16 @@ require __DIR__ . '/partials/header.php';
 
         <?php foreach ($preflightArca['warnings'] as $warning): ?>
             <p class="section-desc"><?= h($warning) ?></p>
+        <?php endforeach; ?>
+
+        <?php if (!($emitPreflight['ok'] ?? false)): ?>
+            <div class="alert alert-error" style="margin-top:12px;">
+                <div><strong>Emision bloqueada:</strong> <?= h(flus_facturacion_preflight_emision_error($emitPreflight)) ?></div>
+            </div>
+        <?php endif; ?>
+
+        <?php foreach ((array)($emitPreflight['warnings'] ?? []) as $emitWarning): ?>
+            <p class="section-desc"><?= h((string)$emitWarning) ?></p>
         <?php endforeach; ?>
     </section>
 

@@ -1,0 +1,1916 @@
+﻿/* ==========================================================================
+   CAJA NEO
+   - RediseÃ±o inspirado en mockup operativo
+   - Misma lÃ³gica, otra jerarquÃ­a visual
+============================================================================ */
+
+.caja-panel--neo {
+  --neo-bg: #f3f6fb;
+  --neo-surface: #ffffff;
+  --neo-surface-2: #f8fbff;
+  --neo-border: rgba(15, 23, 42, 0.08);
+  --neo-border-strong: rgba(59, 130, 246, 0.22);
+  --neo-text: #0f172a;
+  --neo-muted: #64748b;
+  --neo-kpi-bg: #eef3fb;
+  --neo-green: #22c55e;
+  --neo-red: #ef4444;
+  --neo-blue: #3b82f6;
+  --neo-amber: #f59e0b;
+  --neo-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "topbar"
+    "kpis"
+    "shell"
+    "mov"
+    "msg";
+  gap: 14px;
+  padding: 14px 16px 22px;
+  min-height: calc(100vh - 126px);
+  border: 1px solid var(--neo-border);
+  border-radius: 24px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-shadow);
+  color: var(--neo-text);
+}
+
+body[data-theme="dark"] .caja-panel--neo {
+  --neo-bg: #0f1420;
+  --neo-surface: #171e2c;
+  --neo-surface-2: #101722;
+  --neo-border: rgba(148, 163, 184, 0.14);
+  --neo-border-strong: rgba(59, 130, 246, 0.28);
+  --neo-text: #e5edf9;
+  --neo-muted: #8fa0bf;
+  --neo-kpi-bg: #1b2434;
+  --neo-shadow: 0 18px 54px rgba(0, 0, 0, 0.34);
+}
+
+.caja-panel--neo > .caja-topbar,
+.caja-panel--neo > .caja-kpis,
+.caja-panel--neo > .caja-neo-shell,
+.caja-panel--neo > .caja-mov,
+.caja-panel--neo > #msg {
+  min-width: 0;
+}
+
+.caja-panel--neo > .caja-topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: var(--neo-shadow);
+}
+
+.caja-panel--neo .caja-topbar__left,
+.caja-panel--neo .caja-topbar__actions,
+.caja-panel--neo .caja-topbar__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.caja-panel--neo .caja-topbar__left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-topbar__badge {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--neo-green);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.caja-panel--neo .caja-topbar__item {
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo .caja-topbar__item:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.caja-panel--neo .caja-topbar__label,
+.caja-panel--neo .caja-topbar__print-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-topbar__value,
+.caja-panel--neo .caja-topbar__strong {
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-topbar__value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.caja-panel--neo .caja-topbar__actions .btn,
+.caja-panel--neo .caja-topbar__print-select,
+.caja-panel--neo .btn-line--sm {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+  box-shadow: none;
+}
+
+.caja-panel--neo .caja-topbar__actions .btn:hover,
+.caja-panel--neo .btn-line--sm:hover {
+  border-color: var(--neo-border-strong);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.caja-panel--neo .caja-topbar__actions .btn-danger {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--neo > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.caja-panel--neo .caja-kpi {
+  min-height: 72px;
+  padding: 11px 13px;
+  border: 1px solid var(--neo-border);
+  border-radius: 16px;
+  background: var(--neo-kpi-bg);
+  box-shadow: none;
+}
+
+.caja-panel--neo .caja-kpi__label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-kpi__value {
+  font-size: 1.16rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-kpi--green .caja-kpi__value,
+.caja-panel--neo #lblTotal,
+.caja-panel--neo #kpiTotalSesion {
+  color: var(--neo-green);
+}
+
+.caja-panel--neo > .caja-neo-shell {
+  grid-area: shell;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.caja-panel--neo .caja-neo-main {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-neo-footer {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-neo-sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-self: start;
+  min-height: 0;
+  position: sticky;
+  top: 14px;
+}
+
+.caja-panel--neo .caja-scan-card,
+.caja-panel--neo .caja-neo-ticket,
+.caja-panel--neo .total-panel,
+.caja-panel--neo .btn-cobrar-exacto,
+.caja-panel--neo .pagos-row,
+.caja-panel--neo .buttons-row,
+.caja-panel--neo .shortcuts-box,
+.caja-panel--neo .cc-wrap {
+  margin: 0;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: var(--neo-shadow);
+}
+
+.caja-panel--neo .caja-scan-card {
+  padding: 14px;
+  position: relative;
+  overflow: visible !important;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.caja-panel--neo .caja-scan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  border-radius: 18px 0 0 18px;
+  background: linear-gradient(180deg, var(--neo-blue), var(--neo-green));
+}
+
+.caja-panel--neo .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 94px 140px;
+  gap: 10px;
+}
+
+.caja-panel--neo .field-product {
+  min-width: 0;
+}
+
+.caja-panel--neo .field-product #codigo {
+  border-color: rgba(14, 165, 233, 0.28);
+  background:
+    linear-gradient(180deg, rgba(14, 165, 233, 0.08), transparent),
+    var(--neo-surface-2);
+  box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.08);
+}
+
+.caja-panel--neo .field-qty #cantidad {
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--neo .caja-scan-card label,
+.caja-panel--neo .total-label-inline,
+.caja-panel--neo .shortcuts-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-scan-card input,
+.caja-panel--neo .caja-scan-card select,
+.caja-panel--neo .pagos-row input,
+.caja-panel--neo .pagos-row select,
+.caja-panel--neo .cc-wrap input {
+  min-height: 48px;
+  border-radius: 13px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-scan-card input::placeholder,
+.caja-panel--neo .pagos-row input::placeholder,
+.caja-panel--neo .cc-wrap input::placeholder {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-scan-card.is-code-focus {
+  border-color: rgba(14, 165, 233, 0.34);
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.12),
+    0 0 0 3px rgba(14, 165, 233, 0.08);
+}
+
+.caja-panel--neo .caja-scan-card.is-qty-focus {
+  border-color: rgba(34, 197, 94, 0.34);
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.12),
+    0 0 0 3px rgba(34, 197, 94, 0.08);
+}
+
+.caja-panel--neo .caja-scan-card.is-payment-focus {
+  border-color: rgba(245, 158, 11, 0.32);
+  box-shadow:
+    0 18px 34px rgba(15, 23, 42, 0.12),
+    0 0 0 3px rgba(245, 158, 11, 0.08);
+}
+
+.caja-panel--neo .caja-scan-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-scan-mode {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--neo-text);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.caja-panel--neo .caja-scan-copy {
+  min-width: 0;
+  color: var(--neo-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.caja-panel--neo .caja-scan-card .btn-add {
+  height: 48px;
+  border-radius: 14px;
+  border: 0;
+  background: linear-gradient(135deg, #22c55e, #34d399);
+  color: #03210f;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.25);
+}
+
+.caja-panel--neo .caja-scan-hints {
+  display: none;
+}
+
+.caja-panel--neo .caja-neo-utility {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.caja-panel--neo .caja-neo-utility__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface);
+  color: var(--neo-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.caja-panel--neo .caja-neo-utility kbd,
+.caja-panel--neo .shortcuts-list kbd {
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-neo-ticket {
+  display: grid;
+  grid-template-rows: auto minmax(240px, auto);
+  overflow: hidden;
+}
+
+.caja-panel--neo .ticket-panel-head {
+  margin: 0;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--neo-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.caja-panel--neo .ticket-panel-head__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.caja-panel--neo .ticket-panel-head__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .ticket-panel-head__title {
+  font-size: 1.18rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .ticket-panel-head__status {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-muted);
+  font-size: 0.83rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.caja-panel--neo .ticket-wrapper {
+  min-height: 260px;
+  max-height: min(38vh, 340px);
+  overflow: auto;
+  border-radius: 0;
+  border: 0;
+  background: var(--neo-surface);
+  box-shadow: none;
+}
+
+.caja-panel--neo #tabla {
+  font-size: 0.92rem;
+  table-layout: fixed;
+}
+
+.caja-panel--neo #tabla thead th {
+  top: 0;
+  background: var(--neo-surface);
+  color: var(--neo-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo #tabla tbody tr:nth-child(odd),
+.caja-panel--neo #tabla tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+.caja-panel--neo #tabla tbody tr:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.caja-panel--neo #tabla td {
+  border-bottom: 1px solid var(--neo-border);
+  color: var(--neo-text);
+  vertical-align: middle;
+}
+
+.caja-panel--neo #tabla th.col-precio,
+.caja-panel--neo #tabla td.col-precio {
+  width: 170px;
+  text-align: center;
+}
+
+.caja-panel--neo #tabla th.col-subtotal,
+.caja-panel--neo #tabla td.col-subtotal {
+  width: 160px;
+  text-align: center;
+}
+
+.caja-panel--neo #tabla td.col-precio,
+.caja-panel--neo #tabla td.col-subtotal {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--neo #tabla td.col-precio > div {
+  text-align: center;
+}
+
+.caja-panel--neo #tabla .precio-lista {
+  margin-top: 2px;
+  color: var(--neo-muted);
+  font-size: 0.78rem;
+}
+
+.caja-panel--neo .acciones {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.caja-panel--neo .btn-accion {
+  min-height: 34px;
+  margin-left: 0;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+}
+
+.caja-panel--neo .total-panel {
+  padding: 16px;
+}
+
+.caja-panel--neo .total-row {
+  margin: 0;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--neo-border);
+}
+
+.caja-panel--neo .total-row:last-child {
+  border-bottom: 0;
+}
+
+.caja-panel--neo .total-label {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .total-value {
+  color: var(--neo-text);
+  font-weight: 900;
+}
+
+.caja-panel--neo .total-row-strong {
+  padding-top: 14px;
+}
+
+.caja-panel--neo .total-row-strong .total-label {
+  font-size: 1rem;
+  color: var(--neo-text);
+  letter-spacing: 0;
+}
+
+.caja-panel--neo .total-row-strong .total-value {
+  font-size: 2rem;
+  color: var(--neo-green);
+}
+
+.caja-panel--neo .btn-link-total {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--neo-blue);
+}
+
+.caja-panel--neo .btn-cobrar-exacto {
+  display: grid;
+  gap: 3px;
+  min-height: 88px;
+  padding: 15px 16px;
+  border-color: rgba(34, 197, 94, 0.24);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.04));
+  color: var(--neo-text);
+  text-align: left;
+  box-shadow: none;
+}
+
+.caja-panel--neo .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.caja-panel--neo .btn-cobrar-exacto--inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: auto;
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: none;
+  text-align: center;
+}
+
+.caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__title {
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.caja-panel--neo .total-feedback {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.04));
+}
+
+.caja-panel--neo .total-feedback__label {
+  grid-column: 1;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .total-feedback__value {
+  grid-column: 3;
+  justify-self: end;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--neo-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-panel--neo.is-payment-pending .total-feedback {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.04));
+}
+
+.caja-panel--neo.is-payment-pending .total-feedback__value {
+  color: #d97706;
+}
+
+.caja-panel--neo .pagos-row {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  align-content: start;
+  overflow: auto;
+  padding: 15px;
+}
+
+.caja-panel--neo .pagos-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caja-panel--neo .pagos-row__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.caja-panel--neo .pagos-row__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .pagos-row__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .pagos-row__add,
+.caja-panel--neo #btnQuitarPago2,
+.caja-panel--neo .btn-mini {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .payment-card,
+.caja-panel--neo .cc-wrap {
+  padding: 14px;
+  border: 1px solid var(--neo-border);
+  border-radius: 16px;
+  background: var(--neo-surface-2);
+  box-shadow: none;
+}
+
+.caja-panel--neo .payment-card {
+  display: grid;
+  gap: 8px;
+}
+
+.caja-panel--neo .payment-card.is-active,
+.caja-panel--neo .payment-card:focus-within {
+  border-color: var(--neo-border-strong);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+.caja-panel--neo .payment-card.is-cash {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .payment-card.is-digital {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .payment-card.is-cc {
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.08), transparent), var(--neo-surface-2);
+}
+
+.caja-panel--neo .pago2-monto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.caja-panel--neo .btn-mini-danger {
+  color: var(--neo-red);
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--neo .denom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.caja-panel--neo .denom-chip {
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+body[data-theme="dark"] .caja-panel--neo .denom-chip {
+  color: #fbbf24;
+}
+
+.caja-panel--neo .denom-chips[data-target-slot="2"] .denom-chip {
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+.caja-panel--neo .buttons-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.caja-panel--neo .buttons-row button {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 14px;
+}
+
+.caja-panel--neo .btn-cancelar {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--neo-red);
+}
+
+.caja-panel--neo .btn-cobrar {
+  border: 0;
+  background: linear-gradient(135deg, #1dd75f, #34d399);
+  color: #052814;
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.24);
+}
+
+.caja-panel--neo .shortcuts-box {
+  padding: 0;
+}
+
+.caja-panel--neo .shortcuts-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--neo .shortcuts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.caja-panel--neo .shortcuts-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface-2);
+  color: var(--neo-muted);
+  font-size: 0.8rem;
+}
+
+.caja-panel--neo > .caja-mov {
+  grid-area: mov;
+  margin: 0;
+  border: 1px solid var(--neo-border);
+  border-radius: 18px;
+  background: var(--neo-surface);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.caja-panel--neo .caja-mov__sum {
+  padding: 13px 16px;
+}
+
+.caja-panel--neo .caja-mov__title {
+  color: var(--neo-text);
+}
+
+.caja-panel--neo .caja-mov__sub {
+  color: var(--neo-muted);
+}
+
+.caja-panel--neo .caja-mov__body {
+  border-top-color: var(--neo-border);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.caja-panel--neo > #msg {
+  grid-area: msg;
+}
+
+@media (max-width: 1240px) {
+  .caja-panel--neo > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--neo > .caja-topbar,
+  .caja-panel--neo .caja-topbar__left,
+  .caja-panel--neo .caja-topbar__actions {
+    align-items: flex-start;
+  }
+
+  .caja-panel--neo > .caja-topbar {
+    flex-direction: column;
+  }
+
+  .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--neo .caja-neo-sidebar {
+    position: static;
+  }
+
+  .caja-panel--neo .ticket-wrapper {
+    max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .caja-panel--neo {
+    padding-inline: 10px;
+  }
+
+  .caja-panel--neo > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--neo .row.caja-row-inputs,
+  .caja-panel--neo .buttons-row {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--neo .pagos-row__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .caja-panel--neo .caja-scan-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ==========================================================================
+   CAJA FULLSCREEN
+   - Caja rompe el contenedor global y usa ancho operativo real
+============================================================================ */
+
+body.caja-fullscreen-page .root.container-global {
+  width: 100% !important;
+  max-width: none !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 !important;
+  padding-inline: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+body.caja-fullscreen-page {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body.caja-fullscreen-page .nav-breadcrumb {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .nav-container {
+  flex: 0 0 auto;
+}
+
+body.caja-fullscreen-page .caja-panel--neo {
+  --payment-active: var(--neo-green);
+  --payment-active-bg: rgba(34, 197, 94, 0.12);
+  --payment-key-bg: rgba(255, 255, 255, 0.04);
+  --payment-key-color: var(--neo-muted);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  padding: 12px;
+  border-radius: 20px;
+  gap: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+  grid-template-areas:
+    "topbar"
+    "shell"
+    "msg";
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(circle at top left, rgba(96, 165, 250, 0.08), transparent 28%),
+    linear-gradient(180deg, var(--neo-bg) 0%, color-mix(in srgb, var(--neo-bg) 88%, black) 100%);
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-kpis {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  position: static;
+  align-self: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+  gap: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+  padding-left: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  font-size: 0.88rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print {
+  display: flex;
+  align-items: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+  padding: 6px 10px;
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label {
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-utility {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-box {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow: auto;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 88px 140px;
+  gap: 10px;
+  align-items: end;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+  font-size: 0.64rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-meta {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-mode {
+  min-height: 24px;
+  padding-inline: 8px;
+  font-size: 0.68rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+  font-size: 0.76rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select {
+  min-height: 44px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+  height: 44px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row.total-row-bottom {
+  grid-template-columns: 1fr !important;
+  align-items: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row > *,
+body.caja-fullscreen-page .caja-panel--neo .buttons-row > *,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap > * {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket,
+body.caja-fullscreen-page .caja-panel--neo .total-panel,
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row,
+body.caja-fullscreen-page .caja-panel--neo .buttons-row,
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-box,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  border-radius: 16px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-panel {
+  padding: 12px 14px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row {
+  padding: 4px 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row-strong .total-value {
+  font-size: 1.65rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline {
+  min-height: 38px;
+  margin-top: 8px;
+  padding: 0 12px;
+  justify-self: end;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .btn-cobrar-exacto--inline {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-feedback {
+  margin-top: 8px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-feedback__label {
+  font-size: 0.6rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-feedback__value {
+  font-size: 1.2rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__title {
+  font-size: 0.82rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  gap: 8px;
+  padding: 10px;
+  padding-bottom: 12px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-panel {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-row {
+  padding: 2px 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row {
+  align-items: start;
+  gap: 6px;
+  padding: 8px;
+  overflow: visible;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row.pagos-row--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row__head {
+  grid-column: 1 / -1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-card,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-wrap {
+  padding: 8px;
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-card {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact #pago1Wrap,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact #pago2Wrap {
+  grid-column: span 1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row:not(.pagos-row--split) > .payment-card {
+  grid-column: 1 / -1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-wrap {
+  grid-column: 1 / -1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-card select,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-card input,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-wrap input {
+  min-height: 36px;
+  border-radius: 11px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .denom-chips {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-row {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-cliente-info {
+  gap: 1px;
+  padding: 6px 8px;
+  margin-top: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-cliente-nombre {
+  font-size: 0.86rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-cliente-detalle {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pago2-monto-row {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .buttons-row {
+  padding: 8px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .buttons-row button {
+  min-height: 44px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__eyebrow,
+body.caja-fullscreen-page .caja-panel--neo .total-label-inline {
+  font-size: 0.64rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row__eyebrow,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-label-inline {
+  font-size: 0.58rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+  font-size: 0.9rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row__title {
+  font-size: 0.8rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  padding: 10px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card {
+  gap: 7px;
+  width: 100%;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row input,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row select,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap input {
+  min-height: 40px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  min-height: 30px;
+  padding-inline: 10px;
+  font-size: 0.76rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap .cc-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-info {
+  margin-top: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
+  gap: 2px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
+  font-size: 0.92rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #restaWrap {
+  grid-column: 1 / -1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #restaWrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  padding: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  min-height: 46px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-box {
+  padding: 7px 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-list {
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .shortcuts-list span {
+  min-height: 26px;
+  padding-inline: 7px;
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
+  margin-top: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__sum {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__title {
+  font-size: 0.82rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-mov__sub {
+  font-size: 0.74rem;
+}
+
+@media (min-width: 1400px) {
+  body.caja-fullscreen-page .root.container-global {
+    padding-inline: 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 392px;
+  }
+}
+
+/* ==========================================================================
+   PAYMENT LAYOUT V2
+   - Replica la estructura tipo POS del mockup, pero respetando modo claro
+     y oscuro de FLUS.
+============================================================================ */
+
+body[data-theme="light"].caja-fullscreen-page .caja-panel--neo,
+body.caja-fullscreen-page:not([data-theme="dark"]) .caja-panel--neo {
+  --neo-bg: #eef3f8;
+  --neo-surface: #ffffff;
+  --neo-surface-2: #f5f8fc;
+  --neo-border: #dbe4f0;
+  --neo-border-strong: #a9bad3;
+  --neo-text: #162033;
+  --neo-muted: #62738c;
+  --neo-kpi-bg: #e8eff8;
+  --neo-green: #17a34a;
+  --neo-red: #dc2626;
+  --neo-blue: #2563eb;
+  --neo-amber: #c97a00;
+  --payment-active-bg: rgba(23, 163, 74, 0.09);
+  --payment-key-bg: rgba(22, 32, 51, 0.04);
+}
+
+body[data-theme="dark"].caja-fullscreen-page .caja-panel--neo {
+  --neo-bg: #0d1117;
+  --neo-surface: #161b27;
+  --neo-surface-2: #1e2636;
+  --neo-border: #2a3347;
+  --neo-border-strong: #3d4f6a;
+  --neo-text: #eef2ff;
+  --neo-muted: #8b9ab5;
+  --neo-kpi-bg: #141a25;
+  --neo-green: #22c55e;
+  --neo-red: #ef4444;
+  --neo-blue: #60a5fa;
+  --neo-amber: #f59e0b;
+  --payment-active-bg: rgba(34, 197, 94, 0.13);
+  --payment-key-bg: rgba(255, 255, 255, 0.04);
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-topbar,
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket,
+body.caja-fullscreen-page .caja-panel--neo .total-panel,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  border-radius: 12px;
+  border-color: var(--neo-border);
+  background: var(--neo-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__title {
+  font-size: 1.1rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--neo-surface-2);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 0.63rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+  border-left-width: 1px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label {
+  font-size: 0.54rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__strong {
+  line-height: 1.05;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
+  gap: 5px;
+  font-size: 0.84rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+  min-height: 26px;
+  padding: 0 7px;
+  border-radius: 8px;
+  font-size: 0.77rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions {
+  align-items: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select {
+  min-width: 108px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .field-qty,
+body.caja-fullscreen-page .caja-panel--neo .field-add-btn {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .field-qty #cantidad {
+  position: relative;
+  z-index: 1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .field-add-btn {
+  padding-left: 2px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+  height: 44px;
+  width: 100%;
+  position: relative;
+  z-index: 0;
+  box-shadow: 0 8px 16px rgba(34, 197, 94, 0.18);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+  position: relative;
+  border-top: 1px solid var(--neo-border);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state {
+  position: absolute;
+  inset: 54px 0 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: var(--neo-muted);
+  pointer-events: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state.is-hidden {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state__icon {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px dashed var(--neo-border-strong);
+  background: color-mix(in srgb, var(--neo-surface-2) 86%, transparent);
+  color: var(--neo-green);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state__icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state__title {
+  color: var(--neo-text);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state__copy {
+  max-width: 280px;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper.is-empty #tabla tbody {
+  opacity: 0.16;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  align-content: start;
+  gap: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__head {
+  justify-content: flex-start;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+  font-size: 0.95rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  background: var(--neo-surface-2);
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-select-native {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  justify-items: center;
+  min-height: 58px;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--neo-border);
+  background: var(--neo-surface);
+  color: var(--neo-muted);
+  text-align: center;
+  transition:
+    border-color 0.14s ease,
+    background 0.14s ease,
+    transform 0.08s ease,
+    color 0.14s ease;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method:hover {
+  border-color: var(--neo-border-strong);
+  color: var(--neo-text);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method:active {
+  transform: translateY(1px);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+  min-width: 48px;
+  min-height: 20px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--neo-border);
+  background: var(--payment-key-bg);
+  color: var(--payment-key-color);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method.is-active {
+  color: var(--payment-active);
+  border-color: currentColor;
+  background: var(--payment-active-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 30%, transparent);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="MP"].is-active,
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="DEBITO"].is-active {
+  color: var(--neo-blue);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="CREDITO"].is-active {
+  color: var(--neo-amber);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="CC"].is-active {
+  color: #7c3aed;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card .total-label-inline {
+  margin-top: 2px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card input[disabled] {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__add {
+  min-height: 38px;
+  margin-top: 2px;
+  border-style: dashed;
+  background: transparent;
+  color: var(--neo-muted);
+  justify-self: start;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__add:hover {
+  color: var(--neo-text);
+  border-color: var(--neo-border-strong);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--neo-amber) 50%, var(--neo-border));
+  background: color-mix(in srgb, var(--neo-amber) 14%, var(--neo-surface));
+  color: var(--neo-amber);
+  font-size: 0.78rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  justify-items: start;
+  width: 100%;
+  min-height: 62px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border-color: rgba(34, 197, 94, 0.22);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0.05));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__title {
+  grid-column: 1;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline .btn-cobrar-exacto__hint {
+  grid-column: 1;
+  display: block;
+  margin-top: 2px;
+  color: var(--neo-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto__amount {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--neo-green);
+  font-variant-numeric: tabular-nums;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-feedback {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--neo-surface) 75%, var(--neo-surface-2));
+  border: 1px solid var(--neo-border);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--neo-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--neo-surface) 75%, var(--neo-surface-2));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__label {
+  color: var(--neo-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__value {
+  min-width: 88px;
+  padding: 5px 0;
+  text-align: right;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--neo-text);
+  font-variant-numeric: tabular-nums;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__value--accent {
+  color: var(--neo-amber);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__value--danger {
+  color: var(--neo-red);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+  min-width: 34px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+body[data-theme="light"].caja-fullscreen-page .caja-panel--neo .action-button__key {
+  border-color: rgba(22, 32, 51, 0.1);
+  background: rgba(22, 32, 51, 0.05);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cancelar {
+  background: color-mix(in srgb, var(--neo-red) 7%, var(--neo-surface));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar {
+  color: #031b0d;
+}
+
+@media (max-width: 1380px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 370px;
+  }
+}

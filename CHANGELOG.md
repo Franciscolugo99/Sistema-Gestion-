@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+
 - **Facturación / Fase 1 (factura común):**
   - Trazabilidad fiscal mínima para factura común con `fiscal_request_uid`, eventos ARCA y soporte base para recovery simple sin rediseñar todavía el modelo documental.
   - Nuevos smoke tests orientados a validar unificación de entrada, retry manual y compatibilidad baseline + migraciones.
@@ -13,12 +14,48 @@
   - Nueva capa mínima con `cobranzas` y `cobranza_aplicaciones` para registrar cobros reales y su aplicación comercial/documental sin reemplazar todavía `venta_pagos`, caja ni cuenta corriente.
   - Smoke tests iniciales para validar alta idempotente de cobranzas, aplicaciones y enlace con factura/documento cuando corresponda.
 - **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
-  - Nueva capa mínima de recibos sobre `documentos_comerciales` usando `tipo_documento = 'RECIBO'` y `origen = 'COBRANZA'`, con vínculo directo desde `cobranzas.recibo_documento_id`.
-  - Nueva tabla `recibo_aplicaciones` para dejar aplicación explícita de un recibo a `SALDO_CC`, `DOCUMENTO` o `FACTURA`, sin reemplazar todavía caja, cuenta corriente ni `venta_pagos`.
-  - Primeras vistas internas de trazabilidad de cobros/recibos asociados en factura y cuenta corriente del cliente, manteniendo esa información fuera del PDF/impresión para el cliente.
-  - Smoke tests y validaciones nuevas para recibos, coherencia cliente↔documento↔factura e idempotencia reforzada en pagos de cuenta corriente.
+  - Nueva capa mínima con `recibos` y `recibo_aplicaciones` para dejar constancia documental del recibo sin reemplazar todavía cobranzas, caja ni cuenta corriente.
+  - Smoke tests orientados a validar alta de recibos, aplicaciones razonables e idempotencia mínima sobre el mismo caso comercial.
+- **Facturación / Fase 5 (reportes fiscales y reenvío comercial):**
+  - Reportes fiscales mínimos para seguir emisión, estado fiscal, CAE, cliente, comprobante y trazabilidad operativa sin rehacer todo el módulo.
+  - Trazabilidad mínima de reenvío comercial/email por factura mediante `envio_ultimo_*` y `envio_intentos`, preparada para mostrar último canal, destino, resultado y error del envío al cliente.
+- **Facturación / Fase 6 (presupuestos/remitos documentales):**
+  - Nueva evolución documental mínima sobre `documentos_comerciales` para soportar `PRESUPUESTO` y `REMITO`, con relaciones básicas entre documentos y navegación comercial asociada.
+  - Nueva UI/listado de documentos comerciales para crear, ver y seguir presupuestos/remitos sin convertir todavía el sistema en un módulo comercial aparte.
+  - Smoke tests nuevos para reglas documentales, vínculos, cliente operativo, doble acción y conversión controlada a venta.
+- **Facturación / Fase 7 (contingencia fiscal mínima de factura común):**
+  - Nueva regularización mínima para factura común con `facturacion_recovery.php`, orientada a `PENDIENTE_ENVIO`, `ERROR_TRANSITORIO` y `ERROR_POST_ARCA`.
+  - Nuevo estado `RECUPERADA` y formalización de `ERROR_POST_ARCA` para distinguir mejor un fallo local posterior a una autorización remota.
+  - La contingencia fiscal de Fase 7 se apoya en `estado_fiscal`, `fiscal_error_code`, `fiscal_error_message`, `fiscal_requested_at`, `fiscal_approved_at` y `factura_eventos_arca`, sin reutilizar `envio_ultimo_*`.
 
 ### Changed
+
+- **Caja / POS fullscreen operativo:**
+  - La pantalla de Caja prioriza el flujo producto -> cantidad -> cobro, con ayudas contextuales, estado vacio del ticket, feedback de vuelto mas claro y atajos `Tab`, `F3`, `F5`, `F6` y `F7` para bajar friccion en mostrador.
+  - Los estilos de Caja quedan separados en `caja.base.css`, `caja.pos.css` y `caja.neo.css`, y la pagina carga cada capa con version propia para evitar cache viejo despues de deploys.
+- **Cuenta Corriente / refuerzo técnico:**
+  - `registrarPago()`, `registrarCargo()` y `reversarMovimiento()` quedan reorganizados como orquestadores cortos con pasos internos explícitos, manteniendo firma pública, respuestas, transacciones y compatibilidad legacy.
+  - El controlador de cuenta corriente reduce concentración de lógica sensible separando validación, locks, dedupe, persistencia, actualización de cliente y construcción de respuesta sin abrir una arquitectura nueva.
+- **Facturación / panel de historial fiscal:**
+  - `public/facturacion.php` deja de construir inline toda la capa de lectura/reporting y pasa a delegarla a `src/facturacion_panel_lib.php`, manteniendo los mismos parámetros GET, la misma UI y el mismo CSV exportado.
+  - La lectura del panel queda separada en resolución de capacidades legacy del esquema, armado del plan de consulta y ejecución de datasets operativos (tipos, count, stats, incidencias, listado y export).
+- **Facturación / preflight de producción:**
+  - La emisión desde venta y la factura manual quedan bloqueadas antes de emitir cuando falta configuración operativa/fiscal crítica, con mensajes más accionables y visibles para soporte.
+  - `factura_nueva.php`, `factura_manual.php` y `factura_emitir.php` pasan a reutilizar un preflight centralizado de emisión, manteniendo contratos públicos y sin tocar el modo no fiscal.
+  - `facturacion_config.php` ahora muestra un estado explícito de "Preflight de emisión" para dejar más claro si el sistema está realmente listo para emitir en homologación/producción.
+- **Facturación / navegación y soporte:**
+  - Facturación pasa a integrarse en la navegación principal como grupo del mismo nivel que Inventario y Clientes, evitando duplicar acciones dentro de cada pantalla.
+  - `facturacion_recovery.php` se vuelve tolerante a collations mixtas entre `facturas.fiscal_request_uid` y `factura_eventos_arca.request_uid`, evitando el crash por `Illegal mix of collations` en instalaciones reales.
+- **Facturación / lectura operativa del comprobante:**
+  - `public/factura_ver.php` deja de hidratar inline la factura completa y pasa a delegar la lectura base a `src/factura_view_lib.php`, manteniendo la misma vista, los mismos fallbacks y el mismo comportamiento visible.
+  - La carga del comprobante, estado fiscal, evento ARCA, documentos asociados, recibos y configuración fiscal queda separada del render para bajar complejidad accidental sin tocar emisión ni modo no fiscal.
+- **Facturación / QA de salida a producción:**
+  - Se agrega `docs/QA_FACTURACION_PRODUCCION.md` como checklist operativo real para validar configuración, preflight, numeración, emisión, visor, PDF, recovery, NC y navegación antes de habilitar producción.
+  - El checklist deja explícito qué puntos sí son exigibles hoy y cuáles siguen fuera de alcance inmediato, para no mezclar salida a producción con features todavía no cerradas end-to-end.
+- **Facturación / UX operacional de NC y documentos:**
+  - Las notas de crédito pasan a mostrar confirmaciones visibles con `Notif`/toast además del mensaje inline, y el historial general de facturación distingue mejor `FACTURA`, `NC` y `ND`.
+  - El módulo documental explica mejor qué hace un presupuesto, qué hace un remito, qué paso sigue después y que los ítems pueden cargarse manualmente sin depender de un producto previamente dado de alta.
+  - Los remitos muestran un camino más claro cuando la instalación exige una venta válida antes de facturar, incluyendo generación o vínculo de venta desde la propia pantalla.
 - **Facturación / Fase 1 (factura común):**
   - La emisión desde venta y la emisión manual quedan cerradas sobre la misma capa de negocio, manteniendo `facturas.venta_id` y compatibilidad legacy.
   - `public/factura_nueva.php`, `public/factura_emitir.php` y `public/factura_manual.php` quedan como entrypoints más finos, con mejor resolución de cliente y menos lógica duplicada.
@@ -35,12 +72,36 @@
   - Los pagos reales de venta y los pagos posteriores de cuenta corriente pueden dejar una base de cobranza propia para fases futuras.
   - La nueva capa se mantiene complementaria y no destructiva respecto del modo no fiscal y de la operación legacy existente.
 - **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
-  - Los pagos de cuenta corriente pueden informar opcionalmente `documento_id`, `factura_id` y `request_uid`, reforzando trazabilidad e idempotencia sin abrir todavía una UI de conciliación avanzada.
-  - `factura_ver.php` y `cuenta_corriente_cliente.php` empiezan a mostrar la trazabilidad interna de cobranzas/recibos asociados, pero el render para PDF/impresión oculta recibos y telemetría técnica para no mezclar datos internos con el comprobante del cliente.
-  - La vista de factura deja en impresión solo lo fiscalmente útil (`CAE`, `Vto. CAE`, QR/validación y leyendas operativas) y reserva `request_uid`, intentos y timestamps para uso interno.
-  - `cuenta_corriente.js` incorpora `request_uid` en el flujo de pago y corrige el fallback de notificaciones para no degradar la UX en retries o respuestas exitosas.
+  - El sistema empieza a distinguir mejor entre cobranza, recibo y aplicación comercial, sin reemplazar todavía el flujo operativo existente.
+  - Los recibos pueden vincularse a cobranzas, documentos o facturas cuando corresponde, manteniendo un puente compatible con los flujos legacy.
+- **Facturación / Fase 5 (reportes fiscales y reenvío comercial):**
+  - Se agregan vistas/reportes fiscales más operativos para seguir emisión, autorizaciones, rechazos y vínculos asociados.
+  - La trazabilidad `envio_ultimo_*` queda reservada al reenvío comercial/email al cliente y no se reutiliza para la interacción fiscal con ARCA.
+- **Facturación / Fase 6 (presupuestos/remitos documentales):**
+  - `PRESUPUESTO` y `REMITO` pueden existir como borrador documental sin cliente, pero requieren cliente para pasar a operación real: generar remito, generar venta, emitir factura o vincular una venta existente.
+  - La UI documental ahora muestra con más claridad el siguiente paso operativo, el impacto real en stock y cuándo un documento ya cumplió la acción principal esperada.
+  - La conversión desde presupuesto/remito a venta puede usar operatoria real con `ventas`, `venta_items`, descuento de stock y `movimientos_stock` cuando todos los ítems matchean por `productos.codigo` y hay stock suficiente; si no, cae a venta manual legacy sin tocar stock.
+  - Se mantiene compatibilidad con la función legacy de conversión, pero la semántica real queda unificada bajo una capa de conversión documental más clara.
+- **Facturación / Fase 7 (contingencia fiscal mínima de factura común):**
+  - La regularización de factura común reutiliza `request_uid`, eventos ARCA y recovery simple, sin abrir una arquitectura paralela ni introducir CAEA.
+  - `facturacion.php` y `factura_ver.php` pasan a mostrar mejor los casos pendientes/transitorios/post-ARCA y ofrecen acciones mínimas de regularización cuando corresponde.
+  - La traza fiscal visible se apoya en `estado_fiscal`, `fiscal_*` y `factura_eventos_arca`, mientras que la traza comercial/email sigue separada.
 
 ### Fixed
+
+- **Caja / Cuenta Corriente:**
+  - El cobro de cuenta corriente desde Caja ahora muestra una confirmación visible y contextual al registrar el pago, evitando la sensación de operación “muda” cuando el modal se cierra enseguida.
+  - El modal de cobro CC devuelve el foco al flujo principal y permite confirmar con `Enter` sin cortar la operatoria de teclado del cajero.
+  - Quitar un item ya no obliga a reescanear para deshacer: el snack restaura el item real dentro del ticket conservando cantidad, posicion y foco de trabajo.
+- **Facturación / visor, impresión y documentos:**
+  - El botón `Imprimir` de `factura_ver.php` ahora abre una vista limpia/autoprint del comprobante, evitando arrastrar breadcrumbs del sistema y alineando mejor la salida impresa con el visor/PDF.
+  - La impresión del comprobante oculta también la navegación contextual en `@media print`, reduciendo ruido visual en copias físicas o guardadas desde el navegador.
+  - `documento_comercial.php` recupera el soporte operativo para abrir presupuestos y remitos existentes, con helpers locales para acciones documentales, actualización de cabecera y vínculo controlado con venta.
+  - Al facturar desde remitos sin venta válida, el sistema ya no expone SQL/FK crudo y devuelve mensajes operativos entendibles para el usuario.
+  - `documento_comercial.php` muestra también los flashes importantes como notificación visible, evitando que el resultado quede perdido si la pantalla está scrolleada.
+- **Testing / documentación técnica:**
+  - Se amplía la cobertura smoke para reversas de cuenta corriente y para el wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
+  - Se normalizan referencias internas de versión/fechas para alinear changelog y build actual del repo.
 - **Facturación / Fase 1 (factura común):**
   - Se reduce la duplicación real entre emisión desde venta y emisión manual sin reescribir toda la arquitectura.
   - Si ARCA falla, la factura común deja estado fiscal consistente y trazabilidad mínima para reintento/recovery.
@@ -52,21 +113,34 @@
   - Se evita tratar la porción `CC` de una venta como si fuera una cobranza real de caja.
   - Se refuerza la idempotencia de cobranzas/aplicaciones para no duplicar el mismo cobro en retries razonables del flujo.
 - **Facturación / Fase 4 (recibos y aplicaciones mínimas):**
-  - Se evita duplicar pagos de cuenta corriente, cobranzas y recibos en retries razonables mediante `request_uid` y una guarda adicional de doble submit reciente.
-  - Se endurece la coherencia entre `cliente_id`, `documento_id` y `factura_id`, rechazando cruces inconsistentes y evitando aplicar un recibo a entidades de otro cliente.
-  - Se impide crear más de una aplicación distinta sobre la misma cobranza en esta fase, dejando explícito que todavía no hay split múltiple de recibos.
-  - Se corrige el uso incorrecto de `recibo_documento_id` como si fuera `facturas.id` en la UI interna, evitando enlaces rotos o asociaciones engañosas.
-  - Se evita imprimir en la factura datos internos de telemetría fiscal (`request_uid`, intentos, timestamps, errores internos) y el bloque de cobros/recibos asociados.
+  - Se reduce la posibilidad de duplicar recibos o aplicaciones del mismo caso comercial en retries razonables.
+  - Se desacopla mejor el hecho documental del recibo respecto del cobro real ya registrado.
+- **Facturación / Fase 5 (reportes fiscales y reenvío comercial):**
+  - Se mejora la visibilidad operativa de la facturación sin mezclar estado fiscal con el reenvío comercial por email.
+  - La trazabilidad de email queda preservada para Fase 5 y deja de pisarse con la contingencia fiscal posterior.
+- **Facturación / Fase 6 (presupuestos/remitos documentales):**
+  - Se endurece la conversión operativa a venta bajo transacción, con `SELECT ... FOR UPDATE`, descuento condicional de stock y suma de cantidades repetidas del mismo SKU.
+  - Se evita la doble acción silenciosa: si un documento ya tiene remito, venta o factura vinculada, la UI y el backend dejan de ofrecer o aceptar repetir esa misma acción.
+  - Se bloquea el vínculo con ventas de otro cliente y se permite completar `cliente_id` en la venta cuando el documento sí lo tiene y la venta todavía no.
+- **Facturación / Fase 7 (contingencia fiscal mínima de factura común):**
+  - Se modela `ERROR_POST_ARCA` como caso propio para factura común, evitando tratarlo como un error transitorio genérico.
+  - La regularización ya no reenvía ciegamente a ARCA cuando hay indicios de autorización remota; primero intenta recovery simple y deja el caso visible para intervención mínima.
+  - Se corrige la mezcla de dominios entre trazabilidad fiscal y trazabilidad de email: `envio_ultimo_*` vuelve a quedar exclusivamente para reenvío comercial al cliente.
 
 ### Migrations
+
 - `016_factura_comun_fiscal_flow.sql`
 - `017_facturacion_documentos_manual.sql`
 - `018_cobranzas_base.sql`
 - `019_recibos_aplicaciones.sql`
+- `020_facturas_envio_trazabilidad.sql`
+- `021_documentos_relaciones_presupuestos_remitos.sql`
+- `022_facturas_fiscal_contingencia.sql`
 
-## [3.8.1] - 2026-03-22
+## [3.8.1] - 2026-03-23
 
 ### Added
+
 - **Facturación / Notas de Crédito (NC):**
   - Nuevo módulo `facturacion_nc.php` para gestionar notas de crédito fiscales sobre comprobantes emitidos.
   - Soporte para **NC total** y **NC parcial por ítem**, mostrando cantidad original, acreditada y saldo fiscal disponible.
@@ -74,6 +148,7 @@
   - Nuevo permiso específico `emitir_nota_credito`.
 
 ### Changed
+
 - **Facturación:** se endureció el flujo fiscal de NC con validación explícita entre factura origen y venta asociada.
 - **Facturación:** se incorporó control de estados fiscales en `venta_anulaciones`:
   - `NO_APLICA`
@@ -88,11 +163,13 @@
 - **UI / Navegación:** se incorporó breadcrumb contextual en vistas clave para mejorar orientación dentro del sistema.
 
 ### Fixed
+
 - **Facturación / NC:** se corrigieron inconsistencias entre código, migraciones y permisos efectivos del rol administrador.
 - **Facturación / NC:** se reforzó la compatibilidad de esquema previa a ejecutar el flujo fiscal.
 - **Facturación / NC:** se mejoró el manejo de datos legacy para controlar saldo fiscal e ítems reconstruidos en comprobantes más viejos.
 
 ### Migrations
+
 - `010_anulaciones_parciales.sql`
 - `011_cc_schema_compat.sql`
 - `012_venta_anulaciones_fiscal.sql`
@@ -101,7 +178,7 @@
 - `015_fiscal_nc_hardening.sql`
 - Sin cambios documentados todavía.
 
-## [3.8.0] - 2026-03-23
+## [3.8.0] - 2026-03-22
 
 ### Added
 

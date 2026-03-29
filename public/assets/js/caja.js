@@ -97,12 +97,29 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedIndex = -1;
     }
 
-    function seleccionarProducto(index) {
+    function focusCantidad(options = {}) {
+      if (!inputCant) return;
+      inputCant.focus();
+      if (options.select !== false) {
+        try {
+          inputCant.select();
+        } catch (_) {}
+      }
+    }
+
+    function seleccionarProducto(index, options = {}) {
       const p = productos[index];
       if (!p) return;
       input.value = p.codigo;
       ocultarDropdown();
-      // Disparar evento para que se agregue al ticket
+
+      if (options.autoAdd === false) {
+        if (options.focusCantidad) {
+          focusCantidad();
+        }
+        return;
+      }
+
       const btnAgregar = document.getElementById("btnAgregar");
       if (btnAgregar) btnAgregar.click();
     }
@@ -201,6 +218,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         e.preventDefault();
         seleccionarProducto(selectedIndex);
+      } else if (e.key === "Tab") {
+        const v = (input.value || "").trim();
+        if (esBarcode(v)) return;
+
+        if (selectedIndex < 0) {
+          if (tieneLetras(v)) selectedIndex = 0;
+          else return;
+        }
+
+        e.preventDefault();
+        seleccionarProducto(selectedIndex, {
+          autoAdd: false,
+          focusCantidad: true,
+        });
       } else if (e.key === "Escape") {
         ocultarDropdown();
       }
@@ -404,13 +435,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let descGlobal = null;
   const msgBox = document.getElementById("msg");
   const tbodyTicket = document.querySelector("#tabla tbody");
+  const ticketWrapper = document.querySelector(".ticket-wrapper");
+  const ticketEmptyState = document.getElementById("ticketEmptyState");
   const inputCodigo = document.getElementById("codigo");
   const inputCant = document.getElementById("cantidad");
+  const scanCard = document.querySelector(".caja-scan-card");
+  const scanModeBadge = document.getElementById("scanModeBadge");
+  const scanModeText = document.getElementById("scanModeText");
+  const cajaMain = document.querySelector(".caja-neo-main");
   const inputPagado = document.getElementById("montoPagado");
   const lblTotal = document.getElementById("lblTotal");
   const lblVuelto = document.getElementById("lblVuelto");
   const selMedio = document.getElementById("medioPago");
+  const pago1Wrap = document.getElementById("pago1Wrap");
   // Split payment (Pago con 2 medios)
+  const pagosRow = document.querySelector(".pagos-row");
   const pago2Wrap = document.getElementById("pago2Wrap");
   const selMedio2 = document.getElementById("medioPago2");
   const inputPagado2 = document.getElementById("montoPagado2");
@@ -419,10 +458,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const lblTotalPagado = document.getElementById("lblTotalPagado");
   const restaWrap = document.getElementById("restaWrap");
   const lblRestaPagar = document.getElementById("lblRestaPagar");
+  const lblCobroFeedback = document.getElementById("lblCobroFeedback");
+  const lblCobroFeedbackLabel = document.getElementById("lblCobroFeedbackLabel");
 
   const lblTotalBruto = document.getElementById("lblTotalBruto");
   const lblDescGlobal = document.getElementById("lblDescGlobal");
   const btnDescGlobal = document.getElementById("btnDescGlobal");
+  const cajaPanel = document.querySelector(".caja-panel--neo");
+  const kpiVentasSesion = document.getElementById("kpiVentasSesion");
+  const kpiTotalSesion = document.getElementById("kpiTotalSesion");
+  const kpiEfectivoSesion = document.getElementById("kpiEfectivoSesion");
+  const kpiMpSesion = document.getElementById("kpiMpSesion");
+  const kpiTicketActual = document.getElementById("kpiTicketActual");
+  const kpiPagadoActual = document.getElementById("kpiPagadoActual");
+  const ticketStatusLabel = document.getElementById("ticketStatusLabel");
+  const btnCobrarExacto = document.getElementById("btnCobrarExacto");
+  const btnCobrarExactoAmount = document.getElementById("btnCobrarExactoAmount");
+  const paymentMiniFeedbackLabel = document.getElementById(
+    "paymentMiniFeedbackLabel",
+  );
+  const paymentMethodButtons = Array.from(
+    document.querySelectorAll(".payment-method"),
+  );
+  const btnCobrar = document.getElementById("btnCobrar");
+  const btnCobrarDefaultHtml = btnCobrar ? btnCobrar.innerHTML : "";
 
   // ✅ Permiso frontend (inyectado por caja.php)
   const CAN_MOD_PRECIO = !!(
@@ -434,6 +493,49 @@ document.addEventListener("DOMContentLoaded", () => {
     btnDescGlobal.style.opacity = "0.5";
     btnDescGlobal.style.pointerEvents = "none";
     btnDescGlobal.title = "Sin permisos para descuento / cambio de precio";
+  }
+
+  function focusProductoInput(options = {}) {
+    if (!inputCodigo || shouldIgnoreCajaShortcut()) return;
+    inputCodigo.focus();
+
+    const shouldSelect =
+      options.select === true ||
+      (options.selectIfFilled === true && (inputCodigo.value || "").trim() !== "");
+    if (shouldSelect) {
+      try {
+        inputCodigo.select();
+      } catch (_) {}
+    }
+  }
+
+  function actualizarModoIngreso(mode = "codigo") {
+    if (!scanCard) return;
+
+    scanCard.classList.remove(
+      "is-code-focus",
+      "is-qty-focus",
+      "is-payment-focus",
+    );
+
+    let badge = "Producto activo";
+    let copy =
+      "Escanea o escribi un producto. Enter agrega y Tab pasa a cantidad.";
+
+    if (mode === "cantidad") {
+      scanCard.classList.add("is-qty-focus");
+      badge = "Cantidad activa";
+      copy = "Ajusta cantidad y Enter agrega. Esc vuelve a producto.";
+    } else if (mode === "cobro") {
+      scanCard.classList.add("is-payment-focus");
+      badge = "Cobro activo";
+      copy = "F2 cobra el ticket. F3 vuelve al producto.";
+    } else {
+      scanCard.classList.add("is-code-focus");
+    }
+
+    if (scanModeBadge) scanModeBadge.textContent = badge;
+    if (scanModeText) scanModeText.textContent = copy;
   }
 
   // Modal
@@ -476,6 +578,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ticketPreviewFrame) ticketPreviewFrame.src = "about:blank";
     if (ticketPreviewOpen) ticketPreviewOpen.href = "#";
     if (ticketPreviewVentaId) ticketPreviewVentaId.textContent = "0";
+    setTimeout(() => focusProductoInput(), 0);
   }
 
   function openTicketPreview(ventaId) {
@@ -575,6 +678,191 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
+
+  function getNumericDataValue(el) {
+    const raw = el?.dataset?.value ?? "0";
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function setNumericDataValue(el, value) {
+    if (!el) return;
+    el.dataset.value = String(Number(value) || 0);
+  }
+
+  function actualizarKpisLive(pagadoTotal = null) {
+    if (kpiTicketActual) {
+      kpiTicketActual.textContent = formatearMoneda(totalNetoActual);
+    }
+
+    if (kpiPagadoActual) {
+      const montoPagado =
+        pagadoTotal === null ? totalPagado(pagosDesdeUI()) : pagadoTotal;
+      kpiPagadoActual.textContent = formatearMoneda(montoPagado);
+    }
+
+    if (btnCobrarExacto) {
+      btnCobrarExacto.disabled = splitActivo() || totalNetoActual <= 0;
+    }
+    if (btnCobrarExactoAmount) {
+      btnCobrarExactoAmount.textContent = formatearMoneda(totalNetoActual);
+    }
+  }
+
+  function actualizarModoCobroCompacto() {
+    if (!cajaPanel) return;
+    cajaPanel.classList.toggle("is-payment-compact", splitActivo() || tieneCC());
+  }
+
+  function getSelectPago(slot = "1") {
+    return String(slot) === "2" ? selMedio2 : selMedio;
+  }
+
+  function getInputPago(slot = "1") {
+    return String(slot) === "2" ? inputPagado2 : inputPagado;
+  }
+
+  function syncPaymentMethodButtons() {
+    paymentMethodButtons.forEach((button) => {
+      const slot = String(button.dataset.slot || "1");
+      const value = String(button.dataset.value || "").toUpperCase();
+      const select = getSelectPago(slot);
+      const current = String(select?.value || "").toUpperCase();
+      button.classList.toggle("is-active", current === value);
+    });
+  }
+
+  function setPaymentMethod(slot, value, options = {}) {
+    const slotId = String(slot) === "2" ? "2" : "1";
+    const select = getSelectPago(slotId);
+    if (!select) return;
+
+    const nextValue = String(value || "").toUpperCase();
+    if (!nextValue) return;
+
+    select.value = nextValue;
+    paymentActiveSlot = slotId;
+    syncPaymentMethodButtons();
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    if (options.focusAmount !== false) {
+      const input = getInputPago(slotId);
+      setTimeout(() => input?.focus?.(), 0);
+    }
+  }
+
+  function scrollTicketToBottom() {
+    if (!ticketWrapper) return;
+
+    requestAnimationFrame(() => {
+      try {
+        ticketWrapper.scrollTo({
+          top: ticketWrapper.scrollHeight,
+          behavior: "auto",
+        });
+      } catch (_) {
+        ticketWrapper.scrollTop = ticketWrapper.scrollHeight;
+      }
+    });
+  }
+
+  let paymentActiveSlot = "1";
+
+  function reubicarPanelCC() {
+    if (!ccWrap || !pagosRow) return;
+
+    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+    const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+    let anchor = null;
+
+    if (medio1 === "CC" && pago1Wrap) {
+      anchor = pago1Wrap;
+    } else if (splitActivo() && medio2 === "CC" && pago2Wrap) {
+      anchor = pago2Wrap;
+    }
+
+    if (anchor) {
+      anchor.insertAdjacentElement("afterend", ccWrap);
+    }
+  }
+
+  function actualizarEstadoPagosUI(nextSlot = null) {
+    if (nextSlot === "1" || nextSlot === "2") {
+      paymentActiveSlot = nextSlot;
+    } else {
+      const activeEl = document.activeElement;
+      if (
+        splitActivo() &&
+        activeEl &&
+        (activeEl === selMedio2 ||
+          activeEl === inputPagado2 ||
+          activeEl === btnQuitarPago2)
+      ) {
+        paymentActiveSlot = "2";
+      } else {
+        paymentActiveSlot = "1";
+      }
+    }
+
+    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+    const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+
+    pagosRow?.classList.toggle("pagos-row--split", splitActivo());
+    btnAgregarPago?.classList.toggle("is-hidden", splitActivo());
+
+    [
+      [pago1Wrap, "1", medio1, true],
+      [pago2Wrap, "2", medio2, splitActivo()],
+    ].forEach(([wrap, slot, medio, visible]) => {
+      if (!wrap) return;
+      wrap.dataset.medio = String(medio || "").toLowerCase();
+      wrap.classList.toggle("is-active", visible && paymentActiveSlot === slot);
+      wrap.classList.toggle("is-cash", visible && medio === "EFECTIVO");
+      wrap.classList.toggle("is-cc", visible && medio === "CC");
+      wrap.classList.toggle(
+        "is-digital",
+        visible && medio !== "EFECTIVO" && medio !== "CC",
+      );
+    });
+
+    reubicarPanelCC();
+    actualizarModoCobroCompacto();
+    syncPaymentMethodButtons();
+  }
+
+  function sumarKpisSesion(pagos, totalVenta) {
+    if (kpiVentasSesion) {
+      const nextCount = getNumericDataValue(kpiVentasSesion) + 1;
+      setNumericDataValue(kpiVentasSesion, nextCount);
+      kpiVentasSesion.textContent = new Intl.NumberFormat("es-AR", {
+        maximumFractionDigits: 0,
+      }).format(nextCount);
+    }
+
+    if (kpiTotalSesion) {
+      const nextTotal = getNumericDataValue(kpiTotalSesion) + (Number(totalVenta) || 0);
+      setNumericDataValue(kpiTotalSesion, nextTotal);
+      kpiTotalSesion.textContent = formatearMoneda(nextTotal);
+    }
+
+    if (kpiEfectivoSesion) {
+      const nextEfectivo =
+        getNumericDataValue(kpiEfectivoSesion) + efectivoPagado(pagos);
+      setNumericDataValue(kpiEfectivoSesion, nextEfectivo);
+      kpiEfectivoSesion.textContent = formatearMoneda(nextEfectivo);
+    }
+
+    if (kpiMpSesion) {
+      const incrementoMp = (pagos || []).reduce((sum, pago) => {
+        const medio = String(pago?.medio || "").toUpperCase();
+        const monto = Number(pago?.monto) || 0;
+        return sum + (medio === "MP" ? monto : 0);
+      }, 0);
+      const nextMp = getNumericDataValue(kpiMpSesion) + incrementoMp;
+      setNumericDataValue(kpiMpSesion, nextMp);
+      kpiMpSesion.textContent = formatearMoneda(nextMp);
+    }
+  }
   // =========================
   // ✅ PESABLE UX (G/ML sin confusión)
   // - G  => unidad interna = 100 g
@@ -741,6 +1029,35 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function isElementHidden(el) {
+    return !el || el.classList.contains("hidden");
+  }
+
+  function isTerminalModalOpen() {
+    const terminalModal = document.getElementById("terminalModal");
+    if (!terminalModal) return false;
+    return (
+      terminalModal.classList.contains("is-open") ||
+      terminalModal.getAttribute("aria-hidden") === "false"
+    );
+  }
+
+  function isCajaDialogOpen() {
+    const overlay = document.getElementById("vueltoOverlayFlus");
+    const ccModal = document.getElementById("modalCcPago");
+    return (
+      !isElementHidden(modal) ||
+      !isElementHidden(ticketPreviewModal) ||
+      !isElementHidden(ccModal) ||
+      isTerminalModalOpen() ||
+      !!overlay?.classList.contains("is-visible")
+    );
+  }
+
+  function shouldIgnoreCajaShortcut() {
+    return isCajaDialogOpen();
+  }
+
   function formatearCantidad(item) {
     return formatearCantidadHumana(item);
   }
@@ -764,6 +1081,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (selMedio2) selMedio2.value = "EFECTIVO";
       if (inputPagado2) inputPagado2.value = "";
     }
+    actualizarEstadoPagosUI(on ? "2" : "1");
   }
 
   function parseMonto(v) {
@@ -807,6 +1125,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (splitActivo()) {
       inputPagado.disabled = false;
       if (inputPagado2) inputPagado2.disabled = false;
+      actualizarEstadoPagosUI();
       return;
     }
 
@@ -817,6 +1136,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       inputPagado.disabled = false;
     }
+    actualizarEstadoPagosUI();
   }
 
   function recalcularVuelto() {
@@ -842,6 +1162,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (lblTotalPagado)
       lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
     if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
+    if (lblCobroFeedback) {
+      const tieneFalta = splitActivo() && resta > 0.009;
+      cajaPanel?.classList.toggle("is-payment-pending", tieneFalta);
+      if (lblCobroFeedbackLabel) {
+        lblCobroFeedbackLabel.textContent = tieneFalta ? "Resta pagar" : "Vuelto";
+      }
+      lblCobroFeedback.textContent = formatearMoneda(tieneFalta ? resta : vuelto);
+      if (paymentMiniFeedbackLabel) {
+        paymentMiniFeedbackLabel.textContent = tieneFalta ? "Resta pagar" : "Vuelto";
+      }
+      if (lblVuelto) {
+        lblVuelto.textContent = formatearMoneda(tieneFalta ? resta : vuelto);
+        lblVuelto.classList.toggle("payment-mini-summary__value--danger", tieneFalta);
+        lblVuelto.classList.toggle(
+          "payment-mini-summary__value--accent",
+          !tieneFalta,
+        );
+      }
+    }
+    actualizarKpisLive(pagadoTotal);
 
     // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
     if (restaWrap && lblRestaPagar) {
@@ -900,11 +1240,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ccWrap) return;
     if (tieneCC()) {
       ccWrap.classList.remove("is-hidden");
+      if (!ccClienteSeleccionado) {
+        setTimeout(() => ccInputBuscar?.focus?.(), 50);
+      }
     } else {
       ccWrap.classList.add("is-hidden");
       // Limpiar cliente al ocultar
       limpiarClienteCC();
     }
+    actualizarModoCobroCompacto();
   }
 
   function limpiarClienteCC() {
@@ -913,6 +1257,43 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ccInfo) ccInfo.innerHTML = "";
     ccClienteSeleccionado = null;
     ocultarDropdownCC();
+  }
+
+  function renderClienteCCSeleccionado(c) {
+    if (!c || !ccInfo) return;
+    const disp = Number(c.cc_disponible || 0).toFixed(2);
+    const saldo = Number(c.cc_saldo || 0).toFixed(2);
+    const limite = Number(c.cc_limite || 0).toFixed(2);
+
+    ccInfo.innerHTML = `
+      <div class="cc-cliente-info">
+        <span class="cc-cliente-nombre">${escHtml(c.nombre)}</span>
+        <span class="cc-cliente-detalle">
+          Disponible: <strong>$${disp}</strong> · Saldo actual: $${saldo} · Límite: $${limite}
+        </span>
+      </div>`;
+  }
+
+  function setAdvertenciaCC(texto = "") {
+    if (!ccInfo) return;
+
+    const mensaje = String(texto || "").trim();
+    const existente = ccInfo.querySelector(".cc-advertencia");
+    const wrap = ccInfo.querySelector(".cc-cliente-info");
+
+    if (!mensaje) {
+      existente?.remove();
+      return;
+    }
+
+    const warning = existente || document.createElement("div");
+    warning.className = "cc-advertencia";
+    warning.textContent = mensaje;
+
+    if (!existente) {
+      if (wrap) wrap.insertAdjacentElement("afterend", warning);
+      else ccInfo.appendChild(warning);
+    }
   }
 
   // Dropdown autocompletado CC
@@ -984,20 +1365,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ccInputBuscar) ccInputBuscar.value = c.nombre || "";
     if (ccInputId) ccInputId.value = String(c.id || "");
 
-    // Mostrar info del cliente
-    const disp = Number(c.cc_disponible || 0).toFixed(2);
-    const saldo = Number(c.cc_saldo || 0).toFixed(2);
-    const limite = Number(c.cc_limite || 0).toFixed(2);
-
-    if (ccInfo) {
-      ccInfo.innerHTML = `
-        <div class="cc-cliente-info">
-          <span class="cc-cliente-nombre">${escHtml(c.nombre)}</span>
-          <span class="cc-cliente-detalle">
-            Disponible: <strong>$${disp}</strong> · Saldo actual: $${saldo} · Límite: $${limite}
-          </span>
-        </div>`;
-    }
+    renderClienteCCSeleccionado(c);
 
     ocultarDropdownCC();
 
@@ -1055,14 +1423,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       if (!data?.ok) {
+        setAdvertenciaCC("");
         return { ok: false, error: data?.error || "Error verificando CC" };
       }
 
       if (!data.habilitado) {
+        setAdvertenciaCC("");
         return { ok: false, error: "Cliente sin CC habilitada" };
       }
 
       if (!data.puede_comprar) {
+        setAdvertenciaCC("");
         return {
           ok: false,
           error: data.mensaje || "Excede límite de crédito",
@@ -1070,16 +1441,16 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       }
 
-      // Si excede pero puede autorizar, mostrar advertencia
       if (data.excede && data.puede_autorizar) {
-        if (ccInfo) {
-          ccInfo.innerHTML += `<div class="cc-advertencia">⚠️ ${escHtml(data.mensaje)}</div>`;
-        }
+        setAdvertenciaCC(data.mensaje || "Requiere autorización.");
+      } else {
+        setAdvertenciaCC("");
       }
 
       return { ok: true, data };
     } catch (e) {
       console.error("Error validando CC:", e);
+      setAdvertenciaCC("");
       return { ok: false, error: "Error de conexión al validar CC" };
     }
   }
@@ -1192,6 +1563,15 @@ document.addEventListener("DOMContentLoaded", () => {
         pagos: pagosRaw,
         split: splitActivo(),
         descGlobal,
+        ccCliente: ccClienteSeleccionado
+          ? {
+              id: ccClienteSeleccionado.id,
+              nombre: ccClienteSeleccionado.nombre,
+              cc_disponible: ccClienteSeleccionado.cc_disponible || 0,
+              cc_saldo: ccClienteSeleccionado.cc_saldo || 0,
+              cc_limite: ccClienteSeleccionado.cc_limite || 0,
+            }
+          : null,
         caja_id: CAJA_ID || 0,
       }),
     );
@@ -1231,6 +1611,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Legacy (por compat): medio + pagado
         if (selMedio && data.medio) selMedio.value = data.medio;
         if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
+      }
+
+      if (data.ccCliente && data.ccCliente.id) {
+        ccClienteSeleccionado = data.ccCliente;
+        if (ccInputBuscar) ccInputBuscar.value = String(data.ccCliente.nombre || "");
+        if (ccInputId) ccInputId.value = String(data.ccCliente.id || "");
+        renderClienteCCSeleccionado(data.ccCliente);
       }
 
       estadoRecuperado = !!(
@@ -1629,24 +2016,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const u = String(
         item.unidadVenta || (esPesable ? "KG" : "UNID"),
       ).toUpperCase();
+      let texto = "";
 
       if (!esPesable) {
         const entero = Math.max(0, Math.round(cant));
-        return `${entero} UNID`;
-      }
-
-      // G / ML (interno = “unidad de 100”)
-      if (u === "G") {
+        texto = `${entero} UNID`;
+      } else if (u === "G") {
         const gramos = Math.round(cant * 100);
-        return `${fmtInt0.format(gramos)} g`;
-      }
-      if (u === "ML") {
+        texto = `${fmtInt0.format(gramos)} g`;
+      } else if (u === "ML") {
         const ml = Math.round(cant * 100);
-        return `${fmtInt0.format(ml)} ml`;
-      }
-
-      // KG (interno en kg)
-      if (u === "KG") {
+        texto = `${fmtInt0.format(ml)} ml`;
+      } else if (u === "KG") {
         const kg = cant;
         const kgInt = Math.floor(kg + 1e-9);
         let g = Math.round((kg - kgInt) * 1000);
@@ -1655,13 +2036,10 @@ document.addEventListener("DOMContentLoaded", () => {
           g -= 1000;
         } // ajuste por redondeo
 
-        if (kgInt <= 0) return `${fmtInt0.format(Math.max(g, 0))} g`;
-        if (g <= 0) return `${kgInt} kg`;
-        return `${kgInt} kg ${fmtInt0.format(g)} g`;
-      }
-
-      // LT (interno en litros)
-      if (u === "LT") {
+        if (kgInt <= 0) texto = `${fmtInt0.format(Math.max(g, 0))} g`;
+        else if (g <= 0) texto = `${kgInt} kg`;
+        else texto = `${kgInt} kg ${fmtInt0.format(g)} g`;
+      } else if (u === "LT") {
         const lt = cant;
         const ltInt = Math.floor(lt + 1e-9);
         let ml = Math.round((lt - ltInt) * 1000);
@@ -1670,13 +2048,14 @@ document.addEventListener("DOMContentLoaded", () => {
           ml -= 1000;
         } // ajuste por redondeo
 
-        if (ltInt <= 0) return `${fmtInt0.format(Math.max(ml, 0))} ml`;
-        if (ml <= 0) return `${ltInt} l`;
-        return `${ltInt} l ${fmtInt0.format(ml)} ml`;
+        if (ltInt <= 0) texto = `${fmtInt0.format(Math.max(ml, 0))} ml`;
+        else if (ml <= 0) texto = `${ltInt} l`;
+        else texto = `${ltInt} l ${fmtInt0.format(ml)} ml`;
+      } else {
+        texto = `${fmtQty3.format(cant)} ${u}`;
       }
 
-      // fallback
-      return `${fmtQty3.format(cant)} ${u}`;
+      return `<span data-editable="1" title="Doble click para editar cantidad">${texto}</span>`;
     }
 
     // descuento combos (como antes): sumaLista - precio_combo
@@ -1730,17 +2109,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const btnDescHtml = CAN_MOD_PRECIO
         ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
         : "";
+      const btnEditarHtml = `<button class="btn-accion btn-editar" data-idx="${idx}" title="Editar cantidad">Cant.</button>`;
 
       const tr = document.createElement("tr");
+      tr.dataset.idx = String(idx);
       tr.innerHTML = `
           <td>${idx + 1}</td>
           <td>${item.codigo}</td>
           <td>${item.nombre}</td>
           <td class="center col-cant">${formatearCantidadUI(item)}</td>
-          <td class="right">${precioHtml}</td>
-          <td class="right">${formatearMoneda(subtotalConPromo)}</td>
+          <td class="right col-precio">${precioHtml}</td>
+          <td class="right col-subtotal">${formatearMoneda(subtotalConPromo)}</td>
           <td class="acciones">
-            <button class="btn-accion btn-editar" data-idx="${idx}">Editar</button>
+            ${btnEditarHtml}
             ${btnDescHtml}
             <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
           </td>
@@ -1792,10 +2173,28 @@ document.addEventListener("DOMContentLoaded", () => {
       Math.max(0, totalBruto - totalNeto),
     );
 
+    if (ticketStatusLabel) {
+      if (carrito.length === 0) {
+        ticketStatusLabel.textContent =
+          "Listo para escanear o escribir un producto";
+      } else {
+        const items = carrito.length;
+        ticketStatusLabel.textContent = `${items} item${items !== 1 ? "s" : ""} · ${formatearMoneda(totalNeto)}`;
+      }
+    }
+
+    if (ticketWrapper) {
+      ticketWrapper.classList.toggle("is-empty", carrito.length === 0);
+    }
+    if (ticketEmptyState) {
+      ticketEmptyState.classList.toggle("is-hidden", carrito.length > 0);
+    }
+
     totalNetoActual = totalNeto;
 
     ajustarPagoSegunMedio();
     recalcularVuelto();
+    actualizarKpisLive();
     guardarEstado();
   }
 
@@ -1957,6 +2356,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       limpiarMensaje();
       actualizarVistaInmediata();
+      scrollTicketToBottom();
       inputCodigo?.focus?.();
     } catch (e) {
       console.error("ERROR agregarItem():", e);
@@ -2140,6 +2540,8 @@ document.addEventListener("DOMContentLoaded", () => {
       btnConfirm.disabled = false;
       btnConfirm.style.opacity = "";
     }
+
+    setTimeout(() => focusProductoInput(), 0);
   }
 
   btnConfirm?.addEventListener("click", () => {
@@ -2236,6 +2638,88 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // EDITAR / QUITAR / DESCUENTO ITEM
   // =========================
+  function abrirEditorCantidad(idx) {
+    const item = carrito[idx];
+    if (!item) return;
+
+    const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
+    const step = item.esPesable ? "0.001" : "1";
+    const min = item.esPesable ? "0.001" : "1";
+
+    const hint = item.esPesable
+      ? unidad === "KG"
+        ? "Ej: 3,373  |  3.373  |  3373g"
+        : unidad === "LT"
+          ? "Ej: 0,700  |  0.7  |  700ml"
+          : unidad === "G"
+            ? "Ej: 3 (x100g)  |  300  |  300g"
+            : unidad === "ML"
+              ? "Ej: 8 (x100ml) | 800  | 800ml"
+              : ""
+      : "";
+
+    mostrarModal({
+      titulo: "Editar cantidad",
+      texto: hint ? `${item.nombre}\n${hint}` : item.nombre,
+      input: true,
+      valorDefault: item.esPesable
+        ? String(cantidadHumanaDesdeInterna(item.cantidad, unidad, true))
+        : item.cantidad,
+
+      inputType: item.esPesable ? "text" : "number",
+      min,
+      step,
+
+      item: item,
+      showStockInfo: true,
+    }).then((val) => {
+      if (val === false) return;
+
+      let num;
+
+      if (item.esPesable) {
+        num = parseCantPesableFlex(val, unidad);
+      } else {
+        num = parseFloat(String(val).replace(",", "."));
+        if (Number.isFinite(num)) num = Math.round(num);
+      }
+
+      if (!Number.isFinite(num)) return;
+
+      if (num <= 0) {
+        carrito.splice(idx, 1);
+        actualizarVistaInmediata();
+        return;
+      }
+
+      const hasStock = item.stock != null && item.stock !== "";
+      if (hasStock) {
+        const stock = Number(item.stock) || 0;
+        const tol = item.esPesable ? 0.01 : 0;
+
+        if (num > stock + tol) {
+          const maxTxt = item.esPesable
+            ? fmtQty3.format(stock)
+            : String(Math.round(stock));
+          mostrarMensaje(
+            "error",
+            `Stock insuficiente. Máximo: ${maxTxt} ${unidad}`,
+          );
+          num = stock;
+        }
+
+        if (num <= 0) {
+          carrito.splice(idx, 1);
+          actualizarVistaInmediata();
+          return;
+        }
+      }
+
+      item.cantidad = num;
+      actualizarVistaInmediata();
+    });
+  }
+
   tbodyTicket?.addEventListener("click", (e) => {
     const btnEditar = e.target.closest(".btn-editar");
     const btnQuitar = e.target.closest(".btn-quitar");
@@ -2246,91 +2730,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------
     if (btnEditar) {
       const idx = Number(btnEditar.dataset.idx);
-      const item = carrito[idx];
-      if (!item) return;
-
-      const unidad = item.unidadVenta || (item.esPesable ? "KG" : "UNID");
-      const step = item.esPesable ? "0.001" : "1";
-      const min = item.esPesable ? "0.001" : "1";
-
-      // ✅ Hints para el cajero
-      const hint = item.esPesable
-        ? unidad === "KG"
-          ? "Ej: 3,373  |  3.373  |  3373g"
-          : unidad === "LT"
-            ? "Ej: 0,700  |  0.7  |  700ml"
-            : unidad === "G"
-              ? "Ej: 3 (x100g)  |  300  |  300g"
-              : unidad === "ML"
-                ? "Ej: 8 (x100ml) | 800  | 800ml"
-                : ""
-        : "";
-
-      mostrarModal({
-        titulo: "Editar cantidad",
-        texto: hint ? `${item.nombre}\n${hint}` : item.nombre,
-        input: true,
-        valorDefault: item.esPesable
-          ? String(cantidadHumanaDesdeInterna(item.cantidad, unidad, true))
-          : item.cantidad,
-
-        // ✅ CLAVE: para pesables usamos TEXT para que NO te “coma” el punto
-        inputType: item.esPesable ? "text" : "number",
-        min,
-        step,
-
-        // ✅ NUEVO: pasar item para validación de stock en tiempo real
-        item: item,
-        showStockInfo: true,
-      }).then((val) => {
-        if (val === false) return;
-
-        let num;
-
-        if (item.esPesable) {
-          num = parseCantPesableFlex(val, unidad);
-        } else {
-          num = parseFloat(String(val).replace(",", "."));
-          if (Number.isFinite(num)) num = Math.round(num);
-        }
-
-        if (!Number.isFinite(num)) return;
-
-        // ✅ 0 o menor => eliminar
-        if (num <= 0) {
-          carrito.splice(idx, 1);
-          actualizarVistaInmediata();
-          return;
-        }
-
-        // ✅ Validar stock (si existe)
-        const hasStock = item.stock != null && item.stock !== "";
-        if (hasStock) {
-          const stock = Number(item.stock) || 0;
-          const tol = item.esPesable ? 0.01 : 0;
-
-          if (num > stock + tol) {
-            const maxTxt = item.esPesable
-              ? fmtQty3.format(stock)
-              : String(Math.round(stock));
-            mostrarMensaje(
-              "error",
-              `Stock insuficiente. Máximo: ${maxTxt} ${unidad}`,
-            );
-            num = stock;
-          }
-
-          if (num <= 0) {
-            carrito.splice(idx, 1);
-            actualizarVistaInmediata();
-            return;
-          }
-        }
-
-        item.cantidad = num;
-        actualizarVistaInmediata();
-      });
-
+      abrirEditorCantidad(idx);
       return;
     }
 
@@ -2514,10 +2914,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return mostrarMensaje("error", "Ticket vacío");
 
     cobrando = true;
-    const btn = document.getElementById("btnCobrar");
+    const btn = btnCobrar;
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Procesando...";
+      btn.innerHTML = '<span class="action-button__label">Procesando...</span>';
     }
 
     try {
@@ -2573,6 +2973,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tieneCC()) {
         const clienteCC = getClienteCC();
         if (!clienteCC || !clienteCC.id) {
+          ccWrap?.classList.remove("is-hidden");
+          ccInputBuscar?.focus?.();
           return mostrarMensaje(
             "error",
             "Seleccioná un cliente para la cuenta corriente",
@@ -2656,6 +3058,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return mostrarMensaje("error", data?.error || "Error en la API");
 
       const ventaId = data.venta_id || data.id || data.ventaId;
+      sumarKpisSesion(pagos, totalUI);
+      document.dispatchEvent(
+        new CustomEvent("flus:caja-venta-registrada", {
+          detail: {
+            ventaId,
+            vuelto,
+            total: totalUI,
+            pagos,
+          },
+        }),
+      );
 
       // Limpiar estado UI
       carrito = [];
@@ -2693,7 +3106,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cobrando = false;
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Cobrar";
+        btn.innerHTML = btnCobrarDefaultHtml || "Cobrar";
       }
     }
   }
@@ -2733,7 +3146,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // EVENTOS
   // =========================
   document.getElementById("btnAgregar")?.addEventListener("click", agregarItem);
-  document.getElementById("btnCobrar")?.addEventListener("click", cobrar);
+  btnCobrar?.addEventListener("click", cobrar);
+  btnCobrarExacto?.addEventListener("click", () => {
+    if (splitActivo() || totalNetoActual <= 0) return;
+    if (selMedio) selMedio.value = "EFECTIVO";
+    if (inputPagado) inputPagado.value = String(Number(totalNetoActual).toFixed(2));
+    actualizarVisibilidadCC();
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
+    cobrar();
+  });
   document
     .getElementById("btnCancelar")
     ?.addEventListener("click", cancelarVenta);
@@ -2749,18 +3171,90 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  inputCodigo?.addEventListener("focus", () => {
+    actualizarModoIngreso("codigo");
+    if ((inputCodigo.value || "").trim() !== "") {
+      focusProductoInput({ selectIfFilled: true });
+    }
+  });
+
+  inputCant?.addEventListener("focus", () => {
+    actualizarModoIngreso("cantidad");
+    try {
+      inputCant.select();
+    } catch (_) {}
+  });
+
+  inputCant?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      agregarItem();
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      inputCodigo?.focus?.();
+      return;
+    }
+  });
+
+  [selMedio, inputPagado, selMedio2, inputPagado2].forEach((el) => {
+    el?.addEventListener("focus", () => actualizarModoIngreso("cobro"));
+  });
+
+  paymentMethodButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const slot = String(button.dataset.slot || "1");
+      const value = String(button.dataset.value || "").toUpperCase();
+      actualizarModoIngreso("cobro");
+      actualizarEstadoPagosUI(slot);
+      setPaymentMethod(slot, value);
+    });
+  });
+
+  cajaMain?.addEventListener("pointerdown", (e) => {
+    if (shouldIgnoreCajaShortcut()) return;
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    if (
+      target.closest(
+        "input, select, textarea, button, a, [contenteditable='true'], .autocomplete-dropdown, .undo-snack",
+      )
+    ) {
+      return;
+    }
+
+    setTimeout(() => focusProductoInput({ selectIfFilled: true }), 0);
+  });
+
+  window.addEventListener("focus", () => {
+    setTimeout(() => {
+      const active = document.activeElement;
+      const isEditable =
+        active instanceof Element &&
+        (active.matches("input, select, textarea") || active.isContentEditable);
+      if (!isEditable) {
+        focusProductoInput();
+      }
+    }, 40);
+  });
+
   inputPagado?.addEventListener("input", () => {
+    actualizarEstadoPagosUI("1");
     recalcularVuelto();
     guardarEstado();
   });
 
   inputPagado2?.addEventListener("input", () => {
     if (inputPagado2) inputPagado2.dataset.auto = "0"; // ✅ ya no autocompletar
+    actualizarEstadoPagosUI("2");
     recalcularVuelto();
     guardarEstado();
   });
 
   selMedio?.addEventListener("change", () => {
+    actualizarEstadoPagosUI("1");
     actualizarVisibilidadCC();
     ajustarPagoSegunMedio();
     recalcularVuelto();
@@ -2768,10 +3262,21 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   selMedio2?.addEventListener("change", () => {
+    actualizarEstadoPagosUI("2");
     actualizarVisibilidadCC();
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
+  });
+
+  [selMedio, inputPagado].forEach((el) => {
+    el?.addEventListener("focus", () => actualizarEstadoPagosUI("1"));
+    el?.addEventListener("click", () => actualizarEstadoPagosUI("1"));
+  });
+
+  [selMedio2, inputPagado2, btnQuitarPago2].forEach((el) => {
+    el?.addEventListener("focus", () => actualizarEstadoPagosUI("2"));
+    el?.addEventListener("click", () => actualizarEstadoPagosUI("2"));
   });
 
   btnAgregarPago?.addEventListener("click", () => {
@@ -2793,6 +3298,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
+    actualizarModoCobroCompacto();
   });
 
   btnQuitarPago2?.addEventListener("click", () => {
@@ -2800,10 +3306,32 @@ document.addEventListener("DOMContentLoaded", () => {
     ajustarPagoSegunMedio();
     recalcularVuelto();
     guardarEstado();
+    actualizarModoCobroCompacto();
   });
 
   // Atajos
   document.addEventListener("keydown", (e) => {
+    if (shouldIgnoreCajaShortcut()) return;
+
+    const tag = String(e.target?.tagName || "").toUpperCase();
+    const isEditableTarget =
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      !!e.target?.isContentEditable;
+
+    if (e.key === "F3") {
+      e.preventDefault();
+      inputCodigo?.focus?.();
+      return;
+    }
+
+    if (e.key === "/" && !isEditableTarget) {
+      e.preventDefault();
+      inputCodigo?.focus?.();
+      return;
+    }
+
     if (e.key === "F2") {
       e.preventDefault();
       cobrar();
@@ -2811,6 +3339,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "F4") {
       e.preventDefault();
       cancelarVenta();
+    }
+    if (e.key === "F5") {
+      e.preventDefault();
+      setPaymentMethod("1", "EFECTIVO", { focusAmount: true });
+      return;
+    }
+    if (e.key === "F6") {
+      e.preventDefault();
+      setPaymentMethod("1", "MP", { focusAmount: true });
+      return;
+    }
+    if (e.key === "F7") {
+      e.preventDefault();
+      setPaymentMethod("1", "DEBITO", { focusAmount: true });
+      return;
     }
   });
 
@@ -2830,13 +3373,318 @@ document.addEventListener("DOMContentLoaded", () => {
     cargarEstado();
     await cargarPromos();
     actualizarVistaInmediata();
+    actualizarModoIngreso("codigo");
     ajustarPagoSegunMedio();
     recalcularVuelto();
+    actualizarEstadoPagosUI();
+    syncPaymentMethodButtons();
     if (estadoRecuperado) {
       mostrarMensaje(
         "info",
         "Se recupero un ticket pendiente de esta caja. Revisalo antes de cobrar.",
       );
     }
+    focusProductoInput();
   })();
+
+  // =========================================================================
+  // ✅ MEJORAS UX v3.6 — bloque aditivo, no modifica funciones existentes
+  // Solo se engancha a elementos DOM y eventos ya existentes.
+  // Sin cambios a API, CSRF, lógica de negocio ni backend.
+  // =========================================================================
+  (function initMejorasUX() {
+
+    // ── 1. CHIPS DE DENOMINACIÓN ────────────────────────────────────────────
+    // Muestra billetes rápidos ($500/$1000/etc.) cuando el medio es EFECTIVO.
+    // Al clickear, escribe en el pago efectivo activo y recalcula.
+    (function initDenomChips() {
+      const chips       = document.getElementById("denomChips");
+      const pago1El     = document.getElementById("pago1Wrap");
+      const selMedioEl  = document.getElementById("medioPago");
+      const montoEl     = document.getElementById("montoPagado");
+      const selMedio2El = document.getElementById("medioPago2");
+      const monto2El    = document.getElementById("montoPagado2");
+      const pago2El     = document.getElementById("pago2Wrap");
+      const btnAddPago  = document.getElementById("btnAgregarPago");
+      const btnRmPago2  = document.getElementById("btnQuitarPago2");
+      if (!chips || !pago1El || !selMedioEl || !montoEl) return;
+
+      let activeSlot = "1";
+
+      function splitVisible() {
+        return !!pago2El && !pago2El.classList.contains("is-hidden");
+      }
+
+      function medioEsEfectivoEl(el) {
+        return String(el?.value || "").toUpperCase() === "EFECTIVO";
+      }
+
+      function cashTargets() {
+        const targets = [];
+        if (medioEsEfectivoEl(selMedioEl)) {
+          targets.push({ slot: "1", input: montoEl, wrap: pago1El });
+        }
+        if (splitVisible() && medioEsEfectivoEl(selMedio2El) && monto2El) {
+          targets.push({ slot: "2", input: monto2El, wrap: pago2El });
+        }
+        return targets;
+      }
+
+      function resolveTarget() {
+        const targets = cashTargets();
+        if (!targets.length) return null;
+        return targets.find((t) => t.slot === activeSlot) || targets[0];
+      }
+
+      function syncVisibility() {
+        const targets = cashTargets();
+        chips.style.display = targets.length ? "flex" : "none";
+        const target = resolveTarget();
+        chips.dataset.targetSlot = target?.slot || "";
+        if (target?.wrap && chips.parentElement !== target.wrap) {
+          target.wrap.appendChild(chips);
+        }
+        actualizarEstadoPagosUI(activeSlot);
+      }
+
+      function markActive(slot) {
+        activeSlot = slot === "2" ? "2" : "1";
+        syncVisibility();
+      }
+
+      syncVisibility();
+      selMedioEl.addEventListener("change", syncVisibility);
+      selMedio2El?.addEventListener("change", syncVisibility);
+      montoEl.addEventListener("focus", () => markActive("1"));
+      monto2El?.addEventListener("focus", () => markActive("2"));
+      selMedioEl.addEventListener("focus", () => markActive("1"));
+      selMedio2El?.addEventListener("focus", () => markActive("2"));
+      montoEl.addEventListener("click", () => markActive("1"));
+      monto2El?.addEventListener("click", () => markActive("2"));
+      btnAddPago?.addEventListener("click", () => setTimeout(syncVisibility, 0));
+      btnRmPago2?.addEventListener("click", () => setTimeout(syncVisibility, 0));
+
+      chips.addEventListener("click", (e) => {
+        const chip = e.target.closest(".denom-chip");
+        if (!chip) return;
+        const monto = Number(chip.dataset.monto) || 0;
+        if (!monto) return;
+        const target = resolveTarget();
+        if (!target?.input) return;
+        target.input.value = String(monto.toFixed(2));
+        if (target.slot === "2" && monto2El) {
+          monto2El.dataset.auto = "0";
+        }
+        target.input.dispatchEvent(new Event("input", { bubbles: true }));
+        target.input.focus();
+      });
+    })();
+
+    // ── 2. OVERLAY DE VUELTO GRANDE ─────────────────────────────────────────
+    // Muestra el vuelto de la última venta incluso cuando la operación se
+    // dispara con atajos o cuando el feedback principal usa Notif.
+    (function initVueltoOverlay() {
+      const overlay   = document.getElementById("vueltoOverlayFlus");
+      const amountEl  = document.getElementById("vueltoOverlayAmount");
+      const subEl     = document.getElementById("vueltoOverlaySub");
+      const closeBtn  = document.getElementById("vueltoOverlayClose");
+      if (!overlay || !amountEl) return;
+
+      let autoCloseTimer  = null;
+
+      function showOverlay(vueltoNumero, ventaLine) {
+        const vueltoTexto = formatearMoneda(vueltoNumero);
+        if (vueltoTexto === "$0,00" || vueltoTexto === "$0") return;
+        amountEl.textContent = vueltoTexto;
+        if (subEl) subEl.textContent = ventaLine || "";
+        overlay.classList.add("is-visible");
+        overlay.setAttribute("aria-hidden", "false");
+        clearTimeout(autoCloseTimer);
+        autoCloseTimer = setTimeout(closeOverlay, 7000);
+      }
+
+      function closeOverlay() {
+        clearTimeout(autoCloseTimer);
+        overlay.classList.remove("is-visible");
+        overlay.setAttribute("aria-hidden", "true");
+        focusProductoInput();
+      }
+
+      document.addEventListener("flus:caja-venta-registrada", (ev) => {
+        const detail = ev?.detail || {};
+        const vueltoNumero = Number(detail.vuelto) || 0;
+        if (vueltoNumero <= 0.009) return;
+
+        const ventaId = Number(detail.ventaId) || 0;
+        const ventaLine = ventaId > 0 ? `Venta #${ventaId} registrada` : "";
+        showOverlay(vueltoNumero, ventaLine);
+      });
+
+      // Cerrar con botón, click en backdrop y Esc
+      closeBtn?.addEventListener("click", closeOverlay);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) closeOverlay(); });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.classList.contains("is-visible")) {
+          e.preventDefault();
+          closeOverlay();
+        }
+      });
+    })();
+
+    // ── 3. DOBLE CLICK EN CANTIDAD = EDITAR (sin nuevo modal) ──────────────
+    // En vez de replicar lógica: simula click en .btn-editar de la misma fila.
+    // Así reutiliza exactamente el mismo modal y validaciones de stock existentes.
+    (function initDblClickCant() {
+      const tbody = document.querySelector("#tabla tbody");
+      if (!tbody) return;
+
+      tbody.addEventListener("dblclick", (e) => {
+        const td = e.target.closest(".col-cant");
+        if (!td) return;
+        const row = td.closest("tr");
+        if (!row) return;
+        const idx = Number(row.dataset.idx);
+        if (Number.isFinite(idx)) {
+          e.preventDefault();
+          abrirEditorCantidad(idx);
+        }
+      });
+    })();
+
+    // ── 4. SNACK "DESHACER QUITAR" ──────────────────────────────────────────
+    // Guarda una copia completa del ítem para poder restaurarlo de verdad
+    // sin obligar al cajero a reescanear ni perder cantidad/precio.
+    (function initUndoQuitar() {
+      const tbody        = document.querySelector("#tabla tbody");
+      const snackCont    = document.getElementById("undoSnackContainer");
+      if (!tbody || !snackCont) return;
+
+      tbody.addEventListener("click", (e) => {
+        const btnQuitar = e.target.closest(".btn-quitar");
+        if (!btnQuitar) return;
+
+        const idx = Number(btnQuitar.dataset.idx);
+        const original = Number.isFinite(idx) ? carrito[idx] : null;
+        if (!original) return;
+
+        const snapshot = {
+          idx,
+          item: JSON.parse(JSON.stringify(original)),
+        };
+
+        setTimeout(() => {
+          mostrarUndoSnack(snapshot);
+        }, 50);
+      }, true);
+
+      function mostrarUndoSnack(snapshot) {
+        const item = snapshot?.item || {};
+        const nombre = String(item.nombre || "Producto");
+        const snack = document.createElement("div");
+        snack.className = "undo-snack";
+
+        const nombreCorto = nombre.length > 28
+          ? nombre.slice(0, 27) + "…"
+          : nombre;
+
+        snack.innerHTML = `
+          <span>Se quitó <strong>${nombreCorto}</strong></span>
+          <button class="undo-snack__btn" type="button" title="Restaurar ${nombre}">Deshacer</button>
+        `;
+
+        snackCont.appendChild(snack);
+
+        const btn = snack.querySelector(".undo-snack__btn");
+        btn?.addEventListener("click", () => {
+          const removed = snapshot?.item;
+          if (!removed) return;
+
+          const existente = carrito.find(
+            (it) => Number(it.id) === Number(removed.id),
+          );
+
+          if (existente) {
+            existente.cantidad =
+              Number(existente.cantidad || 0) + Number(removed.cantidad || 0);
+          } else {
+            const insertAt = Math.max(
+              0,
+              Math.min(Number(snapshot.idx) || 0, carrito.length),
+            );
+            carrito.splice(insertAt, 0, removed);
+          }
+
+          actualizarVistaInmediata();
+          inputCodigo?.focus?.();
+          quitarSnack(snack);
+        });
+
+        // Auto-dismiss a los 4 segundos
+        const timer = setTimeout(() => quitarSnack(snack), 4000);
+        snack._timer = timer;
+      }
+
+      function quitarSnack(snack) {
+        clearTimeout(snack._timer);
+        snack.classList.add("is-leaving");
+        setTimeout(() => snack.remove(), 220);
+      }
+    })();
+
+    // ── 5. SONIDO DE FEEDBACK (AudioContext, sin assets externos) ───────────
+    // beep breve al agregar producto, diferente al cobrar y al error.
+    // Se activa solo tras interacción del usuario (requerimiento del browser).
+    (function initSonidos() {
+      let ctx = null;
+
+      function getCtx() {
+        if (!ctx) {
+          try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
+        }
+        return ctx;
+      }
+
+      function beep(freq, durMs, gainVal) {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          const osc = c.createOscillator();
+          const g   = c.createGain();
+          osc.connect(g);
+          g.connect(c.destination);
+          osc.frequency.value = freq;
+          osc.type = "sine";
+          g.gain.setValueAtTime(gainVal || 0.12, c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + durMs / 1000);
+          osc.start();
+          osc.stop(c.currentTime + durMs / 1000);
+        } catch(_) {}
+      }
+
+      // Desbloquear AudioContext en primer click de usuario
+      document.addEventListener("click", () => getCtx(), { once: true });
+
+      // Sonido al agregar producto: observar filas del tbody
+      const tbody = document.querySelector("#tabla tbody");
+      let prevRows = 0;
+      new MutationObserver(() => {
+        const curr = tbody?.querySelectorAll("tr:not(.promo-aplicada)").length || 0;
+        if (curr > prevRows) beep(660, 80, 0.1); // item agregado
+        prevRows = curr;
+      }).observe(tbody || document.body, { childList: true });
+
+      document.addEventListener("flus:caja-venta-registrada", () => {
+        beep(880, 90, 0.12);
+        setTimeout(() => beep(1100, 80, 0.1), 100);
+      });
+
+      const msgEl = document.getElementById("msg");
+      new MutationObserver(() => {
+        if (msgEl?.classList.contains("msg-error")) {
+          beep(220, 180, 0.1);
+        }
+      }).observe(msgEl || document.body, { attributes: true, attributeFilter: ["class"] });
+    })();
+
+  })(); // fin initMejorasUX
 });

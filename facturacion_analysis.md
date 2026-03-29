@@ -1,6 +1,6 @@
 # Análisis del estado de FLUS con el nuevo módulo de facturación
 
-En **FLUS** (versión `3.7.1` a la fecha `2026-03-22`) se añadieron varios archivos y migraciones que incorporan un **módulo completo de facturación electrónica**. La nueva funcionalidad incluye:
+En **FLUS** (version `3.8.1`, build `2026-03-23`) ya se ve consolidado el ingreso del **modulo de facturacion electronica** introducido en `3.8.0` y endurecido luego en `3.8.1`. La funcionalidad visible en el repo incluye:
 
 - **Listado de facturas** (`public/facturacion.php`):
   - Permite buscar y filtrar facturas por rango de fechas, cliente, número, tipo (A/B/C) y estado (emitida/anulada).

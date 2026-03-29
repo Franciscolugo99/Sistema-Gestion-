@@ -524,7 +524,12 @@ $extraJs = ['assets/js/facturacion_nc.js?v=3'];
 require __DIR__ . '/partials/header.php';
 ?>
 
-<div class="page-wrap nc-page" data-nc-has-factura="<?= $factura ? '1' : '0' ?>">
+<div
+  class="page-wrap nc-page"
+  data-nc-has-factura="<?= $factura ? '1' : '0' ?>"
+  data-nc-ok="<?= nc_h($ncOk) ?>"
+  data-nc-error="<?= nc_h($ncError) ?>"
+>
   <div class="panel fact-panel nc-wrap">
 
     <!-- ── Header del módulo ─────────────────────────────── -->
@@ -558,7 +563,6 @@ require __DIR__ . '/partials/header.php';
       </div>
     </header>
 
-    <!-- ── Stepper ───────────────────────────────────────── -->
     <nav class="nc-stepper" aria-label="Pasos">
       <div class="nc-step-item" data-step="1">
         <div class="nc-step-badge">

@@ -26,6 +26,44 @@
     }[ch]));
   }
 
+  function notify(type, message) {
+    const text = String(message ?? '').trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (typeof window.Notif.error === 'function') {
+        window.Notif.error(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(text, type === 'success' || type === 'ok' ? 'success' : 'error');
+    }
+  }
+
+  function initFlashNotifications() {
+    const pageWrap = document.querySelector('[data-nc-has-factura]');
+    if (!pageWrap) return;
+
+    const ok = String(pageWrap.dataset.ncOk || '').trim();
+    const error = String(pageWrap.dataset.ncError || '').trim();
+    if (!ok && !error) return;
+
+    window.setTimeout(() => {
+      if (ok) notify('success', ok);
+      if (error) notify('error', error);
+    }, 120);
+  }
+
   /* ─── step tracker ────────────────────────────────────── */
   function setActiveStep(n) {
     $$('.nc-step-item').forEach((el, i) => {
@@ -232,6 +270,7 @@
 
   /* ─── init ────────────────────────────────────────────── */
   document.addEventListener('DOMContentLoaded', () => {
+    initFlashNotifications();
     initStepper();
     initTypeSelector();
     initLiveTotals();

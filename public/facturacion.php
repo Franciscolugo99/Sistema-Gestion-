@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once __DIR__ . '/../src/facturacion_panel_lib.php';
 
 require_login();
 require_any_permission(['ver_facturacion', 'emitir_factura']);
@@ -40,11 +41,6 @@ function urlWithFact(array $overrides = []): string
     return 'facturacion.php' . ($query === [] ? '' : '?' . http_build_query($query));
 }
 
-function factLikeParam(string $value): string
-{
-    return '%' . addcslashes($value, "\\%_") . '%';
-}
-
 function factRangeUrl(string $desde, string $hasta): string
 {
     return urlWithFact([
@@ -58,6 +54,7 @@ function factRangeUrl(string $desde, string $hasta): string
 $desdeRaw = (string)($_GET['desde'] ?? '');
 $hastaRaw = (string)($_GET['hasta'] ?? '');
 $estado = trim((string)($_GET['estado'] ?? ''));
+$estadoFiscalFiltro = strtoupper(trim((string)($_GET['estado_fiscal'] ?? '')));
 $tipoFiltro = strtoupper(trim((string)($_GET['tipo'] ?? '')));
 $search = trim((string)($_GET['q'] ?? ''));
 $clienteId = (int)($_GET['cliente_id'] ?? 0);
@@ -75,6 +72,7 @@ if (!in_array($perPage, [20, 50, 100], true)) {
 }
 $page = max(1, (int)($_GET['page'] ?? 1));
 $allowedEstados = ['EMITIDA', 'ANULADA'];
+$allowedEstadosFiscales = ['NO_APLICA', 'PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'AUTORIZADA', 'RECUPERADA', 'RECHAZADA'];
 $today = new DateTimeImmutable('today');
 $quickRanges = [
     [
@@ -103,316 +101,77 @@ $quickRanges = [
     ],
 ];
 
-$facturas = [];
 $clientes = flus_facturacion_clientes_disponibles($pdo);
-$tiposDisponibles = [];
-$avisos = [];
-$totalRows = 0;
-$totalPages = 1;
-$fromRow = 0;
-$toRow = 0;
 $hasActiveFilters = false;
 $filterTags = [];
-$stats = [
-    'total_docs' => 0,
-    'emitidas' => 0,
-    'anuladas' => 0,
-    'total_emitido' => 0.0,
-    'ticket_promedio' => 0.0,
-    'cae_real' => 0,
-    'tipo_a' => 0,
-    'tipo_b' => 0,
-    'sin_cae_real' => 0,
-    'cae_por_vencer' => 0,
-];
+$panel = flus_facturacion_panel_read($pdo, [
+    'desde' => $desde,
+    'hasta' => $hasta,
+    'estado' => $estado,
+    'estado_fiscal' => $estadoFiscalFiltro,
+    'tipo' => $tipoFiltro,
+    'search' => $search,
+    'cliente_id' => $clienteId,
+    'venta_id' => $ventaIdFiltro,
+    'per_page' => $perPage,
+    'page' => $page,
+]);
 
-$modoFacturacion = 'demo';
-$configFact = flus_facturacion_config_activa($pdo);
-if ($configFact) {
-    $modoFacturacion = flus_facturacion_modo_actual($configFact);
-}
-$modoFacturacionLabel = flus_facturacion_modo_label($modoFacturacion);
+$panelFilters = $panel['filters'];
+$search = (string)($panelFilters['search'] ?? $search);
+$estado = (string)($panelFilters['estado'] ?? $estado);
+$estadoFiscalFiltro = (string)($panelFilters['estado_fiscal'] ?? $estadoFiscalFiltro);
+$tipoFiltro = (string)($panelFilters['tipo'] ?? $tipoFiltro);
+$clienteId = (int)($panelFilters['cliente_id'] ?? $clienteId);
+$ventaIdFiltro = (int)($panelFilters['venta_id'] ?? $ventaIdFiltro);
+$perPage = (int)($panelFilters['per_page'] ?? $perPage);
+$page = (int)($panelFilters['page'] ?? $page);
 
-if (!flus_table_exists($pdo, 'facturas')) {
-    $avisos[] = 'La tabla de facturas no existe todavia. Aplica la migracion de facturacion para ver el historial.';
-} else {
-    $fechaCol = flus_first_existing_column($pdo, 'facturas', ['creado_en', 'fecha']);
-    $estadoCol = flus_column_exists($pdo, 'facturas', 'estado');
-    $clienteIdCol = flus_column_exists($pdo, 'facturas', 'cliente_id');
-    $ventaIdCol = flus_column_exists($pdo, 'facturas', 'venta_id');
-    $tipoCol = flus_column_exists($pdo, 'facturas', 'tipo');
-    $numeroCol = flus_column_exists($pdo, 'facturas', 'numero');
-    $puntoVentaCol = flus_column_exists($pdo, 'facturas', 'punto_venta');
-    $caeCol = flus_column_exists($pdo, 'facturas', 'cae');
-    $caeVtoCol = flus_column_exists($pdo, 'facturas', 'cae_vto');
-    $modoCol = flus_column_exists($pdo, 'facturas', 'modo');
-    $estadoFiscalCol = flus_column_exists($pdo, 'facturas', 'estado_fiscal');
-    $joinClientes = $clienteIdCol && flus_table_exists($pdo, 'clientes');
+$facturas = $panel['facturas'];
+$tiposDisponibles = $panel['tipos_disponibles'];
+$avisos = $panel['avisos'];
+$totalRows = (int)$panel['total_rows'];
+$totalPages = (int)$panel['total_pages'];
+$fromRow = (int)$panel['from_row'];
+$toRow = (int)$panel['to_row'];
+$stats = $panel['stats'];
+$incidencias = $panel['incidencias'];
+$modoFacturacion = (string)$panel['modo_facturacion'];
+$modoFacturacionLabel = (string)$panel['modo_facturacion_label'];
 
-    $fechaExpr = $fechaCol ? 'f.`' . $fechaCol . '`' : 'NULL';
-    $tipoExpr = $tipoCol ? 'f.`tipo`' : "''";
-    $puntoVentaExpr = $puntoVentaCol ? 'f.`punto_venta`' : 'NULL';
-    $numeroExpr = $numeroCol ? 'f.`numero`' : 'NULL';
-    $totalExpr = flus_column_exists($pdo, 'facturas', 'total') ? 'f.`total`' : '0';
-    $estadoExpr = $estadoCol ? 'f.`estado`' : "'EMITIDA'";
-    $ventaIdExpr = $ventaIdCol ? 'f.`venta_id`' : 'NULL';
-    $clienteIdExpr = $clienteIdCol ? 'f.`cliente_id`' : 'NULL';
-    $caeExpr = $caeCol ? 'f.`cae`' : 'NULL';
-    $caeVtoExpr = $caeVtoCol ? 'f.`cae_vto`' : 'NULL';
-    $modoExpr = $modoCol ? 'f.`modo`' : 'NULL';
-    $estadoFiscalExpr = $estadoFiscalCol ? "COALESCE(f.`estado_fiscal`, 'NO_APLICA')" : "'NO_APLICA'";
-    $clienteNombreExpr = $joinClientes
-        ? (flus_column_exists($pdo, 'clientes', 'nombre') ? 'c.`nombre`' : 'CONCAT("Cliente #", c.id)')
-        : 'NULL';
-    $clienteCuitExpr = $joinClientes && flus_column_exists($pdo, 'clientes', 'cuit') ? 'c.`cuit`' : 'NULL';
-    $caeVtoSql = $caeVtoCol
-        ? "CASE
-              WHEN CHAR_LENGTH(TRIM(f.`cae_vto`)) = 8 THEN STR_TO_DATE(f.`cae_vto`, '%Y%m%d')
-              ELSE STR_TO_DATE(f.`cae_vto`, '%Y-%m-%d')
-           END"
-        : 'NULL';
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $exportRows = flus_facturacion_panel_export_rows($pdo, $panel['plan']);
 
-    if ($tipoCol) {
-        $stTipos = $pdo->query("SELECT DISTINCT UPPER(TRIM(tipo)) AS tipo FROM facturas WHERE tipo IS NOT NULL AND TRIM(tipo) <> '' ORDER BY tipo");
-        $tiposDisponibles = $stTipos ? array_values(array_filter(array_map(static fn(array $row): string => trim((string)($row['tipo'] ?? '')), $stTipos->fetchAll(PDO::FETCH_ASSOC) ?: []))) : [];
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="facturacion_' . date('Y-m-d_His') . '.csv"');
+
+    $out = fopen('php://output', 'w');
+    fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    fputcsv($out, ['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo'], ';');
+
+    foreach ($exportRows as $row) {
+        fputcsv($out, [
+            (string)($row['fecha'] ?? ''),
+            (string)($row['tipo'] ?? ''),
+            $row['punto_venta'] !== null ? str_pad((string)(int)$row['punto_venta'], 4, '0', STR_PAD_LEFT) : '',
+            $row['numero'] !== null ? str_pad((string)(int)$row['numero'], 8, '0', STR_PAD_LEFT) : '',
+            (string)($row['cliente_nombre'] ?? 'Consumidor Final'),
+            (string)($row['cliente_cuit'] ?? ''),
+            number_format((float)($row['total'] ?? 0), 2, ',', ''),
+            (string)($row['estado'] ?? 'EMITIDA'),
+            (string)($row['estado_fiscal'] ?? 'NO_APLICA'),
+            (string)($row['venta_id'] ?? ''),
+            (string)($row['cae'] ?? ''),
+            (string)($row['cae_vto'] ?? ''),
+            flus_facturacion_modo_label((string)($row['modo'] ?? 'demo')),
+        ], ';');
     }
 
-    $where = ['1=1'];
-    $params = [];
-
-    if ($desde !== '' && $fechaCol) {
-        $where[] = $fechaExpr . ' >= :desde';
-        $params[':desde'] = $desde . ' 00:00:00';
-    }
-    if ($hasta !== '' && $fechaCol) {
-        $where[] = $fechaExpr . ' <= :hasta';
-        $params[':hasta'] = $hasta . ' 23:59:59';
-    }
-    if (($desde !== '' || $hasta !== '') && !$fechaCol) {
-        $avisos[] = 'Esta instalacion no tiene una fecha de factura estandar, por eso el filtro por fecha no se pudo aplicar.';
-    }
-
-    if ($estado !== '' && in_array($estado, $allowedEstados, true) && $estadoCol) {
-        $where[] = 'f.`estado` = :estado';
-        $params[':estado'] = $estado;
-    }
-
-    if ($tipoFiltro !== '' && $tipoCol) {
-        if (in_array($tipoFiltro, $tiposDisponibles, true)) {
-            $where[] = 'UPPER(TRIM(f.`tipo`)) = :tipo';
-            $params[':tipo'] = $tipoFiltro;
-        } else {
-            $tipoFiltro = '';
-        }
-    }
-
-    if ($clienteId > 0 && $clienteIdCol) {
-        $where[] = 'f.`cliente_id` = :cliente_id';
-        $params[':cliente_id'] = $clienteId;
-    }
-
-    if ($ventaIdFiltro > 0 && $ventaIdCol) {
-        $where[] = 'f.`venta_id` = :venta_id';
-        $params[':venta_id'] = $ventaIdFiltro;
-    } elseif ($ventaIdFiltro > 0) {
-        $avisos[] = 'Esta instalacion no permite filtrar por venta porque la tabla facturas no tiene venta_id.';
-    }
-
-    if ($search !== '') {
-        $searchWhere = [];
-        $params[':search_like'] = factLikeParam($search);
-
-        if ($joinClientes) {
-            $searchWhere[] = "{$clienteNombreExpr} LIKE :search_like ESCAPE '\\\\'";
-            if ($clienteCuitExpr !== 'NULL') {
-                $searchWhere[] = "{$clienteCuitExpr} LIKE :search_like ESCAPE '\\\\'";
-            }
-        }
-        if ($caeCol) {
-            $searchWhere[] = "f.`cae` LIKE :search_like ESCAPE '\\\\'";
-        }
-        if ($tipoCol) {
-            $searchWhere[] = "f.`tipo` LIKE :search_like ESCAPE '\\\\'";
-        }
-
-        if ($numeroCol && ctype_digit($search)) {
-            $searchWhere[] = 'f.`numero` = :search_numero';
-            $params[':search_numero'] = (int)$search;
-        }
-        if ($ventaIdCol && ctype_digit($search)) {
-            $searchWhere[] = 'f.`venta_id` = :search_venta_id';
-            $params[':search_venta_id'] = (int)$search;
-        }
-        if ($puntoVentaCol && $numeroCol && preg_match('/^\s*(\d{1,4})\D+(\d{1,8})\s*$/', $search, $m) === 1) {
-            $searchWhere[] = '(f.`punto_venta` = :search_pv AND f.`numero` = :search_comp_num)';
-            $params[':search_pv'] = (int)$m[1];
-            $params[':search_comp_num'] = (int)$m[2];
-        }
-
-        if ($searchWhere !== []) {
-            $where[] = '(' . implode(' OR ', $searchWhere) . ')';
-        }
-    }
-
-    $whereSql = 'WHERE ' . implode(' AND ', $where);
-    $joinSql = $joinClientes ? 'LEFT JOIN clientes c ON c.id = f.cliente_id' : '';
-    $orderSql = $fechaCol ? $fechaExpr . ' DESC, f.id DESC' : 'f.id DESC';
-
-    if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-        $sqlExport = "
-            SELECT
-                {$fechaExpr} AS fecha,
-                {$tipoExpr} AS tipo,
-                {$puntoVentaExpr} AS punto_venta,
-                {$numeroExpr} AS numero,
-                {$clienteNombreExpr} AS cliente_nombre,
-                {$clienteCuitExpr} AS cliente_cuit,
-                {$totalExpr} AS total,
-                {$estadoExpr} AS estado,
-                {$estadoFiscalExpr} AS estado_fiscal,
-                {$ventaIdExpr} AS venta_id,
-                {$caeExpr} AS cae,
-                {$caeVtoExpr} AS cae_vto,
-                {$modoExpr} AS modo
-            FROM facturas f
-            {$joinSql}
-            {$whereSql}
-            ORDER BY {$orderSql}
-            LIMIT " . flus_export_limit();
-
-        $stExport = $pdo->prepare($sqlExport);
-        $stExport->execute($params);
-
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="facturacion_' . date('Y-m-d_His') . '.csv"');
-
-        $out = fopen('php://output', 'w');
-        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($out, ['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo'], ';');
-
-        foreach ($stExport->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
-            fputcsv($out, [
-                (string)($row['fecha'] ?? ''),
-                (string)($row['tipo'] ?? ''),
-                $row['punto_venta'] !== null ? str_pad((string)(int)$row['punto_venta'], 4, '0', STR_PAD_LEFT) : '',
-                $row['numero'] !== null ? str_pad((string)(int)$row['numero'], 8, '0', STR_PAD_LEFT) : '',
-                (string)($row['cliente_nombre'] ?? 'Consumidor Final'),
-                (string)($row['cliente_cuit'] ?? ''),
-                number_format((float)($row['total'] ?? 0), 2, ',', ''),
-                (string)($row['estado'] ?? 'EMITIDA'),
-                (string)($row['estado_fiscal'] ?? 'NO_APLICA'),
-                (string)($row['venta_id'] ?? ''),
-                (string)($row['cae'] ?? ''),
-                (string)($row['cae_vto'] ?? ''),
-                $modoCol ? flus_facturacion_modo_label((string)($row['modo'] ?? 'demo')) : '',
-            ], ';');
-        }
-
-        fclose($out);
-        exit;
-    }
-
-    $sqlCount = "
-        SELECT COUNT(*)
-        FROM facturas f
-        {$joinSql}
-        {$whereSql}
-    ";
-    $stCount = $pdo->prepare($sqlCount);
-    $stCount->execute($params);
-    $totalRows = (int)$stCount->fetchColumn();
-
-    $totalPages = max(1, (int)ceil($totalRows / $perPage));
-    if ($page > $totalPages) {
-        $page = $totalPages;
-    }
-    $offset = ($page - 1) * $perPage;
-    $fromRow = $totalRows > 0 ? $offset + 1 : 0;
-    $toRow = min($offset + $perPage, $totalRows);
-
-    $sqlStats = "
-        SELECT
-            COUNT(*) AS total_docs,
-            SUM(CASE WHEN {$estadoExpr} = 'ANULADA' THEN 1 ELSE 0 END) AS anuladas,
-            SUM(CASE WHEN {$estadoExpr} = 'ANULADA' THEN 0 ELSE 1 END) AS emitidas,
-            COALESCE(SUM(CASE WHEN {$estadoExpr} = 'ANULADA' THEN 0 ELSE {$totalExpr} END), 0) AS total_emitido,
-            AVG(CASE WHEN {$estadoExpr} = 'ANULADA' THEN NULL ELSE {$totalExpr} END) AS ticket_promedio,
-            " . ($caeCol
-                ? "SUM(CASE WHEN f.`cae` IS NOT NULL AND TRIM(f.`cae`) <> '' AND f.`cae` NOT LIKE 'DEMO%' THEN 1 ELSE 0 END)"
-                : '0') . " AS cae_real,
-            " . ($tipoCol
-                ? "SUM(CASE WHEN UPPER(TRIM(f.`tipo`)) LIKE '%A' THEN 1 ELSE 0 END)"
-                : '0') . " AS tipo_a,
-            " . ($tipoCol
-                ? "SUM(CASE WHEN UPPER(TRIM(f.`tipo`)) LIKE '%B' THEN 1 ELSE 0 END)"
-                : '0') . " AS tipo_b,
-            " . (($modoCol && $caeCol)
-                ? "SUM(CASE WHEN COALESCE(f.`modo`, 'demo') <> 'demo' AND (f.`cae` IS NULL OR TRIM(f.`cae`) = '' OR f.`cae` LIKE 'DEMO%') THEN 1 ELSE 0 END)"
-                : '0') . " AS sin_cae_real,
-            " . ($caeCol && $caeVtoCol
-                ? "SUM(CASE
-                        WHEN {$estadoExpr} <> 'ANULADA'
-                         AND f.`cae` IS NOT NULL
-                         AND TRIM(f.`cae`) <> ''
-                         AND f.`cae` NOT LIKE 'DEMO%'
-                         AND {$caeVtoSql} BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 5 DAY)
-                        THEN 1 ELSE 0 END)"
-                : '0') . " AS cae_por_vencer
-        FROM facturas f
-        {$joinSql}
-        {$whereSql}
-    ";
-    $stStats = $pdo->prepare($sqlStats);
-    $stStats->execute($params);
-    $statsRow = $stStats->fetch(PDO::FETCH_ASSOC) ?: [];
-    $stats = [
-        'total_docs' => (int)($statsRow['total_docs'] ?? 0),
-        'emitidas' => (int)($statsRow['emitidas'] ?? 0),
-        'anuladas' => (int)($statsRow['anuladas'] ?? 0),
-        'total_emitido' => (float)($statsRow['total_emitido'] ?? 0),
-        'ticket_promedio' => (float)($statsRow['ticket_promedio'] ?? 0),
-        'cae_real' => (int)($statsRow['cae_real'] ?? 0),
-        'tipo_a' => (int)($statsRow['tipo_a'] ?? 0),
-        'tipo_b' => (int)($statsRow['tipo_b'] ?? 0),
-        'sin_cae_real' => (int)($statsRow['sin_cae_real'] ?? 0),
-        'cae_por_vencer' => (int)($statsRow['cae_por_vencer'] ?? 0),
-    ];
-
-    $sqlList = "
-        SELECT
-            f.id,
-            {$fechaExpr} AS fecha,
-            {$tipoExpr} AS tipo,
-            {$puntoVentaExpr} AS punto_venta,
-            {$numeroExpr} AS numero,
-            {$totalExpr} AS total,
-            {$estadoExpr} AS estado,
-            {$estadoFiscalExpr} AS estado_fiscal,
-            {$clienteIdExpr} AS cliente_id,
-            {$clienteNombreExpr} AS cliente_nombre,
-            {$clienteCuitExpr} AS cliente_cuit,
-            {$ventaIdExpr} AS venta_id,
-            {$caeExpr} AS cae,
-            {$caeVtoExpr} AS cae_vto,
-            {$modoExpr} AS modo
-        FROM facturas f
-        {$joinSql}
-        {$whereSql}
-        ORDER BY {$orderSql}
-        LIMIT :limit OFFSET :offset
-    ";
-
-    $st = $pdo->prepare($sqlList);
-    foreach ($params as $key => $value) {
-        $st->bindValue($key, $value);
-    }
-    $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
-    $st->bindValue(':offset', $offset, PDO::PARAM_INT);
-    $st->execute();
-    $facturas = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    fclose($out);
+    exit;
 }
 
-$hasActiveFilters = $search !== '' || $estado !== '' || $tipoFiltro !== '' || $clienteId > 0 || $ventaIdFiltro > 0 || $desde !== '' || $hasta !== '';
+$hasActiveFilters = $search !== '' || $estado !== '' || $estadoFiscalFiltro !== '' || $tipoFiltro !== '' || $clienteId > 0 || $ventaIdFiltro > 0 || $desde !== '' || $hasta !== '';
 foreach ($quickRanges as &$range) {
     $range['active'] = $desde === $range['desde'] && $hasta === $range['hasta'];
     $range['url'] = factRangeUrl($range['desde'], $range['hasta']);
@@ -426,6 +185,9 @@ if ($tipoFiltro !== '') {
 }
 if ($estado !== '') {
     $filterTags[] = ['label' => 'Estado: ' . $estado, 'url' => urlWithFact(['estado' => null, 'page' => 1])];
+}
+if ($estadoFiscalFiltro !== '') {
+    $filterTags[] = ['label' => 'Fiscal: ' . flus_facturacion_estado_fiscal_label($estadoFiscalFiltro), 'url' => urlWithFact(['estado_fiscal' => null, 'page' => 1])];
 }
 if ($clienteId > 0) {
     $clienteLabel = 'Cliente #' . $clienteId;
@@ -488,14 +250,23 @@ require __DIR__ . '/partials/header.php';
       </div>
 
       <div class="promo-actions-top module-header-actions">
+        <a href="documentos_comerciales.php" class="v-btn v-btn--outline" title="Presupuestos y remitos">
+          Documentos comerciales
+        </a>
         <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de crédito">
           Notas de crédito
+        </a>
+        <a href="facturacion_recovery.php" class="v-btn v-btn--outline" title="Incidencias fiscales y regularización">
+          Incidencias fiscales
         </a>
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
           <a href="facturacion_config.php" class="v-btn v-btn--outline" title="Configuracion de facturacion">
             Configuracion
           </a>
         <?php endif; ?>
+        <a href="documento_comercial.php?tipo=PRESUPUESTO" class="v-btn v-btn--outline">
+          + Presupuesto
+        </a>
         <a href="factura_manual.php" class="v-btn v-btn--primary">
           + Factura manual
         </a>
@@ -522,6 +293,10 @@ require __DIR__ . '/partials/header.php';
         <div class="fact-overview__item">
           <span>Por pagina</span>
           <strong><?= (int)$perPage ?></strong>
+        </div>
+        <div class="fact-overview__item">
+          <span>Incidencias</span>
+          <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong>
         </div>
       </div>
     </section>
@@ -559,6 +334,20 @@ require __DIR__ . '/partials/header.php';
       </article>
     </section>
 
+    <?php if (($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) > 0): ?>
+      <section class="fact-summary-bar" aria-label="Incidencias fiscales" style="margin-bottom:16px;">
+        <div class="fact-summary-bar__top">
+          <div class="fact-summary-bar__headline">
+            <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong> incidencia<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?> fiscal<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 'es' ?> visible<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?>
+            <span class="muted">| Pendientes <?= number_format($incidencias['pendientes']) ?> · Transitorios <?= number_format($incidencias['transitorios']) ?> · Post-ARCA <?= number_format($incidencias['post_arca']) ?><?php if ($incidencias['recuperadas'] > 0): ?> · Recuperadas <?= number_format($incidencias['recuperadas']) ?><?php endif; ?></span>
+          </div>
+          <div class="fact-summary-bar__actions">
+            <a href="facturacion_recovery.php" class="fact-summary-bar__export">Abrir incidencias</a>
+          </div>
+        </div>
+      </section>
+    <?php endif; ?>
+
     <?php foreach ($avisos as $aviso): ?>
       <div class="alert alert-error" style="margin-bottom:12px;"><?= h($aviso) ?></div>
     <?php endforeach; ?>
@@ -595,6 +384,13 @@ require __DIR__ . '/partials/header.php';
           <option value="">Todos los estados</option>
           <option value="EMITIDA" <?= $estado === 'EMITIDA' ? 'selected' : '' ?>>Emitidas</option>
           <option value="ANULADA" <?= $estado === 'ANULADA' ? 'selected' : '' ?>>Anuladas</option>
+        </select>
+
+        <select name="estado_fiscal">
+          <option value="">Todos los estados fiscales</option>
+          <?php foreach ($allowedEstadosFiscales as $_estadoFiscalOpt): ?>
+            <option value="<?= h($_estadoFiscalOpt) ?>" <?= $estadoFiscalFiltro === $_estadoFiscalOpt ? 'selected' : '' ?>><?= h(flus_facturacion_estado_fiscal_label($_estadoFiscalOpt)) ?></option>
+          <?php endforeach; ?>
         </select>
 
         <?php if ($tiposDisponibles !== []): ?>
@@ -668,6 +464,7 @@ require __DIR__ . '/partials/header.php';
           <?php if ($hasActiveFilters): ?>
             <a href="facturacion.php" class="btn btn-secondary">Quitar filtros</a>
           <?php endif; ?>
+          <a href="documento_comercial.php?tipo=PRESUPUESTO" class="btn btn-secondary">Nuevo presupuesto</a>
           <a href="factura_manual.php" class="btn btn-primary">Crear factura manual</a>
         </div>
       </section>
@@ -702,6 +499,13 @@ require __DIR__ . '/partials/header.php';
               $estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscalFila);
               $modoFilaRaw = trim((string)($factura['modo'] ?? ''));
               $modoFila = $modoFilaRaw !== '' ? flus_facturacion_normalizar_modo($modoFilaRaw) : '';
+              $tipoFila = strtoupper(trim((string)($factura['tipo'] ?? '')));
+              $isNcFila = str_starts_with($tipoFila, 'NC');
+              $isNdFila = str_starts_with($tipoFila, 'ND');
+              $naturalezaLabel = $isNcFila ? 'NC' : ($isNdFila ? 'ND' : 'FACTURA');
+              $naturalezaClass = $isNcFila
+                  ? 'fact-inline-badge--nc'
+                  : ($isNdFila ? 'fact-inline-badge--nd' : 'fact-inline-badge--doc');
               $cae = trim((string)($factura['cae'] ?? ''));
               $caeVtoRaw = trim((string)($factura['cae_vto'] ?? ''));
               $tieneCaeReal = $cae !== '' && !str_starts_with(strtoupper($cae), 'DEMO');
@@ -729,6 +533,9 @@ require __DIR__ . '/partials/header.php';
               <td>
                 <div class="fact-doc-title"><?= h($comprobanteLabel) ?></div>
                 <div class="fact-doc-meta">
+                  <span class="fact-inline-badge <?= h($naturalezaClass) ?>">
+                    <?= h($naturalezaLabel) ?>
+                  </span>
                   <?php if ($modoFila !== ''): ?>
                     <span class="fact-inline-badge <?= $modoFila === 'demo' ? 'fact-inline-badge--demo' : 'fact-inline-badge--real' ?>">
                       <?= h($modoFila === 'demo' ? 'Demo' : 'ARCA') ?>
@@ -779,6 +586,9 @@ require __DIR__ . '/partials/header.php';
                 <div class="fact-row-actions">
                   <a href="factura_ver.php?id=<?= (int)$factura['id'] ?>" class="btn-mini">Ver</a>
                   <a href="factura_pdf.php?id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--ghost">PDF</a>
+                  <?php if (flus_facturacion_estado_fiscal_regularizable($estadoFiscalFila)): ?>
+                    <a href="facturacion_recovery.php?factura_id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--danger">Regularizar</a>
+                  <?php endif; ?>
                 </div>
               </td>
             </tr>

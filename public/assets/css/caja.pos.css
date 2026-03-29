@@ -1,0 +1,1015 @@
+﻿/* ============================================================================
+   POS UTILITIES
+   - Componentes compartidos y mejoras UX que siguen vigentes
+============================================================================ */
+
+[data-theme="dark"] .cc-cliente-info {
+  background: var(--card-bg-dark, #1e293b);
+  border-color: var(--border-color-dark, #334155);
+}
+
+.cc-dropdown {
+  background: var(--bg, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .cc-dropdown {
+  background: var(--bg-dark, #0f172a);
+  border-color: var(--border-color-dark, #334155);
+}
+
+.cc-dropdown .autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  transition: background 0.1s;
+}
+
+.cc-dropdown .autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.cc-dropdown .autocomplete-item:hover,
+.cc-dropdown .autocomplete-item.selected {
+  background: var(--accent-bg, rgba(59, 130, 246, 0.08));
+}
+
+.cc-dropdown .ac-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.cc-dropdown .ac-meta {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.cc-dropdown .ac-meta strong {
+  color: var(--accent-green, #22c55e);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   MODAL COBRAR CUENTA CORRIENTE (fuera de .caja-panel)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+#modalCcPago {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 9999;
+}
+
+#modalCcPago.hidden {
+  display: none !important;
+}
+
+#modalCcPago .modal-content {
+  width: 420px;
+  max-width: 92vw;
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--panel, #1e293b);
+  color: var(--text, #f1f5f9);
+  border: 1px solid var(--panel-border, #334155);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+#modalCcPago .modal-title {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .field {
+  margin-bottom: 16px;
+}
+
+#modalCcPago .field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+}
+
+#modalCcPago .field input,
+#modalCcPago .field select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--input-border, #475569);
+  background: var(--input-bg, #0f172a);
+  color: var(--text, #f1f5f9);
+  font-size: 0.95rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+#modalCcPago .field input:focus,
+#modalCcPago .field select:focus {
+  outline: none;
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+#modalCcPago .cc-info {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  font-size: 0.85rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+#modalCcPago .cc-info:empty {
+  display: none;
+}
+
+#modalCcPago .modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--panel-border, #334155);
+}
+
+#modalCcPago .btn-cancel,
+#modalCcPago .btn-confirm {
+  min-width: 120px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+#modalCcPago .btn-cancel {
+  background: transparent;
+  border: 1px solid var(--panel-border, #475569);
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+#modalCcPago .btn-confirm {
+  background: var(--success, #22c55e);
+  color: #fff;
+}
+
+#modalCcPago .btn-confirm:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+
+#modalCcPago .btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Autocomplete dropdown */
+#modalCcPago .autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--panel, #1e293b);
+  border: 1px solid var(--panel-border, #334155);
+  border-radius: 8px;
+  margin-top: 4px;
+  z-index: 10000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+#modalCcPago .autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--panel-border, #334155);
+}
+
+#modalCcPago .autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+#modalCcPago .autocomplete-item:hover,
+#modalCcPago .autocomplete-item.selected {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+#modalCcPago .autocomplete-item .ac-title {
+  font-weight: 600;
+  color: var(--text, #f1f5f9);
+}
+
+#modalCcPago .autocomplete-item .ac-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+/* Light mode */
+[data-theme="light"] #modalCcPago {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+[data-theme="light"] #modalCcPago .modal-content {
+  background: #fff;
+  color: #1e293b;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] #modalCcPago .modal-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] #modalCcPago .field label {
+  color: #64748b;
+}
+
+[data-theme="light"] #modalCcPago .field input,
+[data-theme="light"] #modalCcPago .field select {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="light"] #modalCcPago .btn-cancel {
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] #modalCcPago .btn-cancel:hover {
+  background: #f1f5f9;
+}
+
+/* ============================================================================
+   MEJORAS UX CAJA v3.6 â€” solo adiciones, no modifica estilos previos
+   Autor: mejoras quirÃºrgicas sin tocar backend
+============================================================================ */
+
+/* â”€â”€ Chips de denominaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.denom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.denom-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.09);
+  color: var(--accent-amber, #f59e0b);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.07s;
+  line-height: 1.5;
+}
+
+.denom-chip:hover {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.65);
+}
+
+.denom-chip:active {
+  transform: scale(0.95);
+}
+
+/* light theme override */
+body[data-theme="light"] .denom-chip {
+  color: #92400e;
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+body[data-theme="light"] .denom-chip:hover {
+  background: rgba(217, 119, 6, 0.18);
+}
+
+/* â”€â”€ Overlay de vuelto grande â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.vuelto-overlay-flus {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 30, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 19999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.vuelto-overlay-flus.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vuelto-overlay-flus__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: vueltoScaleIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes vueltoScaleIn {
+  from { transform: scale(0.65); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.vuelto-overlay-flus__eyebrow {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 700;
+}
+
+.vuelto-overlay-flus__amount {
+  font-size: clamp(72px, 14vw, 120px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fbbf24;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 60px rgba(251, 191, 36, 0.35);
+}
+
+.vuelto-overlay-flus__sub {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.45);
+  min-height: 1.2em;
+}
+
+.vuelto-overlay-flus__close {
+  margin-top: 18px;
+  padding: 9px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.vuelto-overlay-flus__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.vuelto-overlay-flus__close kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 0.72rem;
+  font-family: ui-monospace, monospace;
+  margin-left: 4px;
+}
+
+/* â”€â”€ Snack "Deshacer quitar Ã­tem" â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.undo-snack-container {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 18000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  pointer-events: none;
+  align-items: center;
+}
+
+.undo-snack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--panel, #1e293b);
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+  font-size: 0.88rem;
+  color: var(--text);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: snackIn 0.2s ease;
+}
+
+@keyframes snackIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.undo-snack.is-leaving {
+  animation: snackOut 0.2s ease forwards;
+}
+
+@keyframes snackOut {
+  to { opacity: 0; transform: translateY(8px); }
+}
+
+.undo-snack__btn {
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--accent-cyan, #22d3ee);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.undo-snack__btn:hover {
+  background: rgba(34, 211, 238, 0.2);
+}
+
+/* â”€â”€ Hint visual "doble click = editar" en col-cant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+#tabla .col-cant {
+  cursor: default;
+}
+
+#tabla .col-cant span[data-editable="1"] {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background 0.1s;
+}
+
+#tabla .col-cant span[data-editable="1"]:hover {
+  background: rgba(34, 211, 238, 0.1);
+}
+
+/* â”€â”€ Hilo de progreso "Procesando cobro" en btn-cobrar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.btn-cobrar.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-cobrar.is-loading::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; height: 100%;
+  width: 40%;
+  background: rgba(255, 255, 255, 0.3);
+  animation: btnProgress 1s ease-in-out infinite;
+}
+
+@keyframes btnProgress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* ==========================================================================
+   CAJA POS REDISENO FINAL
+   - Prioriza escaneo, ticket y cobro
+   - Medios de pago mas claros y menos ruidosos
+   - Compatible con light / dark
+============================================================================ */
+
+.caja-panel--pos {
+  --caja-final-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  --caja-soft-glow: rgba(34, 211, 238, 0.12);
+  grid-template-columns: minmax(0, 1.5fr) minmax(340px, 420px);
+  grid-template-areas:
+    "topbar topbar"
+    "kpis kpis"
+    "scan total"
+    "tickethead exact"
+    "ticket pay"
+    "ticket cc"
+    "ticket actions"
+    "mov shortcuts"
+    "msg msg";
+  gap: 18px 20px;
+  padding: 18px 22px 28px;
+}
+
+.caja-panel--pos > .caja-title {
+  display: none;
+}
+
+.caja-panel--pos > .caja-topbar,
+.caja-panel--pos > .caja-kpis .caja-kpi,
+.caja-panel--pos > .caja-scan-card,
+.caja-panel--pos > .ticket-panel-head,
+.caja-panel--pos > .ticket-wrapper,
+.caja-panel--pos > .total-panel,
+.caja-panel--pos > .btn-cobrar-exacto,
+.caja-panel--pos > .pagos-row,
+.caja-panel--pos > .cc-wrap,
+.caja-panel--pos > .buttons-row,
+.caja-panel--pos > .shortcuts-box,
+.caja-panel--pos > .caja-mov {
+  border-radius: 24px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--caja-final-shadow);
+}
+
+.caja-panel--pos > .caja-topbar {
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 26%),
+    var(--panel);
+}
+
+body[data-theme="light"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.11), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+}
+
+body[data-theme="dark"] .caja-panel--pos > .caja-topbar {
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 32%),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.09), transparent 26%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
+}
+
+.caja-panel--pos > .caja-kpis {
+  grid-area: kpis;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.caja-panel--pos .caja-kpi {
+  min-height: 78px;
+  padding: 14px 15px;
+}
+
+.caja-panel--pos .caja-kpi__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+}
+
+.caja-panel--pos .caja-kpi__value {
+  font-size: 1.22rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos > .caja-scan-card {
+  grid-area: scan;
+  position: relative;
+  overflow: visible !important;
+  padding: 18px;
+  margin: 0;
+}
+
+.caja-panel--pos > .caja-scan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  border-radius: 24px 0 0 24px;
+  background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+}
+
+.caja-panel--pos .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 128px 180px;
+  gap: 12px;
+}
+
+.caja-panel--pos .caja-scan-card label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.caja-panel--pos .caja-scan-card input,
+.caja-panel--pos .caja-scan-card select,
+.caja-panel--pos .pagos-row input,
+.caja-panel--pos .pagos-row select,
+.caja-panel--pos .cc-wrap input {
+  min-height: 50px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .caja-scan-card .btn-add {
+  height: 50px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .caja-scan-hints {
+  gap: 8px 10px;
+  margin-top: 14px;
+}
+
+.caja-panel--pos > .ticket-panel-head {
+  grid-area: tickethead;
+  padding: 16px 18px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.08), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos .ticket-panel-head__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .ticket-panel-head__title {
+  font-size: 1.04rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos .ticket-panel-head__status {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .ticket-wrapper {
+  grid-area: ticket;
+  margin: 0;
+  min-height: 560px;
+  max-height: calc(100vh - 244px);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  overflow: auto;
+}
+
+.caja-panel--pos #tabla thead th {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.caja-panel--pos #tabla td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.caja-panel--pos > .total-panel {
+  grid-area: total;
+  position: sticky;
+  top: 16px;
+  margin: 0;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 28%),
+    var(--panel);
+}
+
+.caja-panel--pos > .total-panel::before {
+  content: "Cobro";
+  display: block;
+  margin-bottom: 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .total-row-strong .total-label {
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
+}
+
+.caja-panel--pos .total-row-strong .total-value {
+  font-size: 2rem;
+  color: var(--accent-green);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto {
+  grid-area: exact;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  min-height: 96px;
+  padding: 16px 18px;
+  margin: 0;
+  text-align: left;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  background:
+    linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.04)),
+    var(--panel);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:hover {
+  border-color: rgba(34, 197, 94, 0.44);
+  box-shadow: 0 16px 30px rgba(34, 197, 94, 0.18);
+}
+
+.caja-panel--pos > .btn-cobrar-exacto:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-cobrar-exacto__title {
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.btn-cobrar-exacto__hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.caja-panel--pos > .pagos-row {
+  grid-area: pay;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos .pagos-row__head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caja-panel--pos .pagos-row__copy {
+  display: grid;
+  gap: 3px;
+}
+
+.caja-panel--pos .pagos-row__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.caja-panel--pos .pagos-row__title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.caja-panel--pos .pagos-row__add {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.caja-panel--pos .payment-card {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.06), transparent),
+    rgba(148, 163, 184, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+body[data-theme="dark"] .caja-panel--pos .payment-card {
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.38), transparent),
+    rgba(2, 6, 23, 0.34);
+}
+
+.caja-panel--pos .payment-card.is-active,
+.caja-panel--pos .payment-card:focus-within {
+  border-color: rgba(34, 211, 238, 0.36);
+  box-shadow: 0 12px 26px rgba(34, 211, 238, 0.12);
+  transform: translateY(-1px);
+}
+
+.caja-panel--pos .payment-card.is-cash {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-card.is-digital {
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .payment-card.is-cc {
+  background:
+    linear-gradient(180deg, rgba(168, 85, 247, 0.12), transparent),
+    rgba(148, 163, 184, 0.04);
+}
+
+.caja-panel--pos .pago2-monto-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.caja-panel--pos #btnQuitarPago2 {
+  min-width: 78px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+.caja-panel--pos .denom-chips {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.caja-panel--pos .denom-chip {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border-color: rgba(245, 158, 11, 0.34);
+  color: var(--text);
+}
+
+.caja-panel--pos .denom-chips[data-target-slot="2"] .denom-chip {
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.caja-panel--pos > .cc-wrap {
+  grid-area: cc;
+  margin: 0;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos > .buttons-row {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  gap: 10px;
+  margin: 0;
+  padding: 16px;
+}
+
+.caja-panel--pos > .buttons-row button {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+}
+
+.caja-panel--pos .btn-cancelar {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.caja-panel--pos .btn-cobrar {
+  font-size: 1.02rem;
+  font-weight: 900;
+}
+
+.caja-panel--pos > .shortcuts-box {
+  grid-area: shortcuts;
+  margin: 0;
+  padding: 0;
+  align-self: start;
+  background:
+    linear-gradient(180deg, rgba(34, 211, 238, 0.06), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos > .shortcuts-box .shortcuts-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.caja-panel--pos > .caja-mov {
+  grid-area: mov;
+  margin: 0;
+  align-self: start;
+}
+
+.caja-panel--pos > .caja-mov:not([open]) {
+  box-shadow: none;
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent),
+    var(--panel);
+}
+
+.caja-panel--pos .caja-mov__sum {
+  padding: 14px 16px;
+}
+
+.caja-panel--pos .caja-mov__body {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.caja-panel--pos > #msg {
+  grid-area: msg;
+}
+
+@media (max-width: 1260px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos > .pagos-row {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos .pagos-row__head {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 980px) {
+  .caja-panel--pos {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "kpis"
+      "scan"
+      "tickethead"
+      "ticket"
+      "total"
+      "exact"
+      "pay"
+      "cc"
+      "actions"
+      "mov"
+      "shortcuts"
+      "msg";
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--pos > .ticket-wrapper {
+    min-height: 320px;
+    max-height: none;
+  }
+
+  .caja-panel--pos > .total-panel {
+    position: static;
+  }
+
+  .caja-panel--pos > .buttons-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .caja-panel--pos {
+    padding-inline: 14px;
+  }
+
+  .caja-panel--pos > .caja-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos .row.caja-row-inputs {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--pos > .ticket-panel-head,
+  .caja-panel--pos .pagos-row__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .caja-panel--pos .caja-scan-hints {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+

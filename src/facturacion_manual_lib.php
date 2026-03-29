@@ -110,6 +110,32 @@ function flus_facturacion_documento_items_fetch(PDO $pdo, int $documentoId): arr
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function flus_facturacion_documento_items_normalizar_payload(array $items): array
+{
+    $normalized = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $descripcion = trim((string)($item['descripcion'] ?? $item['nombre'] ?? ''));
+        if ($descripcion === '') {
+            continue;
+        }
+
+        $normalized[] = [
+            'codigo' => $item['codigo'] ?? null,
+            'descripcion' => $descripcion,
+            'cantidad' => (float)($item['cantidad'] ?? 0),
+            'precio_unitario' => round((float)($item['precio_unitario'] ?? $item['precio'] ?? 0), 2),
+            'subtotal' => round((float)($item['subtotal'] ?? 0), 2),
+            'iva_porcentaje' => round((float)($item['iva_porcentaje'] ?? 21), 2),
+        ];
+    }
+
+    return $normalized;
+}
+
 function flus_facturacion_documento_crear_manual(PDO $pdo, int $clienteId, array $items, array $meta = [], array $opciones = []): int
 {
     if (!flus_facturacion_documentos_table_ready($pdo)) {
@@ -211,6 +237,511 @@ function flus_facturacion_documento_actualizar_estado(PDO $pdo, int $documentoId
 
     $st = $pdo->prepare('UPDATE documentos_comerciales SET estado = ?, updated_at = ? WHERE id = ?');
     $st->execute([trim($estado) !== '' ? trim($estado) : 'PENDIENTE', date('Y-m-d H:i:s'), $documentoId]);
+}
+
+function flus_facturacion_documento_actualizar_cabecera(PDO $pdo, int $documentoId, array $data): void
+{
+    if ($documentoId <= 0 || !flus_facturacion_documentos_table_ready($pdo)) {
+        return;
+    }
+
+    $updates = [];
+    if (array_key_exists('cliente_id', $data) && flus_column_exists($pdo, 'documentos_comerciales', 'cliente_id')) {
+        $clienteId = (int)($data['cliente_id'] ?? 0);
+        $updates['cliente_id'] = $clienteId > 0 ? $clienteId : null;
+    }
+    if (array_key_exists('nota', $data) && flus_column_exists($pdo, 'documentos_comerciales', 'nota')) {
+        $nota = trim((string)($data['nota'] ?? ''));
+        $updates['nota'] = $nota !== '' ? $nota : null;
+    }
+
+    if ($updates === []) {
+        return;
+    }
+
+    $sets = [];
+    $params = [':id' => $documentoId];
+    foreach ($updates as $col => $value) {
+        $sets[] = "`{$col}` = :{$col}";
+        $params[':' . $col] = $value;
+    }
+
+    if (flus_column_exists($pdo, 'documentos_comerciales', 'updated_at')) {
+        $sets[] = '`updated_at` = :updated_at';
+        $params[':updated_at'] = date('Y-m-d H:i:s');
+    }
+
+    $sql = 'UPDATE documentos_comerciales SET ' . implode(', ', $sets) . ' WHERE id = :id';
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+}
+
+function flus_facturacion_documento_vincular_venta(PDO $pdo, int $documentoId, int $ventaId): void
+{
+    if ($documentoId <= 0 || $ventaId <= 0 || !flus_facturacion_documentos_table_ready($pdo) || !flus_table_exists($pdo, 'ventas')) {
+        throw new RuntimeException('No se puede vincular la venta al documento.');
+    }
+
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        throw new RuntimeException('El documento comercial no existe.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($documento['estado'] ?? ''))) {
+        throw new RuntimeException('El documento esta anulado o cancelado.');
+    }
+
+    $stVenta = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1');
+    $stVenta->execute([$ventaId]);
+    $venta = $stVenta->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!is_array($venta)) {
+        throw new RuntimeException('La venta indicada no existe.');
+    }
+
+    $clienteDocumento = (int)($documento['cliente_id'] ?? 0);
+    if ($clienteDocumento <= 0) {
+        throw new RuntimeException('Vincula primero un cliente al documento.');
+    }
+
+    $clienteVenta = (int)($venta['cliente_id'] ?? 0);
+    if ($clienteVenta > 0 && $clienteVenta !== $clienteDocumento) {
+        throw new RuntimeException('La venta pertenece a otro cliente y no se puede vincular a este documento.');
+    }
+
+    if ($clienteVenta <= 0 && flus_column_exists($pdo, 'ventas', 'cliente_id')) {
+        $stUpdateVenta = $pdo->prepare('UPDATE ventas SET cliente_id = ? WHERE id = ?');
+        $stUpdateVenta->execute([$clienteDocumento, $ventaId]);
+    }
+
+    $nuevoEstado = (string)($documento['estado'] ?? 'PENDIENTE');
+    $tipoDocumento = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
+    if ($tipoDocumento === 'PRESUPUESTO') {
+        $nuevoEstado = 'CONVERTIDO_VENTA';
+    }
+
+    $payload = [
+        'venta_id' => $ventaId,
+    ];
+    if (flus_column_exists($pdo, 'documentos_comerciales', 'estado')) {
+        $payload['estado'] = $nuevoEstado;
+    }
+
+    $sets = ['`venta_id` = :venta_id'];
+    $params = [
+        ':venta_id' => $ventaId,
+        ':id' => $documentoId,
+    ];
+    if (isset($payload['estado'])) {
+        $sets[] = '`estado` = :estado';
+        $params[':estado'] = $payload['estado'];
+    }
+    if (flus_column_exists($pdo, 'documentos_comerciales', 'updated_at')) {
+        $sets[] = '`updated_at` = :updated_at';
+        $params[':updated_at'] = date('Y-m-d H:i:s');
+    }
+
+    $stDocumento = $pdo->prepare('UPDATE documentos_comerciales SET ' . implode(', ', $sets) . ' WHERE id = :id');
+    $stDocumento->execute($params);
+}
+
+function flus_facturacion_facturas_require_venta(PDO $pdo): bool
+{
+    if (!flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'venta_id')) {
+        return false;
+    }
+
+    $meta = flus_column_metadata($pdo, 'facturas', 'venta_id');
+    if (!is_array($meta)) {
+        return false;
+    }
+
+    return strtoupper(trim((string)($meta['IS_NULLABLE'] ?? 'YES'))) === 'NO';
+}
+
+function flus_facturacion_documento_acciones(PDO $pdo, int $documentoId): array
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        return [
+            'tiene_cliente' => false,
+            'puede_generar_remito' => false,
+            'motivo_generar_remito' => 'Documento no encontrado.',
+            'puede_generar_venta' => false,
+            'motivo_generar_venta' => 'Documento no encontrado.',
+            'puede_vincular_venta' => false,
+            'motivo_vincular_venta' => 'Documento no encontrado.',
+            'puede_emitir_factura' => false,
+            'motivo_emitir_factura' => 'Documento no encontrado.',
+            'siguiente_accion_label' => 'Sin accion disponible',
+            'impacto_operativo' => 'El documento por si solo no impacta stock ni caja.',
+            'remito' => null,
+            'venta' => null,
+            'factura' => null,
+        ];
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
+    $estado = strtoupper(trim((string)($documento['estado'] ?? 'PENDIENTE')));
+    $tieneCliente = (int)($documento['cliente_id'] ?? 0) > 0;
+    $bloqueado = flus_facturacion_documento_estado_bloqueado($estado);
+    $ventaId = (int)($documento['venta_id'] ?? 0);
+    $ventaRequeridaParaFacturar = flus_facturacion_facturas_require_venta($pdo);
+    $venta = null;
+    if ($ventaId > 0 && flus_table_exists($pdo, 'ventas')) {
+        $stVenta = $pdo->prepare('SELECT * FROM ventas WHERE id = ? LIMIT 1');
+        $stVenta->execute([$ventaId]);
+        $venta = $stVenta->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+    $ventaVinculadaValida = $ventaId > 0 && is_array($venta);
+    $ventaVinculoRoto = $ventaId > 0 && !is_array($venta);
+
+    $factura = flus_facturacion_documento_factura_vinculada($pdo, $documentoId);
+    $remito = $tipo === 'PRESUPUESTO'
+        ? flus_facturacion_documento_buscar_hijo_por_tipo($pdo, $documentoId, 'REMITO')
+        : null;
+
+    $puedeGenerarRemito = $tipo === 'PRESUPUESTO' && $tieneCliente && !$bloqueado && !is_array($remito) && !is_array($factura);
+    $motivoGenerarRemito = $puedeGenerarRemito ? '' : match (true) {
+        $tipo !== 'PRESUPUESTO' => 'Solo los presupuestos pueden generar remito.',
+        !$tieneCliente => 'Agrega un cliente antes de generar remito.',
+        $bloqueado => 'El documento esta anulado o cancelado.',
+        is_array($remito) => 'Este presupuesto ya tiene un remito generado.',
+        is_array($factura) => 'El documento ya tiene una factura asociada.',
+        default => 'No corresponde generar remito para este documento.',
+    };
+
+    $puedeGenerarVenta = $tieneCliente && !$bloqueado && !is_array($factura) && $ventaId <= 0;
+    $motivoGenerarVenta = $puedeGenerarVenta ? '' : match (true) {
+        !$tieneCliente => 'Agrega un cliente antes de generar una venta.',
+        $bloqueado => 'El documento esta anulado o cancelado.',
+        is_array($factura) => 'El documento ya tiene una factura asociada.',
+        $ventaId > 0 => 'El documento ya tiene una venta vinculada.',
+        default => 'No corresponde generar una venta para este documento.',
+    };
+
+    $puedeVincularVenta = $tieneCliente && !$bloqueado && !is_array($factura) && $ventaId <= 0;
+    $motivoVincularVenta = $puedeVincularVenta ? '' : match (true) {
+        !$tieneCliente => 'Agrega un cliente antes de vincular una venta.',
+        $bloqueado => 'El documento esta anulado o cancelado.',
+        is_array($factura) => 'El documento ya tiene una factura asociada.',
+        $ventaId > 0 => 'El documento ya tiene una venta vinculada.',
+        default => 'No corresponde vincular una venta a este documento.',
+    };
+
+    $puedeEmitirFactura = $tieneCliente
+        && !$bloqueado
+        && !is_array($factura)
+        && !$ventaVinculoRoto
+        && (!$ventaRequeridaParaFacturar || $ventaVinculadaValida);
+    $motivoEmitirFactura = $puedeEmitirFactura ? '' : match (true) {
+        !$tieneCliente => 'Vincula un cliente antes de emitir la factura.',
+        $bloqueado => 'El documento esta anulado o cancelado.',
+        is_array($factura) => 'El documento ya tiene una factura asociada.',
+        $ventaVinculoRoto => 'La venta vinculada ya no existe. Vincula una venta valida antes de facturar.',
+        $ventaRequeridaParaFacturar && !$ventaVinculadaValida => 'Genera o vincula una venta antes de emitir la factura desde este documento.',
+        default => 'No corresponde emitir factura para este documento.',
+    };
+
+    $siguienteAccion = 'Sin accion disponible';
+    $impactoOperativo = 'El documento por si solo no impacta stock ni caja.';
+    if (is_array($factura)) {
+        $siguienteAccion = 'Ver factura';
+        $impactoOperativo = 'La operacion fiscal ya fue registrada y este documento queda como trazabilidad comercial.';
+    } elseif (is_array($venta)) {
+        $siguienteAccion = 'Ver venta';
+        $impactoOperativo = 'La venta vinculada es la que impacta stock, caja y operatoria real.';
+    } elseif (!$tieneCliente) {
+        $siguienteAccion = 'Completar cliente';
+        $impactoOperativo = 'Sin cliente, el documento queda solo como borrador documental.';
+    } elseif ($tipo === 'PRESUPUESTO' && is_array($remito)) {
+        $siguienteAccion = 'Emitir factura o abrir remito';
+        $impactoOperativo = 'El remito ya existe; el siguiente cierre operativo suele ser facturar o continuar desde la venta.';
+    } elseif ($tipo === 'PRESUPUESTO') {
+        $siguienteAccion = 'Generar remito o venta';
+        $impactoOperativo = 'El presupuesto ordena la trazabilidad comercial; la operacion real empieza al generar remito, venta o factura.';
+    } elseif ($tipo === 'REMITO') {
+        if ($ventaRequeridaParaFacturar && !$ventaVinculadaValida) {
+            $siguienteAccion = 'Generar o vincular venta';
+            $impactoOperativo = 'En esta instalacion la factura requiere una venta valida vinculada. Primero genera o vincula la venta y despues emite la factura.';
+        } else {
+            $siguienteAccion = 'Emitir factura o vincular venta';
+            $impactoOperativo = 'El remito mantiene trazabilidad documental; la venta o la factura son las que cierran la operacion.';
+        }
+    }
+
+    return [
+        'tiene_cliente' => $tieneCliente,
+        'puede_generar_remito' => $puedeGenerarRemito,
+        'motivo_generar_remito' => $motivoGenerarRemito,
+        'puede_generar_venta' => $puedeGenerarVenta,
+        'motivo_generar_venta' => $motivoGenerarVenta,
+        'puede_vincular_venta' => $puedeVincularVenta,
+        'motivo_vincular_venta' => $motivoVincularVenta,
+        'puede_emitir_factura' => $puedeEmitirFactura,
+        'motivo_emitir_factura' => $motivoEmitirFactura,
+        'siguiente_accion_label' => $siguienteAccion,
+        'impacto_operativo' => $impactoOperativo,
+        'remito' => $remito,
+        'venta' => $venta,
+        'factura' => $factura,
+    ];
+}
+
+function flus_facturacion_documento_tipo_normalizar(string $tipoDocumento): string
+{
+    $tipo = strtoupper(trim($tipoDocumento));
+    $permitidos = ['FACTURA_MANUAL', 'RECIBO', 'PRESUPUESTO', 'REMITO'];
+    return in_array($tipo, $permitidos, true) ? $tipo : 'FACTURA_MANUAL';
+}
+
+function flus_facturacion_documento_estado_bloqueado(string $estado): bool
+{
+    return in_array(strtoupper(trim($estado)), ['ANULADO', 'CANCELADO'], true);
+}
+
+function flus_facturacion_documento_estado_inicial(string $tipoDocumento): string
+{
+    return match (flus_facturacion_documento_tipo_normalizar($tipoDocumento)) {
+        'REMITO', 'RECIBO' => 'EMITIDO',
+        'PRESUPUESTO' => 'PENDIENTE',
+        default => 'PENDIENTE',
+    };
+}
+
+function flus_facturacion_documento_crear(PDO $pdo, string $tipoDocumento, int $clienteId, array $items, array $meta = [], array $opciones = []): int
+{
+    if (!flus_facturacion_documentos_table_ready($pdo)) {
+        throw new RuntimeException(
+            'Faltan las tablas documentales. Aplica primero la migracion migrations/017_facturacion_documentos_manual.sql.'
+        );
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDocumento);
+    $requestUid = trim((string)($opciones['request_uid'] ?? ''));
+    if ($requestUid !== '') {
+        $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+        if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+            return (int)$existing['id'];
+        }
+    }
+
+    $ownsTx = !$pdo->inTransaction();
+    if ($ownsTx) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $timestamp = date('Y-m-d H:i:s');
+        $total = 0.0;
+        foreach ($items as $item) {
+            $total += (float)($item['subtotal'] ?? 0);
+        }
+        $total = round($total, 2);
+
+        $payload = [
+            'request_uid' => $requestUid !== '' ? $requestUid : null,
+            'tipo_documento' => $tipo,
+            'origen' => trim((string)($opciones['origen'] ?? 'MANUAL')) ?: 'MANUAL',
+            'estado' => trim((string)($opciones['estado'] ?? flus_facturacion_documento_estado_inicial($tipo))) ?: flus_facturacion_documento_estado_inicial($tipo),
+            'cliente_id' => $clienteId > 0 ? $clienteId : null,
+            'venta_id' => isset($opciones['venta_id']) && (int)$opciones['venta_id'] > 0 ? (int)$opciones['venta_id'] : null,
+            'nota' => trim((string)($meta['nota'] ?? '')) ?: null,
+            'medio_pago' => trim((string)($meta['medio_pago'] ?? $tipo)) ?: $tipo,
+            'total' => $total,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ];
+
+        if (flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+            $payload['documento_origen_id'] = isset($opciones['documento_origen_id']) && (int)$opciones['documento_origen_id'] > 0
+                ? (int)$opciones['documento_origen_id']
+                : null;
+        }
+
+        $documentoId = flus_facturacion_insert_dynamic($pdo, 'documentos_comerciales', $payload);
+
+        foreach ($items as $item) {
+            flus_facturacion_insert_dynamic($pdo, 'documento_items', [
+                'documento_id' => $documentoId,
+                'codigo' => $item['codigo'] ?? null,
+                'descripcion' => $item['descripcion'],
+                'cantidad' => $item['cantidad'],
+                'precio_unitario' => $item['precio_unitario'],
+                'subtotal' => $item['subtotal'],
+                'iva_porcentaje' => $item['iva_porcentaje'],
+                'created_at' => $timestamp,
+            ]);
+        }
+
+        if ($ownsTx) {
+            $pdo->commit();
+        }
+
+        return $documentoId;
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        if ($requestUid !== '') {
+            $existing = flus_facturacion_documento_buscar_por_request_uid($pdo, $requestUid);
+            if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+                return (int)$existing['id'];
+            }
+        }
+
+        throw $e;
+    }
+}
+
+function flus_facturacion_documento_buscar_hijo_por_tipo(PDO $pdo, int $documentoOrigenId, string $tipoDocumento): ?array
+{
+    if ($documentoOrigenId <= 0 || !flus_facturacion_documentos_table_ready($pdo) || !flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+        return null;
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDocumento);
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE documento_origen_id = ? AND tipo_documento = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$documentoOrigenId, $tipo]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_hijos(PDO $pdo, int $documentoOrigenId): array
+{
+    if ($documentoOrigenId <= 0 || !flus_facturacion_documentos_table_ready($pdo) || !flus_column_exists($pdo, 'documentos_comerciales', 'documento_origen_id')) {
+        return [];
+    }
+
+    $st = $pdo->prepare('SELECT * FROM documentos_comerciales WHERE documento_origen_id = ? ORDER BY id DESC');
+    $st->execute([$documentoOrigenId]);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function flus_facturacion_documento_factura_vinculada(PDO $pdo, int $documentoId): ?array
+{
+    if ($documentoId <= 0 || !flus_table_exists($pdo, 'facturas') || !flus_column_exists($pdo, 'facturas', 'documento_id')) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM facturas WHERE documento_id = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$documentoId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    return is_array($row) ? $row : null;
+}
+
+function flus_facturacion_documento_relaciones(PDO $pdo, int $documentoId): array
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        return [
+            'documento' => null,
+            'origen' => null,
+            'hijos' => [],
+            'factura' => null,
+        ];
+    }
+
+    $origenId = (int)($documento['documento_origen_id'] ?? 0);
+
+    return [
+        'documento' => $documento,
+        'origen' => $origenId > 0 ? flus_facturacion_documento_buscar($pdo, $origenId) : null,
+        'hijos' => flus_facturacion_documento_hijos($pdo, $documentoId),
+        'factura' => flus_facturacion_documento_factura_vinculada($pdo, $documentoId),
+    ];
+}
+
+function flus_facturacion_documento_clonar(PDO $pdo, int $documentoOrigenId, string $tipoDestino, array $meta = [], array $opciones = []): int
+{
+    $origen = flus_facturacion_documento_buscar($pdo, $documentoOrigenId);
+    if (!is_array($origen)) {
+        throw new RuntimeException('El documento origen no existe.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($origen['estado'] ?? ''))) {
+        throw new RuntimeException('El documento origen esta anulado o cancelado.');
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar($tipoDestino);
+    if (!empty($opciones['reusar_existente'])) {
+        $existing = flus_facturacion_documento_buscar_hijo_por_tipo($pdo, $documentoOrigenId, $tipo);
+        if (is_array($existing) && (int)($existing['id'] ?? 0) > 0) {
+            return (int)$existing['id'];
+        }
+    }
+
+    $items = flus_facturacion_documento_items_normalizar_payload(flus_facturacion_documento_items_fetch($pdo, $documentoOrigenId));
+    if ($items === []) {
+        throw new RuntimeException('El documento origen no tiene items para clonar.');
+    }
+
+    $clienteId = (int)($origen['cliente_id'] ?? 0);
+    $notaBase = trim((string)($meta['nota'] ?? ''));
+    if ($notaBase === '') {
+        $notaOrigen = trim((string)($origen['nota'] ?? ''));
+        $notaBase = ($tipo === 'REMITO' ? 'Remito generado desde documento #' : 'Documento generado desde documento #') . $documentoOrigenId;
+        if ($notaOrigen !== '') {
+            $notaBase .= ' - ' . $notaOrigen;
+        }
+    }
+
+    $requestUid = trim((string)($opciones['request_uid'] ?? ''));
+    if ($requestUid === '') {
+        $requestUid = flus_facturacion_uuid_v4();
+    }
+
+    $nuevoId = flus_facturacion_documento_crear($pdo, $tipo, $clienteId, $items, [
+        'nota' => $notaBase,
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? ($origen['medio_pago'] ?? $tipo))) ?: $tipo,
+    ], [
+        'request_uid' => $requestUid,
+        'origen' => trim((string)($opciones['origen'] ?? ($origen['tipo_documento'] ?? 'DOCUMENTO'))) ?: 'DOCUMENTO',
+        'estado' => trim((string)($opciones['estado'] ?? flus_facturacion_documento_estado_inicial($tipo))) ?: flus_facturacion_documento_estado_inicial($tipo),
+        'venta_id' => (int)($opciones['venta_id'] ?? ($origen['venta_id'] ?? 0)) > 0 ? (int)($opciones['venta_id'] ?? ($origen['venta_id'] ?? 0)) : null,
+        'documento_origen_id' => $documentoOrigenId,
+    ]);
+
+    if (strtoupper(trim((string)($origen['tipo_documento'] ?? ''))) === 'PRESUPUESTO' && $tipo === 'REMITO') {
+        flus_facturacion_documento_actualizar_estado($pdo, $documentoOrigenId, 'REMITADO');
+    }
+
+    return $nuevoId;
+}
+
+function flus_facturacion_documento_convertir_a_venta_manual(PDO $pdo, int $documentoId, array $meta = []): int
+{
+    $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
+    if (!is_array($documento)) {
+        throw new RuntimeException('El documento comercial no existe.');
+    }
+
+    $tipo = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
+    if ($tipo !== 'PRESUPUESTO') {
+        throw new RuntimeException('Solo los presupuestos se pueden convertir a venta en esta fase.');
+    }
+    if (flus_facturacion_documento_estado_bloqueado((string)($documento['estado'] ?? ''))) {
+        throw new RuntimeException('El presupuesto esta anulado o cancelado.');
+    }
+
+    $ventaExistente = (int)($documento['venta_id'] ?? 0);
+    if ($ventaExistente > 0) {
+        return $ventaExistente;
+    }
+
+    $items = flus_facturacion_documento_items_normalizar_payload(flus_facturacion_documento_items_fetch($pdo, $documentoId));
+    if ($items === []) {
+        throw new RuntimeException('El presupuesto no tiene items para convertir.');
+    }
+
+    $clienteId = (int)($documento['cliente_id'] ?? 0);
+    $ventaId = flus_facturacion_crear_venta_manual($pdo, $clienteId, $items, [
+        'nota' => trim((string)($meta['nota'] ?? ($documento['nota'] ?? 'Presupuesto convertido a venta'))) ?: 'Presupuesto convertido a venta',
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? 'PRESUPUESTO')) ?: 'PRESUPUESTO',
+    ]);
+
+    flus_facturacion_documento_actualizar_venta($pdo, $documentoId, $ventaId);
+    flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'CONVERTIDO_VENTA');
+
+    return $ventaId;
 }
 
 function flus_facturacion_normalize_manual_items(array $items): array
@@ -605,7 +1136,7 @@ function flus_facturacion_manual_retry_state_es_reutilizable(string $estadoFisca
         $estado = 'AUTORIZADA';
     }
 
-    return in_array($estado, ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'AUTORIZADA'], true);
+    return in_array($estado, ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'AUTORIZADA', 'RECUPERADA'], true);
 }
 
 function flus_facturacion_manual_retry_state_buscar(int $clienteId, array $items): ?array

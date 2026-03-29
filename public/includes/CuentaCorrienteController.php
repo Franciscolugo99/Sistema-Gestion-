@@ -284,6 +284,344 @@ class CuentaCorrienteController
         ];
     }
 
+    private function rollbackOwnedTransaction(bool $ownTransaction): void
+    {
+        if ($ownTransaction && $this->pdo->inTransaction()) {
+            $this->pdo->rollBack();
+        }
+    }
+
+    private function resolvePagoReceiptTarget(int $clienteId, int $targetFacturaId, int $targetDocumentoId): array
+    {
+        if ($targetDocumentoId <= 0 && $targetFacturaId <= 0) {
+            return ['success' => true, 'target' => null];
+        }
+
+        if (!flus_cobranzas_receipts_ready($this->pdo)) {
+            return [
+                'success' => false,
+                'error' => 'Faltan las migraciones de recibos/aplicaciones para vincular el pago a un documento o factura.',
+            ];
+        }
+
+        $targetRecibo = flus_cobranzas_resolve_receipt_target($this->pdo, $clienteId, $targetFacturaId, $targetDocumentoId);
+        if (($targetRecibo['ok'] ?? false) !== true) {
+            return [
+                'success' => false,
+                'error' => (string)($targetRecibo['error'] ?? 'No se pudo validar la aplicación del recibo.'),
+            ];
+        }
+
+        return ['success' => true, 'target' => $targetRecibo];
+    }
+
+    private function lockClienteForPago(int $clienteId): ?array
+    {
+        $stLock = $this->pdo->prepare("
+            SELECT cc_habilitado, cc_saldo, nombre FROM clientes WHERE id = ? FOR UPDATE
+        ");
+        $stLock->execute([$clienteId]);
+        $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($cliente) ? $cliente : null;
+    }
+
+    private function lockClienteForCargo(int $clienteId): ?array
+    {
+        $stLock = $this->pdo->prepare("
+            SELECT cc_habilitado, cc_limite, cc_saldo
+            FROM clientes
+            WHERE id = ?
+            FOR UPDATE
+        ");
+        $stLock->execute([$clienteId]);
+        $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($cliente) ? $cliente : null;
+    }
+
+    private function validateCargoLimit(
+        float $saldoAnterior,
+        float $limite,
+        float $monto,
+        ?int $autorizadoPor
+    ): ?array {
+        $saldoPosterior = $saldoAnterior + $monto;
+        $excede = $saldoPosterior > $limite;
+
+        if (!$excede || $autorizadoPor !== null) {
+            return null;
+        }
+
+        $disponible = max(0, $limite - $saldoAnterior);
+        return [
+            'success' => false,
+            'error' => "Excede el limite de credito. Disponible: $" . number_format($disponible, 2, ',', '.'),
+            'excede_limite' => true,
+            'disponible' => $disponible,
+            'requiere_autorizacion' => true,
+        ];
+    }
+
+    private function insertCargoMovimiento(
+        int $clienteId,
+        float $monto,
+        float $saldoAnterior,
+        float $saldoPosterior,
+        int $usuarioId,
+        ?int $ventaId,
+        ?string $concepto,
+        ?int $autorizadoPor,
+        array $extras
+    ): int {
+        return $this->insertCompat(
+            'cuenta_corriente_movimientos',
+            [
+                'cliente_id' => $clienteId,
+                'tipo' => self::TIPO_CARGO,
+                'estado' => self::ESTADO_ACTIVO,
+                'monto' => $monto,
+                'saldo_anterior' => $saldoAnterior,
+                'saldo_posterior' => $saldoPosterior,
+                'venta_id' => $ventaId,
+                'concepto' => $concepto ?? ($ventaId ? "Venta #$ventaId" : 'Cargo a cuenta'),
+                'created_by' => $usuarioId,
+                'caja_id' => $extras['caja_id'] ?? null,
+                'terminal_id' => $extras['terminal_id'] ?? null,
+                'ip_address' => $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
+            ],
+            [
+                'autorizado_por' => $autorizadoPor,
+            ]
+        );
+    }
+
+    private function actualizarClienteCargo(int $clienteId, float $saldoPosterior): void
+    {
+        $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
+        $stUpd->execute([$saldoPosterior, $clienteId]);
+    }
+
+    private function buildCargoSuccessResponse(
+        int $movimientoId,
+        float $saldoAnterior,
+        float $saldoPosterior,
+        bool $excede
+    ): array {
+        return [
+            'success' => true,
+            'movimiento_id' => $movimientoId,
+            'saldo_anterior' => $saldoAnterior,
+            'saldo_posterior' => $saldoPosterior,
+            'excede_limite' => $excede,
+        ];
+    }
+
+    private function findDuplicatePagoMovimiento(
+        int $clienteId,
+        float $monto,
+        string $medioPago,
+        int $usuarioId,
+        ?string $referencia,
+        ?string $concepto,
+        ?int $cajaId,
+        ?int $terminalId,
+        ?string $requestUid
+    ): ?array {
+        $duplicateMovimiento = null;
+        if ($requestUid !== null) {
+            $duplicateMovimiento = $this->findPagoByRequestUid($requestUid);
+        }
+        if (!is_array($duplicateMovimiento)) {
+            $duplicateMovimiento = $this->findRecentDuplicatePago(
+                $clienteId,
+                $monto,
+                $medioPago,
+                $usuarioId,
+                $referencia,
+                $concepto ?? 'Pago de cuenta',
+                $cajaId,
+                $terminalId
+            );
+        }
+
+        return is_array($duplicateMovimiento) ? $duplicateMovimiento : null;
+    }
+
+    private function insertPagoMovimiento(
+        int $clienteId,
+        float $monto,
+        float $saldoAnterior,
+        float $saldoPosterior,
+        string $medioPago,
+        int $usuarioId,
+        ?string $referencia,
+        ?string $concepto,
+        ?int $cajaId,
+        ?int $terminalId,
+        ?string $requestUid,
+        array $extras
+    ): int {
+        return $this->insertCompat(
+            'cuenta_corriente_movimientos',
+            [
+                'cliente_id' => $clienteId,
+                'tipo' => self::TIPO_PAGO,
+                'estado' => self::ESTADO_ACTIVO,
+                'monto' => $monto,
+                'saldo_anterior' => $saldoAnterior,
+                'saldo_posterior' => $saldoPosterior,
+                'medio_pago' => $medioPago,
+                'referencia' => $referencia,
+                'concepto' => $concepto ?? 'Pago de cuenta',
+                'created_by' => $usuarioId,
+                'caja_id' => $cajaId,
+                'terminal_id' => $terminalId,
+                'ip_address' => $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
+            ],
+            [
+                'request_uid' => $requestUid,
+            ]
+        );
+    }
+
+    private function registrarCajaMovimientoPago(
+        int $clienteId,
+        array $cliente,
+        int $movimientoId,
+        float $monto,
+        string $medioPago,
+        int $usuarioId,
+        ?string $referencia,
+        ?int $cajaId,
+        array $extras
+    ): ?int {
+        if (empty($extras['registrar_caja_mov']) || $cajaId === null || $cajaId <= 0) {
+            return null;
+        }
+
+        $usrName = (string)($extras['usuario_nombre'] ?? ('user#' . $usuarioId));
+        $usrName = mb_substr($usrName, 0, 100);
+        $cliName = (string)($cliente['nombre'] ?? '');
+        $cliName = mb_substr($cliName, 0, 80);
+
+        $conceptoCaja = "Cobro CC";
+        if ($cliName !== '') {
+            $conceptoCaja .= " - {$cliName}";
+        }
+        $conceptoCaja .= " (#{$clienteId})";
+        if ($referencia) {
+            $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
+        }
+
+        $cajaMovId = $this->insertCompat(
+            'caja_movimientos',
+            [
+                'caja_id' => $cajaId,
+                'tipo' => 'ingreso',
+                'concepto' => $conceptoCaja,
+                'monto' => $monto,
+                'usuario_registro' => $usrName,
+            ],
+            [
+                'medio_pago' => $medioPago,
+                'cc_movimiento_id' => $movimientoId,
+            ]
+        );
+
+        if ($cajaMovId > 0 && $this->hasColumn('cuenta_corriente_movimientos', 'caja_movimiento_id')) {
+            $stUpdRef = $this->pdo->prepare("
+                UPDATE cuenta_corriente_movimientos SET caja_movimiento_id = ? WHERE id = ?
+            ");
+            $stUpdRef->execute([$cajaMovId, $movimientoId]);
+        }
+
+        $this->actualizarTotalesCaja($cajaId, $medioPago, $monto);
+
+        return $cajaMovId > 0 ? $cajaMovId : null;
+    }
+
+    private function registrarCobranzaYReciboPago(
+        int $clienteId,
+        int $movimientoId,
+        ?int $cajaId,
+        ?int $cajaMovId,
+        float $monto,
+        string $medioPago,
+        int $usuarioId,
+        ?string $referencia,
+        ?string $concepto,
+        ?array $targetRecibo,
+        int $targetDocumentoId,
+        int $targetFacturaId
+    ): array {
+        $cobranzaId = flus_cobranzas_register_cc_payment($this->pdo, [
+            'cliente_id' => $clienteId,
+            'cc_movimiento_id' => $movimientoId,
+            'caja_id' => $cajaId,
+            'caja_movimiento_id' => $cajaMovId,
+            'medio_pago' => $medioPago,
+            'monto' => $monto,
+            'referencia' => $referencia,
+            'observaciones' => $concepto ?? 'Pago de cuenta',
+            'created_by' => $usuarioId,
+        ]);
+
+        $reciboData = [
+            'cobranza_id' => $cobranzaId,
+            'recibo_documento_id' => 0,
+            'recibo_aplicacion_id' => 0,
+            'tipo_aplicacion' => null,
+        ];
+
+        if ($cobranzaId > 0 && flus_cobranzas_receipts_ready($this->pdo)) {
+            $reciboData = flus_cobranzas_attach_receipt_to_cobranza($this->pdo, $cobranzaId, [
+                'cliente_id' => $clienteId,
+                'cc_movimiento_id' => $movimientoId,
+                'documento_id' => ($targetRecibo['documento_id'] ?? $targetDocumentoId) ?: null,
+                'factura_id' => ($targetRecibo['factura_id'] ?? $targetFacturaId) ?: null,
+                'monto' => $monto,
+            ]);
+        }
+
+        return [
+            'cobranza_id' => (int)($cobranzaId ?? 0),
+            'recibo_data' => is_array($reciboData) ? $reciboData : [],
+        ];
+    }
+
+    private function actualizarClientePago(int $clienteId, float $saldoPosterior): void
+    {
+        $stUpd = $this->pdo->prepare("
+            UPDATE clientes SET cc_saldo = ?, cc_fecha_ultimo_pago = CURDATE() WHERE id = ?
+        ");
+        $stUpd->execute([$saldoPosterior, $clienteId]);
+    }
+
+    private function buildPagoSuccessResponse(
+        int $movimientoId,
+        float $saldoAnterior,
+        float $saldoPosterior,
+        ?int $cajaMovId,
+        array $cobranzaData,
+        float $monto
+    ): array {
+        $reciboData = is_array($cobranzaData['recibo_data'] ?? null) ? $cobranzaData['recibo_data'] : [];
+
+        return [
+            'success' => true,
+            'movimiento_id' => $movimientoId,
+            'saldo_anterior' => $saldoAnterior,
+            'saldo_posterior' => $saldoPosterior,
+            'caja_movimiento_id' => $cajaMovId,
+            'cobranza_id' => (int)($cobranzaData['cobranza_id'] ?? 0),
+            'recibo_documento_id' => (int)($reciboData['recibo_documento_id'] ?? 0),
+            'recibo_aplicacion_id' => (int)($reciboData['recibo_aplicacion_id'] ?? 0),
+            'recibo_tipo_aplicacion' => $reciboData['tipo_aplicacion'] ?? null,
+            'monto_aplicado' => round((float)($reciboData['monto_aplicado'] ?? $monto), 2),
+        ];
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // CONSULTAS
     // ═══════════════════════════════════════════════════════════════════════
@@ -509,22 +847,15 @@ class CuentaCorrienteController
             // ═══════════════════════════════════════════════════════════════
             // BLOQUEAR FILA DEL CLIENTE (FOR UPDATE) - evita race conditions
             // ═══════════════════════════════════════════════════════════════
-            $stLock = $this->pdo->prepare("
-                SELECT cc_habilitado, cc_limite, cc_saldo 
-                FROM clientes 
-                WHERE id = ? 
-                FOR UPDATE
-            ");
-            $stLock->execute([$clienteId]);
-            $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
+            $cliente = $this->lockClienteForCargo($clienteId);
 
             if (!$cliente) {
-                if ($ownTransaction) $this->pdo->rollBack();
+                $this->rollbackOwnedTransaction($ownTransaction);
                 return ['success' => false, 'error' => 'Cliente no encontrado'];
             }
 
             if (!$cliente['cc_habilitado']) {
-                if ($ownTransaction) $this->pdo->rollBack();
+                $this->rollbackOwnedTransaction($ownTransaction);
                 return ['success' => false, 'error' => 'El cliente no tiene cuenta corriente habilitada'];
             }
 
@@ -536,64 +867,44 @@ class CuentaCorrienteController
             // ═══════════════════════════════════════════════════════════════
             // VALIDAR LÍMITE (estricto por defecto)
             // ═══════════════════════════════════════════════════════════════
-            if ($excede && $autorizadoPor === null) {
-                if ($ownTransaction) $this->pdo->rollBack();
-                $disponible = max(0, $limite - $saldoAnterior);
-                return [
-                    'success' => false,
-                    'error' => "Excede el límite de crédito. Disponible: $" . number_format($disponible, 2, ',', '.'),
-                    'excede_limite' => true,
-                    'disponible' => $disponible,
-                    'requiere_autorizacion' => true,
-                ];
+            $limitError = $this->validateCargoLimit($saldoAnterior, $limite, $monto, $autorizadoPor);
+            if (is_array($limitError)) {
+                $this->rollbackOwnedTransaction($ownTransaction);
+                return $limitError;
             }
 
-            // ═══════════════════════════════════════════════════════════════
             // INSERTAR MOVIMIENTO
             // ═══════════════════════════════════════════════════════════════
-            $movimientoId = $this->insertCompat(
-                'cuenta_corriente_movimientos',
-                [
-                    'cliente_id' => $clienteId,
-                    'tipo' => self::TIPO_CARGO,
-                    'estado' => self::ESTADO_ACTIVO,
-                    'monto' => $monto,
-                    'saldo_anterior' => $saldoAnterior,
-                    'saldo_posterior' => $saldoPosterior,
-                    'venta_id' => $ventaId,
-                    'concepto' => $concepto ?? ($ventaId ? "Venta #$ventaId" : 'Cargo a cuenta'),
-                    'created_by' => $usuarioId,
-                    'caja_id' => $extras['caja_id'] ?? null,
-                    'terminal_id' => $extras['terminal_id'] ?? null,
-                    'ip_address' => $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
-                ],
-                [
-                    'autorizado_por' => $autorizadoPor,
-                ]
+            $movimientoId = $this->insertCargoMovimiento(
+                $clienteId,
+                $monto,
+                $saldoAnterior,
+                $saldoPosterior,
+                $usuarioId,
+                $ventaId,
+                $concepto,
+                $autorizadoPor,
+                $extras
             );
 
             // ═══════════════════════════════════════════════════════════════
             // ACTUALIZAR CACHE DEL CLIENTE
             // ═══════════════════════════════════════════════════════════════
-            $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
-            $stUpd->execute([$saldoPosterior, $clienteId]);
+            $this->actualizarClienteCargo($clienteId, $saldoPosterior);
 
             if ($ownTransaction) {
                 $this->pdo->commit();
             }
 
-            return [
-                'success' => true,
-                'movimiento_id' => $movimientoId,
-                'saldo_anterior' => $saldoAnterior,
-                'saldo_posterior' => $saldoPosterior,
-                'excede_limite' => $excede,
-            ];
+            return $this->buildCargoSuccessResponse(
+                $movimientoId,
+                $saldoAnterior,
+                $saldoPosterior,
+                $excede
+            );
 
         } catch (Throwable $e) {
-            if ($ownTransaction && $this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
-            }
+            $this->rollbackOwnedTransaction($ownTransaction);
             error_log("CuentaCorrienteController::registrarCargo ERROR: " . $e->getMessage());
             return ['success' => false, 'error' => 'Error interno al registrar cargo'];
         }
@@ -620,7 +931,6 @@ class CuentaCorrienteController
         ?string $concepto = null,
         array $extras = []
     ): array {
-        // Validar y normalizar monto
         $validacion = $this->validarMonto($monto);
         if (!$validacion['valid']) {
             return ['success' => false, 'error' => $validacion['error']];
@@ -628,215 +938,120 @@ class CuentaCorrienteController
         $monto = $validacion['monto'];
 
         if (!array_key_exists($medioPago, self::MEDIOS_PAGO)) {
-            return ['success' => false, 'error' => 'Medio de pago inválido'];
+            return ['success' => false, 'error' => 'Medio de pago invalido'];
         }
 
         $targetDocumentoId = (int)($extras['documento_id'] ?? 0);
         $targetFacturaId = (int)($extras['factura_id'] ?? 0);
         $requestUid = $this->normalizeRequestUid($extras['request_uid'] ?? null);
-        $targetRecibo = null;
-
-        if ($targetDocumentoId > 0 || $targetFacturaId > 0) {
-            if (!flus_cobranzas_receipts_ready($this->pdo)) {
-                return [
-                    'success' => false,
-                    'error' => 'Faltan las migraciones de recibos/aplicaciones para vincular el pago a un documento o factura.',
-                ];
-            }
-
-            $targetRecibo = flus_cobranzas_resolve_receipt_target($this->pdo, $clienteId, $targetFacturaId, $targetDocumentoId);
-            if (($targetRecibo['ok'] ?? false) !== true) {
-                return [
-                    'success' => false,
-                    'error' => (string)($targetRecibo['error'] ?? 'No se pudo validar la aplicación del recibo.'),
-                ];
-            }
+        $targetResult = $this->resolvePagoReceiptTarget($clienteId, $targetFacturaId, $targetDocumentoId);
+        if (($targetResult['success'] ?? false) !== true) {
+            return ['success' => false, 'error' => (string)($targetResult['error'] ?? 'No se pudo validar la aplicacion del recibo.')];
         }
+        $targetRecibo = is_array($targetResult['target'] ?? null) ? $targetResult['target'] : null;
 
-        // ═══════════════════════════════════════════════════════════════
-        // SOPORTE TRANSACCIÓN EXTERNA (para llamadas desde otros procesos)
-        // ═══════════════════════════════════════════════════════════════
         $ownTransaction = !$this->pdo->inTransaction();
         if ($ownTransaction) {
             $this->pdo->beginTransaction();
         }
 
         try {
-            // Bloquear cliente
-            $stLock = $this->pdo->prepare("
-                SELECT cc_habilitado, cc_saldo, nombre FROM clientes WHERE id = ? FOR UPDATE
-            ");
-            $stLock->execute([$clienteId]);
-            $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
-
+            $cliente = $this->lockClienteForPago($clienteId);
             if (!$cliente) {
-                if ($ownTransaction) $this->pdo->rollBack();
+                $this->rollbackOwnedTransaction($ownTransaction);
                 return ['success' => false, 'error' => 'Cliente no encontrado'];
             }
 
-            $saldoAnterior = (float)$cliente['cc_saldo'];
+            $saldoAnterior = (float)($cliente['cc_saldo'] ?? 0);
             $cajaId = (int)($extras['caja_id'] ?? 0) ?: null;
             $terminalId = (int)($extras['terminal_id'] ?? 0) ?: null;
 
-            $duplicateMovimiento = null;
-            if ($requestUid !== null) {
-                $duplicateMovimiento = $this->findPagoByRequestUid($requestUid);
-            }
-            if (!is_array($duplicateMovimiento)) {
-                $duplicateMovimiento = $this->findRecentDuplicatePago(
-                    $clienteId,
-                    $monto,
-                    $medioPago,
-                    $usuarioId,
-                    $referencia,
-                    $concepto ?? 'Pago de cuenta',
-                    $cajaId,
-                    $terminalId
-                );
-            }
+            $duplicateMovimiento = $this->findDuplicatePagoMovimiento(
+                $clienteId,
+                $monto,
+                $medioPago,
+                $usuarioId,
+                $referencia,
+                $concepto,
+                $cajaId,
+                $terminalId,
+                $requestUid
+            );
 
             if (is_array($duplicateMovimiento) && $this->existingPagoMatchesTarget($duplicateMovimiento, $targetRecibo, $targetDocumentoId, $targetFacturaId)) {
-                if ($ownTransaction) {
-                    $this->pdo->rollBack();
-                }
+                $this->rollbackOwnedTransaction($ownTransaction);
                 return $this->buildExistingPagoResponse($duplicateMovimiento);
             }
 
-            // Validar que no se pague más de lo que debe (opcional: permitir saldo a favor)
-            // Por ahora: NO permitimos sobrepago
             if ($monto > $saldoAnterior + 0.01) {
-                if ($ownTransaction) $this->pdo->rollBack();
+                $this->rollbackOwnedTransaction($ownTransaction);
                 return [
-                    'success' => false, 
-                    'error' => 'El monto excede la deuda actual ($' . number_format($saldoAnterior, 2, ',', '.') . ')'
+                    'success' => false,
+                    'error' => 'El monto excede la deuda actual ($' . number_format($saldoAnterior, 2, ',', '.') . ')',
                 ];
             }
 
             $saldoPosterior = $saldoAnterior - $monto;
 
-            // Insertar movimiento CC
-            $movimientoId = $this->insertCompat(
-                'cuenta_corriente_movimientos',
-                [
-                    'cliente_id' => $clienteId,
-                    'tipo' => self::TIPO_PAGO,
-                    'estado' => self::ESTADO_ACTIVO,
-                    'monto' => $monto,
-                    'saldo_anterior' => $saldoAnterior,
-                    'saldo_posterior' => $saldoPosterior,
-                    'medio_pago' => $medioPago,
-                    'referencia' => $referencia,
-                    'concepto' => $concepto ?? 'Pago de cuenta',
-                    'created_by' => $usuarioId,
-                    'caja_id' => $cajaId,
-                    'terminal_id' => $terminalId,
-                    'ip_address' => $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
-                ],
-                [
-                    'request_uid' => $requestUid,
-                ]
+            $movimientoId = $this->insertPagoMovimiento(
+                $clienteId,
+                $monto,
+                $saldoAnterior,
+                $saldoPosterior,
+                $medioPago,
+                $usuarioId,
+                $referencia,
+                $concepto,
+                $cajaId,
+                $terminalId,
+                $requestUid,
+                $extras
             );
 
-            // ═══════════════════════════════════════════════════════════════
-            // REGISTRAR MOVIMIENTO DE CAJA (cuando se cobra desde Caja)
-            // ═══════════════════════════════════════════════════════════════
-            $cajaMovId = null;
+            $cajaMovId = $this->registrarCajaMovimientoPago(
+                $clienteId,
+                $cliente,
+                $movimientoId,
+                $monto,
+                $medioPago,
+                $usuarioId,
+                $referencia,
+                $cajaId,
+                $extras
+            );
 
-            if (!empty($extras['registrar_caja_mov']) && $cajaId > 0) {
-                $usrName = (string)($extras['usuario_nombre'] ?? ('user#' . $usuarioId));
-                $usrName = mb_substr($usrName, 0, 100);
-                $cliName = (string)($cliente['nombre'] ?? '');
-                $cliName = mb_substr($cliName, 0, 80);
+            $cobranzaData = $this->registrarCobranzaYReciboPago(
+                $clienteId,
+                $movimientoId,
+                $cajaId,
+                $cajaMovId,
+                $monto,
+                $medioPago,
+                $usuarioId,
+                $referencia,
+                $concepto,
+                $targetRecibo,
+                $targetDocumentoId,
+                $targetFacturaId
+            );
 
-                $conceptoCaja = "Cobro CC";
-                if ($cliName !== '') $conceptoCaja .= " - {$cliName}";
-                $conceptoCaja .= " (#{$clienteId})";
-                if ($referencia) $conceptoCaja .= " Ref: " . mb_substr($referencia, 0, 40);
-
-                $cajaMovId = $this->insertCompat(
-                    'caja_movimientos',
-                    [
-                        'caja_id' => $cajaId,
-                        'tipo' => 'ingreso',
-                        'concepto' => $conceptoCaja,
-                        'monto' => $monto,
-                        'usuario_registro' => $usrName,
-                    ],
-                    [
-                        'medio_pago' => $medioPago,
-                        'cc_movimiento_id' => $movimientoId,
-                    ]
-                );
-
-                // Actualizar referencia en el movimiento CC (si la columna existe)
-                if ($cajaMovId > 0 && $this->hasColumn('cuenta_corriente_movimientos', 'caja_movimiento_id')) {
-                    $stUpdRef = $this->pdo->prepare("
-                        UPDATE cuenta_corriente_movimientos SET caja_movimiento_id = ? WHERE id = ?
-                    ");
-                    $stUpdRef->execute([$cajaMovId, $movimientoId]);
-                }
-
-                // Actualizar totales de caja_sesiones según el medio de pago
-                $this->actualizarTotalesCaja($cajaId, $medioPago, $monto);
-            }
-
-            $cobranzaId = flus_cobranzas_register_cc_payment($this->pdo, [
-                'cliente_id' => $clienteId,
-                'cc_movimiento_id' => $movimientoId,
-                'caja_id' => $cajaId,
-                'caja_movimiento_id' => $cajaMovId,
-                'medio_pago' => $medioPago,
-                'monto' => $monto,
-                'referencia' => $referencia,
-                'observaciones' => $concepto ?? 'Pago de cuenta',
-                'created_by' => $usuarioId,
-            ]);
-
-            $reciboData = [
-                'cobranza_id' => $cobranzaId,
-                'recibo_documento_id' => 0,
-                'recibo_aplicacion_id' => 0,
-                'tipo_aplicacion' => null,
-            ];
-
-            if ($cobranzaId > 0 && flus_cobranzas_receipts_ready($this->pdo)) {
-                $reciboData = flus_cobranzas_attach_receipt_to_cobranza($this->pdo, $cobranzaId, [
-                    'cliente_id' => $clienteId,
-                    'cc_movimiento_id' => $movimientoId,
-                    'documento_id' => ($targetRecibo['documento_id'] ?? $targetDocumentoId) ?: null,
-                    'factura_id' => ($targetRecibo['factura_id'] ?? $targetFacturaId) ?: null,
-                    'monto' => $monto,
-                ]);
-            }
-
-            // Actualizar cliente
-            $stUpd = $this->pdo->prepare("
-                UPDATE clientes SET cc_saldo = ?, cc_fecha_ultimo_pago = CURDATE() WHERE id = ?
-            ");
-            $stUpd->execute([$saldoPosterior, $clienteId]);
+            $this->actualizarClientePago($clienteId, $saldoPosterior);
 
             if ($ownTransaction) {
                 $this->pdo->commit();
             }
 
-            return [
-                'success' => true,
-                'movimiento_id' => $movimientoId,
-                'saldo_anterior' => $saldoAnterior,
-                'saldo_posterior' => $saldoPosterior,
-                'caja_movimiento_id' => $cajaMovId,
-                'cobranza_id' => (int)($cobranzaId ?? 0),
-                'recibo_documento_id' => (int)($reciboData['recibo_documento_id'] ?? 0),
-                'recibo_aplicacion_id' => (int)($reciboData['recibo_aplicacion_id'] ?? 0),
-                'recibo_tipo_aplicacion' => $reciboData['tipo_aplicacion'] ?? null,
-                'monto_aplicado' => round((float)($reciboData['monto_aplicado'] ?? $monto), 2),
-            ];
-
+            return $this->buildPagoSuccessResponse(
+                $movimientoId,
+                $saldoAnterior,
+                $saldoPosterior,
+                $cajaMovId,
+                $cobranzaData,
+                $monto
+            );
         } catch (Throwable $e) {
-            if ($ownTransaction && $this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
-            }
-            error_log("CuentaCorrienteController::registrarPago ERROR: " . $e->getMessage());
+            $this->rollbackOwnedTransaction($ownTransaction);
+            error_log('CuentaCorrienteController::registrarPago ERROR: ' . $e->getMessage());
             return ['success' => false, 'error' => 'Error interno al registrar pago'];
         }
     }
@@ -974,6 +1189,136 @@ class CuentaCorrienteController
         }
     }
 
+    private function findMovimientoForReversa(int $movimientoId): ?array
+    {
+        $stMov = $this->pdo->prepare("
+            SELECT * FROM cuenta_corriente_movimientos WHERE id = ? FOR UPDATE
+        ");
+        $stMov->execute([$movimientoId]);
+        $movOriginal = $stMov->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($movOriginal) ? $movOriginal : null;
+    }
+
+    private function validateMovimientoReversible(array $movOriginal, int $movimientoId): ?array
+    {
+        if (($movOriginal['estado'] ?? null) !== self::ESTADO_ACTIVO) {
+            return ['success' => false, 'error' => 'El movimiento ya estÃ¡ anulado'];
+        }
+
+        if (($movOriginal['tipo'] ?? null) === self::TIPO_REVERSA) {
+            return ['success' => false, 'error' => 'No se puede reversar una reversa'];
+        }
+
+        $stCheck = $this->pdo->prepare("
+            SELECT id FROM cuenta_corriente_movimientos
+            WHERE reversa_de_id = ? AND estado = ?
+        ");
+        $stCheck->execute([$movimientoId, self::ESTADO_ACTIVO]);
+        if ($stCheck->fetch()) {
+            return ['success' => false, 'error' => 'Este movimiento ya fue reversado'];
+        }
+
+        return null;
+    }
+
+    private function lockClienteForReversa(int $clienteId): ?array
+    {
+        $stLock = $this->pdo->prepare("SELECT cc_saldo FROM clientes WHERE id = ? FOR UPDATE");
+        $stLock->execute([$clienteId]);
+        $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
+
+        return is_array($cliente) ? $cliente : null;
+    }
+
+    private function calculateSaldoPosteriorForReversa(
+        string $tipoOriginal,
+        float $saldoAnterior,
+        float $montoOriginal
+    ): float {
+        return match ($tipoOriginal) {
+            self::TIPO_CARGO, self::TIPO_AJUSTE_POS => $saldoAnterior - $montoOriginal,
+            self::TIPO_PAGO, self::TIPO_AJUSTE_NEG => $saldoAnterior + $montoOriginal,
+            default => $saldoAnterior,
+        };
+    }
+
+    private function insertReversaMovimiento(
+        int $clienteId,
+        int $movimientoId,
+        float $montoOriginal,
+        float $saldoAnterior,
+        float $saldoPosterior,
+        string $motivo,
+        int $usuarioId,
+        array $extras
+    ): int {
+        $stIns = $this->pdo->prepare("
+            INSERT INTO cuenta_corriente_movimientos
+              (cliente_id, tipo, estado, monto, saldo_anterior, saldo_posterior,
+               reversa_de_id, concepto, created_by, caja_id, terminal_id, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $stIns->execute([
+            $clienteId,
+            self::TIPO_REVERSA,
+            self::ESTADO_ACTIVO,
+            $montoOriginal,
+            $saldoAnterior,
+            $saldoPosterior,
+            $movimientoId,
+            "REVERSA: $motivo",
+            $usuarioId,
+            $extras['caja_id'] ?? null,
+            $extras['terminal_id'] ?? null,
+            $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
+        ]);
+
+        return (int)$this->pdo->lastInsertId();
+    }
+
+    private function markMovimientoAsAnulado(int $movimientoId): void
+    {
+        $stMark = $this->pdo->prepare("
+            UPDATE cuenta_corriente_movimientos SET estado = ?, updated_at = NOW() WHERE id = ?
+        ");
+        $stMark->execute([self::ESTADO_ANULADO, $movimientoId]);
+    }
+
+    private function actualizarClienteReversa(int $clienteId, float $saldoPosterior): void
+    {
+        $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
+        $stUpd->execute([$saldoPosterior, $clienteId]);
+    }
+
+    private function recalcularUltimoPagoTrasReversa(int $clienteId): void
+    {
+        $stFecha = $this->pdo->prepare("
+            SELECT MAX(DATE(created_at))
+            FROM cuenta_corriente_movimientos
+            WHERE cliente_id = ? AND tipo = ? AND estado = ?
+        ");
+        $stFecha->execute([$clienteId, self::TIPO_PAGO, self::ESTADO_ACTIVO]);
+        $nuevaFecha = $stFecha->fetchColumn() ?: null;
+
+        $stUpdFecha = $this->pdo->prepare("UPDATE clientes SET cc_fecha_ultimo_pago = ? WHERE id = ?");
+        $stUpdFecha->execute([$nuevaFecha, $clienteId]);
+    }
+
+    private function buildReversaSuccessResponse(
+        int $reversaId,
+        float $saldoAnterior,
+        float $saldoPosterior
+    ): array {
+        return [
+            'success' => true,
+            'reversa_id' => $reversaId,
+            'saldo_anterior' => $saldoAnterior,
+            'saldo_posterior' => $saldoPosterior,
+        ];
+    }
+
     /**
      * REVERSAR un movimiento (anular sin editar historial)
      * Crea un movimiento de tipo REVERSA que enlaza al original
@@ -991,114 +1336,45 @@ class CuentaCorrienteController
         $this->pdo->beginTransaction();
 
         try {
-            // Obtener movimiento original
-            $stMov = $this->pdo->prepare("
-                SELECT * FROM cuenta_corriente_movimientos WHERE id = ? FOR UPDATE
-            ");
-            $stMov->execute([$movimientoId]);
-            $movOriginal = $stMov->fetch(PDO::FETCH_ASSOC);
-
-            if (!$movOriginal) {
+            $movOriginal = $this->findMovimientoForReversa($movimientoId);
+            if (!is_array($movOriginal)) {
                 $this->pdo->rollBack();
                 return ['success' => false, 'error' => 'Movimiento no encontrado'];
             }
 
-            if ($movOriginal['estado'] !== self::ESTADO_ACTIVO) {
+            $validation = $this->validateMovimientoReversible($movOriginal, $movimientoId);
+            if (is_array($validation)) {
                 $this->pdo->rollBack();
-                return ['success' => false, 'error' => 'El movimiento ya está anulado'];
-            }
-
-            if ($movOriginal['tipo'] === self::TIPO_REVERSA) {
-                $this->pdo->rollBack();
-                return ['success' => false, 'error' => 'No se puede reversar una reversa'];
-            }
-
-            // Verificar si ya tiene reversa
-            $stCheck = $this->pdo->prepare("
-                SELECT id FROM cuenta_corriente_movimientos 
-                WHERE reversa_de_id = ? AND estado = ?
-            ");
-            $stCheck->execute([$movimientoId, self::ESTADO_ACTIVO]);
-            if ($stCheck->fetch()) {
-                $this->pdo->rollBack();
-                return ['success' => false, 'error' => 'Este movimiento ya fue reversado'];
+                return $validation;
             }
 
             $clienteId = (int)$movOriginal['cliente_id'];
             $montoOriginal = (float)$movOriginal['monto'];
-            $tipoOriginal = $movOriginal['tipo'];
+            $tipoOriginal = (string)$movOriginal['tipo'];
+            $cliente = $this->lockClienteForReversa($clienteId);
+            $saldoAnterior = (float)($cliente['cc_saldo'] ?? 0);
+            $saldoPosterior = $this->calculateSaldoPosteriorForReversa($tipoOriginal, $saldoAnterior, $montoOriginal);
 
-            // Bloquear cliente
-            $stLock = $this->pdo->prepare("SELECT cc_saldo FROM clientes WHERE id = ? FOR UPDATE");
-            $stLock->execute([$clienteId]);
-            $cliente = $stLock->fetch(PDO::FETCH_ASSOC);
-
-            $saldoAnterior = (float)$cliente['cc_saldo'];
-
-            // Calcular saldo (reversa hace lo contrario)
-            $saldoPosterior = match($tipoOriginal) {
-                self::TIPO_CARGO, self::TIPO_AJUSTE_POS => $saldoAnterior - $montoOriginal,
-                self::TIPO_PAGO, self::TIPO_AJUSTE_NEG => $saldoAnterior + $montoOriginal,
-                default => $saldoAnterior
-            };
-
-            // Insertar reversa
-            $stIns = $this->pdo->prepare("
-                INSERT INTO cuenta_corriente_movimientos 
-                  (cliente_id, tipo, estado, monto, saldo_anterior, saldo_posterior,
-                   reversa_de_id, concepto, created_by, caja_id, terminal_id, ip_address)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-
-            $stIns->execute([
+            $reversaId = $this->insertReversaMovimiento(
                 $clienteId,
-                self::TIPO_REVERSA,
-                self::ESTADO_ACTIVO,
+                $movimientoId,
                 $montoOriginal,
                 $saldoAnterior,
                 $saldoPosterior,
-                $movimientoId,
-                "REVERSA: $motivo",
+                $motivo,
                 $usuarioId,
-                $extras['caja_id'] ?? null,
-                $extras['terminal_id'] ?? null,
-                $extras['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? null),
-            ]);
+                $extras
+            );
+            $this->markMovimientoAsAnulado($movimientoId);
+            $this->actualizarClienteReversa($clienteId, $saldoPosterior);
 
-            $reversaId = (int)$this->pdo->lastInsertId();
-
-            // Marcar original como anulado
-            $stMark = $this->pdo->prepare("
-                UPDATE cuenta_corriente_movimientos SET estado = ?, updated_at = NOW() WHERE id = ?
-            ");
-            $stMark->execute([self::ESTADO_ANULADO, $movimientoId]);
-
-            // Actualizar cliente
-            $stUpd = $this->pdo->prepare("UPDATE clientes SET cc_saldo = ? WHERE id = ?");
-            $stUpd->execute([$saldoPosterior, $clienteId]);
-
-            // Si se reversó un PAGO, recalcular cc_fecha_ultimo_pago
             if ($tipoOriginal === self::TIPO_PAGO) {
-                $stFecha = $this->pdo->prepare("
-                    SELECT MAX(DATE(created_at)) 
-                    FROM cuenta_corriente_movimientos 
-                    WHERE cliente_id = ? AND tipo = ? AND estado = ?
-                ");
-                $stFecha->execute([$clienteId, self::TIPO_PAGO, self::ESTADO_ACTIVO]);
-                $nuevaFecha = $stFecha->fetchColumn() ?: null;
-
-                $stUpdFecha = $this->pdo->prepare("UPDATE clientes SET cc_fecha_ultimo_pago = ? WHERE id = ?");
-                $stUpdFecha->execute([$nuevaFecha, $clienteId]);
+                $this->recalcularUltimoPagoTrasReversa($clienteId);
             }
 
             $this->pdo->commit();
 
-            return [
-                'success' => true,
-                'reversa_id' => $reversaId,
-                'saldo_anterior' => $saldoAnterior,
-                'saldo_posterior' => $saldoPosterior,
-            ];
+            return $this->buildReversaSuccessResponse($reversaId, $saldoAnterior, $saldoPosterior);
 
         } catch (Throwable $e) {
             $this->pdo->rollBack();
@@ -1232,3 +1508,4 @@ class CuentaCorrienteController
         }
     }
 }
+
