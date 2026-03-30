@@ -26,6 +26,7 @@ if (!function_exists('flus_session_start')) {
     if ($savePath !== '') {
       @ini_set('session.save_path', $savePath);
     }
+    @ini_set('session.use_strict_mode', '1');
 
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
       || (($_SERVER['SERVER_PORT'] ?? '') == 443);

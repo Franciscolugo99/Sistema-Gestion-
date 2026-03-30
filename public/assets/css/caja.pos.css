@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
    POS UTILITIES
    - Componentes compartidos y mejoras UX que siguen vigentes
 ============================================================================ */
@@ -52,9 +52,9 @@
   color: var(--accent-green, #22c55e);
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* 
    MODAL COBRAR CUENTA CORRIENTE (fuera de .caja-panel)
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+============================================================================ */
 #modalCcPago {
   position: fixed;
   inset: 0;
@@ -259,11 +259,11 @@
 }
 
 /* ============================================================================
-   MEJORAS UX CAJA v3.6 â€” solo adiciones, no modifica estilos previos
-   Autor: mejoras quirÃºrgicas sin tocar backend
+   MEJORAS UX CAJA v3.6 - solo adiciones, no modifica estilos previos
+   Autor: mejoras quirurgicas sin tocar backend
 ============================================================================ */
 
-/* â”€â”€ Chips de denominaciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Chips de denominacin */
 .denom-chips {
   display: flex;
   flex-wrap: wrap;
@@ -305,7 +305,7 @@ body[data-theme="light"] .denom-chip:hover {
   background: rgba(217, 119, 6, 0.18);
 }
 
-/* â”€â”€ Overlay de vuelto grande â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Overlay de vuelto grande */
 .vuelto-overlay-flus {
   position: fixed;
   inset: 0;
@@ -389,7 +389,7 @@ body[data-theme="light"] .denom-chip:hover {
   margin-left: 4px;
 }
 
-/* â”€â”€ Snack "Deshacer quitar Ã­tem" â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Snack "Deshacer quitar tem" */
 .undo-snack-container {
   position: fixed;
   bottom: 28px;
@@ -448,7 +448,7 @@ body[data-theme="light"] .denom-chip:hover {
   background: rgba(34, 211, 238, 0.2);
 }
 
-/* â”€â”€ Hint visual "doble click = editar" en col-cant â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Hint visual "doble click = editar" en col-cant */
 #tabla .col-cant {
   cursor: default;
 }
@@ -464,7 +464,7 @@ body[data-theme="light"] .denom-chip:hover {
   background: rgba(34, 211, 238, 0.1);
 }
 
-/* â”€â”€ Hilo de progreso "Procesando cobro" en btn-cobrar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Hilo de progreso "Procesando cobro" en btn-cobrar */
 .btn-cobrar.is-loading {
   position: relative;
   overflow: hidden;

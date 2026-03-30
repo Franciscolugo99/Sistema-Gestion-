@@ -931,6 +931,14 @@ body.nav-open {
     padding: 12px;
   }
 
+  .nav-left {
+    padding-bottom: 10px;
+  }
+
+  .nav-left > * + * {
+    margin-top: 8px;
+  }
+
   .nav-pill {
     width: 100%;
     justify-content: flex-start;
@@ -941,7 +949,12 @@ body.nav-open {
 
   .nav-right {
     border-top: 1px solid var(--nav-border);
-    padding-top: 16px;
+    margin-top: 2px;
+    padding-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
   }
 
   .nav-user {
@@ -956,10 +969,14 @@ body.nav-open {
   }
 
   .theme-switch {
-    width: 100%;
+    width: auto;
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: 8px 0;
+    padding: 10px 12px;
+    border: 1px solid var(--nav-icon-border);
+    border-radius: 10px;
+    background: var(--nav-icon-bg);
   }
 
   .nav-dropdown {
@@ -968,24 +985,65 @@ body.nav-open {
 
   .nav-group {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
   .nav-icon {
     width: 100%;
-    justify-content: flex-start;
-    padding: 12px 16px;
+    min-width: 44px;
+    justify-content: center;
+    padding: 10px 12px;
     border-radius: 10px;
+  }
+
+  .nav-right > .nav-icon,
+  .nav-right > .theme-switch,
+  .nav-right > .nav-dropdown {
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 0;
+  }
+
+  .theme-switch .theme-toggle {
+    width: 52px;
+    justify-content: center;
+  }
+
+  .nav-right > .nav-user-block {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-top: 4px;
   }
 
   .nav-dropdown-menu {
     position: static;
-    margin-top: 8px;
+    display: none;
+    margin-top: 0;
     box-shadow: none;
     border: 1px solid var(--panel-border);
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    min-width: 0;
   }
 
   .nav-group-menu {
     min-width: 0;
+    border-radius: 10px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--panel-bg) 92%, transparent);
+  }
+
+  .nav-group-menu a,
+  .nav-dropdown-menu a {
+    border-radius: 8px;
+  }
+
+  .nav-group.open > .nav-group-menu,
+  .nav-dropdown.open > .nav-dropdown-menu {
+    display: block;
+    margin-top: 8px;
   }
 
   .nav-dropdown-menu.open {

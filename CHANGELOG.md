@@ -30,6 +30,13 @@
 
 ### Changed
 
+- **Caja / operacion de mostrador:**
+  - La pantalla de Caja se adapta mejor a resoluciones bajas y monitores chicos, con rail de cobro mas compacto, ticket menos dominante y acciones principales siempre visibles.
+  - El panel de medios de pago gana ancho util, reduce ruido visual y compacta mejor los casos de split payment con Cuenta Corriente.
+  - En split payment, los medios no efectivos ahora se ajustan al faltante y solo `EFECTIVO` permite cobrar por encima del total para calcular vuelto.
+- **Navegacion / mobile:**
+  - El nav en pantallas chicas pasa a comportarse como lista continua tipo acordeon, reduciendo huecos muertos y mejorando la lectura de modulos y submodulos.
+
 - **Caja / POS fullscreen operativo:**
   - La pantalla de Caja prioriza el flujo producto -> cantidad -> cobro, con ayudas contextuales, estado vacio del ticket, feedback de vuelto mas claro y atajos `Tab`, `F3`, `F5`, `F6` y `F7` para bajar friccion en mostrador.
   - Los estilos de Caja quedan separados en `caja.base.css`, `caja.pos.css` y `caja.neo.css`, y la pagina carga cada capa con version propia para evitar cache viejo despues de deploys.
@@ -88,6 +95,12 @@
   - La traza fiscal visible se apoya en `estado_fiscal`, `fiscal_*` y `factura_eventos_arca`, mientras que la traza comercial/email sigue separada.
 
 ### Fixed
+
+- **Caja / UIX de cobro:**
+  - Se retira el descuento del rail de cobro y de las acciones del ticket para simplificar la operatoria de caja.
+  - La accion de quitar producto pasa a una `X` roja mas clara y directa dentro del ticket.
+  - El segundo medio de pago deja de replicar la misma UI del primero y usa un control mas compacto, evitando roturas visuales en resoluciones chicas.
+  - Se corrigen casos donde `Pago 2 + Cuenta Corriente` empujaba el layout, escondia bloques del rail o forzaba scroll incomodo.
 
 - **Caja / Cuenta Corriente:**
   - El cobro de cuenta corriente desde Caja ahora muestra una confirmación visible y contextual al registrar el pago, evitando la sensación de operación “muda” cuando el modal se cierra enseguida.

@@ -130,20 +130,44 @@
       const uso = ultimoUso ? formatDate(ultimoUso) : "";
       const metaMid = uso ? `Uso: ${uso}` : "";
 
-      card.innerHTML = `
-        <div class="ts-row">
-          <div class="ts-name">${nombre}</div>
-          <span class="ts-badge">
-            <span class="${activo ? "ts-status-dot" : "ts-status-dot ts-dot-off"}"></span>
-            ${isCurrent ? "Actual" : (activo ? "Activa" : "Inactiva")}
-          </span>
-        </div>
-        <div class="ts-meta">
-          <span>${metaLeft}</span>
-          <span title="${ultimoUso || ""}">${metaMid}</span>
-          <span style="opacity:.85;">${metaRight}</span>
-        </div>
-      `;
+      const row = document.createElement("div");
+      row.className = "ts-row";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "ts-name";
+      nameEl.textContent = nombre;
+
+      const badge = document.createElement("span");
+      badge.className = "ts-badge";
+
+      const dot = document.createElement("span");
+      dot.className = activo ? "ts-status-dot" : "ts-status-dot ts-dot-off";
+      badge.appendChild(dot);
+      badge.appendChild(document.createTextNode(` ${isCurrent ? "Actual" : (activo ? "Activa" : "Inactiva")}`));
+
+      row.appendChild(nameEl);
+      row.appendChild(badge);
+
+      const meta = document.createElement("div");
+      meta.className = "ts-meta";
+
+      const left = document.createElement("span");
+      left.textContent = metaLeft;
+
+      const mid = document.createElement("span");
+      mid.title = ultimoUso || "";
+      mid.textContent = metaMid;
+
+      const right = document.createElement("span");
+      right.style.opacity = ".85";
+      right.textContent = metaRight;
+
+      meta.appendChild(left);
+      meta.appendChild(mid);
+      meta.appendChild(right);
+
+      card.appendChild(row);
+      card.appendChild(meta);
 
       const handleSelect = async () => {
         if (!activo) return toast("Esta terminal está inactiva.", "warn");

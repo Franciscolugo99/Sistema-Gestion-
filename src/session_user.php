@@ -22,6 +22,9 @@ if (!function_exists('flus_session_ensure_started')) {
 if (!function_exists('flus_session_normalize_user')) {
   function flus_session_normalize_user(): void {
     flus_session_ensure_started();
+    if (!empty($_SESSION['__session_normalized'])) {
+      return;
+    }
 
     // Permisos: compat
     if (empty($_SESSION['permissions']) && isset($_SESSION['permisos']) && is_array($_SESSION['permisos'])) {
@@ -61,6 +64,7 @@ if (!function_exists('flus_session_normalize_user')) {
         'role_slug'   => (string)($_SESSION['user_role'] ?? ''),
         'permissions' => $perms,
       ];
+      $_SESSION['__session_normalized'] = true;
       return;
     }
 
@@ -73,6 +77,8 @@ if (!function_exists('flus_session_normalize_user')) {
         $_SESSION['user']['permissions'] = $_SESSION['permissions'];
       }
     }
+
+    $_SESSION['__session_normalized'] = true;
   }
 }
 

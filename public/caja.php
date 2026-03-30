@@ -86,10 +86,10 @@ $terminalPrintDefaults = [
   'ticket_mode' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_print_mode', 'inherit') : 'inherit',
   'ticket_paper' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_paper', 'inherit') : 'inherit',
 ];
-$csrf = csrf_token(); // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ usa tu helper central
+$csrf = csrf_token(); // usa el helper central
 
-// ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â´ IMPORTANTE: el modal/API suele leer CSRF desde <meta>
-// + inyectamos permisos en window.FLUS_PERMS
+// Importante: el modal/API suele leer CSRF desde <meta>
+// e inyectamos permisos en window.FLUS_PERMS
   $extraHead =
     '<meta name="csrf-token" content="' . h($csrf) . '">' .
     '<script>' .
@@ -131,7 +131,7 @@ $flashErr = trim((string)($_GET['err'] ?? ''));
 if ($cajaSesion) {
   $cajaIdTmp = (int)$cajaSesion['id'];
 
-  // ÃƒÆ’Ã‚Âºltimos movimientos
+  // Ultimos movimientos
   $stM = $pdo->prepare("
     SELECT id, tipo, concepto, monto, fecha, usuario_registro
     FROM caja_movimientos
@@ -192,7 +192,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
             <div class="caja-open-terminal-card">
               <div class="caja-open-terminal-main">
                 <strong class="caja-open-terminal-name"><?= h($terminalName) ?></strong>
-                <span class="caja-open-terminal-hint">Apertura #<?= (int)$cajaSesion['id'] ?> · <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?></span>
+                <span class="caja-open-terminal-hint">Apertura #<?= (int)$cajaSesion['id'] ?> - <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?></span>
               </div>
             </div>
           </div>
@@ -350,7 +350,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
   </div>
 </div>
 
-    <div class="caja-kpis" aria-label="Resumen rápido del turno">
+    <div class="caja-kpis" aria-label="Resumen rapido del turno">
       <div class="caja-kpi">
         <span class="caja-kpi__label">Ventas</span>
         <strong class="caja-kpi__value" id="kpiVentasSesion" data-value="<?= (int)$ventasActivasCount ?>"><?= number_format($ventasActivasCount, 0, ',', '.') ?></strong>
@@ -379,9 +379,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
 
 
-    <!-- =========================
-         MOVIMIENTOS COLAPSABLES (nativo, sin look ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œpegoteÃƒÂ¢Ã¢â€šÂ¬Ã‚Â)
-    ========================== -->
+    <!-- MOVIMIENTOS COLAPSABLES -->
     <details class="caja-mov" id="cajaMov">
       <summary class="caja-mov__sum">
         <span class="caja-mov__toggle" aria-hidden="true"></span>
@@ -443,9 +441,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     <div class="caja-neo-shell">
       <section class="caja-neo-main" aria-label="Venta actual">
 
-    <!-- =========================
-         SCAN / INPUTS (mismo layout FLUS, pero mÃƒÆ’Ã‚Â¡s ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œPOSÃƒÂ¢Ã¢â€šÂ¬Ã‚Â)
-    ========================== -->
+    <!-- SCAN / INPUTS -->
     <div class="caja-scan-card">
       <div class="row caja-row-inputs">
         <div class="field field-product">
@@ -527,6 +523,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
           <tbody></tbody>
         </table>
       </div>
+
     </div>
 
     <div class="caja-neo-footer">
@@ -569,26 +566,10 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <span class="total-value" id="lblTotalBruto">$0,00</span>
       </div>
 
-      <div class="total-row">
-        <span class="total-label">
-          Descuento total
-          <button type="button" id="btnDescGlobal" class="btn-link-total">
-            Cambiar
-          </button>
-        </span>
-        <span class="total-value" id="lblDescGlobal">$0,00</span>
-      </div>
-
       <div class="total-row total-row-strong">
         <span class="total-label">Total a cobrar</span>
         <span class="total-value" id="lblTotal">$0,00</span>
       </div>
-
-      <button type="button" id="btnCobrarExacto" class="btn-cobrar-exacto btn-cobrar-exacto--inline">
-        <strong class="btn-cobrar-exacto__title">Cobrar exacto - efectivo</strong>
-        <span class="btn-cobrar-exacto__hint">Autocompleta el monto y cobra en un paso</span>
-        <span class="btn-cobrar-exacto__amount" id="btnCobrarExactoAmount">$0,00</span>
-      </button>
 
       <div class="total-feedback" aria-live="polite">
         <span class="total-feedback__label" id="lblCobroFeedbackLabel">Vuelto</span>
@@ -642,8 +623,8 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <div class="total-label-inline">Monto</div>
         <input type="number" id="montoPagado" data-payment-slot="1" min="0" step="0.01" placeholder="0,00">
 
-        <!-- ✅ UX: chips de billete rápido (solo efectivo) -->
-        <div id="denomChips" class="denom-chips" aria-label="Billetes rápidos" style="display:none">
+        <!-- UX: chips de billete rapido (solo efectivo) -->
+        <div id="denomChips" class="denom-chips" aria-label="Billetes rapidos" style="display:none">
           <button type="button" class="denom-chip" data-monto="500">$500</button>
           <button type="button" class="denom-chip" data-monto="1000">$1.000</button>
           <button type="button" class="denom-chip" data-monto="2000">$2.000</button>
@@ -656,39 +637,22 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
       <div class="field-small payment-card is-hidden" id="pago2Wrap" data-payment-wrap="2">
         <div class="total-label-inline">Pago 2</div>
-        <div class="payment-methods" data-payment-slot="2" role="group" aria-label="Medio de pago secundario">
-          <button type="button" class="payment-method" data-slot="2" data-value="EFECTIVO">
-            <span class="payment-method__label">Efectivo</span>
-          </button>
-          <button type="button" class="payment-method" data-slot="2" data-value="MP">
-            <span class="payment-method__label">Mercado Pago</span>
-          </button>
-          <button type="button" class="payment-method" data-slot="2" data-value="DEBITO">
-            <span class="payment-method__label">Debito</span>
-          </button>
-          <button type="button" class="payment-method" data-slot="2" data-value="CREDITO">
-            <span class="payment-method__label">Credito</span>
-          </button>
-          <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
-            <button type="button" class="payment-method" data-slot="2" data-value="CC">
-              <span class="payment-method__label">Cta. Corriente</span>
-            </button>
-          <?php endif; ?>
+        <div class="pago2-select-row">
+          <select id="medioPago2" class="payment-select-native payment-select-compact" data-payment-slot="2">
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="MP">Mercado Pago</option>
+            <option value="DEBITO">Debito</option>
+            <option value="CREDITO">Credito</option>
+            <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
+              <option value="CC">Cuenta Corriente</option>
+            <?php endif; ?>
+          </select>
         </div>
-        <select id="medioPago2" class="payment-select-native" data-payment-slot="2" tabindex="-1" aria-hidden="true">
-          <option value="EFECTIVO">Efectivo</option>
-          <option value="MP">Mercado Pago</option>
-          <option value="DEBITO">Debito</option>
-          <option value="CREDITO">Credito</option>
-          <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
-            <option value="CC">Cuenta Corriente</option>
-          <?php endif; ?>
-        </select>
 
         <div class="total-label-inline">Monto</div>
         <div class="pago2-monto-row">
           <input type="number" id="montoPagado2" data-payment-slot="2" min="0" step="0.01" placeholder="0,00">
-          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago">Quitar</button>
+          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago" aria-label="Quitar 2do pago">×</button>
         </div>
       </div>
 
@@ -702,20 +666,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
       <div id="ccClienteInfo" class="cc-info"></div>
     </div>
 
-      <div class="payment-mini-summary" aria-live="polite">
-        <div class="payment-mini-summary__row">
-          <span class="payment-mini-summary__label">Total pagado</span>
-          <strong class="payment-mini-summary__value" id="lblTotalPagado">$0,00</strong>
-        </div>
-        <div id="restaWrap" class="payment-mini-summary__row is-hidden">
-          <span class="payment-mini-summary__label">Resta pagar</span>
-          <strong class="payment-mini-summary__value payment-mini-summary__value--danger" id="lblRestaPagar">$0,00</strong>
-        </div>
-        <div class="payment-mini-summary__row">
-          <span class="payment-mini-summary__label" id="paymentMiniFeedbackLabel">Vuelto</span>
-          <strong class="payment-mini-summary__value payment-mini-summary__value--accent" id="lblVuelto">$0,00</strong>
-        </div>
-      </div>
 </div>
       </aside>
     </div>
@@ -782,7 +732,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
 </div><!-- /.panel -->
 
-<!-- ✅ UX: Overlay vuelto grande (solo frontend, sin lógica de negocio) -->
+<!-- Overlay de vuelto grande -->
 <div id="vueltoOverlayFlus" class="vuelto-overlay-flus" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="vueltoOverlayLabel">
   <div class="vuelto-overlay-flus__inner">
     <div class="vuelto-overlay-flus__eyebrow">Vuelto al cliente</div>
@@ -794,7 +744,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
   </div>
 </div>
 
-<!-- ✅ UX: Contenedor para snack "Deshacer" al quitar ítem -->
+<!-- Contenedor para snack "Deshacer" -->
 <div id="undoSnackContainer" class="undo-snack-container" aria-live="polite"></div>
 
 <?php
@@ -827,8 +777,7 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
   </div>
 </div>
 
-<!-- ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
-     MODAL: COBRAR CUENTA CORRIENTE -->
+<!-- MODAL: COBRAR CUENTA CORRIENTE -->
 <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
 <div id="modalCcPago" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="modalCcPagoTitle">
   <div class="modal-content modal-content--md">

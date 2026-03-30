@@ -114,6 +114,13 @@ function flus_pdo_fresh(): PDO {
  * - Si getPDO() devuelve PDO viejo y MySQL se reinició → intenta fresh
  */
 function flus_get_pdo_diag(): ?PDO {
+  static $checked = false;
+  static $cached = null;
+
+  if ($checked && $cached instanceof PDO) {
+    return $cached;
+  }
+
   try {
     $pdo = getPDO();
   } catch (Throwable $e) {
@@ -125,6 +132,8 @@ function flus_get_pdo_diag(): ?PDO {
   // Ping suave: si está muerto, intentamos fresh
   try {
     $pdo->query("SELECT 1")->fetchColumn();
+    $checked = true;
+    $cached = $pdo;
     return $pdo;
   } catch (PDOException $e) {
     if (is_server_gone($e) || is_cant_connect($e)) {
@@ -133,6 +142,8 @@ function flus_get_pdo_diag(): ?PDO {
         $fresh = flus_pdo_fresh();
         $fresh->query("SELECT 1")->fetchColumn();
         auth_issue_set('OK', 'RECONNECTED', 'Reconectado a MySQL', '');
+        $checked = true;
+        $cached = $fresh;
         return $fresh;
       } catch (Throwable $e2) {
         auth_issue_set('DB_DOWN', 'RECONNECT_FAIL', 'MySQL no responde (reconexión fallida)', $e2->getMessage());

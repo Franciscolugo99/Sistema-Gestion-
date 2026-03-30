@@ -1,7 +1,7 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    CAJA NEO
-   - RediseÃ±o inspirado en mockup operativo
-   - Misma lÃ³gica, otra jerarquÃ­a visual
+   - Rediseno inspirado en mockup operativo
+   - Misma logica, otra jerarquia visual
 ============================================================================ */
 
 .caja-panel--neo {
@@ -989,7 +989,7 @@ body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
 }
 
 body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
-  grid-template-columns: minmax(0, 1fr) 390px;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 400px);
   gap: 10px;
   min-height: 0;
   height: 100%;
@@ -1911,6 +1911,1086 @@ body.caja-fullscreen-page .caja-panel--neo .btn-cobrar {
 
 @media (max-width: 1380px) {
   body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
-    grid-template-columns: minmax(0, 1fr) 370px;
+    grid-template-columns: minmax(0, 1fr) clamp(290px, 30vw, 350px);
+  }
+}
+
+@media (max-width: 1220px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row,
+  body.caja-fullscreen-page .caja-panel--neo .total-panel,
+  body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    border-radius: 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 48px;
+    padding: 7px 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.76rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 30px;
+    padding-inline: 4px;
+    font-size: 0.64rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 0.7rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 48px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+    padding: 10px 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+    grid-template-columns: minmax(0, 1fr) 86px 118px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+    grid-template-rows: auto minmax(360px, 1fr);
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+    padding: 6px 8px;
+    font-size: 0.76rem;
+  }
+}
+
+@media (max-width: 1080px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    height: auto;
+    overflow: visible;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    max-height: none;
+    padding-right: 0;
+  }
+}
+
+/* ==========================================================================
+   FLUS NEO POLISH
+   - Ajustes visuales seguros sobre la estructura actual
+============================================================================ */
+
+body.caja-fullscreen-page .caja-panel--neo {
+  --caja-neo-mono:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .mono,
+body.caja-fullscreen-page .caja-panel--neo .total-value,
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__value,
+body.caja-fullscreen-page .caja-panel--neo .total-feedback__value,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+body.caja-fullscreen-page .caja-panel--neo .denom-chip,
+body.caja-fullscreen-page .caja-panel--neo .action-button__key,
+body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+  font-family: var(--caja-neo-mono);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: currentColor;
+  box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 24%, transparent);
+  animation: cajaNeoBadgePulse 2s ease-in-out infinite;
+}
+
+@keyframes cajaNeoBadgePulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 24%, transparent);
+  }
+
+  50% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 0%, transparent);
+  }
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--neo-border-strong) 38%, var(--neo-border));
+  border-radius: 999px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-panel,
+body.caja-fullscreen-page .caja-panel--neo .pagos-row,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap,
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary {
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-panel {
+  padding: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row {
+  min-height: 30px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-row-strong .total-value {
+  font-size: 1.7rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-cobrar-exacto--inline {
+  min-height: 58px;
+  margin-top: 8px;
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-feedback {
+  margin-top: 8px;
+  padding: 8px 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-feedback__value {
+  font-size: 1.25rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  gap: 8px;
+  padding: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card {
+  padding: 7px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method {
+  min-height: 46px;
+  padding: 6px 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+  font-size: 0.74rem;
+  line-height: 1.05;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+  min-width: 34px;
+  min-height: 18px;
+  padding: 1px 6px;
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2 {
+  min-height: 38px;
+  font-size: 0.95rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 0.74rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__row {
+  min-height: 28px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary__row:last-child .payment-mini-summary__value {
+  font-size: 1.2rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #pago2Wrap {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #pago2Wrap .payment-methods {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pago2-select-row {
+  display: block;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-select-compact {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 36px 0 12px;
+  border: 1px solid var(--neo-border);
+  border-radius: 10px;
+  background: var(--neo-surface);
+  color: var(--neo-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--neo-muted) 50%),
+    linear-gradient(135deg, var(--neo-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 15px,
+    calc(100% - 12px) 15px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-select-compact:focus {
+  outline: none;
+  border-color: var(--neo-border-strong);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+  grid-template-columns: minmax(0, 1fr) 78px;
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+  min-height: 38px;
+  padding-inline: 10px;
+  font-size: 0.8rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .total-label-inline {
+  font-size: 0.64rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="MP"].is-active {
+  color: #009ee3;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="DEBITO"].is-active {
+  color: var(--neo-blue);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="CREDITO"].is-active {
+  color: var(--neo-amber);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method[data-value="CC"].is-active {
+  color: #7c3aed;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  gap: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  min-height: 52px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary__row {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary__label {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary__value {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary__row:last-child .payment-mini-summary__value {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  width: auto;
+  justify-content: flex-end;
+  grid-template-columns: repeat(2, minmax(190px, 240px));
+  gap: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  min-height: 46px;
+  padding: 0 14px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+  font-size: 1.02rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+  min-width: 30px;
+  min-height: 20px;
+  font-size: 0.66rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
+  padding: 8px;
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
+  min-height: 36px;
+  font-size: 0.88rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .total-label-inline {
+  margin-top: 0;
+  font-size: 0.58rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-info {
+  margin-top: 2px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
+  margin-top: 4px;
+  padding: 6px 8px;
+  gap: 1px;
+  border-radius: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
+  font-size: 0.84rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
+  font-size: 0.7rem;
+  line-height: 1.18;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.26);
+  background: rgba(245, 158, 11, 0.08);
+  color: #b45309;
+  font-size: 0.8rem;
+  line-height: 1.28;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
+  margin-top: 4px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+@media (max-width: 980px) {
+  body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary .payment-mini-summary {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    display: grid;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 100%;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   KIOSK COMPACT
+   Resoluciones tipicas de monitor chico de negocio
+========================================================================== */
+@media (min-width: 1081px) and (max-height: 820px),
+       (min-width: 1081px) and (max-width: 1366px) and (max-height: 900px) {
+  body.caja-fullscreen-page .caja-panel--neo {
+    gap: 8px;
+    padding: 10px 10px 0;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+    gap: 3px;
+    padding: 3px 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+    gap: 3px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 0.64rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label {
+    font-size: 0.5rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
+    gap: 5px;
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+  body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+    min-height: 28px;
+    padding: 0 7px;
+    font-size: 0.74rem;
+    border-radius: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 292px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+    grid-template-columns: minmax(0, 1fr) 74px 112px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+    font-size: 0.56rem;
+    margin-bottom: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+    min-height: 40px;
+    height: 40px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-mode {
+    min-height: 22px;
+    font-size: 0.62rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__eyebrow {
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__title {
+    font-size: 1rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+    padding: 5px 8px;
+    font-size: 0.72rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla thead th {
+    padding: 7px 10px;
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla tbody td {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla tbody td:nth-child(2) {
+    font-size: 0.66rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-panel {
+    padding: 10px 11px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-label,
+  body.caja-fullscreen-page .caja-panel--neo .total-value {
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-row-strong .total-value {
+    font-size: 1.4rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-feedback {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-feedback__label {
+    font-size: 0.64rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-feedback__value {
+    font-size: 1rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    gap: 6px;
+    padding: 8px;
+    padding-bottom: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__eyebrow,
+  body.caja-fullscreen-page .caja-panel--neo .total-label-inline {
+    font-size: 0.54rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+    font-size: 0.78rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 7px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 40px;
+    padding: 5px 4px;
+    gap: 3px;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 28px;
+    min-height: 16px;
+    padding: 1px 5px;
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row input,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row select,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap input,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact {
+    min-height: 34px;
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+    min-height: 26px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__add,
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2,
+  body.caja-fullscreen-page .caja-panel--neo .btn-mini {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 0.74rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+    grid-template-columns: minmax(0, 1fr) 70px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
+    padding: 7px;
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap input,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
+    min-height: 34px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
+    margin-top: 3px;
+    padding: 5px 7px;
+    gap: 1px;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
+    font-size: 0.66rem;
+    line-height: 1.12;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
+    margin-top: 4px;
+    padding: 5px 7px;
+    font-size: 0.68rem;
+    line-height: 1.14;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: auto;
+    grid-template-columns: repeat(2, minmax(160px, 200px));
+    gap: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    min-width: 28px;
+    min-height: 18px;
+    font-size: 0.6rem;
+  }
+}
+
+/* ==========================================================================
+   KIOSCO OPERATIVO FINAL
+   - evita que el rail derecho se rompa con split + cuenta corriente
+   - mantiene visibles los totales y hace scroll solo dentro de pagos
+============================================================================ */
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-corner-summary,
+body.caja-fullscreen-page .caja-panel--neo .payment-mini-summary {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row::-webkit-scrollbar {
+  width: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--neo-border-strong) 38%, var(--neo-border));
+  border-radius: 999px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pago2-select-row,
+body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row,
+body.caja-fullscreen-page .caja-panel--neo .cc-row {
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-select-compact {
+  width: 100%;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
+  padding: 7px;
+  gap: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .total-label-inline,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .total-label-inline {
+  margin-bottom: 2px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 input,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
+  min-height: 34px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-info,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
+  margin-top: 3px;
+  padding: 6px 8px;
+  gap: 2px;
+  border-radius: 10px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-nombre,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
+  font-size: 0.8rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-detalle,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.67rem;
+  line-height: 1.14;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-advertencia,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
+  margin-top: 4px;
+  padding: 5px 7px;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (min-width: 1081px) and (max-height: 820px),
+       (min-width: 1081px) and (max-width: 1366px) and (max-height: 900px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 312px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-panel {
+    padding: 9px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 7px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 6px;
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 38px;
+    padding: 4px 3px;
+    gap: 2px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.66rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 26px;
+    min-height: 15px;
+    padding: 0 4px;
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap input {
+    min-height: 33px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+    min-height: 24px;
+    padding-inline: 7px;
+    font-size: 0.66rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+    grid-template-columns: minmax(0, 1fr) 66px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__add,
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2,
+  body.caja-fullscreen-page .caja-panel--neo .btn-mini {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 0.7rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: auto;
+    grid-template-columns: repeat(2, minmax(148px, 180px));
+    justify-content: end;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 38px;
+    padding: 0 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    font-size: 0.9rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    min-width: 26px;
+    min-height: 17px;
+    font-size: 0.58rem;
+  }
+}
+
+/* ==========================================================================
+   CAJA OPERATIVA FINAL
+   - ticket un poco mas angosto
+   - rail de cobro con mas ancho util
+   - acciones del ticket mas claras
+   - pago 1 / pago 2 mas compactos
+============================================================================ */
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 31vw, 430px);
+  gap: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  padding: 8px;
+  gap: 7px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  padding: 7px;
+  gap: 4px;
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+  gap: 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method {
+  min-height: 40px;
+  padding: 4px 3px;
+  gap: 2px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+  font-size: 0.73rem;
+  line-height: 1.08;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+  min-width: 24px;
+  min-height: 15px;
+  font-size: 0.56rem;
+  padding: 0 4px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+  min-height: 34px;
+  font-size: 0.88rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+  grid-template-columns: minmax(0, 1fr) 64px;
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  min-height: 24px;
+  padding-inline: 7px;
+  font-size: 0.67rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .acciones {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-accion {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  border-radius: 999px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-desc {
+  display: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-quitar {
+  min-width: 30px;
+  padding: 0;
+  color: var(--neo-red);
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-quitar:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.42);
+}
+
+body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+  min-width: 34px;
+  width: 34px;
+  padding: 0;
+  justify-self: end;
+  border-radius: 12px;
+  color: var(--neo-red);
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.42);
+}
+
+@media (min-width: 1081px) and (max-height: 820px),
+       (min-width: 1081px) and (max-width: 1366px) and (max-height: 900px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 38px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 32px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .btn-accion {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .btn-quitar {
+    min-width: 28px;
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+    min-width: 32px;
+    width: 32px;
+    font-size: 0.92rem;
   }
 }

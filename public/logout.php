@@ -29,6 +29,10 @@ try {
   // no bloqueamos el logout por esto
 }
 
+if (function_exists('terminal_clear_cookie')) {
+  terminal_clear_cookie();
+}
+
 // Vaciar variables de sesión
 $_SESSION = [];
 

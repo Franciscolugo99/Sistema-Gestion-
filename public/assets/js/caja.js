@@ -433,6 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Descuento global (aplica al total final)
   // { tipo: "porcentaje"|"monto", valor: number }
   let descGlobal = null;
+  const DESCUENTO_GLOBAL_HABILITADO = false;
   const msgBox = document.getElementById("msg");
   const tbodyTicket = document.querySelector("#tabla tbody");
   const ticketWrapper = document.querySelector(".ticket-wrapper");
@@ -784,6 +785,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (anchor) {
       anchor.insertAdjacentElement("afterend", ccWrap);
     }
+
+    ccWrap.classList.toggle("cc-wrap--after-pago1", medio1 === "CC");
+    ccWrap.classList.toggle(
+      "cc-wrap--after-pago2",
+      splitActivo() && medio2 === "CC",
+    );
+    ccWrap.classList.toggle(
+      "cc-wrap--compact",
+      splitActivo() || medio2 === "CC",
+    );
   }
 
   function actualizarEstadoPagosUI(nextSlot = null) {
@@ -1118,20 +1129,41 @@ document.addEventListener("DOMContentLoaded", () => {
     return (selMedio?.value || "EFECTIVO") === "EFECTIVO";
   }
 
+  function medioPermiteExceso(medio) {
+    return String(medio || "EFECTIVO").toUpperCase() === "EFECTIVO";
+  }
+
+  function medioEsExacto(medio) {
+    return !medioPermiteExceso(medio);
+  }
+
+  function setMontoPago(input, monto, keepEmpty = true) {
+    if (!input) return;
+    const value = Number(monto) || 0;
+    input.value = value > 0.0001 || !keepEmpty ? String(value.toFixed(2)) : "";
+  }
+
   function ajustarPagoSegunMedio() {
     if (!inputPagado) return;
 
-    // En split (2 medios) no “forzamos” el monto. El usuario reparte.
+    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+
     if (splitActivo()) {
       inputPagado.disabled = false;
-      if (inputPagado2) inputPagado2.disabled = false;
+      if (inputPagado2) {
+        const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+        const slot2EsExacto = medioEsExacto(medio2);
+        inputPagado2.disabled = slot2EsExacto;
+        if (slot2EsExacto) {
+          inputPagado2.dataset.auto = "1";
+        }
+      }
       actualizarEstadoPagosUI();
       return;
     }
 
-    // Modo legacy (1 medio)
-    if (!medioEsEfectivo()) {
-      inputPagado.value = String(Number(totalNetoActual || 0).toFixed(2));
+    if (medioEsExacto(medio1)) {
+      setMontoPago(inputPagado, Number(totalNetoActual || 0), false);
       inputPagado.disabled = true;
     } else {
       inputPagado.disabled = false;
@@ -1142,15 +1174,41 @@ document.addEventListener("DOMContentLoaded", () => {
   function recalcularVuelto() {
     const total = Number(totalNetoActual) || 0;
 
-    // ✅ Si está activo el 2º pago y NO fue tocado manualmente,
-    // mantener "Monto 2" como lo que falta para completar el total.
-    if (splitActivo() && inputPagado2) {
-      const auto = inputPagado2.dataset.auto !== "0"; // por defecto auto
-      if (auto) {
-        const a1 = parseMonto(inputPagado?.value || "0");
-        const falta2 = Math.max(total - a1, 0);
-        inputPagado2.value = falta2 > 0 ? String(falta2.toFixed(2)) : "";
+    if (splitActivo()) {
+      const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+      const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+
+      let a1 = parseMonto(inputPagado?.value || "0");
+      let a2 = parseMonto(inputPagado2?.value || "0");
+
+      const slot2Auto =
+        !!inputPagado2 &&
+        (inputPagado2.dataset.auto !== "0" || medioEsExacto(medio2));
+
+      if (medioEsExacto(medio1)) {
+        const max1 = Math.max(total - a2, 0);
+        if (a1 > max1 + 0.009) {
+          a1 = max1;
+          setMontoPago(inputPagado, a1);
+        }
+      }
+
+      if (inputPagado2 && slot2Auto) {
+        a2 = Math.max(total - a1, 0);
+        setMontoPago(inputPagado2, a2);
         inputPagado2.dataset.auto = "1";
+      }
+
+      if (medioEsExacto(medio1)) {
+        const max1Final = Math.max(total - a2, 0);
+        if (a1 > max1Final + 0.009) {
+          a1 = max1Final;
+          setMontoPago(inputPagado, a1);
+          if (inputPagado2 && slot2Auto) {
+            a2 = Math.max(total - a1, 0);
+            setMontoPago(inputPagado2, a2);
+          }
+        }
       }
     }
 
@@ -1269,7 +1327,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="cc-cliente-info">
         <span class="cc-cliente-nombre">${escHtml(c.nombre)}</span>
         <span class="cc-cliente-detalle">
-          Disponible: <strong>$${disp}</strong> · Saldo actual: $${saldo} · Límite: $${limite}
+          Disp. <strong>$${disp}</strong> · Saldo $${saldo} · Lim. $${limite}
         </span>
       </div>`;
   }
@@ -1287,8 +1345,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const warning = existente || document.createElement("div");
+    let textoFinal = mensaje;
+    if (ccWrap?.classList.contains("cc-wrap--compact")) {
+      textoFinal = textoFinal
+        .replace("disponible:", "disp.:")
+        .replace("Se registrará con autorización.", "Con autorizacion.");
+    }
     warning.className = "cc-advertencia";
-    warning.textContent = mensaje;
+    warning.textContent = textoFinal;
 
     if (!existente) {
       if (wrap) wrap.insertAdjacentElement("afterend", warning);
@@ -1585,7 +1649,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const data = JSON.parse(raw);
       carrito = data.carrito || [];
-      descGlobal = data.descGlobal || null;
+      descGlobal = DESCUENTO_GLOBAL_HABILITADO
+        ? data.descGlobal || null
+        : null;
 
       // Pagos (nuevo)
       const pagosRaw = Array.isArray(data.pagos) ? data.pagos : null;
@@ -1845,6 +1911,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // DESCUENTO GLOBAL
   // =========================
   function calcDescGlobal(totalNetoAntes) {
+    if (!DESCUENTO_GLOBAL_HABILITADO) return 0;
     if (!descGlobal) return 0;
     const tipo = descGlobal.tipo;
     const valor = Number(descGlobal.valor) || 0;
@@ -1913,7 +1980,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ✅ FIX v2.1.3: Solo enviar desc_global si tiene permiso
       // Esto es doble validación (el backend también rechaza)
-      if (descGlobal && CAN_MOD_PRECIO) {
+      if (DESCUENTO_GLOBAL_HABILITADO && descGlobal && CAN_MOD_PRECIO) {
         fd.append("desc_global", JSON.stringify(descGlobal));
       }
 
@@ -2105,10 +2172,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="precio-lista">Lista: ${formatearMoneda(lista)}${suf}</div>`
         : `${formatearMoneda(promo ? lista : base)}${suf}`;
 
-      // ✅ Si no tiene permiso, no mostrar botón Desc.
-      const btnDescHtml = CAN_MOD_PRECIO
-        ? `<button class="btn-accion btn-desc" data-idx="${idx}">Desc.</button>`
-        : "";
       const btnEditarHtml = `<button class="btn-accion btn-editar" data-idx="${idx}" title="Editar cantidad">Cant.</button>`;
 
       const tr = document.createElement("tr");
@@ -2122,8 +2185,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td class="right col-subtotal">${formatearMoneda(subtotalConPromo)}</td>
           <td class="acciones">
             ${btnEditarHtml}
-            ${btnDescHtml}
-            <button class="btn-accion btn-quitar" data-idx="${idx}">Quitar</button>
+            <button class="btn-accion btn-quitar" data-idx="${idx}" title="Quitar producto" aria-label="Quitar producto">×</button>
           </td>
         `;
       tbodyTicket.appendChild(tr);
@@ -2169,9 +2231,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     lblTotalBruto.textContent = formatearMoneda(totalBruto);
     lblTotal.textContent = formatearMoneda(totalNeto);
-    lblDescGlobal.textContent = formatearMoneda(
-      Math.max(0, totalBruto - totalNeto),
-    );
+    if (lblDescGlobal) {
+      lblDescGlobal.textContent = formatearMoneda(
+        Math.max(0, totalBruto - totalNeto),
+      );
+    }
 
     if (ticketStatusLabel) {
       if (carrito.length === 0) {
@@ -3021,7 +3085,7 @@ document.addEventListener("DOMContentLoaded", () => {
         csrf: token, // ✅ compat si algún endpoint viejo lee "csrf"
         caja_id: CAJA_ID,
         items: itemsLimpios,
-        desc_global: descGlobal || null,
+        desc_global: DESCUENTO_GLOBAL_HABILITADO ? descGlobal || null : null,
 
         // ✅ NUEVO: pagos múltiples
         pagos,
@@ -3036,7 +3100,10 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("csrf", token); // compat
       fd.append("caja_id", String(CAJA_ID));
       fd.append("items", JSON.stringify(itemsLimpios));
-      fd.append("desc_global", JSON.stringify(descGlobal || null));
+      fd.append(
+        "desc_global",
+        JSON.stringify(DESCUENTO_GLOBAL_HABILITADO ? descGlobal || null : null),
+      );
       fd.append("pagos", JSON.stringify(pagos));
       fd.append("medio_pago", medioCompat);
       fd.append("monto_pagado", String(Number(totalPag.toFixed(2))));

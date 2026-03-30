@@ -24,7 +24,22 @@ function login_throttle_dir(): string {
   if (!is_dir($dir)) {
     @mkdir($dir, 0775, true);
   }
+  foreach ((array)glob($dir . '/*.json') as $path) {
+    if (!is_file($path)) continue;
+    if ((@filemtime($path) ?: 0) < (time() - 86400)) {
+      @unlink($path);
+    }
+  }
   return $dir;
+}
+
+function login_throttle_scopes(string $username, string $ip): array {
+  $user = strtolower(trim($username));
+  return [
+    ['ip', $ip],
+    ['user', $user],
+    ['user_ip', $user . '|' . $ip],
+  ];
 }
 
 function login_throttle_key(string $scope, string $value): string {
@@ -60,10 +75,8 @@ function login_throttle_save(string $scope, string $value, array $state): void {
 }
 
 function login_throttle_clear(string $username, string $ip): void {
-  foreach ([
-    login_throttle_path('ip', $ip),
-    login_throttle_path('user_ip', strtolower($username) . '|' . $ip),
-  ] as $path) {
+  foreach (login_throttle_scopes($username, $ip) as [$scope, $value]) {
+    $path = login_throttle_path($scope, $value);
     if (is_file($path)) {
       @unlink($path);
     }
@@ -74,10 +87,7 @@ function login_throttle_check(string $username, string $ip): int {
   $now = time();
   $wait = 0;
 
-  foreach ([
-    ['ip', $ip],
-    ['user_ip', strtolower($username) . '|' . $ip],
-  ] as [$scope, $value]) {
+  foreach (login_throttle_scopes($username, $ip) as [$scope, $value]) {
     $state = login_throttle_load($scope, $value);
     $blockedUntil = (int)($state['blocked_until'] ?? 0);
     if ($blockedUntil > $now) {
@@ -94,10 +104,7 @@ function login_throttle_record_failure(string $username, string $ip): void {
   $blockSeconds = 15 * 60;
   $now = time();
 
-  foreach ([
-    ['ip', $ip],
-    ['user_ip', strtolower($username) . '|' . $ip],
-  ] as [$scope, $value]) {
+  foreach (login_throttle_scopes($username, $ip) as [$scope, $value]) {
     $state = login_throttle_load($scope, $value);
     $attempts = array_values(array_filter(
       array_map('intval', (array)($state['attempts'] ?? [])),

@@ -3,18 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/terminal.php';
+require_once __DIR__ . '/lib/csrf.php';
 require_once __DIR__ . '/caja_lib.php';
 
 require_login();
 require_permission('administrar_config');
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+$csrfToken = csrf_token();
 
 $msg = null;
 $err = null;
@@ -237,7 +232,7 @@ $buildTerminalStates = static function (array $rows) use ($pdo, $sessionTerminal
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
 
-    if (!hash_equals((string)$_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify($token)) {
         $err = 'CSRF inválido.';
     } else {
         $accion = (string)($_POST['accion'] ?? '');
@@ -432,7 +427,7 @@ require __DIR__ . '/partials/header.php';
     </div>
 
     <form method="post" class="terminales-create-form">
-      <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+      <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
       <input type="hidden" name="accion" value="crear">
 
       <label class="terminales-field">
@@ -568,13 +563,13 @@ require __DIR__ . '/partials/header.php';
                 <td class="right">
                   <div class="terminales-actions">
                     <form id="<?= h($formId) ?>" method="post">
-                      <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                      <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
                       <input type="hidden" name="accion" value="guardar">
                       <input type="hidden" name="id" value="<?= $terminalId ?>">
                     </form>
                     <button class="btn btn-primary" type="submit" form="<?= h($formId) ?>">Guardar</button>
                     <form method="post">
-                      <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                      <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
                       <input type="hidden" name="accion" value="toggle">
                       <input type="hidden" name="id" value="<?= $terminalId ?>">
                       <button

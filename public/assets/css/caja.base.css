@@ -1,6 +1,6 @@
-﻿/* assets/css/caja.css
-   CAJA (FLUS) â€“ estilos propios, pero integrados al theme (light/dark)
-   - Arregla: totales (alineaciÃ³n), tabla (ancho), consistencia de inputs/botones
+/* assets/css/caja.css
+   CAJA (FLUS) - estilos propios, pero integrados al theme (light/dark)
+   - Arregla: totales (alineacion), tabla (ancho), consistencia de inputs/botones
    - Evita: hardcode masivo de colores (usa variables)
 */
 
@@ -70,7 +70,7 @@
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
 }
 
-/* BotÃ³n agregar al ticket (usa .btn de core, acÃ¡ solo â€œskinâ€) */
+/* Botn agregar al ticket (usa .btn de core, ac solo skin) */
 .caja-panel .btn-add {
   width: 100%;
   height: 46px;
@@ -95,7 +95,7 @@
   overflow-x: auto;
   overflow-y: auto;
 
-  /* âœ… ocupa todo el panel */
+ /* ocupa todo el panel */
   max-width: 100%;
   max-height: 320px;
 
@@ -210,14 +210,14 @@
 }
 
 /* =====================
-   TOTALES (âœ… ARREGLADO)
+   TOTALES (ARREGLADO)
 ===================== */
 .caja-panel .total-panel {
   margin-top: 14px;
   margin-bottom: 14px;
 }
 
-/* âœ… 2 columnas reales: label / value */
+/* 2 columnas reales: label / value */
 .caja-panel .total-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -258,7 +258,7 @@
   color: var(--accent-green);
 }
 
-/* Link â€œCambiarâ€ */
+/* Link Cambiar */
 .caja-panel .btn-link-total {
   background: transparent;
   border: none;
@@ -899,7 +899,7 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 ============================================================================ */
 
 /* assets/css/caja_mejorada.css
-   â€œPolishâ€ POS (Topbar + Movimientos + Scan card) integrado a FLUS
+   "Polish" POS (Topbar + Movimientos + Scan card) integrado a FLUS
    - No redefine .btn global
    - Usa variables del theme
 */
@@ -909,7 +909,7 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   --caja-ok: var(--accent-green, #22c55e);
 }
 
-/* BotÃ³n chico consistente dentro de Caja */
+/* Botn chico consistente dentro de Caja */
 .caja-panel .btn.btn-sm {
   padding: 8px 14px;
   border-radius: 999px;
@@ -936,7 +936,7 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
 }
 
-/* toque â€œFLUSâ€ suave por theme */
+/* toque FLUS suave por theme */
 body[data-theme="dark"] .caja-panel .caja-topbar {
   background: radial-gradient(
     circle at top left,
@@ -1052,14 +1052,14 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   font-size: 0.88rem;
 }
 
-/* botÃ³n â€œlineâ€ chico (si existe .btn-line, solo ajusta) */
+/* botn line chico (si existe .btn-line, solo ajusta) */
 .caja-panel .btn-line.btn-line--sm {
   padding: 6px 10px;
   border-radius: 999px;
   font-size: 0.85rem;
 }
 
-/* secondary arriba: que no parezca â€œtexto sueltoâ€ */
+/* secondary arriba: que no parezca texto suelto */
 .caja-panel .caja-topbar__actions .btn.btn-secondary {
   background: rgba(148, 163, 184, 0.1);
   border-color: rgba(148, 163, 184, 0.22);
@@ -1087,7 +1087,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
 }
 
 /* =========================
-   MOVIMIENTOS (details) â€“ look FLUS
+   MOVIMIENTOS (details) - look FLUS
 ========================= */
 .caja-panel .caja-mov {
   margin-top: 12px;
@@ -1184,7 +1184,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
 }
 
 /* =========================
-   SCAN CARD â€“ POS feel + grid estable
+   SCAN CARD - POS feel + grid estable
 ========================= */
 .caja-panel .caja-scan-card {
   margin-top: 12px;
@@ -1213,7 +1213,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   box-shadow: 0 18px 55px rgba(34, 211, 238, 0.1);
 }
 
-/* âœ… sobreescribe el flex de .row SOLO acÃ¡ */
+/* sobreescribe el flex de .row SOLO ac */
 .caja-panel .row.caja-row-inputs {
   display: grid;
   grid-template-columns: 1fr 160px 240px;
@@ -1235,7 +1235,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
     grid-template-columns: 1fr;
   }
 }
-/* Cobrar: que siempre sea â€œprimaryâ€ visible */
+/* Cobrar: que siempre sea primary visible */
 .btn-cobrar {
   background: linear-gradient(135deg, #22c55e, #4ade80);
   color: #022c22;
@@ -1394,7 +1394,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   border-top: 1px solid var(--panel-border);
 }
 
-/* BotÃ³n "Cambiar" de la barra terminal (solo Caja) */
+/* Botn "Cambiar" de la barra terminal (solo Caja) */
 .pos-terminal-bar .btn-line,
 #btnCambiarTerminal {
   border: 1px solid var(--panel-border);
@@ -1439,7 +1439,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   color: var(--danger, #ef4444);
 }
 
-/* âœ… FIX v2.1.3: BotÃ³n "Cambiar" mÃ¡s visible */
+/* FIX v2.1.3: Botn "Cambiar" ms visible */
 .caja-panel .btn-link-total {
   background: rgba(6, 182, 212, 0.15);
   border: 1px solid var(--accent-cyan);
@@ -1474,13 +1474,13 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   box-sizing: border-box;
   z-index: 99999 !important;
 
-  /* tamaÃ±o/pos */
+ /* tamao/pos */
   margin-top: 6px;
   max-height: 260px;
   overflow: auto;
   padding: 6px;
 
-  /* look (usa variables si existen) */
+ /* look (usa variables si existen) */
   background: var(--panel, var(--bg-secondary, #ffffff));
   color: var(--text, var(--text-primary, #0f172a));
   border: 1px solid
@@ -1539,7 +1539,7 @@ body[data-theme="light"] .caja-panel .caja-topbar {
   background: transparent;
 }
 
-/* modo oscuro: mÃ¡s contraste (si tu sistema usa data-theme/html.dark/body.dark) */
+/* modo oscuro: ms contraste (si tu sistema usa data-theme/html.dark/body.dark) */
 :root[data-theme="dark"] #sugerencias-dropdown,
 html.dark #sugerencias-dropdown,
 body.dark #sugerencias-dropdown {

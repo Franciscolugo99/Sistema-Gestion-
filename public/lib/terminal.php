@@ -195,6 +195,20 @@ if (!function_exists('terminal_set_cookie')) {
   }
 }
 
+if (!function_exists('terminal_clear_cookie')) {
+  function terminal_clear_cookie(): void {
+    $opts = [
+      'expires'  => time() - 3600,
+      'path'     => '/',
+      'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+      'httponly' => true,
+      'samesite' => 'Lax',
+    ];
+    @setcookie((string)FLUS_TERMINAL_COOKIE, '', $opts);
+    unset($_COOKIE[FLUS_TERMINAL_COOKIE]);
+  }
+}
+
 if (!function_exists('terminal_current_id')) {
   /**
    * Devuelve terminal actual usando:
