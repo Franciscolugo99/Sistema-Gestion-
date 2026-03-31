@@ -21,6 +21,11 @@ $extraJs = [];
 $info = null;
 $error = null;
 $downloadFile = null;
+$activeSessions = [];
+$currentSessionId = session_id();
+$currentUserId = function_exists('session_user_id')
+    ? session_user_id()
+    : (int)(($user['id'] ?? 0));
 
 // Manejo de acciones POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -65,6 +70,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = "No se pudo eliminar el paquete (archivo inválido o no existe).";
             }
+        } elseif ($accion === 'revocar_sesion') {
+            $targetSessionId = trim((string)($_POST['session_id'] ?? ''));
+            if ($targetSessionId === '') {
+                $error = 'Sesion invalida.';
+            } elseif (!function_exists('flus_session_revoke')) {
+                $error = 'El registro de sesiones todavia no esta disponible en este entorno.';
+            } else {
+                flus_session_revoke($pdo, $targetSessionId, $currentUserId, 'Cierre forzado desde diagnostico');
+                if ($targetSessionId === $currentSessionId) {
+                    header('Location: logout.php?reason=revoked');
+                    exit;
+                }
+                $info = 'Sesion revocada y terminal liberada si estaba en uso.';
+            }
+        } elseif ($accion === 'liberar_terminal_sesion') {
+            $targetSessionId = trim((string)($_POST['session_id'] ?? ''));
+            if ($targetSessionId === '') {
+                $error = 'Sesion invalida.';
+            } elseif (!function_exists('terminal_lock_release_by_session')) {
+                $error = 'La liberacion de terminales no esta disponible en este entorno.';
+            } else {
+                $released = terminal_lock_release_by_session($pdo, $targetSessionId);
+                if (function_exists('flus_session_update_selected_terminal')) {
+                    flus_session_update_selected_terminal($pdo, $targetSessionId, null);
+                }
+                $info = $released > 0
+                    ? 'Terminal liberada para la sesion seleccionada.'
+                    : 'La sesion no tenia una terminal bloqueada en este momento.';
+            }
         }
     }
 }
@@ -100,6 +134,10 @@ if (is_dir($diagDir)) {
         ];
     }
     usort($existingPackages, fn($a, $b) => $b['mtime'] <=> $a['mtime']);
+}
+
+if (function_exists('flus_session_list_active')) {
+    $activeSessions = flus_session_list_active($pdo, 120);
 }
 
 require __DIR__ . '/partials/header.php';
@@ -861,6 +899,91 @@ function flusCopyText(elId) {
     </div>
 
 
+    <div class="health-card mb-2">
+        <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Sesiones activas y terminales
+        </h3>
+
+        <?php if (!empty($activeSessions)): ?>
+            <div class="table-wrap">
+                <table class="table schema-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Sesion</th>
+                            <th>Ultima actividad</th>
+                            <th>Terminal seleccionada</th>
+                            <th>Caja bloqueada</th>
+                            <th>IP</th>
+                            <th>Ruta</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($activeSessions as $sessionRow): ?>
+                            <?php
+                                $sid = (string)($sessionRow['session_id'] ?? '');
+                                $isCurrentSession = $sid !== '' && $sid === $currentSessionId;
+                                $displayName = trim((string)($sessionRow['display_name'] ?? ''));
+                                if ($displayName === '') {
+                                    $displayName = (string)($sessionRow['username'] ?? 'Usuario');
+                                }
+                                $selectedTerminal = trim((string)($sessionRow['selected_terminal_nombre'] ?? ''));
+                                if ($selectedTerminal === '' && (int)($sessionRow['selected_terminal_id'] ?? 0) > 0) {
+                                    $selectedTerminal = 'Caja #' . (int)$sessionRow['selected_terminal_id'];
+                                }
+                                $lockedTerminal = trim((string)($sessionRow['locked_terminal_nombre'] ?? ''));
+                                if ($lockedTerminal === '' && (int)($sessionRow['locked_terminal_id'] ?? 0) > 0) {
+                                    $lockedTerminal = 'Caja #' . (int)$sessionRow['locked_terminal_id'];
+                                }
+                            ?>
+                            <tr>
+                                <td>
+                                    <strong><?= h($displayName) ?></strong><br>
+                                    <span class="muted">@<?= h((string)($sessionRow['username'] ?? '')) ?></span>
+                                    <?php if ($isCurrentSession): ?>
+                                        <span class="chip ok ml-05">actual</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><code><?= h($sid !== '' ? substr($sid, 0, 12) . '...' : '-') ?></code></td>
+                                <td><?= h((string)($sessionRow['last_seen_at'] ?? '')) ?></td>
+                                <td><?= h($selectedTerminal !== '' ? $selectedTerminal : 'Sin terminal') ?></td>
+                                <td><?= h($lockedTerminal !== '' ? $lockedTerminal : 'Libre') ?></td>
+                                <td><?= h((string)($sessionRow['ip_address'] ?? '-')) ?></td>
+                                <td><code><?= h((string)($sessionRow['last_path'] ?? '-')) ?></code></td>
+                                <td>
+                                    <div class="pkg-actions">
+                                        <form method="post" class="inline-form">
+                                            <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                                            <input type="hidden" name="accion" value="liberar_terminal_sesion">
+                                            <input type="hidden" name="session_id" value="<?= h($sid) ?>">
+                                            <button type="submit" class="btn btn-sm btn-secondary">Liberar terminal</button>
+                                        </form>
+                                        <form method="post" class="inline-form">
+                                            <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                                            <input type="hidden" name="accion" value="revocar_sesion">
+                                            <input type="hidden" name="session_id" value="<?= h($sid) ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Forzar cierre de sesion para este usuario?');">
+                                                Forzar salida
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <p class="muted">No hay sesiones activas registradas en las ultimas 2 horas.</p>
+        <?php endif; ?>
+    </div>
     <!-- Paquetes de diagnóstico -->
 <div class="health-card">
     <h3>
@@ -941,3 +1064,4 @@ function flusCopyText(elId) {
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+

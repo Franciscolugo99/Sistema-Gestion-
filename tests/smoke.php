@@ -2552,6 +2552,41 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_true(strpos($apiIndexPhp, "if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {") < strpos($apiIndexPhp, 'require_terminal_lock_json();'));
 });
 
+$results[] = flus_run_test('session registry wires login logout bootstrap heartbeat and diagnostics controls', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $sessionRegistryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'session_registry.php');
+    $bootstrapPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'bootstrap.php');
+    $loginProcessPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login_process.php');
+    $logoutPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'logout.php');
+    $loginPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login.php');
+    $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
+    $diagnosticoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'diagnostico.php');
+    $terminalPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'terminal.php');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '023_user_sessions_registry.sql');
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+
+    flus_assert_contains('function flus_session_register(PDO $pdo, array $user, array $meta = []): void', $sessionRegistryPhp);
+    flus_assert_contains('function flus_session_revoke(PDO $pdo, string $sessionId, int $revokedBy, string $reason = \'\'): void', $sessionRegistryPhp);
+    flus_assert_contains('function flus_session_resolve_terminal_id(PDO $pdo, array $meta = []): ?int', $sessionRegistryPhp);
+    flus_assert_contains("if (\$lastPath === trim(\$path) && \$rowTerminalId === \$resolvedTerminalId) {", $sessionRegistryPhp);
+    flus_assert_contains('function terminal_lock_release_by_session(PDO $pdo, string $sessionId): int', $terminalPhp);
+    flus_assert_contains("flus_session_register(\$pdo, \$_SESSION['user']);", $loginProcessPhp);
+    flus_assert_contains("flus_session_mark_logged_out(\$pdo, \$currentSessionId, \$reason === 'revoked');", $logoutPhp);
+    flus_assert_contains("define('FLUS_SESSION_ENFORCE_BYPASS', true);", $logoutPhp);
+    flus_assert_contains("'error' => 'SESSION_REVOKED'", $bootstrapPhp);
+    flus_assert_contains("header('Location: logout.php?reason=revoked');", $bootstrapPhp);
+    flus_assert_contains("case 'session_heartbeat': {", $apiIndexPhp);
+    flus_assert_contains("flus_session_touch(\$pdo, \$uid, \$sid, ['force' => true]);", $apiIndexPhp);
+    flus_assert_contains('api/index.php?action=session_heartbeat', $appJs);
+    flus_assert_contains('logout.php?reason=revoked', $appJs);
+    flus_assert_contains("case 'revoked': \$errorMsg = 'Tu sesi", $loginPhp);
+    flus_assert_contains("value=\"revocar_sesion\"", $diagnosticoPhp);
+    flus_assert_contains("value=\"liberar_terminal_sesion\"", $diagnosticoPhp);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `user_sessions`', $migrationSql);
+    flus_assert_contains('CREATE TABLE `user_sessions`', $installSql);
+});
+
 $results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {
     $repoRoot = dirname(__DIR__);
     $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');

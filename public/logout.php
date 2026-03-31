@@ -6,12 +6,17 @@ declare(strict_types=1);
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 
+define('FLUS_SESSION_ENFORCE_BYPASS', true);
+
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/terminal.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
   session_start();
 }
+
+$reason = (string)($_GET['reason'] ?? '');
+$currentSessionId = session_id();
 
 // Liberar lock de terminal (si existe)
 try {
@@ -24,6 +29,10 @@ try {
   if ($tid > 0 && $uid > 0) {
     // ✅ FIX v2.1.2: terminal_lock_release acepta 3 parámetros, no 4
     terminal_lock_release($pdo, $tid, $uid);
+  }
+
+  if ($currentSessionId !== '' && function_exists('flus_session_mark_logged_out')) {
+    flus_session_mark_logged_out($pdo, $currentSessionId, $reason === 'revoked');
   }
 } catch (Throwable $e) {
   // no bloqueamos el logout por esto
@@ -54,9 +63,10 @@ if (ini_get('session.use_cookies')) {
 session_destroy();
 
 // Redirigir
-$reason = (string)($_GET['reason'] ?? '');
 if ($reason === 'locked') {
   header('Location: login.php?error=locked');
+} elseif ($reason === 'revoked') {
+  header('Location: login.php?error=revoked');
 } else {
   header('Location: login.php');
 }

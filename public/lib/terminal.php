@@ -405,6 +405,26 @@ if (!function_exists('terminal_lock_release')) {
   }
 }
 
+if (!function_exists('terminal_lock_release_by_session')) {
+  function terminal_lock_release_by_session(PDO $pdo, string $sessionId): int {
+    if ($sessionId === '') return 0;
+    if (!terminal__table_exists($pdo, 'terminal_locks')) return 0;
+
+    try {
+      $s = terminal__schema_locks($pdo);
+      $st = $pdo->prepare("
+        DELETE FROM terminal_locks
+        WHERE `{$s['session_id']}` = :sid
+      ");
+      $st->execute([':sid' => $sessionId]);
+      return (int)$st->rowCount();
+    } catch (Throwable $e) {
+      error_log('terminal_lock_release_by_session: ' . $e->getMessage());
+      return 0;
+    }
+  }
+}
+
 if (!function_exists('terminal_lock_status')) {
   function terminal_lock_status(PDO $pdo, int $terminalId): ?array {
     if ($terminalId <= 0) return null;

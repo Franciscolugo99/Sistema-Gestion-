@@ -215,6 +215,10 @@ try {
   error_log('login_process: no se pudo actualizar ultimo_acceso - ' . $e->getMessage());
 }
 
+if (function_exists('flus_session_register')) {
+  flus_session_register($pdo, $_SESSION['user']);
+}
+
 $next = (string)($_POST['next'] ?? $_GET['next'] ?? '');
 if ($next !== '' && $next[0] === '/' && strpos($next, '://') === false && strpos($next, "\n") === false && strpos($next, "\r") === false) {
   header('Location: ' . $next);

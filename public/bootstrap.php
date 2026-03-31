@@ -204,7 +204,9 @@ require_once __DIR__ . '/auth.php';
 // core nuevo (safe)
 $coreHelpers    = FLUS_ROOT . '/src/helpers.php';
 $schemaHelpers = FLUS_ROOT . '/src/db_schema.php';
+$sessionRegistry = FLUS_ROOT . '/src/session_registry.php';
 if (file_exists($schemaHelpers)) require_once $schemaHelpers;
+if (file_exists($sessionRegistry)) require_once $sessionRegistry;
 $coreMiddleware = FLUS_ROOT . '/src/Middleware.php';
 $coreBase       = FLUS_ROOT . '/src/BaseController.php';
 
@@ -260,3 +262,60 @@ try {
   exit;
 }
 $user = current_user();
+
+if (
+  !defined('FLUS_SESSION_ENFORCE_BYPASS') &&
+  is_array($user) &&
+  function_exists('flus_user_sessions_table_exists') &&
+  function_exists('flus_session_fetch')
+) {
+  try {
+    $sessionId = session_id();
+    $userId = (int)($user['id'] ?? 0);
+
+    if ($userId > 0 && $sessionId !== '' && flus_user_sessions_table_exists($pdo)) {
+      $sessionRow = flus_session_fetch($pdo, $sessionId);
+      if (!is_array($sessionRow) && function_exists('flus_session_register')) {
+        flus_session_register($pdo, $user, ['session_id' => $sessionId]);
+        $sessionRow = flus_session_fetch($pdo, $sessionId);
+      }
+
+      $status = strtoupper((string)($sessionRow['status'] ?? 'ACTIVE'));
+      if ($status !== 'ACTIVE') {
+        unset($_SESSION['terminal_id']);
+        if (function_exists('terminal_clear_cookie')) {
+          terminal_clear_cookie();
+        }
+
+        $isApiContext = (
+          defined('FLUS_API_CONTEXT') ||
+          str_contains((string)($_SERVER['REQUEST_URI'] ?? ''), '/api/') ||
+          (isset($_SERVER['HTTP_ACCEPT']) && str_contains((string)$_SERVER['HTTP_ACCEPT'], 'application/json'))
+        );
+
+        if ($isApiContext) {
+          if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+          }
+          if (ob_get_length()) { @ob_clean(); }
+          http_response_code(401);
+          echo json_encode([
+            'ok' => false,
+            'error' => 'SESSION_REVOKED',
+          ], JSON_UNESCAPED_UNICODE);
+          exit;
+        }
+
+        header('Location: logout.php?reason=revoked');
+        exit;
+      }
+
+      if (function_exists('flus_session_touch')) {
+        flus_session_touch($pdo, $userId, $sessionId);
+      }
+    }
+  } catch (Throwable $e) {
+    error_log('bootstrap session_registry: ' . $e->getMessage());
+  }
+}

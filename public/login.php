@@ -30,7 +30,7 @@ if (is_logged_in()) {
 
 // Whitelist de códigos de error
 $errorCode = isset($_GET['error']) ? (string)$_GET['error'] : '';
-if (!in_array($errorCode, ['invalid', 'empty', 'locked', 'csrf', 'too_long', 'rate_limit'], true)) {
+if (!in_array($errorCode, ['invalid', 'empty', 'locked', 'csrf', 'too_long', 'rate_limit', 'revoked'], true)) {
   $errorCode = '';
 }
 
@@ -42,6 +42,7 @@ switch ($errorCode) {
   case 'csrf':   $errorMsg = 'Token inválido. Recargá e intentá de nuevo.'; break;
   case 'too_long': $errorMsg = 'Usuario/contraseña demasiado largos.'; break;
   case 'rate_limit': $errorMsg = 'Demasiados intentos fallidos. Esperá unos minutos antes de reintentar.'; break;
+  case 'revoked': $errorMsg = 'Tu sesión fue cerrada por un administrador.'; break;
 }
 ?>
 <!DOCTYPE html>

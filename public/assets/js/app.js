@@ -204,6 +204,81 @@
   })();
 
   // ============================================
+  // SESSION HEARTBEAT (sesiones activas / force logout)
+  // ============================================
+  onReady(() => {
+    if (window.__flus_session_heartbeat_started) return;
+    window.__flus_session_heartbeat_started = true;
+
+    const p = (window.location.pathname || "").toLowerCase();
+    if (p.endsWith("/login.php") || p.endsWith("/logout.php") || p.includes("/login") || p.endsWith("/install.php")) return;
+
+    let stopped = false;
+    let inFlight = false;
+    let timer = null;
+
+    const schedule = (delay = 60000) => {
+      if (stopped) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(run, delay);
+    };
+
+    const run = async () => {
+      if (stopped || inFlight) return;
+      inFlight = true;
+
+      try {
+        const csrf = (window.getCsrfToken && window.getCsrfToken()) || "";
+        if (!csrf) {
+          stopped = true;
+          return;
+        }
+
+        const r = await fetch("api/index.php?action=session_heartbeat", {
+          method: "POST",
+          headers: {
+            "X-CSRF-Token": csrf,
+            "Content-Type": "application/json; charset=utf-8",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({}),
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+
+        if (r.status === 401) {
+          let j = null;
+          try { j = await r.json(); } catch (_) {}
+          stopped = true;
+          if (j && j.error === "SESSION_REVOKED") {
+            window.location.href = "logout.php?reason=revoked";
+            return;
+          }
+          window.location.href = "login.php";
+          return;
+        }
+
+        if (r.status === 403) {
+          stopped = true;
+          window.location.reload();
+          return;
+        }
+
+        if (r.ok) {
+          try { await r.json(); } catch (_) {}
+        }
+      } catch (_) {
+        // Best effort: no interrumpimos la UI por un fallo transitorio.
+      } finally {
+        inFlight = false;
+        schedule();
+      }
+    };
+
+    schedule(60000);
+  });
+
+  // ============================================
   // TERMINAL LOCK HEARTBEAT (multi-caja / multi-PC)
   // ============================================
   onReady(() => {

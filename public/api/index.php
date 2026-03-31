@@ -1030,6 +1030,9 @@ case 'buscar_producto': {
       // âœ… Adquirir/renovar lock para la terminal pedida (incluye el caso "misma terminal")
       terminal_set_cookie($requestedTerminalId);
       $_SESSION['terminal_id'] = $requestedTerminalId;
+      if ($sid !== '' && function_exists('flus_session_update_selected_terminal')) {
+        flus_session_update_selected_terminal($pdo, $sid, $requestedTerminalId);
+      }
 
       json_ok([
         'terminal_id' => $requestedTerminalId,
@@ -1045,6 +1048,7 @@ case 'buscar_producto': {
       $pdo = getPDO();
       $user = current_user();
       $uid  = (int)($user['id'] ?? 0);
+      $sid  = session_id();
 
       $newTid = (int)($body['terminal_id'] ?? 0);
       if ($newTid <= 0) json_fail('Terminal invÃ¡lida', 400);
@@ -1058,6 +1062,9 @@ case 'buscar_producto': {
 
       terminal_set_cookie($newTid);
       $_SESSION['terminal_id'] = $newTid;
+      if ($sid !== '' && function_exists('flus_session_update_selected_terminal')) {
+        flus_session_update_selected_terminal($pdo, $sid, $newTid);
+      }
 
       json_ok();
     }
@@ -1108,6 +1115,23 @@ case 'buscar_producto': {
       }
 
       json_ok();
+    }
+
+    case 'session_heartbeat': {
+      require_login_json();
+      require_csrf_json($body);
+      if ($method !== 'POST') json_fail('MÃƒÂ©todo no permitido', 405);
+
+      $pdo = getPDO();
+      $user = current_user();
+      $uid  = (int)($user['id'] ?? 0);
+      $sid  = session_id();
+
+      if ($uid > 0 && $sid !== '' && function_exists('flus_session_touch')) {
+        flus_session_touch($pdo, $uid, $sid, ['force' => true]);
+      }
+
+      json_ok(['session_id' => $sid]);
     }
 
     /* =========================================================
