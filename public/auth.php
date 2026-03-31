@@ -9,7 +9,7 @@ require_once __DIR__ . '/lib/install_guard.php';
 require_once FLUS_ROOT . '/src/config.php';
 require_once __DIR__ . '/lib/terminal.php';
 
-// âœ… SesiÃ³n unificada (compat legacy)
+// Sesion unificada (compat legacy)
 $sessionHelper = FLUS_ROOT . '/src/session_user.php';
 if (is_file($sessionHelper)) {
   require_once $sessionHelper;
@@ -85,7 +85,7 @@ function is_cant_connect(PDOException $e): bool {
 }
 
 /**
- * PDO â€œfrescoâ€ (evita quedarte atado al PDO estÃ¡tico cuando MySQL se reinicia).
+ * PDO "fresco" (evita quedarte atado al PDO estatico cuando MySQL se reinicia).
  * No toca tu getPDO(), solo lo usa como primer intento.
  */
 function flus_pdo_fresh(): PDO {
@@ -109,9 +109,9 @@ function flus_pdo_fresh(): PDO {
 }
 
 /**
- * Obtiene PDO con diagnÃ³stico:
- * - Si getPDO() falla â†’ issue DB_DOWN
- * - Si getPDO() devuelve PDO viejo y MySQL se reiniciÃ³ â†’ intenta fresh
+ * Obtiene PDO con diagnostico:
+ * - Si getPDO() falla -> issue DB_DOWN
+ * - Si getPDO() devuelve PDO viejo y MySQL se reinicio -> intenta fresh
  */
 function flus_get_pdo_diag(): ?PDO {
   static $checked = false;
@@ -124,12 +124,12 @@ function flus_get_pdo_diag(): ?PDO {
   try {
     $pdo = getPDO();
   } catch (Throwable $e) {
-    auth_issue_set('DB_DOWN', 'GETPDO_FAIL', 'No se pudo obtener conexiÃ³n PDO', $e->getMessage());
-    auth_log('getPDO() fallÃ³', 'error', ['ex' => $e->getMessage()]);
+    auth_issue_set('DB_DOWN', 'GETPDO_FAIL', 'No se pudo obtener conexion PDO', $e->getMessage());
+    auth_log('getPDO() fallo', 'error', ['ex' => $e->getMessage()]);
     return null;
   }
 
-  // Ping suave: si estÃ¡ muerto, intentamos fresh
+  // Ping suave: si esta muerto, intentamos fresh
   try {
     $pdo->query("SELECT 1")->fetchColumn();
     $checked = true;
@@ -137,7 +137,7 @@ function flus_get_pdo_diag(): ?PDO {
     return $pdo;
   } catch (PDOException $e) {
     if (is_server_gone($e) || is_cant_connect($e)) {
-      auth_log('PDO viejo detectado (server gone). Intentando conexiÃ³n fresh...', 'warning', ['ex' => $e->getMessage()]);
+      auth_log('PDO viejo detectado (server gone). Intentando conexion fresh...', 'warning', ['ex' => $e->getMessage()]);
       try {
         $fresh = flus_pdo_fresh();
         $fresh->query("SELECT 1")->fetchColumn();
@@ -146,15 +146,15 @@ function flus_get_pdo_diag(): ?PDO {
         $cached = $fresh;
         return $fresh;
       } catch (Throwable $e2) {
-        auth_issue_set('DB_DOWN', 'RECONNECT_FAIL', 'MySQL no responde (reconexiÃ³n fallida)', $e2->getMessage());
-        auth_log('ReconexiÃ³n fresh fallÃ³', 'error', ['ex' => $e2->getMessage()]);
+        auth_issue_set('DB_DOWN', 'RECONNECT_FAIL', 'MySQL no responde (reconexion fallida)', $e2->getMessage());
+        auth_log('Reconexion fresh fallo', 'error', ['ex' => $e2->getMessage()]);
         return null;
       }
     }
 
     // Otro error raro
-    auth_issue_set('DB_ERROR', 'PDO_PING_FAIL', 'Error al validar conexiÃ³n a BD', $e->getMessage());
-    auth_log('PDO ping fallÃ³', 'error', ['ex' => $e->getMessage()]);
+    auth_issue_set('DB_ERROR', 'PDO_PING_FAIL', 'Error al validar conexion a BD', $e->getMessage());
+    auth_log('PDO ping fallo', 'error', ['ex' => $e->getMessage()]);
     return null;
   }
 }
@@ -204,7 +204,7 @@ function require_login_json(): void {
 }
 
 /* ============================================================================
-   PERMISOS (con diagnÃ³stico)
+   PERMISOS (con diagnostico)
 ============================================================================ */
 
 function user_has_permission(string $slug): bool {
@@ -226,7 +226,7 @@ function user_has_permission(string $slug): bool {
 
   $pdo = flus_get_pdo_diag();
   if (!$pdo) {
-    // DB caÃ­da: no cacheamos
+    // DB caida: no cacheamos
     $iss = auth_issue_get();
     auth_log('Perm check: sin PDO', 'warning', ['slug' => $slug, 'issue' => $iss['code'] ?? '']);
     return false;
@@ -258,13 +258,13 @@ function user_has_permission(string $slug): bool {
     if (is_schema_missing($e)) {
       auth_issue_set('SCHEMA_MISSING', 'MISSING_TABLE', 'Esquema incompleto: faltan tablas de permisos', $e->getMessage());
       auth_log('Perm check: schema missing', 'error', ['slug' => $slug, 'ex' => $e->getMessage()]);
-      // Esto sÃ­ lo cacheamos (es consistente dentro del request)
+      // Esto si lo cacheamos (es consistente dentro del request)
       $cache[$slug] = false;
       return false;
     }
 
     if (is_server_gone($e) || is_cant_connect($e)) {
-      auth_issue_set('DB_DOWN', 'SERVER_GONE', 'MySQL se reiniciÃ³ o no responde durante la consulta', $e->getMessage());
+      auth_issue_set('DB_DOWN', 'SERVER_GONE', 'MySQL se reinicio o no responde durante la consulta', $e->getMessage());
       auth_log('Perm check: server gone', 'error', ['slug' => $slug, 'ex' => $e->getMessage()]);
       // NO cachear: puede volver
       return false;
@@ -292,7 +292,7 @@ function user_has_any_permission(array $slugs): bool {
 
     if (user_has_permission($s)) return true;
 
-    // Si la razÃ³n fue DB_DOWN o SCHEMA_MISSING, cortamos: no es â€œno tenÃ©s permisoâ€
+    // Si la razon fue DB_DOWN o SCHEMA_MISSING, cortamos: no es "no tenes permiso"
     $iss = auth_issue_get();
     if (($iss['type'] ?? '') === 'DB_DOWN' || ($iss['type'] ?? '') === 'SCHEMA_MISSING') {
       return false;
@@ -570,10 +570,10 @@ function require_any_permission(array $slugs): void {
   $type = (string)($iss['type'] ?? 'OK');
 
   if ($type === 'DB_DOWN') {
-    flus_render_access_error('html', 503, 'DB_DOWN', 'Base de datos no disponible (MySQL no responde / se reiniciÃ³).', (string)($iss['detail'] ?? ''));
+    flus_render_access_error('html', 503, 'DB_DOWN', 'Base de datos no disponible (MySQL no responde / se reinicio).', (string)($iss['detail'] ?? ''));
   }
   if ($type === 'SCHEMA_MISSING') {
-    flus_render_access_error('html', 503, 'SCHEMA_MISSING', 'Esquema incompleto: faltan tablas (restaurÃ¡ backup / corrÃ© instalaciÃ³n).', (string)($iss['detail'] ?? ''));
+    flus_render_access_error('html', 503, 'SCHEMA_MISSING', 'Esquema incompleto: faltan tablas (restaura backup / corre instalacion).', (string)($iss['detail'] ?? ''));
   }
 
   flus_render_access_error('html', 403, 'FORBIDDEN', 'No tenes permisos para acceder a esta seccion.');
@@ -586,17 +586,17 @@ function require_permission(string $slug): void {
   $type = (string)($iss['type'] ?? 'OK');
 
   if ($type === 'DB_DOWN') {
-    flus_render_access_error('html', 503, 'DB_DOWN', 'Base de datos no disponible (MySQL no responde / se reiniciÃ³).', (string)($iss['detail'] ?? ''));
+    flus_render_access_error('html', 503, 'DB_DOWN', 'Base de datos no disponible (MySQL no responde / se reinicio).', (string)($iss['detail'] ?? ''));
   }
   if ($type === 'SCHEMA_MISSING') {
-    flus_render_access_error('html', 503, 'SCHEMA_MISSING', 'Esquema incompleto: faltan tablas (restaurÃ¡ backup / corrÃ© instalaciÃ³n).', (string)($iss['detail'] ?? ''));
+    flus_render_access_error('html', 503, 'SCHEMA_MISSING', 'Esquema incompleto: faltan tablas (restaura backup / corre instalacion).', (string)($iss['detail'] ?? ''));
   }
 
   flus_render_access_error('html', 403, 'FORBIDDEN', 'No tenes permisos para acceder a esta seccion.');
 }
 
 /* ============================================================================
-   TERMINAL / POS (con diagnÃ³stico)
+   TERMINAL / POS (con diagnostico)
 ============================================================================ */
 
 function current_terminal_id(): int {
@@ -649,7 +649,7 @@ function require_terminal(bool $withNext = true): void {
   $tid = current_terminal_id();
   if ($tid > 0) return;
 
-  // Si el problema es DB/Schema, no redirijimos â€œcomo si fuera selecciÃ³nâ€
+  // Si el problema es DB/Schema, no redirigimos "como si fuera seleccion"
   $iss = auth_issue_get();
   $type = (string)($iss['type'] ?? 'OK');
   if ($type === 'DB_DOWN') {
@@ -695,7 +695,7 @@ function require_pos(bool $withNext = true): void {
     }
   } catch (PDOException $e) {
     if (is_server_gone($e) || is_cant_connect($e)) {
-      auth_issue_set('DB_DOWN', 'SERVER_GONE', 'MySQL se cayÃ³ al intentar tomar lock', $e->getMessage());
+      auth_issue_set('DB_DOWN', 'SERVER_GONE', 'MySQL se cayo al intentar tomar lock', $e->getMessage());
       auth_log('terminal_lock_acquire: server gone', 'error', ['ex' => $e->getMessage()]);
       flus_render_access_error('html', 503, 'DB_DOWN', 'MySQL no responde al intentar tomar el lock de terminal.', $e->getMessage());
     }

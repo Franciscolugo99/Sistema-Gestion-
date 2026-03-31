@@ -4,6 +4,8 @@
   const script = document.currentScript;
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
   const basePath = String(configEl?.dataset?.base || "").replace(/\/+$/g, "");
+  const noticeCode = String(configEl?.dataset?.notice || "").trim();
+  const noticeMessage = String(configEl?.dataset?.noticeMessage || "").trim();
 
   const rawNext = configEl?.dataset?.next || script?.dataset?.next || "";
   const nextUrl = (() => {
@@ -120,7 +122,11 @@
       return;
     }
 
-    setMsg("Elegí una terminal para seleccionarla y continuar.");
+    if (noticeMessage) {
+      setMsg(noticeMessage);
+    } else {
+      setMsg("Elegí una terminal para seleccionarla y continuar.");
+    }
 
     terminales.forEach(t => {
       const id = Number(t.id || t.terminal_id || 0);
@@ -258,6 +264,12 @@
 
   (async () => {
     try {
+      if (noticeCode === "terminal_released" && noticeMessage) {
+        toast(noticeMessage, "warn", 3600);
+      } else if (noticeCode === "terminal_required" && noticeMessage) {
+        toast(noticeMessage, "info", 3200);
+      }
+
       // Sin terminal_id => backend devuelve lista (tu index.php ya lo hace)
       const { json } = await api("terminal_select", { csrf });
 

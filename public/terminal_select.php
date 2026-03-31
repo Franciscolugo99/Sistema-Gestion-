@@ -45,6 +45,13 @@ if (!str_starts_with($next, $allowedPrefix)) {
 
 $next .= $query . $fragment;
 
+$noticeCode = trim((string)($_GET['notice'] ?? ''));
+$noticeMap = [
+    'terminal_released' => 'Un administrador liberó la terminal que estabas usando. Elegí una terminal para continuar.',
+    'terminal_required' => 'Necesitás seleccionar una terminal antes de entrar a caja.',
+];
+$noticeMessage = $noticeMap[$noticeCode] ?? '';
+
 $pageTitle = 'Seleccionar terminal';
 $currentSection = '';
 $extraCss = ['assets/css/terminal_select.css'];
@@ -56,6 +63,8 @@ require __DIR__ . '/partials/header.php';
 <main class="ts-page">
   <div id="terminalSelectConfig"
        data-base="<?= h($base) ?>"
+       data-notice="<?= h($noticeCode) ?>"
+       data-notice-message="<?= h($noticeMessage) ?>"
        data-next="<?= h($next) ?>"
        hidden></div>
 
