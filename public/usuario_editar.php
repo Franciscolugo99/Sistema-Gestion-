@@ -130,6 +130,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $formErrors = $_SESSION['form_errors'] ?? [];
 unset($_SESSION['form_errors']);
 
+$passwordFieldError = '';
+foreach ($formErrors as $error) {
+    if (stripos((string)$error, 'contrasena') !== false) {
+        $passwordFieldError = (string)$error;
+        break;
+    }
+}
+
 try {
     $roles = $pdo->query("SELECT id, nombre FROM roles ORDER BY nombre ASC")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -142,7 +150,7 @@ try {
 $pageTitle      = 'Editar Usuario';
 $currentSection = 'usuarios';
 $extraCss       = ['assets/css/usuarios.css?v=3'];
-$extraJs        = ['assets/js/usuario_form.js?v=1'];
+$extraJs        = ['assets/js/usuario_form.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
 
@@ -253,9 +261,10 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
           <div class="form-field">
             <label for="password" class="form-label">Nueva Contraseña</label>
             <div class="password-input-wrap">
-              <input type="password" id="password" name="password" class="form-input"
+              <input type="password" id="password" name="password" class="form-input<?= $passwordFieldError !== '' ? ' is-invalid' : '' ?>"
                 placeholder="Dejar vacío para no cambiar"
                 minlength="6" maxlength="255" autocomplete="new-password"
+                aria-invalid="<?= $passwordFieldError !== '' ? 'true' : 'false' ?>"
                 <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
               <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false" <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -264,7 +273,7 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
               </button>
             </div>
             <span class="form-hint"><?= $puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.' ?></span>
-            <span class="form-error" data-error-for="password"></span>
+            <span class="form-error" data-error-for="password"><?= h($passwordFieldError) ?></span>
           </div>
         </div>
       </div>

@@ -82,7 +82,7 @@ try {
 $pageTitle      = 'Nuevo Usuario';
 $currentSection = 'usuarios';
 $extraCss       = ['assets/css/usuarios.css?v=3'];
-$extraJs        = ['assets/js/usuario_form.js?v=1'];
+$extraJs        = ['assets/js/usuario_form.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
 ?>

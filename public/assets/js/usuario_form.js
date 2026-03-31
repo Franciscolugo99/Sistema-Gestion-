@@ -1,5 +1,5 @@
 // public/assets/js/usuario_form.js
-// Validación liviana + toggle de password (usuario_nuevo / usuario_editar)
+// ValidaciÃ³n liviana + toggle de password (usuario_nuevo / usuario_editar)
 (() => {
   if (window.__flusUsuarioFormBound) return;
   window.__flusUsuarioFormBound = true;
@@ -44,38 +44,58 @@
   }
 
   function humanMessage(field) {
-    if (!field) return 'Campo inválido';
+    if (!field) return 'Campo invÃ¡lido';
     const v = field.validity;
     if (v.valueMissing) return 'Este campo es obligatorio';
-    if (v.typeMismatch) return 'Formato inválido';
+    if (v.typeMismatch) return 'Formato invÃ¡lido';
     if (v.tooShort) return `Debe tener al menos ${field.minLength} caracteres`;
     if (v.tooLong) return `No puede superar ${field.maxLength} caracteres`;
-    if (v.patternMismatch) return 'Formato inválido';
-    return 'Campo inválido';
+    if (v.patternMismatch) return 'Formato invÃ¡lido';
+    return 'Campo invÃ¡lido';
+  }
+
+  function validateField(field) {
+    if (!field || field.disabled) return true;
+
+    const value = String(field.value || '');
+    const trimmedValue = value.trim();
+
+    if (field.name === 'password') {
+      if (!field.required && trimmedValue === '') {
+        setFieldError(field, '');
+        return true;
+      }
+
+      if (trimmedValue !== '' && value.length < 6) {
+        setFieldError(field, 'Debe tener al menos 6 caracteres');
+        return false;
+      }
+    }
+
+    if (!field.checkValidity()) {
+      setFieldError(field, humanMessage(field));
+      return false;
+    }
+
+    setFieldError(field, '');
+    return true;
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     const form = qs('#usuarioForm');
     if (!form) return;
 
-    // Validación al submit
+    // ValidaciÃ³n al submit
     form.addEventListener('submit', (e) => {
       clearAllErrors(form);
 
-      // Si el navegador soporta constraint validation, úsalo
+      // Si el navegador soporta constraint validation, Ãºsalo
       const fields = qsa('input, select, textarea', form).filter(el => !el.disabled);
       let firstInvalid = null;
 
       for (const field of fields) {
-        // No forzar password en editar si está vacío y no es required
-        if (field.name === 'password' && !field.required && String(field.value || '').trim() === '') {
-          continue;
-        }
-
-        if (!field.checkValidity()) {
-          const msg = humanMessage(field);
-          setFieldError(field, msg);
-          if (!firstInvalid) firstInvalid = field;
+        if (!validateField(field) && !firstInvalid) {
+          firstInvalid = field;
         }
       }
 
@@ -88,10 +108,10 @@
     // Limpieza en vivo
     qsa('input, select, textarea', form).forEach((field) => {
       field.addEventListener('input', () => {
-        if (field.checkValidity()) setFieldError(field, '');
+        validateField(field);
       });
       field.addEventListener('change', () => {
-        if (field.checkValidity()) setFieldError(field, '');
+        validateField(field);
       });
     });
   });

@@ -5,10 +5,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 
-require_pos();
 $canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
 $canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
 require_any_permission(['abrir_caja', 'realizar_ventas']);
+require_pos();
 
 
 

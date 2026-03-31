@@ -430,6 +430,79 @@ function invalidate_promos_cache(PDO $pdo): void {
   }
 }
 
+function flus_action_guard_policies(): array {
+  return [
+    'anular_items_venta' => [
+      'methods' => ['POST'],
+      'permissions' => ['anular_items_venta'],
+      'csrf' => true,
+    ],
+    'anular_venta' => [
+      'methods' => ['POST'],
+      'permissions' => ['anular_venta'],
+      'csrf' => true,
+    ],
+    'buscar_clientes_cc' => [
+      'methods' => ['GET'],
+      'permissions' => ['registrar_cargo_cc'],
+    ],
+    'buscar_productos' => [
+      'methods' => ['GET'],
+      'any_permissions' => ['realizar_ventas', 'emitir_factura'],
+    ],
+    'cliente_consultar_cuit' => [
+      'methods' => ['GET'],
+    ],
+    'promo_actualizar' => [
+      'methods' => ['POST'],
+      'permissions' => ['editar_promos'],
+      'csrf' => true,
+    ],
+    'promo_eliminar' => [
+      'methods' => ['POST'],
+      'permissions' => ['editar_promos'],
+      'csrf' => true,
+    ],
+    'promo_obtener' => [
+      'methods' => ['GET'],
+      'permissions' => ['editar_promos'],
+    ],
+    'promo_productos' => [
+      'methods' => ['GET'],
+      'permissions' => ['editar_promos'],
+    ],
+    'verificar_cc' => [
+      'methods' => ['GET', 'POST'],
+      'permissions' => ['registrar_cargo_cc'],
+    ],
+  ];
+}
+
+function flus_enforce_action_guard(string $action, array $body): void {
+  $policies = flus_action_guard_policies();
+  $policy = $policies[$action] ?? [];
+
+  require_login_json();
+
+  if (!empty($policy['methods'])) {
+    require_method_json($policy['methods']);
+  }
+
+  if (!empty($policy['permissions']) && is_array($policy['permissions'])) {
+    foreach ($policy['permissions'] as $permission) {
+      require_perm_json((string)$permission);
+    }
+  }
+
+  if (!empty($policy['any_permissions']) && is_array($policy['any_permissions'])) {
+    require_any_perm_json($policy['any_permissions']);
+  }
+
+  if (!empty($policy['csrf'])) {
+    require_csrf_json($body);
+  }
+}
+
 // ------------------ ROUTER ------------------
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $body   = read_request_body();
@@ -452,29 +525,15 @@ if ($action !== '' && !preg_match('/^[a-z0-9_]+$/i', $action)) {
 
 $__actionFile = __DIR__ . '/actions/' . $action . '.php';
 if ($action !== '' && is_file($__actionFile)) {
+  flus_enforce_action_guard($action, $body);
 
   // âœ… Seguridad por defecto para endpoints actions/*
   // - Permitimos sin login SOLO endpoints explÃ­citos de diagnÃ³stico/compat.
-  $authFree = ['_csrf_check'];
 
-  if (!in_array($action, $authFree, true)) {
-    require_login_json();
 
     // Permisos puntuales (evita exponer catÃ¡logo desde afuera)
-    if ($action === 'buscar_productos') {
-      $canBuscarProductos = function_exists('user_has_permission')
-        ? (user_has_permission('realizar_ventas') || user_has_permission('emitir_factura'))
-        : true;
-      if (!$canBuscarProductos) {
-        json_fail('No autorizado', 403);
-      }
-    }
 
     // CSRF para cualquier acciÃ³n state-changing
-    if ($method !== 'GET') {
-      require_csrf_json($body);
-    }
-  }
 
   //  Asegurar PDO antes de ejecutar el action
   if (!isset($pdo) && function_exists('getPDO')) {
@@ -885,7 +944,9 @@ case 'buscar_producto': {
 
       $pdo = getPDO();
       $ttl = 90;
-
+      $user = current_user();
+      $uid  = (int)($user['id'] ?? 0);
+      $sid  = session_id();
       terminal_locks_gc($pdo, $ttl);
 
       $requestedTerminalId = (int)($body['terminal_id'] ?? 0);
@@ -895,7 +956,40 @@ case 'buscar_producto': {
 
       // âœ… si no mandan terminal_id -> devolvemos lista
       if ($requestedTerminalId <= 0) {
-        $terminales = terminal_list($pdo);
+        $terminales = array_map(static function (array $terminal) use ($pdo, $uid, $sid): array {
+          $terminalId = (int)($terminal['id'] ?? 0);
+          $lock = $terminalId > 0 ? terminal_lock_status($pdo, $terminalId) : null;
+          $lockUserId = (int)($lock['user_id'] ?? 0);
+          $lockSessionId = (string)($lock['session_id'] ?? '');
+          $isMine = $lockUserId > 0 && $lockUserId === $uid && $lockSessionId !== '' && $lockSessionId === $sid;
+          $locked = is_array($lock) && !$isMine;
+          $lockedBy = '';
+
+          if ($locked && $lockUserId > 0) {
+            try {
+              $st = $pdo->prepare('SELECT nombre, username FROM users WHERE id = :id LIMIT 1');
+              $st->execute([':id' => $lockUserId]);
+              $lockUser = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+              $lockedBy = trim((string)($lockUser['nombre'] ?? ''));
+              if ($lockedBy === '') {
+                $lockedBy = trim((string)($lockUser['username'] ?? ''));
+              }
+            } catch (Throwable $e) {
+              $lockedBy = '';
+            }
+          }
+
+          $terminal['status'] = $locked ? 'locked' : 'free';
+          $terminal['locked'] = $locked;
+          $terminal['locked_by_user_id'] = $lockUserId;
+          $terminal['locked_by_session_id'] = $lockSessionId;
+          $terminal['locked_by_name'] = $lockedBy;
+          $terminal['lockedBy'] = $lockedBy !== '' ? $lockedBy : ($locked ? 'Otro usuario' : '');
+          $terminal['last_seen_at'] = (string)($lock['updated_at'] ?? $lock['expires_at'] ?? '');
+          $terminal['is_mine'] = $isMine;
+
+          return $terminal;
+        }, terminal_list($pdo));
         json_ok([
           'terminales' => $terminales,
           'current' => $currentTid,
@@ -909,10 +1003,6 @@ case 'buscar_producto': {
         json_fail('Terminal invÃ¡lida', 400);
       }
 
-      $user = current_user();
-      $uid  = (int)($user['id'] ?? 0);
-      $sid  = session_id();
-
       // âœ… Si hay caja abierta en la terminal actual, NO permitimos CAMBIAR a otra
       if ($currentTid > 0 && $requestedTerminalId !== $currentTid) {
         $open = caja_get_abierta($pdo, $currentTid);
@@ -921,19 +1011,23 @@ case 'buscar_producto': {
         }
       }
 
+      $currentLock = terminal_lock_status($pdo, $requestedTerminalId);
+      $lockedByOther = is_array($currentLock)
+        && (int)($currentLock['user_id'] ?? 0) > 0
+        && (
+          (int)($currentLock['user_id'] ?? 0) !== $uid
+          || (string)($currentLock['session_id'] ?? '') !== $sid
+        );
+      if ($lockedByOther) {
+        json_fail('LOCKED', 409, ['detail' => $currentLock]);
+      }
+
       // âœ… Si estamos cambiando de terminal, liberamos el lock anterior de este usuario (best effort)
       if ($currentTid > 0 && $requestedTerminalId !== $currentTid && $uid > 0) {
         terminal_lock_release($pdo, $currentTid, $uid);
       }
 
       // âœ… Adquirir/renovar lock para la terminal pedida (incluye el caso "misma terminal")
-      $res = terminal_lock_acquire($pdo, $requestedTerminalId, $uid, $sid, $ttl);
-      if (!($res['ok'] ?? false)) {
-        $err  = (string)($res['error'] ?? 'LOCK_FAIL');
-        $code = ($err === 'DB_ERROR' || $err === 'DB_DOWN' || $err === 'NO_LOCK_TABLE' || $err === 'LOCK_SCHEMA') ? 503 : 409;
-        json_fail($err, $code, ['detail' => $res]);
-      }
-
       terminal_set_cookie($requestedTerminalId);
       $_SESSION['terminal_id'] = $requestedTerminalId;
 
@@ -1131,10 +1225,10 @@ case 'buscar_producto': {
     ========================================================= */
     case 'registrar_venta': {
       require_login_json();
-      require_terminal_lock_json();
       if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {
         json_fail('No autorizado', 403);
       }
+      require_terminal_lock_json();
 
       // âœ… CSRF obligatorio para registrar ventas
       require_csrf_json($body);

@@ -29,6 +29,10 @@ require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'di
 require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'helpers.php';
 require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'productos_helpers.php';
 
+final class FlusSkippedTest extends RuntimeException
+{
+}
+
 function flus_test_reset_runtime(): void
 {
     $restoreLock = FLUS_ROOT . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'restore.lock';
@@ -80,15 +84,22 @@ function flus_assert_not_contains(string $needle, string $haystack, string $mess
     }
 }
 
+function flus_skip(string $message): never
+{
+    throw new FlusSkippedTest($message);
+}
+
 function flus_run_test(string $name, callable $test): array
 {
     flus_test_reset_runtime();
 
     try {
         $test();
-        return ['name' => $name, 'ok' => true, 'message' => 'OK'];
+        return ['name' => $name, 'ok' => true, 'skipped' => false, 'message' => 'OK'];
+    } catch (FlusSkippedTest $e) {
+        return ['name' => $name, 'ok' => true, 'skipped' => true, 'message' => $e->getMessage()];
     } catch (Throwable $e) {
-        return ['name' => $name, 'ok' => false, 'message' => $e->getMessage()];
+        return ['name' => $name, 'ok' => false, 'skipped' => false, 'message' => $e->getMessage()];
     } finally {
         flus_test_reset_runtime();
     }

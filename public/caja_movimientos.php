@@ -5,8 +5,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 
-require_pos(); // login + terminal + lock
 require_permission('realizar_ventas'); // si querés más fino: 'cerrar_caja' o crear 'movimientos_caja'
+
+require_pos(); // login + terminal + lock
 
 if (!function_exists('format_datetime_ar')) {
   function format_datetime_ar(?string $dt): string {

@@ -135,6 +135,33 @@ try {
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 function money($n) { return '$ ' . number_format((float)$n, 2, ',', '.'); }
 
+function humanize_ticket_medio_pago(string $medio): string {
+  $medio = strtoupper(trim($medio));
+  return match ($medio) {
+    'CC' => 'Cuenta Corriente',
+    'MP', 'MERCADOPAGO' => 'Mercado Pago',
+    'DEBITO' => 'Débito',
+    'CREDITO' => 'Crédito',
+    'TRANSFERENCIA', 'TRANSFER' => 'Transferencia',
+    'MODO' => 'Modo',
+    'QR' => 'QR',
+    '', 'EFECTIVO' => 'Efectivo',
+    default => $medio,
+  };
+}
+
+function humanize_ticket_medio_pago_list(string $raw): string {
+  $parts = preg_split('/\s*\+\s*/', $raw) ?: [];
+  $parts = array_values(array_filter(array_map('trim', $parts), static fn(string $part): bool => $part !== ''));
+  if ($parts === []) {
+    return humanize_ticket_medio_pago($raw);
+  }
+
+  return implode(' + ', array_map('humanize_ticket_medio_pago', $parts));
+}
+
+$medioPago = humanize_ticket_medio_pago_list((string)$medioPago);
+
 $ticketNum = str_pad((string)$id, 6, '0', STR_PAD_LEFT);
 $fecha = date('d/m/Y H:i', strtotime($venta['fecha']));
 $width = $paper === '58' ? '48mm' : '72mm';

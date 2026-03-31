@@ -12,20 +12,38 @@ if ($next === '') {
     $next = ($base !== '') ? ($base . '/caja.php') : '/caja.php';
 }
 
-$next = str_replace('\\', '/', $next);
+$nextParts = parse_url($next);
+$nextPath = str_replace('\\', '/', (string)($nextParts['path'] ?? $next));
+$nextPath = preg_replace('#/+#', '/', $nextPath) ?? $nextPath;
 
-if ($next !== '' && $next[0] !== '/') {
-    $next = ($base !== '' ? ($base . '/') : '/') . ltrim($next, '/');
+if ($nextPath !== '' && $nextPath[0] !== '/') {
+    $nextPath = ($base !== '' ? ($base . '/') : '/') . ltrim($nextPath, '/');
 }
 
-if ($prefix !== '' && str_starts_with($next, $prefix . '/') && ($base !== '' && !str_starts_with($next, $base . '/'))) {
-    $next = $base . substr($next, strlen($prefix));
+if ($base !== '') {
+    $baseLeaf = trim((string)basename($base), '/');
+    if ($baseLeaf !== '') {
+        $duplicateBasePrefix = $base . '/' . $baseLeaf . '/';
+        while (str_starts_with($nextPath, $duplicateBasePrefix)) {
+            $nextPath = $base . '/' . ltrim(substr($nextPath, strlen($duplicateBasePrefix)), '/');
+        }
+    }
 }
+
+if ($prefix !== '' && str_starts_with($nextPath, $prefix . '/') && ($base !== '' && !str_starts_with($nextPath, $base . '/'))) {
+    $nextPath = $base . substr($nextPath, strlen($prefix));
+}
+
+$next = $nextPath;
+$query = isset($nextParts['query']) && $nextParts['query'] !== '' ? ('?' . $nextParts['query']) : '';
+$fragment = isset($nextParts['fragment']) && $nextParts['fragment'] !== '' ? ('#' . $nextParts['fragment']) : '';
 
 $allowedPrefix = ($base !== '' ? ($base . '/') : '/');
 if (!str_starts_with($next, $allowedPrefix)) {
     $next = ($base !== '' ? ($base . '/caja.php') : '/caja.php');
 }
+
+$next .= $query . $fragment;
 
 $pageTitle = 'Seleccionar terminal';
 $currentSection = '';

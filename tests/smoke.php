@@ -764,17 +764,39 @@ function flus_collect_permission_slugs_from_migrations(string $migrationsRoot): 
     return flus_collect_permission_slugs_from_sql_paths($paths);
 }
 
+function flus_create_sqlite_memory_pdo(string $testName): PDO
+{
+    $drivers = class_exists(PDO::class) ? PDO::getAvailableDrivers() : [];
+    if (!in_array('sqlite', $drivers, true)) {
+        flus_skip($testName . ': falta el driver pdo_sqlite');
+    }
+
+    try {
+        $pdo = new PDO('sqlite::memory:');
+    } catch (Throwable $e) {
+        flus_skip($testName . ': sqlite::memory no se pudo inicializar (' . $e->getMessage() . ')');
+    }
+
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    return $pdo;
+}
+
 function flus_open_project_pdo(string $repoRoot): PDO
 {
     $configPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.php';
     if (!is_file($configPath)) {
-        throw new RuntimeException('Missing src/config.php for database permission test');
+        flus_skip('permissions stay aligned across code, install, migrations and admin role: falta src/config.php');
     }
 
     require_once $configPath;
 
     if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER') || !defined('DB_PASS')) {
-        throw new RuntimeException('Database constants are not available for permission test');
+        flus_skip('permissions stay aligned across code, install, migrations and admin role: faltan constantes DB_*');
+    }
+
+    if (!in_array('mysql', PDO::getAvailableDrivers(), true)) {
+        flus_skip('permissions stay aligned across code, install, migrations and admin role: falta el driver pdo_mysql');
     }
 
     $port = defined('DB_PORT') ? (string)DB_PORT : '3306';
@@ -787,11 +809,15 @@ function flus_open_project_pdo(string $repoRoot): PDO
         $charset
     );
 
-    return new PDO($dsn, (string)DB_USER, (string)DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    try {
+        return new PDO($dsn, (string)DB_USER, (string)DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    } catch (Throwable $e) {
+        flus_skip('permissions stay aligned across code, install, migrations and admin role: entorno MySQL no disponible (' . $e->getMessage() . ')');
+    }
 }
 
 function flus_fetch_first_column(PDO $pdo, string $sql): array
@@ -899,8 +925,7 @@ $results[] = flus_run_test('flus_is_critical_role recognizes protected admin slu
 });
 
 $results[] = flus_run_test('flus_validate_user_payload checks duplicates and role existence', function (): void {
-    $pdo = new PDO('sqlite::memory:');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = flus_create_sqlite_memory_pdo('flus_validate_user_payload checks duplicates and role existence');
     $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
     $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
     $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin'), (2, 'Cajero', 'cajero')");
@@ -927,8 +952,7 @@ $results[] = flus_run_test('flus_validate_user_payload checks duplicates and rol
 });
 
 $results[] = flus_run_test('flus_guard_user_admin_mutation blocks self deactivation', function (): void {
-    $pdo = new PDO('sqlite::memory:');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = flus_create_sqlite_memory_pdo('flus_guard_user_admin_mutation blocks self deactivation');
     $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
     $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, role_id INTEGER, activo INTEGER)');
     $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin')");
@@ -939,8 +963,7 @@ $results[] = flus_run_test('flus_guard_user_admin_mutation blocks self deactivat
 });
 
 $results[] = flus_run_test('flus_guard_user_admin_mutation protects reserved admin account role', function (): void {
-    $pdo = new PDO('sqlite::memory:');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = flus_create_sqlite_memory_pdo('flus_guard_user_admin_mutation protects reserved admin account role');
     $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, nombre TEXT, slug TEXT)');
     $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
     $pdo->exec("INSERT INTO roles (id, nombre, slug) VALUES (1, 'Administrador', 'admin'), (2, 'Operador', 'operador')");
@@ -951,8 +974,7 @@ $results[] = flus_run_test('flus_guard_user_admin_mutation protects reserved adm
 });
 
 $results[] = flus_run_test('flus_guard_reserved_admin_role_mutation locks reserved role permissions', function (): void {
-    $pdo = new PDO('sqlite::memory:');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = flus_create_sqlite_memory_pdo('flus_guard_reserved_admin_role_mutation locks reserved role permissions');
     $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, username TEXT, role_id INTEGER, activo INTEGER)');
     $pdo->exec("INSERT INTO users (id, email, username, role_id, activo) VALUES (1, 'admin@flus.local', 'admin', 7, 1)");
 
@@ -1263,6 +1285,54 @@ $results[] = flus_run_test('admin pages rely on bootstrap session startup', func
     }
 });
 
+$results[] = flus_run_test('ticket humanizes CC and digital payment labels consistently', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ticketPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket.php');
+    $ticketPublicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket_publico.php');
+
+    flus_assert_contains("if (\$m === 'CC') return 'Cuenta Corriente';", $ticketPhp);
+    flus_assert_contains("if (\$m === 'TRANSFERENCIA' || \$m === 'TRANSFER') return 'Transferencia';", $ticketPhp);
+    flus_assert_contains("function humanize_ticket_medio_pago(string \$medio): string {", $ticketPublicoPhp);
+    flus_assert_contains("'CC' => 'Cuenta Corriente',", $ticketPublicoPhp);
+    flus_assert_contains("return implode(' + ', array_map('humanize_ticket_medio_pago', \$parts));", $ticketPublicoPhp);
+});
+
+$results[] = flus_run_test('promo actions rely on centralized API guards', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $promoActualizarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_actualizar.php');
+    $promoEliminarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_eliminar.php');
+    $promoObtenerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_obtener.php');
+    $promoProductosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_productos.php');
+
+    flus_assert_contains("'promo_actualizar' => [", $indexPhp);
+    flus_assert_contains("'promo_eliminar' => [", $indexPhp);
+    flus_assert_contains("'promo_obtener' => [", $indexPhp);
+    flus_assert_contains("'promo_productos' => [", $indexPhp);
+    flus_assert_contains("flus_enforce_action_guard(\$action, \$body);", $indexPhp);
+
+    foreach ([$promoActualizarPhp, $promoEliminarPhp, $promoObtenerPhp, $promoProductosPhp] as $php) {
+        flus_assert_not_contains('require_login_json();', $php);
+        flus_assert_not_contains('require_perm_json(', $php);
+        flus_assert_not_contains('require_csrf_json(', $php);
+    }
+});
+
+$results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $usuarioEliminarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'usuario_eliminar.php');
+    $usuarioTogglePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'usuario_toggle_estado.php');
+
+    foreach ([$usuarioEliminarPhp, $usuarioTogglePhp] as $php) {
+        flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $php);
+        flus_assert_contains('$input = api_read_json();', $php);
+        flus_assert_contains("function_exists('flus_csrf_from_request') ? flus_csrf_from_request(\$input) : '';", $php);
+        flus_assert_not_contains("require_once __DIR__ . '/../bootstrap.php';", $php);
+        flus_assert_not_contains("require_once __DIR__ . '/_csrf_guard.php';", $php);
+        flus_assert_not_contains("json_decode(file_get_contents('php://input'), true);", $php);
+    }
+});
+
 $results[] = flus_run_test('permissions stay aligned across code, install, migrations and admin role', function (): void {
     $repoRoot = dirname(__DIR__);
     $publicPath = $repoRoot . DIRECTORY_SEPARATOR . 'public';
@@ -1341,8 +1411,7 @@ $results[] = flus_run_test('facturacion arca degradation keeps availability crit
         )
     );
 
-    $pdo = new PDO('sqlite::memory:');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = flus_create_sqlite_memory_pdo('facturacion arca degradation keeps availability criteria consistent');
     $pdo->exec('CREATE TABLE app_config (k TEXT PRIMARY KEY, v TEXT)');
     $pdo->exec("INSERT INTO app_config (k, v) VALUES ('facturacion_habilitada', '0')");
 
@@ -2435,6 +2504,54 @@ $results[] = flus_run_test('facturacion desde documento no fuerza venta_id inval
     flus_assert_contains("return ['estado' => 'Listo para cierre', 'siguiente' => 'Generar o vincular venta'];", $documentosPhp);
 });
 
+$results[] = flus_run_test('auth html access errors keep FLUS styling and forbidden goes through central renderer', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $authPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php');
+
+    flus_assert_contains('class="flus-access-card"', $authPhp);
+    flus_assert_contains("flus_render_access_error('html', 403, 'FORBIDDEN', 'No tenes permisos para acceder a esta seccion.');", $authPhp);
+    flus_assert_not_contains('echo "No ten', $authPhp);
+});
+
+$results[] = flus_run_test('usuario form muestra validacion explicita para password corto y fuerza recarga del asset', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $usuarioFormJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'usuario_form.js');
+    $usuarioEditarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_editar.php');
+    $usuarioNuevoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_nuevo.php');
+
+    flus_assert_contains("if (trimmedValue !== '' && value.length < 6) {", $usuarioFormJs);
+    flus_assert_contains("setFieldError(field, 'Debe tener al menos 6 caracteres');", $usuarioFormJs);
+    flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioEditarPhp);
+    flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioNuevoPhp);
+    flus_assert_contains("data-error-for=\"password\"><?= h(\$passwordFieldError) ?></span>", $usuarioEditarPhp);
+});
+
+$results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
+    $cajaCerrarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
+    $cajaMovimientosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_movimientos.php');
+    $terminalSelectJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'terminal_select.js');
+    $terminalSelectPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'terminal_select.php');
+
+    $terminalSelectStart = strpos($apiIndexPhp, "case 'terminal_select': {");
+    $terminalSwitchStart = strpos($apiIndexPhp, "case 'terminal_switch': {");
+    flus_assert_true($terminalSelectStart !== false && $terminalSwitchStart !== false);
+    $terminalSelectSlice = substr($apiIndexPhp, (int)$terminalSelectStart, (int)$terminalSwitchStart - (int)$terminalSelectStart);
+
+    flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectSlice);
+    flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectSlice);
+    flus_assert_contains("setMsg(\"Elegí una terminal para seleccionarla y continuar.\");", $terminalSelectJs);
+    flus_assert_contains('const isLocked = Boolean(t.locked) || String(t.status || "") === "locked";', $terminalSelectJs);
+    flus_assert_contains('$duplicateBasePrefix = $base . \'/\' . $baseLeaf . \'/\';', $terminalSelectPhp);
+    flus_assert_contains('while (u.pathname.startsWith(duplicateBasePrefix)) {', $terminalSelectJs);
+    flus_assert_true(strpos($cajaPhp, "require_any_permission(['abrir_caja', 'realizar_ventas']);") < strpos($cajaPhp, 'require_pos();'));
+    flus_assert_true(strpos($cajaCerrarPhp, "require_permission('cerrar_caja');") < strpos($cajaCerrarPhp, 'require_pos();'));
+    flus_assert_true(strpos($cajaMovimientosPhp, "require_permission('realizar_ventas');") < strpos($cajaMovimientosPhp, 'require_pos();'));
+    flus_assert_true(strpos($apiIndexPhp, "if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {") < strpos($apiIndexPhp, 'require_terminal_lock_json();'));
+});
+
 $results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {
     $repoRoot = dirname(__DIR__);
     $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
@@ -2451,14 +2568,20 @@ $results[] = flus_run_test('ux documental explica flujo y carga manual sin escon
     flus_assert_contains('.fact-doc-guide__inline-help {', $facturacionCss);
 });
 
+$skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
 foreach ($results as $result) {
-    $prefix = $result['ok'] ? '[OK] ' : '[FAIL] ';
+    $prefix = '[OK] ';
+    if (!empty($result['skipped'])) {
+        $prefix = '[SKIP] ';
+    } elseif (!$result['ok']) {
+        $prefix = '[FAIL] ';
+    }
     echo $prefix . $result['name'] . ' - ' . $result['message'] . PHP_EOL;
 }
 
 echo PHP_EOL;
-echo 'Total: ' . count($results) . ', failed: ' . count($failed) . PHP_EOL;
+echo 'Total: ' . count($results) . ', failed: ' . count($failed) . ', skipped: ' . count($skipped) . PHP_EOL;
 
 exit(count($failed) > 0 ? 1 : 0);

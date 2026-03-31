@@ -3,17 +3,29 @@
   const configEl = document.getElementById("terminalSelectConfig");
   const script = document.currentScript;
   const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  const basePath = String(configEl?.dataset?.base || "").replace(/\/+$/g, "");
 
   const rawNext = configEl?.dataset?.next || script?.dataset?.next || "";
   const nextUrl = (() => {
-    // Normaliza \caja.php -> /caja.php y evita host raros tipo http://caja.php/
+    // Normaliza \caja.php, slashes dobles y paths con /public repetido.
     let n = String(rawNext || "").trim();
     if (!n) n = "/caja.php";
     n = n.replace(/\\/g, "/");
 
-    // Solo permitimos mismo origen (seguridad + evita bugs)
     try {
       const u = new URL(n, window.location.origin);
+      u.pathname = u.pathname.replace(/\/{2,}/g, "/");
+
+      if (basePath) {
+        const baseLeaf = basePath.split("/").filter(Boolean).pop() || "";
+        if (baseLeaf) {
+          const duplicateBasePrefix = `${basePath}/${baseLeaf}/`;
+          while (u.pathname.startsWith(duplicateBasePrefix)) {
+            u.pathname = `${basePath}/${u.pathname.slice(duplicateBasePrefix.length)}`;
+          }
+        }
+      }
+
       if (u.origin !== window.location.origin) return new URL("/caja.php", window.location.origin).toString();
       return u.toString();
     } catch {
@@ -108,13 +120,16 @@
       return;
     }
 
-    setMsg("Elegí una terminal para bloquearla y continuar.");
+    setMsg("Elegí una terminal para seleccionarla y continuar.");
 
     terminales.forEach(t => {
       const id = Number(t.id || t.terminal_id || 0);
       const nombre = String(t.nombre || t.name || (`Caja #${id}`));
       const activo = Number(t.activo ?? 1) === 1;
       const isCurrent = id === Number(current || 0);
+      const isLocked = Boolean(t.locked) || String(t.status || "") === "locked";
+      const lockedBy = String(t.lockedBy || t.locked_by_name || "Otro usuario");
+      const selectable = activo && (!isLocked || isCurrent);
 
       const ultimoUso = t.ultimo_uso || t.last_used || t.last_seen_at || null;
 
@@ -123,10 +138,12 @@
       card.tabIndex = 0;
 
       if (isCurrent) card.classList.add("current");
-      if (!activo) card.classList.add("disabled");
+      if (!selectable) card.classList.add("disabled");
 
       const metaLeft = `ID: ${id}`;
-      const metaRight = isCurrent ? "En uso ahora" : (activo ? "Click para seleccionar" : "Inactiva");
+      const metaRight = isCurrent
+        ? "Seleccionada ahora"
+        : (!activo ? "Inactiva" : (isLocked ? `Ocupada por ${lockedBy}` : "Click para seleccionar"));
       const uso = ultimoUso ? formatDate(ultimoUso) : "";
       const metaMid = uso ? `Uso: ${uso}` : "";
 
@@ -143,7 +160,7 @@
       const dot = document.createElement("span");
       dot.className = activo ? "ts-status-dot" : "ts-status-dot ts-dot-off";
       badge.appendChild(dot);
-      badge.appendChild(document.createTextNode(` ${isCurrent ? "Actual" : (activo ? "Activa" : "Inactiva")}`));
+      badge.appendChild(document.createTextNode(` ${isCurrent ? "Seleccionada" : (!activo ? "Inactiva" : (isLocked ? "Ocupada" : "Activa"))}`));
 
       row.appendChild(nameEl);
       row.appendChild(badge);
@@ -171,6 +188,7 @@
 
       const handleSelect = async () => {
         if (!activo) return toast("Esta terminal está inactiva.", "warn");
+        if (isLocked && !isCurrent) return toast(`Esa terminal está ocupada por ${lockedBy}.`, "warn", 3200);
         if (selecting || !id) return;
 
         selecting = true;

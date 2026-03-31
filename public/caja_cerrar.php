@@ -5,11 +5,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 
-// POS: login + terminal elegido + lock OK
-require_pos();
-
 // permiso
 require_permission('cerrar_caja');
+// POS: login + terminal elegido + lock OK
+require_pos();
 
 function caja_is_open($fechaCierre): bool {
   $fc = (string)($fechaCierre ?? '');

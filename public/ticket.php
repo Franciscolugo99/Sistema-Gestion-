@@ -97,6 +97,11 @@ function unit_price_suffix(string $u, bool $pesable): string {
 
 function label_medio_pago(string $m): string {
   $m = strtoupper(trim($m));
+  if ($m === 'CC') return 'Cuenta Corriente';
+  if ($m === 'MERCADOPAGO') return 'Mercado Pago';
+  if ($m === 'TRANSFERENCIA' || $m === 'TRANSFER') return 'Transferencia';
+  if ($m === 'MODO') return 'Modo';
+  if ($m === 'QR') return 'QR';
   if ($m === 'MP') return 'Mercado Pago';
   if ($m === 'DEBITO') return 'Débito';
   if ($m === 'CREDITO') return 'Crédito';

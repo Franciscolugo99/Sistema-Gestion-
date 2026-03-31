@@ -92,6 +92,42 @@ if (!function_exists('require_perm_json')) {
   }
 }
 
+if (!function_exists('require_any_perm_json')) {
+  function require_any_perm_json(array $perms): void {
+    $normalized = array_values(array_map('strval', $perms));
+    if (!function_exists('user_has_permission')) {
+      json_fail('FORBIDDEN', 403, ['perms' => $normalized]);
+    }
+
+    foreach ($normalized as $perm) {
+      if (user_has_permission($perm)) {
+        return;
+      }
+    }
+
+    json_fail('FORBIDDEN', 403, ['perms' => $normalized]);
+  }
+}
+
+if (!function_exists('require_method_json')) {
+  function require_method_json(string|array $allowedMethods): void {
+    $methods = is_array($allowedMethods) ? $allowedMethods : [$allowedMethods];
+    $methods = array_values(array_filter(array_map(
+      static fn($method): string => strtoupper(trim((string)$method)),
+      $methods
+    )));
+
+    if ($methods === []) {
+      throw new InvalidArgumentException('Allowed methods list cannot be empty');
+    }
+
+    $currentMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($currentMethod, $methods, true)) {
+      json_fail('Método no permitido', 405, ['allowed_methods' => $methods]);
+    }
+  }
+}
+
 /**
  * Extraer token CSRF desde headers/body
  */
