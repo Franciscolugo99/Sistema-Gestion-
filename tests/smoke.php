@@ -2552,6 +2552,22 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_true(strpos($apiIndexPhp, "if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {") < strpos($apiIndexPhp, 'require_terminal_lock_json();'));
 });
 
+$results[] = flus_run_test('terminal release from admin redirects caja users with an explicit notice', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
+    $terminalSelectPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'terminal_select.php');
+    $terminalSelectJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'terminal_select.js');
+
+    flus_assert_contains('terminal_select.php?next=caja.php&notice=terminal_released', $appJs);
+    flus_assert_contains('terminal_select.php?next=caja.php&notice=terminal_required', $appJs);
+    flus_assert_contains('const baseDelay = isCajaPage ? 5000 : 25000;', $appJs);
+    flus_assert_contains('window.addEventListener("focus", requestFastPing);', $appJs);
+    flus_assert_contains("'terminal_released' => 'Un administrador liberó la terminal que estabas usando. Elegí una terminal para continuar.',", $terminalSelectPhp);
+    flus_assert_contains('data-notice-message="<?= h($noticeMessage) ?>"', $terminalSelectPhp);
+    flus_assert_contains('if (noticeMessage) {', $terminalSelectJs);
+    flus_assert_contains('toast(noticeMessage, "warn", 3600);', $terminalSelectJs);
+});
+
 $results[] = flus_run_test('session registry wires login logout bootstrap heartbeat and diagnostics controls', function (): void {
     $repoRoot = dirname(__DIR__);
     $sessionRegistryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'session_registry.php');
@@ -2579,12 +2595,33 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     flus_assert_contains("case 'session_heartbeat': {", $apiIndexPhp);
     flus_assert_contains("flus_session_touch(\$pdo, \$uid, \$sid, ['force' => true]);", $apiIndexPhp);
     flus_assert_contains('api/index.php?action=session_heartbeat', $appJs);
+    flus_assert_contains('const nextDelay = () => document.visibilityState === "visible" ? 15000 : 60000;', $appJs);
+    flus_assert_contains('window.addEventListener("focus", requestFastSessionPing);', $appJs);
     flus_assert_contains('logout.php?reason=revoked', $appJs);
     flus_assert_contains("case 'revoked': \$errorMsg = 'Tu sesi", $loginPhp);
     flus_assert_contains("value=\"revocar_sesion\"", $diagnosticoPhp);
     flus_assert_contains("value=\"liberar_terminal_sesion\"", $diagnosticoPhp);
+    flus_assert_contains("audit_event('SESSION_REVOKE', AuditEntities::USER", $diagnosticoPhp);
+    flus_assert_contains("audit_event('TERMINAL_FORCE_RELEASE', AuditEntities::TERMINAL", $diagnosticoPhp);
+    flus_assert_contains("if (isset(\$_GET['panel']) && (string)\$_GET['panel'] === 'sessions_json') {", $diagnosticoPhp);
+    flus_assert_contains("assets/js/diagnostico.js", $diagnosticoPhp);
     flus_assert_contains('CREATE TABLE IF NOT EXISTS `user_sessions`', $migrationSql);
     flus_assert_contains('CREATE TABLE `user_sessions`', $installSql);
+});
+
+$results[] = flus_run_test('diagnostico live refresh keeps sessions and admin actions in sync', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $diagnosticoJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'diagnostico.js');
+    $diagnosticoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'diagnostico.php');
+
+    flus_assert_contains('const endpoint = String(configEl.dataset.endpoint || "").trim();', $diagnosticoJs);
+    flus_assert_contains('renderSessions(data.sessions || []);', $diagnosticoJs);
+    flus_assert_contains('renderActions(data.actions || []);', $diagnosticoJs);
+    flus_assert_contains('const nextDelay = () => document.visibilityState === "visible" ? 10000 : 30000;', $diagnosticoJs);
+    flus_assert_contains('window.addEventListener("focus", requestFastRefresh);', $diagnosticoJs);
+    flus_assert_contains('id="diagSessionsConfig"', $diagnosticoPhp);
+    flus_assert_contains('id="diagSessionsBody"', $diagnosticoPhp);
+    flus_assert_contains('id="diagAdminActions"', $diagnosticoPhp);
 });
 
 $results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {

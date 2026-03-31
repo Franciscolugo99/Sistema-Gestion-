@@ -8,6 +8,7 @@ require_login();
 require_diagnostics_permission();
 
 require_once __DIR__ . '/../src/diagnostics_lib.php';
+require_once __DIR__ . '/../src/audit_events.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -16,7 +17,7 @@ if (empty($_SESSION['csrf_token'])) {
 $pageTitle = 'Diagnóstico - FLUS';
 $currentSection = 'diagnostico';                 // para el menú/active section
 $extraCss = ['assets/css/diagnostico.css'];      // ruta real dentro de /public
-$extraJs = [];
+$extraJs = ['assets/js/diagnostico.js'];
 
 $info = null;
 $error = null;
@@ -26,6 +27,90 @@ $currentSessionId = session_id();
 $currentUserId = function_exists('session_user_id')
     ? session_user_id()
     : (int)(($user['id'] ?? 0));
+$recentAdminActions = [];
+
+function flus_diag_recent_admin_actions(PDO $pdo, int $limit = 8): array
+{
+    $limit = max(1, min(50, $limit));
+
+    try {
+        $sql = "
+            SELECT al.*, u.nombre AS actor_nombre, u.username AS actor_username
+            FROM audit_log al
+            LEFT JOIN users u ON u.id = al.user_id
+            WHERE al.action IN ('SESSION_REVOKE', 'TERMINAL_FORCE_RELEASE')
+            ORDER BY al.created_at DESC, al.id DESC
+            LIMIT {$limit}
+        ";
+
+        $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return array_map(static function (array $row): array {
+            $metaRaw = $row['meta'] ?? ($row['meta_json'] ?? null);
+            $meta = is_string($metaRaw) ? json_decode($metaRaw, true) : $metaRaw;
+            if (!is_array($meta)) {
+                $meta = [];
+            }
+
+            $row['meta'] = $meta;
+            $row['action'] = (string)($row['action'] ?? '');
+            $row['entity'] = (string)($row['entity'] ?? '');
+            $row['created_at'] = (string)($row['created_at'] ?? '');
+            $row['actor_nombre'] = (string)($row['actor_nombre'] ?? '');
+            $row['actor_username'] = (string)($row['actor_username'] ?? '');
+            return $row;
+        }, $rows);
+    } catch (Throwable $e) {
+        error_log('flus_diag_recent_admin_actions: ' . $e->getMessage());
+        return [];
+    }
+}
+
+function flus_diag_admin_action_label(array $row): string
+{
+    $action = strtoupper((string)($row['action'] ?? ''));
+    if ($action === 'SESSION_REVOKE') {
+        return 'Forzó salida';
+    }
+    if ($action === 'TERMINAL_FORCE_RELEASE') {
+        return 'Liberó terminal';
+    }
+    return $action !== '' ? $action : 'Acción admin';
+}
+
+function flus_diag_admin_action_target(array $row): string
+{
+    $meta = is_array($row['meta'] ?? null) ? $row['meta'] : [];
+    $targetName = trim((string)($meta['target_user_name'] ?? ''));
+    $targetUsername = trim((string)($meta['target_username'] ?? ''));
+    $terminalName = trim((string)($meta['locked_terminal_name'] ?? $meta['selected_terminal_name'] ?? ''));
+    $sessionShort = trim((string)($meta['session_id_short'] ?? ''));
+
+    $parts = [];
+    if ($targetName !== '') {
+        $parts[] = $targetName;
+    } elseif ($targetUsername !== '') {
+        $parts[] = '@' . ltrim($targetUsername, '@');
+    }
+
+    if ($terminalName !== '') {
+        $parts[] = $terminalName;
+    }
+
+    if ($sessionShort !== '') {
+        $parts[] = $sessionShort;
+    }
+
+    return $parts !== [] ? implode(' · ', $parts) : 'Sin detalle';
+}
+
+function flus_diag_sessions_payload(PDO $pdo): array
+{
+    return [
+        'sessions' => function_exists('flus_session_list_active') ? flus_session_list_active($pdo, 120) : [],
+        'actions' => flus_diag_recent_admin_actions($pdo, 8),
+        'generated_at' => date('c'),
+    ];
+}
 
 // Manejo de acciones POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -77,7 +162,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!function_exists('flus_session_revoke')) {
                 $error = 'El registro de sesiones todavia no esta disponible en este entorno.';
             } else {
+                $targetSession = function_exists('flus_session_fetch') ? flus_session_fetch($pdo, $targetSessionId) : null;
                 flus_session_revoke($pdo, $targetSessionId, $currentUserId, 'Cierre forzado desde diagnostico');
+                audit_event('SESSION_REVOKE', AuditEntities::USER, (int)($targetSession['user_id'] ?? 0) ?: null, [
+                    'target_user_id' => (int)($targetSession['user_id'] ?? 0),
+                    'target_user_name' => (string)($targetSession['user_nombre'] ?? $targetSession['display_name'] ?? ''),
+                    'target_username' => (string)($targetSession['username'] ?? ''),
+                    'session_id' => $targetSessionId,
+                    'session_id_short' => substr($targetSessionId, 0, 12) . '...',
+                    'reason' => 'Cierre forzado desde diagnostico',
+                ], $currentUserId);
                 if ($targetSessionId === $currentSessionId) {
                     header('Location: logout.php?reason=revoked');
                     exit;
@@ -91,10 +185,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!function_exists('terminal_lock_release_by_session')) {
                 $error = 'La liberacion de terminales no esta disponible en este entorno.';
             } else {
+                $targetSessions = function_exists('flus_session_list_active') ? flus_session_list_active($pdo, 120) : [];
+                $targetSession = null;
+                foreach ($targetSessions as $sessionRow) {
+                    if ((string)($sessionRow['session_id'] ?? '') === $targetSessionId) {
+                        $targetSession = $sessionRow;
+                        break;
+                    }
+                }
                 $released = terminal_lock_release_by_session($pdo, $targetSessionId);
                 if (function_exists('flus_session_update_selected_terminal')) {
                     flus_session_update_selected_terminal($pdo, $targetSessionId, null);
                 }
+                audit_event('TERMINAL_FORCE_RELEASE', AuditEntities::TERMINAL, (int)($targetSession['locked_terminal_id'] ?? $targetSession['selected_terminal_id'] ?? 0) ?: null, [
+                    'target_user_id' => (int)($targetSession['user_id'] ?? 0),
+                    'target_user_name' => (string)($targetSession['display_name'] ?? ''),
+                    'target_username' => (string)($targetSession['username'] ?? ''),
+                    'session_id' => $targetSessionId,
+                    'session_id_short' => substr($targetSessionId, 0, 12) . '...',
+                    'selected_terminal_id' => (int)($targetSession['selected_terminal_id'] ?? 0),
+                    'selected_terminal_name' => (string)($targetSession['selected_terminal_nombre'] ?? ''),
+                    'locked_terminal_id' => (int)($targetSession['locked_terminal_id'] ?? 0),
+                    'locked_terminal_name' => (string)($targetSession['locked_terminal_nombre'] ?? ''),
+                    'released_rows' => $released,
+                ], $currentUserId);
                 $info = $released > 0
                     ? 'Terminal liberada para la sesion seleccionada.'
                     : 'La sesion no tenia una terminal bloqueada en este momento.';
@@ -139,12 +253,27 @@ if (is_dir($diagDir)) {
 if (function_exists('flus_session_list_active')) {
     $activeSessions = flus_session_list_active($pdo, 120);
 }
+$recentAdminActions = flus_diag_recent_admin_actions($pdo, 8);
+
+if (isset($_GET['panel']) && (string)$_GET['panel'] === 'sessions_json') {
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+    }
+    echo json_encode(flus_diag_sessions_payload($pdo), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 
 require __DIR__ . '/partials/header.php';
 ?>
 
 
 <div class="panel">
+    <div id="diagSessionsConfig"
+         data-endpoint="diagnostico.php?panel=sessions_json"
+         data-current-session-id="<?= h($currentSessionId) ?>"
+         hidden></div>
+
     <header class="panel-head page-header module-header">
         <div class="page-header-main module-header-main">
             <div class="module-header-hero">
@@ -910,6 +1039,8 @@ function flusCopyText(elId) {
             Sesiones activas y terminales
         </h3>
 
+        <p id="diagSessionsMeta" class="diag-note">Actualizado al cargar la página.</p>
+
         <?php if (!empty($activeSessions)): ?>
             <div class="table-wrap">
                 <table class="table schema-table">
@@ -925,7 +1056,7 @@ function flusCopyText(elId) {
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="diagSessionsBody">
                         <?php foreach ($activeSessions as $sessionRow): ?>
                             <?php
                                 $sid = (string)($sessionRow['session_id'] ?? '');
@@ -981,8 +1112,43 @@ function flusCopyText(elId) {
                 </table>
             </div>
         <?php else: ?>
-            <p class="muted">No hay sesiones activas registradas en las ultimas 2 horas.</p>
+            <p id="diagSessionsEmpty" class="muted">No hay sesiones activas registradas en las ultimas 2 horas.</p>
         <?php endif; ?>
+    </div>    <div class="health-card mb-2">
+        <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20v-6"/>
+                <path d="M6 20v-4"/>
+                <path d="M18 20v-8"/>
+                <path d="M4 4h16"/>
+            </svg>
+            Acciones admin recientes
+        </h3>
+
+        <div id="diagAdminActions" class="packages-list">
+            <?php if (!empty($recentAdminActions)): ?>
+                <?php foreach ($recentAdminActions as $auditRow): ?>
+                    <?php
+                        $actorName = trim((string)($auditRow['actor_nombre'] ?? ''));
+                        if ($actorName === '') {
+                            $actorName = trim((string)($auditRow['actor_username'] ?? 'Sistema'));
+                        }
+                    ?>
+                    <div class="package-item">
+                        <div class="package-info">
+                            <div>
+                                <div><strong><?= h(flus_diag_admin_action_label($auditRow)) ?></strong></div>
+                                <div class="package-meta">
+                                    <?= h($actorName) ?> � <?= h(flus_diag_admin_action_target($auditRow)) ?> � <?= h((string)($auditRow['created_at'] ?? '')) ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <p class="muted">Todavia no hay acciones administrativas recientes sobre sesiones o terminales.</p>
+            <?php endif; ?>
+        </div>
     </div>
     <!-- Paquetes de diagnóstico -->
 <div class="health-card">
@@ -1064,4 +1230,6 @@ function flusCopyText(elId) {
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
+
 

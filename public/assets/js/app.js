@@ -217,7 +217,9 @@
     let inFlight = false;
     let timer = null;
 
-    const schedule = (delay = 60000) => {
+    const nextDelay = () => document.visibilityState === "visible" ? 15000 : 60000;
+
+    const schedule = (delay = nextDelay()) => {
       if (stopped) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(run, delay);
@@ -275,7 +277,19 @@
       }
     };
 
-    schedule(60000);
+    const requestFastSessionPing = () => {
+      if (stopped) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(run, 250);
+    };
+
+    window.addEventListener("focus", requestFastSessionPing);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") requestFastSessionPing();
+    });
+    window.addEventListener("pageshow", requestFastSessionPing);
+
+    schedule(250);
   });
 
   // ============================================
@@ -342,14 +356,14 @@
           // - En otros módulos => detener heartbeat sin molestar
           if (j && j.error === "NO_TERMINAL") {
             if (isCajaPage) {
-              window.location.href = "terminal_select.php?next=caja.php";
+              window.location.href = "terminal_select.php?next=caja.php&notice=terminal_required";
               return true;
             }
             return true;
           }
 
           if (j && j.error === "LOCK_NOT_OWNED") {
-            window.location.href = "terminal_select.php?next=caja.php";
+            window.location.href = "terminal_select.php?next=caja.php&notice=terminal_released";
             return true;
           }
 
@@ -388,9 +402,10 @@ if (r.status === 503) {
     let inFlight = false;
 
     const nextDelay = () => {
-      if (failCount <= 0) return 25000;
-      if (failCount === 1) return 45000;
-      if (failCount === 2) return 90000;
+      const baseDelay = isCajaPage ? 5000 : 25000;
+      if (failCount <= 0) return baseDelay;
+      if (failCount === 1) return isCajaPage ? 10000 : 45000;
+      if (failCount === 2) return isCajaPage ? 20000 : 90000;
       return 180000;
     };
 
@@ -418,6 +433,20 @@ if (r.status === 503) {
         if (!stopped) schedule();
       }
     };
+
+    const requestFastPing = () => {
+      if (stopped) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(pingWrapped, 250);
+    };
+
+    if (isCajaPage) {
+      window.addEventListener("focus", requestFastPing);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") requestFastPing();
+      });
+      window.addEventListener("pageshow", requestFastPing);
+    }
 
     // ✅ Arranque (SIN schedule extra)
     pingWrapped();
