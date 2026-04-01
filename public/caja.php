@@ -622,6 +622,10 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
         <div class="total-label-inline">Monto</div>
         <input type="number" id="montoPagado" data-payment-slot="1" min="0" step="0.01" placeholder="0,00">
+        <div class="payment-card__summary" aria-live="polite">
+          <span class="payment-card__summary-chip" id="paymentSummaryMethod1">Efectivo</span>
+          <strong class="payment-card__summary-value" id="paymentSummaryValue1">$0,00</strong>
+        </div>
 
         <!-- UX: chips de billete rapido (solo efectivo) -->
         <div id="denomChips" class="denom-chips" aria-label="Billetes rapidos" style="display:none">
@@ -652,7 +656,11 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <div class="total-label-inline">Monto</div>
         <div class="pago2-monto-row">
           <input type="number" id="montoPagado2" data-payment-slot="2" min="0" step="0.01" placeholder="0,00">
-          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago" aria-label="Quitar 2do pago">×</button>
+          <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago" aria-label="Quitar 2do pago">&times;</button>
+        </div>
+        <div class="payment-card__summary" aria-live="polite">
+          <span class="payment-card__summary-chip" id="paymentSummaryMethod2">Efectivo</span>
+          <strong class="payment-card__summary-value" id="paymentSummaryValue2">$0,00</strong>
         </div>
       </div>
 

@@ -454,6 +454,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const pago2Wrap = document.getElementById("pago2Wrap");
   const selMedio2 = document.getElementById("medioPago2");
   const inputPagado2 = document.getElementById("montoPagado2");
+  const paymentSummaryMethod1 = document.getElementById("paymentSummaryMethod1");
+  const paymentSummaryValue1 = document.getElementById("paymentSummaryValue1");
+  const paymentSummaryMethod2 = document.getElementById("paymentSummaryMethod2");
+  const paymentSummaryValue2 = document.getElementById("paymentSummaryValue2");
   const btnAgregarPago = document.getElementById("btnAgregarPago");
   const btnQuitarPago2 = document.getElementById("btnQuitarPago2");
   const lblTotalPagado = document.getElementById("lblTotalPagado");
@@ -712,7 +716,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function actualizarModoCobroCompacto() {
     if (!cajaPanel) return;
-    cajaPanel.classList.toggle("is-payment-compact", splitActivo() || tieneCC());
+    // Solo compactamos cuando hay split payment real.
+    // CC por si solo necesita aire visual para no colapsar el panel.
+    cajaPanel.classList.toggle("is-payment-compact", splitActivo());
   }
 
   function getSelectPago(slot = "1") {
@@ -721,6 +727,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getInputPago(slot = "1") {
     return String(slot) === "2" ? inputPagado2 : inputPagado;
+  }
+
+  function getPaymentWrap(slot = "1") {
+    return String(slot) === "2" ? pago2Wrap : pago1Wrap;
+  }
+
+  function getPaymentSummaryMethodEl(slot = "1") {
+    return String(slot) === "2" ? paymentSummaryMethod2 : paymentSummaryMethod1;
+  }
+
+  function getPaymentSummaryValueEl(slot = "1") {
+    return String(slot) === "2" ? paymentSummaryValue2 : paymentSummaryValue1;
+  }
+
+  function getPaymentMethodLabel(value) {
+    const medio = String(value || "EFECTIVO").toUpperCase();
+    if (medio === "MP") return "Mercado Pago";
+    if (medio === "DEBITO") return "Debito";
+    if (medio === "CREDITO") return "Credito";
+    if (medio === "CC") return "Cta. Corriente";
+    return "Efectivo";
+  }
+
+  function updatePaymentSummary(slot = "1") {
+    const wrap = getPaymentWrap(slot);
+    const select = getSelectPago(slot);
+    const input = getInputPago(slot);
+    const methodEl = getPaymentSummaryMethodEl(slot);
+    const valueEl = getPaymentSummaryValueEl(slot);
+    if (!wrap || !select || !input || !methodEl || !valueEl) return;
+
+    const amount = parseMonto(input.value || "0");
+    const visible = String(slot) !== "2" || splitActivo();
+    wrap.classList.toggle("is-filled", visible && amount > 0.009);
+    wrap.classList.toggle("is-zero", !(visible && amount > 0.009));
+
+    methodEl.textContent = getPaymentMethodLabel(select.value);
+    valueEl.textContent = formatearMoneda(amount);
+    valueEl.classList.toggle("is-zero", amount <= 0.009);
+  }
+
+  function updatePaymentSummaries() {
+    updatePaymentSummary("1");
+    updatePaymentSummary("2");
   }
 
   function syncPaymentMethodButtons() {
@@ -770,31 +820,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let paymentActiveSlot = "1";
 
   function reubicarPanelCC() {
-    if (!ccWrap || !pagosRow) return;
-
-    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
-    const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
-    let anchor = null;
-
-    if (medio1 === "CC" && pago1Wrap) {
-      anchor = pago1Wrap;
-    } else if (splitActivo() && medio2 === "CC" && pago2Wrap) {
-      anchor = pago2Wrap;
-    }
-
-    if (anchor) {
-      anchor.insertAdjacentElement("afterend", ccWrap);
-    }
-
-    ccWrap.classList.toggle("cc-wrap--after-pago1", medio1 === "CC");
-    ccWrap.classList.toggle(
-      "cc-wrap--after-pago2",
-      splitActivo() && medio2 === "CC",
-    );
-    ccWrap.classList.toggle(
-      "cc-wrap--compact",
-      splitActivo() || medio2 === "CC",
-    );
+    // [FIX v2] #ccWrap queda en posición fija en el HTML: siempre debajo de
+    // #pago1Wrap y #pago2Wrap, dentro de .pagos-row.
+    // La reubicación dinámica con insertAdjacentElement() causaba que el DOM
+    // se reordenara en cada cambio de medio de pago, empujando #pago2Wrap y
+    // generando saltos de layout. Esa lógica fue eliminada.
+    // Las clases cc-wrap--after-pago1, cc-wrap--after-pago2 y cc-wrap--compact
+    // también se eliminaron: ya no se aplican y sus reglas CSS son dead code.
   }
 
   function actualizarEstadoPagosUI(nextSlot = null) {
@@ -839,6 +871,7 @@ document.addEventListener("DOMContentLoaded", () => {
     reubicarPanelCC();
     actualizarModoCobroCompacto();
     syncPaymentMethodButtons();
+    updatePaymentSummaries();
   }
 
   function sumarKpisSesion(pagos, totalVenta) {
@@ -1240,6 +1273,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     actualizarKpisLive(pagadoTotal);
+    updatePaymentSummaries();
 
     // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
     if (restaWrap && lblRestaPagar) {
@@ -1345,14 +1379,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const warning = existente || document.createElement("div");
-    let textoFinal = mensaje;
-    if (ccWrap?.classList.contains("cc-wrap--compact")) {
-      textoFinal = textoFinal
-        .replace("disponible:", "disp.:")
-        .replace("Se registrará con autorización.", "Con autorizacion.");
-    }
+    // [FIX v2] La abreviación de texto basada en cc-wrap--compact fue eliminada.
+    // Esa clase ya no se aplica, y truncar el mensaje de advertencia ocultaba
+    // información crítica sobre el límite de cuenta corriente.
     warning.className = "cc-advertencia";
-    warning.textContent = textoFinal;
+    warning.textContent = mensaje;
 
     if (!existente) {
       if (wrap) wrap.insertAdjacentElement("afterend", warning);

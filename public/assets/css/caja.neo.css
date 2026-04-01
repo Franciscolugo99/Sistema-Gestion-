@@ -1141,6 +1141,13 @@ body.caja-fullscreen-page .caja-panel--neo .pagos-row.total-row-bottom {
   align-items: stretch;
 }
 
+/* [FIX v2] Garantia estructural: #ccWrap ocupa siempre la fila completa,
+   independientemente del numero de columnas del grid de pagos. */
+body.caja-fullscreen-page .caja-panel--neo .pagos-row > #ccWrap,
+.caja-panel--neo .pagos-row > #ccWrap {
+  grid-column: 1 / -1;
+}
+
 body.caja-fullscreen-page .caja-panel--neo .pagos-row > *,
 body.caja-fullscreen-page .caja-panel--neo .buttons-row > *,
 body.caja-fullscreen-page .caja-panel--neo .cc-wrap > * {
@@ -1303,7 +1310,7 @@ body.caja-fullscreen-page .caja-panel--neo .total-label-inline {
 
 body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row__eyebrow,
 body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .total-label-inline {
-  font-size: 0.58rem;
+  font-size: 0.62rem;
 }
 
 body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
@@ -2283,41 +2290,6 @@ body.caja-fullscreen-page .caja-panel--neo .action-button__key {
   font-size: 0.66rem;
 }
 
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
-  padding: 8px;
-  gap: 5px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
-  min-height: 36px;
-  font-size: 0.88rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .total-label-inline {
-  margin-top: 0;
-  font-size: 0.58rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-info {
-  margin-top: 2px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
-  margin-top: 4px;
-  padding: 6px 8px;
-  gap: 1px;
-  border-radius: 10px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
-  font-size: 0.84rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
-  font-size: 0.7rem;
-  line-height: 1.18;
-}
-
 body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
   margin-top: 6px;
   padding: 8px 10px;
@@ -2327,13 +2299,6 @@ body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
   color: #b45309;
   font-size: 0.8rem;
   line-height: 1.28;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
-  margin-top: 4px;
-  padding: 6px 8px;
-  font-size: 0.72rem;
-  line-height: 1.2;
 }
 
 @media (max-width: 980px) {
@@ -2588,38 +2553,32 @@ body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-adverte
     gap: 5px;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
     padding: 7px;
     gap: 4px;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap input,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap input {
     min-height: 34px;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
     margin-top: 3px;
     padding: 5px 7px;
     gap: 1px;
     border-radius: 9px;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
     font-size: 0.8rem;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle {
     font-size: 0.66rem;
     line-height: 1.12;
   }
 
-  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia,
-  body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
     margin-top: 4px;
     padding: 5px 7px;
     font-size: 0.68rem;
@@ -2692,57 +2651,6 @@ body.caja-fullscreen-page .caja-panel--neo .cc-row {
 
 body.caja-fullscreen-page .caja-panel--neo .payment-select-compact {
   width: 100%;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact {
-  padding: 7px;
-  gap: 4px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .total-label-inline,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .total-label-inline {
-  margin-bottom: 2px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 input,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact input {
-  min-height: 34px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-info,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-info {
-  margin-top: 3px;
-  padding: 6px 8px;
-  gap: 2px;
-  border-radius: 10px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-nombre,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-nombre {
-  font-size: 0.8rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-cliente-detalle,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-cliente-detalle {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 0.67rem;
-  line-height: 1.14;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--after-pago2 .cc-advertencia,
-body.caja-fullscreen-page .caja-panel--neo .cc-wrap.cc-wrap--compact .cc-advertencia {
-  margin-top: 4px;
-  padding: 5px 7px;
-  font-size: 0.68rem;
-  line-height: 1.15;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 @media (min-width: 1081px) and (max-height: 820px),
@@ -2954,6 +2862,119 @@ body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2:hover {
   border-color: rgba(239, 68, 68, 0.42);
 }
 
+body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2 {
+  min-height: 44px;
+  padding-inline: 14px;
+  border-width: 1px;
+  border-color: color-mix(in srgb, var(--neo-border-strong) 60%, var(--neo-border));
+  background: color-mix(in srgb, var(--neo-surface) 76%, #ffffff);
+  color: var(--neo-text);
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-align: right;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+body.caja-fullscreen-page .caja-panel--neo #montoPagado::placeholder,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2::placeholder {
+  color: color-mix(in srgb, var(--neo-muted) 80%, transparent);
+  font-weight: 700;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-active #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-active #montoPagado2,
+body.caja-fullscreen-page .caja-panel--neo .payment-card:focus-within #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo .payment-card:focus-within #montoPagado2 {
+  border-color: color-mix(in srgb, var(--neo-blue) 58%, var(--neo-border-strong));
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--neo-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--neo-surface) 72%, var(--neo-surface-2));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--neo-border);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--neo-muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+  text-align: right;
+  color: var(--neo-text);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value.is-zero {
+  color: var(--neo-muted);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled .payment-card__summary {
+  border-color: color-mix(in srgb, currentColor 26%, var(--neo-border));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(247, 250, 252, 0.92));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cash .payment-card__summary,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cash #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cash #montoPagado2 {
+  border-color: rgba(34, 197, 94, 0.36);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(255, 255, 255, 0.9));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-digital .payment-card__summary,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-digital #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-digital #montoPagado2 {
+  border-color: rgba(59, 130, 246, 0.34);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cc .payment-card__summary,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cc #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cc #montoPagado2 {
+  border-color: rgba(124, 58, 237, 0.34);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled .payment-card__summary-chip {
+  color: var(--neo-text);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cash .payment-card__summary-value {
+  color: var(--neo-green);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-digital .payment-card__summary-value {
+  color: var(--neo-blue);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cc .payment-card__summary-value {
+  color: #7c3aed;
+}
+
 @media (min-width: 1081px) and (max-height: 820px),
        (min-width: 1081px) and (max-width: 1366px) and (max-height: 900px) {
   body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
@@ -2992,5 +3013,173 @@ body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2:hover {
     min-width: 32px;
     width: 32px;
     font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 24px;
+    padding-inline: 10px;
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1400px) and (max-height: 1100px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(344px, 28vw, 392px);
+    gap: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-panel {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-row {
+    min-height: 26px;
+    padding: 2px 0;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-label {
+    font-size: 0.76rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-value {
+    font-size: 1.02rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-row--strong .total-value {
+    font-size: 0.94rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .total-row--strong .total-display {
+    font-size: 0.94rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 5px;
+    gap: 3px;
+    border-radius: 11px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+    gap: 3px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 34px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.7rem;
+    line-height: 1.05;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 22px;
+    min-height: 14px;
+    font-size: 0.54rem;
+    padding: 0 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 30px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2 {
+    min-height: 36px;
+    padding-inline: 10px;
+    font-size: 0.94rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 22px;
+    padding: 0 8px;
+    font-size: 0.64rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+    min-height: 20px;
+    padding-inline: 6px;
+    font-size: 0.6rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+    grid-template-columns: minmax(0, 1fr) 52px;
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+    min-width: 28px;
+    width: 28px;
+    font-size: 0.84rem;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-info {
+    margin-top: 1px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
+    padding: 5px 7px;
+    margin-top: 3px;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle,
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
+    font-size: 0.7rem;
+    line-height: 1.18;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
+    margin-top: 3px;
+    padding: 4px 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    padding: 5px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 38px;
   }
 }

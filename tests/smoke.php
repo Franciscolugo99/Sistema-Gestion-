@@ -1406,6 +1406,29 @@ $results[] = flus_run_test('terminal actions salen del switch y usan action file
     flus_assert_contains("json_ok(['session_id' => \$sid]);", $sessionHeartbeatPhp);
 });
 
+$results[] = flus_run_test('registrar venta delega logica interna a venta_api_lib', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $ventaLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
+
+    flus_assert_contains("'registrar_venta' => [", $indexPhp);
+    flus_assert_not_contains("case 'registrar_venta': {", $indexPhp);
+    flus_assert_contains("require_once __DIR__ . '/../../src/venta_api_lib.php';", $indexPhp);
+    flus_assert_contains('require_terminal_lock_json();', $registrarVentaPhp);
+    flus_assert_not_contains('require_login_json();', $registrarVentaPhp);
+    flus_assert_not_contains('require_csrf_json(', $registrarVentaPhp);
+    flus_assert_contains("flus_venta_parse_request_inputs(\$body)", $registrarVentaPhp);
+    flus_assert_contains("flus_venta_aggregate_items(\$itemsIn)", $registrarVentaPhp);
+    flus_assert_contains("flus_venta_build_items_snapshot(", $registrarVentaPhp);
+    flus_assert_contains("flus_venta_prepare_payment_data(", $registrarVentaPhp);
+    flus_assert_contains("flus_venta_validate_cc_payment(", $registrarVentaPhp);
+    flus_assert_contains("flus_venta_store_items_and_stock(", $registrarVentaPhp);
+    flus_assert_contains("function flus_venta_build_items_snapshot(", $ventaLibPhp);
+    flus_assert_contains("function flus_venta_register_cc_charge(", $ventaLibPhp);
+    flus_assert_contains("function flus_venta_build_response(", $ventaLibPhp);
+});
+
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
     $repoRoot = dirname(__DIR__);
     $usuarioEliminarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'usuario_eliminar.php');
@@ -2235,13 +2258,13 @@ $results[] = flus_run_test('fase 4 migracion y wiring agregan recibos sin tocar 
 $results[] = flus_run_test('fase 3 migracion y wiring mantienen alcance minimo y no destructivo', function (): void {
     $repoRoot = dirname(__DIR__);
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '018_cobranzas_base.sql');
-    $apiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $ventaApiLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
     $ccControllerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'CuentaCorrienteController.php');
     $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
 
     flus_assert_contains('CREATE TABLE IF NOT EXISTS `cobranzas`', $migrationSql);
     flus_assert_contains('CREATE TABLE IF NOT EXISTS `cobranza_aplicaciones`', $migrationSql);
-    flus_assert_contains('flus_cobranzas_register_sale_payment', $apiPhp);
+    flus_assert_contains('flus_cobranzas_register_sale_payment', $ventaApiLib);
     flus_assert_contains('flus_cobranzas_register_cc_payment', $ccControllerPhp);
     flus_assert_contains('flus_cobranzas_link_factura_from_sale', $facturacionLib);
     flus_assert_false(str_contains($migrationSql, 'DROP TABLE venta_pagos'));
@@ -2636,7 +2659,9 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_true(strpos($cajaPhp, "require_any_permission(['abrir_caja', 'realizar_ventas']);") < strpos($cajaPhp, 'require_pos();'));
     flus_assert_true(strpos($cajaCerrarPhp, "require_permission('cerrar_caja');") < strpos($cajaCerrarPhp, 'require_pos();'));
     flus_assert_true(strpos($cajaMovimientosPhp, "require_permission('realizar_ventas');") < strpos($cajaMovimientosPhp, 'require_pos();'));
-    flus_assert_true(strpos($apiIndexPhp, "if (function_exists('user_has_permission') && !user_has_permission('realizar_ventas')) {") < strpos($apiIndexPhp, 'require_terminal_lock_json();'));
+    flus_assert_contains("'registrar_venta' => [", $apiIndexPhp);
+    flus_assert_contains("'permissions' => ['realizar_ventas'],", $apiIndexPhp);
+    flus_assert_contains('require_terminal_lock_json();', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php'));
 });
 
 $results[] = flus_run_test('terminal release from admin redirects caja users with an explicit notice', function (): void {
@@ -2653,6 +2678,20 @@ $results[] = flus_run_test('terminal release from admin redirects caja users wit
     flus_assert_contains('data-notice-message="<?= h($noticeMessage) ?>"', $terminalSelectPhp);
     flus_assert_contains('if (noticeMessage) {', $terminalSelectJs);
     flus_assert_contains('toast(noticeMessage, "warn", 3600);', $terminalSelectJs);
+});
+
+$results[] = flus_run_test('caja no activa modo de cobro compacto solo por elegir cuenta corriente', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+    $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
+
+    flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", splitActivo());', $cajaJs);
+    flus_assert_not_contains('cajaPanel.classList.toggle("is-payment-compact", splitActivo() || tieneCC());', $cajaJs);
+    flus_assert_not_contains('insertAdjacentElement("afterend", ccWrap)', $cajaJs);
+    flus_assert_not_contains('ccWrap.classList.toggle("cc-wrap--compact"', $cajaJs);
+    flus_assert_contains('.pagos-row > #ccWrap', $cajaNeoCss);
+    flus_assert_not_contains('.cc-wrap.cc-wrap--compact', $cajaNeoCss);
+    flus_assert_not_contains('.cc-wrap.cc-wrap--after-pago2', $cajaNeoCss);
 });
 
 $results[] = flus_run_test('session registry wires login logout bootstrap heartbeat and diagnostics controls', function (): void {
