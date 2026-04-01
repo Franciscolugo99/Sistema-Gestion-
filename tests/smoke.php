@@ -1318,6 +1318,94 @@ $results[] = flus_run_test('promo actions rely on centralized API guards', funct
     }
 });
 
+$results[] = flus_run_test('cuenta corriente actions salen del switch y usan guard central', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $buscarClientesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'buscar_clientes_cc.php');
+    $verificarCcPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'verificar_cc.php');
+
+    flus_assert_contains("'buscar_clientes_cc' => [", $indexPhp);
+    flus_assert_contains("'verificar_cc' => [", $indexPhp);
+    flus_assert_contains("'any_permissions' => ['registrar_cargo_cc', 'registrar_pago_cc', 'ver_cuenta_corriente'],", $indexPhp);
+    flus_assert_not_contains("case 'buscar_clientes_cc': {", $indexPhp);
+    flus_assert_not_contains("case 'verificar_cc': {", $indexPhp);
+
+    foreach ([$buscarClientesPhp, $verificarCcPhp] as $php) {
+        flus_assert_not_contains('require_login_json();', $php);
+        flus_assert_not_contains('require_perm_json(', $php);
+        flus_assert_not_contains('require_any_perm_json(', $php);
+    }
+
+    flus_assert_contains("AND (nombre LIKE ? OR telefono LIKE ? OR cuit LIKE ?)", $buscarClientesPhp);
+    flus_assert_contains("\$st->execute([\$like, \$like, \$like]);", $buscarClientesPhp);
+    flus_assert_contains("ORDER BY cc_saldo DESC, nombre ASC", $buscarClientesPhp);
+    flus_assert_contains("\$ccCtrl = new CuentaCorrienteController(\$pdo);", $verificarCcPhp);
+    flus_assert_contains("'puede_autorizar' => \$puedeAutorizar,", $verificarCcPhp);
+});
+
+$results[] = flus_run_test('ventas y promos chicos salen del switch y usan action files', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $buscarProductoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'buscar_producto.php');
+    $buscarProductosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'buscar_productos.php');
+    $listarPromosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'listar_promos_activas.php');
+    $calcularCarritoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'calcular_carrito.php');
+    $terminalListPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_list.php');
+
+    flus_assert_contains("'buscar_producto' => [", $indexPhp);
+    flus_assert_contains("'buscar_productos' => [", $indexPhp);
+    flus_assert_contains("'listar_promos_activas' => [", $indexPhp);
+    flus_assert_contains("'calcular_carrito' => [", $indexPhp);
+    flus_assert_contains("'terminal_list' => [", $indexPhp);
+    flus_assert_not_contains("case 'buscar_producto': {", $indexPhp);
+    flus_assert_not_contains("case 'buscar_productos': {", $indexPhp);
+    flus_assert_not_contains("case 'listar_promos_activas': {", $indexPhp);
+    flus_assert_not_contains("case 'calcular_carrito': {", $indexPhp);
+    flus_assert_not_contains("case 'terminal_list': {", $indexPhp);
+
+    foreach ([$buscarProductoPhp, $buscarProductosPhp, $listarPromosPhp, $calcularCarritoPhp, $terminalListPhp] as $php) {
+        flus_assert_not_contains('require_login_json();', $php);
+        flus_assert_not_contains('require_perm_json(', $php);
+    }
+
+    flus_assert_contains("WHERE codigo = :cod AND activo = 1", $buscarProductoPhp);
+    flus_assert_contains("\$limit = max(1, min(\$limit, 20));", $buscarProductosPhp);
+    flus_assert_contains("json_fail('buscar_productos SQL execute fallo: ' . (\$error[2] ?? 'sin detalle'), 500);", $buscarProductosPhp);
+    flus_assert_contains("\$promos = obtenerPromosActivas(\$pdo);", $listarPromosPhp);
+    flus_assert_contains("\$calc = calcular_totales_con_promos(\$srvItems, \$promos);", $calcularCarritoPhp);
+    flus_assert_contains("'descuento_global' => round(\$descGlobalMonto, 2),", $calcularCarritoPhp);
+    flus_assert_contains("'current_terminal_id' => \$currentTid,", $terminalListPhp);
+});
+
+$results[] = flus_run_test('terminal actions salen del switch y usan action files', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $terminalSelectPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_select.php');
+    $terminalSwitchPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_switch.php');
+    $terminalHeartbeatPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_heartbeat.php');
+    $sessionHeartbeatPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'session_heartbeat.php');
+
+    flus_assert_contains("'terminal_select' => [", $indexPhp);
+    flus_assert_contains("'terminal_switch' => [", $indexPhp);
+    flus_assert_contains("'terminal_heartbeat' => [", $indexPhp);
+    flus_assert_contains("'session_heartbeat' => [", $indexPhp);
+    flus_assert_not_contains("case 'terminal_select': {", $indexPhp);
+    flus_assert_not_contains("case 'terminal_switch': {", $indexPhp);
+    flus_assert_not_contains("case 'terminal_heartbeat': {", $indexPhp);
+    flus_assert_not_contains("case 'session_heartbeat': {", $indexPhp);
+
+    foreach ([$terminalSelectPhp, $terminalSwitchPhp, $terminalHeartbeatPhp, $sessionHeartbeatPhp] as $php) {
+        flus_assert_not_contains('require_login_json();', $php);
+        flus_assert_not_contains('require_csrf_json(', $php);
+    }
+
+    flus_assert_contains("terminal_locks_gc(\$pdo, \$ttl);", $terminalSelectPhp);
+    flus_assert_contains("flus_session_update_selected_terminal(\$pdo, \$sid, \$requestedTerminalId);", $terminalSelectPhp);
+    flus_assert_contains("terminal_set_cookie(\$newTid);", $terminalSwitchPhp);
+    flus_assert_contains("\$res = terminal_lock_heartbeat(\$pdo, \$tid, \$uid, \$sid, \$ttl);", $terminalHeartbeatPhp);
+    flus_assert_contains("json_ok(['session_id' => \$sid]);", $sessionHeartbeatPhp);
+});
+
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
     $repoRoot = dirname(__DIR__);
     $usuarioEliminarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'usuario_eliminar.php');
@@ -2529,19 +2617,18 @@ $results[] = flus_run_test('usuario form muestra validacion explicita para passw
 $results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
     $repoRoot = dirname(__DIR__);
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $sessionHeartbeatPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'session_heartbeat.php');
+    $terminalSelectActionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_select.php');
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $cajaCerrarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
     $cajaMovimientosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_movimientos.php');
     $terminalSelectJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'terminal_select.js');
     $terminalSelectPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'terminal_select.php');
 
-    $terminalSelectStart = strpos($apiIndexPhp, "case 'terminal_select': {");
-    $terminalSwitchStart = strpos($apiIndexPhp, "case 'terminal_switch': {");
-    flus_assert_true($terminalSelectStart !== false && $terminalSwitchStart !== false);
-    $terminalSelectSlice = substr($apiIndexPhp, (int)$terminalSelectStart, (int)$terminalSwitchStart - (int)$terminalSelectStart);
-
-    flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectSlice);
-    flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectSlice);
+    flus_assert_not_contains("case 'terminal_select': {", $apiIndexPhp);
+    flus_assert_contains("'terminal_select' => [", $apiIndexPhp);
+    flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectActionPhp);
+    flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectActionPhp);
     flus_assert_contains("setMsg(\"Elegí una terminal para seleccionarla y continuar.\");", $terminalSelectJs);
     flus_assert_contains('const isLocked = Boolean(t.locked) || String(t.status || "") === "locked";', $terminalSelectJs);
     flus_assert_contains('$duplicateBasePrefix = $base . \'/\' . $baseLeaf . \'/\';', $terminalSelectPhp);
@@ -2576,6 +2663,7 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     $logoutPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'logout.php');
     $loginPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login.php');
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $sessionHeartbeatPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'session_heartbeat.php');
     $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
     $diagnosticoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'diagnostico.php');
     $terminalPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'terminal.php');
@@ -2592,8 +2680,9 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     flus_assert_contains("define('FLUS_SESSION_ENFORCE_BYPASS', true);", $logoutPhp);
     flus_assert_contains("'error' => 'SESSION_REVOKED'", $bootstrapPhp);
     flus_assert_contains("header('Location: logout.php?reason=revoked');", $bootstrapPhp);
-    flus_assert_contains("case 'session_heartbeat': {", $apiIndexPhp);
-    flus_assert_contains("flus_session_touch(\$pdo, \$uid, \$sid, ['force' => true]);", $apiIndexPhp);
+    flus_assert_contains("'session_heartbeat' => [", $apiIndexPhp);
+    flus_assert_not_contains("case 'session_heartbeat': {", $apiIndexPhp);
+    flus_assert_contains("flus_session_touch(\$pdo, \$uid, \$sid, ['force' => true]);", $sessionHeartbeatPhp);
     flus_assert_contains('api/index.php?action=session_heartbeat', $appJs);
     flus_assert_contains('const nextDelay = () => document.visibilityState === "visible" ? 15000 : 60000;', $appJs);
     flus_assert_contains('window.addEventListener("focus", requestFastSessionPing);', $appJs);

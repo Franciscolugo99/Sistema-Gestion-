@@ -1,5 +1,5 @@
 /* ==========================================================
-   FACTURACIÃ“N â€“ ESTILOS ESPECÃFICOS
+   FACTURACIÓN – ESTILOS ESPECÍFICOS
 ========================================================== */
 
 .fact-panel {
@@ -287,7 +287,7 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.82));
 }
 
-/* Que el tÃ­tulo tenga mismo estilo que otros mÃ³dulos grandes */
+/* Que el título tenga mismo estilo que otros módulos grandes */
 .facturacion-page .page-header {
   margin-bottom: 18px;
 }
@@ -1007,7 +1007,7 @@ body[data-theme="dark"] .fact-kpi-card__value--danger {
 }
 
 /* ==========================================================
-   BADGE DE MODO (DEMO / PRODUCCIÃ“N)
+   BADGE DE MODO (DEMO / PRODUCCIÓN)
 ========================================================== */
 .modo-badge {
   display: inline-flex;

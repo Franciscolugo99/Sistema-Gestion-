@@ -1,10 +1,10 @@
 /* ============================================================================
    FLUS - VENTAS.JS v5.0 (Refactorizado)
-   - Objeto ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºnico VentasManager (consistente con ProductosManager/StockManager)
-   - Sistema de Toasts (no mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s alert())
+   - Objeto único VentasManager (consistente con ProductosManager/StockManager)
+   - Sistema de Toasts (no más alert())
    - KPIs clickeables
    - Atajos de teclado completos
-   - ProtecciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n XSS
+   - Protección XSS
    - Autocomplete clientes mejorado
 ============================================================================ */
 
@@ -24,7 +24,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // CONFIGURACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
+  // CONFIGURACIÓN
   // ============================================
   config: {
     PAPER_KEY: 'flus-paper',
@@ -34,7 +34,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // INICIALIZACIÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œN
+  // INICIALIZACIÓN
   // ============================================
   init() {
     console.log('[VentasManager] Inicializando...');
@@ -54,7 +54,7 @@ const VentasManager = {
     this.bindShareButtons();
     this.bindKeyboardShortcuts();
 
-    console.log('[VentasManager] ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ InicializaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n completa');
+    console.log('[VentasManager] ✓ Inicialización completa');
   },
 
   // ============================================
@@ -141,7 +141,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // GRÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂFICOS
+  // GRÁFICOS
   // ============================================
   bindChartsToggle() {
     const btnCharts = document.getElementById('btnCharts');
@@ -366,7 +366,7 @@ const VentasManager = {
     if (hora12 === 0) hora12 = 12;
     const ampm = h < 12 ? 'AM' : 'PM';
     
-    // Redondear minutos al mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s cercano disponible (00, 15, 30, 45)
+    // Redondear minutos al más cercano disponible (00, 15, 30, 45)
     const mins = ['00', '15', '30', '45'];
     const minStr = String(m).padStart(2, '0');
     const closestMin = mins.reduce((prev, curr) => 
@@ -451,7 +451,7 @@ const VentasManager = {
       }
     });
 
-    // BotÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n limpiar
+    // Botón limpiar
     if (btnClear) {
       btnClear.addEventListener('click', () => {
         clienteInput.value = '';
@@ -531,7 +531,7 @@ const VentasManager = {
   },
 
   // ============================================
-  // CHIPS RÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂPIDOS
+  // CHIPS RÁPIDOS
   // ============================================
   bindChipsRapidos() {
     const form = document.getElementById('ventasForm');
@@ -627,7 +627,7 @@ const VentasManager = {
   },
 
   formatDate(date) {
-    // IMPORTANTE: NO usar toISOString() porque usa UTC y en Argentina puede correrte el dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a
+    // IMPORTANTE: NO usar toISOString() porque usa UTC y en Argentina puede correrte el día
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
@@ -923,7 +923,7 @@ const VentasManager = {
   // ============================================
   bindKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      // Ctrl+K: Focus bÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºsqueda
+      // Ctrl+K: Focus búsqueda
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         const search = document.querySelector('input[name="venta_id"]');
@@ -931,7 +931,7 @@ const VentasManager = {
         search?.select();
       }
 
-      // Ctrl+E: Toggle export o grÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ficos
+      // Ctrl+E: Toggle export o gráficos
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         const btnCharts = document.getElementById('btnCharts');
@@ -952,14 +952,14 @@ const VentasManager = {
   },
 
   // ============================================
-  // UTILIDAD: Refresh pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
+  // UTILIDAD: Refresh página
   // ============================================
   refreshPage() {
     window.location.reload();
   },
 
   // ============================================
-  // UTILIDAD: Ir a pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina
+  // UTILIDAD: Ir a página
   // ============================================
   goToPage(page) {
     const url = new URL(window.location.href);

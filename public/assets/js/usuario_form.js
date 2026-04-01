@@ -1,5 +1,5 @@
 // public/assets/js/usuario_form.js
-// ValidaciÃ³n liviana + toggle de password (usuario_nuevo / usuario_editar)
+// Validación liviana + toggle de password (usuario_nuevo / usuario_editar)
 (() => {
   if (window.__flusUsuarioFormBound) return;
   window.__flusUsuarioFormBound = true;
@@ -44,14 +44,14 @@
   }
 
   function humanMessage(field) {
-    if (!field) return 'Campo invÃ¡lido';
+    if (!field) return 'Campo inválido';
     const v = field.validity;
     if (v.valueMissing) return 'Este campo es obligatorio';
-    if (v.typeMismatch) return 'Formato invÃ¡lido';
+    if (v.typeMismatch) return 'Formato inválido';
     if (v.tooShort) return `Debe tener al menos ${field.minLength} caracteres`;
     if (v.tooLong) return `No puede superar ${field.maxLength} caracteres`;
-    if (v.patternMismatch) return 'Formato invÃ¡lido';
-    return 'Campo invÃ¡lido';
+    if (v.patternMismatch) return 'Formato inválido';
+    return 'Campo inválido';
   }
 
   function validateField(field) {
@@ -85,11 +85,11 @@
     const form = qs('#usuarioForm');
     if (!form) return;
 
-    // ValidaciÃ³n al submit
+    // Validación al submit
     form.addEventListener('submit', (e) => {
       clearAllErrors(form);
 
-      // Si el navegador soporta constraint validation, Ãºsalo
+      // Si el navegador soporta constraint validation, úsalo
       const fields = qsa('input, select, textarea', form).filter(el => !el.disabled);
       let firstInvalid = null;
 

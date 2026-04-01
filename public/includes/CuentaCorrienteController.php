@@ -1203,7 +1203,7 @@ class CuentaCorrienteController
     private function validateMovimientoReversible(array $movOriginal, int $movimientoId): ?array
     {
         if (($movOriginal['estado'] ?? null) !== self::ESTADO_ACTIVO) {
-            return ['success' => false, 'error' => 'El movimiento ya estÃ¡ anulado'];
+            return ['success' => false, 'error' => 'El movimiento ya está anulado'];
         }
 
         if (($movOriginal['tipo'] ?? null) === self::TIPO_REVERSA) {

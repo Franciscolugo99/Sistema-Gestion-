@@ -8,11 +8,11 @@ declare(strict_types=1);
  * Requiere:
  * - extension openssl
  * - extension soap
- * - Certificado y clave privada (X.509) emitidos por ARCA (prod/homo segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn ambiente)
+ * - Certificado y clave privada (X.509) emitidos por ARCA (prod/homo según ambiente)
  *
- * URLs WSAA (segÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn manual):
- * - HomologaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n: https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL
- * - ProducciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n:   https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL
+ * URLs WSAA (según manual):
+ * - Homologación: https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL
+ * - Producción:   https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL
  */
 final class ArcaWsaa
 {
@@ -32,11 +32,11 @@ final class ArcaWsaa
         self::$lastError = null;
 
         if (!extension_loaded('soap')) {
-            self::$lastError = 'ExtensiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n SOAP no habilitada en PHP (extension=soap).';
+            self::$lastError = 'Extensión SOAP no habilitada en PHP (extension=soap).';
             return null;
         }
         if (!extension_loaded('openssl')) {
-            self::$lastError = 'ExtensiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n OpenSSL no habilitada en PHP (extension=openssl).';
+            self::$lastError = 'Extensión OpenSSL no habilitada en PHP (extension=openssl).';
             return null;
         }
 
@@ -102,7 +102,7 @@ final class ArcaWsaa
             $resp = $client->loginCms(['in0' => $cms]);
             $taXml = (string)($resp->loginCmsReturn ?? '');
             if ($taXml === '') {
-                self::$lastError = 'WSAA respondiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o.';
+                self::$lastError = 'WSAA respondió vacío.';
                 return null;
             }
 
@@ -119,7 +119,7 @@ final class ArcaWsaa
             $expiresAt = $expStr !== '' ? strtotime($expStr) : (time() + 60 * 60);
 
             if ($token === '' || $sign === '') {
-                self::$lastError = 'TA invÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lido: faltan token/sign.';
+                self::$lastError = 'TA inválido: faltan token/sign.';
                 return null;
             }
 
