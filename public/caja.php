@@ -527,15 +527,36 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </div>
 
     <div class="caja-neo-footer">
-      <div class="buttons-row">
-        <button id="btnCancelar" type="button" class="btn-cancelar">
-          <span class="action-button__label">Cancelar</span>
-          <span class="action-button__key">F4</span>
-        </button>
-        <button id="btnCobrar" type="button" class="btn-cobrar">
-          <span class="action-button__label">Cobrar</span>
-          <span class="action-button__key">F2</span>
-        </button>
+      <div class="caja-neo-footer__bar">
+        <div class="caja-neo-summary" aria-label="Resumen del ticket">
+          <div class="total-panel">
+            <div class="total-row">
+              <span class="total-label">Total bruto</span>
+              <span class="total-value" id="lblTotalBruto">$0,00</span>
+            </div>
+
+            <div class="total-row total-row-strong">
+              <span class="total-label">Total a cobrar</span>
+              <span class="total-value" id="lblTotal">$0,00</span>
+            </div>
+
+            <div class="total-feedback" aria-live="polite">
+              <span class="total-feedback__label" id="lblCobroFeedbackLabel">Vuelto</span>
+              <strong class="total-feedback__value" id="lblCobroFeedback">$0,00</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="buttons-row">
+          <button id="btnCancelar" type="button" class="btn-cancelar">
+            <span class="action-button__label">Cancelar</span>
+            <span class="action-button__key">F4</span>
+          </button>
+          <button id="btnCobrar" type="button" class="btn-cobrar">
+            <span class="action-button__label">Cobrar</span>
+            <span class="action-button__key">F2</span>
+          </button>
+        </div>
       </div>
 
       <div class="shortcuts-box">
@@ -558,24 +579,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
       </section>
       <aside class="caja-neo-sidebar" aria-label="Cobro y medios de pago">
-
-    <!-- Totales -->
-    <div class="total-panel">
-      <div class="total-row">
-        <span class="total-label">Total bruto</span>
-        <span class="total-value" id="lblTotalBruto">$0,00</span>
-      </div>
-
-      <div class="total-row total-row-strong">
-        <span class="total-label">Total a cobrar</span>
-        <span class="total-value" id="lblTotal">$0,00</span>
-      </div>
-
-      <div class="total-feedback" aria-live="polite">
-        <span class="total-feedback__label" id="lblCobroFeedbackLabel">Vuelto</span>
-        <strong class="total-feedback__value" id="lblCobroFeedback">$0,00</strong>
-      </div>
-    </div>
 
     <!-- Pagos (1 o 2 medios) -->
     <div class="total-row total-row-bottom pagos-row">

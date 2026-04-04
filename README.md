@@ -2,14 +2,14 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.8.2  
-**Build:** 2026-03-29  
+**Version:** 3.8.3  
+**Build:** 2026-04-03  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-03-29)
+## Estado actual (2026-04-03)
 
 ### Ventas y anulaciones
 
@@ -77,6 +77,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Runner `scripts/migrate.php` + carpeta `migrations/` (**idempotente**).
 - Baseline `install.sql` para instalacion limpia + migraciones para actualizar instalaciones existentes.
 - Chequeos de esquema movidos fuera de `INFORMATION_SCHEMA` runtime en zonas calientes como nav, ventas, precios, caja, install y soporte.
+- Politica de hotspots y budgets de archivos grandes documentada en `docs/HOTSPOT_POLICY.md`, con control basico desde el smoke para evitar rebotes de monolitos.
 
 ### Facturación electrónica
 
@@ -269,9 +270,9 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `022_facturas_fiscal_contingencia.sql`.
+- Verificar que corran las migraciones pendientes hasta `024_permissions_backfill_nc_y_anulacion_items.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
-- Usar la guia de [docs/UPGRADE_3.4.0.md](docs/UPGRADE_3.4.0.md).
+- Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 
 ## Instalacion limpia
 

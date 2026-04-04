@@ -206,9 +206,21 @@ body[data-theme="dark"] .caja-panel--neo {
   min-width: 0;
 }
 
+.caja-panel--neo .caja-neo-summary {
+  min-width: 0;
+}
+
 .caja-panel--neo .caja-neo-footer {
   display: grid;
   gap: 10px;
+  min-width: 0;
+}
+
+.caja-panel--neo .caja-neo-footer__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 10px;
+  align-items: stretch;
   min-width: 0;
 }
 
@@ -456,6 +468,7 @@ body[data-theme="dark"] .caja-panel--neo {
   min-height: 260px;
   max-height: min(38vh, 340px);
   overflow: auto;
+  scrollbar-gutter: stable both-edges;
   border-radius: 0;
   border: 0;
   background: var(--neo-surface);
@@ -463,8 +476,10 @@ body[data-theme="dark"] .caja-panel--neo {
 }
 
 .caja-panel--neo #tabla {
+  width: 100%;
+  min-width: 860px;
   font-size: 0.92rem;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .caja-panel--neo #tabla thead th {
@@ -490,19 +505,41 @@ body[data-theme="dark"] .caja-panel--neo {
 .caja-panel--neo #tabla td {
   border-bottom: 1px solid var(--neo-border);
   color: var(--neo-text);
-  vertical-align: middle;
+  vertical-align: top;
+}
+
+.caja-panel--neo #tabla th:first-child,
+.caja-panel--neo #tabla td:first-child {
+  width: 44px;
+}
+
+.caja-panel--neo #tabla th:nth-child(2),
+.caja-panel--neo #tabla td:nth-child(2) {
+  width: 118px;
+}
+
+.caja-panel--neo #tabla th.col-cant,
+.caja-panel--neo #tabla td.col-cant {
+  width: 92px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .caja-panel--neo #tabla th.col-precio,
 .caja-panel--neo #tabla td.col-precio {
-  width: 170px;
+  width: 138px;
   text-align: center;
 }
 
 .caja-panel--neo #tabla th.col-subtotal,
 .caja-panel--neo #tabla td.col-subtotal {
-  width: 160px;
+  width: 136px;
   text-align: center;
+}
+
+.caja-panel--neo #tabla th:last-child,
+.caja-panel--neo #tabla td:last-child {
+  width: 108px;
 }
 
 .caja-panel--neo #tabla td.col-precio,
@@ -526,6 +563,7 @@ body[data-theme="dark"] .caja-panel--neo {
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
+  min-width: 92px;
 }
 
 .caja-panel--neo .btn-accion {
@@ -539,14 +577,44 @@ body[data-theme="dark"] .caja-panel--neo {
   padding: 16px;
 }
 
+.caja-panel--neo .caja-neo-summary .total-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.15fr) minmax(0, 0.95fr);
+  gap: 10px;
+  padding: 10px;
+  height: 100%;
+}
+
 .caja-panel--neo .total-row {
   margin: 0;
   padding: 7px 0;
   border-bottom: 1px solid var(--neo-border);
 }
 
+.caja-panel--neo .caja-neo-summary .total-row,
+.caja-panel--neo .caja-neo-summary .total-feedback {
+  min-height: 78px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--neo-border);
+  border-radius: 16px;
+  background: var(--neo-surface-2);
+  box-shadow: none;
+}
+
+.caja-panel--neo .caja-neo-summary .total-row {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border-bottom: 1px solid var(--neo-border);
+}
+
 .caja-panel--neo .total-row:last-child {
   border-bottom: 0;
+}
+
+.caja-panel--neo .caja-neo-summary .total-row:last-child {
+  border-bottom: 1px solid var(--neo-border);
 }
 
 .caja-panel--neo .total-label {
@@ -571,6 +639,11 @@ body[data-theme="dark"] .caja-panel--neo {
 .caja-panel--neo .total-row-strong .total-value {
   font-size: 2rem;
   color: var(--neo-green);
+}
+
+.caja-panel--neo .caja-neo-summary .total-row-strong {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(34, 197, 94, 0.05));
+  border-color: rgba(34, 197, 94, 0.22);
 }
 
 .caja-panel--neo .btn-link-total {
@@ -629,6 +702,39 @@ body[data-theme="dark"] .caja-panel--neo {
   border: 1px solid rgba(34, 197, 94, 0.22);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.04));
+}
+
+.caja-panel--neo .caja-neo-summary .total-feedback {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: 6px;
+  margin-top: 0;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.04));
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.caja-panel--neo .caja-neo-summary .total-feedback__label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+
+.caja-panel--neo .caja-neo-summary .total-feedback__value {
+  justify-self: start;
+  font-size: 1.34rem;
+}
+
+@media (max-width: 1180px) {
+  .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: 1fr;
+  }
+
+  .caja-panel--neo .caja-neo-summary .total-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .caja-panel--neo .caja-neo-summary .total-feedback {
+    grid-column: 1 / -1;
+  }
 }
 
 .caja-panel--neo .total-feedback__label {
@@ -775,9 +881,10 @@ body[data-theme="dark"] .caja-panel--neo .denom-chip {
 
 .caja-panel--neo .buttons-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: 1fr;
   gap: 10px;
   padding: 12px;
+  align-content: center;
 }
 
 .caja-panel--neo .buttons-row button {
@@ -1016,6 +1123,11 @@ body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
   overflow: hidden;
 }
 
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+  grid-template-columns: minmax(0, 1fr) 182px;
+  gap: 8px;
+}
+
 body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
   gap: 4px;
   padding: 4px 8px;
@@ -1078,21 +1190,24 @@ body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
   min-height: 0;
   height: 100%;
   max-height: none;
   overflow: auto;
-}
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+  }
 
 body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
   padding: 10px 12px;
 }
 
-body.caja-fullscreen-page .caja-panel--neo #tabla td {
+  body.caja-fullscreen-page .caja-panel--neo #tabla td {
   padding-top: 7px;
   padding-bottom: 7px;
-}
+  }
 
 body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
   padding: 10px 12px;
@@ -2452,6 +2567,27 @@ body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
     font-size: 0.66rem;
   }
 
+  body.caja-fullscreen-page .caja-panel--neo #tabla {
+    min-width: 820px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(2),
+  body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(2) {
+    width: 104px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla th.col-precio,
+  body.caja-fullscreen-page .caja-panel--neo #tabla td.col-precio,
+  body.caja-fullscreen-page .caja-panel--neo #tabla th.col-subtotal,
+  body.caja-fullscreen-page .caja-panel--neo #tabla td.col-subtotal {
+    width: 124px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla th:last-child,
+  body.caja-fullscreen-page .caja-panel--neo #tabla td:last-child {
+    width: 96px;
+  }
+
   body.caja-fullscreen-page .caja-panel--neo .total-panel {
     padding: 10px 11px;
   }
@@ -3181,5 +3317,1921 @@ body.caja-fullscreen-page .caja-panel--neo .payment-card.is-filled.is-cc .paymen
 
   body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
     min-height: 38px;
+  }
+}
+
+/* ==========================================================================
+   RESCATE NOTEBOOK 1366x768
+   - Evita que split payment quede cortado en el rail derecho
+   - Pago 1 queda ancho, Pago 2 compacto al costado
+   - CC y botones siguen abajo ocupando todo el ancho
+============================================================================ */
+@media (min-width: 1180px) and (max-width: 1400px) and (max-height: 860px) {
+  body.caja-fullscreen-page .nav-container {
+    gap: 12px;
+    padding: 8px 12px;
+  }
+
+  body.caja-fullscreen-page .nav-brand {
+    margin-right: 10px;
+    flex: 0 0 auto;
+  }
+
+  body.caja-fullscreen-page .nav-logo {
+    font-size: 1.18rem;
+    letter-spacing: 0.08em;
+  }
+
+  body.caja-fullscreen-page .nav-menu-wrapper {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  body.caja-fullscreen-page .nav-left {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body.caja-fullscreen-page .nav-left::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .nav-right {
+    flex: 0 0 auto;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .nav-pill {
+    min-height: 34px;
+    padding: 5px 12px;
+    font-size: 0.86rem;
+    border-radius: 12px;
+  }
+
+  body.caja-fullscreen-page .nav-vender {
+    min-height: 34px;
+    padding: 5px 12px 5px 10px;
+    gap: 6px;
+    border-radius: 12px;
+    font-size: 0.84rem;
+    box-shadow: 0 8px 18px rgba(14, 165, 233, 0.18);
+  }
+
+  body.caja-fullscreen-page .nav-vender-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .nav-vender-label {
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .nav-vender-sub,
+  body.caja-fullscreen-page .nav-user-role {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .nav-caret {
+    font-size: 0.62rem;
+  }
+
+  body.caja-fullscreen-page .nav-icon {
+    width: 36px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+
+  body.caja-fullscreen-page .theme-switch .toggle-track {
+    width: 46px;
+    padding: 2px 6px;
+  }
+
+  body.caja-fullscreen-page .theme-switch .toggle-thumb {
+    top: 1px;
+    left: 1px;
+    width: 18px;
+    height: 18px;
+  }
+
+  body.caja-fullscreen-page .theme-switch input:checked + .theme-toggle .toggle-thumb {
+    transform: translateX(24px);
+  }
+
+  body.caja-fullscreen-page .nav-user-block {
+    min-height: 34px;
+    padding: 4px 8px;
+    gap: 8px;
+    border-radius: 11px;
+  }
+
+  body.caja-fullscreen-page .nav-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    font-size: 0.66rem;
+  }
+
+  body.caja-fullscreen-page .nav-username {
+    max-width: 84px;
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .nav-user-block .logout-btn {
+    padding: 4px 8px;
+    font-size: 0.76rem;
+  }
+
+  body.caja-fullscreen-page .root.container-global {
+    padding-top: 8px !important;
+    padding-bottom: 18px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 27vw);
+    gap: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 7px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    grid-template-rows: minmax(0, 1fr);
+    gap: 8px;
+    top: 10px;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+    grid-template-columns: minmax(0, 1fr) 74px 116px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select {
+    min-height: 38px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+    height: 38px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-meta {
+    margin-top: 6px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-mode {
+    min-height: 22px;
+    padding: 0 7px;
+    font-size: 0.6rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+    min-height: 340px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: minmax(0, 1fr) 172px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__title {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+    padding: 5px 7px;
+    font-size: 0.7rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.12fr) minmax(0, 0.96fr);
+    gap: 8px;
+    padding: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+    min-height: 58px;
+    padding: 7px 9px;
+    border-radius: 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label {
+    font-size: 0.62rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+    font-size: 1.44rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+    font-size: 1rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+    gap: 3px;
+    padding: 3px 7px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+  body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+    padding: 5px 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 6px;
+    gap: 5px;
+    overflow: visible;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .pagos-row__head,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago1Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago2Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .cc-wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .buttons-row {
+    grid-column: 1 / -1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago1Wrap {
+    grid-column: 1 / -1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago2Wrap {
+    grid-column: 1 / -1;
+    align-self: start;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 6px;
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #pago1Wrap .payment-methods {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 34px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.69rem;
+    line-height: 1.05;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 22px;
+    min-height: 14px;
+    font-size: 0.54rem;
+    padding: 0 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 32px;
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+    grid-template-columns: minmax(0, 1fr) 48px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #pago2Wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #pago2Wrap .payment-card__summary {
+    margin-top: 2px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+    min-width: 28px;
+    width: 28px;
+    font-size: 0.84rem;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    padding: 5px 7px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 18px;
+    padding: 0 7px;
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 0.86rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+    min-height: 20px;
+    padding-inline: 6px;
+    font-size: 0.6rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    padding: 4px;
+    gap: 6px;
+  }
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 32px;
+  }
+}
+
+body.caja-fullscreen-page #modalCcPago {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(6px);
+  z-index: 2147482000;
+}
+
+body.caja-fullscreen-page #modalCcPago.hidden {
+  display: none !important;
+}
+
+body.caja-fullscreen-page #modalCcPago .modal-content {
+  width: min(430px, calc(100vw - 32px));
+  max-width: 100%;
+}
+
+body.caja-fullscreen-page .vuelto-overlay-flus {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+}
+
+body.caja-fullscreen-page .vuelto-overlay-flus:not(.is-visible) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   POS NOTEBOOK 1366x768 - layout operativo estable
+   Objetivo:
+   - ticket protagonista
+   - rail derecho compacto con scroll propio
+   - footer visible sin comerse la altura util
+   - topbar/nav mas compactos
+============================================================================ */
+
+body.caja-fullscreen-page .caja-panel--neo {
+  --caja-rail-width: 314px;
+  --caja-footer-actions-width: 250px;
+  padding: 10px 12px 12px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+  padding: 8px 10px;
+  gap: 8px;
+  border-radius: 14px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+  padding-left: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+  padding: 5px 10px;
+  font-size: 0.7rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
+  gap: 8px;
+  font-size: 0.92rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
+  grid-template-columns: minmax(0, 1fr) var(--caja-rail-width);
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+  grid-template-columns: minmax(0, 1fr) 78px 128px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-meta {
+  margin-top: 6px;
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+  font-size: 0.74rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-scan-hints {
+  display: none;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+  padding: 10px 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__title {
+  font-size: 1rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+  max-width: 260px;
+  padding: 6px 10px;
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow: auto;
+  border-top: 1px solid var(--neo-border);
+  scrollbar-gutter: stable both-edges;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th,
+body.caja-fullscreen-page .caja-panel--neo #tabla td {
+  padding: 7px 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:first-child,
+body.caja-fullscreen-page .caja-panel--neo #tabla td:first-child {
+  width: 40px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(2),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(2) {
+  width: 100px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th.col-cant,
+body.caja-fullscreen-page .caja-panel--neo #tabla td.col-cant {
+  width: 84px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th.col-precio,
+body.caja-fullscreen-page .caja-panel--neo #tabla td.col-precio {
+  width: 118px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th.col-subtotal,
+body.caja-fullscreen-page .caja-panel--neo #tabla td.col-subtotal {
+  width: 124px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:last-child,
+body.caja-fullscreen-page .caja-panel--neo #tabla td:last-child {
+  width: 88px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-code {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-product {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.28;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .acciones {
+  gap: 6px;
+  min-width: 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .btn-accion {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-empty-state {
+  inset: 48px 0 0;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+  grid-template-columns: minmax(0, 1fr) var(--caja-footer-actions-width);
+  gap: 8px;
+  align-items: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+  min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+  font-size: 0.94rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+  font-size: 1.48rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+  font-size: 1.02rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+  align-content: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+  min-height: 48px;
+  width: 100%;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  position: static;
+  align-self: stretch;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__head {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
+  margin: -10px -10px 0;
+  padding: 10px 10px 8px;
+  background: linear-gradient(180deg, var(--neo-surface) 0%, var(--neo-surface) 78%, transparent 100%);
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+  font-size: 0.92rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card,
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+  padding: 10px;
+  gap: 6px;
+  border-radius: 12px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method {
+  min-height: 46px;
+  padding: 6px 4px;
+  gap: 3px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+  font-size: 0.76rem;
+  line-height: 1.1;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+  min-width: 34px;
+  min-height: 16px;
+  padding: 0 5px;
+  font-size: 0.58rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+  min-height: 40px;
+  font-size: 0.94rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+  min-height: 20px;
+  padding: 0 8px;
+  font-size: 0.6rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+  font-size: 0.94rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .denom-chip {
+  min-height: 22px;
+  padding-inline: 7px;
+  font-size: 0.62rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row__add {
+  min-height: 34px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .pagos-row {
+  gap: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-card,
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .cc-wrap {
+  padding: 8px;
+  gap: 5px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-method {
+  min-height: 42px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo.is-payment-compact .payment-method__label {
+  font-size: 0.72rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .terminal-modal,
+body.caja-fullscreen-page .caja-panel--neo .modal,
+body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal {
+  z-index: 2147482000;
+}
+
+/* ==========================================================================
+   LOW HEIGHT RESCUE
+   - Monitores/notebooks bajos: priorizar ticket y evitar quiebre con split + CC
+============================================================================ */
+
+@media (min-width: 1081px) and (max-height: 760px) {
+  body.caja-fullscreen-page .caja-panel--neo {
+    --caja-rail-width: 282px;
+    --caja-footer-actions-width: 206px;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) var(--caja-rail-width) !important;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+    padding: 6px 10px;
+    font-size: 0.7rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+    padding-left: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+  body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+    padding: 7px 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+    grid-template-columns: minmax(0, 1fr) 60px 108px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+    font-size: 0.54rem;
+    margin-bottom: 3px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+    min-height: 34px;
+    height: 34px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-meta {
+    margin-top: 4px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-mode {
+    min-height: 20px;
+    font-size: 0.62rem;
+    padding: 0 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head {
+    padding: 8px 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__eyebrow {
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__title {
+    font-size: 0.94rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-panel-head__status {
+    max-width: 220px;
+    padding: 5px 8px;
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+    min-height: 350px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #tabla th,
+  body.caja-fullscreen-page .caja-panel--neo #tabla td {
+    padding: 6px 7px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .btn-accion {
+    min-height: 28px;
+    padding: 3px 7px;
+    font-size: 0.68rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: minmax(0, 1fr) var(--caja-footer-actions-width);
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+    gap: 6px;
+    padding: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+    min-height: 50px;
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+    font-size: 0.9rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+    font-size: 1.24rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    gap: 6px;
+    padding: 4px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 38px;
+    padding: 0 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    font-size: 0.88rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    min-width: 24px;
+    min-height: 16px;
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__head {
+    top: -6px;
+    margin: -6px -6px 0;
+    padding: 6px 6px 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__eyebrow {
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 6px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 34px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.64rem;
+    line-height: 1.04;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 24px;
+    min-height: 14px;
+    padding: 0 4px;
+    font-size: 0.52rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 32px;
+    font-size: 0.8rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    padding: 5px 7px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 18px;
+    padding: 0 7px;
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__add {
+    min-height: 30px;
+    font-size: 0.74rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
+    margin-top: 3px;
+    padding: 5px 7px;
+    gap: 1px;
+    border-radius: 9px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
+    font-size: 0.78rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle,
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
+    font-size: 0.64rem;
+    line-height: 1.1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .pagos-row__head,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago1Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago2Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .cc-wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .buttons-row {
+    grid-column: 1 / -1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago1Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago2Wrap {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1081px) and (max-width: 1380px) {
+  body.caja-fullscreen-page .caja-panel--neo {
+    --caja-rail-width: 286px;
+    padding-inline: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) var(--caja-rail-width) !important;
+    gap: 8px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary {
+    min-width: 0;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+    min-height: 52px;
+    padding: 7px 9px;
+    border-radius: 10px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+    font-size: 0.92rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+    font-size: 1.28rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+    font-size: 0.94rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 40px;
+    width: 100%;
+    padding: 0 12px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    font-size: 0.9rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    min-width: 24px;
+    font-size: 0.58rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+    min-height: 320px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 7px;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 7px;
+    gap: 4px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 36px;
+    padding: 4px 3px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.67rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 24px;
+    min-height: 14px;
+    font-size: 0.52rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 33px;
+    font-size: 0.82rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    padding: 5px 7px;
+    gap: 5px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 18px;
+    padding: 0 7px;
+    font-size: 0.56rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 0.84rem;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .pagos-row__head,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago1Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > #pago2Wrap,
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row.pagos-row--split > .cc-wrap {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ==========================================================================
+   NOTEBOOK STABILITY
+   - Cierre fuerte para evitar herencias viejas que desacomodan footer y ticket
+============================================================================ */
+
+@media (min-width: 1081px) and (max-width: 1380px),
+       (min-width: 1081px) and (max-height: 820px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    display: grid !important;
+    justify-content: stretch !important;
+    align-items: stretch !important;
+    width: 100%;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    justify-items: stretch !important;
+    width: 100%;
+    max-width: none;
+    gap: 6px;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary,
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0;
+    margin: 0 !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    justify-content: stretch !important;
+    justify-items: stretch !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    gap: 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 38px !important;
+    padding: 0 12px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+    grid-template-rows: auto minmax(360px, 1fr) auto !important;
+    min-height: 0;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    min-height: 0;
+    height: 100%;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+    height: 100% !important;
+    max-height: none !important;
+    min-height: 360px !important;
+    overflow: auto !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+    min-height: 48px !important;
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+    font-size: 0.56rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+    font-size: 0.9rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+    font-size: 1.18rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+    font-size: 0.9rem !important;
+  }
+}
+
+/* ==========================================================================
+   PAYMENT PANEL SIMPLIFY
+   - Menos ruido visual en el rail derecho
+============================================================================ */
+
+@media (min-width: 1081px) and (max-width: 1380px),
+       (min-width: 1081px) and (max-height: 900px) {
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    padding: 8px !important;
+    gap: 8px !important;
+    background: var(--neo-surface) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__head {
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__copy {
+    gap: 0;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__eyebrow {
+    display: none;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__title {
+    font-size: 0.8rem !important;
+    font-weight: 800 !important;
+    line-height: 1.15;
+    color: var(--neo-text);
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap {
+    padding: 8px !important;
+    gap: 6px !important;
+    border-radius: 10px !important;
+    background: var(--neo-surface-2) !important;
+    box-shadow: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card.is-cash,
+  body.caja-fullscreen-page .caja-panel--neo .payment-card.is-digital,
+  body.caja-fullscreen-page .caja-panel--neo .payment-card.is-cc {
+    background: var(--neo-surface-2) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card .total-label-inline,
+  body.caja-fullscreen-page .caja-panel--neo .cc-wrap .total-label-inline {
+    margin-top: 0 !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.12em;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method:last-child {
+    grid-column: 1 / -1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method {
+    min-height: 34px !important;
+    padding: 4px 6px !important;
+    border-radius: 10px !important;
+    gap: 2px !important;
+    box-shadow: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__label {
+    font-size: 0.68rem !important;
+    line-height: 1.05 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-method__key {
+    min-width: 22px !important;
+    min-height: 13px !important;
+    padding: 0 4px !important;
+    font-size: 0.5rem !important;
+    opacity: 0.75;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado,
+  body.caja-fullscreen-page .caja-panel--neo #montoPagado2,
+  body.caja-fullscreen-page .caja-panel--neo .payment-select-compact,
+  body.caja-fullscreen-page .caja-panel--neo #ccClienteBuscar {
+    min-height: 34px !important;
+    font-size: 0.82rem !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 8px !important;
+    align-items: center !important;
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
+    background: var(--neo-surface) !important;
+    box-shadow: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-chip {
+    min-height: 18px !important;
+    padding: 0 7px !important;
+    font-size: 0.54rem !important;
+    background: transparent !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .payment-card__summary-value {
+    font-size: 0.9rem !important;
+    line-height: 1 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .denom-chips {
+    display: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row__add {
+    min-height: 30px !important;
+    padding: 0 10px !important;
+    font-size: 0.72rem !important;
+    justify-self: stretch;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pago2-monto-row {
+    grid-template-columns: minmax(0, 1fr) 38px !important;
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo #btnQuitarPago2 {
+    min-width: 38px !important;
+    width: 38px !important;
+    min-height: 34px !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
+    margin-top: 2px !important;
+    padding: 6px 8px !important;
+    gap: 1px !important;
+    border-radius: 9px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-nombre {
+    font-size: 0.78rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .cc-cliente-detalle,
+  body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
+    font-size: 0.64rem !important;
+    line-height: 1.12 !important;
+  }
+}
+
+/* ==========================================================================
+   FULLSCREEN DEFINITIVO NOTEBOOK
+   - Footer siempre visible
+   - Resumen adaptativo en 2 columnas
+   - Botones siempre debajo, sin competir con el resumen
+============================================================================ */
+
+@media (min-width: 1081px) and (max-width: 1500px),
+       (min-width: 1081px) and (max-height: 860px) {
+  body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+    grid-template-columns: minmax(0, 1fr) 272px !important;
+    gap: 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: auto !important;
+    padding: 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-main {
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-ticket {
+    min-height: 0 !important;
+    height: 100% !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .ticket-wrapper {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: none !important;
+    overflow: auto !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    display: grid !important;
+    gap: 6px !important;
+    padding-top: 6px;
+    background: linear-gradient(180deg, rgba(238, 243, 248, 0) 0%, rgba(238, 243, 248, 0.92) 18%, rgba(238, 243, 248, 1) 100%);
+  }
+
+  body[data-theme="dark"].caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    background: linear-gradient(180deg, rgba(13, 17, 23, 0) 0%, rgba(13, 17, 23, 0.9) 18%, rgba(13, 17, 23, 1) 100%);
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary,
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-panel {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback {
+    min-height: 46px !important;
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__label {
+    font-size: 0.56rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-value {
+    font-size: 0.88rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-row-strong .total-value {
+    font-size: 1.16rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary .total-feedback__value {
+    font-size: 0.88rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 38px !important;
+    padding: 0 12px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo > .caja-topbar {
+    padding: 6px 8px !important;
+    border-radius: 10px !important;
+    gap: 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__left,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__meta {
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__badge {
+    min-height: 22px !important;
+    padding: 0 8px !important;
+    font-size: 0.62rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__item {
+    padding-left: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
+    font-size: 0.5rem !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__strong {
+    font-size: 0.82rem !important;
+    line-height: 1.05 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select,
+  body.caja-fullscreen-page .caja-panel--neo .btn-line--sm {
+    min-height: 28px !important;
+    padding: 0 8px !important;
+    border-radius: 8px !important;
+    font-size: 0.76rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-select {
+    min-width: 96px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card {
+    padding: 5px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card::before {
+    width: 3px !important;
+    border-radius: 10px 0 0 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .row.caja-row-inputs {
+    grid-template-columns: minmax(0, 1fr) 58px 102px !important;
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
+    font-size: 0.5rem !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card input,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card select,
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+    min-height: 32px !important;
+    height: 32px !important;
+    font-size: 0.8rem !important;
+    border-radius: 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-card .btn-add {
+    box-shadow: 0 6px 12px rgba(34, 197, 94, 0.18) !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-meta {
+    margin-top: 3px !important;
+    gap: 4px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-mode {
+    min-height: 18px !important;
+    padding: 0 8px !important;
+    font-size: 0.58rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-scan-copy {
+    font-size: 0.62rem !important;
+    line-height: 1.12 !important;
+  }
+}
+
+/* ==========================================================================
+   FOOTER ACTIONS FINAL FIX
+============================================================================ */
+
+@media (min-width: 1081px) and (max-width: 1500px),
+       (min-width: 1081px) and (max-height: 900px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: minmax(0, 1fr) 228px !important;
+    align-items: end !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary {
+    justify-self: start !important;
+    width: min(100%, 760px) !important;
+    max-width: 760px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 228px !important;
+    max-width: 228px !important;
+    justify-self: end !important;
+    align-self: end !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-height: 36px !important;
+    padding: 0 10px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.88rem !important;
+    line-height: 1 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    justify-self: end !important;
+    min-width: 24px !important;
+    min-height: 16px !important;
+    padding: 0 6px !important;
+    font-size: 0.54rem !important;
+    line-height: 1 !important;
+  }
+}
+
+@media (min-width: 1081px) and (max-width: 1320px),
+       (min-width: 1081px) and (max-height: 760px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    justify-self: stretch !important;
+  }
+}
+
+/* ==========================================================================
+   FOOTER LEFT ANCHOR HOTFIX
+============================================================================ */
+
+@media (min-width: 1081px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer {
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: 760px !important;
+    margin: 0 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    flex: 0 0 228px !important;
+    width: 228px !important;
+    max-width: 228px !important;
+    margin: 0 !important;
+  }
+}
+
+@media (min-width: 1081px) and (max-width: 1320px),
+       (min-width: 1081px) and (max-height: 760px) {
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-footer__bar {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .caja-neo-summary,
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row {
+    flex: none !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
+/* ==========================================================================
+   ACTION BUTTON TEXT FIX
+============================================================================ */
+
+@media (min-width: 1081px) {
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    position: relative !important;
+    padding-right: 34px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    display: block !important;
+    min-width: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+  }
+}
+
+@media (min-width: 1081px) and (max-width: 1320px),
+       (min-width: 1081px) and (max-height: 760px) {
+  body.caja-fullscreen-page .caja-panel--neo .buttons-row button {
+    min-height: 38px !important;
+    padding-right: 30px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__label {
+    font-size: 0.82rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo .action-button__key {
+    right: 6px !important;
+    min-width: 20px !important;
+    min-height: 14px !important;
+    padding: 0 4px !important;
+    font-size: 0.5rem !important;
   }
 }

@@ -834,6 +834,39 @@ function flus_format_slug_diff(array $slugs): string
     return $slugs === [] ? 'ninguno' : implode(', ', $slugs);
 }
 
+function flus_count_file_lines(string $path): int
+{
+    $contents = @file_get_contents($path);
+    if ($contents === false) {
+        throw new RuntimeException('No se pudo leer el archivo para contar lineas: ' . $path);
+    }
+
+    if ($contents === '') {
+        return 0;
+    }
+
+    $normalized = str_replace(["\r\n", "\r"], "\n", $contents);
+
+    return substr_count($normalized, "\n") + 1;
+}
+
+/**
+ * @return array<string,int>
+ */
+function flus_hotspot_line_budgets(): array
+{
+    return [
+        'src/facturacion_lib.php' => 2000,
+        'src/facturacion_manual_lib.php' => 1350,
+        'public/includes/CuentaCorrienteController.php' => 1550,
+        'public/productos.php' => 1850,
+        'public/compras.php' => 1650,
+        'public/assets/js/caja.js' => 3850,
+        'public/api/index.php' => 675,
+        'public/bootstrap.php' => 350,
+    ];
+}
+
 $results[] = flus_run_test('sh_quote handles Windows quoting', function (): void {
     $quoted = sh_quote('C:\Program Files\MySQL\bin\mysqldump.exe');
     flus_assert_same('"C:\Program Files\MySQL\bin\mysqldump.exe"', $quoted);
@@ -1026,6 +1059,45 @@ $results[] = flus_run_test('facturacion mode helpers normalize aliases consisten
     flus_assert_same('homo', flus_facturacion_arca_env_esperado('homologacion'));
     flus_assert_same('prod', flus_facturacion_arca_env_esperado('produccion'));
     flus_assert_same('', flus_facturacion_arca_env_esperado('demo'));
+});
+
+$results[] = flus_run_test('facturacion runtime helpers quedan extraidos del hotspot principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $runtimeLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_runtime_lib.php');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_runtime_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_modo_db_value', $runtimeLib);
+    flus_assert_contains('function flus_facturacion_estado_fiscal_label', $runtimeLib);
+    flus_assert_contains('function flus_facturacion_request_uid_manual', $runtimeLib);
+    flus_assert_not_contains('function flus_facturacion_modo_db_value', $facturacionLib);
+    flus_assert_not_contains('function flus_facturacion_estado_fiscal_label', $facturacionLib);
+});
+
+$results[] = flus_run_test('facturacion preflight y estado ARCA quedan extraidos del hotspot principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $preflightLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_preflight_lib.php');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_preflight_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $preflightLib);
+    flus_assert_contains('function flus_facturacion_arca_status_current(PDO $pdo, ?string $modoEsperado = null, bool $forceProbe = false): array', $preflightLib);
+    flus_assert_contains('function flus_facturacion_humanizar_error_arca(?string $raw): string', $preflightLib);
+    flus_assert_not_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $facturacionLib);
+    flus_assert_not_contains('function flus_facturacion_arca_status_current(PDO $pdo, ?string $modoEsperado = null, bool $forceProbe = false): array', $facturacionLib);
+});
+
+$results[] = flus_run_test('facturacion contexto y payload quedan extraidos del hotspot principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $contextLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_context_lib.php');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_context_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_request_uid_from_context(array $context, array $opciones = []): string', $contextLib);
+    flus_assert_contains('function flus_facturacion_importes_desde_items(array $items, float $fallbackTotal, int $tipoCbte): array', $contextLib);
+    flus_assert_contains('function flus_facturacion_factura_header_base(array $context, string $estadoFiscal = \'PENDIENTE_ENVIO\'): array', $contextLib);
+    flus_assert_not_contains('function flus_facturacion_request_uid_from_context(array $context, array $opciones = []): string', $facturacionLib);
+    flus_assert_not_contains('function flus_facturacion_factura_header_base(array $context, string $estadoFiscal = \'PENDIENTE_ENVIO\'): array', $facturacionLib);
 });
 
 $results[] = flus_run_test('facturacion iva and comprobante helpers stay stable', function (): void {
@@ -2507,14 +2579,16 @@ $results[] = flus_run_test('preflight de emision fiscal bloquea configuracion in
 $results[] = flus_run_test('preflight de emision queda cableado en pantallas y configuracion', function (): void {
     $repoRoot = dirname(__DIR__);
     $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $preflightLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_preflight_lib.php');
     $facturaNuevaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_nueva.php');
     $facturaManualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
     $facturaEmitirPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_emitir.php');
     $facturacionConfigPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_config.php');
 
-    flus_assert_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $facturacionLib);
-    flus_assert_contains('function flus_facturacion_preflight_emision_error(array $preflight): string', $facturacionLib);
-    flus_assert_contains('function flus_facturacion_assert_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $facturacionLib);
+    flus_assert_contains("require_once __DIR__ . '/facturacion_preflight_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $preflightLib);
+    flus_assert_contains('function flus_facturacion_preflight_emision_error(array $preflight): string', $preflightLib);
+    flus_assert_contains('function flus_facturacion_assert_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $preflightLib);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaNuevaPhp);
     flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaNuevaPhp);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaManualPhp);
@@ -2595,11 +2669,12 @@ $results[] = flus_run_test('facturacion general distingue factura, nc y nd visua
 $results[] = flus_run_test('facturacion desde documento no fuerza venta_id invalido y humaniza remitos con venta rota', function (): void {
     $repoRoot = dirname(__DIR__);
     $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $contextLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_context_lib.php');
     $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
     $documentoJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'documento_comercial.js');
     $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
 
-    flus_assert_contains("'venta_id' => (int)(\$context['venta']['id'] ?? 0) > 0 ? (int)(\$context['venta']['id'] ?? 0) : null,", $facturacionLib);
+    flus_assert_contains("'venta_id' => (int)(\$context['venta']['id'] ?? 0) > 0 ? (int)(\$context['venta']['id'] ?? 0) : null,", $contextLib);
     flus_assert_contains('El documento comercial apunta a una venta inexistente. Vincula una venta valida antes de facturar o genera una nueva desde el documento.', $facturacionLib);
     flus_assert_contains('function documento_comercial_humanizar_error(Throwable $e): string', $documentoPhp);
     flus_assert_contains('if (flus_facturacion_facturas_require_venta($pdo)) {', $documentoPhp);
@@ -2680,13 +2755,14 @@ $results[] = flus_run_test('terminal release from admin redirects caja users wit
     flus_assert_contains('toast(noticeMessage, "warn", 3600);', $terminalSelectJs);
 });
 
-$results[] = flus_run_test('caja no activa modo de cobro compacto solo por elegir cuenta corriente', function (): void {
+$results[] = flus_run_test('caja activa modo compacto con split o cuenta corriente sin reubicar ccWrap', function (): void {
     $repoRoot = dirname(__DIR__);
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
     $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
 
-    flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", splitActivo());', $cajaJs);
-    flus_assert_not_contains('cajaPanel.classList.toggle("is-payment-compact", splitActivo() || tieneCC());', $cajaJs);
+    flus_assert_contains('const ccActivo = tieneCC();', $cajaJs);
+    flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);', $cajaJs);
+    flus_assert_contains('cajaPanel.classList.toggle("has-cc-payment", ccActivo);', $cajaJs);
     flus_assert_not_contains('insertAdjacentElement("afterend", ccWrap)', $cajaJs);
     flus_assert_not_contains('ccWrap.classList.toggle("cc-wrap--compact"', $cajaJs);
     flus_assert_contains('.pagos-row > #ccWrap', $cajaNeoCss);
@@ -2750,6 +2826,28 @@ $results[] = flus_run_test('diagnostico live refresh keeps sessions and admin ac
     flus_assert_contains('id="diagSessionsConfig"', $diagnosticoPhp);
     flus_assert_contains('id="diagSessionsBody"', $diagnosticoPhp);
     flus_assert_contains('id="diagAdminActions"', $diagnosticoPhp);
+});
+
+$results[] = flus_run_test('hotspot policy documents and enforces line budgets for giant files', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $policyPath = $repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'HOTSPOT_POLICY.md';
+    $policyDoc = (string)file_get_contents($policyPath);
+    $readme = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'README.md');
+
+    flus_assert_contains('si un archivo operativo supera las `800` lineas, entra en zona de alerta', $policyDoc);
+    flus_assert_contains('si supera las `1000` lineas, entra en plan obligatorio de particion', $policyDoc);
+    flus_assert_contains('src/facturacion_lib.php', $policyDoc);
+    flus_assert_contains('public/assets/js/caja.js', $policyDoc);
+    flus_assert_contains('docs/HOTSPOT_POLICY.md', $readme);
+
+    foreach (flus_hotspot_line_budgets() as $relativePath => $budget) {
+        $absolutePath = $repoRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $lineCount = flus_count_file_lines($absolutePath);
+        flus_assert_true(
+            $lineCount <= $budget,
+            sprintf('%s tiene %d lineas y supera el presupuesto de %d', $relativePath, $lineCount, $budget)
+        );
+    }
 });
 
 $results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {

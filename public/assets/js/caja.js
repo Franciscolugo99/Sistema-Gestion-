@@ -684,6 +684,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function escapeHtmlAttr(value) {
+    return escapeHtml(value).replace(/`/g, "&#96;");
+  }
+
   function getNumericDataValue(el) {
     const raw = el?.dataset?.value ?? "0";
     const n = Number(raw);
@@ -716,9 +729,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function actualizarModoCobroCompacto() {
     if (!cajaPanel) return;
-    // Solo compactamos cuando hay split payment real.
-    // CC por si solo necesita aire visual para no colapsar el panel.
-    cajaPanel.classList.toggle("is-payment-compact", splitActivo());
+    const split = splitActivo();
+    const ccActivo = tieneCC();
+    cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);
+    cajaPanel.classList.toggle("has-split-payment", split);
+    cajaPanel.classList.toggle("has-cc-payment", ccActivo);
   }
 
   function getSelectPago(slot = "1") {
@@ -2205,12 +2220,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const btnEditarHtml = `<button class="btn-accion btn-editar" data-idx="${idx}" title="Editar cantidad">Cant.</button>`;
 
+      const codigoSeguro = escapeHtml(item.codigo);
+      const nombreSeguro = escapeHtml(item.nombre);
+      const codigoTitulo = escapeHtmlAttr(item.codigo);
+      const nombreTitulo = escapeHtmlAttr(item.nombre);
+
       const tr = document.createElement("tr");
       tr.dataset.idx = String(idx);
       tr.innerHTML = `
           <td>${idx + 1}</td>
-          <td>${item.codigo}</td>
-          <td>${item.nombre}</td>
+          <td class="ticket-code-cell"><span class="ticket-code" title="${codigoTitulo}">${codigoSeguro}</span></td>
+          <td class="ticket-product-cell"><span class="ticket-product" title="${nombreTitulo}">${nombreSeguro}</span></td>
           <td class="center col-cant">${formatearCantidadUI(item)}</td>
           <td class="right col-precio">${precioHtml}</td>
           <td class="right col-subtotal">${formatearMoneda(subtotalConPromo)}</td>
