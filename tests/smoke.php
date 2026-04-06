@@ -2721,12 +2721,22 @@ $results[] = flus_run_test('usuario form muestra validacion explicita para passw
     $usuarioFormJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'usuario_form.js');
     $usuarioEditarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_editar.php');
     $usuarioNuevoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_nuevo.php');
+    $usuarioGuardarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_guardar.php');
+    $userAdminLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'user_admin_lib.php');
 
     flus_assert_contains("if (trimmedValue !== '' && value.length < 6) {", $usuarioFormJs);
     flus_assert_contains("setFieldError(field, 'Debe tener al menos 6 caracteres');", $usuarioFormJs);
     flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioEditarPhp);
     flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioNuevoPhp);
     flus_assert_contains("data-error-for=\"password\"><?= h(\$passwordFieldError) ?></span>", $usuarioEditarPhp);
+    flus_assert_contains("require_once __DIR__ . '/../src/user_admin_lib.php';", $usuarioNuevoPhp);
+    flus_assert_contains("require_once __DIR__ . '/../src/user_admin_lib.php';", $usuarioGuardarPhp);
+    flus_assert_contains('flus_create_user_from_payload($pdo, $_POST);', $usuarioNuevoPhp);
+    flus_assert_contains('flus_create_user_from_payload($pdo, $_POST);', $usuarioGuardarPhp);
+    flus_assert_contains("'require_email' => true,", $userAdminLibPhp);
+    flus_assert_contains("'default_activo' => 0,", $userAdminLibPhp);
+    flus_assert_not_contains("'require_email' => false,", $usuarioGuardarPhp);
+    flus_assert_not_contains("'default_activo' => 1,", $usuarioGuardarPhp);
 });
 
 $results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
