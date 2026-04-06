@@ -2753,6 +2753,25 @@ $results[] = flus_run_test('configuracion y login usan csrf centralizado y boots
     flus_assert_contains("if (!csrf_verify((string)(\$_POST['csrf_token'] ?? ''))) {", $loginProcessPhp);
 });
 
+$results[] = flus_run_test('pdo reconnection helpers stay centralized in config and scaffold files', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $dbHelpersPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_helpers.php');
+    $configExamplePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.example.php');
+    $authPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php');
+    $bootstrapPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'bootstrap.php');
+    $installPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'install.php');
+
+    flus_assert_contains("function flus_pdo_fresh(int \$timeout = 3): PDO {", $dbHelpersPhp);
+    flus_assert_contains("function flus_pdo_exception_is_connectivity(Throwable \$e): bool {", $dbHelpersPhp);
+    flus_assert_not_contains('function flus_pdo_fresh(): PDO {', $authPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/db_helpers.php';", $authPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/db_helpers.php';", $bootstrapPhp);
+    flus_assert_contains('if (flus_pdo_exception_is_connectivity($e)) {', $authPhp);
+    flus_assert_contains("function flus_pdo_fresh(int \$timeout = 3): PDO {", $configExamplePhp);
+    flus_assert_contains('// CONEXION PDO', $installPhp);
+    flus_assert_contains('function flus_pdo_fresh(int \\$timeout = 3): PDO {\\n', $installPhp);
+});
+
 $results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
     $repoRoot = dirname(__DIR__);
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');

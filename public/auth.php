@@ -7,6 +7,7 @@ flus_session_start();
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
+require_once FLUS_ROOT . '/src/db_helpers.php';
 require_once __DIR__ . '/lib/terminal.php';
 
 // Sesion unificada (compat legacy)
@@ -65,49 +66,6 @@ function is_schema_missing(PDOException $e): bool {
   return false;
 }
 
-function is_server_gone(PDOException $e): bool {
-  $m = $e->getMessage();
-  // 2006 MySQL server has gone away / 2013 Lost connection during query
-  if (strpos($m, '2006') !== false || strpos($m, '2013') !== false) return true;
-  if (stripos($m, 'server has gone away') !== false) return true;
-  if (stripos($m, 'lost connection') !== false) return true;
-  return false;
-}
-
-function is_cant_connect(PDOException $e): bool {
-  $m = $e->getMessage();
-  // 2002 Can't connect / 10061 refused / 10060 timeout (Windows)
-  if (strpos($m, '2002') !== false) return true;
-  if (strpos($m, '(10061)') !== false) return true;
-  if (strpos($m, '(10060)') !== false) return true;
-  if (stripos($m, "can't connect") !== false) return true;
-  return false;
-}
-
-/**
- * PDO "fresco" (evita quedarte atado al PDO estatico cuando MySQL se reinicia).
- * No toca tu getPDO(), solo lo usa como primer intento.
- */
-function flus_pdo_fresh(): PDO {
-  $dsn = sprintf(
-    "mysql:host=%s;port=%s;dbname=%s;charset=%s;connect_timeout=3",
-    (string)DB_HOST,
-    (string)DB_PORT,
-    (string)DB_NAME,
-    (string)DB_CHARSET
-  );
-
-  $opts = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES   => false,
-    PDO::ATTR_PERSISTENT         => false,
-    PDO::ATTR_TIMEOUT            => 3,
-  ];
-
-  return new PDO($dsn, (string)DB_USER, (string)DB_PASS, $opts);
-}
-
 /**
  * Obtiene PDO con diagnostico:
  * - Si getPDO() falla -> issue DB_DOWN
@@ -136,7 +94,7 @@ function flus_get_pdo_diag(): ?PDO {
     $cached = $pdo;
     return $pdo;
   } catch (PDOException $e) {
-    if (is_server_gone($e) || is_cant_connect($e)) {
+    if (flus_pdo_exception_is_connectivity($e)) {
       auth_log('PDO viejo detectado (server gone). Intentando conexion fresh...', 'warning', ['ex' => $e->getMessage()]);
       try {
         $fresh = flus_pdo_fresh();

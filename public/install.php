@@ -103,22 +103,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile) && $err === '') 
         "defined('APP_BUILD')   || define('APP_BUILD',   defined('FLUS_BUILD') ? FLUS_BUILD : '');\n".
         "define('APP_SECRET', " . var_export($appSecret, true) . ");\n\n".
         "// ============================================\n".
-        "// CONEXIÓN PDO (singleton)\n".
+        "// CONEXION PDO\n".
         "// ============================================\n".
-        "function getPDO(): PDO {\n".
-        "    static \$pdo = null;\n\n".
-        "    if (\$pdo === null) {\n".
-        "        \$dsn = sprintf(\n".
-        "            \"mysql:host=%s;port=%d;dbname=%s;charset=%s\",\n".
-        "            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET\n".
-        "        );\n\n".
-        "        \$pdo = new PDO(\$dsn, DB_USER, DB_PASS, [\n".
-        "            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,\n".
-        "            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n".
-        "            PDO::ATTR_EMULATE_PREPARES   => false,\n".
-        "        ]);\n\n".
-        "        \$pdo->exec(\"SET time_zone = '-03:00'\");\n".
+        "function flus_pdo_dsn(int \$connectTimeout = 0): string {\n".
+        "    \$dsn = sprintf(\n".
+        "        \"mysql:host=%s;port=%d;dbname=%s;charset=%s\",\n".
+        "        DB_HOST, DB_PORT, DB_NAME, DB_CHARSET\n".
+        "    );\n\n".
+        "    if (\$connectTimeout > 0) {\n".
+        "        \$dsn .= ';connect_timeout=' . \$connectTimeout;\n".
         "    }\n\n".
+        "    return \$dsn;\n".
+        "}\n\n".
+        "function flus_pdo_options(int \$timeout = 0): array {\n".
+        "    \$options = [\n".
+        "        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,\n".
+        "        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,\n".
+        "        PDO::ATTR_EMULATE_PREPARES   => false,\n".
+        "        PDO::ATTR_PERSISTENT         => false,\n".
+        "    ];\n\n".
+        "    if (\$timeout > 0) {\n".
+        "        \$options[PDO::ATTR_TIMEOUT] = \$timeout;\n".
+        "    }\n\n".
+        "    return \$options;\n".
+        "}\n\n".
+        "function flus_pdo_exception_is_connection_lost(Throwable \$e): bool {\n".
+        "    if (!\$e instanceof PDOException) {\n".
+        "        return false;\n".
+        "    }\n\n".
+        "    \$message = \$e->getMessage();\n".
+        "    return strpos(\$message, '2006') !== false\n".
+        "        || strpos(\$message, '2013') !== false\n".
+        "        || stripos(\$message, 'server has gone away') !== false\n".
+        "        || stripos(\$message, 'lost connection') !== false;\n".
+        "}\n\n".
+        "function flus_pdo_exception_is_connectivity(Throwable \$e): bool {\n".
+        "    if (!\$e instanceof PDOException) {\n".
+        "        return false;\n".
+        "    }\n\n".
+        "    \$message = \$e->getMessage();\n".
+        "    return strpos(\$message, '2002') !== false\n".
+        "        || strpos(\$message, '(10061)') !== false\n".
+        "        || strpos(\$message, '(10060)') !== false\n".
+        "        || stripos(\$message, \"can't connect\") !== false\n".
+        "        || flus_pdo_exception_is_connection_lost(\$e);\n".
+        "}\n\n".
+        "function flus_pdo_fresh(int \$timeout = 3): PDO {\n".
+        "    \$pdo = new PDO(flus_pdo_dsn(\$timeout), DB_USER, DB_PASS, flus_pdo_options(\$timeout));\n".
+        "    \$pdo->exec(\"SET time_zone = '-03:00'\");\n".
+        "    return \$pdo;\n".
+        "}\n\n".
+        "function getPDO(): PDO {\n".
+        "    static \$pdo = null;\n".
+        "    static \$lastPingAt = 0.0;\n\n".
+        "    \$now = microtime(true);\n".
+        "    if (\$pdo instanceof PDO) {\n".
+        "        if ((\$now - \$lastPingAt) < 2.0) {\n".
+        "            return \$pdo;\n".
+        "        }\n\n".
+        "        try {\n".
+        "            \$pdo->query('SELECT 1')->fetchColumn();\n".
+        "            \$lastPingAt = \$now;\n".
+        "            return \$pdo;\n".
+        "        } catch (PDOException \$e) {\n".
+        "            if (!flus_pdo_exception_is_connectivity(\$e)) {\n".
+        "                throw \$e;\n".
+        "            }\n".
+        "            \$pdo = null;\n".
+        "        }\n".
+        "    }\n\n".
+        "    \$pdo = flus_pdo_fresh();\n".
+        "    \$lastPingAt = microtime(true);\n".
         "    return \$pdo;\n".
         "}\n";
 
@@ -290,3 +345,4 @@ if (is_file($cfgFile)) {
   </p>
 </body>
 </html>
+

@@ -15,6 +15,7 @@ if (is_file($sessionHelper)) {
 require_once __DIR__ . '/lib/install_guard.php';
 
 require_once FLUS_ROOT . '/src/config.php';
+require_once FLUS_ROOT . '/src/db_helpers.php';
 require_once FLUS_ROOT . '/src/http_helpers.php';
 
 // Forzar UTF-8 en respuestas HTML normales para evitar mojibake por charset por defecto del servidor.
