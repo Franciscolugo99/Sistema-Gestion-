@@ -1306,6 +1306,17 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     flus_assert_contains('CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos', $migrationSql);
     flus_assert_contains('migrations/007_support_modules_schema.sql', $manualLibPhp);
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS factura_manual_items', $manualLibPhp);
+
+    $precioHistPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'precio_historial.php');
+    $auditEventsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'audit_events.php');
+    $cajaHistorialPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_historial.php');
+
+    flus_assert_contains('migrations/007_support_modules_schema.sql', $precioHistPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS producto_precios_hist', $precioHistPhp);
+    flus_assert_contains("missing audit_log table", $auditEventsPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS audit_log', $auditEventsPhp);
+    flus_assert_contains('migrations/007_support_modules_schema.sql', $cajaHistorialPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS caja_auditoria', $cajaHistorialPhp);
 });
 
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {

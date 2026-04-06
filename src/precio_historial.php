@@ -523,26 +523,16 @@ function precio_estadisticas_margenes(): array {
 // ============================================
 
 /**
- * Asegurar que existe la tabla de historial
+ * Validar que existe la tabla versionada de historial
  */
 function precio_ensure_tables(PDO $pdo): void {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS producto_precios_hist (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            producto_id INT UNSIGNED NOT NULL,
-            tipo ENUM('VENTA', 'COSTO') DEFAULT 'VENTA',
-            precio_anterior DECIMAL(12,2) NOT NULL,
-            precio_nuevo DECIMAL(12,2) NOT NULL,
-            diferencia DECIMAL(12,2) NOT NULL,
-            diferencia_pct DECIMAL(8,2) NULL,
-            motivo VARCHAR(255) NULL,
-            user_id INT UNSIGNED NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            
-            INDEX idx_producto (producto_id),
-            INDEX idx_tipo (tipo),
-            INDEX idx_created (created_at),
-            INDEX idx_user (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ");
+    $exists = function_exists('flus_table_exists')
+        ? (bool)flus_table_exists($pdo, 'producto_precios_hist')
+        : false;
+
+    if (!$exists) {
+        throw new RuntimeException(
+            'Falta la tabla producto_precios_hist. Aplica primero la migracion migrations/007_support_modules_schema.sql.'
+        );
+    }
 }

@@ -140,9 +140,12 @@ function audit_event(string $action, string $entity, ?int $entityId = null, arra
         }
 
         if (!$tableInfo['exists']) {
-            // Crear tabla si no existe
-            audit_ensure_table($pdo);
-            $tableInfo = audit_get_table_info($pdo);
+            flus_log_error('audit_event skipped: missing audit_log table', [
+                'action' => $action,
+                'entity' => $entity,
+                'migration' => 'install.sql',
+            ]);
+            return;
         }
 
         // Construir INSERT dinámico
@@ -236,35 +239,18 @@ function audit_get_table_info(PDO $pdo): array {
 }
 
 /**
- * Crear tabla audit_log si no existe
+ * Compat helper: el esquema de audit_log debe venir desde install.sql/migraciones.
  */
 function audit_ensure_table(PDO $pdo): bool {
-    try {
-        $sql = "
-            CREATE TABLE IF NOT EXISTS audit_log (
-                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                user_id INT UNSIGNED NULL,
-                action VARCHAR(50) NOT NULL,
-                entity VARCHAR(50) NOT NULL,
-                entity_id INT UNSIGNED NULL,
-                meta JSON NULL,
-                ip VARCHAR(45) NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                
-                INDEX idx_action (action),
-                INDEX idx_entity (entity, entity_id),
-                INDEX idx_user (user_id),
-                INDEX idx_created (created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        $pdo->exec($sql);
+    $info = audit_get_table_info($pdo);
+    if ($info['exists']) {
         return true;
-        
-    } catch (Throwable $e) {
-        flus_log_error('audit_ensure_table failed', ['error' => $e->getMessage()]);
-        return false;
     }
+
+    flus_log_error('audit_ensure_table skipped: schema must be provisioned externally', [
+        'migration' => 'install.sql',
+    ]);
+    return false;
 }
 
 /**

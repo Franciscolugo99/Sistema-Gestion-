@@ -27,7 +27,13 @@ if (!user_has_permission('editar_productos')) {
 require_once __DIR__ . '/../src/precio_historial.php';
 
 $pdo = getPDO();
-precio_ensure_tables($pdo);
+$error = null;
+
+try {
+    precio_ensure_tables($pdo);
+} catch (Throwable $e) {
+    $error = $e->getMessage();
+}
 
 // CSRF
 if (empty($_SESSION['csrf_token'])) {
@@ -44,7 +50,6 @@ $extraCss = ['assets/css/precios.css'];
 $extraJs = ['assets/js/precios.js'];
 
 $info = null;
-$error = null;
 
 // Vista actual
 $vista = $_GET['v'] ?? 'historial';

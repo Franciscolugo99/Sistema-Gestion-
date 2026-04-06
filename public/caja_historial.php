@@ -123,24 +123,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       exit;
     }
 
-    try {
-      $pdo->exec("CREATE TABLE IF NOT EXISTS caja_auditoria (
-          caja_id INT NOT NULL,
-          status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-          nota TEXT NULL,
-          audited_by INT NULL,
-          audited_at DATETIME NULL,
-          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          PRIMARY KEY (caja_id),
-          KEY idx_status (status),
-          KEY idx_audited_by (audited_by)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if (!$auditTableExistsRaw) {
+      $_SESSION['flash_error'] = 'Falta la tabla caja_auditoria. Aplicá primero la migración migrations/007_support_modules_schema.sql.';
+      header('Location: ' . $return);
+      exit;
+    }
 
-      $auditTableExistsRaw = function_exists('flus_table_exists') ? flus_table_exists($pdo, 'caja_auditoria') : true;
+    try {
       if (is_file($auditFlagPath)) { @unlink($auditFlagPath); }
       $auditDisabled = false;
-      $auditTableExists = $auditTableExistsRaw;
+      $auditTableExists = true;
       $_SESSION['flash_ok'] = 'Auditoría habilitada.';
     } catch (Throwable $e) {
       $_SESSION['flash_error'] = 'No se pudo habilitar auditoría: ' . $e->getMessage();
