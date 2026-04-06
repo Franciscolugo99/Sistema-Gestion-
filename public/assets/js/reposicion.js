@@ -15,8 +15,46 @@
 
   const qs = (sel, root = document) => root.querySelector(sel);
   const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const notify = (type, message) => {
+    const text = String(message || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === "function") {
+      const fallbackType = type === "success" || type === "ok"
+        ? "success"
+        : (type === "warning" || type === "warn" ? "warn" : "error");
+      window.showToast(text, fallbackType);
+    }
+  };
 
   onReady(() => {
+    const page = qs("[data-repo-flash-ok], [data-repo-flash-error]");
+    if (page) {
+      const ok = String(page.dataset.repoFlashOk || "").trim();
+      const error = String(page.dataset.repoFlashError || "").trim();
+      if (ok || error) {
+        window.setTimeout(() => {
+          if (ok) notify("success", ok);
+          if (error) notify("error", error);
+        }, 120);
+      }
+    }
+
     const search = qs(".repo-search-input");
     if (search) {
       try {
@@ -62,7 +100,8 @@
 
     const syncBulkState = () => {
       const count = selectedCount();
-      const ready = count > 0 && hasBulkChanges();
+      const hasChanges = hasBulkChanges();
+      const ready = count > 0 && hasChanges;
 
       if (bulkCount) {
         bulkCount.textContent = String(count);
@@ -105,9 +144,19 @@
 
     bulkForm.addEventListener("submit", (event) => {
       const count = selectedCount();
-      if (count === 0 || !hasBulkChanges()) {
+      const hasChanges = hasBulkChanges();
+
+      if (count === 0 || !hasChanges) {
         event.preventDefault();
         syncBulkState();
+        if (count === 0 && hasChanges) {
+          notify("warn", "Selecciona al menos un producto o usa 'Seleccionar pagina'.");
+        } else if (count > 0 && !hasChanges) {
+          notify("warn", "Completa al menos un valor para aplicar el cambio masivo.");
+        } else {
+          notify("warn", "Selecciona productos y completa al menos un cambio para continuar.");
+        }
+        bulkForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
         return;
       }
 

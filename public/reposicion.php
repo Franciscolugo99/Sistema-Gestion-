@@ -283,7 +283,7 @@ $proveedores = $pdo->query("SELECT id, nombre FROM proveedores WHERE activo = 1 
 require __DIR__ . '/partials/header.php';
 ?>
 
-<div class="panel">
+<div class="panel" data-repo-flash-ok="<?= h((string)$info) ?>" data-repo-flash-error="<?= h((string)$error) ?>">
     <header class="panel-head page-header module-header">
         <div class="page-header-main module-header-main">
             <div class="module-header-hero">
@@ -320,26 +320,6 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
     </header>
 
-    <?php if ($info): ?>
-        <div class="alert alert-ok">
-            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            <span><?= h($info) ?></span>
-        </div>
-    <?php endif; ?>
-
-    <?php if ($error): ?>
-        <div class="alert alert-err">
-            <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span><?= h($error) ?></span>
-        </div>
-    <?php endif; ?>
     <?php
         $productosConfigurados = (int)($resumenModulo['productos_configurados'] ?? 0);
         $productosPendientes = (int)($resumenModulo['productos_pendientes_config'] ?? 0);
