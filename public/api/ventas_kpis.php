@@ -1,15 +1,12 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
-if (function_exists('require_login')) { require_login(); }
-if (function_exists('require_permission')) { require_permission('ver_reportes'); }
+require_once __DIR__ . '/_bootstrap.php';
+require_login_json();
+require_perm_json('ver_reportes');
 
 require_once __DIR__ . '/kpis_categoria_helper.php';
 require_once __DIR__ . '/../../src/db_helpers.php';
-
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 /**
  * Obtiene y cachea el filtro de categoría cuando se usa (lazy).

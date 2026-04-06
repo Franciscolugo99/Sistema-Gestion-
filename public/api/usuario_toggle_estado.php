@@ -6,21 +6,10 @@ require_once __DIR__ . '/_bootstrap.php';
 
 $input = api_read_json();
 
-try {
-    require_login();
-    require_permission('administrar_usuarios');
-} catch (Throwable $e) {
-    success_fail('Acceso denegado', 403);
-}
-
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-    success_fail('Metodo no permitido', 405);
-}
-
-$csrfToken = function_exists('flus_csrf_from_request') ? flus_csrf_from_request($input) : '';
-if ($csrfToken === '' || !function_exists('csrf_verify') || !csrf_verify($csrfToken)) {
-    success_fail('Token CSRF invalido', 403);
-}
+require_login_json();
+require_perm_json('administrar_usuarios');
+require_method_json('POST');
+require_csrf_json($input);
 
 if (!is_array($input) || !isset($input['user_id'])) {
     success_fail('Datos invalidos', 400);

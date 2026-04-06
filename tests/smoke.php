@@ -1509,7 +1509,10 @@ $results[] = flus_run_test('user legacy api endpoints share centralized bootstra
     foreach ([$usuarioEliminarPhp, $usuarioTogglePhp] as $php) {
         flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $php);
         flus_assert_contains('$input = api_read_json();', $php);
-        flus_assert_contains("function_exists('flus_csrf_from_request') ? flus_csrf_from_request(\$input) : '';", $php);
+        flus_assert_contains('require_login_json();', $php);
+        flus_assert_contains("require_perm_json('administrar_usuarios');", $php);
+        flus_assert_contains("require_method_json('POST');", $php);
+        flus_assert_contains('require_csrf_json($input);', $php);
         flus_assert_not_contains("require_once __DIR__ . '/../bootstrap.php';", $php);
         flus_assert_not_contains("require_once __DIR__ . '/_csrf_guard.php';", $php);
         flus_assert_not_contains("json_decode(file_get_contents('php://input'), true);", $php);

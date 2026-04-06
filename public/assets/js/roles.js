@@ -11,6 +11,34 @@
     var isEditingCritical = false;
     var roleToDelete = null;
 
+    function getCsrf() {
+        if (typeof window.getCsrfToken === 'function') {
+            return window.getCsrfToken() || '';
+        }
+        var csrfEl = document.querySelector('input[name="csrf_token"]');
+        return csrfEl ? (csrfEl.value || '') : '';
+    }
+
+    function notify(type, message) {
+        if (!window.Notif) {
+            window.alert(message);
+            return;
+        }
+        if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
+            window.Notif.exito(message);
+            return;
+        }
+        if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') {
+            window.Notif.advertencia(message);
+            return;
+        }
+        if (typeof window.Notif.error === 'function') {
+            window.Notif.error(message);
+            return;
+        }
+        window.alert(message);
+    }
+
     // =========================================================================
     // DRAWER FUNCTIONS
     // =========================================================================
@@ -191,27 +219,47 @@
         // Confirm delete button
         var confirmBtn = document.getElementById('confirmDeleteBtn');
         if (confirmBtn) {
-            confirmBtn.addEventListener('click', function() {
-                if (roleToDelete) {
-                    var form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = 'api/rol_eliminar.php';
-                    
-                    var csrfInput = document.createElement('input');
-                    csrfInput.type = 'hidden';
-                    csrfInput.name = 'csrf_token';
-                    var csrfEl = document.querySelector('input[name="csrf_token"]');
-                    csrfInput.value = csrfEl ? csrfEl.value : '';
-                    
-                    var idInput = document.createElement('input');
-                    idInput.type = 'hidden';
-                    idInput.name = 'role_id';
-                    idInput.value = roleToDelete;
-                    
-                    form.appendChild(csrfInput);
-                    form.appendChild(idInput);
-                    document.body.appendChild(form);
-                    form.submit();
+            confirmBtn.addEventListener('click', async function() {
+                if (!roleToDelete) return;
+
+                confirmBtn.disabled = true;
+
+                try {
+                    var resp = await fetch('api/rol_eliminar.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            role_id: roleToDelete,
+                            csrf_token: getCsrf()
+                        }),
+                        credentials: 'same-origin'
+                    });
+
+                    var data = null;
+                    try {
+                        data = await resp.json();
+                    } catch (_) {
+                        data = null;
+                    }
+
+                    if (!resp.ok || !(data && (data.ok || data.success))) {
+                        throw new Error((data && (data.message || data.error)) || ('HTTP ' + resp.status));
+                    }
+
+                    closeDeleteModal();
+                    notify('success', data.message || 'Rol eliminado correctamente');
+
+                    window.setTimeout(function() {
+                        window.location.reload();
+                    }, 350);
+                } catch (err) {
+                    notify('error', (err && err.message) ? err.message : 'No se pudo eliminar el rol');
+                } finally {
+                    confirmBtn.disabled = false;
                 }
             });
         }

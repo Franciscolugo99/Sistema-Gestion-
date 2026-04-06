@@ -2,115 +2,35 @@
 // api/rol_eliminar.php
 declare(strict_types=1);
 
-// Contexto API
-define('FLUS_API_CONTEXT', true);
+require_once __DIR__ . '/_bootstrap.php';
 
-require_once __DIR__ . '/../bootstrap.php';
-
-// Verificar autenticación y permisos
-try {
-    require_login();
-    require_permission('administrar_usuarios');
-} catch (Exception $e) {
-    // Si es request AJAX, responder JSON
-    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'Acceso denegado']);
-        exit;
-    }
-    // Si no, redirigir
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    $_SESSION['flash_error'] = 'Acceso denegado';
-    header('Location: ../roles.php');
-    exit;
+$input = api_read_json();
+if ($input === [] && !empty($_POST)) {
+    $input = $_POST;
 }
 
-// Solo permitir POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'Método no permitido']);
-        exit;
-    }
-    header('Location: ../roles.php');
-    exit;
-}
+require_login_json();
+require_perm_json('administrar_usuarios');
+require_method_json('POST');
+require_csrf_json($input);
 
-// Detectar tipo de request (JSON o form-data)
-$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-$isJson = strpos($contentType, 'application/json') !== false;
-
-if ($isJson) {
-    $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $roleId = (int)($input['role_id'] ?? 0);
-    $csrfToken = $input['csrf_token'] ?? $input['csrf'] ?? '';
-} else {
-    $roleId = (int)($_POST['role_id'] ?? 0);
-    $csrfToken = $_POST['csrf_token'] ?? '';
-}
-
-// Validar CSRF (csrf_verify viene de bootstrap.php -> lib/csrf.php)
-if (!csrf_verify($csrfToken)) {
-    if ($isJson || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'Token CSRF inválido']);
-        exit;
-    }
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    $_SESSION['flash_error'] = 'Token CSRF inválido. Recarga la página e intenta de nuevo.';
-    header('Location: ../roles.php');
-    exit;
-}
-
-// Validaciones
+$roleId = (int)($input['role_id'] ?? 0);
 if ($roleId <= 0) {
-    if ($isJson || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'ID de rol inválido']);
-        exit;
-    }
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    $_SESSION['flash_error'] = 'ID de rol inválido';
-    header('Location: ../roles.php');
-    exit;
-}
-
-// Función helper para respuestas
-function respond($success, $message, $isJson) {
-    if ($isJson || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-        header('Content-Type: application/json');
-        if ($success) {
-            echo json_encode(['ok' => true, 'message' => $message]);
-        } else {
-            echo json_encode(['ok' => false, 'error' => $message]);
-        }
-        exit;
-    }
-    
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    if ($success) {
-        $_SESSION['flash_success'] = $message;
-    } else {
-        $_SESSION['flash_error'] = $message;
-    }
-    header('Location: ../roles.php');
-    exit;
+    success_fail('ID de rol invalido', 400);
 }
 
 // Verificar que el rol existe
 try {
-    global $pdo;
-    
     $stmt = $pdo->prepare("SELECT id, nombre, slug FROM roles WHERE id = :id");
     $stmt->execute([':id' => $roleId]);
     $role = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$role) {
-        respond(false, 'Rol no encontrado', $isJson);
+        success_fail('Rol no encontrado', 404);
     }
     
     if ((function_exists('flus_is_critical_role') && flus_is_critical_role((string)$role['slug'])) || in_array(strtolower((string)$role['slug']), ['administrador', 'admin', 'superadmin'], true)) {
-        respond(false, 'No se puede eliminar un rol critico del sistema', $isJson);
+        success_fail('No se puede eliminar un rol critico del sistema', 409);
     }
     
     // Verificar si tiene usuarios asignados
@@ -119,12 +39,12 @@ try {
     $totalUsers = (int)$stmtUsers->fetchColumn();
     
     if ($totalUsers > 0) {
-        respond(false, "No se puede eliminar el rol porque tiene {$totalUsers} usuario(s) asignado(s). Reasigna los usuarios a otro rol primero.", $isJson);
+        success_fail("No se puede eliminar el rol porque tiene {$totalUsers} usuario(s) asignado(s). Reasigna los usuarios a otro rol primero.", 409);
     }
     
 } catch (PDOException $e) {
     error_log("Error al verificar rol: " . $e->getMessage());
-    respond(false, 'Error al verificar el rol', $isJson);
+    success_fail('Error al verificar el rol', 500);
 }
 
 // Eliminar rol
@@ -140,7 +60,7 @@ try {
     $stmtRole->execute([':id' => $roleId]);
     
     if ($stmtRole->rowCount() === 0) {
-        throw new Exception('No se pudo eliminar el rol');
+        throw new RuntimeException('No se pudo eliminar el rol');
     }
     
     // Log de auditoría (opcional)
@@ -149,11 +69,13 @@ try {
             INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at)
             VALUES (:user_id, 'delete_role', 'role', :entity_id, :details, NOW())
         ");
-        
-        if (session_status() === PHP_SESSION_NONE) session_start();
+
+        $actorUserId = function_exists('session_user_id')
+            ? session_user_id()
+            : (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
         
         $logStmt->execute([
-            ':user_id' => $_SESSION['user_id'] ?? null,
+            ':user_id' => $actorUserId > 0 ? $actorUserId : null,
             ':entity_id' => $roleId,
             ':details' => json_encode([
                 'role_name' => $role['nombre'],
@@ -166,13 +88,13 @@ try {
     }
     
     $pdo->commit();
-    respond(true, "Rol \"{$role['nombre']}\" eliminado correctamente", $isJson);
+    success_ok(['message' => "Rol \"{$role['nombre']}\" eliminado correctamente"]);
     
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("Error al eliminar rol: " . $e->getMessage());
-    respond(false, 'Error al eliminar el rol', $isJson);
-} catch (Exception $e) {
+    success_fail('Error al eliminar el rol', 500);
+} catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    respond(false, $e->getMessage(), $isJson);
+    success_fail($e->getMessage(), 500);
 }
