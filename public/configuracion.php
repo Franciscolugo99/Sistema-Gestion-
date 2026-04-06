@@ -3,16 +3,10 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/lib/csrf.php';
 require_login();
 require_permission('administrar_config');
-
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-  session_start();
-}
-if (empty($_SESSION['csrf_token'])) {
-  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+$csrfToken = csrf_token();
 
 // Campos que vamos a manejar (todo sale/entra en app_config)
 $fields = [
@@ -144,7 +138,7 @@ foreach ($printFields as $k => $meta) {
 // Guardar (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $token = (string)($_POST['csrf_token'] ?? '');
-  if (!hash_equals($_SESSION['csrf_token'], $token)) {
+  if (!csrf_verify($token)) {
     $errors[] = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
   } else {
     // Normalizar valores
@@ -286,7 +280,7 @@ require __DIR__ . '/partials/header.php';
   <?php endif; ?>
 
   <form method="post" class="config-form">
-    <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+    <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
 
     <div class="config-grid">
       <?php foreach ($fields as $k => $meta): ?>

@@ -2739,6 +2739,20 @@ $results[] = flus_run_test('usuario form muestra validacion explicita para passw
     flus_assert_not_contains("'default_activo' => 1,", $usuarioGuardarPhp);
 });
 
+$results[] = flus_run_test('configuracion y login usan csrf centralizado y bootstrap de sesion', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $configuracionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'configuracion.php');
+    $loginProcessPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login_process.php');
+
+    flus_assert_contains("require_once __DIR__ . '/lib/csrf.php';", $configuracionPhp);
+    flus_assert_contains('$csrfToken = csrf_token();', $configuracionPhp);
+    flus_assert_contains('if (!csrf_verify($token)) {', $configuracionPhp);
+    flus_assert_not_contains('session_start();', $configuracionPhp);
+    flus_assert_not_contains("hash_equals(\$_SESSION['csrf_token'], \$token)", $configuracionPhp);
+    flus_assert_not_contains('session_start()', $loginProcessPhp);
+    flus_assert_contains("if (!csrf_verify((string)(\$_POST['csrf_token'] ?? ''))) {", $loginProcessPhp);
+});
+
 $results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
     $repoRoot = dirname(__DIR__);
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
