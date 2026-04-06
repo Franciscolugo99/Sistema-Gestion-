@@ -180,6 +180,7 @@ if ($vista === 'alertas') {
         $minExpr = _repo_expr_min($pdo);
         $reoExpr = _repo_expr_reorden($pdo);
         $provExpr = _repo_expr_proveedor($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $sql = "
             SELECT
@@ -192,7 +193,7 @@ if ($vista === 'alertas') {
                 COALESCE($reoExpr, 0) AS punto_reorden,
                 COALESCE(pr.nombre, 'Sin proveedor') AS proveedor_nombre
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             LEFT JOIN proveedores pr ON pr.id = $provExpr
             WHERE p.activo = 1
               AND (

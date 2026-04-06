@@ -25,17 +25,7 @@ require_once __DIR__ . '/db_helpers.php';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function reposicion_ensure_tables(PDO $pdo): void {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS producto_reposicion (
-        producto_id INT NOT NULL,
-        stock_minimo DECIMAL(12,3) NULL,
-        stock_maximo DECIMAL(12,3) NULL,
-        punto_reorden DECIMAL(12,3) NULL,
-        proveedor_id INT NULL,
-        dias_reposicion INT NULL DEFAULT 7,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (producto_id),
-        KEY idx_proveedor (proveedor_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    _repo_schema($pdo);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,10 +37,10 @@ function _repo_schema(PDO $pdo): array {
     $id = spl_object_id($pdo);
     if (isset($cache[$id])) return $cache[$id];
 
-    // Asegurar tabla auxiliar para que JOINs no rompan
-    reposicion_ensure_tables($pdo);
-
     $cache[$id] = [
+        'aux'    => function_exists('flus_table_exists')
+            ? (bool)flus_table_exists($pdo, 'producto_reposicion')
+            : has_table($pdo, 'producto_reposicion'),
         'p_min'  => has_column($pdo, 'productos', 'stock_minimo'),
         'p_max'  => has_column($pdo, 'productos', 'stock_maximo'),
         'p_reo'  => has_column($pdo, 'productos', 'punto_reorden'),
@@ -58,6 +48,11 @@ function _repo_schema(PDO $pdo): array {
     ];
 
     return $cache[$id];
+}
+
+function _repo_join_aux(PDO $pdo): string {
+    $s = _repo_schema($pdo);
+    return !empty($s['aux']) ? 'LEFT JOIN producto_reposicion r ON r.producto_id = p.id' : '';
 }
 
 /**
@@ -68,7 +63,8 @@ function _repo_expr_min(PDO $pdo): string {
     $s = _repo_schema($pdo);
     $parts = [];
     if ($s['p_min']) $parts[] = 'NULLIF(p.stock_minimo,0)';
-    $parts[] = 'NULLIF(r.stock_minimo,0)';
+    if (!empty($s['aux'])) $parts[] = 'NULLIF(r.stock_minimo,0)';
+    if ($parts === []) return 'NULL';
     return 'COALESCE(' . implode(', ', $parts) . ')';
 }
 
@@ -79,7 +75,8 @@ function _repo_expr_reorden(PDO $pdo): string {
     $s = _repo_schema($pdo);
     $parts = [];
     if ($s['p_reo']) $parts[] = 'NULLIF(p.punto_reorden,0)';
-    $parts[] = 'NULLIF(r.punto_reorden,0)';
+    if (!empty($s['aux'])) $parts[] = 'NULLIF(r.punto_reorden,0)';
+    if ($parts === []) return 'NULL';
     return 'COALESCE(' . implode(', ', $parts) . ')';
 }
 
@@ -90,7 +87,8 @@ function _repo_expr_max(PDO $pdo): string {
     $s = _repo_schema($pdo);
     $parts = [];
     if ($s['p_max']) $parts[] = 'NULLIF(p.stock_maximo,0)';
-    $parts[] = 'NULLIF(r.stock_maximo,0)';
+    if (!empty($s['aux'])) $parts[] = 'NULLIF(r.stock_maximo,0)';
+    if ($parts === []) return 'NULL';
     return 'COALESCE(' . implode(', ', $parts) . ')';
 }
 
@@ -100,8 +98,10 @@ function _repo_expr_max(PDO $pdo): string {
 function _repo_expr_proveedor(PDO $pdo): string {
     $s = _repo_schema($pdo);
     // 0 se considera "no configurado".
-    if ($s['p_prov']) return 'COALESCE(NULLIF(r.proveedor_id,0), NULLIF(p.proveedor_id,0))';
-    return 'NULLIF(r.proveedor_id,0)';
+    if (!empty($s['aux']) && $s['p_prov']) return 'COALESCE(NULLIF(r.proveedor_id,0), NULLIF(p.proveedor_id,0))';
+    if (!empty($s['aux'])) return 'NULLIF(r.proveedor_id,0)';
+    if ($s['p_prov']) return 'NULLIF(p.proveedor_id,0)';
+    return 'NULL';
 }
 
 function _repo_estado_expr(PDO $pdo): string {
@@ -200,8 +200,8 @@ function reposicion_set_config(
 ): bool {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
         $s = _repo_schema($pdo);
+        $hasAux = !empty($s['aux']);
 
         // Normalizar: <=0 => NULL
         $norm = static function (?float $v): ?float {
@@ -211,6 +211,12 @@ function reposicion_set_config(
         $stockMinimo  = $norm($stockMinimo);
         $stockMaximo  = $norm($stockMaximo);
         $puntoReorden = $norm($puntoReorden);
+
+        if (!$hasAux && !$s['p_min'] && !$s['p_max'] && !$s['p_reo'] && !$s['p_prov']) {
+            throw new RuntimeException(
+                'Falta la tabla producto_reposicion y no hay columnas equivalentes en productos. Aplica primero la migracion migrations/007_support_modules_schema.sql.'
+            );
+        }
 
         // 1) Actualizar productos si existen columnas
         if ($s['p_min'] || $s['p_max'] || $s['p_reo'] || $s['p_prov']) {
@@ -230,6 +236,10 @@ function reposicion_set_config(
                 $st = $pdo->prepare($sql);
                 $st->execute($params);
             }
+        }
+
+        if (!$hasAux) {
+            return true;
         }
 
         // 2) Upsert tabla auxiliar (compat)
@@ -321,21 +331,25 @@ function reposicion_set_config_lote(array $productoIds, array $changes): array {
 function reposicion_get_config(int $productoId): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
         $s = _repo_schema($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $selectMin  = $s['p_min']  ? 'p.stock_minimo'  : 'NULL';
         $selectMax  = $s['p_max']  ? 'p.stock_maximo'  : 'NULL';
         $selectReo  = $s['p_reo']  ? 'p.punto_reorden' : 'NULL';
         $selectProv = $s['p_prov'] ? 'p.proveedor_id'  : 'NULL';
+        $auxMin     = !empty($s['aux']) ? 'NULLIF(r.stock_minimo,0)' : 'NULL';
+        $auxMax     = !empty($s['aux']) ? 'NULLIF(r.stock_maximo,0)' : 'NULL';
+        $auxReo     = !empty($s['aux']) ? 'NULLIF(r.punto_reorden,0)' : 'NULL';
+        $auxProv    = !empty($s['aux']) ? 'NULLIF(r.proveedor_id,0)' : 'NULL';
 
         $st = $pdo->prepare("SELECT
-                COALESCE(NULLIF($selectMin,0), NULLIF(r.stock_minimo,0), 0) AS stock_minimo,
-                COALESCE(NULLIF($selectMax,0), NULLIF(r.stock_maximo,0), 0) AS stock_maximo,
-                COALESCE(NULLIF($selectReo,0), NULLIF(r.punto_reorden,0), 0) AS punto_reorden,
-                COALESCE(NULLIF(r.proveedor_id,0), $selectProv) AS proveedor_id
+                COALESCE(NULLIF($selectMin,0), $auxMin, 0) AS stock_minimo,
+                COALESCE(NULLIF($selectMax,0), $auxMax, 0) AS stock_maximo,
+                COALESCE(NULLIF($selectReo,0), $auxReo, 0) AS punto_reorden,
+                COALESCE($auxProv, $selectProv) AS proveedor_id
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             WHERE p.id = ?
             LIMIT 1");
         $st->execute([$productoId]);
@@ -354,7 +368,6 @@ function reposicion_get_config(int $productoId): array {
 function reposicion_get_stock_bajo(int $limit = 200, array $filtros = []): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
 
         $min        = _repo_expr_min($pdo);
         $reo        = _repo_expr_reorden($pdo);
@@ -362,6 +375,7 @@ function reposicion_get_stock_bajo(int $limit = 200, array $filtros = []): array
         $estadoExpr = _repo_estado_expr($pdo);
         $orderExpr  = _repo_order_expr($pdo);
         $provExpr   = _repo_expr_proveedor($pdo);
+        $repoJoin   = _repo_join_aux($pdo);
 
         $where  = ['p.activo = 1', _repo_cond_stock_bajo($pdo)];
         $params = [];
@@ -403,7 +417,7 @@ function reposicion_get_stock_bajo(int $limit = 200, array $filtros = []): array
                 COALESCE(pv.nombre, 'Sin proveedor') AS proveedor_nombre,
                 COALESCE(pv.id, 0) AS proveedor_id
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             LEFT JOIN proveedores pv ON pv.id = $provExpr
             WHERE " . implode(' AND ', $where) . "
             ORDER BY $orderExpr ASC, p.stock ASC, p.nombre ASC
@@ -422,10 +436,10 @@ function reposicion_get_stock_bajo(int $limit = 200, array $filtros = []): array
 function reposicion_conteo_estados(): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
 
         $min = _repo_expr_min($pdo);
         $reo = _repo_expr_reorden($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $sql = "SELECT
                 SUM(CASE WHEN p.stock <= 0 THEN 1 ELSE 0 END) AS sin_stock,
@@ -433,7 +447,7 @@ function reposicion_conteo_estados(): array {
                 SUM(CASE WHEN p.stock > 0 AND ($reo IS NOT NULL) AND p.stock < $reo AND ($min IS NULL OR p.stock >= $min) THEN 1 ELSE 0 END) AS reorden,
                 COUNT(*) AS total
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             WHERE p.activo = 1";
 
         $row = $pdo->query($sql)->fetch(PDO::FETCH_ASSOC);
@@ -447,7 +461,6 @@ function reposicion_conteo_estados(): array {
 function reposicion_listar_configuracion(string $q = '', ?int $proveedorId = null, int $page = 1, int $limit = 30): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
 
         $q = trim($q);
         $page = max(1, $page);
@@ -485,6 +498,7 @@ function reposicion_listar_configuracion(string $q = '', ?int $proveedorId = nul
         $reo = _repo_expr_reorden($pdo);
         $max = _repo_expr_max($pdo);
         $provExpr = _repo_expr_proveedor($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $where = ['p.activo = 1'];
         $params = [];
@@ -505,7 +519,7 @@ function reposicion_listar_configuracion(string $q = '', ?int $proveedorId = nul
 
         $sqlCount = "SELECT COUNT(*)
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             WHERE " . implode(' AND ', $where);
         $stCount = $pdo->prepare($sqlCount);
         $stCount->execute($params);
@@ -524,7 +538,7 @@ function reposicion_listar_configuracion(string $q = '', ?int $proveedorId = nul
                 COALESCE($provExpr, 0) AS proveedor_id_efectivo,
                 COALESCE(pv.nombre, 'Sin proveedor') AS proveedor_nombre
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             LEFT JOIN proveedores pv ON pv.id = $provExpr
             WHERE " . implode(' AND ', $where) . "
             ORDER BY p.nombre
@@ -564,7 +578,6 @@ function reposicion_listar_configuracion(string $q = '', ?int $proveedorId = nul
 function reposicion_generar_lista(?int $proveedorId = null, int $limit = 1500): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
 
         $min        = _repo_expr_min($pdo);
         $reo        = _repo_expr_reorden($pdo);
@@ -572,6 +585,7 @@ function reposicion_generar_lista(?int $proveedorId = null, int $limit = 1500): 
         $estadoExpr = _repo_estado_expr($pdo);
         $orderExpr  = _repo_order_expr($pdo);
         $provExpr   = _repo_expr_proveedor($pdo);
+        $repoJoin   = _repo_join_aux($pdo);
 
         $where  = ['p.activo = 1', _repo_cond_stock_bajo($pdo)];
         $params = [];
@@ -598,7 +612,7 @@ function reposicion_generar_lista(?int $proveedorId = null, int $limit = 1500): 
                 COALESCE(pv.nombre, 'Sin proveedor') AS proveedor_nombre,
                 COALESCE(pv.id, 0) AS proveedor_id
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             LEFT JOIN proveedores pv ON pv.id = $provExpr
             WHERE " . implode(' AND ', $where) . "
             ORDER BY proveedor_nombre ASC, $orderExpr ASC, p.stock ASC, p.nombre ASC
@@ -689,12 +703,12 @@ function reposicion_exportar_csv(?int $proveedorId = null): string {
 function reposicion_resumen_operativo(): array {
     try {
         $pdo = getPDO();
-        reposicion_ensure_tables($pdo);
 
         $min = _repo_expr_min($pdo);
         $reo = _repo_expr_reorden($pdo);
         $max = _repo_expr_max($pdo);
         $prov = _repo_expr_proveedor($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $sql = "SELECT
                 COUNT(*) AS total_activos,
@@ -703,7 +717,7 @@ function reposicion_resumen_operativo(): array {
                 SUM(CASE WHEN ($prov IS NOT NULL) THEN 1 ELSE 0 END) AS con_proveedor,
                 SUM(CASE WHEN ($prov IS NULL) THEN 1 ELSE 0 END) AS sin_proveedor
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             WHERE p.activo = 1";
 
         $row = $pdo->query($sql)->fetch(PDO::FETCH_ASSOC);
@@ -769,6 +783,7 @@ function reposicion_sugerir_por_ventas(int $dias = 30, int $leadTimeDias = 7, in
         $min = _repo_expr_min($pdo);
         $reo = _repo_expr_reorden($pdo);
         $provExpr = _repo_expr_proveedor($pdo);
+        $repoJoin = _repo_join_aux($pdo);
 
         $sql = "SELECT
                 p.id, p.codigo, p.nombre, p.stock, p.costo,
@@ -778,7 +793,7 @@ function reposicion_sugerir_por_ventas(int $dias = 30, int $leadTimeDias = 7, in
                 COALESCE(pv.id, 0) AS proveedor_id,
                 COALESCE(SUM(CASE WHEN v.id IS NOT NULL THEN vi.cantidad ELSE 0 END),0) AS vendidas
             FROM productos p
-            LEFT JOIN producto_reposicion r ON r.producto_id = p.id
+            $repoJoin
             LEFT JOIN proveedores pv ON pv.id = $provExpr
             LEFT JOIN venta_items vi ON vi.producto_id = p.id
             LEFT JOIN ventas v ON v.id = vi.venta_id AND v.fecha >= DATE_SUB(CURDATE(), INTERVAL :dias DAY)

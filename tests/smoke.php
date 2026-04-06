@@ -1310,6 +1310,7 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     $precioHistPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'precio_historial.php');
     $auditEventsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'audit_events.php');
     $cajaHistorialPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_historial.php');
+    $reposicionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'reposicion_sugerida.php');
 
     flus_assert_contains('migrations/007_support_modules_schema.sql', $precioHistPhp);
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS producto_precios_hist', $precioHistPhp);
@@ -1317,6 +1318,8 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS audit_log', $auditEventsPhp);
     flus_assert_contains('migrations/007_support_modules_schema.sql', $cajaHistorialPhp);
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS caja_auditoria', $cajaHistorialPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS producto_reposicion', $reposicionPhp);
+    flus_assert_contains('function _repo_join_aux(PDO $pdo): string', $reposicionPhp);
 });
 
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {
