@@ -9,7 +9,10 @@ declare(strict_types=1);
  * @version 1.0.3
  */
 
-require_once __DIR__ . '/config.php';
+$flusConfigPath = __DIR__ . '/config.php';
+if (is_file($flusConfigPath)) {
+    require_once $flusConfigPath;
+}
 require_once __DIR__ . '/logger.php';
 require_once __DIR__ . '/version.php';
 
@@ -1764,4 +1767,3 @@ if (!function_exists('flus_check_schema_integrity')) {
         return $out;
     }
 }
-

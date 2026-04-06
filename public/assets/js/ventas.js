@@ -870,10 +870,17 @@ const VentasManager = {
     if (!phone) return;
 
     try {
+      const csrf = window.getCsrfToken ? window.getCsrfToken() : '';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      if (csrf) headers['X-CSRF-Token'] = csrf;
+
       const res = await fetch('api/ventas_api.php?action=send_ticket_whatsapp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venta_id: parseInt(ventaId), phone })
+        headers,
+        body: JSON.stringify({ venta_id: parseInt(ventaId), phone, csrf_token: csrf })
       });
       const data = await res.json();
 
@@ -893,10 +900,17 @@ const VentasManager = {
     if (!email) return;
 
     try {
+      const csrf = window.getCsrfToken ? window.getCsrfToken() : '';
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      if (csrf) headers['X-CSRF-Token'] = csrf;
+
       const res = await fetch('api/ventas_api.php?action=send_ticket_email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venta_id: parseInt(ventaId), email })
+        headers,
+        body: JSON.stringify({ venta_id: parseInt(ventaId), email, csrf_token: csrf })
       });
       const data = await res.json();
 

@@ -2,7 +2,10 @@
 // src/facturacion_lib.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/config.php';
+$flusConfigPath = __DIR__ . '/config.php';
+if (is_file($flusConfigPath)) {
+    require_once $flusConfigPath;
+}
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db_schema.php';
 require_once __DIR__ . '/facturacion_context_lib.php';
@@ -1979,4 +1982,3 @@ function flus_factura_pdf_browser_path(): ?string
     $cached = '';
     return null;
 }
-

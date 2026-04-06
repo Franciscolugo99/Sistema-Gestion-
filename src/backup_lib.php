@@ -2,7 +2,10 @@
 // src/backup_lib.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/config.php';
+$flusConfigPath = __DIR__ . '/config.php';
+if (is_file($flusConfigPath)) {
+    require_once $flusConfigPath;
+}
 require_once __DIR__ . '/logger.php';
 
 /**
@@ -854,5 +857,4 @@ function backup_restore(string $file, ?string &$err = null): bool {
         @fclose($lockFp);
     }
 }
-
 

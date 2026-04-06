@@ -207,10 +207,72 @@ function getEmailConfig(PDO $pdo): array {
   return $defaults;
 }
 
+function flus_ventas_api_policies(): array {
+  return [
+    'buscar_clientes' => [
+      'any_permissions' => ['ver_clientes', 'realizar_ventas', 'ver_reportes'],
+    ],
+    'venta_preview' => [
+      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+    ],
+    'stats_ventas_por_dia' => [
+      'permissions' => ['ver_reportes'],
+    ],
+    'stats_ventas_por_medio' => [
+      'permissions' => ['ver_reportes'],
+    ],
+    'stats_top_productos' => [
+      'permissions' => ['ver_reportes'],
+    ],
+    'stats_comparativa' => [
+      'permissions' => ['ver_reportes'],
+    ],
+    'stats_ventas_heatmap' => [
+      'permissions' => ['ver_reportes'],
+    ],
+    'get_ticket_link' => [
+      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+    ],
+    'send_ticket_whatsapp' => [
+      'methods' => ['POST'],
+      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+    ],
+    'send_ticket_email' => [
+      'methods' => ['POST'],
+      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+    ],
+  ];
+}
+
+function flus_ventas_api_enforce_guard(string $action): void {
+  $policies = flus_ventas_api_policies();
+  $policy = $policies[$action] ?? null;
+  if (!is_array($policy)) {
+    return;
+  }
+
+  require_login_json();
+
+  if (!empty($policy['methods']) && is_array($policy['methods'])) {
+    require_method_json($policy['methods']);
+  }
+
+  if (!empty($policy['permissions']) && is_array($policy['permissions'])) {
+    foreach ($policy['permissions'] as $permission) {
+      require_perm_json((string)$permission);
+    }
+  }
+
+  if (!empty($policy['any_permissions']) && is_array($policy['any_permissions'])) {
+    require_any_perm_json($policy['any_permissions']);
+  }
+}
+
 /* =========================
    Router
 ========================= */
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
+flus_ventas_api_enforce_guard((string)$action);
 
 try {
   switch ($action) {

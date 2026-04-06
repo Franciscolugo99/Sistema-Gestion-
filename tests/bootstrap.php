@@ -24,6 +24,39 @@ if (!defined('FLUS_ROOT')) {
     define('FLUS_ROOT', $runtimeRoot);
 }
 
+$configPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.php';
+if (is_file($configPath)) {
+    require_once $configPath;
+}
+
+if (!defined('APP_NAME')) {
+    define('APP_NAME', 'FLUS Test');
+}
+if (!defined('APP_DEBUG')) {
+    define('APP_DEBUG', false);
+}
+if (!defined('DB_HOST')) {
+    define('DB_HOST', '127.0.0.1');
+}
+if (!defined('DB_PORT')) {
+    define('DB_PORT', '3306');
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', 'flus_test');
+}
+if (!defined('DB_USER')) {
+    define('DB_USER', 'root');
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', '');
+}
+if (!defined('DB_CHARSET')) {
+    define('DB_CHARSET', 'utf8mb4');
+}
+if (!defined('BACKUPS_PATH')) {
+    define('BACKUPS_PATH', FLUS_ROOT . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'backups');
+}
+
 require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php';
 require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'diagnostics_lib.php';
 require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'helpers.php';

@@ -84,25 +84,59 @@ function json_response(array $data, int $code = 200): never {
 /**
  * Requerir permiso (API JSON)
  */
+if (!function_exists('flus_auth_issue_json_payload')) {
+  function flus_auth_issue_json_payload(): ?array {
+    if (!function_exists('auth_issue_get')) {
+      return null;
+    }
+
+    $issue = auth_issue_get();
+    $type = (string)($issue['type'] ?? 'OK');
+    $detail = (string)($issue['detail'] ?? '');
+    $extra = [];
+
+    if (defined('APP_DEBUG') && APP_DEBUG && $detail !== '') {
+      $extra['detail'] = $detail;
+    }
+
+    return match ($type) {
+      'DB_DOWN' => ['status' => 503, 'error' => 'DB_DOWN', 'extra' => $extra],
+      'SCHEMA_MISSING' => ['status' => 503, 'error' => 'SCHEMA_MISSING', 'extra' => $extra],
+      'DB_ERROR' => ['status' => 503, 'error' => 'DB_ERROR', 'extra' => $extra],
+      default => null,
+    };
+  }
+}
+
 if (!function_exists('require_perm_json')) {
   function require_perm_json(string $perm): void {
-    if (!function_exists('user_has_permission') || !user_has_permission($perm)) {
-      json_fail('FORBIDDEN', 403, ['perm' => $perm]);
+    if (function_exists('user_has_permission') && user_has_permission($perm)) {
+      return;
     }
+
+    $issuePayload = flus_auth_issue_json_payload();
+    if (is_array($issuePayload)) {
+      json_fail((string)$issuePayload['error'], (int)$issuePayload['status'], $issuePayload['extra']);
+    }
+
+    json_fail('FORBIDDEN', 403, ['perm' => $perm]);
   }
 }
 
 if (!function_exists('require_any_perm_json')) {
   function require_any_perm_json(array $perms): void {
     $normalized = array_values(array_map('strval', $perms));
-    if (!function_exists('user_has_permission')) {
-      json_fail('FORBIDDEN', 403, ['perms' => $normalized]);
+    if (function_exists('user_has_permission')) {
+      foreach ($normalized as $perm) {
+        if (user_has_permission($perm)) {
+          return;
+        }
+      }
     }
 
-    foreach ($normalized as $perm) {
-      if (user_has_permission($perm)) {
-        return;
-      }
+    $issuePayload = flus_auth_issue_json_payload();
+    if (is_array($issuePayload)) {
+      json_fail((string)$issuePayload['error'], (int)$issuePayload['status'], $issuePayload['extra']);
     }
 
     json_fail('FORBIDDEN', 403, ['perms' => $normalized]);
