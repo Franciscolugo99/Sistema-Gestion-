@@ -7,30 +7,17 @@
  */
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
-require_login();
-
-header('Content-Type: application/json; charset=utf-8');
-
-// Verificar permiso
-if (!user_has_permission('editar_productos')) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Sin permisos']);
-    exit;
-}
-
-// CSRF check
-$csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-if (!csrf_verify(is_string($csrfToken) ? $csrfToken : null)) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'error' => 'Token CSRF inválido']);
-    exit;
-}
+require_once __DIR__ . '/_bootstrap.php';
+require_login_json();
+require_perm_json('editar_productos');
 
 require_once __DIR__ . '/../../src/precio_historial.php';
 
+$input = array_merge($_GET, $_POST, api_read_json());
+require_csrf_json($input);
+
 $pdo = getPDO();
-$action = $_POST['action'] ?? $_GET['action'] ?? '';
+$action = (string)($input['action'] ?? '');
 
 try {
     switch ($action) {
@@ -128,17 +115,14 @@ try {
             break;
 
         default:
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Acción no válida']);
+            json_fail('Accion no valida', 400, ['error_code' => 'UNKNOWN_ACTION']);
     }
 
 } catch (InvalidArgumentException $e) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    json_fail($e->getMessage(), 400, ['error_code' => 'VALIDATION_ERROR']);
 } catch (Throwable $e) {
-    http_response_code(500);
     error_log('precios_api error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'error' => 'Error interno del servidor']);
+    json_fail('No se pudo procesar la operacion de precios.', 500, ['error_code' => 'INTERNAL_ERROR']);
 }
 
 // ============================================
@@ -307,3 +291,4 @@ function detectarColumnaCategoria(PDO $pdo): string {
 
     return 'categoria'; // default
 }
+

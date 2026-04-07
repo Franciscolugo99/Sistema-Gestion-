@@ -3,23 +3,54 @@
 // FLUS - API para operaciones de Cuenta Corriente
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../includes/CuentaCorrienteController.php';
-
-header('Content-Type: application/json; charset=utf-8');
-
-// Verificar login
-if (!is_logged_in()) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => 'No autorizado']);
-    exit;
-}
+require_login_json();
 
 $pdo = getPDO();
 $cc = new CuentaCorrienteController($pdo);
 
+$input = array_merge($_GET, $_POST, api_read_json());
+
+function cc_api_guard(string $action, array $input): void {
+    $policy = [
+        'buscar_clientes' => ['perm' => 'ver_cuenta_corriente'],
+        'registrar_pago' => ['perm' => 'registrar_pago_cc', 'methods' => ['POST'], 'csrf' => true],
+        'registrar_cargo' => ['perm' => 'registrar_cargo_cc', 'methods' => ['POST'], 'csrf' => true],
+        'verificar_disponibilidad' => ['perm' => 'ver_cuenta_corriente'],
+        'get_cliente' => ['perm' => 'ver_cuenta_corriente'],
+        'get_movimientos' => ['perm' => 'ver_cuenta_corriente'],
+        'registrar_ajuste' => ['perm' => 'ajustar_cc', 'methods' => ['POST'], 'csrf' => true],
+        'reversar_movimiento' => ['perm' => 'anular_movimiento_cc', 'methods' => ['POST'], 'csrf' => true],
+        'recalcular_saldo' => ['perm' => 'recalcular_saldo_cc', 'methods' => ['POST'], 'csrf' => true],
+        'get_kpis' => ['perm' => 'ver_cuenta_corriente'],
+        'habilitar_cc' => ['perm' => 'habilitar_cc', 'methods' => ['POST'], 'csrf' => true],
+        'actualizar_limite' => ['perm' => 'habilitar_cc', 'methods' => ['POST'], 'csrf' => true],
+    ];
+
+    if ($action === '') {
+        json_fail('Accion requerida', 400, ['error_code' => 'ACTION_REQUIRED']);
+    }
+
+    $config = $policy[$action] ?? null;
+    if (!is_array($config)) {
+        json_fail('Accion no reconocida', 400, ['error_code' => 'UNKNOWN_ACTION']);
+    }
+
+    if (!empty($config['methods'])) {
+        require_method_json($config['methods']);
+    }
+
+    require_perm_json((string)$config['perm']);
+
+    if (!empty($config['csrf'])) {
+        require_csrf_json($input);
+    }
+}
+
 // Obtener acción
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$action = (string)($input['action'] ?? '');
+cc_api_guard($action, $input);
 
 // Usuario actual (se usa en varias acciones)
 $usuarioId = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['usuario_id'] ?? ($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0)));
@@ -447,10 +478,8 @@ try {
     }
     
 } catch (Throwable $e) {
-    // Throwable atrapa Exception Y Error (TypeError, etc.)
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
+    error_log('[cuenta_corriente_api] ' . $e->getMessage());
+    json_fail('No se pudo procesar la operacion de cuenta corriente.', 500, [
+        'error_code' => 'INTERNAL_ERROR',
     ]);
 }

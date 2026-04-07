@@ -867,9 +867,13 @@ function flus_hotspot_line_budgets(): array
     ];
 }
 
-$results[] = flus_run_test('sh_quote handles Windows quoting', function (): void {
-    $quoted = sh_quote('C:\Program Files\MySQL\bin\mysqldump.exe');
-    flus_assert_same('"C:\Program Files\MySQL\bin\mysqldump.exe"', $quoted);
+$results[] = flus_run_test('sh_quote handles platform quoting', function (): void {
+    $path = 'C:\Program Files\MySQL\bin\mysqldump.exe';
+    $quoted = sh_quote($path);
+    $expected = stripos(PHP_OS_FAMILY, 'Windows') === 0
+        ? '"' . str_replace('"', '""', $path) . '"'
+        : escapeshellarg($path);
+    flus_assert_same($expected, $quoted);
 });
 
 $results[] = flus_run_test('backup_restore_in_progress detects active lock', function (): void {
@@ -2937,6 +2941,74 @@ $results[] = flus_run_test('ux documental explica flujo y carga manual sin escon
     flus_assert_contains('Generar remito con estos ítems', $documentoPhp);
     flus_assert_contains('.fact-doc-guide {', $facturacionCss);
     flus_assert_contains('.fact-doc-guide__inline-help {', $facturacionCss);
+});
+
+$results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contrato json y minimizan datos sensibles', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cuentaCorrienteApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
+    $licenseStatusPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'license_status.php');
+    $preciosApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'precios_api.php');
+
+    flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $cuentaCorrienteApiPhp);
+    flus_assert_contains('require_login_json();', $cuentaCorrienteApiPhp);
+    flus_assert_contains('function cc_api_guard(string $action, array $input): void {', $cuentaCorrienteApiPhp);
+    flus_assert_contains("require_perm_json((string)\$config['perm']);", $cuentaCorrienteApiPhp);
+    flus_assert_contains('require_csrf_json($input);', $cuentaCorrienteApiPhp);
+    flus_assert_contains("'error_code' => 'INTERNAL_ERROR'", $cuentaCorrienteApiPhp);
+    flus_assert_not_contains("require_once __DIR__ . '/../bootstrap.php';", $cuentaCorrienteApiPhp);
+
+    flus_assert_contains("require_perm_json('administrar_config');", $licenseStatusPhp);
+    flus_assert_contains("'status' => is_array(\$lic) ? (string)(\$lic['status'] ?? '') : ''", $licenseStatusPhp);
+    flus_assert_contains("'days_left' => is_array(\$lic) ? (\$lic['days_left'] ?? null) : null", $licenseStatusPhp);
+    flus_assert_not_contains("'license' => \$lic", $licenseStatusPhp);
+
+    flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $preciosApiPhp);
+    flus_assert_contains('require_login_json();', $preciosApiPhp);
+    flus_assert_contains("require_perm_json('editar_productos');", $preciosApiPhp);
+    flus_assert_contains('require_csrf_json($input);', $preciosApiPhp);
+    flus_assert_contains("json_fail('Accion no valida', 400, ['error_code' => 'UNKNOWN_ACTION']);", $preciosApiPhp);
+    flus_assert_contains("json_fail('No se pudo procesar la operacion de precios.', 500, ['error_code' => 'INTERNAL_ERROR']);", $preciosApiPhp);
+    flus_assert_not_contains("require_once __DIR__ . '/../bootstrap.php';", $preciosApiPhp);
+});
+
+$results[] = flus_run_test('terminal switch y tickets por mail endurecen validaciones sensibles', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $terminalSwitchPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_switch.php');
+    $ventasApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_api.php');
+
+    flus_assert_contains('terminal_get($pdo, $newTid);', $terminalSwitchPhp);
+    flus_assert_contains("json_fail('Terminal invalida', 400, ['error_code' => 'TERMINAL_INVALIDA']);", $terminalSwitchPhp);
+    flus_assert_contains("json_fail('CAJA_ABIERTA', 409, ['error_code' => 'CAJA_ABIERTA']);", $terminalSwitchPhp);
+    flus_assert_contains("'error_code' => 'TERMINAL_LOCKED'", $terminalSwitchPhp);
+    flus_assert_contains("'terminal_nombre' => (string)(\$terminal['nombre'] ?? ('Caja #' . \$newTid))", $terminalSwitchPhp);
+
+    flus_assert_contains('function flus_mail_header_safe_value(string $value): string {', $ventasApiPhp);
+    flus_assert_contains('filter_var($candidate, FILTER_VALIDATE_EMAIL)', $ventasApiPhp);
+    flus_assert_contains("\$safeName = flus_mail_header_safe_value((string)\$row['v']);", $ventasApiPhp);
+    flus_assert_contains("'From: ' . \$emailConfig['from_name'] . ' <' . \$emailConfig['from_email'] . '>'", $ventasApiPhp);
+    flus_assert_contains("'Reply-To: ' . \$emailConfig['from_email']", $ventasApiPhp);
+});
+
+$results[] = flus_run_test('inventario fisico valida esquema versionado sin ddl runtime', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $inventarioPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'inventario_fisico.php');
+    $inventarioPagePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_fisico.php');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '025_inventario_fisico_schema.sql');
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+
+    flus_assert_contains('function inventario_schema_requirements(): array {', $inventarioPhp);
+    flus_assert_contains('function inventario_require_schema(): void {', $inventarioPhp);
+    flus_assert_contains('migrations/025_inventario_fisico_schema.sql', $inventarioPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS inventario_sesiones', $inventarioPhp);
+    flus_assert_not_contains('CREATE TABLE IF NOT EXISTS inventario_conteos', $inventarioPhp);
+    flus_assert_not_contains('ALTER TABLE inventario_sesiones', $inventarioPhp);
+    flus_assert_not_contains('ALTER TABLE inventario_conteos', $inventarioPhp);
+    flus_assert_contains('Inventario fisico: falta esquema compatible.', $inventarioPagePhp);
+
+    flus_assert_contains('ADD COLUMN IF NOT EXISTS categoria_nombre', $migrationSql);
+    flus_assert_contains('ADD COLUMN IF NOT EXISTS stock_sistema_snapshot', $migrationSql);
+    flus_assert_contains('`categoria_nombre` varchar(100) DEFAULT NULL', $installSql);
+    flus_assert_contains('`stock_sistema_snapshot` decimal(10,3) DEFAULT NULL', $installSql);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

@@ -41,7 +41,7 @@ $respondAjax = static function (bool $ok, array $payload = [], int $status = 200
 $info = null;
 $error = null;
 if (isset($invTablesOk) && !$invTablesOk) {
-    $error = 'Inventario físico: no se pudieron preparar las tablas. ' . ($invTablesErr ?: '');
+    $error = 'Inventario fisico: falta esquema compatible. ' . ($invTablesErr ?: '');
 }
 
 // Vista actual
@@ -1076,3 +1076,4 @@ require __DIR__ . '/partials/header.php';
 </dialog>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+

@@ -36,96 +36,55 @@ function inventario_column_exists(PDO $pdo, string $table, string $column): bool
     return (bool)$st->fetchColumn();
 }
 
-/**
- * Crea / valida tablas necesarias para Inventario Físico.
- * Importante: evitamos SHOW ... ? porque en MariaDB/MySQL los "parameter markers"
- * NO están permitidos en sentencias SHOW, y eso dispara "syntax near '?'".
- */
+function inventario_schema_requirements(): array {
+    return [
+        'inventario_sesiones' => [
+            'id',
+            'nombre',
+            'descripcion',
+            'categoria_id',
+            'categoria_nombre',
+            'estado',
+            'created_by',
+            'created_at',
+            'closed_by',
+            'closed_at',
+            'cierre_motivo',
+            'applied_by',
+            'applied_at',
+        ],
+        'inventario_conteos' => [
+            'id',
+            'sesion_id',
+            'producto_id',
+            'cantidad',
+            'stock_sistema_snapshot',
+            'ubicacion',
+            'notas',
+            'created_by',
+            'created_at',
+        ],
+    ];
+}
+
 function inventario_ensure_tables(?string &$errMsg = null): bool {
     $errMsg = null;
 
     try {
         $pdo = getPDO();
 
-        // 1) Sesiones
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS inventario_sesiones (
-                id INT(11) NOT NULL AUTO_INCREMENT,
-                nombre VARCHAR(120) NOT NULL,
-                descripcion VARCHAR(255) NULL,
-                categoria_id INT(11) NULL COMMENT 'Si se especifica, solo productos de esta categoría',
-                categoria_nombre VARCHAR(100) NULL COMMENT 'Nombre de categoría cuando la instancia no usa ids',
-                estado ENUM('ABIERTA','CERRADA','APLICADA') NOT NULL DEFAULT 'ABIERTA',
-                created_by INT(11) NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                closed_by INT(11) NULL,
-                closed_at DATETIME NULL,
-                cierre_motivo VARCHAR(255) NULL,
-                applied_by INT(11) NULL,
-                applied_at DATETIME NULL,
-                PRIMARY KEY (id),
-                KEY idx_estado (estado),
-                KEY idx_created_at (created_at),
-                KEY idx_categoria (categoria_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
+        foreach (inventario_schema_requirements() as $table => $columns) {
+            if (!inventario_table_exists($pdo, $table)) {
+                $errMsg = "Falta la tabla {$table}. Ejecuta migrations/007_support_modules_schema.sql y migrations/025_inventario_fisico_schema.sql.";
+                return false;
+            }
 
-        if (!inventario_column_exists($pdo, 'inventario_sesiones', 'categoria_id')) {
-            try {
-                $pdo->exec("ALTER TABLE inventario_sesiones ADD COLUMN categoria_id INT(11) NULL AFTER descripcion");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
-                    throw $e;
+            foreach ($columns as $column) {
+                if (!inventario_column_exists($pdo, $table, $column)) {
+                    $errMsg = "Falta la columna {$table}.{$column}. Ejecuta migrations/025_inventario_fisico_schema.sql.";
+                    return false;
                 }
             }
-        }
-
-        if (!inventario_column_exists($pdo, 'inventario_sesiones', 'categoria_nombre')) {
-            try {
-                $pdo->exec("ALTER TABLE inventario_sesiones ADD COLUMN categoria_nombre VARCHAR(100) NULL AFTER categoria_id");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
-                    throw $e;
-                }
-            }
-        }
-
-        // 2) Conteos
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS inventario_conteos (
-                id INT(11) NOT NULL AUTO_INCREMENT,
-                sesion_id INT(11) NOT NULL,
-                producto_id INT(11) NOT NULL,
-                cantidad DECIMAL(10,3) NOT NULL DEFAULT 0.000,
-                stock_sistema_snapshot DECIMAL(10,3) NULL,
-                ubicacion VARCHAR(120) NULL,
-                notas VARCHAR(255) NULL,
-                created_by INT(11) NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id),
-                KEY idx_sesion (sesion_id),
-                KEY idx_producto (producto_id),
-                KEY idx_created_at (created_at),
-                CONSTRAINT fk_inv_conteos_sesion
-                    FOREIGN KEY (sesion_id) REFERENCES inventario_sesiones(id)
-                    ON DELETE CASCADE ON UPDATE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ");
-
-        if (!inventario_column_exists($pdo, 'inventario_conteos', 'stock_sistema_snapshot')) {
-            try {
-                $pdo->exec("ALTER TABLE inventario_conteos ADD COLUMN stock_sistema_snapshot DECIMAL(10,3) NULL AFTER cantidad");
-            } catch (Throwable $e) {
-                if (stripos($e->getMessage(), 'Duplicate column') === false && stripos($e->getMessage(), '1060') === false) {
-                    throw $e;
-                }
-            }
-        }
-
-        try {
-            $pdo->query("SELECT 1 FROM inventario_conteos LIMIT 1");
-        } catch (Throwable $e) {
-            throw new RuntimeException("No se pudo crear/ver la tabla inventario_conteos: " . $e->getMessage(), 0, $e);
         }
 
         return true;
@@ -135,6 +94,16 @@ function inventario_ensure_tables(?string &$errMsg = null): bool {
         return false;
     }
 }
+
+function inventario_require_schema(): void {
+    $errMsg = null;
+    if (inventario_ensure_tables($errMsg)) {
+        return;
+    }
+
+    throw new RuntimeException($errMsg ?: 'Inventario fisico sin esquema compatible.');
+}
+
 
 function inventario_productos_usa_categoria_id(PDO $pdo): bool {
     return inventario_column_exists($pdo, 'productos', 'categoria_id');
@@ -304,7 +273,7 @@ function inventario_audit_safe(string $eventConst, string $entityConst, int $ent
 function inventario_session_list(int $limit = 50): array {
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         // Algunas instalaciones no tienen tabla `categorias` (o la tabla se llama distinto).
         // No debemos romper el listado de sesiones por un LEFT JOIN opcional.
@@ -354,7 +323,7 @@ function inventario_session_create(
 
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         $nombre = trim($nombre);
         if ($nombre === '') return null;
@@ -406,7 +375,7 @@ function inventario_session_create(
 function inventario_session_get(int $sessionId): ?array {
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         // `categorias` puede no existir en algunas instalaciones.
         $hasCategorias = inventario_table_exists($pdo, 'categorias');
@@ -440,7 +409,7 @@ function inventario_session_get(int $sessionId): ?array {
 function inventario_session_close(int $sessionId, ?string $motivo = null, ?int $userId = null): bool {
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         if ($sessionId <= 0) return false;
 
@@ -491,7 +460,7 @@ function inventario_registrar_conteo(
 
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         if ($sessionId <= 0 || $productoId <= 0) {
             $errMsg = 'Sesión o producto inválido.';
@@ -602,7 +571,7 @@ function inventario_registrar_conteo(
 function inventario_get_conteos(int $sessionId, bool $soloConDiferencia = false): array {
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         if ($sessionId <= 0) return [];
 
@@ -777,7 +746,7 @@ function inventario_aplicar_ajustes(int $sessionId, ?int $userId = null, ?string
 
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
 
         // Chequear estado
         $st = $pdo->prepare("SELECT estado FROM inventario_sesiones WHERE id = ?");
@@ -921,7 +890,7 @@ function inventario_get_historial_conteos_producto(int $sessionId, int $producto
 function inventario_get_estadisticas(): array {
     try {
         $pdo = getPDO();
-        inventario_ensure_tables();
+        inventario_require_schema();
         
         $stats = [
             'total_sesiones' => 0,
@@ -962,3 +931,4 @@ function inventario_get_estadisticas(): array {
         return [];
     }
 }
+

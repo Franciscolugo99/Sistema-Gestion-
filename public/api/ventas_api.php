@@ -194,6 +194,12 @@ function sanitizePhone(string $phone): string {
   return $clean;
 }
 
+function flus_mail_header_safe_value(string $value): string {
+  $clean = preg_replace('/[\x00-\x1F\x7F\r\n]+/u', ' ', $value) ?? '';
+  $clean = trim(preg_replace('/\s+/', ' ', $clean) ?? '');
+  return $clean;
+}
+
 /**
  * Obtener config de email desde app_config o usar default
  */
@@ -208,11 +214,17 @@ function getEmailConfig(PDO $pdo): array {
     $st = $pdo->query("SELECT k, v FROM app_config WHERE k IN ('business_email', 'business_name')");
     while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
       if ($row['k'] === 'business_email' && $row['v']) {
-        $defaults['from_email'] = $row['v'];
+        $candidate = trim((string)$row['v']);
+        if (filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
+          $defaults['from_email'] = $candidate;
+        }
       }
       if ($row['k'] === 'business_name' && $row['v']) {
-        $defaults['from_name'] = $row['v'];
-        $defaults['business_name'] = $row['v'];
+        $safeName = flus_mail_header_safe_value((string)$row['v']);
+        if ($safeName !== '') {
+          $defaults['from_name'] = $safeName;
+          $defaults['business_name'] = $safeName;
+        }
       }
     }
   } catch (Exception $e) {}
