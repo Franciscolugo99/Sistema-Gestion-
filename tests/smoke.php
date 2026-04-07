@@ -3031,6 +3031,17 @@ $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operati
     flus_assert_contains("'send_ticket_email' => [", $ventasApiPhp);
 });
 
+$results[] = flus_run_test('script de auditoria legacy para nc queda disponible y es de solo lectura', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $auditScript = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'audit_facturas_nc_legacy.php');
+
+    flus_assert_contains('scripts/audit_facturas_nc_legacy.php', $auditScript);
+    flus_assert_contains('Auditoria de solo lectura', $auditScript);
+    flus_assert_contains("--limit=200", $auditScript);
+    flus_assert_contains("No se detectaron facturas con CAE y metadata fiscal incompleta para NC.", $auditScript);
+    flus_assert_contains("Resumen por motivo:", $auditScript);
+});
+
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 
