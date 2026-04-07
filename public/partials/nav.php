@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
+if (function_exists('flus_session_start')) {
+    flus_session_start();
+} elseif (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 

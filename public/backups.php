@@ -15,7 +15,6 @@ require_once __DIR__ . '/bootstrap.php';
 
 require_login();
 // Permiso: preferir sesión (no depender de DB si está en restauración)
-if (session_status() === PHP_SESSION_NONE) session_start();
 
 $hasPerm = function_exists('session_has_permission') ? session_has_permission('gestionar_backups') : in_array('gestionar_backups', $_SESSION['permissions'] ?? [], true);
 if (!$hasPerm && function_exists('user_has_permission')) {
@@ -28,7 +27,7 @@ if (!$hasPerm) {
 }
 
 require_once __DIR__ . '/../src/backup_lib.php';
-if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+csrf_token();
 
 $pageTitle = 'Backups - FLUS';
 $maintenanceFlag = FLUS_ROOT . '/storage/maintenance.flag';
@@ -56,7 +55,7 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $token = (string)($_POST['csrf_token'] ?? '');
 
-  if (!hash_equals($_SESSION['csrf_token'], $token)) {
+  if (!csrf_verify($token)) {
     $error = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
   } else {
     $accion = (string)($_POST['accion'] ?? '');

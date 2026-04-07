@@ -30,6 +30,10 @@
 
 ### Changed
 
+- **Seguridad operativa / sesiÃ³n y CSRF:**
+  - Varias pantallas legacy (`backups`, `reposicion`, `facturacion_config`, `inventario_fisico`, `precios_historial`, `tecnico`, `diagnostico`) dejan de manipular `$_SESSION['csrf_token']` a mano y pasan a reutilizar `csrf_token()` / `csrf_verify()`.
+  - Guards y entrypoints auxiliares (`logout`, `nav`, `precios_api`, `secure_actions_guard`) reducen arranques de sesiÃ³n redundantes y se alinean mejor con el bootstrap central.
+
 - **Caja / operacion de mostrador:**
   - La pantalla de Caja se adapta mejor a resoluciones bajas y monitores chicos, con rail de cobro mas compacto, ticket menos dominante y acciones principales siempre visibles.
   - El panel de medios de pago gana ancho util, reduce ruido visual y compacta mejor los casos de split payment con Cuenta Corriente.

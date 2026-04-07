@@ -7,9 +7,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_login();
 require_technical_permission();
 
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrf_token();
 
 function tecnico_h(string $value): string
 {
@@ -337,7 +335,7 @@ $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify($token)) {
         $error = 'Token CSRF invalido. Recarga la pagina e intenta de nuevo.';
     } else {
         $action = (string)($_POST['accion'] ?? '');

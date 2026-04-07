@@ -4,7 +4,11 @@
  * Enforce: POST + CSRF para acciones no-lectura (send_ticket_*).
  */
 declare(strict_types=1);
-if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+if (function_exists('flus_session_start')) {
+    flus_session_start();
+} elseif (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 $action = $action ?? ($_GET['action'] ?? $_POST['action'] ?? '');
 $action = is_string($action) ? trim($action) : '';

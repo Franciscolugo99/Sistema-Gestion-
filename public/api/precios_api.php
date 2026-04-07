@@ -21,7 +21,7 @@ if (!user_has_permission('editar_productos')) {
 
 // CSRF check
 $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfToken)) {
+if (!csrf_verify(is_string($csrfToken) ? $csrfToken : null)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'error' => 'Token CSRF inválido']);
     exit;

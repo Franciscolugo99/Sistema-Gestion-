@@ -10,9 +10,7 @@ require_diagnostics_permission();
 require_once __DIR__ . '/../src/diagnostics_lib.php';
 require_once __DIR__ . '/../src/audit_events.php';
 
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrf_token();
 
 $pageTitle = 'Diagnóstico - FLUS';
 $currentSection = 'diagnostico';                 // para el menú/active section
@@ -116,7 +114,7 @@ function flus_diag_sessions_payload(PDO $pdo): array
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify($token)) {
         $error = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
     } else {
         $accion = (string)($_POST['accion'] ?? '');

@@ -17,9 +17,7 @@ require_once __DIR__ . '/../src/reposicion_sugerida.php';
 $pdo = getPDO();
 reposicion_ensure_tables($pdo);
 
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrf_token();
 
 $pageTitle = 'Reposicion Sugerida - FLUS';
 $currentSection = 'reposicion';
@@ -44,7 +42,7 @@ $canConfig = user_has_permission('editar_stock') || user_has_permission('gestion
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
 
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify($token)) {
         $error = 'Token CSRF invalido.';
     } else {
         $accion = (string)($_POST['accion'] ?? '');

@@ -11,10 +11,6 @@ define('FLUS_SESSION_ENFORCE_BYPASS', true);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/terminal.php';
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-  session_start();
-}
-
 $reason = (string)($_GET['reason'] ?? '');
 $currentSessionId = session_id();
 

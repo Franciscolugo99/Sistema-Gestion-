@@ -18,9 +18,7 @@ require_once __DIR__ . '/../src/inventario_fisico.php';
 $invTablesErr = null;
 $invTablesOk = inventario_ensure_tables($invTablesErr);
 
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrf_token();
 
 $pageTitle = 'Inventario Físico - FLUS';
 $currentSection = 'inventario_fisico';
@@ -109,7 +107,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv' && $sessionId > 0) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
 
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify($token)) {
         $error = 'Token CSRF inválido.';
         if ($isAjaxRequest) {
             $respondAjax(false, ['error' => $error], 403);

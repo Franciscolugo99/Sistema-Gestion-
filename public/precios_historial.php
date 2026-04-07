@@ -36,9 +36,7 @@ try {
 }
 
 // CSRF
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrf_token();
 
 // ============================================
 // CONFIGURACIÓN DE PÁGINA
@@ -64,7 +62,7 @@ if (!$vistaValida) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!csrf_verify(is_string($token) ? $token : null)) {
         $error = 'Token CSRF inválido. Recargá la página.';
     } else {
         $accion = $_POST['accion'] ?? '';

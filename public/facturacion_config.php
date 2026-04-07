@@ -315,7 +315,7 @@ $facturacionHabilitada = flus_facturacion_habilitada($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
-    if (!hash_equals((string)($_SESSION['csrf_token'] ?? ''), $token)) {
+    if (!csrf_verify($token)) {
         $error = 'Token CSRF invalido.';
     } else {
         $accion = (string)($_POST['accion'] ?? '');
