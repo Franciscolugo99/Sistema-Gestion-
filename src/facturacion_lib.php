@@ -1,7 +1,6 @@
 <?php
 // src/facturacion_lib.php
 declare(strict_types=1);
-
 $flusConfigPath = __DIR__ . '/config.php';
 if (is_file($flusConfigPath)) {
     require_once $flusConfigPath;
@@ -9,16 +8,15 @@ if (is_file($flusConfigPath)) {
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/db_schema.php';
 require_once __DIR__ . '/facturacion_context_lib.php';
+require_once __DIR__ . '/facturacion_legacy_recovery_lib.php';
 require_once __DIR__ . '/facturacion_manual_lib.php';
 require_once __DIR__ . '/facturacion_preflight_lib.php';
 require_once __DIR__ . '/facturacion_runtime_lib.php';
 require_once __DIR__ . '/cobranzas_lib.php';
-
 $flusConfigArcaPath = __DIR__ . '/config_arca.php';
 if (file_exists($flusConfigArcaPath)) {
     require_once $flusConfigArcaPath;
 }
-
 /**
  * Inserta solo en columnas existentes para tolerar esquemas legacy.
  *
@@ -57,7 +55,6 @@ function flus_facturacion_insert_dynamic(PDO $pdo, string $table, array $data): 
         implode(', ', $cols),
         implode(', ', $placeholders)
     );
-
     $st = $pdo->prepare($sql);
     $st->execute($params);
 
@@ -583,9 +580,11 @@ function flus_facturacion_asegurar_registro_desde_documento(PDO $pdo, int $docum
 
         $requestUid = trim((string)($context['request_uid'] ?? ''));
         $factura = $requestUid !== '' ? $repo->findFacturaByRequestUid($requestUid) : null;
-        $facturaDocumento = $repo->findFacturaOrigenByDocumentoId($documentoId);
+        $facturaDocumento = flus_facturacion_resolver_fallback_factura($repo->findFacturasOrigenByDocumentoId($documentoId), 'documento', $documentoId);
         $ventaId = (int)($context['venta']['id'] ?? 0);
-        $facturaVenta = $ventaId > 0 ? $repo->findFacturaOrigenByVentaId($ventaId) : null;
+        $facturaVenta = $ventaId > 0
+            ? flus_facturacion_resolver_fallback_factura($repo->findFacturasOrigenByVentaId($ventaId), 'venta', $ventaId)
+            : null;
 
         if ($factura === null && $facturaDocumento !== null) {
             $factura = $facturaDocumento;
@@ -752,7 +751,7 @@ function flus_facturacion_asegurar_registro_desde_venta(PDO $pdo, int $ventaId, 
 
         $requestUid = trim((string)($context['request_uid'] ?? ''));
         $factura = $requestUid !== '' ? $repo->findFacturaByRequestUid($requestUid) : null;
-        $facturaVenta = $repo->findFacturaOrigenByVentaId($ventaId);
+        $facturaVenta = flus_facturacion_resolver_fallback_factura($repo->findFacturasOrigenByVentaId($ventaId), 'venta', $ventaId);
 
         if ($factura === null && $facturaVenta !== null) {
             $factura = $facturaVenta;
@@ -1306,6 +1305,15 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
     $documentoId = (int)($factura['documento_id'] ?? 0);
     $ventaId = (int)($factura['venta_id'] ?? 0);
     $eventoArca = $requestUid !== '' ? $repo->findArcaEventByRequestUid($requestUid) : null;
+    $requestJsonEvento = is_array($eventoArca) ? flus_facturacion_json_decode_assoc((string)($eventoArca['request_json'] ?? '')) : [];
+    if ($requestUid === '' || $requestJsonEvento === []) {
+        flus_facturacion_log_event('recovery_snapshot_fallback', [
+            'factura_id' => $facturaId,
+            'request_uid' => $requestUid,
+            'has_event' => is_array($eventoArca),
+            'has_request_json' => $requestJsonEvento !== [],
+        ]);
+    }
     $snapshotPayload = flus_facturacion_snapshot_payload_desde_factura($factura, is_array($eventoArca) ? $eventoArca : []);
 
     if ($clienteId <= 0 && $documentoId > 0) {

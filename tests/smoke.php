@@ -554,7 +554,9 @@ final class FlusFakeFacturaRepository implements FacturaFiscalRepository
     public function lockVenta(int $ventaId): array { return []; }
     public function lockVentaAnulacion(int $ventaAnulacionId): array { return []; }
     public function findVentaAnulacionByRequestUid(string $requestUid): ?array { return null; }
+    public function findFacturasOrigenByVentaId(int $ventaId): array { return []; }
     public function findFacturaOrigenByVentaId(int $ventaId): ?array { return null; }
+    public function findFacturasOrigenByDocumentoId(int $documentoId): array { return []; }
     public function findFacturaOrigenByDocumentoId(int $documentoId): ?array { return null; }
     public function findFacturaById(int $facturaId): ?array {
         foreach ($this->facturas as $factura) {
@@ -3040,6 +3042,32 @@ $results[] = flus_run_test('script de auditoria legacy para nc queda disponible 
     flus_assert_contains("--limit=200", $auditScript);
     flus_assert_contains("No se detectaron facturas con CAE y metadata fiscal incompleta para NC.", $auditScript);
     flus_assert_contains("Resumen por motivo:", $auditScript);
+});
+
+$results[] = flus_run_test('facturacion endurece fallback legacy y backfill de estado fiscal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $legacyRecoveryLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_legacy_recovery_lib.php');
+    $repoContract = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'Contracts' . DIRECTORY_SEPARATOR . 'FacturaFiscalRepository.php');
+    $repoImpl = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'Repository' . DIRECTORY_SEPARATOR . 'PdoFacturaFiscalRepository.php');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '026_backfill_facturas_estado_fiscal_legacy.sql');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_legacy_recovery_lib.php';", $facturacionLib);
+    flus_assert_contains("recovery_snapshot_fallback", $facturacionLib);
+    flus_assert_contains("findFacturasOrigenByDocumentoId", $facturacionLib);
+    flus_assert_contains("findFacturasOrigenByVentaId", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_resolver_fallback_factura(array $candidates, string $scope, int $entityId): ?array', $legacyRecoveryLib);
+    flus_assert_contains("fallback_factura_ambiguous", $legacyRecoveryLib);
+    flus_assert_contains("fallback_factura_used", $legacyRecoveryLib);
+
+    flus_assert_contains('public function findFacturasOrigenByVentaId(int $ventaId): array;', $repoContract);
+    flus_assert_contains('public function findFacturasOrigenByDocumentoId(int $documentoId): array;', $repoContract);
+    flus_assert_contains('public function findFacturasOrigenByVentaId(int $ventaId): array', $repoImpl);
+    flus_assert_contains('public function findFacturasOrigenByDocumentoId(int $documentoId): array', $repoImpl);
+
+    flus_assert_contains("SET estado_fiscal = 'AUTORIZADA'", $migrationSql);
+    flus_assert_contains("COALESCE(TRIM(cae), '') <> ''", $migrationSql);
+    flus_assert_contains("COALESCE(TRIM(estado_fiscal), 'NO_APLICA') IN ('', 'NO_APLICA')", $migrationSql);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

@@ -35,40 +35,50 @@ final class PdoFacturaFiscalRepository implements FacturaFiscalRepository
         return is_array($row) ? $row : null;
     }
 
-    public function findFacturaOrigenByVentaId(int $ventaId): ?array
+    public function findFacturasOrigenByVentaId(int $ventaId): array
     {
         if ($ventaId <= 0 || !flus_table_exists($this->pdo, 'facturas')) {
-            return null;
+            return [];
         }
 
         $sql = "SELECT * FROM facturas WHERE venta_id = ?";
         if (flus_column_exists($this->pdo, 'facturas', 'naturaleza')) {
             $sql .= " AND naturaleza = 'FACTURA'";
         }
-        $sql .= ' ORDER BY id DESC LIMIT 1';
+        $sql .= ' ORDER BY id DESC';
 
         $st = $this->pdo->prepare($sql);
         $st->execute([$ventaId]);
-        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-        return is_array($row) ? $row : null;
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function findFacturaOrigenByDocumentoId(int $documentoId): ?array
+    public function findFacturaOrigenByVentaId(int $ventaId): ?array
+    {
+        $rows = $this->findFacturasOrigenByVentaId($ventaId);
+        return $rows[0] ?? null;
+    }
+
+    public function findFacturasOrigenByDocumentoId(int $documentoId): array
     {
         if ($documentoId <= 0 || !flus_table_exists($this->pdo, 'facturas') || !flus_column_exists($this->pdo, 'facturas', 'documento_id')) {
-            return null;
+            return [];
         }
 
         $sql = "SELECT * FROM facturas WHERE documento_id = ?";
         if (flus_column_exists($this->pdo, 'facturas', 'naturaleza')) {
             $sql .= " AND naturaleza = 'FACTURA'";
         }
-        $sql .= ' ORDER BY id DESC LIMIT 1';
+        $sql .= ' ORDER BY id DESC';
 
         $st = $this->pdo->prepare($sql);
         $st->execute([$documentoId]);
-        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-        return is_array($row) ? $row : null;
+        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function findFacturaOrigenByDocumentoId(int $documentoId): ?array
+    {
+        $rows = $this->findFacturasOrigenByDocumentoId($documentoId);
+        return $rows[0] ?? null;
     }
 
     public function findFacturaById(int $facturaId): ?array

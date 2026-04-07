@@ -9,7 +9,17 @@ interface FacturaFiscalRepository
 
     public function findVentaAnulacionByRequestUid(string $requestUid): ?array;
 
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function findFacturasOrigenByVentaId(int $ventaId): array;
+
     public function findFacturaOrigenByVentaId(int $ventaId): ?array;
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    public function findFacturasOrigenByDocumentoId(int $documentoId): array;
 
     public function findFacturaOrigenByDocumentoId(int $documentoId): ?array;
 
