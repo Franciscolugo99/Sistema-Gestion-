@@ -1029,6 +1029,15 @@ $results[] = flus_run_test('flus_sale_helpers keep annulled criteria consistent'
     flus_assert_same("(estado IS NULL OR estado <> 'ANULADA')", flus_sale_emitida_where(''));
 });
 
+$results[] = flus_run_test('anulacion total comparte trazabilidad con anulaciones parciales', function () use ($repoRoot): void {
+    $lib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
+    $action = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_venta.php');
+
+    flus_assert_contains('function flus_venta_anulacion_registrar_total_restante', $lib);
+    flus_assert_contains("flus_venta_anulacion_registrar_total_restante(\$pdo, \$ventaId, \$venta, \$itemsRestantes, \$motivo, \$userId)", $action);
+    flus_assert_contains("\$payload['anulacion_id']", $action);
+});
+
 $results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {
     flus_assert_same('inactivo', flus_calcular_estado_producto([
         'activo' => 0,
@@ -1510,6 +1519,10 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains("flus_venta_prepare_payment_data(", $registrarVentaPhp);
     flus_assert_contains("flus_venta_validate_cc_payment(", $registrarVentaPhp);
     flus_assert_contains("flus_venta_store_items_and_stock(", $registrarVentaPhp);
+    flus_assert_contains('catch (FlusVentaDomainException $e)', $registrarVentaPhp);
+    flus_assert_contains("json_fail('No se pudo registrar la venta.', 500, ['error_code' => 'INTERNAL_ERROR']);", $registrarVentaPhp);
+    flus_assert_contains('final class FlusVentaDomainException extends RuntimeException', $ventaLibPhp);
+    flus_assert_contains('function flus_venta_fail(string $message, string $errorCode = \'VALIDATION_ERROR\', int $statusCode = 422): never', $ventaLibPhp);
     flus_assert_contains("function flus_venta_build_items_snapshot(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_register_cc_charge(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_build_response(", $ventaLibPhp);

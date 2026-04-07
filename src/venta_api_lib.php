@@ -1,6 +1,34 @@
 <?php
 declare(strict_types=1);
 
+if (!class_exists('FlusVentaDomainException')) {
+    final class FlusVentaDomainException extends RuntimeException
+    {
+        public function __construct(
+            string $message,
+            private string $errorCode = 'VALIDATION_ERROR',
+            private int $statusCode = 422
+        ) {
+            parent::__construct($message);
+        }
+
+        public function errorCode(): string
+        {
+            return $this->errorCode;
+        }
+
+        public function statusCode(): int
+        {
+            return $this->statusCode;
+        }
+    }
+}
+
+function flus_venta_fail(string $message, string $errorCode = 'VALIDATION_ERROR', int $statusCode = 422): never
+{
+    throw new FlusVentaDomainException($message, $errorCode, $statusCode);
+}
+
 function flus_venta_parse_request_inputs(array $body): array
 {
     $itemsIn = $body['items'] ?? null;
@@ -82,16 +110,16 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
         $p = $stmtP->fetch(PDO::FETCH_ASSOC);
 
         if (!$p) {
-            throw new RuntimeException("Producto #{$pid} no existe");
+            flus_venta_fail("Producto #{$pid} no existe", 'PRODUCTO_NO_EXISTE', 422);
         }
         if ((int)$p['activo'] !== 1) {
-            throw new RuntimeException("Producto inactivo: {$p['nombre']}");
+            flus_venta_fail("Producto inactivo: {$p['nombre']}", 'PRODUCTO_INACTIVO', 409);
         }
 
         $esPesable = ((int)($p['es_pesable'] ?? 0) === 1);
         if (!$esPesable) {
             if (abs($cant - round($cant)) > 0.00001) {
-                throw new RuntimeException("Cantidad inválida para {$p['nombre']} (no es pesable)");
+                flus_venta_fail("Cantidad inválida para {$p['nombre']} (no es pesable)", 'CANTIDAD_INVALIDA', 422);
             }
             $cant = (float)(int)round($cant);
         }
@@ -99,7 +127,7 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
         $stock = (float)($p['stock'] ?? 0);
         $eps = $esPesable ? 0.0005 : 0.0;
         if ($cant > $stock + $eps) {
-            throw new RuntimeException("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})");
+            flus_venta_fail("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})", 'STOCK_INSUFICIENTE', 409);
         }
 
         $precioLista = (float)$p['precio'];
@@ -110,7 +138,7 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
                 $precioActual = $pr;
             }
             if ($precioActual <= 0) {
-                throw new RuntimeException("Precio inválido para {$p['nombre']}");
+                flus_venta_fail("Precio inválido para {$p['nombre']}", 'PRECIO_INVALIDO', 422);
             }
         }
 
@@ -223,10 +251,10 @@ function flus_venta_validate_cc_payment(PDO $pdo, int $ccClienteId, float $monto
     }
 
     if ($ccClienteId <= 0) {
-        throw new RuntimeException('Debe seleccionar un cliente para pagar a Cuenta Corriente');
+        flus_venta_fail('Debe seleccionar un cliente para pagar a Cuenta Corriente', 'CC_CLIENTE_REQUERIDO', 422);
     }
     if (!function_exists('user_has_permission') || !user_has_permission('registrar_cargo_cc')) {
-        throw new RuntimeException('No tiene permiso para vender a Cuenta Corriente');
+        flus_venta_fail('No tiene permiso para vender a Cuenta Corriente', 'CC_SIN_PERMISO', 403);
     }
 
     $ccCtrl = new CuentaCorrienteController($pdo);
@@ -272,7 +300,7 @@ function flus_venta_resolve_payment_totals(array $pagosValidos, array $pagosCaja
     $totalPagado = round($totalPagado, 2);
 
     if ($totalPagado + 1e-6 < $totalNetoFinal) {
-        throw new RuntimeException('Pago insuficiente');
+        flus_venta_fail('Pago insuficiente', 'PAGO_INSUFICIENTE', 422);
     }
 
     $efectivoCaja = 0.0;
@@ -283,12 +311,12 @@ function flus_venta_resolve_payment_totals(array $pagosValidos, array $pagosCaja
     }
 
     if (!$tieneEfectivo && $totalPagado > $totalNetoFinal + 0.01) {
-        throw new RuntimeException('Sobrepago sin efectivo (no se puede dar vuelto)');
+        flus_venta_fail('Sobrepago sin efectivo (no se puede dar vuelto)', 'SOBREPAGO_SIN_EFECTIVO', 409);
     }
 
     $vuelto = ($efectivoCaja > 0) ? round(max(0.0, $totalPagado - $totalNetoFinal), 2) : 0.0;
     if ($vuelto > 0.009 && $efectivoCaja + 0.0001 < $vuelto) {
-        throw new RuntimeException('El vuelto supera el efectivo ingresado');
+        flus_venta_fail('El vuelto supera el efectivo ingresado', 'VUELTO_INVALIDO', 422);
     }
 
     $pagosCajaCobranza = $pagosCaja;
@@ -360,7 +388,7 @@ function flus_venta_register_cc_charge(PDO $pdo, ?CuentaCorrienteController $ccC
     );
 
     if (!($ccResult['success'] ?? false)) {
-        throw new RuntimeException($ccResult['error'] ?? 'Error al registrar cargo en cuenta corriente');
+        flus_venta_fail((string)($ccResult['error'] ?? 'Error al registrar cargo en cuenta corriente'), 'CC_REGISTRO_ERROR', 409);
     }
 
     $ccMovimientoId = $ccResult['movimiento_id'] ?? null;
@@ -524,3 +552,4 @@ function flus_venta_build_response(int $ventaId, float $totalNetoFinal, float $t
 
     return $respuesta;
 }
+

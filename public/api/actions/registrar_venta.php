@@ -121,10 +121,15 @@ try {
     $montoCC,
     $ccInfo
   ));
+} catch (FlusVentaDomainException $e) {
+  if ($pdo->inTransaction()) {
+    $pdo->rollBack();
+  }
+  json_fail($e->getMessage(), $e->statusCode(), ['error_code' => $e->errorCode()]);
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) {
     $pdo->rollBack();
   }
   error_log("Error en registrar_venta: " . $e->getMessage() . " | User: {$userId} | Caja: {$cajaId}");
-  json_fail($e->getMessage(), 500);
+  json_fail('No se pudo registrar la venta.', 500, ['error_code' => 'INTERNAL_ERROR']);
 }

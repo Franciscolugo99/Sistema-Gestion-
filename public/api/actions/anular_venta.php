@@ -135,6 +135,7 @@ try {
     ? flus_sale_is_annulled($venta)
     : (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA');
   $ccReversa = null;
+  $anulacionId = null;
   $items = [];
   $yaAnulado = flus_venta_items_anulados_map($pdo, $ventaId);
   $ventaItems = flus_venta_items_cargar($pdo, $ventaId);
@@ -143,6 +144,7 @@ try {
   // 1) Marcar ANULADA (solo columnas que existan)
   // -------------------------
   if (!$ventaYaAnulada) {
+      $anulacionId = flus_venta_anulacion_registrar_total_restante($pdo, $ventaId, $venta, $itemsRestantes, $motivo, $userId);
       $sets = ["estado = 'ANULADA'"];
       $bind = [':id' => $ventaId];
 
@@ -233,6 +235,7 @@ try {
   $pdo->commit();
   $payload = ['id' => $ventaId];
   if ($ventaYaAnulada) $payload['already'] = true;
+  if ($anulacionId !== null) $payload['anulacion_id'] = (int)$anulacionId;
   if (is_array($ccReversa)) $payload['cc_reversa'] = $ccReversa;
   $__ok($payload);
 

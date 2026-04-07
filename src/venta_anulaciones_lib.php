@@ -360,6 +360,121 @@ if (!function_exists('flus_venta_cc_movimientos_origen')) {
     }
 }
 
+if (!function_exists('flus_venta_anulaciones_insert_dynamic')) {
+    function flus_venta_anulaciones_insert_dynamic(PDO $pdo, string $table, array $data): int
+    {
+        $schema = flus_current_db($pdo);
+        if ($schema === '' || !flus_table_exists($pdo, $table, $schema)) {
+            throw new RuntimeException("La tabla {$table} no existe.");
+        }
+
+        $colsSet = flus_columns_set($pdo, $schema, $table);
+        $cols = [];
+        $placeholders = [];
+        $params = [];
+
+        foreach ($data as $col => $value) {
+            $col = (string)$col;
+            if (!isset($colsSet[$col])) {
+                continue;
+            }
+
+            $cols[] = "`{$col}`";
+            $placeholders[] = ':' . $col;
+            $params[':' . $col] = $value;
+        }
+
+        if ($cols === []) {
+            throw new RuntimeException("No hay columnas compatibles para insertar en {$table}.");
+        }
+
+        $sql = sprintf(
+            'INSERT INTO `%s` (%s) VALUES (%s)',
+            $table,
+            implode(', ', $cols),
+            implode(', ', $placeholders)
+        );
+
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+
+        return (int)$pdo->lastInsertId();
+    }
+}
+
+if (!function_exists('flus_venta_anulacion_registrar_total_restante')) {
+    function flus_venta_anulacion_registrar_total_restante(PDO $pdo, int $ventaId, array $venta, array $itemsRestantes, string $motivo = '', ?int $userId = null): ?int
+    {
+        if ($ventaId <= 0 || !flus_venta_anulaciones_habilitadas($pdo)) {
+            return null;
+        }
+
+        $snapshotItems = [];
+        $montoAnulado = 0.0;
+
+        foreach ($itemsRestantes as $row) {
+            $item = is_array($row['item'] ?? null) ? $row['item'] : [];
+            $cantidad = round((float)($row['cantidad_restante'] ?? 0), 3);
+            if ($item === [] || $cantidad <= 0) {
+                continue;
+            }
+
+            $cantidadOriginal = (float)($item['cantidad'] ?? 0);
+            $precioUnitario = (float)($item['precio_unit_final'] ?? $item['precio'] ?? 0);
+            if ($precioUnitario <= 0 && $cantidadOriginal > 0) {
+                $precioUnitario = round((float)($item['subtotal'] ?? 0) / $cantidadOriginal, 2);
+            }
+
+            $subtotalSnapshot = round((float)($item['subtotal'] ?? 0), 2);
+            $subtotalAnulado = round($precioUnitario * $cantidad, 2);
+            $montoAnulado += $subtotalAnulado;
+
+            $snapshotItems[] = [
+                'venta_item_id' => (int)($item['id'] ?? 0),
+                'producto_id' => (int)($item['producto_id'] ?? 0),
+                'cantidad_anulada' => $cantidad,
+                'precio_unitario_snapshot' => $precioUnitario,
+                'descuento_monto_snapshot' => round((float)($item['descuento_monto'] ?? 0), 2),
+                'iva_porcentaje_snapshot' => round((float)($item['iva_porcentaje'] ?? 0), 2),
+                'subtotal_snapshot' => $subtotalSnapshot,
+                'subtotal_anulado' => $subtotalAnulado,
+            ];
+        }
+
+        if ($snapshotItems === []) {
+            $montoAnulado = round((float)($venta['total'] ?? 0), 2);
+            $montoAnulado = max(0.0, $montoAnulado);
+        } else {
+            $montoAnulado = round($montoAnulado, 2);
+        }
+
+        $motivoCorto = trim($motivo);
+        if ($motivoCorto !== '') {
+            $motivoCorto = function_exists('mb_substr') ? mb_substr($motivoCorto, 0, 255) : substr($motivoCorto, 0, 255);
+        }
+
+        $anulacionId = flus_venta_anulaciones_insert_dynamic($pdo, 'venta_anulaciones', [
+            'venta_id' => $ventaId,
+            'tipo' => 'TOTAL',
+            'estado' => 'CONFIRMADA',
+            'motivo' => $motivoCorto !== '' ? $motivoCorto : null,
+            'monto_bruto' => $montoAnulado,
+            'monto_neto' => $montoAnulado,
+            'monto_iva' => 0,
+            'monto_total' => $montoAnulado,
+            'anulado_por' => $userId,
+            'anulado_en' => date('Y-m-d H:i:s'),
+        ]);
+
+        foreach ($snapshotItems as $snapshot) {
+            $snapshot['anulacion_id'] = $anulacionId;
+            flus_venta_anulaciones_insert_dynamic($pdo, 'venta_anulacion_items', $snapshot);
+        }
+
+        return $anulacionId;
+    }
+}
+
 if (!function_exists('flus_venta_cc_total_original')) {
     function flus_venta_cc_total_original(PDO $pdo, int $ventaId): float
     {
