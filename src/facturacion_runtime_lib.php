@@ -207,7 +207,7 @@ function flus_facturacion_normalizar_cae_vto(?string $caeVto): ?string
 }
 
 /**
- * Estados fiscales acotados para factura común.
+ * Estados fiscales acotados para factura comun.
  */
 function flus_facturacion_estado_fiscal_normalizar(?string $raw): string
 {
@@ -219,7 +219,7 @@ function flus_facturacion_estado_fiscal_normalizar(?string $raw): string
 function flus_facturacion_estado_fiscal_label(string $raw): string
 {
     return match (flus_facturacion_estado_fiscal_normalizar($raw)) {
-        'PENDIENTE_ENVIO' => 'Pendiente de envío',
+        'PENDIENTE_ENVIO' => 'Pendiente de envio',
         'ERROR_TRANSITORIO' => 'Error transitorio',
         'ERROR_POST_ARCA' => 'Error post-ARCA',
         'AUTORIZADA' => 'Autorizada',
@@ -243,17 +243,39 @@ function flus_facturacion_estado_fiscal_regularizable(?string $raw): bool
     return flus_facturacion_estado_fiscal_requiere_intervencion($raw);
 }
 
+function flus_facturacion_estado_fiscal_visible_en_incidencias(?string $raw): bool
+{
+    return in_array(
+        flus_facturacion_estado_fiscal_normalizar($raw),
+        ['PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'RECHAZADA'],
+        true
+    );
+}
+
 function flus_facturacion_estado_fiscal_detalle_operativo(?string $raw): string
 {
     return match (flus_facturacion_estado_fiscal_normalizar($raw)) {
-        'PENDIENTE_ENVIO' => 'Registrada localmente y pendiente de envío o confirmación ante ARCA.',
-        'ERROR_TRANSITORIO' => 'Falló el envío o la disponibilidad de ARCA. Se puede reintentar en forma segura.',
-        'ERROR_POST_ARCA' => 'ARCA pudo haber autorizado el comprobante, pero FLUS no cerró la registración local. Requiere regularización sin reenvío automático.',
-        'RECUPERADA' => 'La factura quedó regularizada desde trazas/eventos sin duplicar emisión.',
-        'AUTORIZADA' => 'La factura quedó autorizada y cerrada localmente.',
-        'RECHAZADA' => 'ARCA rechazó el comprobante. Revisa los datos antes de volver a emitir.',
+        'PENDIENTE_ENVIO' => 'Registrada localmente y pendiente de envio o confirmacion ante ARCA.',
+        'ERROR_TRANSITORIO' => 'Fallo el envio o la disponibilidad de ARCA. Se puede reintentar en forma segura.',
+        'ERROR_POST_ARCA' => 'ARCA pudo haber autorizado el comprobante, pero FLUS no cerro la registracion local. Requiere regularizacion sin reenvio automatico.',
+        'RECUPERADA' => 'La factura quedo regularizada desde trazas/eventos sin duplicar emision.',
+        'AUTORIZADA' => 'La factura quedo autorizada y cerrada localmente.',
+        'RECHAZADA' => 'ARCA rechazo el comprobante. Revisa los datos antes de volver a emitir.',
         default => 'Sin incidencia fiscal pendiente.',
     };
+}
+
+function flus_facturacion_estado_fiscal_resolver_desde_factura(array $factura): string
+{
+    $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
+    if ($estadoFiscal === 'RECHAZADA') {
+        $error = trim((string)($factura['fiscal_error_message'] ?? $factura['arca_error_message'] ?? ''));
+        if (flus_facturacion_error_es_transitorio($error)) {
+            return 'ERROR_TRANSITORIO';
+        }
+    }
+
+    return $estadoFiscal;
 }
 
 function flus_facturacion_factura_emitida_ok(array $factura): bool
@@ -286,6 +308,57 @@ function flus_facturacion_factura_apta_para_nc(array $factura): bool
     }
 
     return strtoupper(trim((string)($factura['tipo'] ?? ''))) !== '';
+}
+
+function flus_facturacion_factura_accion_operativa(array $factura): array
+{
+    $facturaId = (int)($factura['id'] ?? 0);
+    $estadoFiscal = flus_facturacion_estado_fiscal_resolver_desde_factura($factura);
+
+    if (flus_facturacion_estado_fiscal_regularizable($estadoFiscal) && $facturaId > 0) {
+        return [
+            'kind' => 'regularizar',
+            'label' => 'Regularizar',
+            'url' => 'facturacion_recovery.php?factura_id=' . $facturaId,
+            'help' => 'FLUS intentara confirmar o recuperar este comprobante sin duplicar la emision.',
+        ];
+    }
+
+    if ($estadoFiscal === 'RECHAZADA') {
+        $ventaId = (int)($factura['venta_id'] ?? 0);
+        if ($ventaId > 0) {
+            return [
+                'kind' => 'reemitir',
+                'label' => 'Corregir y reemitir',
+                'url' => 'factura_nueva.php?venta_id=' . $ventaId . '&force=1&fact_error=' . urlencode('La factura anterior fue rechazada por ARCA. Revisa los datos y vuelve a emitir.'),
+                'help' => 'Revisa los datos fiscales y vuelve a pedir CAE desde la venta vinculada.',
+            ];
+        }
+
+        $documentoId = (int)($factura['documento_id'] ?? 0);
+        if ($documentoId > 0) {
+            return [
+                'kind' => 'documento',
+                'label' => 'Revisar documento',
+                'url' => 'documento_comercial.php?id=' . $documentoId,
+                'help' => 'Corrige el documento comercial antes de volver a emitir la factura.',
+            ];
+        }
+
+        return [
+            'kind' => 'manual',
+            'label' => 'Revision manual',
+            'url' => $facturaId > 0 ? 'factura_ver.php?id=' . $facturaId : '',
+            'help' => 'Esta factura fue rechazada y requiere correccion manual antes de un nuevo intento.',
+        ];
+    }
+
+    return [
+        'kind' => 'none',
+        'label' => '',
+        'url' => '',
+        'help' => '',
+    ];
 }
 
 function flus_facturacion_assert_venta_emitible(array $venta): void
@@ -343,6 +416,16 @@ function flus_facturacion_error_es_transitorio(?string $raw): bool
         : strtolower($message);
 
     foreach (['soap fault', 'timeout', 'tempor', 'transitor', 'connection', 'network', 'unavailable', 'wsfe', 'wsaa'] as $needle) {
+        if (str_contains($normalized, $needle)) {
+            return true;
+        }
+    }
+
+    foreach ([
+        'arca no responde',
+        'no se puede emitir ahora porque arca no responde',
+        'no responde',
+    ] as $needle) {
         if (str_contains($normalized, $needle)) {
             return true;
         }

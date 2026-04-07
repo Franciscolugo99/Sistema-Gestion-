@@ -103,6 +103,23 @@ function flus_facturacion_snapshot_payload_desde_factura(array $factura, array $
     return flus_facturacion_request_payload_normalize($base);
 }
 
+function flus_facturacion_opciones_regularizacion(array $opciones, array $snapshotPayload, array $factura): array
+{
+    foreach ([
+        'numero_preferido' => (int)($snapshotPayload['numero'] ?? $factura['numero'] ?? 0),
+        'punto_venta_preferido' => (int)($snapshotPayload['punto_venta'] ?? $factura['punto_venta'] ?? 0),
+        'tipo_cbte' => (int)($snapshotPayload['tipo_cbte'] ?? $factura['tipo_cbte'] ?? 0),
+        'modo' => trim((string)($snapshotPayload['modo'] ?? $factura['modo'] ?? '')),
+        'concepto' => (int)($snapshotPayload['concepto'] ?? 0),
+    ] as $key => $value) {
+        if (($key === 'modo' && $value !== '') || ($key !== 'modo' && (int)$value > 0)) {
+            $opciones[$key] = $value;
+        }
+    }
+
+    return $opciones;
+}
+
 function flus_facturacion_request_payload_diff(array $expected, array $actual): array
 {
     $expected = flus_facturacion_request_payload_normalize($expected);

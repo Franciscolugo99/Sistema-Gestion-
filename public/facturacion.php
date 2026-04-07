@@ -138,6 +138,10 @@ $stats = $panel['stats'];
 $incidencias = $panel['incidencias'];
 $modoFacturacion = (string)$panel['modo_facturacion'];
 $modoFacturacionLabel = (string)$panel['modo_facturacion_label'];
+$incidenciasVisibles = (int)($incidencias['pendientes'] ?? 0)
+    + (int)($incidencias['transitorios'] ?? 0)
+    + (int)($incidencias['post_arca'] ?? 0)
+    + (int)($incidencias['rechazadas'] ?? 0);
 
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $exportRows = flus_facturacion_panel_export_rows($pdo, $panel['plan']);
@@ -212,7 +216,7 @@ if ($desde !== '' || $hasta !== '') {
 $pageTitle = 'Facturacion';
 $currentSection = 'facturacion';
 $breadcrumbs = [
-    ['label' => 'Facturación', 'url' => null],
+    ['label' => 'Facturacion', 'url' => null],
 ];
 $extraCss = ['assets/css/facturacion.css?v=10'];
 
@@ -253,10 +257,10 @@ require __DIR__ . '/partials/header.php';
         <a href="documentos_comerciales.php" class="v-btn v-btn--outline" title="Presupuestos y remitos">
           Documentos comerciales
         </a>
-        <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de crédito">
-          Notas de crédito
+        <a href="facturacion_nc.php" class="v-btn v-btn--outline" title="Gestionar notas de credito">
+          Notas de credito
         </a>
-        <a href="facturacion_recovery.php" class="v-btn v-btn--outline" title="Incidencias fiscales y regularización">
+        <a href="facturacion_recovery.php" class="v-btn v-btn--outline" title="Incidencias fiscales y regularizacion">
           Incidencias fiscales
         </a>
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
@@ -296,7 +300,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         <div class="fact-overview__item">
           <span>Incidencias</span>
-          <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong>
+          <strong><?= number_format($incidenciasVisibles) ?></strong>
         </div>
       </div>
     </section>
@@ -334,12 +338,12 @@ require __DIR__ . '/partials/header.php';
       </article>
     </section>
 
-    <?php if (($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) > 0): ?>
+    <?php if ($incidenciasVisibles > 0): ?>
       <section class="fact-summary-bar" aria-label="Incidencias fiscales" style="margin-bottom:16px;">
         <div class="fact-summary-bar__top">
           <div class="fact-summary-bar__headline">
-            <strong><?= number_format($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) ?></strong> incidencia<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?> fiscal<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 'es' ?> visible<?= ($incidencias['pendientes'] + $incidencias['transitorios'] + $incidencias['post_arca']) === 1 ? '' : 's' ?>
-            <span class="muted">| Pendientes <?= number_format($incidencias['pendientes']) ?> · Transitorios <?= number_format($incidencias['transitorios']) ?> · Post-ARCA <?= number_format($incidencias['post_arca']) ?><?php if ($incidencias['recuperadas'] > 0): ?> · Recuperadas <?= number_format($incidencias['recuperadas']) ?><?php endif; ?></span>
+            <strong><?= number_format($incidenciasVisibles) ?></strong> incidencia<?= $incidenciasVisibles === 1 ? '' : 's' ?> fiscal<?= $incidenciasVisibles === 1 ? '' : 'es' ?> visible<?= $incidenciasVisibles === 1 ? '' : 's' ?>
+            <span class="muted">| Pendientes <?= number_format($incidencias['pendientes']) ?>  | Transitorios <?= number_format($incidencias['transitorios']) ?>  | Post-ARCA <?= number_format($incidencias['post_arca']) ?>  | Rechazadas <?= number_format($incidencias['rechazadas']) ?><?php if ($incidencias['recuperadas'] > 0): ?>  | Recuperadas <?= number_format($incidencias['recuperadas']) ?><?php endif; ?></span>
           </div>
           <div class="fact-summary-bar__actions">
             <a href="facturacion_recovery.php" class="fact-summary-bar__export">Abrir incidencias</a>
@@ -495,7 +499,7 @@ require __DIR__ . '/partials/header.php';
               $fechaTs = $fechaLista !== '' ? strtotime($fechaLista) : false;
               $fechaMostrar = $fechaTs !== false ? date('d/m/Y H:i', $fechaTs) : ($fechaLista !== '' ? $fechaLista : '-');
               $estadoFila = strtoupper(trim((string)($factura['estado'] ?? 'EMITIDA')));
-              $estadoFiscalFila = flus_facturacion_estado_fiscal_normalizar((string)($factura['estado_fiscal'] ?? 'NO_APLICA'));
+              $estadoFiscalFila = flus_facturacion_estado_fiscal_resolver_desde_factura($factura);
               $estadoFiscalLabel = flus_facturacion_estado_fiscal_label($estadoFiscalFila);
               $modoFilaRaw = trim((string)($factura['modo'] ?? ''));
               $modoFila = $modoFilaRaw !== '' ? flus_facturacion_normalizar_modo($modoFilaRaw) : '';
@@ -517,6 +521,7 @@ require __DIR__ . '/partials/header.php';
               }
               $caeVtoLabel = $caeVtoTs !== false ? date('d/m/Y', $caeVtoTs) : ($caeVtoRaw !== '' ? $caeVtoRaw : '');
               $comprobanteLabel = trim((string)($factura['tipo'] ?? 'Factura'));
+              $accionFiscal = flus_facturacion_factura_accion_operativa($factura);
               if ($numero !== null && $puntoVenta !== null) {
                   $comprobanteLabel .= ' ' . sprintf('%04d-%08d', $puntoVenta, $numero);
               } elseif ($numero !== null) {
@@ -562,6 +567,9 @@ require __DIR__ . '/partials/header.php';
                   <div class="fact-cell-sub"><?= $caeVtoLabel !== '' ? 'Vto. ' . h($caeVtoLabel) : ($tieneCaeReal ? 'Sin vencimiento visible' : 'Modo demo') ?></div>
                 <?php else: ?>
                   <span class="fact-inline-badge fact-inline-badge--warn">Sin CAE</span>
+                  <?php if ($estadoFiscalFila === 'RECHAZADA'): ?>
+                    <div class="fact-cell-sub">Rechazada por ARCA</div>
+                  <?php endif; ?>
                 <?php endif; ?>
               </td>
               <td class="t-right">
@@ -586,10 +594,13 @@ require __DIR__ . '/partials/header.php';
                 <div class="fact-row-actions">
                   <a href="factura_ver.php?id=<?= (int)$factura['id'] ?>" class="btn-mini">Ver</a>
                   <a href="factura_pdf.php?id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--ghost">PDF</a>
-                  <?php if (flus_facturacion_estado_fiscal_regularizable($estadoFiscalFila)): ?>
-                    <a href="facturacion_recovery.php?factura_id=<?= (int)$factura['id'] ?>" class="btn-mini btn-mini--danger">Regularizar</a>
+                  <?php if (($accionFiscal['url'] ?? '') !== '' && ($accionFiscal['label'] ?? '') !== ''): ?>
+                    <a href="<?= h((string)$accionFiscal['url']) ?>" class="btn-mini <?= ($accionFiscal['kind'] ?? '') === 'regularizar' ? 'btn-mini--danger' : 'btn-mini--ghost' ?>"><?= h((string)$accionFiscal['label']) ?></a>
                   <?php endif; ?>
                 </div>
+                <?php if (trim((string)($accionFiscal['help'] ?? '')) !== ''): ?>
+                  <div class="fact-cell-sub" style="margin-top:6px;max-width:220px;"><?= h((string)$accionFiscal['help']) ?></div>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -609,3 +620,4 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+

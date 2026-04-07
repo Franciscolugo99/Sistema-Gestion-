@@ -23,19 +23,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_any_permission(['emitir_factura', 'administrar_config']);
 
     if (!csrf_verify($_POST['csrf_token'] ?? null)) {
-        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Sesión vencida (CSRF). Recargá e intentá de nuevo.'));
+        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Sesion vencida (CSRF). Recarga e intenta de nuevo.'));
         exit;
     }
 
     $facturaId = max(0, (int)($_POST['factura_id'] ?? 0));
     if ($facturaId <= 0) {
-        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Factura inválida para regularizar.'));
+        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Factura invalida para regularizar.'));
         exit;
     }
 
     try {
         $facturaRegularizadaId = flus_facturacion_regularizar_factura($pdo, $facturaId);
-        header('Location: facturacion_recovery.php?msg=' . urlencode('Factura #' . $facturaRegularizadaId . ' regularizada o confirmada sin duplicar emisión.') . '&factura_id=' . $facturaRegularizadaId);
+        header('Location: facturacion_recovery.php?msg=' . urlencode('Factura #' . $facturaRegularizadaId . ' regularizada o confirmada sin duplicar emision.') . '&factura_id=' . $facturaRegularizadaId);
     } catch (Throwable $e) {
         header('Location: facturacion_recovery.php?msgerr=' . urlencode($e->getMessage()) . '&factura_id=' . $facturaId);
     }
@@ -67,7 +67,7 @@ if (flus_table_exists($pdo, 'facturas') && flus_column_exists($pdo, 'facturas', 
         FROM facturas f
         " . ($joinClientes ? 'LEFT JOIN clientes c ON c.id = f.cliente_id' : '') . "
         " . ($joinEventosArca ? 'LEFT JOIN factura_eventos_arca fe ON CONVERT(fe.request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(f.fiscal_request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci' : '') . "
-        WHERE COALESCE(f.estado_fiscal, 'NO_APLICA') IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA')
+        WHERE COALESCE(f.estado_fiscal, 'NO_APLICA') IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'RECHAZADA')
         ORDER BY COALESCE(f.fiscal_requested_at, f.fiscal_approved_at) DESC, f.id DESC
         LIMIT 200
     ";
@@ -84,7 +84,7 @@ function frc_h(string $value): string
 $pageTitle = 'Incidencias fiscales';
 $currentSection = 'facturacion';
 $breadcrumb = [
-    ['label' => 'Facturación', 'url' => 'facturacion.php'],
+    ['label' => 'Facturacion', 'url' => 'facturacion.php'],
     ['label' => 'Incidencias fiscales', 'url' => ''],
 ];
 $extraCss = ['assets/css/facturacion.css?v=10'];
@@ -106,14 +106,14 @@ require __DIR__ . '/partials/header.php';
             <span class="module-eyebrow">Contingencia fiscal</span>
             <h1 class="page-title module-title">Incidencias fiscales</h1>
             <p class="page-sub module-subtitle">
-              Vista mínima de comprobantes pendientes, con error transitorio o en ERROR_POST_ARCA.
-              La regularización reutiliza request_uid, eventos ARCA y recovery simple antes de cualquier reintento.
+              Vista minima de comprobantes pendientes, transitorios, en ERROR_POST_ARCA o rechazados.
+              La regularizacion reutiliza request_uid, eventos ARCA y recovery simple antes de cualquier reintento; los rechazados se corrigen y reemiten manualmente.
             </p>
           </div>
         </div>
       </div>
       <div class="promo-actions-top module-header-actions">
-        <a href="facturacion.php" class="v-btn v-btn--outline">Volver a facturación</a>
+        <a href="facturacion.php" class="v-btn v-btn--outline">Volver a facturacion</a>
       </div>
     </header>
 
@@ -126,12 +126,12 @@ require __DIR__ . '/partials/header.php';
 
     <?php if ($casos === []): ?>
       <div class="fact-empty-state" style="padding:32px 0;text-align:center;">
-        <p style="font-size:1.1em;color:var(--color-success,#16a34a);">✓ No hay incidencias fiscales abiertas.</p>
+        <p style="font-size:1.1em;color:var(--color-success,#16a34a);">OK - No hay incidencias fiscales abiertas.</p>
       </div>
     <?php else: ?>
       <p style="margin-bottom:16px;color:var(--color-danger,#dc2626);">
-        <strong><?= count($casos) ?> caso<?= count($casos) === 1 ? '' : 's' ?></strong> requiere<?= count($casos) === 1 ? '' : 'n' ?> atención.
-        ERROR_POST_ARCA se intenta regularizar sin reenvío automático; pendientes y transitorios sí pueden reintentarse en forma segura.
+        <strong><?= count($casos) ?> caso<?= count($casos) === 1 ? '' : 's' ?></strong> requiere<?= count($casos) === 1 ? '' : 'n' ?> atencion.
+        ERROR_POST_ARCA se intenta regularizar sin reenvio automatico; pendientes y transitorios si pueden reintentarse en forma segura; los rechazados se corrigen antes de volver a pedir CAE.
       </p>
 
       <div class="table-wrapper">
@@ -145,16 +145,17 @@ require __DIR__ . '/partials/header.php';
               <th>Intentos</th>
               <th>Ultima interaccion ARCA</th>
               <th>Error</th>
-              <th>Acción</th>
+              <th>Accion</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($casos as $caso): ?>
               <?php
-                $estadoFiscal = flus_facturacion_estado_fiscal_normalizar((string)($caso['estado_fiscal'] ?? 'NO_APLICA'));
+                $estadoFiscal = flus_facturacion_estado_fiscal_resolver_desde_factura($caso);
                 $clienteNombre = trim((string)($caso['cliente_nombre'] ?? '')) ?: 'Consumidor Final';
                 $requestUid = trim((string)($caso['fiscal_request_uid'] ?? ''));
                 $highlight = $focusFacturaId > 0 && $focusFacturaId === (int)$caso['id'];
+                $accionFiscal = flus_facturacion_factura_accion_operativa($caso);
               ?>
               <tr<?= $highlight ? ' style="outline:2px solid var(--color-primary,#2563eb);outline-offset:-2px;"' : '' ?>>
                 <td>
@@ -171,25 +172,30 @@ require __DIR__ . '/partials/header.php';
                 <td>
                   <?php if (!empty($caso['arca_resultado'])): ?>
                     <div><?= frc_h(flus_facturacion_evento_arca_resultado_label((string)$caso['arca_resultado'])) ?></div>
-                    <div class="fact-cell-sub"><?= frc_h(flus_facturacion_evento_arca_operacion_label((string)($caso['arca_operacion'] ?? ''))) ?><?= !empty($caso['arca_modo']) ? ' · ' . frc_h(flus_facturacion_modo_label((string)$caso['arca_modo'])) : '' ?><?= !empty($caso['arca_finished_at']) ? ' · ' . frc_h((string)$caso['arca_finished_at']) : (!empty($caso['arca_created_at']) ? ' · ' . frc_h((string)$caso['arca_created_at']) : '') ?></div>
+                    <div class="fact-cell-sub"><?= frc_h(flus_facturacion_evento_arca_operacion_label((string)($caso['arca_operacion'] ?? ''))) ?><?= !empty($caso['arca_modo']) ? '  | ' . frc_h(flus_facturacion_modo_label((string)$caso['arca_modo'])) : '' ?><?= !empty($caso['arca_finished_at']) ? '  | ' . frc_h((string)$caso['arca_finished_at']) : (!empty($caso['arca_created_at']) ? '  | ' . frc_h((string)$caso['arca_created_at']) : '') ?></div>
                   <?php elseif (!empty($caso['fiscal_approved_at']) || !empty($caso['fiscal_requested_at'])): ?>
                     <div>Sin evento ARCA visible</div>
-                    <div class="fact-cell-sub"><?php if (!empty($caso['fiscal_approved_at'])): ?>Aprobado local · <?= frc_h((string)$caso['fiscal_approved_at']) ?><?php else: ?>Solicitado · <?= frc_h((string)$caso['fiscal_requested_at']) ?><?php endif; ?></div>
+                    <div class="fact-cell-sub"><?php if (!empty($caso['fiscal_approved_at'])): ?>Aprobado local  | <?= frc_h((string)$caso['fiscal_approved_at']) ?><?php else: ?>Solicitado  | <?= frc_h((string)$caso['fiscal_requested_at']) ?><?php endif; ?></div>
                   <?php else: ?>
                     <span class="fact-cell-sub">Sin traza fiscal visible</span>
                   <?php endif; ?>
                 </td>
-                <td style="max-width:260px;word-break:break-word;"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '—'))) ?></small></td>
+                <td style="max-width:260px;word-break:break-word;"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '-'))) ?></small></td>
                 <td>
-                  <?php if ($puedeOperarFiscal): ?>
-                    <form method="post" action="facturacion_recovery.php" onsubmit="return confirm('¿Regularizar la factura #<?= (int)$caso['id'] ?>?
- FLUS intentará recuperar desde trazas/eventos y solo reenviará cuando el caso sea seguro.');">
+                  <?php if ($puedeOperarFiscal && ($accionFiscal['kind'] ?? '') === 'regularizar'): ?>
+                    <form method="post" action="facturacion_recovery.php" onsubmit="return confirm('Regularizar la factura #<?= (int)$caso['id'] ?>?
+ FLUS intentara recuperar desde trazas/eventos y solo reenviara cuando el caso sea seguro.');">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
                       <button type="submit" class="btn-mini btn-mini--danger">Regularizar</button>
                     </form>
+                  <?php elseif ($puedeOperarFiscal && ($accionFiscal['url'] ?? '') !== '' && ($accionFiscal['label'] ?? '') !== ''): ?>
+                    <a href="<?= frc_h((string)$accionFiscal['url']) ?>" class="btn-mini btn-mini--ghost"><?= frc_h((string)$accionFiscal['label']) ?></a>
                   <?php else: ?>
                     <span class="fact-inline-badge">Solo lectura</span>
+                  <?php endif; ?>
+                  <?php if (trim((string)($accionFiscal['help'] ?? '')) !== ''): ?>
+                    <div class="fact-cell-sub" style="margin-top:6px;max-width:220px;"><?= frc_h((string)$accionFiscal['help']) ?></div>
                   <?php endif; ?>
                 </td>
               </tr>
@@ -202,3 +208,5 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>
+
+

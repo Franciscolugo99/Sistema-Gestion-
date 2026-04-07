@@ -26,6 +26,7 @@ function flus_facturacion_panel_default_incidencias(): array
         'pendientes' => 0,
         'transitorios' => 0,
         'post_arca' => 0,
+        'rechazadas' => 0,
         'recuperadas' => 0,
     ];
 }
@@ -345,6 +346,7 @@ function flus_facturacion_panel_read(PDO $pdo, array $filters): array
                     SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'PENDIENTE_ENVIO' THEN 1 ELSE 0 END) AS pendientes,
                     SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_TRANSITORIO' THEN 1 ELSE 0 END) AS transitorios,
                     SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_POST_ARCA' THEN 1 ELSE 0 END) AS post_arca,
+                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECHAZADA' THEN 1 ELSE 0 END) AS rechazadas,
                     SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECUPERADA' THEN 1 ELSE 0 END) AS recuperadas
                 FROM facturas f
                 {$plan['join_sql']}
@@ -357,6 +359,7 @@ function flus_facturacion_panel_read(PDO $pdo, array $filters): array
                 'pendientes' => (int)($incidenciasRow['pendientes'] ?? 0),
                 'transitorios' => (int)($incidenciasRow['transitorios'] ?? 0),
                 'post_arca' => (int)($incidenciasRow['post_arca'] ?? 0),
+                'rechazadas' => (int)($incidenciasRow['rechazadas'] ?? 0),
                 'recuperadas' => (int)($incidenciasRow['recuperadas'] ?? 0),
             ];
         }

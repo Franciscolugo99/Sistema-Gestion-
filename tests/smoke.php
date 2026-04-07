@@ -2379,14 +2379,15 @@ $results[] = flus_run_test('fase 3 migracion y wiring mantienen alcance minimo y
 });
 
 $results[] = flus_run_test('errores ARCA se clasifican en estados fiscales consistentes', function (): void {
-    flus_assert_same('Pendiente de envío', flus_facturacion_estado_fiscal_label('PENDIENTE_ENVIO'));
+    flus_assert_same('Pendiente de envio', flus_facturacion_estado_fiscal_label('PENDIENTE_ENVIO'));
     flus_assert_same('Autorizada', flus_facturacion_estado_fiscal_label('AUTORIZADA'));
     flus_assert_same('Error post-ARCA', flus_facturacion_estado_fiscal_label('ERROR_POST_ARCA'));
     flus_assert_same('Recuperada', flus_facturacion_estado_fiscal_label('RECUPERADA'));
     flus_assert_true(flus_facturacion_estado_fiscal_requiere_intervencion('ERROR_POST_ARCA'));
     flus_assert_false(flus_facturacion_estado_fiscal_requiere_intervencion('RECUPERADA'));
-    flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('SOAP Fault: timeout al conectar con WSAA'));
-    flus_assert_same('RECHAZADA', flus_facturacion_estado_fiscal_por_error('[10015] El numero de documento es invalido'));
+flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('SOAP Fault: timeout al conectar con WSAA'));
+flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('No se puede emitir ahora porque ARCA no responde.'));
+flus_assert_same('RECHAZADA', flus_facturacion_estado_fiscal_por_error('[10015] El numero de documento es invalido'));
     flus_assert_same('TRANSIENT', flus_facturacion_error_code('SOAP Fault: timeout al conectar con WSAA'));
     flus_assert_same('10015', flus_facturacion_error_code('[10015] El numero de documento es invalido'));
     flus_assert_true(flus_facturacion_manual_retry_state_es_reutilizable('ERROR_POST_ARCA'));
@@ -3020,7 +3021,8 @@ $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operati
     $ventasApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_api.php');
 
     flus_assert_contains("\$puedeOperarFiscal = user_has_permission('emitir_factura') || user_has_permission('administrar_config');", $recoveryPhp);
-    flus_assert_contains('<?php if ($puedeOperarFiscal): ?>', $recoveryPhp);
+    flus_assert_contains("<?php if (\$puedeOperarFiscal && (\$accionFiscal['kind'] ?? '') === 'regularizar'): ?>", $recoveryPhp);
+    flus_assert_contains("<?php elseif (\$puedeOperarFiscal && (\$accionFiscal['url'] ?? '') !== '' && (\$accionFiscal['label'] ?? '') !== ''): ?>", $recoveryPhp);
     flus_assert_contains('<span class="fact-inline-badge">Solo lectura</span>', $recoveryPhp);
 
     flus_assert_contains("\$puedeOperarNc = user_has_permission('emitir_nota_credito');", $ncPhp);
@@ -3031,6 +3033,54 @@ $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operati
     flus_assert_contains("'permissions' => ['realizar_ventas'],", $ventasApiPhp);
     flus_assert_contains("'send_ticket_whatsapp' => [", $ventasApiPhp);
     flus_assert_contains("'send_ticket_email' => [", $ventasApiPhp);
+});
+
+$results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $runtimeLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_runtime_lib.php');
+    $panelLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
+    $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+    $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+
+    flus_assert_contains("function flus_facturacion_estado_fiscal_visible_en_incidencias(?string \$raw): bool", $runtimeLib);
+    flus_assert_contains("function flus_facturacion_estado_fiscal_resolver_desde_factura(array \$factura): string", $runtimeLib);
+    flus_assert_contains("function flus_facturacion_factura_accion_operativa(array \$factura): array", $runtimeLib);
+    flus_assert_contains("'label' => 'Corregir y reemitir'", $runtimeLib);
+    flus_assert_contains("'arca no responde'", $runtimeLib);
+    flus_assert_contains("'rechazadas' => 0", $panelLib);
+    flus_assert_contains("= 'RECHAZADA' THEN 1 ELSE 0 END) AS rechazadas", $panelLib);
+    flus_assert_contains("\$incidencias['rechazadas']", $facturacionPhp);
+    flus_assert_contains("\$estadoFiscalFila = flus_facturacion_estado_fiscal_resolver_desde_factura(\$factura);", $facturacionPhp);
+    flus_assert_contains("\$accionFiscal = flus_facturacion_factura_accion_operativa(\$factura);", $facturacionPhp);
+    flus_assert_contains("IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'RECHAZADA')", $recoveryPhp);
+    flus_assert_contains("\$estadoFiscal = flus_facturacion_estado_fiscal_resolver_desde_factura(\$caso);", $recoveryPhp);
+    flus_assert_contains("\$accionFiscal = flus_facturacion_factura_accion_operativa(\$caso);", $recoveryPhp);
+});
+
+$results[] = flus_run_test('facturacion recovery conserva coordenadas fiscales del intento original', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $contextLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_context_lib.php');
+    $runtimeLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_runtime_lib.php');
+
+    flus_assert_contains('flus_facturacion_opciones_regularizacion(', $facturacionLib);
+    flus_assert_contains('isset($opciones[\'punto_venta_preferido\']) ? (int)$opciones[\'punto_venta_preferido\'] : 0;', $facturacionLib);
+    flus_assert_contains('function flus_facturacion_opciones_regularizacion(array $opciones, array $snapshotPayload, array $factura): array', $contextLib);
+    flus_assert_contains('\'numero_preferido\' => (int)($snapshotPayload[\'numero\'] ?? $factura[\'numero\'] ?? 0)', $contextLib);
+    flus_assert_contains('\'punto_venta_preferido\' => (int)($snapshotPayload[\'punto_venta\'] ?? $factura[\'punto_venta\'] ?? 0)', $contextLib);
+    flus_assert_contains('\'tipo_cbte\' => (int)($snapshotPayload[\'tipo_cbte\'] ?? $factura[\'tipo_cbte\'] ?? 0)', $contextLib);
+    flus_assert_not_contains(chr(195), $runtimeLib);
+    flus_assert_not_contains(chr(194), $runtimeLib);
+    flus_assert_not_contains('intentarA', $runtimeLib);
+});
+
+$results[] = flus_run_test('migracion 027 reclasifica arca no responde como transitorio', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '027_reclasificar_arca_no_responde_transitorio.sql');
+
+    flus_assert_contains("SET estado_fiscal = 'ERROR_TRANSITORIO'", $migrationSql);
+    flus_assert_contains("LOWER(COALESCE(fiscal_error_message, '')) LIKE '%arca no responde%'", $migrationSql);
+    flus_assert_contains("LOWER(COALESCE(fiscal_error_message, '')) LIKE '%soap-error: parsing wsdl%'", $migrationSql);
 });
 
 $results[] = flus_run_test('script de auditoria legacy para nc queda disponible y es de solo lectura', function (): void {

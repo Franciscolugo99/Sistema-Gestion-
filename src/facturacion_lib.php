@@ -473,7 +473,8 @@ function flus_facturacion_preparar_contexto_desde_documento(PDO $pdo, int $docum
         throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
     }
 
-    $puntoVenta = max(1, (int)($config['punto_venta'] ?? 1));
+    $puntoVentaPreferido = isset($opciones['punto_venta_preferido']) ? (int)$opciones['punto_venta_preferido'] : 0;
+    $puntoVenta = $puntoVentaPreferido > 0 ? $puntoVentaPreferido : max(1, (int)($config['punto_venta'] ?? 1));
     $modoOperacion = flus_facturacion_modo_actual($config, $opciones);
     $modoDemo = $modoOperacion === 'demo';
     $modoFactura = flus_facturacion_facturas_modo_value($pdo, $modoOperacion);
@@ -662,7 +663,8 @@ function flus_facturacion_preparar_contexto_desde_venta(PDO $pdo, int $ventaId, 
         throw new Exception('No hay configuracion de facturacion activa. Configure un punto de venta primero.');
     }
 
-    $puntoVenta = max(1, (int)($config['punto_venta'] ?? 1));
+    $puntoVentaPreferido = isset($opciones['punto_venta_preferido']) ? (int)$opciones['punto_venta_preferido'] : 0;
+    $puntoVenta = $puntoVentaPreferido > 0 ? $puntoVentaPreferido : max(1, (int)($config['punto_venta'] ?? 1));
     $modoOperacion = flus_facturacion_modo_actual($config, $opciones);
     $modoDemo = $modoOperacion === 'demo';
     $modoFactura = flus_facturacion_facturas_modo_value($pdo, $modoOperacion);
@@ -1031,7 +1033,7 @@ function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRe
         } catch (Throwable $ignored) {
         }
 
-        throw new RuntimeException('ARCA autorizÃ³ el comprobante pero FLUS no pudo cerrar la registraciÃ³n local. Reintenta para recovery simple. Detalle: ' . $e->getMessage(), 0, $e);
+        throw new RuntimeException('ARCA autorizo el comprobante pero FLUS no pudo cerrar la registracion local. Reintenta para recovery simple. Detalle: ' . $e->getMessage(), 0, $e);
     }
 }
 
@@ -1120,7 +1122,7 @@ function flus_facturacion_procesar_factura_registrada(PDO $pdo, array $registro,
     }
 
     if ($estadoFiscal === 'ERROR_POST_ARCA') {
-        throw new RuntimeException('La factura quedÃ³ en ERROR_POST_ARCA. FLUS no la reenviarÃ¡ automÃ¡ticamente a ARCA: primero hay que regularizarla o confirmar manualmente el resultado remoto.');
+        throw new RuntimeException('La factura quedo en ERROR_POST_ARCA. FLUS no la reenviara automaticamente a ARCA: primero hay que regularizarla o confirmar manualmente el resultado remoto.');
     }
 
     $requestUid = trim((string)($context['request_uid'] ?? $factura['fiscal_request_uid'] ?? ''));
@@ -1222,7 +1224,7 @@ function flus_facturacion_procesar_factura_registrada(PDO $pdo, array $registro,
 }
 
 /**
- * Emite una factura para una venta usando una capa unificada de registro + envÃ­o.
+ * Emite una factura para una venta usando una capa unificada de registro + envio.
  */
 function flus_facturacion_emitir_desde_venta(PDO $pdo, int $ventaId, int $clienteId, array $opciones = []): int
 {
@@ -1279,10 +1281,10 @@ function flus_facturacion_emitir_desde_documento(PDO $pdo, int $documentoId, int
 function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $opciones = []): int
 {
     if ($facturaId <= 0) {
-        throw new RuntimeException('Factura invÃ¡lida para regularizar.');
+        throw new RuntimeException('Factura invalida para regularizar.');
     }
     if (!flus_facturacion_habilitada($pdo)) {
-        throw new RuntimeException('El mÃ³dulo de facturaciÃ³n no estÃ¡ habilitado.');
+        throw new RuntimeException('El modulo de facturacion no esta habilitado.');
     }
 
     $repo = flus_facturacion_fiscal_repository($pdo);
@@ -1297,7 +1299,7 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
     }
     if ($estadoFiscal === 'RECHAZADA') {
         $msg = trim((string)($factura['fiscal_error_message'] ?? ''));
-        throw new RuntimeException($msg !== '' ? $msg : 'La factura fue rechazada y no se puede regularizar automÃ¡ticamente.');
+        throw new RuntimeException($msg !== '' ? $msg : 'La factura fue rechazada y no se puede regularizar automaticamente.');
     }
 
     $requestUid = trim((string)($factura['fiscal_request_uid'] ?? $opciones['request_uid'] ?? ''));
@@ -1325,30 +1327,24 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
         $stVenta->execute([$ventaId]);
         $clienteId = (int)($stVenta->fetchColumn() ?: 0);
     }
-    if ($clienteId <= 0) {
-        throw new RuntimeException('La factura no tiene cliente suficiente para rearmar el contexto fiscal.');
-    }
-    $baseOpciones = $requestUid !== '' ? ($opciones + ['request_uid' => $requestUid]) : $opciones;
+    if ($clienteId <= 0) throw new RuntimeException('La factura no tiene cliente suficiente para rearmar el contexto fiscal.');
+    $baseOpciones = flus_facturacion_opciones_regularizacion($requestUid !== '' ? ($opciones + ['request_uid' => $requestUid]) : $opciones, $snapshotPayload, $factura);
     if ($documentoId > 0) {
         $contextoActual = flus_facturacion_preparar_contexto_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } elseif ($ventaId > 0) {
         $contextoActual = flus_facturacion_preparar_contexto_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } else {
-        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automÃƒÂ¡ticamente.');
+        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automaticamente.');
     }
     $payloadActual = flus_facturacion_request_payload($contextoActual);
     $snapshotDiff = flus_facturacion_request_payload_diff($snapshotPayload, $payloadActual);
-    if ($snapshotDiff !== []) {
-        throw new RuntimeException(
-            'La factura cambiÃƒÂ³ desde el intento fiscal original (' . implode(', ', $snapshotDiff) . '). Requiere revisiÃƒÂ³n manual antes de regularizar.'
-        );
-    }
+    if ($snapshotDiff !== []) throw new RuntimeException('La factura cambio desde el intento fiscal original (' . implode(', ', $snapshotDiff) . '). Requiere revision manual antes de regularizar.');
     if ($documentoId > 0) {
         $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } elseif ($ventaId > 0) {
         $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } else {
-        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automÃ¡ticamente.');
+        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automaticamente.');
     }
     return flus_facturacion_procesar_factura_registrada($pdo, $registro, $baseOpciones + ['origen_regularizacion' => true]);
 }
@@ -1996,3 +1992,4 @@ function flus_factura_pdf_browser_path(): ?string
     $cached = '';
     return null;
 }
+

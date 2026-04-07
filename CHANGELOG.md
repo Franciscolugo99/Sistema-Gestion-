@@ -25,14 +25,14 @@
   - Smoke tests nuevos para reglas documentales, vínculos, cliente operativo, doble acción y conversión controlada a venta.
 - **Facturación / Fase 7 (contingencia fiscal mínima de factura común):**
   - Nueva regularización mínima para factura común con `facturacion_recovery.php`, orientada a `PENDIENTE_ENVIO`, `ERROR_TRANSITORIO` y `ERROR_POST_ARCA`.
-  - Nuevo estado `RECUPERADA` y formalización de `ERROR_POST_ARCA` para distinguir mejor un fallo local posterior a una autorización remota.
+  - Nuevo estado `RECUPERADA` y formalizacion de `ERROR_POST_ARCA` para distinguir mejor un fallo local posterior a una autorizacion remota.
   - La contingencia fiscal de Fase 7 se apoya en `estado_fiscal`, `fiscal_error_code`, `fiscal_error_message`, `fiscal_requested_at`, `fiscal_approved_at` y `factura_eventos_arca`, sin reutilizar `envio_ultimo_*`.
 
 ### Changed
 
-- **Seguridad operativa / sesiÃ³n y CSRF:**
+- **Seguridad operativa / sesion y CSRF:**
   - Varias pantallas legacy (`backups`, `reposicion`, `facturacion_config`, `inventario_fisico`, `precios_historial`, `tecnico`, `diagnostico`) dejan de manipular `$_SESSION['csrf_token']` a mano y pasan a reutilizar `csrf_token()` / `csrf_verify()`.
-  - Guards y entrypoints auxiliares (`logout`, `nav`, `precios_api`, `secure_actions_guard`) reducen arranques de sesiÃ³n redundantes y se alinean mejor con el bootstrap central.
+  - Guards y entrypoints auxiliares (`logout`, `nav`, `precios_api`, `secure_actions_guard`) reducen arranques de sesion redundantes y se alinean mejor con el bootstrap central.
 
 - **Caja / operacion de mostrador:**
   - La pantalla de Caja se adapta mejor a resoluciones bajas y monitores chicos, con rail de cobro mas compacto, ticket menos dominante y acciones principales siempre visibles.
@@ -141,7 +141,7 @@
   - Se bloquea el vínculo con ventas de otro cliente y se permite completar `cliente_id` en la venta cuando el documento sí lo tiene y la venta todavía no.
 - **Facturación / Fase 7 (contingencia fiscal mínima de factura común):**
   - Se modela `ERROR_POST_ARCA` como caso propio para factura común, evitando tratarlo como un error transitorio genérico.
-  - La regularización ya no reenvía ciegamente a ARCA cuando hay indicios de autorización remota; primero intenta recovery simple y deja el caso visible para intervención mínima.
+  - La regularización ya no reenvía ciegamente a ARCA cuando hay indicios de autorizacion remota; primero intenta recovery simple y deja el caso visible para intervención mínima.
   - Se corrige la mezcla de dominios entre trazabilidad fiscal y trazabilidad de email: `envio_ultimo_*` vuelve a quedar exclusivamente para reenvío comercial al cliente.
 
 ### Migrations
@@ -850,3 +850,5 @@ Response:
 - Multi-terminal con locks
 - Split payments
 - Dashboard con estadísticas
+
+
