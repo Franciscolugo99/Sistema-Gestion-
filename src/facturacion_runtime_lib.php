@@ -256,6 +256,53 @@ function flus_facturacion_estado_fiscal_detalle_operativo(?string $raw): string
     };
 }
 
+function flus_facturacion_factura_emitida_ok(array $factura): bool
+{
+    $cae = trim((string)($factura['cae'] ?? ''));
+    $estadoFiscal = flus_facturacion_estado_fiscal_normalizar(
+        (string)($factura['estado_fiscal'] ?? ($cae !== '' ? 'AUTORIZADA' : 'NO_APLICA'))
+    );
+
+    return $cae !== '' && in_array($estadoFiscal, ['AUTORIZADA', 'RECUPERADA'], true);
+}
+
+function flus_facturacion_factura_apta_para_nc(array $factura): bool
+{
+    if ($factura === []) {
+        return false;
+    }
+
+    $naturaleza = strtoupper(trim((string)($factura['naturaleza'] ?? 'FACTURA')));
+    if ($naturaleza !== '' && $naturaleza !== 'FACTURA') {
+        return false;
+    }
+
+    if (!flus_facturacion_factura_emitida_ok($factura)) {
+        return false;
+    }
+
+    if ((int)($factura['punto_venta'] ?? 0) <= 0 || (int)($factura['numero'] ?? 0) <= 0) {
+        return false;
+    }
+
+    return strtoupper(trim((string)($factura['tipo'] ?? ''))) !== '';
+}
+
+function flus_facturacion_assert_venta_emitible(array $venta): void
+{
+    $estadoVenta = function_exists('flus_normalize_sale_status')
+        ? flus_normalize_sale_status($venta['estado'] ?? null)
+        : strtoupper(trim((string)($venta['estado'] ?? 'EMITIDA')));
+
+    if ($estadoVenta === 'ANULADA') {
+        throw new RuntimeException('La venta ya fue anulada. No se puede facturar desde la venta original.');
+    }
+
+    if ($estadoVenta === 'PARCIALMENTE_ANULADA') {
+        throw new RuntimeException('La venta fue parcialmente anulada. Regulariza con Nota de Credito o emite desde el saldo vigente, no desde la venta original.');
+    }
+}
+
 function flus_facturacion_evento_arca_resultado_label(?string $raw): string
 {
     return match (strtoupper(trim((string)$raw))) {

@@ -35,8 +35,107 @@ function flus_facturacion_request_payload(array $context): array
         'modo' => (string)($context['modo_operacion'] ?? 'demo'),
         'concepto' => (int)($context['concepto'] ?? 1),
         'importe_total' => round((float)($context['importes']['total'] ?? 0), 2),
+        'importe_neto' => round((float)($context['importes']['neto'] ?? 0), 2),
+        'importe_iva' => round((float)($context['importes']['iva'] ?? 0), 2),
+        'importe_exento' => round((float)($context['importes']['exento'] ?? 0), 2),
+        'importe_no_gravado' => round((float)($context['importes']['no_gravado'] ?? 0), 2),
+        'tipo_doc' => (int)($context['doc_data']['tipo'] ?? 0),
+        'nro_doc' => (string)($context['doc_data']['numero'] ?? ''),
+        'condicion_iva_receptor_id' => (int)($context['comprobante']['condicion_iva_receptor_id'] ?? 0),
         'origen_manual' => !empty($context['origen_manual']),
     ];
+}
+
+function flus_facturacion_request_payload_normalize(array $payload): array
+{
+    $docNumero = preg_replace('/\D+/', '', (string)($payload['nro_doc'] ?? $payload['doc_numero'] ?? ''));
+
+    return [
+        'venta_id' => (int)($payload['venta_id'] ?? 0),
+        'documento_id' => (int)($payload['documento_id'] ?? 0),
+        'cliente_id' => (int)($payload['cliente_id'] ?? 0),
+        'tipo_cbte' => (int)($payload['tipo_cbte'] ?? 0),
+        'tipo' => strtoupper(trim((string)($payload['tipo'] ?? ''))),
+        'punto_venta' => (int)($payload['punto_venta'] ?? 0),
+        'numero' => (int)($payload['numero'] ?? 0),
+        'modo' => strtolower(trim((string)($payload['modo'] ?? ''))),
+        'concepto' => (int)($payload['concepto'] ?? 1),
+        'importe_total' => round((float)($payload['importe_total'] ?? $payload['total'] ?? 0), 2),
+        'importe_neto' => round((float)($payload['importe_neto'] ?? 0), 2),
+        'importe_iva' => round((float)($payload['importe_iva'] ?? 0), 2),
+        'importe_exento' => round((float)($payload['importe_exento'] ?? 0), 2),
+        'importe_no_gravado' => round((float)($payload['importe_no_gravado'] ?? 0), 2),
+        'tipo_doc' => (int)($payload['tipo_doc'] ?? $payload['doc_tipo'] ?? 0),
+        'nro_doc' => (string)$docNumero,
+        'condicion_iva_receptor_id' => (int)($payload['condicion_iva_receptor_id'] ?? 0),
+        'origen_manual' => !empty($payload['origen_manual']),
+    ];
+}
+
+function flus_facturacion_snapshot_payload_desde_factura(array $factura, array $evento = []): array
+{
+    $base = [
+        'venta_id' => (int)($factura['venta_id'] ?? 0),
+        'documento_id' => (int)($factura['documento_id'] ?? 0),
+        'cliente_id' => (int)($factura['cliente_id'] ?? 0),
+        'tipo_cbte' => (int)($factura['tipo_cbte'] ?? 0),
+        'tipo' => (string)($factura['tipo'] ?? ''),
+        'punto_venta' => (int)($factura['punto_venta'] ?? 0),
+        'numero' => (int)($factura['numero'] ?? 0),
+        'importe_total' => round((float)($factura['total'] ?? 0), 2),
+        'importe_neto' => round((float)($factura['importe_neto'] ?? 0), 2),
+        'importe_iva' => round((float)($factura['importe_iva'] ?? 0), 2),
+        'importe_exento' => round((float)($factura['importe_exento'] ?? 0), 2),
+        'importe_no_gravado' => round((float)($factura['importe_no_gravado'] ?? 0), 2),
+        'tipo_doc' => (int)($factura['doc_tipo'] ?? 0),
+        'nro_doc' => (string)($factura['doc_numero'] ?? ''),
+        'condicion_iva_receptor_id' => (int)($factura['condicion_iva_receptor_id'] ?? 0),
+        'modo' => (string)($factura['modo'] ?? ''),
+        'concepto' => 1,
+        'origen_manual' => false,
+    ];
+
+    $requestJson = flus_facturacion_json_decode_assoc((string)($evento['request_json'] ?? ''));
+    if ($requestJson !== []) {
+        $base = array_replace($base, $requestJson);
+    }
+
+    return flus_facturacion_request_payload_normalize($base);
+}
+
+function flus_facturacion_request_payload_diff(array $expected, array $actual): array
+{
+    $expected = flus_facturacion_request_payload_normalize($expected);
+    $actual = flus_facturacion_request_payload_normalize($actual);
+    $labels = [
+        'venta_id' => 'venta',
+        'documento_id' => 'documento',
+        'cliente_id' => 'cliente',
+        'tipo_cbte' => 'tipo de comprobante',
+        'tipo' => 'tipo',
+        'punto_venta' => 'punto de venta',
+        'numero' => 'numero',
+        'modo' => 'modo',
+        'concepto' => 'concepto',
+        'importe_total' => 'importe total',
+        'importe_neto' => 'importe neto',
+        'importe_iva' => 'importe IVA',
+        'importe_exento' => 'importe exento',
+        'importe_no_gravado' => 'importe no gravado',
+        'tipo_doc' => 'tipo de documento',
+        'nro_doc' => 'numero de documento',
+        'condicion_iva_receptor_id' => 'condicion IVA receptor',
+        'origen_manual' => 'origen manual',
+    ];
+
+    $diff = [];
+    foreach ($labels as $key => $label) {
+        if (($expected[$key] ?? null) !== ($actual[$key] ?? null)) {
+            $diff[] = $label;
+        }
+    }
+
+    return $diff;
 }
 
 function flus_facturacion_resultado_normalizado(?array $response): ?array

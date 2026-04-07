@@ -1125,6 +1125,9 @@ if (!function_exists('flus_sale_is_annulled')) {
 
 if (!function_exists('flus_sale_can_be_annulled')) {
   function flus_sale_can_be_annulled($ventaOrEstado): bool {
+    if (is_array($ventaOrEstado) && (int)($ventaOrEstado['facturada'] ?? 0) === 1) {
+      return false;
+    }
     return !flus_sale_is_annulled($ventaOrEstado);
   }
 }

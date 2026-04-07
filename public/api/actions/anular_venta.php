@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../bootstrap.php';
 if (!function_exists('insert_dynamic')) { @require_once FLUS_ROOT . '/src/api_helpers.php'; }
 if (!function_exists('getPDO')) { require_once __DIR__ . '/../../../src/db_helpers.php'; }
 require_once FLUS_ROOT . '/src/venta_anulaciones_lib.php';
+require_once FLUS_ROOT . '/src/facturacion_lib.php';
 $pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
 if (!$pdo instanceof PDO) { http_response_code(500); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'error'=>'PDO no disponible']); exit; }
 if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
@@ -108,6 +109,26 @@ try {
   if (!$venta) {
     $pdo->rollBack();
     $__fail('Venta no encontrada', 404);
+  }
+
+  $ventaFacturada = (int)($venta['facturada'] ?? 0) === 1;
+  if (!$ventaFacturada && flus_has_table($pdo, 'facturas') && flus_table_has_column($pdo, 'facturas', 'venta_id')) {
+    $sqlFactura = 'SELECT id FROM facturas WHERE venta_id = ?';
+    if (flus_table_has_column($pdo, 'facturas', 'naturaleza')) {
+      $sqlFactura .= " AND naturaleza = 'FACTURA'";
+    }
+    $sqlFactura .= ' ORDER BY id DESC LIMIT 1';
+    $stFactura = $pdo->prepare($sqlFactura);
+    $stFactura->execute([$ventaId]);
+    $ventaFacturada = $stFactura->fetchColumn() !== false;
+  }
+  if ($ventaFacturada) {
+    $pdo->rollBack();
+    $__fail(
+      'La venta ya tiene comprobante fiscal. Debes revertirla por Nota de Credito, no por anulacion comun.',
+      409,
+      ['error_code' => 'VENTA_FACTURADA']
+    );
   }
 
   $ventaYaAnulada = function_exists('flus_sale_is_annulled')
@@ -217,5 +238,6 @@ try {
 
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) $pdo->rollBack();
-  $__fail('DB_ERROR', 500, ['detail' => $e->getMessage()]);
+  error_log('anular_venta: ' . $e->getMessage());
+  $__fail('No se pudo anular la venta.', 500, ['error_code' => 'DB_ERROR']);
 }

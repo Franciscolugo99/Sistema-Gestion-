@@ -7,6 +7,7 @@ require_perm_json('ver_reportes');
 
 require_once __DIR__ . '/kpis_categoria_helper.php';
 require_once __DIR__ . '/../../src/db_helpers.php';
+require_once __DIR__ . '/../../src/venta_anulaciones_lib.php';
 
 /**
  * Obtiene y cachea el filtro de categoría cuando se usa (lazy).
@@ -163,6 +164,19 @@ if ($hasDescuentoTotal && $hasDescuentoMonto) {
 } elseif ($hasDescuentoMonto) {
   $descExpr = 'COALESCE(v.descuento_monto, 0)';
 }
+$hasVentaAnulaciones = has_table($pdo, 'venta_anulaciones');
+$hasMontoCC = has_column($pdo, 'ventas', 'monto_cc');
+$anulacionesJoin = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
+$importeVigenteExpr = $hasVentaAnulaciones
+  ? flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
+  : 'v.total';
+$ratioVigenteExpr = $hasVentaAnulaciones
+  ? flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
+  : '1';
+$descuentoVigenteExpr = '(' . $descExpr . ') * ' . $ratioVigenteExpr;
+$montoAnuladoExpr = $hasVentaAnulaciones
+  ? "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE COALESCE(vaa.monto_anulado_total, 0) END"
+  : "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE 0 END";
 
 /* =========================
    KPIs
@@ -172,9 +186,10 @@ try {
   $sql = "
     SELECT
       COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN 1 ELSE 0 END),0) AS tickets,
-      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN v.total ELSE 0 END),0) AS facturacion,
-      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN $descExpr ELSE 0 END),0) AS descuentos
+      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN $importeVigenteExpr ELSE 0 END),0) AS facturacion,
+      COALESCE(SUM(CASE WHEN (v.estado IS NULL OR v.estado <> 'ANULADA') THEN $descuentoVigenteExpr ELSE 0 END),0) AS descuentos
     FROM ventas v
+    $anulacionesJoin
     WHERE $whereSQL
   ";
   $sql = apply_catfilter_to_sql($sql, __catFilter($pdo));
@@ -190,9 +205,10 @@ try {
   // Anuladas
   $sqlA = "
     SELECT
-      COALESCE(SUM(CASE WHEN v.estado='ANULADA' THEN 1 ELSE 0 END),0) AS anuladas,
-      COALESCE(SUM(CASE WHEN v.estado='ANULADA' THEN v.total ELSE 0 END),0) AS monto_anulado
+      COALESCE(SUM(CASE WHEN v.estado IS NOT NULL AND UPPER(v.estado) LIKE '%ANUL%' THEN 1 ELSE 0 END),0) AS anuladas,
+      COALESCE(SUM(CASE WHEN v.estado IS NOT NULL AND UPPER(v.estado) LIKE '%ANUL%' THEN $montoAnuladoExpr ELSE 0 END),0) AS monto_anulado
     FROM ventas v
+    $anulacionesJoin
     WHERE $whereSQL
   ";
   $sqlA = apply_catfilter_to_sql($sqlA, __catFilter($pdo));
@@ -207,9 +223,10 @@ try {
   $desc_promos = 0.0;
   if ($hasVentaPromos) {
     $sqlP = "
-      SELECT COALESCE(SUM(vp.descuento_monto),0) AS desc_promos
+      SELECT COALESCE(SUM(vp.descuento_monto * $ratioVigenteExpr),0) AS desc_promos
       FROM venta_promos vp
       JOIN ventas v ON v.id = vp.venta_id
+      $anulacionesJoin
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
     ";
     $sqlP = apply_catfilter_to_sql($sqlP, __catFilter($pdo));
@@ -221,9 +238,10 @@ try {
   // Pagos por medio (solo emitidas)
   if ($hasVentaPagos) {
     $sqlM = "
-      SELECT UPPER(p.medio_pago) AS medio, COALESCE(SUM(p.monto),0) AS total
+      SELECT UPPER(p.medio_pago) AS medio, COALESCE(SUM(p.monto * $ratioVigenteExpr),0) AS total
       FROM venta_pagos p
       JOIN ventas v ON v.id = p.venta_id
+      $anulacionesJoin
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       GROUP BY UPPER(p.medio_pago)
       ORDER BY total DESC
@@ -234,8 +252,9 @@ try {
     $pagos = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
   } else {
     $sqlM = "
-      SELECT UPPER(v.medio_pago) AS medio, COALESCE(SUM(v.total),0) AS total
+      SELECT UPPER(v.medio_pago) AS medio, COALESCE(SUM($importeVigenteExpr),0) AS total
       FROM ventas v
+      $anulacionesJoin
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       GROUP BY UPPER(v.medio_pago)
       ORDER BY total DESC

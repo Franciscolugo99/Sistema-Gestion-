@@ -19,6 +19,8 @@ $msgErr = trim((string)($_GET['msgerr'] ?? ''));
 $focusFacturaId = max(0, (int)($_GET['factura_id'] ?? 0));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_any_permission(['emitir_factura', 'administrar_config']);
+
     if (!csrf_verify($_POST['csrf_token'] ?? null)) {
         header('Location: facturacion_recovery.php?msgerr=' . urlencode('Sesión vencida (CSRF). Recargá e intentá de nuevo.'));
         exit;

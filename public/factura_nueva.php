@@ -26,12 +26,10 @@ if (!flus_table_exists($pdo, 'ventas')) {
     exit;
 }
 
-$stVenta = $pdo->prepare('
-    SELECT id, fecha, total
-    FROM ventas
-    WHERE id = ?
-    LIMIT 1
-');
+$ventaSelect = 'SELECT id, fecha, total, estado';
+$ventaSelect .= flus_column_exists($pdo, 'ventas', 'facturada') ? ', facturada' : ', 0 AS facturada';
+$ventaSelect .= ' FROM ventas WHERE id = ? LIMIT 1';
+$stVenta = $pdo->prepare($ventaSelect);
 $stVenta->execute([$ventaId]);
 $venta = $stVenta->fetch(PDO::FETCH_ASSOC);
 
@@ -43,6 +41,13 @@ if (!$venta) {
 $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
 if ($facturaExistenteId !== null && !isset($_GET['force'])) {
     header('Location: factura_ver.php?id=' . $facturaExistenteId);
+    exit;
+}
+
+try {
+    flus_facturacion_assert_venta_emitible($venta);
+} catch (Throwable $e) {
+    header('Location: venta_detalle.php?id=' . $ventaId . '&fact_error=' . urlencode($e->getMessage()));
     exit;
 }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
+require_once __DIR__ . '/../src/venta_anulaciones_lib.php';
 
 // permiso
 require_permission('cerrar_caja');
@@ -100,13 +101,16 @@ $totDebito       = (float)($caja['total_debito'] ?? 0);
 $totCredito      = (float)($caja['total_credito'] ?? 0);
 $hasTransferCol  = col_exists($pdo, 'caja_sesiones', 'total_transferencia');
 $totTransferencia = $hasTransferCol ? (float)($caja['total_transferencia'] ?? 0) : 0;
+$anulacionesJoinVentas = flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa');
+$importeVigenteExpr = flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
 
 // Total ventas (para mostrar, no para calcular caja)
 $stmt = $pdo->prepare("
-  SELECT COALESCE(SUM(total),0)
-  FROM ventas
-  WHERE caja_id = ?
-    AND (estado IS NULL OR estado <> 'ANULADA')
+  SELECT COALESCE(SUM($importeVigenteExpr),0)
+  FROM ventas v
+  $anulacionesJoinVentas
+  WHERE v.caja_id = ?
+    AND (v.estado IS NULL OR v.estado <> 'ANULADA')
 ");
 $stmt->execute([$cajaId]);
 $totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
@@ -115,21 +119,26 @@ $totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
 $hasMontoCC = col_exists($pdo, 'ventas', 'monto_cc');
 $totalVentasCC = 0.0;
 if ($hasMontoCC) {
+  $montoCCVigenteExpr = flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
   $stmt = $pdo->prepare("
-    SELECT COALESCE(SUM(monto_cc),0)
-    FROM ventas
-    WHERE caja_id = ?
-      AND (estado IS NULL OR estado <> 'ANULADA')
+    SELECT COALESCE(SUM($montoCCVigenteExpr),0)
+    FROM ventas v
+    $anulacionesJoinVentas
+    WHERE v.caja_id = ?
+      AND (v.estado IS NULL OR v.estado <> 'ANULADA')
   ");
   $stmt->execute([$cajaId]);
   $totalVentasCC = (float)($stmt->fetchColumn() ?: 0.0);
 }
 
 // Ítems vendidos del turno (solo EMITIDA/NULL)
+$anulacionesItemsJoin = flus_venta_items_anulados_join_sql($pdo, 'vi', 'vaix');
+$cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
 $stmt = $pdo->prepare("
-  SELECT COALESCE(SUM(vi.cantidad),0) AS cant
+  SELECT COALESCE(SUM($cantidadVigenteExpr),0) AS cant
   FROM ventas v
   JOIN venta_items vi ON vi.venta_id = v.id
+  $anulacionesItemsJoin
   WHERE v.caja_id = ?
     AND (v.estado IS NULL OR v.estado <> 'ANULADA')
 ");

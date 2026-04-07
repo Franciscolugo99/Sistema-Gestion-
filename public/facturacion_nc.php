@@ -167,7 +167,7 @@ function nc_fetch_candidate_facturas(PDO $pdo, string $search, int $ventaIdFiltr
     $st->execute();
 
     $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    return array_values(array_filter($rows, static fn(array $row): bool => nc_is_factura_origen($row)));
+    return array_values(array_filter($rows, static fn(array $row): bool => nc_is_factura_origen($row) && flus_facturacion_factura_apta_para_nc($row)));
 }
 
 /**
@@ -486,7 +486,8 @@ foreach ($facturaItems as $row) {
 }
 
 $modoActual  = flus_facturacion_modo_label(flus_facturacion_modo_actual(flus_facturacion_config_activa($pdo) ?? []));
-$canEmitir   = $factura && (int)($factura['venta_id'] ?? 0) > 0 && $saldoFiscalTotal > 0.009;
+$facturaAptaNc = is_array($factura) && flus_facturacion_factura_apta_para_nc($factura);
+$canEmitir   = $facturaAptaNc && (int)($factura['venta_id'] ?? 0) > 0 && $saldoFiscalTotal > 0.009;
 $ventaEstado = trim((string)($factura['venta_estado'] ?? ''));
 $facturaLabel = '';
 if ($factura) {
@@ -754,6 +755,13 @@ require __DIR__ . '/partials/header.php';
             <div class="nc-alert nc-alert--warn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span>Esta factura no tiene una venta vinculada en FLUS. La emisión automática de NC desde la UI requiere <code>venta_id</code>.</span>
+            </div>
+          <?php endif; ?>
+
+          <?php if ($factura && !$facturaAptaNc): ?>
+            <div class="nc-alert nc-alert--warn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>La factura origen todavia no esta autorizada fiscalmente o no tiene CAE valido. Resuelve ese comprobante antes de emitir una NC.</span>
             </div>
           <?php endif; ?>
 

@@ -13,6 +13,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
     public function procesarTotal(int $ventaId, int $usuarioId, string $motivo, array $options = []): AnulacionFiscalOutcome
     {
         $requestUid = $options['request_uid'] ?? $this->uuid4();
+        $facturaOrigenIdOption = max(0, (int)($options['factura_origen_id'] ?? $options['factura_id'] ?? 0));
         $anulacionId = 0;
         $facturaOrigenId = null;
         $itemsRestantes = [];
@@ -40,10 +41,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             if (!$venta) {
                 throw new RuntimeException('Venta no encontrada.');
             }
-            $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
-            if (!$facturaOrigen) {
-                throw new RuntimeException('No se encontro la factura original.');
-            }
+            $facturaOrigen = $this->resolveFacturaOrigen($ventaId, $facturaOrigenIdOption);
 
             if (strtoupper((string)($venta['estado'] ?? 'EMITIDA')) === 'ANULADA') {
                 throw new RuntimeException('La venta ya esta anulada.');
@@ -142,6 +140,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         // Fuera TX: llamar ARCA / demo
         $resultadoNc = $this->notaCreditoService->emitir(EmitirNotaCreditoCommand::fromArray([
             'venta_id' => $ventaId,
+            'factura_origen_id' => $facturaOrigenId,
             'venta_anulacion_id' => $anulacionId,
             'usuario_id' => $usuarioId,
             'scope' => 'TOTAL',
@@ -286,6 +285,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
     public function procesarParcial(int $ventaId, array $items, int $usuarioId, string $motivo, array $options = []): AnulacionFiscalOutcome
     {
         $requestUid = $options['request_uid'] ?? $this->uuid4();
+        $facturaOrigenIdOption = max(0, (int)($options['factura_origen_id'] ?? $options['factura_id'] ?? 0));
         $requestedItems = $this->normalizePartialRequestItems($items);
 
         if ($requestedItems === []) {
@@ -320,7 +320,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                 throw new RuntimeException('Venta no encontrada.');
             }
 
-            $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
+            $facturaOrigen = $this->resolveFacturaOrigen($ventaId, $facturaOrigenIdOption);
             if (!$facturaOrigen) {
                 throw new RuntimeException('No se encontró la factura original asociada a la venta.');
             }
@@ -444,6 +444,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         // fuera de TX: emitir NC parcial
         $resultadoNc = $this->notaCreditoService->emitir(EmitirNotaCreditoCommand::fromArray([
             'venta_id' => $ventaId,
+            'factura_origen_id' => $facturaOrigenId,
             'venta_anulacion_id' => $anulacionId,
             'usuario_id' => $usuarioId,
             'scope' => 'PARTIAL',
@@ -636,6 +637,28 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             : 'NC parcial emitida y anulación parcial aplicada.';
 
         return $out;
+    }
+
+    private function resolveFacturaOrigen(int $ventaId, int $facturaOrigenId): array
+    {
+        if ($facturaOrigenId <= 0) {
+            throw new RuntimeException('Debes indicar explicitamente la factura origen para la NC.');
+        }
+
+        $facturaOrigen = $this->repository->findFacturaById($facturaOrigenId);
+        if (!$facturaOrigen) {
+            throw new RuntimeException('No se encontro la factura origen seleccionada.');
+        }
+
+        if ((int)($facturaOrigen['venta_id'] ?? 0) !== $ventaId) {
+            throw new RuntimeException('La factura origen seleccionada no corresponde a la venta indicada.');
+        }
+
+        if (!flus_facturacion_factura_apta_para_nc($facturaOrigen)) {
+            throw new RuntimeException('La factura origen debe estar autorizada fiscalmente y con CAE valido antes de emitir una NC.');
+        }
+
+        return $facturaOrigen;
     }
 
     /**

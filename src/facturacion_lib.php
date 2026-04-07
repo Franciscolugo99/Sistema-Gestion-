@@ -644,6 +644,8 @@ function flus_facturacion_preparar_contexto_desde_venta(PDO $pdo, int $ventaId, 
         throw new Exception('Venta no encontrada.');
     }
 
+    flus_facturacion_assert_venta_emitible($venta);
+
     $printItemCount = flus_facturacion_count_items_venta($pdo, $ventaId);
     flus_facturacion_assert_print_item_limit($printItemCount);
 
@@ -1303,6 +1305,8 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
     $clienteId = (int)($factura['cliente_id'] ?? 0);
     $documentoId = (int)($factura['documento_id'] ?? 0);
     $ventaId = (int)($factura['venta_id'] ?? 0);
+    $eventoArca = $requestUid !== '' ? $repo->findArcaEventByRequestUid($requestUid) : null;
+    $snapshotPayload = flus_facturacion_snapshot_payload_desde_factura($factura, is_array($eventoArca) ? $eventoArca : []);
 
     if ($clienteId <= 0 && $documentoId > 0) {
         $documento = flus_facturacion_documento_buscar($pdo, $documentoId);
@@ -1316,27 +1320,29 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
     if ($clienteId <= 0) {
         throw new RuntimeException('La factura no tiene cliente suficiente para rearmar el contexto fiscal.');
     }
-
-    $baseOpciones = $opciones;
-    if ($requestUid !== '') {
-        $baseOpciones['request_uid'] = $requestUid;
-    }
-
+    $baseOpciones = $requestUid !== '' ? ($opciones + ['request_uid' => $requestUid]) : $opciones;
     if ($documentoId > 0) {
-        $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + [
-            'origen_regularizacion' => true,
-        ]);
+        $contextoActual = flus_facturacion_preparar_contexto_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } elseif ($ventaId > 0) {
-        $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + [
-            'origen_regularizacion' => true,
-        ]);
+        $contextoActual = flus_facturacion_preparar_contexto_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
+    } else {
+        throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automÃƒÂ¡ticamente.');
+    }
+    $payloadActual = flus_facturacion_request_payload($contextoActual);
+    $snapshotDiff = flus_facturacion_request_payload_diff($snapshotPayload, $payloadActual);
+    if ($snapshotDiff !== []) {
+        throw new RuntimeException(
+            'La factura cambiÃƒÂ³ desde el intento fiscal original (' . implode(', ', $snapshotDiff) . '). Requiere revisiÃƒÂ³n manual antes de regularizar.'
+        );
+    }
+    if ($documentoId > 0) {
+        $registro = flus_facturacion_asegurar_registro_desde_documento($pdo, $documentoId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
+    } elseif ($ventaId > 0) {
+        $registro = flus_facturacion_asegurar_registro_desde_venta($pdo, $ventaId, $clienteId, $baseOpciones + ['origen_regularizacion' => true]);
     } else {
         throw new RuntimeException('La factura no tiene venta ni documento asociado para regularizar automÃ¡ticamente.');
     }
-
-    return flus_facturacion_procesar_factura_registrada($pdo, $registro, $baseOpciones + [
-        'origen_regularizacion' => true,
-    ]);
+    return flus_facturacion_procesar_factura_registrada($pdo, $registro, $baseOpciones + ['origen_regularizacion' => true]);
 }
 
 function regularizarFacturaFiscal(int $facturaId, array $opciones = []): int

@@ -58,7 +58,16 @@ try {
 } catch (Throwable $e) {
     $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
     if ($facturaExistenteId !== null) {
-        header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
+        $stFactura = $pdo->prepare('SELECT id, cae, estado_fiscal FROM facturas WHERE id = ? LIMIT 1');
+        $stFactura->execute([$facturaExistenteId]);
+        $facturaExistente = $stFactura->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if (is_array($facturaExistente) && flus_facturacion_factura_emitida_ok($facturaExistente)) {
+            header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
+            exit;
+        }
+
+        header('Location: factura_ver.php?id=' . $facturaExistenteId);
         exit;
     }
 

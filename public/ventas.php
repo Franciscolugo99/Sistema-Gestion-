@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
+require_once __DIR__ . '/../src/venta_anulaciones_lib.php';
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
@@ -45,6 +46,19 @@ $hasVentaAnulaciones = has_table($pdo, 'venta_anulaciones');
 
 // Columna de descuento (compat: descuento_monto / descuento_total / ninguno)
 $descuentoCol = $hasDescuentoMonto ? 'v.descuento_monto' : ($hasDescuentoTotal ? 'v.descuento_total' : '0');
+$anulacionesJoinMetricas = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
+$importeVigenteExpr = $hasVentaAnulaciones
+  ? flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
+  : 'v.total';
+$montoCCVigenteExpr = ($hasVentaAnulaciones && $hasMontoCC)
+  ? flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
+  : ($hasMontoCC ? 'COALESCE(v.monto_cc, 0)' : '0');
+$descuentoVigenteExpr = $hasVentaAnulaciones
+  ? '(' . $descuentoCol . ') * ' . flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
+  : $descuentoCol;
+$montoAnuladoExpr = $hasVentaAnulaciones
+  ? "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE COALESCE(vaa.monto_anulado_total, 0) END"
+  : "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE 0 END";
 
 
 /* =========================
@@ -247,8 +261,9 @@ try {
   if ($hayFiltros) {
     // KPIs del periodo
     $stFiltrado = $pdo->prepare("
-      SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+      SELECT COUNT(*) as cnt, COALESCE(SUM($importeVigenteExpr),0) as sum 
       FROM ventas v 
+      $anulacionesJoinMetricas
       WHERE $whereSQL AND (v.estado IS NULL OR v.estado <> 'ANULADA')
     ");
     $stFiltrado->execute($params);
@@ -259,9 +274,10 @@ try {
     
     // Anuladas en el periodo
     $stAnuladas = $pdo->prepare("
-      SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+      SELECT COUNT(*) as cnt, COALESCE(SUM($montoAnuladoExpr),0) as sum 
       FROM ventas v 
-      WHERE $whereSQL AND v.estado = 'ANULADA'
+      $anulacionesJoinMetricas
+      WHERE $whereSQL AND v.estado IS NOT NULL AND UPPER(v.estado) LIKE '%ANUL%'
     ");
     $stAnuladas->execute($params);
     $rowAnuladas = $stAnuladas->fetch(PDO::FETCH_ASSOC);
@@ -319,8 +335,9 @@ try {
       $whereAnterior = implode(' AND ', $wherePartsAnterior);
       
       $stAnterior = $pdo->prepare("
-        SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum 
+        SELECT COUNT(*) as cnt, COALESCE(SUM($importeVigenteExpr),0) as sum 
         FROM ventas v 
+        $anulacionesJoinMetricas
         WHERE $whereAnterior AND (v.estado IS NULL OR v.estado <> 'ANULADA')
       ");
       $stAnterior->execute($paramsAnterior);
@@ -360,8 +377,8 @@ try {
     $ayer = date('Y-m-d', strtotime('-1 day'));
     
     // Ventas de hoy (total facturado y total que entro por caja)
-    $selectMontoCCHoy = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
-    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCHoy FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado <> 'ANULADA')");
+    $selectMontoCCHoy = $hasMontoCC ? ", COALESCE(SUM($montoCCVigenteExpr),0) as sum_cc" : ", 0 as sum_cc";
+    $stHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM($importeVigenteExpr),0) as sum $selectMontoCCHoy FROM ventas v $anulacionesJoinMetricas WHERE DATE(v.fecha) = ? AND (v.estado IS NULL OR v.estado <> 'ANULADA')");
     $stHoy->execute([$hoy]);
     $rowHoy = $stHoy->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_hoy'] = (int)$rowHoy['cnt'];
@@ -371,15 +388,15 @@ try {
     $stats['avg_hoy'] = $stats['cnt_hoy'] > 0 ? $stats['sum_hoy'] / $stats['cnt_hoy'] : 0;
     
     // Anuladas hoy
-    $stAnuladasHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum FROM ventas WHERE DATE(fecha) = ? AND estado = 'ANULADA'");
+    $stAnuladasHoy = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM($montoAnuladoExpr),0) as sum FROM ventas v $anulacionesJoinMetricas WHERE DATE(v.fecha) = ? AND v.estado IS NOT NULL AND UPPER(v.estado) LIKE '%ANUL%'");
     $stAnuladasHoy->execute([$hoy]);
     $rowAnuladasHoy = $stAnuladasHoy->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_anuladas'] = (int)$rowAnuladasHoy['cnt'];
     $stats['sum_anuladas'] = (float)$rowAnuladasHoy['sum'];
     
     // Ventas de ayer
-    $selectMontoCCAyer = $hasMontoCC ? ", COALESCE(SUM(monto_cc),0) as sum_cc" : ", 0 as sum_cc";
-    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as sum $selectMontoCCAyer FROM ventas WHERE DATE(fecha) = ? AND (estado IS NULL OR estado <> 'ANULADA')");
+    $selectMontoCCAyer = $hasMontoCC ? ", COALESCE(SUM($montoCCVigenteExpr),0) as sum_cc" : ", 0 as sum_cc";
+    $stAyer = $pdo->prepare("SELECT COUNT(*) as cnt, COALESCE(SUM($importeVigenteExpr),0) as sum $selectMontoCCAyer FROM ventas v $anulacionesJoinMetricas WHERE DATE(v.fecha) = ? AND (v.estado IS NULL OR v.estado <> 'ANULADA')");
     $stAyer->execute([$ayer]);
     $rowAyer = $stAyer->fetch(PDO::FETCH_ASSOC);
     $stats['cnt_ayer'] = (int)$rowAyer['cnt'];
@@ -448,8 +465,9 @@ try {
 
   $chartWhereSQL = implode(' AND ', $chartWhereParts);
   $st = $pdo->prepare("
-    SELECT DATE(v.fecha) as dia, COUNT(*) as cnt, COALESCE(SUM(v.total), 0) as sum
+    SELECT DATE(v.fecha) as dia, COUNT(*) as cnt, COALESCE(SUM($importeVigenteExpr), 0) as sum
     FROM ventas v
+    $anulacionesJoinMetricas
     WHERE $chartWhereSQL
     GROUP BY DATE(v.fecha)
     ORDER BY dia
@@ -530,17 +548,7 @@ $vendedorSelect = ($joinVendedor !== '')
 $terminalJoin = $hasTerminalId ? "LEFT JOIN terminales t ON t.id = v.terminal_id" : '';
 $terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
 $montoCCSelect = $hasMontoCC ? 'COALESCE(v.monto_cc, 0) AS monto_cc,' : '0 AS monto_cc,';
-$anulacionesJoin = $hasVentaAnulaciones
-  ? "LEFT JOIN (
-      SELECT venta_id,
-             COALESCE(SUM(monto_total), 0) AS monto_anulado_total,
-             COUNT(*) AS anulaciones_count,
-             MAX(anulado_en) AS ultima_anulacion_en
-      FROM venta_anulaciones
-      WHERE estado = 'CONFIRMADA'
-      GROUP BY venta_id
-    ) vaa ON vaa.venta_id = v.id"
-  : '';
+$anulacionesJoin = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
 $anulacionesSelect = $hasVentaAnulaciones
   ? 'COALESCE(vaa.monto_anulado_total, 0) AS monto_anulado_total, COALESCE(vaa.anulaciones_count, 0) AS anulaciones_count, vaa.ultima_anulacion_en,'
   : '0 AS monto_anulado_total, 0 AS anulaciones_count, NULL AS ultima_anulacion_en,';

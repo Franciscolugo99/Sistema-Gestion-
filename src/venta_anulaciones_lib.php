@@ -10,6 +10,119 @@ if (!function_exists('flus_venta_anulaciones_habilitadas')) {
     }
 }
 
+if (!function_exists('flus_venta_anulaciones_confirmadas_where_sql')) {
+    function flus_venta_anulaciones_confirmadas_where_sql(PDO $pdo, string $alias = 'va'): string
+    {
+        $where = ['1=1'];
+
+        if (flus_column_exists($pdo, 'venta_anulaciones', 'estado')) {
+            $permitidos = ["{$alias}.estado = 'CONFIRMADA'"];
+
+            if (
+                flus_column_exists($pdo, 'venta_anulaciones', 'requiere_nc')
+                && flus_column_exists($pdo, 'venta_anulaciones', 'estado_fiscal')
+            ) {
+                $permitidos[] = "(COALESCE({$alias}.requiere_nc, 0) = 1 AND COALESCE({$alias}.estado_fiscal, 'NO_APLICA') IN ('APROBADA_PENDIENTE_APLICACION', 'APLICADA', 'ERROR_POST_ARCA'))";
+            }
+
+            $where[] = '(' . implode(' OR ', $permitidos) . ')';
+        }
+
+        return implode(' AND ', $where);
+    }
+}
+
+if (!function_exists('flus_venta_anulaciones_totales_join_sql')) {
+    function flus_venta_anulaciones_totales_join_sql(PDO $pdo, string $ventaAlias = 'v', string $joinAlias = 'vaa'): string
+    {
+        if (!flus_table_exists($pdo, 'venta_anulaciones')) {
+            return '';
+        }
+
+        $where = flus_venta_anulaciones_confirmadas_where_sql($pdo, 'va');
+
+        return "LEFT JOIN (
+            SELECT va.venta_id,
+                   COALESCE(SUM(va.monto_total), 0) AS monto_anulado_total,
+                   COUNT(*) AS anulaciones_count,
+                   MAX(va.anulado_en) AS ultima_anulacion_en
+            FROM venta_anulaciones va
+            WHERE {$where}
+            GROUP BY va.venta_id
+        ) {$joinAlias} ON {$joinAlias}.venta_id = {$ventaAlias}.id";
+    }
+}
+
+if (!function_exists('flus_venta_importe_vigente_expr_sql')) {
+    function flus_venta_importe_vigente_expr_sql(string $ventaTotalExpr = 'v.total', string $montoAnuladoExpr = 'COALESCE(vaa.monto_anulado_total, 0)'): string
+    {
+        return "GREATEST(({$ventaTotalExpr}) - ({$montoAnuladoExpr}), 0)";
+    }
+}
+
+if (!function_exists('flus_venta_ratio_vigente_expr_sql')) {
+    function flus_venta_ratio_vigente_expr_sql(string $ventaTotalExpr = 'v.total', string $montoAnuladoExpr = 'COALESCE(vaa.monto_anulado_total, 0)'): string
+    {
+        $importeExpr = flus_venta_importe_vigente_expr_sql($ventaTotalExpr, $montoAnuladoExpr);
+
+        return "(CASE WHEN COALESCE(({$ventaTotalExpr}), 0) > 0 THEN {$importeExpr} / ({$ventaTotalExpr}) ELSE 0 END)";
+    }
+}
+
+if (!function_exists('flus_venta_cc_vigente_expr_sql')) {
+    function flus_venta_cc_vigente_expr_sql(string $montoCcExpr = 'COALESCE(v.monto_cc, 0)', string $ventaTotalExpr = 'v.total', string $montoAnuladoExpr = 'COALESCE(vaa.monto_anulado_total, 0)'): string
+    {
+        $ratioExpr = flus_venta_ratio_vigente_expr_sql($ventaTotalExpr, $montoAnuladoExpr);
+
+        return "GREATEST(({$montoCcExpr}) * {$ratioExpr}, 0)";
+    }
+}
+
+if (!function_exists('flus_venta_items_anulados_join_sql')) {
+    function flus_venta_items_anulados_join_sql(PDO $pdo, string $ventaItemAlias = 'vi', string $joinAlias = 'vaix'): string
+    {
+        if (!flus_venta_anulaciones_habilitadas($pdo)) {
+            return '';
+        }
+
+        $where = flus_venta_anulaciones_confirmadas_where_sql($pdo, 'va');
+
+        return "LEFT JOIN (
+            SELECT vai.venta_item_id,
+                   COALESCE(SUM(vai.cantidad_anulada), 0) AS cantidad_anulada_total
+            FROM venta_anulacion_items vai
+            JOIN venta_anulaciones va ON va.id = vai.anulacion_id
+            WHERE {$where}
+            GROUP BY vai.venta_item_id
+        ) {$joinAlias} ON {$joinAlias}.venta_item_id = {$ventaItemAlias}.id";
+    }
+}
+
+if (!function_exists('flus_venta_cantidad_vigente_expr_sql')) {
+    function flus_venta_cantidad_vigente_expr_sql(string $cantidadExpr = 'vi.cantidad', string $cantidadAnuladaExpr = 'COALESCE(vaix.cantidad_anulada_total, 0)'): string
+    {
+        return "GREATEST(({$cantidadExpr}) - ({$cantidadAnuladaExpr}), 0)";
+    }
+}
+
+if (!function_exists('flus_venta_item_ratio_vigente_expr_sql')) {
+    function flus_venta_item_ratio_vigente_expr_sql(string $cantidadExpr = 'vi.cantidad', string $cantidadAnuladaExpr = 'COALESCE(vaix.cantidad_anulada_total, 0)'): string
+    {
+        $cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql($cantidadExpr, $cantidadAnuladaExpr);
+
+        return "(CASE WHEN COALESCE(({$cantidadExpr}), 0) > 0 THEN {$cantidadVigenteExpr} / ({$cantidadExpr}) ELSE 0 END)";
+    }
+}
+
+if (!function_exists('flus_venta_item_subtotal_vigente_expr_sql')) {
+    function flus_venta_item_subtotal_vigente_expr_sql(string $subtotalExpr = 'vi.subtotal', string $cantidadExpr = 'vi.cantidad', string $cantidadAnuladaExpr = 'COALESCE(vaix.cantidad_anulada_total, 0)'): string
+    {
+        $ratioExpr = flus_venta_item_ratio_vigente_expr_sql($cantidadExpr, $cantidadAnuladaExpr);
+
+        return "({$subtotalExpr}) * {$ratioExpr}";
+    }
+}
+
 if (!function_exists('flus_venta_items_cargar')) {
     function flus_venta_items_cargar(PDO $pdo, int $ventaId): array
     {

@@ -166,7 +166,7 @@ if ($cajaSesion) {
     SELECT COUNT(*)
     FROM ventas
     WHERE caja_id = ?
-      AND (estado IS NULL OR UPPER(estado) NOT LIKE '%ANUL%')
+      AND (estado IS NULL OR estado <> 'ANULADA')
   ");
   $stVentasCount->execute([(int)$cajaSesion['id']]);
   $ventasActivasCount = (int)$stVentasCount->fetchColumn();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 final class EmitirNotaCreditoCommand
 {
     public int $ventaId = 0;
+    public int $facturaOrigenId = 0;
     public int $ventaAnulacionId = 0;
     public int $usuarioId = 0;
     public string $scope = 'TOTAL';
@@ -22,6 +23,7 @@ final class EmitirNotaCreditoCommand
     {
         $dto = new self();
         $dto->ventaId = (int)($data['ventaId'] ?? $data['venta_id'] ?? 0);
+        $dto->facturaOrigenId = (int)($data['facturaOrigenId'] ?? $data['factura_origen_id'] ?? 0);
         $dto->ventaAnulacionId = (int)($data['ventaAnulacionId'] ?? $data['venta_anulacion_id'] ?? 0);
         $dto->usuarioId = (int)($data['usuarioId'] ?? $data['usuario_id'] ?? 0);
         $dto->scope = strtoupper(trim((string)($data['scope'] ?? 'TOTAL')));
@@ -41,6 +43,7 @@ final class EmitirNotaCreditoCommand
     {
         return [
             'venta_id' => $this->ventaId,
+            'factura_origen_id' => $this->facturaOrigenId,
             'venta_anulacion_id' => $this->ventaAnulacionId,
             'usuario_id' => $this->usuarioId,
             'scope' => $this->scope,

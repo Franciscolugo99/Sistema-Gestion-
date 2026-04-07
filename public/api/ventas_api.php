@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/secure_actions_guard.php';
+require_once __DIR__ . '/../../src/venta_anulaciones_lib.php';
 
 /* =========================
    Helpers de consistencia
@@ -32,6 +33,18 @@ function hasVentaPagos(PDO $pdo): bool {
     }
   }
   return $cache;
+}
+
+function flus_ventas_api_anulaciones_join(PDO $pdo, string $ventaAlias = 'v', string $joinAlias = 'vaa'): string {
+  return flus_venta_anulaciones_totales_join_sql($pdo, $ventaAlias, $joinAlias);
+}
+
+function flus_ventas_api_importe_vigente_expr(): string {
+  return flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
+}
+
+function flus_ventas_api_ratio_vigente_expr(): string {
+  return flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
 }
 require_once __DIR__ . '/kpis_categoria_helper.php';
 
@@ -362,10 +375,11 @@ try {
       $anulacionesCount = 0;
       try {
         if ($tableExists('venta_anulaciones')) {
+          $anulacionesWhere = flus_venta_anulaciones_confirmadas_where_sql($pdo, 'va');
           $stAn = $pdo->prepare("
             SELECT COALESCE(SUM(monto_total), 0) AS monto_anulado, COUNT(*) AS anulaciones_count
-            FROM venta_anulaciones
-            WHERE venta_id = ? AND estado = 'CONFIRMADA'
+            FROM venta_anulaciones va
+            WHERE va.venta_id = ? AND {$anulacionesWhere}
           ");
           $stAn->execute([$id]);
           $anData = $stAn->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -506,19 +520,21 @@ try {
     // =============================================
     case 'stats_ventas_por_dia':
       require_login();
-      
+      $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
       $whereEmitida = whereEmitida('');
       // Nota: sin alias porque la tabla es directa
       $stmt = $pdo->query("
         SELECT 
-          DATE(fecha) AS fecha,
+          DATE(v.fecha) AS fecha,
           COUNT(*) AS cantidad,
-          SUM(total) AS total
-        FROM ventas
+          SUM($importeVigenteExpr) AS total
+        FROM ventas v
+        $anulacionesJoin
         WHERE 
-          fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-          AND (estado IS NULL OR estado <> 'ANULADA')
-        GROUP BY DATE(fecha)
+          v.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          AND " . whereEmitida('v') . "
+        GROUP BY DATE(v.fecha)
         ORDER BY fecha ASC
       ");
 
@@ -539,6 +555,9 @@ try {
       
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
+      $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
+      $ratioVigenteExpr = flus_ventas_api_ratio_vigente_expr();
 
       $params = [];
       $whereParts = [whereEmitida('v')];
@@ -561,9 +580,10 @@ try {
           SELECT 
             UPPER(vp.medio_pago) AS medio_pago,
             COUNT(DISTINCT vp.venta_id) AS cantidad,
-            SUM(vp.monto) AS total
+            SUM(vp.monto * $ratioVigenteExpr) AS total
           FROM venta_pagos vp
           JOIN ventas v ON v.id = vp.venta_id
+          $anulacionesJoin
           WHERE {$whereSQL}
           GROUP BY UPPER(vp.medio_pago)
           ORDER BY total DESC
@@ -573,8 +593,9 @@ try {
           SELECT 
             UPPER(v.medio_pago) AS medio_pago,
             COUNT(*) AS cantidad,
-            SUM(v.total) AS total
+            SUM($importeVigenteExpr) AS total
           FROM ventas v
+          $anulacionesJoin
           WHERE {$whereSQL}
           GROUP BY UPPER(v.medio_pago)
           ORDER BY total DESC
@@ -599,6 +620,9 @@ try {
       $limit = min(50, max(5, (int)($_GET['limit'] ?? 10)));
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
+      $anulacionesItemsJoin = flus_venta_items_anulados_join_sql($pdo, 'vi', 'vaix');
+      $cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
+      $subtotalVigenteExpr = flus_venta_item_subtotal_vigente_expr_sql('vi.subtotal', 'vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
 
       $whereParts = [whereEmitida('v')];
       $params = [];
@@ -618,12 +642,13 @@ try {
       $stmt = $pdo->prepare("
         SELECT 
           p.nombre,
-          SUM(vi.cantidad) AS unidades,
-          SUM(vi.subtotal) AS total,
+          SUM($cantidadVigenteExpr) AS unidades,
+          SUM($subtotalVigenteExpr) AS total,
           COUNT(DISTINCT v.id) AS num_ventas
         FROM venta_items vi
         JOIN productos p ON p.id = vi.producto_id
         JOIN ventas v ON v.id = vi.venta_id
+        $anulacionesItemsJoin
         WHERE {$whereSQL}
         GROUP BY vi.producto_id
         ORDER BY total DESC
@@ -653,6 +678,8 @@ try {
       
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
+      $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
 
       if (!$desde || !$hasta) {
         success_fail('Faltan parámetros desde/hasta', 400);
@@ -672,13 +699,14 @@ try {
       $stmt = $pdo->prepare("
         SELECT 
           COUNT(*) AS cantidad,
-          COALESCE(SUM(total), 0) AS total,
-          COALESCE(AVG(total), 0) AS promedio
-        FROM ventas
+          COALESCE(SUM($importeVigenteExpr), 0) AS total,
+          COALESCE(AVG($importeVigenteExpr), 0) AS promedio
+        FROM ventas v
+        $anulacionesJoin
         WHERE 
-          (estado IS NULL OR estado <> 'ANULADA')
-          AND fecha >= :desde
-          AND fecha <= :hasta
+          " . whereEmitida('v') . "
+          AND v.fecha >= :desde
+          AND v.fecha <= :hasta
       ");
       $stmt->execute([
         ':desde' => $desde . ' 00:00:00',

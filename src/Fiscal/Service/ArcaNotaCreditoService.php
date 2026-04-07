@@ -16,14 +16,42 @@ final class ArcaNotaCreditoService implements NotaCreditoService
     {
         $ventaId = $command->ventaId;
         $scope = strtoupper(trim($command->scope)) === 'PARTIAL' ? 'PARTIAL' : 'TOTAL';
+        $facturaOrigenId = (int)$command->facturaOrigenId;
 
-        $facturaOrigen = $this->repository->findFacturaOrigenByVentaId($ventaId);
+        if ($facturaOrigenId <= 0) {
+            return EmitirNotaCreditoResult::rejected(
+                $command->requestUid,
+                $scope,
+                'FACTURA_ORIGEN_REQUERIDA',
+                'Debes indicar explicitamente la factura origen para emitir la Nota de Credito.'
+            );
+        }
+
+        $facturaOrigen = $this->repository->findFacturaById($facturaOrigenId);
         if (!$facturaOrigen) {
             return EmitirNotaCreditoResult::rejected(
                 $command->requestUid,
                 $scope,
                 'FACTURA_ORIGEN_NO_ENCONTRADA',
                 'No se encontró la factura original asociada a la venta.'
+            );
+        }
+
+        if ((int)($facturaOrigen['venta_id'] ?? 0) !== $ventaId) {
+            return EmitirNotaCreditoResult::rejected(
+                $command->requestUid,
+                $scope,
+                'FACTURA_ORIGEN_VENTA_INVALIDA',
+                'La factura origen seleccionada no corresponde a la venta indicada.'
+            );
+        }
+
+        if (!flus_facturacion_factura_apta_para_nc($facturaOrigen)) {
+            return EmitirNotaCreditoResult::rejected(
+                $command->requestUid,
+                $scope,
+                'FACTURA_ORIGEN_NO_APTA',
+                'La factura origen debe estar autorizada fiscalmente y con CAE valido antes de emitir una NC.'
             );
         }
 

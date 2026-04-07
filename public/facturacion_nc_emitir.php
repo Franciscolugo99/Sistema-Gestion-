@@ -66,6 +66,10 @@ try {
         throw new RuntimeException('Solo se pueden gestionar NC sobre facturas origen.');
     }
 
+    if (!flus_facturacion_factura_apta_para_nc($factura)) {
+        throw new RuntimeException('La factura origen debe estar autorizada fiscalmente y con CAE valido antes de emitir una NC.');
+    }
+
     // Validar que la factura pertenece a la venta indicada.
     // Evita que un POST manipulado cruce una factura de una venta con el venta_id de otra.
     $facturaVentaId = (int)($factura['venta_id'] ?? 0);
@@ -87,7 +91,10 @@ try {
     $coordinator = new DbAnulacionFiscalCoordinator($pdo, $repo, $notaSvc);
 
     if ($modoOperacion === 'TOTAL') {
-        $out = $coordinator->procesarTotal($ventaId, $usuarioId, $motivo, ['modo' => $modo]);
+        $out = $coordinator->procesarTotal($ventaId, $usuarioId, $motivo, [
+            'modo' => $modo,
+            'factura_origen_id' => $facturaId,
+        ]);
         header('Location: ' . $redirectWith('nc_ok', $out->message ?? 'NC total emitida correctamente.'));
         exit;
     }
@@ -114,7 +121,10 @@ try {
             throw new RuntimeException('Debes indicar al menos un item con cantidad mayor a cero para emitir la NC parcial.');
         }
 
-        $out = $coordinator->procesarParcial($ventaId, $items, $usuarioId, $motivo, ['modo' => $modo]);
+        $out = $coordinator->procesarParcial($ventaId, $items, $usuarioId, $motivo, [
+            'modo' => $modo,
+            'factura_origen_id' => $facturaId,
+        ]);
         header('Location: ' . $redirectWith('nc_ok', $out->message ?? 'NC parcial emitida correctamente.'));
         exit;
     }
