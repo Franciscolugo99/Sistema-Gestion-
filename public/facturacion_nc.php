@@ -487,7 +487,9 @@ foreach ($facturaItems as $row) {
 
 $modoActual  = flus_facturacion_modo_label(flus_facturacion_modo_actual(flus_facturacion_config_activa($pdo) ?? []));
 $facturaAptaNc = is_array($factura) && flus_facturacion_factura_apta_para_nc($factura);
-$canEmitir   = $facturaAptaNc && (int)($factura['venta_id'] ?? 0) > 0 && $saldoFiscalTotal > 0.009;
+$puedeOperarNc = user_has_permission('emitir_nota_credito');
+$puedeEmitirNc = $facturaAptaNc && (int)($factura['venta_id'] ?? 0) > 0 && $saldoFiscalTotal > 0.009;
+$canEmitir   = $puedeOperarNc && $puedeEmitirNc;
 $ventaEstado = trim((string)($factura['venta_estado'] ?? ''));
 $facturaLabel = '';
 if ($factura) {
@@ -765,10 +767,17 @@ require __DIR__ . '/partials/header.php';
             </div>
           <?php endif; ?>
 
-          <?php if (!$canEmitir && $saldoFiscalTotal <= 0.009): ?>
+          <?php if (!$puedeEmitirNc && $saldoFiscalTotal <= 0.009): ?>
             <div class="nc-alert nc-alert--warn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <span>Esta factura no tiene saldo fiscal disponible para emitir NC. Es posible que ya haya sido acreditada por completo.</span>
+            </div>
+          <?php endif; ?>
+
+          <?php if (!$puedeOperarNc): ?>
+            <div class="nc-alert nc-alert--warn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span>Tu usuario tiene acceso de solo lectura a facturación. Podés revisar la factura, pero no emitir notas de crédito.</span>
             </div>
           <?php endif; ?>
 
@@ -780,6 +789,7 @@ require __DIR__ . '/partials/header.php';
           <?php endif; ?>
 
           <!-- ── Paso 2: Elegir tipo de NC ─────────────────── -->
+          <?php if ($puedeOperarNc): ?>
           <div class="nc-block" id="nc-step2">
             <div class="nc-block-head">
               <div>
@@ -1061,6 +1071,7 @@ require __DIR__ . '/partials/header.php';
             </div><!-- /nc-form-total -->
 
           </div><!-- /nc-step3 -->
+          <?php endif; ?>
 
           <!-- ── Historial de NC ya emitidas ──────────────── -->
           <?php if (($ncResumen['rows'] ?? []) !== []): ?>

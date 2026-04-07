@@ -3011,6 +3011,26 @@ $results[] = flus_run_test('inventario fisico valida esquema versionado sin ddl 
     flus_assert_contains('`stock_sistema_snapshot` decimal(10,3) DEFAULT NULL', $installSql);
 });
 
+$results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operativos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+    $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
+    $ventasApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_api.php');
+
+    flus_assert_contains("\$puedeOperarFiscal = user_has_permission('emitir_factura') || user_has_permission('administrar_config');", $recoveryPhp);
+    flus_assert_contains('<?php if ($puedeOperarFiscal): ?>', $recoveryPhp);
+    flus_assert_contains('<span class="fact-inline-badge">Solo lectura</span>', $recoveryPhp);
+
+    flus_assert_contains("\$puedeOperarNc = user_has_permission('emitir_nota_credito');", $ncPhp);
+    flus_assert_contains('Tu usuario tiene acceso de solo lectura a facturación.', $ncPhp);
+    flus_assert_contains('<?php if ($puedeOperarNc): ?>', $ncPhp);
+
+    flus_assert_contains("'get_ticket_link' => [", $ventasApiPhp);
+    flus_assert_contains("'permissions' => ['realizar_ventas'],", $ventasApiPhp);
+    flus_assert_contains("'send_ticket_whatsapp' => [", $ventasApiPhp);
+    flus_assert_contains("'send_ticket_email' => [", $ventasApiPhp);
+});
+
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 

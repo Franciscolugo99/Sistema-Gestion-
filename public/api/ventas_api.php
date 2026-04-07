@@ -256,15 +256,15 @@ function flus_ventas_api_policies(): array {
       'permissions' => ['ver_reportes'],
     ],
     'get_ticket_link' => [
-      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+      'permissions' => ['realizar_ventas'],
     ],
     'send_ticket_whatsapp' => [
       'methods' => ['POST'],
-      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+      'permissions' => ['realizar_ventas'],
     ],
     'send_ticket_email' => [
       'methods' => ['POST'],
-      'any_permissions' => ['ver_reportes', 'realizar_ventas'],
+      'permissions' => ['realizar_ventas'],
     ],
   ];
 }

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../src/facturacion_lib.php';
 
 require_login();
 require_any_permission(['emitir_factura', 'administrar_config', 'ver_facturacion']);
+$puedeOperarFiscal = user_has_permission('emitir_factura') || user_has_permission('administrar_config');
 
 $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 if (!$facturacionHabilitada) {
@@ -180,12 +181,16 @@ require __DIR__ . '/partials/header.php';
                 </td>
                 <td style="max-width:260px;word-break:break-word;"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '—'))) ?></small></td>
                 <td>
-                  <form method="post" action="facturacion_recovery.php" onsubmit="return confirm('¿Regularizar la factura #<?= (int)$caso['id'] ?>?
-FLUS intentará recuperar desde trazas/eventos y solo reenviará cuando el caso sea seguro.');">
-                    <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
-                    <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
-                    <button type="submit" class="btn-mini btn-mini--danger">Regularizar</button>
-                  </form>
+                  <?php if ($puedeOperarFiscal): ?>
+                    <form method="post" action="facturacion_recovery.php" onsubmit="return confirm('¿Regularizar la factura #<?= (int)$caso['id'] ?>?
+ FLUS intentará recuperar desde trazas/eventos y solo reenviará cuando el caso sea seguro.');">
+                      <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
+                      <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
+                      <button type="submit" class="btn-mini btn-mini--danger">Regularizar</button>
+                    </form>
+                  <?php else: ?>
+                    <span class="fact-inline-badge">Solo lectura</span>
+                  <?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
