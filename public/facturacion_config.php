@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once FLUS_ROOT . '/src/upload_helpers.php';
 
 require_login();
 require_permission('administrar_config');
@@ -45,41 +46,35 @@ function factcfg_non_demo_value(?string $raw): string
     return $value;
 }
 
-function factcfg_store_logo_upload(array $file): string
+function factcfg_stage_logo_upload(array $file): ?array
 {
-    $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
-    if ($error === UPLOAD_ERR_NO_FILE) {
-        return '';
+    return flus_upload_stage_image(
+        $file,
+        __DIR__ . '/uploads/logos',
+        'logo',
+        2 * 1024 * 1024,
+        ['png', 'jpg', 'webp', 'gif'],
+        ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+        'el logo'
+    );
+}
+
+function factcfg_logo_relative_path(array $upload): string
+{
+    return 'uploads/logos/' . (string)($upload['filename'] ?? '');
+}
+
+function factcfg_logo_local_path(string $logoUrl): ?string
+{
+    $value = trim($logoUrl);
+    if ($value === '' || preg_match('~^[a-z][a-z0-9+.-]*://~i', $value) === 1 || str_starts_with($value, '//')) {
+        return null;
     }
-    if ($error !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('No se pudo subir el logo. Codigo de error: ' . $error);
+    if (!str_starts_with(str_replace('\\', '/', $value), 'uploads/logos/')) {
+        return null;
     }
 
-    $size = (int)($file['size'] ?? 0);
-    if ($size <= 0 || $size > 2 * 1024 * 1024) {
-        throw new RuntimeException('El logo debe ser una imagen de hasta 2 MB.');
-    }
-
-    $originalName = (string)($file['name'] ?? '');
-    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-    $allowed = ['png', 'jpg', 'jpeg', 'webp', 'gif'];
-    if (!in_array($ext, $allowed, true)) {
-        throw new RuntimeException('Formato de logo no permitido. Usa PNG, JPG, WEBP o GIF.');
-    }
-
-    $targetDir = __DIR__ . '/uploads/logos';
-    if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-        throw new RuntimeException('No se pudo crear la carpeta para guardar logos.');
-    }
-
-    $safeExt = $ext === 'jpeg' ? 'jpg' : $ext;
-    $filename = 'logo-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.' . $safeExt;
-    $targetPath = $targetDir . '/' . $filename;
-    if (!move_uploaded_file((string)($file['tmp_name'] ?? ''), $targetPath)) {
-        throw new RuntimeException('No se pudo guardar el logo subido.');
-    }
-
-    return 'uploads/logos/' . $filename;
+    return __DIR__ . '/' . str_replace('/', DIRECTORY_SEPARATOR, $value);
 }
 
 function factcfg_legacy_types(string $condIva): array
@@ -334,10 +329,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $inicioActividades = trim((string)($_POST['inicio_actividades'] ?? ''));
                 $logoUrl = trim((string)($_POST['logo_url'] ?? ''));
                 $printItemLimit = (int)($_POST['print_item_limit'] ?? flus_facturacion_print_item_limit($pdo));
-                $logoSubido = factcfg_store_logo_upload($_FILES['logo_file'] ?? []);
-                if ($logoSubido !== '') {
-                    $logoUrl = $logoSubido;
-                }
+                $logoUpload = null;
+                $logoAnterior = '';
 
                 if ($puntoVenta < 1 || $puntoVenta > 99999) {
                     $puntoVenta = 1;
@@ -361,11 +354,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
 
                 try {
+                    $logoUpload = factcfg_stage_logo_upload($_FILES['logo_file'] ?? []);
                     $pdo->beginTransaction();
 
                     $actual = factcfg_fetch_current($pdo, true);
                     $porPuntoVenta = factcfg_fetch_by_punto_venta($pdo, $puntoVenta, true);
                     $target = $porPuntoVenta ?: $actual;
+                    $logoAnterior = trim((string)($actual['logo_url'] ?? config_get($pdo, 'business_logo_url', '')));
+
+                    if (is_array($logoUpload)) {
+                        flus_upload_promote($logoUpload);
+                        $logoUrl = factcfg_logo_relative_path($logoUpload);
+                    }
 
                     if (flus_column_exists($pdo, 'config_facturacion', 'activo')) {
                         $pdo->exec('UPDATE config_facturacion SET activo = 0');
@@ -389,6 +389,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     config_set($pdo, 'facturacion_print_item_limit', (string)$printItemLimit);
                     $pdo->commit();
                     config_clear_cache();
+                    if (is_array($logoUpload) && $logoAnterior !== '' && $logoAnterior !== $logoUrl) {
+                        flus_upload_delete_file_if_exists(factcfg_logo_local_path($logoAnterior));
+                    }
 
                     if (!$facturacionHabilitada || !flus_facturacion_modo_requires_arca($modo)) {
                         flus_facturacion_arca_status_write($pdo, 'not_required', $modo, '');
@@ -401,6 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($pdo->inTransaction()) {
                         $pdo->rollBack();
                     }
+                    flus_upload_cleanup($logoUpload);
                     $error = 'Error guardando la configuracion: ' . $e->getMessage();
                 }
             }

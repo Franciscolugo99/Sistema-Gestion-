@@ -486,6 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".payment-method"),
   );
   const btnCobrar = document.getElementById("btnCobrar");
+  const btnCancelar = document.getElementById("btnCancelar");
   const btnCobrarDefaultHtml = btnCobrar ? btnCobrar.innerHTML : "";
 
   // ✅ Permiso frontend (inyectado por caja.php)
@@ -720,7 +721,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (btnCobrarExacto) {
-      btnCobrarExacto.disabled = splitActivo() || totalNetoActual <= 0;
+      btnCobrarExacto.disabled = cobrando || splitActivo() || totalNetoActual <= 0;
     }
     if (btnCobrarExactoAmount) {
       btnCobrarExactoAmount.textContent = formatearMoneda(totalNetoActual);
@@ -3021,6 +3022,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   let cobrando = false;
 
+  function syncCobroBusyState() {
+    if (btnCobrar) {
+      btnCobrar.disabled = cobrando;
+      btnCobrar.innerHTML = cobrando
+        ? '<span class="action-button__label">Procesando...</span>'
+        : btnCobrarDefaultHtml || "Cobrar";
+    }
+
+    if (btnCobrarExacto) {
+      btnCobrarExacto.disabled = cobrando || splitActivo() || totalNetoActual <= 0;
+    }
+
+    if (btnCancelar) {
+      btnCancelar.disabled = cobrando;
+    }
+  }
+
   async function cobrar() {
     limpiarMensaje();
 
@@ -3029,11 +3047,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return mostrarMensaje("error", "Ticket vacío");
 
     cobrando = true;
-    const btn = btnCobrar;
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="action-button__label">Procesando...</span>';
-    }
+    syncCobroBusyState();
 
     try {
       // ✅ FIX v2.1.1: Sincronizar con servidor ANTES de cobrar
@@ -3222,10 +3236,7 @@ document.addEventListener("DOMContentLoaded", () => {
       mostrarMensaje("error", e?.message || "Error al registrar la venta");
     } finally {
       cobrando = false;
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = btnCobrarDefaultHtml || "Cobrar";
-      }
+      syncCobroBusyState();
     }
   }
 
@@ -3233,6 +3244,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // CANCELAR
   // =========================
   async function cancelarVenta() {
+    if (cobrando) return;
     if (carrito.length > 0) {
       const _n = carrito.length;
       const ok = await Notif.confirmar(
@@ -3266,6 +3278,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnAgregar")?.addEventListener("click", agregarItem);
   btnCobrar?.addEventListener("click", cobrar);
   btnCobrarExacto?.addEventListener("click", () => {
+    if (cobrando) return;
     if (splitActivo() || totalNetoActual <= 0) return;
     if (selMedio) selMedio.value = "EFECTIVO";
     if (inputPagado) inputPagado.value = String(Number(totalNetoActual).toFixed(2));
@@ -3274,9 +3287,7 @@ document.addEventListener("DOMContentLoaded", () => {
     recalcularVuelto();
     cobrar();
   });
-  document
-    .getElementById("btnCancelar")
-    ?.addEventListener("click", cancelarVenta);
+  btnCancelar?.addEventListener("click", cancelarVenta);
 
   inputCodigo?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -3452,10 +3463,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (e.key === "F2") {
       e.preventDefault();
+      if (cobrando) return;
       cobrar();
     }
     if (e.key === "F4") {
       e.preventDefault();
+      if (cobrando) return;
       cancelarVenta();
     }
     if (e.key === "F5") {
@@ -3496,6 +3509,7 @@ document.addEventListener("DOMContentLoaded", () => {
     recalcularVuelto();
     actualizarEstadoPagosUI();
     syncPaymentMethodButtons();
+    syncCobroBusyState();
     if (estadoRecuperado) {
       mostrarMensaje(
         "info",

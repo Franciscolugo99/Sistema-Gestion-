@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/db_helpers.php';
+require_once FLUS_ROOT . '/src/logger.php';
 
 require_login();
 require_any_permission(['ver_proveedores','editar_proveedores']);
@@ -98,16 +99,17 @@ function buildProveedorProductoMatchSql(string $aliasProducto, string $aliasProv
 function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNames): array {
     $proveedor = getProveedorById($pdo, $proveedorId);
     if (!$proveedor) {
-        return ['linked' => 0, 'legacy' => 0];
+        return ['linked' => 0, 'legacy' => 0, 'warnings' => ['Proveedor no encontrado.']];
     }
 
     $currentName = normProveedorName((string)($proveedor['nombre'] ?? ''));
     if ($currentName === '') {
-        return ['linked' => 0, 'legacy' => 0];
+        return ['linked' => 0, 'legacy' => 0, 'warnings' => ['El proveedor no tiene nombre normalizable.']];
     }
 
     $linked = 0;
     $legacy = 0;
+    $warnings = [];
 
     try {
         $st = $pdo->prepare("UPDATE productos SET proveedor = :new_name WHERE proveedor_id = :proveedor_id");
@@ -117,7 +119,11 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
         ]);
         $linked += $st->rowCount();
     } catch (Throwable $e) {
-        // instalaciones legacy sin proveedor_id
+        $warnings[] = 'No se pudo sincronizar por proveedor_id.';
+        flus_log_warn('relink_proveedor proveedor_id fallback', [
+            'proveedor_id' => $proveedorId,
+            'error' => $e->getMessage(),
+        ]);
     }
 
     $names = [$currentName];
@@ -145,7 +151,12 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
             $legacy += $st->rowCount();
             continue;
         } catch (Throwable $e) {
-            // fallback sin proveedor_id
+            $warnings[] = 'Se uso fallback legacy sin proveedor_id.';
+            flus_log_warn('relink_proveedor legacy fallback', [
+                'proveedor_id' => $proveedorId,
+                'legacy_name' => $legacyName,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         try {
@@ -160,18 +171,26 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
             ]);
             $legacy += $st->rowCount();
         } catch (Throwable $e) {
-            // no-op
+            $warnings[] = 'Fallo la re-vinculacion legacy para "' . $legacyName . '".';
+            flus_log_error('relink_proveedor failed', [
+                'proveedor_id' => $proveedorId,
+                'legacy_name' => $legacyName,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
-    return ['linked' => $linked, 'legacy' => $legacy];
+    return ['linked' => $linked, 'legacy' => $legacy, 'warnings' => array_values(array_unique($warnings))];
 }
 
 function syncProveedorProducts(PDO $pdo, int $proveedorId, string $oldName, string $newName): void {
     if ($proveedorId <= 0 || normProveedorName($newName) === '') {
         return;
     }
-    relinkProveedorProducts($pdo, $proveedorId, $oldName, $newName);
+    $result = relinkProveedorProducts($pdo, $proveedorId, $oldName, $newName);
+    if (($result['warnings'] ?? []) !== []) {
+        throw new RuntimeException(implode(' ', (array)$result['warnings']));
+    }
 }
 
 function createProveedor(PDO $pdo, array $data): int {
@@ -216,11 +235,11 @@ function createProveedor(PDO $pdo, array $data): int {
     return (int)$pdo->lastInsertId();
 }
 
-function updateProveedor(PDO $pdo, int $id, array $data): bool {
+function updateProveedor(PDO $pdo, int $id, array $data): array {
     $cols = getProveedorColumns($pdo);
     $before = getProveedorById($pdo, $id);
     if (!$before) {
-        return false;
+        return ['ok' => false, 'linked' => 0, 'legacy' => 0, 'warnings' => ['Proveedor no encontrado.']];
     }
     
     // Campos base
@@ -255,18 +274,40 @@ function updateProveedor(PDO $pdo, int $id, array $data): bool {
     }
     
     $setSql = implode(', ', $sets);
-    $st = $pdo->prepare("UPDATE proveedores SET $setSql WHERE id = :id");
-    $ok = $st->execute($values);
-    if ($ok) {
-        syncProveedorProducts(
+    $ownsTx = !$pdo->inTransaction();
+
+    try {
+        if ($ownsTx) {
+            $pdo->beginTransaction();
+        }
+
+        $st = $pdo->prepare("UPDATE proveedores SET $setSql WHERE id = :id");
+        if (!$st->execute($values)) {
+            throw new RuntimeException('No se pudo actualizar el proveedor.');
+        }
+
+        $result = relinkProveedorProducts(
             $pdo,
             $id,
             trim((string)($data['nombre_original'] ?? (string)($before['nombre'] ?? ''))),
             trim((string)($data['nombre'] ?? ''))
         );
-    }
+        if (($result['warnings'] ?? []) !== []) {
+            throw new RuntimeException(implode(' ', (array)$result['warnings']));
+        }
 
-    return $ok;
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->commit();
+        }
+
+        return ['ok' => true, 'linked' => (int)($result['linked'] ?? 0), 'legacy' => (int)($result['legacy'] ?? 0), 'warnings' => []];
+    } catch (Throwable $e) {
+        if ($ownsTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        flus_log_error('proveedor update failed', ['proveedor_id' => $id, 'error' => $e->getMessage()]);
+        return ['ok' => false, 'linked' => 0, 'legacy' => 0, 'warnings' => [$e->getMessage()]];
+    }
 }
 
 function toggleProveedorActivo(PDO $pdo, int $id, int $valor): bool {
@@ -652,8 +693,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && empty($_POST['accion']))
         $id = (isset($_POST['id']) && $_POST['id'] !== '') ? (int)$_POST['id'] : null;
 
         if ($id) {
-            $success = updateProveedor($pdo, $id, $_POST);
-            $flag = $success ? 'updated' : 'error';
+            $result = updateProveedor($pdo, $id, $_POST);
+            if (($result['ok'] ?? false) && (($result['linked'] ?? 0) > 0 || ($result['legacy'] ?? 0) > 0)) {
+                $_SESSION['prov_update_summary'] = $result;
+            } elseif (($result['warnings'] ?? []) !== []) {
+                $_SESSION['prov_update_summary'] = $result;
+            }
+            $flag = ($result['ok'] ?? false) ? 'updated' : 'error';
         } else {
             $newId = createProveedor($pdo, $_POST);
             $flag = $newId > 0 ? 'created' : 'error';
@@ -1438,7 +1484,9 @@ require __DIR__ . '/partials/header.php';
 <?php if (!empty($savedFlag)): ?>
     <?php
     $relinkAllSummary = $_SESSION['prov_relink_all_summary'] ?? null;
+    $updateSummary = $_SESSION['prov_update_summary'] ?? null;
     unset($_SESSION['prov_relink_all_summary']);
+    unset($_SESSION['prov_update_summary']);
     $toastMsg = match($savedFlag) {
         'created' => 'Proveedor creado correctamente.',
         'updated' => 'Proveedor actualizado correctamente.',
@@ -1457,6 +1505,16 @@ require __DIR__ . '/partials/header.php';
         $toastMsg .= ' Proveedores: ' . (int)($relinkAllSummary['proveedores'] ?? 0)
             . ' | vinculados: ' . (int)($relinkAllSummary['linked'] ?? 0)
             . ' | legacy: ' . (int)($relinkAllSummary['legacy'] ?? 0);
+    }
+    if (($savedFlag === 'updated' || $savedFlag === 'error') && is_array($updateSummary)) {
+        $linked = (int)($updateSummary['linked'] ?? 0);
+        $legacy = (int)($updateSummary['legacy'] ?? 0);
+        if ($linked > 0 || $legacy > 0) {
+            $toastMsg .= ' Vinculados: ' . $linked . ' | legacy: ' . $legacy;
+        }
+        if (($updateSummary['warnings'] ?? []) !== []) {
+            $toastMsg .= ' ' . implode(' ', array_map('strval', (array)$updateSummary['warnings']));
+        }
     }
     ?>
     <script>

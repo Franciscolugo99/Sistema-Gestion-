@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/db_schema.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
+require_once FLUS_ROOT . '/src/logger.php';
 
 require_login();
 require_any_permission(['ver_facturacion', 'emitir_factura']);
@@ -42,6 +43,17 @@ function factura_pdf_rrmdir(string $dir): void
     }
 
     @rmdir($dir);
+}
+
+function factura_pdf_sanitize_detail(string $detail): string
+{
+    $detail = str_replace(["\r\n", "\r"], "\n", trim($detail));
+    $detail = str_replace('\\', '/', $detail);
+    $root = str_replace('\\', '/', FLUS_ROOT);
+    if ($root !== '') {
+        $detail = str_replace($root, '[FLUS_ROOT]', $detail);
+    }
+    return $detail;
 }
 
 function factura_pdf_public_base_url(PDO $pdo): string
@@ -168,8 +180,15 @@ factura_pdf_rrmdir($profileDir);
 
 if ($exitCode !== 0 || !is_file($pdfPath) || filesize($pdfPath) <= 0) {
     @unlink($pdfPath);
-    $error = trim(implode("\n", $output));
-    factura_pdf_redirect_error($facturaId, 'No se pudo generar el PDF.' . ($error !== '' ? ' ' . $error : ''));
+    $error = factura_pdf_sanitize_detail(implode("\n", $output));
+    flus_log_error('factura_pdf generation failed', [
+        'factura_id' => $facturaId,
+        'exit_code' => $exitCode,
+        'browser' => basename($browserPath),
+        'render_url' => preg_replace('/\?.*/', '', $renderUrl),
+        'detail' => $error,
+    ]);
+    factura_pdf_redirect_error($facturaId, 'No se pudo generar el PDF en este momento. Revisa los logs tecnicos si el problema persiste.');
 }
 
 $numero = isset($factura['numero']) && $factura['numero'] !== null ? str_pad((string)(int)$factura['numero'], 8, '0', STR_PAD_LEFT) : (string)$facturaId;

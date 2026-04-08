@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/logger.php';
 require_login();
 require_technical_permission();
 
@@ -21,6 +22,34 @@ function tecnico_status_file(): string
         @mkdir($dir, 0775, true);
     }
     return $dir . '/technical_smoke_status.json';
+}
+
+function tecnico_smoke_lock_file(): string
+{
+    $dir = FLUS_ROOT . '/storage/cache';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir . '/technical_smoke.lock';
+}
+
+function tecnico_smoke_log_dir(): string
+{
+    $dir = FLUS_ROOT . '/storage/logs';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir;
+}
+
+function tecnico_smoke_timeout_seconds(): int
+{
+    return 45;
+}
+
+function tecnico_smoke_output_limit(): int
+{
+    return 131072;
 }
 
 function tecnico_load_json_file(string $path): ?array
@@ -41,6 +70,62 @@ function tecnico_load_json_file(string $path): ?array
 function tecnico_save_json_file(string $path, array $data): void
 {
     @file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+function tecnico_sanitize_output(string $text): string
+{
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = str_replace(["\0", "\x1A"], '', $text);
+    $text = str_replace('\\', '/', $text);
+
+    $replacements = [];
+    $root = str_replace('\\', '/', FLUS_ROOT);
+    if ($root !== '') {
+        $replacements[$root] = '[FLUS_ROOT]';
+    }
+
+    $documentRoot = str_replace('\\', '/', (string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    if ($documentRoot !== '') {
+        $replacements[$documentRoot] = '[DOCUMENT_ROOT]';
+    }
+
+    return strtr($text, $replacements);
+}
+
+function tecnico_build_output_preview(string $text, int $maxLines = 80, int $maxChars = 6000): string
+{
+    $text = trim(tecnico_sanitize_output($text));
+    if ($text === '') {
+        return '';
+    }
+
+    $lines = preg_split('/\n/', $text) ?: [];
+    if (count($lines) > $maxLines) {
+        $lines = array_slice($lines, 0, $maxLines);
+        $lines[] = '...[salida truncada para la UI]';
+    }
+
+    $preview = trim(implode("\n", $lines));
+    if (strlen($preview) > $maxChars) {
+        $preview = rtrim(substr($preview, 0, $maxChars)) . "\n...[salida truncada para la UI]";
+    }
+
+    return $preview;
+}
+
+function tecnico_write_smoke_log(string $prefix, string $content, string $ranAt): ?string
+{
+    $content = trim($content);
+    if ($content === '') {
+        return null;
+    }
+
+    $stamp = preg_replace('/[^0-9]/', '', $ranAt);
+    $stamp = is_string($stamp) && $stamp !== '' ? $stamp : date('YmdHis');
+    $filename = sprintf('%s_%s.log', $prefix, $stamp);
+    $fullPath = tecnico_smoke_log_dir() . '/' . $filename;
+    @file_put_contents($fullPath, $content . PHP_EOL, LOCK_EX);
+    return tecnico_relative_path($fullPath);
 }
 
 function tecnico_is_php_cli_binary(string $path): bool
@@ -108,7 +193,15 @@ function tecnico_translate_smoke_output(string $stdout): string
     return strtr($stdout, $map);
 }
 
-function tecnico_parse_smoke_output(string $stdout, string $stderr, int $exitCode, string $phpBinary, float $durationMs): array
+function tecnico_parse_smoke_output(
+    string $stdout,
+    string $stderr,
+    int $exitCode,
+    string $phpBinary,
+    float $durationMs,
+    bool $timedOut = false,
+    bool $truncated = false
+): array
 {
     $total = null;
     $failed = null;
@@ -124,18 +217,80 @@ function tecnico_parse_smoke_output(string $stdout, string $stderr, int $exitCod
         $failed = (int)$failCount;
     }
 
+    $ranAt = date('c');
+    $stdout = trim($stdout);
+    $stderr = trim($stderr);
+    $stdoutPreview = tecnico_translate_smoke_output(tecnico_build_output_preview($stdout));
+    $stderrPreview = tecnico_build_output_preview($stderr, 40, 3000);
+
     return [
-        'ran_at' => date('c'),
+        'ran_at' => $ranAt,
         'exit_code' => $exitCode,
-        'ok' => $exitCode === 0,
+        'ok' => $exitCode === 0 && !$timedOut,
         'total' => $total,
         'failed' => $failed,
         'passed' => max(0, (int)$total - (int)$failed),
         'php_binary' => $phpBinary,
         'duration_ms' => round($durationMs, 1),
-        'stdout' => trim($stdout),
-        'stderr' => trim($stderr),
+        'timed_out' => $timedOut,
+        'truncated_output' => $truncated,
+        'stdout_preview' => $stdoutPreview !== '' ? $stdoutPreview : 'Todavia no hay salida registrada.',
+        'stderr_preview' => $stderrPreview,
+        'stdout_log' => tecnico_write_smoke_log('technical_smoke_stdout', $stdout, $ranAt),
+        'stderr_log' => tecnico_write_smoke_log('technical_smoke_stderr', $stderr, $ranAt),
     ];
+}
+
+function tecnico_open_smoke_lock(?string &$error = null)
+{
+    $handle = @fopen(tecnico_smoke_lock_file(), 'c+');
+    if (!is_resource($handle)) {
+        $error = 'No se pudo abrir el lock de ejecucion tecnica.';
+        return null;
+    }
+
+    if (!@flock($handle, LOCK_EX | LOCK_NB)) {
+        fclose($handle);
+        $error = 'Ya hay una corrida tecnica en curso. Espera a que termine antes de volver a lanzar el smoke.';
+        return null;
+    }
+
+    ftruncate($handle, 0);
+    fwrite($handle, json_encode([
+        'pid' => getmypid(),
+        'started_at' => date('c'),
+        'user_id' => (int)(function_exists('session_user_id') ? session_user_id() : ($_SESSION['user_id'] ?? 0)),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    fflush($handle);
+
+    return $handle;
+}
+
+function tecnico_read_process_stream($pipe, int $limit, bool &$truncated): string
+{
+    if (!is_resource($pipe)) {
+        return '';
+    }
+
+    $buffer = '';
+    while (!feof($pipe)) {
+        $chunk = fread($pipe, 8192);
+        if (!is_string($chunk) || $chunk === '') {
+            break;
+        }
+
+        if (strlen($buffer) < $limit) {
+            $remaining = $limit - strlen($buffer);
+            $buffer .= substr($chunk, 0, $remaining);
+            if (strlen($chunk) > $remaining) {
+                $truncated = true;
+            }
+        } else {
+            $truncated = true;
+        }
+    }
+
+    return $buffer;
 }
 
 function tecnico_run_smoke_tests(?string &$error = null): ?array
@@ -152,6 +307,13 @@ function tecnico_run_smoke_tests(?string &$error = null): ?array
         return null;
     }
 
+    $lockError = null;
+    $lockHandle = tecnico_open_smoke_lock($lockError);
+    if (!is_resource($lockHandle)) {
+        $error = $lockError ?: 'No se pudo tomar el lock del smoke tecnico.';
+        return null;
+    }
+
     $descriptorSpec = [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],
@@ -160,21 +322,89 @@ function tecnico_run_smoke_tests(?string &$error = null): ?array
 
     $command = [$phpBinary, $script];
     $start = microtime(true);
-    $process = @proc_open($command, $descriptorSpec, $pipes, FLUS_ROOT, null, ['bypass_shell' => true]);
-    if (!is_resource($process)) {
-        $error = 'No se pudo iniciar el proceso para ejecutar las pruebas rapidas.';
-        return null;
+    $timeoutAt = $start + tecnico_smoke_timeout_seconds();
+    $limit = tecnico_smoke_output_limit();
+    $stdout = '';
+    $stderr = '';
+    $truncated = false;
+    $timedOut = false;
+
+    try {
+        $process = @proc_open($command, $descriptorSpec, $pipes, FLUS_ROOT, null, ['bypass_shell' => true]);
+        if (!is_resource($process)) {
+            $error = 'No se pudo iniciar el proceso para ejecutar las pruebas rapidas.';
+            return null;
+        }
+
+        fclose($pipes[0]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        while (true) {
+            $stdout .= tecnico_read_process_stream($pipes[1], $limit - strlen($stdout), $truncated);
+            $stderr .= tecnico_read_process_stream($pipes[2], $limit - strlen($stderr), $truncated);
+
+            $status = proc_get_status($process);
+            if (!empty($status['running'])) {
+                if (microtime(true) >= $timeoutAt) {
+                    $timedOut = true;
+                    proc_terminate($process);
+                    usleep(250000);
+                    $status = proc_get_status($process);
+                    if (!empty($status['running'])) {
+                        @proc_terminate($process, 9);
+                    }
+                    break;
+                }
+
+                usleep(100000);
+                continue;
+            }
+
+            break;
+        }
+
+        $stdout .= tecnico_read_process_stream($pipes[1], $limit - strlen($stdout), $truncated);
+        $stderr .= tecnico_read_process_stream($pipes[2], $limit - strlen($stderr), $truncated);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+        $durationMs = (microtime(true) - $start) * 1000;
+
+        $result = tecnico_parse_smoke_output(
+            (string)$stdout,
+            (string)$stderr,
+            (int)$exitCode,
+            $phpBinary,
+            $durationMs,
+            $timedOut,
+            $truncated
+        );
+
+        if ($timedOut) {
+            flus_log_warn('technical smoke timed out', [
+                'timeout_seconds' => tecnico_smoke_timeout_seconds(),
+                'duration_ms' => $result['duration_ms'],
+                'user_id' => (int)(function_exists('session_user_id') ? session_user_id() : ($_SESSION['user_id'] ?? 0)),
+                'stdout_log' => $result['stdout_log'] ?? null,
+                'stderr_log' => $result['stderr_log'] ?? null,
+            ]);
+        } else {
+            flus_log_info('technical smoke finished', [
+                'ok' => (bool)($result['ok'] ?? false),
+                'failed' => (int)($result['failed'] ?? 0),
+                'duration_ms' => $result['duration_ms'],
+                'user_id' => (int)(function_exists('session_user_id') ? session_user_id() : ($_SESSION['user_id'] ?? 0)),
+            ]);
+        }
+
+        return $result;
+    } finally {
+        if (is_resource($lockHandle)) {
+            @flock($lockHandle, LOCK_UN);
+            fclose($lockHandle);
+        }
     }
-
-    fclose($pipes[0]);
-    $stdout = stream_get_contents($pipes[1]);
-    fclose($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[2]);
-    $exitCode = proc_close($process);
-    $durationMs = (microtime(true) - $start) * 1000;
-
-    return tecnico_parse_smoke_output((string)$stdout, (string)$stderr, (int)$exitCode, $phpBinary, $durationMs);
 }
 
 function tecnico_read_text(string $path): string
@@ -346,9 +576,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = $runError ?: 'No se pudieron ejecutar las pruebas rapidas.';
             } else {
                 tecnico_save_json_file(tecnico_status_file(), $result);
-                $info = $result['ok']
-                    ? 'Pruebas rapidas ejecutadas correctamente.'
-                    : 'Pruebas rapidas ejecutadas con fallas. Revisa la salida.';
+                if (!empty($result['timed_out'])) {
+                    $error = 'Las pruebas rapidas excedieron el tiempo limite. Revisa el extracto y los logs tecnicos.';
+                } else {
+                    $info = $result['ok']
+                        ? 'Pruebas rapidas ejecutadas correctamente.'
+                        : 'Pruebas rapidas ejecutadas con fallas. Revisa el extracto sanitizado.';
+                }
             }
         }
     }
@@ -571,20 +805,23 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Fallidas:</strong> <?= (int)($smoke['failed'] ?? 0) ?></div>
         <div><strong>Duracion:</strong> <?= $smoke ? tecnico_h((string)($smoke['duration_ms'] ?? '0')) . ' ms' : '-' ?></div>
         <div><strong>Codigo de salida:</strong> <?= $smoke ? (int)($smoke['exit_code'] ?? 0) : '-' ?></div>
+        <div><strong>Timeout:</strong> <?= !empty($smoke['timed_out']) ? 'Si' : 'No' ?></div>
         <div><strong>PHP CLI:</strong> <?= tecnico_h($phpBinary ?? 'No detectado') ?></div>
         <div><strong>Pantallas relevadas:</strong> <?= (int)$publicPageCount ?> public / <?= (int)$apiPageCount ?> api</div>
+        <div><strong>Log stdout:</strong> <?= tecnico_h((string)($smoke['stdout_log'] ?? '-')) ?></div>
       </div>
 
       <details class="tecnico-details">
-        <summary>Ver salida completa del smoke</summary>
-        <pre class="terminal-output"><?= tecnico_h(tecnico_translate_smoke_output($smoke['stdout'] ?? 'Todavia no hay salida registrada.')) ?></pre>
+        <summary>Ver resumen sanitizado del smoke</summary>
+        <pre class="terminal-output"><?= tecnico_h((string)($smoke['stdout_preview'] ?? 'Todavia no hay salida registrada.')) ?></pre>
       </details>
-      <?php if (!empty($smoke['stderr'])): ?>
+      <?php if (!empty($smoke['stderr_preview'])): ?>
         <details class="tecnico-details">
-          <summary>Ver stderr</summary>
-          <pre class="terminal-output terminal-output--error"><?= tecnico_h((string)$smoke['stderr']) ?></pre>
+          <summary>Ver extracto sanitizado de errores</summary>
+          <pre class="terminal-output terminal-output--error"><?= tecnico_h((string)$smoke['stderr_preview']) ?></pre>
         </details>
       <?php endif; ?>
+      <p class="tecnico-copy">La salida completa se guarda en logs tecnicos. En esta pantalla se muestra solo un extracto sanitizado.</p>
     </section>
 
     <section class="tecnico-card">

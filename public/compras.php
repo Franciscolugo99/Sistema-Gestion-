@@ -3,10 +3,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/logger.php';
 require_login();
 require_permission('editar_stock');
-
-
 // El esquema de compras se versiona por migraciones SQL.
 
 $HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
@@ -18,8 +17,6 @@ $HAS_COMPRAS_DESCUENTO_TOTAL = flus_column_exists($pdo, 'compras', 'descuento_to
 $HAS_COMPRA_ITEMS_DESCUENTO       = flus_column_exists($pdo, 'compra_items', 'descuento');
 $HAS_COMPRA_ITEMS_DESCUENTO_TIPO  = flus_column_exists($pdo, 'compra_items', 'descuento_tipo');
 $HAS_COMPRA_ITEMS_DESCUENTO_PORC  = flus_column_exists($pdo, 'compra_items', 'descuento_porc');
-
-
 $comprasSchemaMissing = [];
 if (!$HAS_COMPRAS_TOTAL_NETO) { $comprasSchemaMissing[] = 'compras.total_neto'; }
 if (!$HAS_COMPRAS_TOTAL_IVA) { $comprasSchemaMissing[] = 'compras.total_iva'; }
@@ -48,7 +45,6 @@ $isAjaxRequest = (
   (string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest'
   || (string)($_POST['autosave'] ?? '') === '1'
 );
-
 /* -----------------------------
    Helpers
 ------------------------------ */
@@ -120,6 +116,30 @@ function findProveedorIdByName(PDO $pdo, string $nombre): int {
   ");
   $st->execute([$nombre]);
   return (int)($st->fetchColumn() ?: 0);
+}
+
+function compras_require_row_change(PDOStatement $statement, string $message): void {
+  if ($statement->rowCount() <= 0) {
+    throw new RuntimeException($message);
+  }
+}
+
+function compras_lock_product_stocks(PDO $pdo, array $productoIds): array {
+  $productoIds = array_values(array_unique(array_filter(array_map('intval', $productoIds), static fn(int $id): bool => $id > 0)));
+  if ($productoIds === []) {
+    return [];
+  }
+
+  $placeholders = implode(',', array_fill(0, count($productoIds), '?'));
+  $st = $pdo->prepare("SELECT id, stock FROM productos WHERE id IN ($placeholders) FOR UPDATE");
+  $st->execute($productoIds);
+
+  $stocks = [];
+  foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+    $stocks[(int)($row['id'] ?? 0)] = (float)($row['stock'] ?? 0.0);
+  }
+
+  return $stocks;
 }
 
 /* -----------------------------
@@ -360,7 +380,7 @@ $total     = $totalFinal;
 
 if ($compraId > 0) {
             // EDITAR: verificar que esté en BORRADOR
-            $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
+            $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ? FOR UPDATE");
             $stCheck->execute([$compraId]);
             $estadoActual = (string)($stCheck->fetchColumn() ?: '');
             
@@ -401,6 +421,7 @@ if ($compraId > 0) {
 WHERE id = :id AND estado = 'BORRADOR'";
             $stUpd = $pdo->prepare($sqlUpd);
             $stUpd->execute($paramsUpd);
+            compras_require_row_change($stUpd, 'No se pudo actualizar el borrador. Recarga la lista e intenta de nuevo.');
 
             // Borrar items viejos
             $pdo->prepare("DELETE FROM compra_items WHERE compra_id = ?")
@@ -493,6 +514,7 @@ $compraId = (int)$pdo->lastInsertId();
 
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
+          flus_log_error('compras guardar_borrador failed', ['compra_id' => $compraId, 'error' => $e->getMessage()]);
           $msg = $isAjaxRequest
             ? 'No se pudo guardar el borrador automaticamente.'
             : "Error al guardar: " . $e->getMessage();
@@ -521,7 +543,7 @@ $compraId = (int)$pdo->lastInsertId();
           $pdo->beginTransaction();
 
           // Verificar estado
-          $st = $pdo->prepare("SELECT estado FROM compras WHERE id = ?");
+          $st = $pdo->prepare("SELECT estado FROM compras WHERE id = ? FOR UPDATE");
           $st->execute([$compraId]);
 $rowCompra = $st->fetch(PDO::FETCH_ASSOC) ?: [];
 $estado = (string)($rowCompra['estado'] ?? '');
@@ -538,8 +560,9 @@ if ($estado !== 'BORRADOR') {
              ->execute([$compraId]);
 
           // Eliminar compra
-          $pdo->prepare("DELETE FROM compras WHERE id = ?")
-             ->execute([$compraId]);
+          $stDeleteCompra = $pdo->prepare("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'");
+          $stDeleteCompra->execute([$compraId]);
+          compras_require_row_change($stDeleteCompra, 'No se pudo eliminar el borrador. Recarga la lista e intenta de nuevo.');
 
           $pdo->commit();
 
@@ -548,6 +571,7 @@ if ($estado !== 'BORRADOR') {
 
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
+          flus_log_error('compras eliminar_borrador failed', ['compra_id' => $compraId, 'error' => $e->getMessage()]);
           $msg = "Error al eliminar: " . $e->getMessage();
           $msgType = 'error';
         }
@@ -698,7 +722,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             }
           }
 
-// 5) Impactar stock + movimientos + costo (costo neto por ítem)
+          // 5) Impactar stock + movimientos + costo (costo neto por ítem)
 
           $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock + :qty WHERE id = :pid");
 
@@ -721,6 +745,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
             // stock + movimiento
             $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
+            compras_require_row_change($stUpdStock, "No se pudo actualizar el stock del producto ID {$pid} al confirmar la compra.");
             $stMov->execute([
               ':pid'       => $pid,
               ':qty'       => $qty,
@@ -745,7 +770,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
           // 6) Confirmar compra. Si venia de un borrador legacy con fecha a medianoche,
           // normalizamos la hora al momento real de confirmacion.
-          $pdo->prepare("
+          $stConfirmCompra = $pdo->prepare("
             UPDATE compras
             SET estado = 'CONFIRMADA',
                 fecha = CASE
@@ -754,7 +779,9 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
                   ELSE fecha
                 END
             WHERE id = ?
-          ")->execute([$compraId]);
+          ");
+          $stConfirmCompra->execute([$compraId]);
+          compras_require_row_change($stConfirmCompra, 'No se pudo confirmar la compra. Recarga la lista e intenta de nuevo.');
 
           $pdo->commit();
 
@@ -763,6 +790,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
+          flus_log_error('compras confirmar failed', ['compra_id' => $compraId, 'error' => $e->getMessage()]);
           $msg = "Error al confirmar: " . $e->getMessage();
           $msgType = 'error';
         }
@@ -803,6 +831,24 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             $itSt->execute([$compraId]);
             $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+            $stockByProduct = compras_lock_product_stocks($pdo, array_column($items, 'producto_id'));
+            foreach ($items as $it) {
+              $pid = (int)($it['producto_id'] ?? 0);
+              $qty = (float)($it['cantidad'] ?? 0.0);
+              if ($pid <= 0 || $qty <= 0) {
+                continue;
+              }
+
+              if (!array_key_exists($pid, $stockByProduct)) {
+                throw new RuntimeException("El producto ID {$pid} ya no existe para revertir stock.");
+              }
+
+              $stockActual = (float)$stockByProduct[$pid];
+              if ($stockActual < $qty) {
+                throw new RuntimeException("No hay stock suficiente para revertir la compra en el producto ID {$pid}. Stock actual: {$stockActual}, a revertir: {$qty}.");
+              }
+            }
+
             // Revertir stock
             $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock - :qty WHERE id = :pid");
             $stMov = $pdo->prepare("
@@ -818,6 +864,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
               if ($qty <= 0) continue;
 
               $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
+              compras_require_row_change($stUpdStock, "No se pudo revertir el stock del producto ID {$pid}.");
               $stMov->execute([
                 ':pid' => $pid,
                 ':qty' => -$qty, // negativo
@@ -828,8 +875,9 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
           }
 
           // Marcar como ANULADA
-          $pdo->prepare("UPDATE compras SET estado='ANULADA' WHERE id=?")
-             ->execute([$compraId]);
+          $stAnularCompra = $pdo->prepare("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'");
+          $stAnularCompra->execute([$compraId]);
+          compras_require_row_change($stAnularCompra, 'No se pudo anular la compra. Recarga la lista e intenta de nuevo.');
 
           $pdo->commit();
 
@@ -838,6 +886,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
+          flus_log_error('compras anular_confirmada failed', ['compra_id' => $compraId, 'revertir_stock' => $revertirStock, 'error' => $e->getMessage()]);
           $msg = "Error al anular: " . $e->getMessage();
           $msgType = 'error';
         }

@@ -1207,6 +1207,25 @@ $results[] = flus_run_test('compras schema lives in migrations instead of runtim
     flus_assert_not_contains('ALTER TABLE compras ADD COLUMN', $comprasPhp);
     flus_assert_not_contains('ALTER TABLE compra_items ADD COLUMN', $comprasPhp);
 });
+$results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de consistencia', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $comprasPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'compras.php';
+    if (!is_file($comprasPath)) {
+        throw new RuntimeException('Missing compras.php');
+    }
+
+    $comprasPhp = (string)file_get_contents($comprasPath);
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $comprasPhp);
+    flus_assert_contains('function compras_require_row_change', $comprasPhp);
+    flus_assert_contains('function compras_lock_product_stocks', $comprasPhp);
+    flus_assert_contains('SELECT estado FROM compras WHERE id = ? FOR UPDATE', $comprasPhp);
+    flus_assert_contains("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'", $comprasPhp);
+    flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
+    flus_assert_contains('No hay stock suficiente para revertir la compra', $comprasPhp);
+    flus_assert_contains("flus_log_error('compras confirmar failed'", $comprasPhp);
+    flus_assert_contains("flus_log_error('compras anular_confirmada failed'", $comprasPhp);
+});
 
 $results[] = flus_run_test('pagination helper is centralized in src helpers', function (): void {
     $repoRoot = dirname(__DIR__);
@@ -1359,6 +1378,45 @@ $results[] = flus_run_test('technical panel access stays centralized and visible
     flus_assert_contains('Estado actual', $tecnicoPhp);
     flus_assert_contains('Operacion tecnica', $tecnicoPhp);
     flus_assert_contains('user_can_access_technical_panel', $navPhp);
+});
+$results[] = flus_run_test('technical panel runs smoke with lock timeout and sanitized excerpts', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $tecnicoPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php';
+    if (!is_file($tecnicoPath)) {
+        throw new RuntimeException('Missing file: ' . $tecnicoPath);
+    }
+
+    $tecnicoPhp = (string)file_get_contents($tecnicoPath);
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $tecnicoPhp);
+    flus_assert_contains('function tecnico_smoke_lock_file', $tecnicoPhp);
+    flus_assert_contains('function tecnico_open_smoke_lock', $tecnicoPhp);
+    flus_assert_contains('flock($handle, LOCK_EX | LOCK_NB)', $tecnicoPhp);
+    flus_assert_contains('function tecnico_smoke_timeout_seconds', $tecnicoPhp);
+    flus_assert_contains('stream_set_blocking($pipes[1], false);', $tecnicoPhp);
+    flus_assert_contains('stream_set_blocking($pipes[2], false);', $tecnicoPhp);
+    flus_assert_contains('proc_terminate($process);', $tecnicoPhp);
+    flus_assert_contains("'stdout_preview' =>", $tecnicoPhp);
+    flus_assert_contains("'stderr_preview' =>", $tecnicoPhp);
+    flus_assert_contains("'stdout_log' =>", $tecnicoPhp);
+    flus_assert_contains('Ver resumen sanitizado del smoke', $tecnicoPhp);
+    flus_assert_contains('Ver extracto sanitizado de errores', $tecnicoPhp);
+    flus_assert_contains('La salida completa se guarda en logs tecnicos.', $tecnicoPhp);
+});
+$results[] = flus_run_test('factura pdf logs internal detail and keeps user message generic', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $pdfPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_pdf.php';
+    if (!is_file($pdfPath)) {
+        throw new RuntimeException('Missing file: ' . $pdfPath);
+    }
+
+    $pdfPhp = (string)file_get_contents($pdfPath);
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $pdfPhp);
+    flus_assert_contains('function factura_pdf_sanitize_detail', $pdfPhp);
+    flus_assert_contains("flus_log_error('factura_pdf generation failed'", $pdfPhp);
+    flus_assert_contains('Revisa los logs tecnicos si el problema persiste.', $pdfPhp);
+    flus_assert_not_contains("factura_pdf_redirect_error(\$facturaId, 'No se pudo generar el PDF.' . (\$error !== '' ? ' ' . \$error : ''));", $pdfPhp);
 });
 $results[] = flus_run_test('admin pages rely on bootstrap session startup', function (): void {
     $repoRoot = dirname(__DIR__);
@@ -2850,6 +2908,20 @@ $results[] = flus_run_test('caja activa modo compacto con split o cuenta corrien
     flus_assert_not_contains('.cc-wrap.cc-wrap--after-pago2', $cajaNeoCss);
 });
 
+$results[] = flus_run_test('caja bloquea doble cobro en boton atajos y cancelacion mientras procesa', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+
+    flus_assert_contains('const btnCancelar = document.getElementById("btnCancelar");', $cajaJs);
+    flus_assert_contains('function syncCobroBusyState()', $cajaJs);
+    flus_assert_contains('btnCobrar.disabled = cobrando;', $cajaJs);
+    flus_assert_contains('btnCobrarExacto.disabled = cobrando || splitActivo() || totalNetoActual <= 0;', $cajaJs);
+    flus_assert_contains('btnCancelar.disabled = cobrando;', $cajaJs);
+    flus_assert_contains('btnCancelar?.addEventListener("click", cancelarVenta);', $cajaJs);
+    flus_assert_contains('if (cobrando) return;', $cajaJs);
+    flus_assert_contains('syncCobroBusyState();', $cajaJs);
+});
+
 $results[] = flus_run_test('session registry wires login logout bootstrap heartbeat and diagnostics controls', function (): void {
     $repoRoot = dirname(__DIR__);
     $sessionRegistryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'session_registry.php');
@@ -3092,6 +3164,45 @@ $results[] = flus_run_test('script de auditoria legacy para nc queda disponible 
     flus_assert_contains("--limit=200", $auditScript);
     flus_assert_contains("No se detectaron facturas con CAE y metadata fiscal incompleta para NC.", $auditScript);
     flus_assert_contains("Resumen por motivo:", $auditScript);
+});
+
+$results[] = flus_run_test('uploads criticos usan helper compartido y protegen la consistencia', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $uploadHelpers = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'upload_helpers.php');
+    $factcfgPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_config.php');
+    $productosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'productos.php');
+
+    flus_assert_contains('function flus_upload_stage_image(', $uploadHelpers);
+    flus_assert_contains('function flus_upload_promote(array $upload): void', $uploadHelpers);
+    flus_assert_contains('function flus_upload_cleanup(?array $upload): void', $uploadHelpers);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/upload_helpers.php';", $factcfgPhp);
+    flus_assert_contains('factcfg_stage_logo_upload(', $factcfgPhp);
+    flus_assert_contains('flus_upload_promote($logoUpload);', $factcfgPhp);
+    flus_assert_contains('flus_upload_cleanup($logoUpload);', $factcfgPhp);
+    flus_assert_contains('flus_upload_delete_file_if_exists(factcfg_logo_local_path($logoAnterior));', $factcfgPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/upload_helpers.php';", $productosPhp);
+    flus_assert_contains('flus_upload_stage_image(', $productosPhp);
+    flus_assert_contains('flus_upload_promote($imagenUpload);', $productosPhp);
+    flus_assert_contains('flus_upload_cleanup($imagenUpload);', $productosPhp);
+    flus_assert_contains('flus_upload_delete_file_if_exists($uploadDirFs . $imagenAnterior);', $productosPhp);
+    flus_assert_contains('$pdo->beginTransaction();', $productosPhp);
+});
+
+$results[] = flus_run_test('proveedores actualiza y re-vincula en forma atomica con feedback real', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $proveedoresPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'proveedores.php');
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $proveedoresPhp);
+    flus_assert_contains("return ['linked' => 0, 'legacy' => 0, 'warnings' => ['Proveedor no encontrado.']];", $proveedoresPhp);
+    flus_assert_contains('flus_log_warn(\'relink_proveedor proveedor_id fallback\'', $proveedoresPhp);
+    flus_assert_contains('flus_log_error(\'relink_proveedor failed\'', $proveedoresPhp);
+    flus_assert_contains('$ownsTx = !$pdo->inTransaction();', $proveedoresPhp);
+    flus_assert_contains('$pdo->beginTransaction();', $proveedoresPhp);
+    flus_assert_contains('$pdo->commit();', $proveedoresPhp);
+    flus_assert_contains('$pdo->rollBack();', $proveedoresPhp);
+    flus_assert_contains('return [\'ok\' => true, \'linked\' => (int)($result[\'linked\'] ?? 0), \'legacy\' => (int)($result[\'legacy\'] ?? 0), \'warnings\' => []];', $proveedoresPhp);
+    flus_assert_contains('$_SESSION[\'prov_update_summary\'] = $result;', $proveedoresPhp);
+    flus_assert_contains('$toastMsg .= \' Vinculados: \' . $linked . \' | legacy: \' . $legacy;', $proveedoresPhp);
 });
 
 $results[] = flus_run_test('facturacion endurece fallback legacy y backfill de estado fiscal', function (): void {

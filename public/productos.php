@@ -5,35 +5,25 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/db_helpers.php';
 require_once FLUS_ROOT . '/src/productos_helpers.php';
+require_once FLUS_ROOT . '/src/upload_helpers.php';
 require_login();
 require_permission('editar_productos');
 
 $pdo = getPDO();
 $msg = "";
 
-
 /* ================================
    PROVEEDORES (integración v3.2.2)
 ================================ */
 
-function flus_norm_name(string $s): string {
-    $s = trim(preg_replace('/\s+/', ' ', $s) ?? $s);
-    return $s;
-}
+function flus_norm_name(string $s): string { return trim(preg_replace('/\s+/', ' ', $s) ?? $s); }
 
 /**
  * Busca proveedor por id (si existe). Devuelve [id, nombre] o null.
  */
 function flus_get_proveedor_by_id(PDO $pdo, int $id): ?array {
     if ($id <= 0) return null;
-    try {
-        $st = $pdo->prepare("SELECT id, nombre FROM proveedores WHERE id = ? LIMIT 1");
-        $st->execute([$id]);
-        $row = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-        return $row ? ['id' => (int)$row['id'], 'nombre' => (string)$row['nombre']] : null;
-    } catch (Throwable $e) {
-        return null;
-    }
+    try { $st = $pdo->prepare("SELECT id, nombre FROM proveedores WHERE id = ? LIMIT 1"); $st->execute([$id]); $row = $st->fetch(PDO::FETCH_ASSOC) ?: null; return $row ? ['id' => (int)$row['id'], 'nombre' => (string)$row['nombre']] : null; } catch (Throwable $e) { return null; }
 }
 
 /**
@@ -48,25 +38,14 @@ function flus_get_or_create_proveedor(PDO $pdo, string $nombre): int {
         $st = $pdo->prepare("SELECT id, nombre FROM proveedores WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1");
         $st->execute([$nombre]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row && (int)$row['id'] > 0) {
-            return (int)$row['id'];
-        }
+        if ($row && (int)$row['id'] > 0) return (int)$row['id'];
     } catch (Throwable $e) {
         // seguir
     }
 
     // Crear
-    try {
-        $st = $pdo->prepare("INSERT INTO proveedores (nombre, activo) VALUES (?, 1)");
-        $st->execute([$nombre]);
-        return (int)$pdo->lastInsertId();
-    } catch (Throwable $e) {
-        return 0;
-    }
+    try { $st = $pdo->prepare("INSERT INTO proveedores (nombre, activo) VALUES (?, 1)"); $st->execute([$nombre]); return (int)$pdo->lastInsertId(); } catch (Throwable $e) { return 0; }
 }
-
-
-
 
 $FLUS_HAS_PROVEEDORES = has_table($pdo, 'proveedores');
 $FLUS_PRODUCTOS_HAS_PROVEEDOR_ID = flus_column_exists($pdo, 'productos', 'proveedor_id');
@@ -687,6 +666,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
 
         $imagenNombre   = null;
         $imagenAnterior = null;
+        $imagenUpload   = null;
 
         if ($id) {
             $stImg = $pdo->prepare("SELECT imagen FROM productos WHERE id = ? LIMIT 1");
@@ -708,8 +688,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
             }
         }
 
+        if ($msg === '') {
+            try {
+                $imagenUpload = flus_upload_stage_image(
+                    $_FILES['imagen'] ?? [],
+                    $uploadDirFs,
+                    'producto',
+                    IMG_MAX_SIZE,
+                    IMG_EXTENSIONES,
+                    ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+                    'la imagen'
+                );
+            } catch (Throwable $e) {
+                $msg = $e->getMessage();
+            }
+        }
+
         // Procesar imagen
-        if (
+        if (false &&
             $msg === '' &&
             !empty($_FILES['imagen']['name']) &&
             (int)($_FILES['imagen']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK
@@ -751,82 +747,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
 
         if ($msg === '') {
             $provIdForDb = ($proveedorId > 0) ? $proveedorId : null;
-
-            if ($id) {
-                if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
-                    $stmt = $pdo->prepare("
-                        UPDATE productos SET
-                            codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, proveedor_id = ?, iva = ?,
-                            precio = ?, costo = ?, stock = ?, stock_minimo = ?,
-                            es_pesable = ?, unidad_venta = ?,
-                            activo = ?, imagen = ?
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([
-                        $codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva,
-                        $precio, $costo, $stock, $stockMinimo,
-                        $esPesable, $unidadVenta,
-                        $activo, $imagenNombre, $id
-                    ]);
-                } else {
-                    $stmt = $pdo->prepare("
-                        UPDATE productos SET
-                            codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, iva = ?,
-                            precio = ?, costo = ?, stock = ?, stock_minimo = ?,
-                            es_pesable = ?, unidad_venta = ?,
-                            activo = ?, imagen = ?
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([
-                        $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
-                        $precio, $costo, $stock, $stockMinimo,
-                        $esPesable, $unidadVenta,
-                        $activo, $imagenNombre, $id
-                    ]);
+            try {
+                $pdo->beginTransaction();
+                if (is_array($imagenUpload)) {
+                    flus_upload_promote($imagenUpload);
+                    $imagenNombre = (string)$imagenUpload['filename'];
                 }
 
-                $savedId = $id;
-                $savedAction = 'updated';
-            } else {
-                $stockInicial = $stock;
+                if ($id) {
+                    if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
+                        $stmt = $pdo->prepare("
+                            UPDATE productos SET
+                                codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, proveedor_id = ?, iva = ?,
+                                precio = ?, costo = ?, stock = ?, stock_minimo = ?,
+                                es_pesable = ?, unidad_venta = ?,
+                                activo = ?, imagen = ?
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([$codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva, $precio, $costo, $stock, $stockMinimo, $esPesable, $unidadVenta, $activo, $imagenNombre, $id]);
+                    } else {
+                        $stmt = $pdo->prepare("
+                            UPDATE productos SET
+                                codigo = ?, nombre = ?, categoria = ?, marca = ?, proveedor = ?, iva = ?,
+                                precio = ?, costo = ?, stock = ?, stock_minimo = ?,
+                                es_pesable = ?, unidad_venta = ?,
+                                activo = ?, imagen = ?
+                            WHERE id = ?
+                        ");
+                        $stmt->execute([$codigo, $nombre, $categoria, $marca, $proveedor, $iva, $precio, $costo, $stock, $stockMinimo, $esPesable, $unidadVenta, $activo, $imagenNombre, $id]);
+                    }
 
-                if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO productos
-                            (codigo, nombre, categoria, marca, proveedor, proveedor_id, iva,
-                             precio, costo, stock, stock_minimo, stock_inicial,
-                             es_pesable, unidad_venta,
-                             activo, imagen)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ");
-                    $stmt->execute([
-                        $codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva,
-                        $precio, $costo, $stock, $stockMinimo, $stockInicial,
-                        $esPesable, $unidadVenta,
-                        $activo, $imagenNombre
-                    ]);
+                    $savedId = $id;
+                    $savedAction = 'updated';
                 } else {
-                    $stmt = $pdo->prepare("
-                        INSERT INTO productos
-                            (codigo, nombre, categoria, marca, proveedor, iva,
-                             precio, costo, stock, stock_minimo, stock_inicial,
-                             es_pesable, unidad_venta,
-                             activo, imagen)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ");
-                    $stmt->execute([
-                        $codigo, $nombre, $categoria, $marca, $proveedor, $iva,
-                        $precio, $costo, $stock, $stockMinimo, $stockInicial,
-                        $esPesable, $unidadVenta,
-                        $activo, $imagenNombre
-                    ]);
+                    $stockInicial = $stock;
+
+                    if ($FLUS_PRODUCTOS_HAS_PROVEEDOR_ID) {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO productos
+                                (codigo, nombre, categoria, marca, proveedor, proveedor_id, iva,
+                                 precio, costo, stock, stock_minimo, stock_inicial,
+                                 es_pesable, unidad_venta,
+                                 activo, imagen)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([$codigo, $nombre, $categoria, $marca, $proveedor, $provIdForDb, $iva, $precio, $costo, $stock, $stockMinimo, $stockInicial, $esPesable, $unidadVenta, $activo, $imagenNombre]);
+                    } else {
+                        $stmt = $pdo->prepare("
+                            INSERT INTO productos
+                                (codigo, nombre, categoria, marca, proveedor, iva,
+                                 precio, costo, stock, stock_minimo, stock_inicial,
+                                 es_pesable, unidad_venta,
+                                 activo, imagen)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt->execute([$codigo, $nombre, $categoria, $marca, $proveedor, $iva, $precio, $costo, $stock, $stockMinimo, $stockInicial, $esPesable, $unidadVenta, $activo, $imagenNombre]);
+                    }
+
+                    $savedId = (int)$pdo->lastInsertId();
+                    $savedAction = 'created';
                 }
 
-                $savedId = (int)$pdo->lastInsertId();
-                $savedAction = 'created';
+                $pdo->commit();
+                if (is_array($imagenUpload) && $imagenAnterior && $imagenAnterior !== $imagenNombre) {
+                    flus_upload_delete_file_if_exists($uploadDirFs . $imagenAnterior);
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                flus_upload_cleanup($imagenUpload);
+                $msg = $e->getMessage();
             }
 
-            if ($isAjax) {
+            if ($msg === '' && $isAjax) {
                 // Obtener producto actualizado
                 $stmtGet = $pdo->prepare("SELECT * FROM productos WHERE id = ? LIMIT 1");
                 $stmtGet->execute([$savedId]);
@@ -856,12 +850,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
                 exit;
             }
 
-            $params = productos_return_params_from_post();
-            unset($params['editar'], $params['ajax']);
-            $params['saved'] = $savedAction;
-            if ($savedAction === 'created') $params['clearForm'] = '1';
-            header("Location: productos.php?" . http_build_query($params));
-            exit;
+            if ($msg === '') {
+                $params = productos_return_params_from_post();
+                unset($params['editar'], $params['ajax']);
+                $params['saved'] = $savedAction;
+                if ($savedAction === 'created') $params['clearForm'] = '1';
+                header("Location: productos.php?" . http_build_query($params));
+                exit;
+            }
         } else {
             if ($isAjax) {
                 http_response_code(400);
