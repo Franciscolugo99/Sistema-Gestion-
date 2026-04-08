@@ -704,47 +704,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['action'])) {
             }
         }
 
-        // Procesar imagen
-        if (false &&
-            $msg === '' &&
-            !empty($_FILES['imagen']['name']) &&
-            (int)($_FILES['imagen']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK
-        ) {
-            $tmpName  = (string)($_FILES['imagen']['tmp_name'] ?? '');
-            $origName = (string)($_FILES['imagen']['name'] ?? '');
-            $size     = (int)($_FILES['imagen']['size'] ?? 0);
-
-            if ($size > IMG_MAX_SIZE) {
-                $msg = "La imagen es muy pesada (máx 3MB).";
-            } else {
-                $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-
-                // Validación más robusta de imagen
-                $finfo = new finfo(FILEINFO_MIME_TYPE);
-                $mimeType = $finfo->file($tmpName);
-                $mimePermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-                if (!in_array($mimeType, $mimePermitidos, true)) {
-                    $msg = "El archivo subido no es una imagen válida.";
-                } elseif (!in_array($ext, IMG_EXTENSIONES, true)) {
-                    $msg = "Formato de imagen no permitido (jpg, jpeg, png, webp, gif).";
-                } else {
-                    $safeName = time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-
-                    if (move_uploaded_file($tmpName, $uploadDirFs . $safeName)) {
-                        $imagenNombre = $safeName;
-
-                        if ($imagenAnterior && $imagenAnterior !== $imagenNombre) {
-                            $oldPath = $uploadDirFs . $imagenAnterior;
-                            if (is_file($oldPath)) @unlink($oldPath);
-                        }
-                    } else {
-                        $msg = "No se pudo guardar la imagen.";
-                    }
-                }
-            }
-        }
-
         if ($msg === '') {
             $provIdForDb = ($proveedorId > 0) ? $proveedorId : null;
             try {

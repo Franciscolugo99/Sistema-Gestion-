@@ -110,6 +110,7 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
     $linked = 0;
     $legacy = 0;
     $warnings = [];
+    $errors = [];
 
     try {
         $st = $pdo->prepare("UPDATE productos SET proveedor = :new_name WHERE proveedor_id = :proveedor_id");
@@ -149,9 +150,11 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
                 ':legacy_name' => $legacyName,
             ]);
             $legacy += $st->rowCount();
+            if ($st->rowCount() > 0) {
+                $warnings[] = 'Se uso fallback legacy sin proveedor_id.';
+            }
             continue;
         } catch (Throwable $e) {
-            $warnings[] = 'Se uso fallback legacy sin proveedor_id.';
             flus_log_warn('relink_proveedor legacy fallback', [
                 'proveedor_id' => $proveedorId,
                 'legacy_name' => $legacyName,
@@ -171,7 +174,7 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
             ]);
             $legacy += $st->rowCount();
         } catch (Throwable $e) {
-            $warnings[] = 'Fallo la re-vinculacion legacy para "' . $legacyName . '".';
+            $errors[] = 'Fallo la re-vinculacion legacy para "' . $legacyName . '".';
             flus_log_error('relink_proveedor failed', [
                 'proveedor_id' => $proveedorId,
                 'legacy_name' => $legacyName,
@@ -180,7 +183,12 @@ function relinkProveedorProducts(PDO $pdo, int $proveedorId, string ...$legacyNa
         }
     }
 
-    return ['linked' => $linked, 'legacy' => $legacy, 'warnings' => array_values(array_unique($warnings))];
+    return [
+        'linked' => $linked,
+        'legacy' => $legacy,
+        'warnings' => array_values(array_unique($warnings)),
+        'errors' => array_values(array_unique($errors)),
+    ];
 }
 
 function syncProveedorProducts(PDO $pdo, int $proveedorId, string $oldName, string $newName): void {
@@ -188,8 +196,8 @@ function syncProveedorProducts(PDO $pdo, int $proveedorId, string $oldName, stri
         return;
     }
     $result = relinkProveedorProducts($pdo, $proveedorId, $oldName, $newName);
-    if (($result['warnings'] ?? []) !== []) {
-        throw new RuntimeException(implode(' ', (array)$result['warnings']));
+    if (($result['errors'] ?? []) !== []) {
+        throw new RuntimeException(implode(' ', (array)$result['errors']));
     }
 }
 
@@ -292,8 +300,8 @@ function updateProveedor(PDO $pdo, int $id, array $data): array {
             trim((string)($data['nombre_original'] ?? (string)($before['nombre'] ?? ''))),
             trim((string)($data['nombre'] ?? ''))
         );
-        if (($result['warnings'] ?? []) !== []) {
-            throw new RuntimeException(implode(' ', (array)$result['warnings']));
+        if (($result['errors'] ?? []) !== []) {
+            throw new RuntimeException(implode(' ', (array)$result['errors']));
         }
 
         if ($ownsTx && $pdo->inTransaction()) {

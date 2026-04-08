@@ -360,7 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $actual = factcfg_fetch_current($pdo, true);
                     $porPuntoVenta = factcfg_fetch_by_punto_venta($pdo, $puntoVenta, true);
                     $target = $porPuntoVenta ?: $actual;
-                    $logoAnterior = trim((string)($actual['logo_url'] ?? config_get($pdo, 'business_logo_url', '')));
+                    $logoAnterior = trim((string)($target['logo_url'] ?? config_get($pdo, 'business_logo_url', '')));
 
                     if (is_array($logoUpload)) {
                         flus_upload_promote($logoUpload);
