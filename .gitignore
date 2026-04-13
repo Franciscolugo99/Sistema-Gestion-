@@ -109,3 +109,5 @@ flus_fixes.patch
 *.patch
 Nuevo documento de texto.txt
 storage/login_throttle/
+
+.tmp_flus_review/
