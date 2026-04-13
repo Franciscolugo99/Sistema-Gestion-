@@ -5,6 +5,11 @@ declare(strict_types=1);
 
 date_default_timezone_set('America/Argentina/Buenos_Aires');
 
+$flusVersionFile = __DIR__ . '/version.php';
+if (is_file($flusVersionFile)) {
+    require_once $flusVersionFile;
+}
+
 // ============================================
 // CONFIGURACION DE BASE DE DATOS
 // ============================================
@@ -20,7 +25,7 @@ define('DB_CHARSET', 'utf8mb4');
 // ============================================
 define('APP_DEBUG', false);  // false en produccion
 define('APP_NAME', 'FLUS');
-define('APP_VERSION', '2.1.3');
+define('APP_VERSION', defined('FLUS_VERSION') ? FLUS_VERSION : '3.8.3');
 
 // ============================================
 // CONEXION PDO

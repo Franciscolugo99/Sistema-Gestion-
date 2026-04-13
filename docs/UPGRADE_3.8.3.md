@@ -33,6 +33,9 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 - `migrations/022_facturas_fiscal_contingencia.sql`
 - `migrations/023_user_sessions_registry.sql`
 - `migrations/024_permissions_backfill_nc_y_anulacion_items.sql`
+- `migrations/025_inventario_fisico_schema.sql`
+- `migrations/026_backfill_facturas_estado_fiscal_legacy.sql`
+- `migrations/027_reclasificar_arca_no_responde_transitorio.sql`
 
 ## Impacto esperado
 
@@ -44,6 +47,11 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 - Caja / operacion:
   - La venta sigue funcionando aunque la facturacion fiscal se gestione por flujo separado.
   - Conviene validar explicitamente caja + facturacion + recovery despues del deploy.
+- Inventario fisico:
+  - Se preserva el nombre de categoria y snapshot de stock del sistema para mejorar trazabilidad de conteos.
+- Compatibilidad fiscal legacy:
+  - Facturas antiguas con CAE y coordenadas fiscales validas se normalizan como `AUTORIZADA`.
+  - Errores de disponibilidad de ARCA/WSDL se reclasifican como `ERROR_TRANSITORIO` para permitir recovery operativo.
 
 ## Preparacion previa
 
@@ -82,15 +90,20 @@ C:\xampp\php\php.exe scripts\migrate.php
 - Recovery fiscal:
   - abrir `facturacion_recovery.php`
   - verificar casos pendientes/transitorios si existen
+- Inventario fisico:
+  - crear o abrir una sesion de conteo
+  - verificar que el conteo preserve categoria y stock del sistema cuando existan
 - Diagnostico:
   - abrir `diagnostico.php`
   - revisar sesiones activas y refresco en vivo
+- Integracion DB opcional:
+  - ejecutar `tests/integration_db.php` con `FLUS_TEST_DB=1` contra una base temporal si hay MySQL/MariaDB local disponible
 
 ## Riesgos a vigilar
 
 - Instalaciones con JS cacheado: si una pantalla parece vieja, hacer recarga forzada.
 - Si la instancia usa facturacion integrada, validar preflight y recovery antes de habilitar operacion plena.
-- Si hay servicios o automatismos externos que asumen un set viejo de migraciones/documentacion, actualizarlos para contemplar `023_user_sessions_registry.sql`.
+- Si hay servicios o automatismos externos que asumen un set viejo de migraciones/documentacion, actualizarlos para contemplar migraciones hasta `027_reclasificar_arca_no_responde_transitorio.sql`.
 
 ## Rollback
 
