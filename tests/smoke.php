@@ -1115,6 +1115,19 @@ $results[] = flus_run_test('facturacion contexto y payload quedan extraidos del 
     flus_assert_not_contains('function flus_facturacion_factura_header_base(array $context, string $estadoFiscal = \'PENDIENTE_ENVIO\'): array', $facturacionLib);
 });
 
+$results[] = flus_run_test('factura pdf helpers quedan extraidos del hotspot principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $pdfLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_pdf_lib.php');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_pdf_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_factura_pdf_token_create(int $facturaId, int $expiresAt): string', $pdfLib);
+    flus_assert_contains('function flus_factura_pdf_token_validate(string $token, int $facturaId): bool', $pdfLib);
+    flus_assert_contains('function flus_factura_pdf_browser_path(): ?string', $pdfLib);
+    flus_assert_not_contains('function flus_factura_pdf_token_create(int $facturaId, int $expiresAt): string', $facturacionLib);
+    flus_assert_not_contains('function flus_factura_pdf_browser_path(): ?string', $facturacionLib);
+});
+
 $results[] = flus_run_test('facturacion iva and comprobante helpers stay stable', function (): void {
     flus_assert_same('RI', determinarCondIvaReceptor(['cond_iva' => 'Responsable Inscripto']));
     flus_assert_same('MT', determinarCondIvaReceptor(['cond_iva' => 'Monotributo']));
@@ -1354,6 +1367,41 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS caja_auditoria', $cajaHistorialPhp);
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS producto_reposicion', $reposicionPhp);
     flus_assert_contains('function _repo_join_aux(PDO $pdo): string', $reposicionPhp);
+});
+
+$results[] = flus_run_test('install baseline includes core POS sale tables', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
+    $integrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'integration_db.php';
+
+    foreach ([$installPath, $integrationPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $installSql = (string)file_get_contents($installPath);
+    $integrationPhp = (string)file_get_contents($integrationPath);
+
+    foreach (['ventas', 'venta_items', 'venta_pagos', 'venta_promos'] as $table) {
+        flus_assert_contains('CREATE TABLE `' . $table . '`', $installSql);
+    }
+
+    flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
+    flus_assert_contains("latest migration is 027", $integrationPhp);
+    flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
+    flus_assert_contains('non-remote fiscal invoice has one local ARCA event', $integrationPhp);
+    flus_assert_contains('non-remote NC total is linked to original invoice', $integrationPhp);
+    flus_assert_contains('non-remote NC total restores product stock', $integrationPhp);
+    flus_assert_contains('non-remote NC partial is linked to original invoice', $integrationPhp);
+    flus_assert_contains('non-remote NC partial restores only credited stock', $integrationPhp);
+    flus_assert_contains('non-remote recovery marks invoice as recovered', $integrationPhp);
+    flus_assert_contains('non-remote recovery rewrites event operation', $integrationPhp);
+    flus_assert_contains('sale cobranza receipt is attached', $integrationPhp);
+    flus_assert_contains('sale cobranza receipt is fetchable by invoice', $integrationPhp);
+    flus_assert_contains('cuenta corriente payment creates receipt application', $integrationPhp);
+    flus_assert_contains('cuenta corriente duplicate payment reuses receipt application', $integrationPhp);
+    flus_assert_contains('cuenta corriente recalculated balance is zero', $integrationPhp);
 });
 
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {

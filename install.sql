@@ -149,6 +149,106 @@ CREATE TABLE `clientes` (
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+DROP TABLE IF EXISTS `ventas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `ventas` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uuid` varchar(36) DEFAULT NULL,
+  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
+  `cliente_id` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `usuario_id` int(11) DEFAULT NULL,
+  `vendedor_id` int(11) DEFAULT NULL,
+  `caja_id` int(11) DEFAULT NULL,
+  `terminal_id` int(11) DEFAULT NULL,
+  `total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total_bruto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `descuento_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `descuento_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `medio_pago` varchar(30) NOT NULL DEFAULT 'EFECTIVO',
+  `monto_pagado` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `monto_cc` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `vuelto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `estado` enum('EMITIDA','PARCIALMENTE_ANULADA','ANULADA') NOT NULL DEFAULT 'EMITIDA',
+  `facturada` tinyint(1) NOT NULL DEFAULT 0,
+  `anulado_motivo` varchar(255) DEFAULT NULL,
+  `anulado_por` int(11) DEFAULT NULL,
+  `anulado_en` datetime DEFAULT NULL,
+  `ticket_token` varchar(64) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_ventas_uuid` (`uuid`),
+  KEY `idx_ventas_fecha` (`fecha`),
+  KEY `idx_ventas_cliente` (`cliente_id`),
+  KEY `idx_ventas_user` (`user_id`),
+  KEY `idx_ventas_usuario` (`usuario_id`),
+  KEY `idx_ventas_caja` (`caja_id`),
+  KEY `idx_ventas_terminal` (`terminal_id`),
+  KEY `idx_ventas_estado` (`estado`),
+  KEY `idx_ventas_facturada` (`facturada`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `venta_items`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `venta_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `venta_id` int(11) NOT NULL,
+  `producto_id` int(11) NOT NULL,
+  `cantidad` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `precio` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `precio_unit_original` decimal(12,2) DEFAULT NULL,
+  `descuento_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `precio_unit_final` decimal(12,2) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_venta_items_venta` (`venta_id`),
+  KEY `idx_venta_items_producto` (`producto_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `venta_pagos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `venta_pagos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `venta_id` int(11) NOT NULL,
+  `medio_pago` varchar(30) NOT NULL,
+  `monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `cc_cliente_id` int(11) DEFAULT NULL,
+  `cc_movimiento_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_venta_pagos_venta` (`venta_id`),
+  KEY `idx_venta_pagos_medio` (`medio_pago`),
+  KEY `idx_venta_pagos_cc_cliente` (`cc_cliente_id`),
+  KEY `idx_venta_pagos_cc_movimiento` (`cc_movimiento_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `venta_promos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `venta_promos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `venta_id` int(11) NOT NULL,
+  `promo_id` int(11) DEFAULT NULL,
+  `promo_tipo` varchar(20) NOT NULL,
+  `promo_nombre` varchar(120) NOT NULL,
+  `descripcion` varchar(255) DEFAULT NULL,
+  `descuento_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (`meta` is null or json_valid(`meta`)),
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_venta_promos_venta` (`venta_id`),
+  KEY `idx_venta_promos_promo` (`promo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 DROP TABLE IF EXISTS `compra_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
