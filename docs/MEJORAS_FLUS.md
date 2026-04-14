@@ -69,5 +69,7 @@ Tambien cubre cuenta corriente sobre una venta facturada: habilita CC, registra 
 
 Tambien se hizo una extraccion chica del hotspot `src/facturacion_lib.php`: los helpers de PDF quedaron en `src/facturacion_pdf_lib.php`, con smoke dedicado para evitar que vuelvan al archivo principal.
 El runner quedo formalizado como ritual de release en `docs/INTEGRATION_DB_RUNNER.md`: prerequisitos, comando definitivo, cobertura, momento de ejecucion y manejo de fallas.
+Se completo un segundo corte chico del hotspot fiscal: envio ARCA, finalizacion de factura autorizada, recovery simple y procesamiento de factura registrada quedaron en `src/facturacion_emision_lib.php`, con smoke dedicado.
+El contrato fiscal/comercial corto quedo documentado en `docs/CONTRATO_FISCAL_COMERCIAL.md`: venta, documento comercial, factura, NC, cobranza, recibo y recovery con invariantes minimas.
 
-Siguiente paso recomendado: segundo corte chico de `src/facturacion_lib.php`, preferentemente recovery/envio/finalizacion fiscal o contexto/registro desde venta-documento.
+Siguiente paso recomendado: preparar el proximo corte de bajo riesgo o cerrar el paquete como release candidata.

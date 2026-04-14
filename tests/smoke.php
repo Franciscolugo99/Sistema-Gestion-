@@ -1115,6 +1115,21 @@ $results[] = flus_run_test('facturacion contexto y payload quedan extraidos del 
     flus_assert_not_contains('function flus_facturacion_factura_header_base(array $context, string $estadoFiscal = \'PENDIENTE_ENVIO\'): array', $facturacionLib);
 });
 
+$results[] = flus_run_test('facturacion emision y recovery quedan extraidos del hotspot principal', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $emisionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_emision_lib.php');
+
+    flus_assert_contains("require_once __DIR__ . '/facturacion_emision_lib.php';", $facturacionLib);
+    flus_assert_contains('function flus_facturacion_ejecutar_envio_arca(PDO $pdo, array $context, array $opciones = []): array', $emisionLib);
+    flus_assert_contains('function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context, array $resultado, array $meta = []): int', $emisionLib);
+    flus_assert_contains('function flus_facturacion_intentar_recovery_simple(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context): ?int', $emisionLib);
+    flus_assert_contains('function flus_facturacion_procesar_factura_registrada(PDO $pdo, array $registro, array $opciones = []): int', $emisionLib);
+    flus_assert_not_contains('function flus_facturacion_ejecutar_envio_arca(PDO $pdo, array $context, array $opciones = []): array', $facturacionLib);
+    flus_assert_not_contains('function flus_facturacion_finalizar_factura_autorizada(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context, array $resultado, array $meta = []): int', $facturacionLib);
+    flus_assert_not_contains('function flus_facturacion_intentar_recovery_simple(PDO $pdo, FacturaFiscalRepository $repo, array $factura, array $context): ?int', $facturacionLib);
+});
+
 $results[] = flus_run_test('factura pdf helpers quedan extraidos del hotspot principal', function (): void {
     $repoRoot = dirname(__DIR__);
     $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
@@ -1428,6 +1443,25 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('Cuenta corriente con cargo, pago idempotente por `request_uid`', $runnerDoc);
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $upgradeDoc);
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
+});
+
+$results[] = flus_run_test('contrato fiscal comercial queda documentado', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $contractPath = $repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'CONTRATO_FISCAL_COMERCIAL.md';
+
+    if (!is_file($contractPath)) {
+        throw new RuntimeException('Missing file: ' . $contractPath);
+    }
+
+    $contractDoc = (string)file_get_contents($contractPath);
+
+    foreach (['## Venta', '## Documento comercial', '## Factura', '## Nota de credito', '## Cobranza', '## Recibo', '## Recovery fiscal', '## Invariantes'] as $section) {
+        flus_assert_contains($section, $contractDoc);
+    }
+
+    flus_assert_contains('`ventas.total` no debe mutar', $contractDoc);
+    flus_assert_contains('No debe reenviar a ARCA a ciegas', $contractDoc);
+    flus_assert_contains('No mezclar envio comercial con emision fiscal', $contractDoc);
 });
 
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {
