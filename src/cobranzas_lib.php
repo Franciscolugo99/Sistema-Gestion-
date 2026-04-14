@@ -75,6 +75,16 @@ function flus_cobranzas_build_sale_external_key(int $ventaId, int $linea, string
     ]);
 }
 
+function flus_cobranzas_build_invoice_external_key(int $facturaId, string $requestUid): string
+{
+    $requestUid = trim($requestUid);
+    if ($requestUid === '') {
+        $requestUid = bin2hex(random_bytes(16));
+    }
+
+    return 'FACTURA:' . max(0, $facturaId) . ':' . substr(hash('sha256', $requestUid), 0, 40);
+}
+
 function flus_cobranzas_build_cc_external_key(int $ccMovimientoId): string
 {
     return 'CCPAGO:' . max(0, $ccMovimientoId);
@@ -161,6 +171,76 @@ function flus_cobranzas_find_receipt_application_by_cobranza(PDO $pdo, int $cobr
 function flus_cobranzas_float_eq(float $a, float $b, float $delta = 0.009): bool
 {
     return abs($a - $b) <= $delta;
+}
+
+function flus_cobranzas_factura_es_cobrable(array $factura): bool
+{
+    $naturaleza = strtoupper(trim((string)($factura['naturaleza'] ?? '')));
+    $tipo = strtoupper(trim((string)($factura['tipo'] ?? '')));
+
+    return $naturaleza !== 'NC' && !str_starts_with($tipo, 'NC');
+}
+
+function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array
+{
+    $facturaId = (int)($factura['id'] ?? 0);
+    $documentoId = (int)($factura['documento_id'] ?? 0);
+    $total = round(abs((float)($factura['total'] ?? $factura['venta_total'] ?? 0)), 2);
+    $cobrable = $facturaId > 0 && $total > 0 && flus_cobranzas_factura_es_cobrable($factura);
+
+    $base = [
+        'total' => $total,
+        'cobrado' => 0.0,
+        'saldo' => $total,
+        'estado' => $cobrable ? 'SIN_COBRAR' : 'NO_APLICA',
+        'label' => $cobrable ? 'Sin cobrar' : 'No aplica',
+        'cobrable' => $cobrable,
+        'receipts_ready' => flus_cobranzas_receipts_ready($pdo),
+        'recibos_count' => 0,
+    ];
+
+    if (!$base['receipts_ready']) {
+        $base['estado'] = 'SIN_TABLAS';
+        $base['label'] = 'Pendiente de esquema';
+        return $base;
+    }
+
+    if (!$cobrable) {
+        return $base;
+    }
+
+    $recibos = flus_cobranzas_fetch_receipts_by_factura($pdo, $facturaId, $documentoId > 0 ? $documentoId : null);
+    $cobrado = 0.0;
+    foreach ($recibos as $recibo) {
+        $estadoCobranza = strtoupper(trim((string)($recibo['cobranza_estado'] ?? 'ACTIVA')));
+        $estadoRecibo = strtoupper(trim((string)($recibo['recibo_estado'] ?? 'EMITIDO')));
+        if (in_array($estadoCobranza, ['ANULADA', 'CANCELADA'], true) || in_array($estadoRecibo, ['ANULADO', 'CANCELADO'], true)) {
+            continue;
+        }
+        $cobrado += max(0.0, round((float)($recibo['monto_aplicado'] ?? 0), 2));
+    }
+
+    $cobrado = round($cobrado, 2);
+    $saldo = round(max(0.0, $total - $cobrado), 2);
+    $estado = 'SIN_COBRAR';
+    $label = 'Sin cobrar';
+
+    if ($saldo <= 0.009) {
+        $estado = 'COBRADA';
+        $label = 'Cobrada';
+        $saldo = 0.0;
+    } elseif ($cobrado > 0.009) {
+        $estado = 'PARCIAL';
+        $label = 'Cobro parcial';
+    }
+
+    return array_merge($base, [
+        'cobrado' => $cobrado,
+        'saldo' => $saldo,
+        'estado' => $estado,
+        'label' => $label,
+        'recibos_count' => count($recibos),
+    ]);
 }
 
 function flus_cobranzas_find_application_by_key(PDO $pdo, string $applicationKey): ?array
@@ -594,6 +674,234 @@ function flus_cobranzas_register_sale_payment(PDO $pdo, array $payload): int
     ]);
 
     return $cobranzaId;
+}
+
+function flus_cobranzas_caja_total_column(string $medioPago): ?string
+{
+    return match (strtoupper(trim($medioPago))) {
+        'EFECTIVO' => 'total_efectivo',
+        'MP', 'MERCADOPAGO', 'MODO', 'QR' => 'total_mp',
+        'DEBITO' => 'total_debito',
+        'CREDITO' => 'total_credito',
+        'TRANSFERENCIA', 'TRANSFER' => 'total_transferencia',
+        default => null,
+    };
+}
+
+function flus_cobranzas_register_invoice_caja_movimiento(PDO $pdo, array $payload): ?int
+{
+    $cajaId = (int)($payload['caja_id'] ?? 0);
+    $monto = round((float)($payload['monto'] ?? 0), 2);
+    $medioPago = strtoupper(trim((string)($payload['medio_pago'] ?? '')));
+    if ($cajaId <= 0 || $monto <= 0 || $medioPago === '' || !flus_table_exists($pdo, 'caja_movimientos')) {
+        return null;
+    }
+
+    $facturaId = max(0, (int)($payload['factura_id'] ?? 0));
+    $clienteNombre = trim((string)($payload['cliente_nombre'] ?? ''));
+    $referencia = trim((string)($payload['referencia'] ?? ''));
+    $usuarioNombre = trim((string)($payload['usuario_nombre'] ?? ''));
+    if ($usuarioNombre === '') {
+        $usuarioId = (int)($payload['created_by'] ?? 0);
+        $usuarioNombre = $usuarioId > 0 ? ('user#' . $usuarioId) : null;
+    }
+
+    $concepto = 'Cobro factura';
+    if ($facturaId > 0) {
+        $concepto .= ' #' . $facturaId;
+    }
+    if ($clienteNombre !== '') {
+        $concepto .= ' - ' . mb_substr($clienteNombre, 0, 80);
+    }
+    if ($referencia !== '') {
+        $concepto .= ' Ref: ' . mb_substr($referencia, 0, 40);
+    }
+
+    $cajaMovId = flus_cobranzas_insert_dynamic($pdo, 'caja_movimientos', [
+        'caja_id' => $cajaId,
+        'tipo' => 'ingreso',
+        'medio_pago' => $medioPago,
+        'concepto' => mb_substr($concepto, 0, 255),
+        'monto' => $monto,
+        'usuario_registro' => $usuarioNombre !== null ? mb_substr($usuarioNombre, 0, 100) : null,
+    ]);
+
+    $totalColumn = flus_cobranzas_caja_total_column($medioPago);
+    if ($cajaMovId > 0 && $totalColumn !== null && flus_column_exists($pdo, 'caja_sesiones', $totalColumn)) {
+        $stTotal = $pdo->prepare("UPDATE caja_sesiones SET {$totalColumn} = COALESCE({$totalColumn}, 0) + ? WHERE id = ?");
+        $stTotal->execute([$monto, $cajaId]);
+    }
+
+    return $cajaMovId > 0 ? $cajaMovId : null;
+}
+
+function flus_cobranzas_register_invoice_payment(PDO $pdo, array $payload): array
+{
+    if (!flus_cobranzas_receipts_ready($pdo)) {
+        return ['success' => false, 'error' => 'Las tablas de cobranzas y recibos no estan listas.'];
+    }
+
+    $facturaId = (int)($payload['factura_id'] ?? 0);
+    $monto = round((float)($payload['monto'] ?? 0), 2);
+    $medioPago = strtoupper(trim((string)($payload['medio_pago'] ?? '')));
+    $requestUid = trim((string)($payload['request_uid'] ?? ''));
+    $externalKey = trim((string)($payload['external_key'] ?? ''));
+
+    if ($facturaId <= 0) {
+        return ['success' => false, 'error' => 'Factura invalida.'];
+    }
+    if ($monto <= 0) {
+        return ['success' => false, 'error' => 'El monto debe ser mayor a cero.'];
+    }
+    if ($medioPago === '') {
+        return ['success' => false, 'error' => 'Medio de pago requerido.'];
+    }
+    if ($externalKey === '') {
+        $externalKey = flus_cobranzas_build_invoice_external_key($facturaId, $requestUid);
+    }
+
+    $ownTransaction = !$pdo->inTransaction();
+    if ($ownTransaction) {
+        $pdo->beginTransaction();
+    }
+
+    try {
+        $stFactura = $pdo->prepare('SELECT * FROM facturas WHERE id = ? LIMIT 1');
+        $stFactura->execute([$facturaId]);
+        $factura = $stFactura->fetch(PDO::FETCH_ASSOC) ?: null;
+        if (!is_array($factura)) {
+            if ($ownTransaction) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'error' => 'Factura no encontrada.'];
+        }
+
+        $facturaClienteId = (int)($factura['cliente_id'] ?? 0);
+        $clienteId = (int)($payload['cliente_id'] ?? 0);
+        if ($clienteId > 0 && $facturaClienteId > 0 && $clienteId !== $facturaClienteId) {
+            if ($ownTransaction) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'error' => 'La factura no pertenece al cliente indicado.'];
+        }
+        $clienteId = $facturaClienteId > 0 ? $facturaClienteId : ($clienteId > 0 ? $clienteId : null);
+        $documentoId = (int)($factura['documento_id'] ?? 0);
+        $ventaId = (int)($factura['venta_id'] ?? 0);
+
+        if (!flus_cobranzas_factura_es_cobrable($factura)) {
+            if ($ownTransaction) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'error' => 'Las notas de credito no se cobran desde esta accion.'];
+        }
+
+        $existing = flus_cobranzas_find_by_external_key($pdo, $externalKey);
+        if (is_array($existing)) {
+            $cobranzaId = (int)($existing['id'] ?? 0);
+            $importeExistente = round((float)($existing['importe_total'] ?? 0), 2);
+            $medioExistente = strtoupper(trim((string)($existing['medio_pago'] ?? '')));
+            if (!flus_cobranzas_float_eq($importeExistente, $monto)) {
+                throw new RuntimeException('Ese identificador de cobro ya fue usado con otro importe.');
+            }
+            if ($medioExistente !== '' && $medioExistente !== $medioPago) {
+                throw new RuntimeException('Ese identificador de cobro ya fue usado con otro medio de pago.');
+            }
+
+            flus_cobranzas_create_application($pdo, $cobranzaId, [
+                'application_key' => flus_cobranzas_build_application_key($cobranzaId, 'FACTURA', $facturaId),
+                'tipo_aplicacion' => 'FACTURA',
+                'venta_id' => $ventaId > 0 ? $ventaId : null,
+                'documento_id' => $documentoId > 0 ? $documentoId : null,
+                'factura_id' => $facturaId,
+                'monto' => $monto,
+            ]);
+            $reciboData = flus_cobranzas_attach_receipt_to_cobranza($pdo, $cobranzaId, [
+                'cliente_id' => $clienteId,
+                'factura_id' => $facturaId,
+                'documento_id' => $documentoId > 0 ? $documentoId : null,
+                'monto' => $monto,
+            ]);
+            $resumen = flus_cobranzas_resumen_para_factura($pdo, $factura);
+            if ($ownTransaction) {
+                $pdo->commit();
+            }
+            return array_merge(['success' => true, 'reused' => true, 'cobranza_id' => $cobranzaId], $reciboData, ['resumen' => $resumen]);
+        }
+
+        $resumen = flus_cobranzas_resumen_para_factura($pdo, $factura);
+        $saldo = round((float)($resumen['saldo'] ?? 0), 2);
+        if ($saldo <= 0.009) {
+            if ($ownTransaction) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'error' => 'La factura ya figura como cobrada.'];
+        }
+        if ($monto - $saldo > 0.009) {
+            if ($ownTransaction) {
+                $pdo->rollBack();
+            }
+            return ['success' => false, 'error' => 'El monto no puede superar el saldo pendiente.'];
+        }
+
+        $cajaMovId = null;
+        if (!empty($payload['registrar_caja_mov'])) {
+            $cajaMovId = flus_cobranzas_register_invoice_caja_movimiento($pdo, array_merge($payload, [
+                'factura_id' => $facturaId,
+                'cliente_nombre' => trim((string)($factura['cliente_nombre'] ?? $factura['razon_social'] ?? '')),
+                'monto' => $monto,
+                'medio_pago' => $medioPago,
+            ]));
+        }
+
+        $cobranzaId = flus_cobranzas_create($pdo, [
+            'external_key' => $externalKey,
+            'origen' => 'FACTURA',
+            'estado' => 'ACTIVA',
+            'venta_id' => $ventaId > 0 ? $ventaId : null,
+            'cliente_id' => $clienteId,
+            'caja_id' => (int)($payload['caja_id'] ?? 0) > 0 ? (int)$payload['caja_id'] : null,
+            'caja_movimiento_id' => $cajaMovId,
+            'medio_pago' => $medioPago,
+            'importe_total' => $monto,
+            'referencia' => trim((string)($payload['referencia'] ?? '')) ?: null,
+            'observaciones' => trim((string)($payload['observaciones'] ?? '')) ?: 'Cobro de factura',
+            'created_by' => (int)($payload['created_by'] ?? 0) > 0 ? (int)$payload['created_by'] : null,
+        ]);
+
+        flus_cobranzas_create_application($pdo, $cobranzaId, [
+            'application_key' => flus_cobranzas_build_application_key($cobranzaId, 'FACTURA', $facturaId),
+            'tipo_aplicacion' => 'FACTURA',
+            'venta_id' => $ventaId > 0 ? $ventaId : null,
+            'documento_id' => $documentoId > 0 ? $documentoId : null,
+            'factura_id' => $facturaId,
+            'monto' => $monto,
+        ]);
+
+        $reciboData = flus_cobranzas_attach_receipt_to_cobranza($pdo, $cobranzaId, [
+            'cliente_id' => $clienteId,
+            'factura_id' => $facturaId,
+            'documento_id' => $documentoId > 0 ? $documentoId : null,
+            'monto' => $monto,
+        ]);
+
+        $resumen = flus_cobranzas_resumen_para_factura($pdo, $factura);
+        if ($ownTransaction) {
+            $pdo->commit();
+        }
+
+        return array_merge([
+            'success' => true,
+            'reused' => false,
+            'cobranza_id' => $cobranzaId,
+            'caja_movimiento_id' => $cajaMovId,
+        ], $reciboData, ['resumen' => $resumen]);
+    } catch (Throwable $e) {
+        if ($ownTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('flus_cobranzas_register_invoice_payment ERROR: ' . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 function flus_cobranzas_register_cc_payment(PDO $pdo, array $payload): int

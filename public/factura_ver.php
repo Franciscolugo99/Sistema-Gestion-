@@ -346,6 +346,33 @@ function factura_importe_en_letras(float $amount): string
     return 'SON: PESOS ' . $letras . ' CON ' . str_pad((string)$centavos, 2, '0', STR_PAD_LEFT) . '/100.';
 }
 
+function factura_caja_abierta_actual(PDO $pdo): int
+{
+    $sessionCajaId = (int)($_SESSION['caja_id'] ?? 0);
+    if ($sessionCajaId > 0) {
+        return $sessionCajaId;
+    }
+
+    $terminalId = function_exists('current_terminal_id') ? current_terminal_id() : (int)($_SESSION['terminal_id'] ?? 0);
+    if ($terminalId <= 0 || !flus_table_exists($pdo, 'caja_sesiones')) {
+        return 0;
+    }
+
+    try {
+        $st = $pdo->prepare("
+            SELECT id FROM caja_sesiones
+            WHERE terminal_id = ?
+              AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $st->execute([$terminalId]);
+        return (int)($st->fetchColumn() ?: 0);
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 $facturacionHabilitada = config_get($pdo, 'facturacion_habilitada', '0') === '1';
 if (!$facturacionHabilitada) {
     header('Location: index.php');
@@ -390,6 +417,7 @@ $fiscalData = $viewData['fiscal_data'];
 $itemRows = $viewData['item_rows'];
 $items = $viewData['items'];
 $resumenFiscal = $viewData['resumen_fiscal'];
+$cobranzaResumen = $viewData['cobranza_resumen'];
 $recibosAsociados = $viewData['recibos_asociados'];
 $documentoComercial = $viewData['documento_comercial'];
 $documentoComercialOrigen = $viewData['documento_comercial_origen'];
@@ -570,6 +598,18 @@ if ($itemsCount <= 8) {
 $esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
     || str_starts_with(strtoupper($tipo), 'NC');
 $comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
+$cobroSaldo = round((float)($cobranzaResumen['saldo'] ?? 0), 2);
+$cobroTotal = round((float)($cobranzaResumen['total'] ?? $resumenFiscal['total'] ?? 0), 2);
+$cobroCobrado = round((float)($cobranzaResumen['cobrado'] ?? 0), 2);
+$cobroEstado = (string)($cobranzaResumen['estado'] ?? 'SIN_COBRAR');
+$cobroLabel = (string)($cobranzaResumen['label'] ?? 'Sin cobrar');
+$cajaAbiertaId = !$pdfMode ? factura_caja_abierta_actual($pdo) : 0;
+$puedeRegistrarCobro = !$pdfMode
+    && ($cobranzaResumen['receipts_ready'] ?? false)
+    && ($cobranzaResumen['cobrable'] ?? false)
+    && $cobroSaldo > 0.009
+    && function_exists('user_has_permission')
+    && user_has_permission('registrar_pago_cc');
 $pageTitle = $comprobanteTitulo . ' ' . h($tipo) . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
 $printHref = 'factura_ver.php?id=' . (int)($factura['id'] ?? 0)
     . '&pdf=1&autoprint=1&pdf_token='
@@ -587,6 +627,84 @@ $breadcrumbs = $esNc
     ];
 $extraCss = ['assets/css/factura.css?v=7'];
 $bodyClass = 'factura-view';
+$inlineJs = !$pdfMode ? <<<'JS'
+(function () {
+  function ready(fn) {
+    if (document.readyState !== 'loading') { fn(); return; }
+    document.addEventListener('DOMContentLoaded', fn);
+  }
+  function csrf() {
+    if (window.getCsrfToken) return window.getCsrfToken() || '';
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? (meta.getAttribute('content') || '') : '';
+  }
+  function uid() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return 'fac-cobro-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+  function notify(message, isError) {
+    if (window.Notif && typeof window.Notif[isError ? 'error' : 'success'] === 'function') {
+      window.Notif[isError ? 'error' : 'success'](message);
+      return;
+    }
+    if (window.showToast) {
+      window.showToast(message, isError ? 'error' : 'success');
+      return;
+    }
+    if (isError) alert(message);
+  }
+  ready(function () {
+    var modal = document.getElementById('facturaCobroModal');
+    var openButtons = document.querySelectorAll('[data-open-cobro]');
+    var closeButtons = modal ? modal.querySelectorAll('[data-close-cobro]') : [];
+    var form = document.getElementById('facturaCobroForm');
+    if (!modal || openButtons.length === 0 || !form) return;
+
+    function openModal() {
+      modal.hidden = false;
+      var amount = modal.querySelector('input[name="monto"]');
+      if (amount) amount.focus();
+    }
+    function closeModal() {
+      modal.hidden = true;
+    }
+
+    openButtons.forEach(function (btn) { btn.addEventListener('click', openModal); });
+    closeButtons.forEach(function (btn) { btn.addEventListener('click', closeModal); });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !modal.hidden) closeModal();
+    });
+
+    form.addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var submit = form.querySelector('[type="submit"]');
+      var fd = new FormData(form);
+      fd.set('action', 'registrar_cobro_factura');
+      fd.set('csrf_token', csrf());
+      if (!fd.get('request_uid')) fd.set('request_uid', uid());
+      if (submit) submit.disabled = true;
+
+      try {
+        var response = await fetch('api/factura_cobranza_api.php', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrf() },
+          body: fd
+        });
+        var data = await response.json().catch(function () { return null; });
+        if (!response.ok || !data || data.success !== true) {
+          throw new Error((data && (data.error || data.message)) || 'No se pudo registrar el cobro.');
+        }
+        notify('Cobro registrado. Recargando factura...', false);
+        window.setTimeout(function () { window.location.reload(); }, 550);
+      } catch (err) {
+        notify(err && err.message ? err.message : 'No se pudo registrar el cobro.', true);
+        if (submit) submit.disabled = false;
+      }
+    });
+  });
+}());
+JS : '';
 
 if ($pdfMode) {
     if (!headers_sent()) {
@@ -621,6 +739,9 @@ if ($pdfMode) {
     <div class="factura-topbar no-print">
       <a href="facturacion.php" class="link-back-print">Volver a facturacion</a>
       <div class="factura-topbar-actions">
+        <?php if ($puedeRegistrarCobro): ?>
+          <button type="button" class="btn btn-secondary" data-open-cobro>Registrar cobro</button>
+        <?php endif; ?>
         <a href="factura_pdf.php?id=<?= (int)$id ?>" class="btn btn-secondary">PDF</a>
         <a href="<?= h($printHref) ?>" class="btn btn-primary btn-print" target="_blank" rel="noopener">Imprimir</a>
       </div>
@@ -809,6 +930,27 @@ if ($pdfMode) {
             </div>
           </section>
         <?php endif; ?>
+        <section class="factura-box factura-box--payment no-print">
+          <div class="box-title">Estado de cobro</div>
+          <div class="payment-stack factura-cobro-status">
+            <div class="factura-cobro-status__row">
+              <strong><?= h($cobroLabel) ?></strong>
+              <span class="badge <?= h($cobroEstado === 'COBRADA' ? 'badge-info' : ($cobroEstado === 'PARCIAL' ? 'badge-warning' : 'badge-secondary')) ?>"><?= h($cobroEstado) ?></span>
+            </div>
+            <div class="factura-cobro-status__grid">
+              <div><span>Total</span><strong><?= money($cobroTotal) ?></strong></div>
+              <div><span>Cobrado</span><strong><?= money($cobroCobrado) ?></strong></div>
+              <div><span>Saldo</span><strong><?= money($cobroSaldo) ?></strong></div>
+            </div>
+            <?php if ($puedeRegistrarCobro): ?>
+              <button type="button" class="btn-mini" data-open-cobro>Registrar cobro</button>
+            <?php elseif ($cobroEstado === 'SIN_TABLAS'): ?>
+              <span class="text-muted" style="font-size:.85em">Falta aplicar el esquema de cobranzas y recibos.</span>
+            <?php elseif (!($cobranzaResumen['cobrable'] ?? false)): ?>
+              <span class="text-muted" style="font-size:.85em">Este comprobante no requiere registro de cobro desde factura.</span>
+            <?php endif; ?>
+          </div>
+        </section>
         <?php if ($recibosAsociados !== []): ?>
           <section class="factura-box factura-box--payment no-print">
             <div class="box-title">Cobros / recibos asociados</div>
@@ -979,6 +1121,62 @@ if ($pdfMode) {
   </div>
 </div>
 
+<?php if ($puedeRegistrarCobro): ?>
+  <div id="facturaCobroModal" class="factura-cobro-modal no-print" hidden>
+    <div class="factura-cobro-modal__backdrop" data-close-cobro></div>
+    <div class="factura-cobro-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="facturaCobroTitle">
+      <div class="factura-cobro-modal__head">
+        <div>
+          <div class="factura-cobro-modal__eyebrow">Cobranza</div>
+          <h3 id="facturaCobroTitle">Registrar cobro de factura</h3>
+        </div>
+        <button type="button" class="factura-cobro-modal__close" data-close-cobro aria-label="Cerrar">x</button>
+      </div>
+      <form id="facturaCobroForm" class="factura-cobro-form">
+        <input type="hidden" name="factura_id" value="<?= (int)$factura['id'] ?>">
+        <input type="hidden" name="request_uid" value="">
+        <div class="factura-cobro-form__summary">
+          <span>Saldo pendiente</span>
+          <strong><?= money($cobroSaldo) ?></strong>
+        </div>
+        <label>
+          <span>Monto</span>
+          <input type="number" name="monto" min="0.01" max="<?= h(number_format($cobroSaldo, 2, '.', '')) ?>" step="0.01" value="<?= h(number_format($cobroSaldo, 2, '.', '')) ?>" required>
+        </label>
+        <label>
+          <span>Medio de pago</span>
+          <select name="medio_pago" required>
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="MP">Mercado Pago</option>
+            <option value="DEBITO">Debito</option>
+            <option value="CREDITO">Credito</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="MODO">Modo</option>
+            <option value="QR">QR</option>
+          </select>
+        </label>
+        <label>
+          <span>Referencia</span>
+          <input type="text" name="referencia" maxlength="120" placeholder="Operacion, alias o nota corta">
+        </label>
+        <label>
+          <span>Observaciones</span>
+          <textarea name="observaciones" rows="3" maxlength="255" placeholder="Detalle interno del cobro"></textarea>
+        </label>
+        <label class="factura-cobro-form__check">
+          <input type="checkbox" name="registrar_caja" value="1" <?= $cajaAbiertaId > 0 ? 'checked' : 'disabled' ?>>
+          <span><?= $cajaAbiertaId > 0 ? 'Registrar movimiento en caja abierta #' . (int)$cajaAbiertaId : 'Sin caja abierta en esta terminal' ?></span>
+        </label>
+        <div class="factura-cobro-form__hint">El recibo es interno de FLUS; no se envia a ARCA.</div>
+        <div class="factura-cobro-form__actions">
+          <button type="button" class="btn btn-secondary" data-close-cobro>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Registrar cobro</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<?php endif; ?>
+
 <?php if ($pdfMode): ?>
 <?php if ($autoPrint): ?>
 <script>
@@ -1031,12 +1229,3 @@ if ($pdfMode) {
 <?php else: ?>
 <?php require __DIR__ . '/partials/footer.php'; ?>
 <?php endif; ?>
-
-
-
-
-
-
-
-
-

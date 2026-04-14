@@ -44,9 +44,12 @@ function flus_facturacion_manual_items_fetch(PDO $pdo, int $ventaId): array
 
     $st = $pdo->prepare('
         SELECT
+            id,
             codigo,
+            descripcion,
             descripcion AS nombre,
             cantidad,
+            precio_unitario,
             precio_unitario AS precio,
             subtotal,
             iva_porcentaje

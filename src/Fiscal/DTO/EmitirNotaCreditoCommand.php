@@ -71,7 +71,7 @@ final class EmitirNotaCreditoCommand
             $itemId = (int)($row['item_id'] ?? $row['itemId'] ?? 0);
             $cantidad = round((float)($row['cantidad'] ?? 0), 3);
 
-            if ($itemId <= 0 || $cantidad <= 0) {
+            if ($itemId === 0 || $cantidad <= 0) {
                 continue;
             }
 

@@ -450,7 +450,7 @@ final class FlusFakePdo extends PDO
             return ['rows' => $rows];
         }
 
-        if (preg_match('/^SELECT codigo, descripcion AS nombre, cantidad, precio_unitario AS precio, subtotal, iva_porcentaje FROM factura_manual_items WHERE venta_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
+        if (preg_match('/^SELECT id, codigo, descripcion, descripcion AS nombre, cantidad, precio_unitario, precio_unitario AS precio, subtotal, iva_porcentaje FROM factura_manual_items WHERE venta_id = \? ORDER BY id ASC$/i', $normalized) === 1) {
             $ventaId = (int)($params[0] ?? 0);
             $rows = array_values(array_filter($this->tables['factura_manual_items']['rows'] ?? [], static function (array $row) use ($ventaId): bool {
                 return (int)($row['venta_id'] ?? 0) === $ventaId;
@@ -458,9 +458,12 @@ final class FlusFakePdo extends PDO
             usort($rows, static fn(array $a, array $b): int => (int)($a['id'] ?? 0) <=> (int)($b['id'] ?? 0));
             $rows = array_map(static function (array $row): array {
                 return [
+                    'id' => $row['id'] ?? null,
                     'codigo' => $row['codigo'] ?? null,
+                    'descripcion' => $row['descripcion'] ?? '',
                     'nombre' => $row['descripcion'] ?? '',
                     'cantidad' => $row['cantidad'] ?? 0,
+                    'precio_unitario' => $row['precio_unitario'] ?? 0,
                     'precio' => $row['precio_unitario'] ?? 0,
                     'subtotal' => $row['subtotal'] ?? 0,
                     'iva_porcentaje' => $row['iva_porcentaje'] ?? 21,
@@ -3223,6 +3226,61 @@ $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operati
     flus_assert_contains("'permissions' => ['realizar_ventas'],", $ventasApiPhp);
     flus_assert_contains("'send_ticket_whatsapp' => [", $ventasApiPhp);
     flus_assert_contains("'send_ticket_email' => [", $ventasApiPhp);
+});
+
+$results[] = flus_run_test('nc parcial soporta detalle manual legacy sin reponer stock ficticio', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $manualLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_manual_lib.php');
+    $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
+    $ncEmitirPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc_emitir.php');
+    $dtoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'DTO' . DIRECTORY_SEPARATOR . 'EmitirNotaCreditoCommand.php');
+    $arcaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'Service' . DIRECTORY_SEPARATOR . 'ArcaNotaCreditoService.php');
+    $coordinatorPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Fiscal' . DIRECTORY_SEPARATOR . 'Service' . DIRECTORY_SEPARATOR . 'DbAnulacionFiscalCoordinator.php');
+    $integrationPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'integration_db.php');
+
+    flus_assert_contains('id,', $manualLib);
+    flus_assert_contains('descripcion,', $manualLib);
+    flus_assert_contains('precio_unitario,', $manualLib);
+    flus_assert_contains('function nc_manual_legacy_item_id(int $manualItemId): int', $ncPhp);
+    flus_assert_contains("flus_facturacion_manual_items_fetch(\$pdo, \$ventaId)", $ncPhp);
+    flus_assert_contains("'source' => 'factura_manual_items'", $ncPhp);
+    flus_assert_contains('detalle manual', $ncPhp);
+    flus_assert_contains('if ($itemId === 0 || $cantidad <= 0) {', $ncEmitirPhp);
+    flus_assert_contains('if ($itemId === 0 || $cantidad <= 0) {', $dtoPhp);
+    flus_assert_contains('manualLegacyItemId((int)($row[\'id\'] ?? 0)) ?: null', $arcaPhp);
+    flus_assert_contains('if ($ventaItemId !== 0) {', $arcaPhp);
+    flus_assert_contains('manualLegacyItemsForVenta', $coordinatorPhp);
+    flus_assert_contains('$usesManualPartialItems', $coordinatorPhp);
+    flus_assert_contains('if ($itemId > 0) {', $coordinatorPhp);
+    flus_assert_contains('fetchNcCreditedQtyMap', $coordinatorPhp);
+    flus_assert_contains('flus_it_run_manual_legacy_nc_partial_case', $integrationPhp);
+    flus_assert_contains('manual legacy NC partial does not restore stock', $integrationPhp);
+});
+
+$results[] = flus_run_test('factura fiscal permite registrar cobro interno sin pasar por cuenta corriente', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cobranzasLib = file_get_contents($repoRoot . '/src/cobranzas_lib.php') ?: '';
+    $facturaViewLib = file_get_contents($repoRoot . '/src/factura_view_lib.php') ?: '';
+    $facturaVerPhp = file_get_contents($repoRoot . '/public/factura_ver.php') ?: '';
+    $facturaCobranzaApi = file_get_contents($repoRoot . '/public/api/factura_cobranza_api.php') ?: '';
+    $facturaCss = file_get_contents($repoRoot . '/public/assets/css/factura.css') ?: '';
+    $integrationPhp = file_get_contents($repoRoot . '/tests/integration_db.php') ?: '';
+
+    flus_assert_contains('function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array', $cobranzasLib);
+    flus_assert_contains('function flus_cobranzas_register_invoice_payment(PDO $pdo, array $payload): array', $cobranzasLib);
+    flus_assert_contains("'origen' => 'FACTURA'", $cobranzasLib);
+    flus_assert_contains("'tipo_aplicacion' => 'FACTURA'", $cobranzasLib);
+    flus_assert_contains('flus_cobranzas_attach_receipt_to_cobranza($pdo, $cobranzaId', $cobranzasLib);
+    flus_assert_contains("'cobranza_resumen' => flus_cobranzas_resumen_para_factura(\$pdo, \$factura)", $facturaViewLib);
+    flus_assert_contains('Registrar cobro', $facturaVerPhp);
+    flus_assert_contains('facturaCobroForm', $facturaVerPhp);
+    flus_assert_contains('api/factura_cobranza_api.php', $facturaVerPhp);
+    flus_assert_contains("require_perm_json('registrar_pago_cc');", $facturaCobranzaApi);
+    flus_assert_contains('flus_cobranzas_register_invoice_payment($pdo', $facturaCobranzaApi);
+    flus_assert_contains('no se envia a ARCA', $facturaVerPhp);
+    flus_assert_contains('.factura-cobro-modal', $facturaCss);
+    flus_assert_contains('flus_it_run_invoice_direct_payment_case', $integrationPhp);
+    flus_assert_contains('direct invoice payment rejects amount over balance', $integrationPhp);
 });
 
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {

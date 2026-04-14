@@ -155,6 +155,7 @@ function flus_factura_view_load(PDO $pdo, int $facturaId): ?array
         'item_rows' => $itemRows,
         'items' => $items,
         'resumen_fiscal' => factura_resumen_fiscal($items, $factura),
+        'cobranza_resumen' => flus_cobranzas_resumen_para_factura($pdo, $factura),
         'recibos_asociados' => flus_cobranzas_fetch_receipts_by_factura($pdo, $facturaId, (int)($factura['documento_id'] ?? 0)),
         'documento_comercial' => $documentos['documento_comercial'],
         'documento_comercial_origen' => $documentos['documento_comercial_origen'],

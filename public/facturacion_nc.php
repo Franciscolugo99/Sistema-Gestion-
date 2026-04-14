@@ -196,6 +196,11 @@ function nc_fetch_venta_items_base(PDO $pdo, int $ventaId): array
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function nc_manual_legacy_item_id(int $manualItemId): int
+{
+    return $manualItemId > 0 ? -$manualItemId : 0;
+}
+
 /**
  * Vincula conservadoramente factura_items sin venta_item_id usando venta_items de la venta.
  * Solo asigna cuando encuentra un candidato único y razonable.
@@ -359,6 +364,34 @@ function nc_fetch_factura_origen_items(PDO $pdo, array $factura): array
         }
     }
 
+    if ($ventaId > 0 && flus_table_exists($pdo, 'factura_manual_items')) {
+        $rows = flus_facturacion_manual_items_fetch($pdo, $ventaId);
+        foreach ($rows as $idx => $row) {
+            $cantidad = round((float)($row['cantidad'] ?? 0), 3);
+            $subtotal = round((float)($row['subtotal'] ?? 0), 2);
+            $ivaPct = round((float)($row['iva_porcentaje'] ?? 0), 2);
+            $neto = $ivaPct > 0 ? round($subtotal / (1 + $ivaPct / 100), 2) : $subtotal;
+            $iva = round($subtotal - $neto, 2);
+
+            $items[] = [
+                'linea_orden' => $idx + 1,
+                'venta_item_id' => nc_manual_legacy_item_id((int)($row['id'] ?? 0)),
+                'producto_id' => 0,
+                'descripcion' => trim((string)($row['descripcion'] ?? $row['nombre'] ?? ('Item manual #' . ($row['id'] ?? '')))),
+                'codigo' => trim((string)($row['codigo'] ?? '')),
+                'cantidad_original' => $cantidad,
+                'subtotal_original' => $subtotal,
+                'neto_original' => $neto,
+                'iva_original' => $iva,
+                'iva_porcentaje' => $ivaPct,
+                'source' => 'factura_manual_items',
+            ];
+        }
+        if ($items !== []) {
+            return $items;
+        }
+    }
+
     if ($ventaId > 0 && flus_table_exists($pdo, 'venta_items')) {
         $rows = nc_fetch_venta_items_base($pdo, $ventaId);
         foreach ($rows as $idx => $row) {
@@ -467,7 +500,7 @@ foreach ($facturaItems as $row) {
     $factor            = $cantidadOriginal > 0 ? ($cantidadDisponible / $cantidadOriginal) : 0.0;
     $subtotalDisponible = round($subtotalOriginal * $factor, 2);
     $saldoFiscalTotal  += $subtotalDisponible;
-    $hasVentaItemLink = $ventaItemId > 0;
+    $hasVentaItemLink = $ventaItemId !== 0;
     if ($cantidadDisponible > 0.0009) {
         $saldoItems++;
         if ($hasVentaItemLink) {
@@ -784,7 +817,7 @@ require __DIR__ . '/partials/header.php';
           <?php if ($partialUnlinkedCount > 0): ?>
             <div class="nc-alert nc-alert--warn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <span><?= (int)$partialUnlinkedCount ?> línea<?= $partialUnlinkedCount === 1 ? '' : 's' ?> con saldo no tienen vínculo confiable con <code>venta_items</code>. Se muestran, pero no podrán incluirse en una NC parcial hasta corregir el vínculo.</span>
+              <span><?= (int)$partialUnlinkedCount ?> línea<?= $partialUnlinkedCount === 1 ? '' : 's' ?> con saldo no tienen un vínculo de línea confiable. Se muestran, pero no podrán incluirse en una NC parcial hasta corregir el vínculo.</span>
             </div>
           <?php endif; ?>
 
@@ -927,6 +960,8 @@ require __DIR__ . '/partials/header.php';
                                     · <em>datos de venta</em>
                                   <?php elseif (($linea['source'] ?? '') === 'factura_items_linked'): ?>
                                     · <em>vínculo recuperado</em>
+                                  <?php elseif (($linea['source'] ?? '') === 'factura_manual_items'): ?>
+                                    · <em>detalle manual</em>
                                   <?php endif; ?>
                                 </div>
                                 <?php if ($acreditada > 0.0009): ?>
@@ -960,7 +995,7 @@ require __DIR__ . '/partials/header.php';
                                   >
                                   <input type="hidden" name="items[<?= $idx ?>][item_id]" value="<?= (int)$linea['venta_item_id'] ?>">
                                 <?php elseif ($available > 0.0009): ?>
-                                  <span class="nc-no-saldo" title="La línea no tiene vínculo usable con venta_items">Sin vínculo</span>
+                                  <span class="nc-no-saldo" title="La línea no tiene vínculo usable para NC parcial">Sin vínculo</span>
                                 <?php else: ?>
                                   <span class="nc-no-saldo">Sin saldo</span>
                                 <?php endif; ?>

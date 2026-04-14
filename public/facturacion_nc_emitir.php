@@ -108,7 +108,7 @@ try {
             }
             $itemId = (int)($row['item_id'] ?? 0);
             $cantidad = round((float)($row['cantidad'] ?? 0), 3);
-            if ($itemId <= 0 || $cantidad <= 0) {
+            if ($itemId === 0 || $cantidad <= 0) {
                 continue;
             }
             $items[] = [

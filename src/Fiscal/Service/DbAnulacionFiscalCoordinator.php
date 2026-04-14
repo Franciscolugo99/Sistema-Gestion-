@@ -310,6 +310,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         $facturaOrigenId = null;
         $venta = [];
         $ventaItems = [];
+        $usesManualPartialItems = false;
         $nuevoEstadoVenta = 'PARCIALMENTE_ANULADA';
 
         // TX1: crear venta_anulacion pendiente + snapshot parcial
@@ -349,10 +350,16 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
 
             $ventaItems = flus_venta_items_cargar($this->pdo, $ventaId);
             if ($ventaItems === []) {
-                throw new RuntimeException('La venta no tiene venta_items disponibles para generar snapshot parcial.');
+                $ventaItems = $this->manualLegacyItemsForVenta($ventaId);
+                $usesManualPartialItems = $ventaItems !== [];
+            }
+            if ($ventaItems === []) {
+                throw new RuntimeException('La venta no tiene items disponibles para generar snapshot parcial.');
             }
 
-            $yaAnulado = flus_venta_items_anulados_map($this->pdo, $ventaId);
+            $yaAnulado = $usesManualPartialItems
+                ? $this->fetchNcCreditedQtyMap((int)$facturaOrigenId)
+                : flus_venta_items_anulados_map($this->pdo, $ventaId);
             $restantes = flus_venta_items_restantes($ventaItems, $yaAnulado);
 
             // Batch-carga IVA para todos los items solicitados — una query, sin N+1.
@@ -415,17 +422,19 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
                     ? ($ivaPctMapParcial[$productoIdParcial] ?? (float)($item['iva_porcentaje'] ?? 0.0))
                     : (float)($item['iva_porcentaje'] ?? 0.0);
 
-                flus_facturacion_insert_dynamic($this->pdo, 'venta_anulacion_items', [
-                    'anulacion_id' => $anulacionId,
-                    'venta_item_id' => $itemId,
-                    'producto_id' => $productoIdParcial ?: null,
-                    'cantidad_anulada' => $qty,
-                    'precio_unitario_snapshot' => round($precioUnit, 6),
-                    'descuento_monto_snapshot' => round((float)($item['descuento_monto'] ?? 0), 2),
-                    'iva_porcentaje_snapshot' => round($ivaSnapshotParcial, 2),
-                    'subtotal_snapshot' => $subtotalSnapshot,
-                    'subtotal_anulado' => $subtotalAnulado,
-                ]);
+                if ($itemId > 0) {
+                    flus_facturacion_insert_dynamic($this->pdo, 'venta_anulacion_items', [
+                        'anulacion_id' => $anulacionId,
+                        'venta_item_id' => $itemId,
+                        'producto_id' => $productoIdParcial ?: null,
+                        'cantidad_anulada' => $qty,
+                        'precio_unitario_snapshot' => round($precioUnit, 6),
+                        'descuento_monto_snapshot' => round((float)($item['descuento_monto'] ?? 0), 2),
+                        'iva_porcentaje_snapshot' => round($ivaSnapshotParcial, 2),
+                        'subtotal_snapshot' => $subtotalSnapshot,
+                        'subtotal_anulado' => $subtotalAnulado,
+                    ]);
+                }
             }
 
             $this->updateVentaAnulacionMontos($anulacionId, [
@@ -573,7 +582,12 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
 
             $this->pdo->prepare("UPDATE venta_anulaciones SET estado = 'CONFIRMADA' WHERE id = ?")->execute([$anulacionId]);
 
-            $restantes = flus_venta_items_restantes($ventaItems, flus_venta_items_anulados_map($this->pdo, $ventaId));
+            $restantes = flus_venta_items_restantes(
+                $ventaItems,
+                $usesManualPartialItems
+                    ? $this->fetchNcCreditedQtyMap((int)$facturaOrigenId)
+                    : flus_venta_items_anulados_map($this->pdo, $ventaId)
+            );
             $nuevoEstadoVenta = $restantes === [] ? 'ANULADA' : 'PARCIALMENTE_ANULADA';
 
             $sets = ['estado = :estado'];
@@ -677,7 +691,7 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
             $itemId = (int)($row['item_id'] ?? $row['itemId'] ?? 0);
             $cantidad = round((float)($row['cantidad'] ?? 0), 3);
 
-            if ($itemId <= 0 || $cantidad <= 0) {
+            if ($itemId === 0 || $cantidad <= 0) {
                 continue;
             }
 
@@ -703,6 +717,88 @@ final class DbAnulacionFiscalCoordinator implements AnulacionFiscalCoordinator
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function manualLegacyItemsForVenta(int $ventaId): array
+    {
+        $manualRows = flus_facturacion_manual_items_fetch($this->pdo, $ventaId);
+        if ($manualRows === []) {
+            return [];
+        }
+
+        $items = [];
+        foreach ($manualRows as $row) {
+            $manualId = (int)($row['id'] ?? 0);
+            $key = $this->manualLegacyItemId($manualId);
+            if ($key === 0) {
+                continue;
+            }
+
+            $items[$key] = [
+                'id' => $key,
+                'producto_id' => null,
+                'descripcion' => (string)($row['descripcion'] ?? $row['nombre'] ?? ('Item manual #' . $manualId)),
+                'cantidad' => round((float)($row['cantidad'] ?? 0), 3),
+                'precio' => round((float)($row['precio_unitario'] ?? $row['precio'] ?? 0), 6),
+                'precio_unit_final' => round((float)($row['precio_unitario'] ?? $row['precio'] ?? 0), 6),
+                'subtotal' => round((float)($row['subtotal'] ?? 0), 2),
+                'descuento_monto' => 0.0,
+                'iva_porcentaje' => round((float)($row['iva_porcentaje'] ?? 0), 2),
+            ];
+        }
+
+        return $items;
+    }
+
+    private function manualLegacyItemId(int $manualItemId): int
+    {
+        return $manualItemId > 0 ? -$manualItemId : 0;
+    }
+
+    /**
+     * @return array<int,float>
+     */
+    private function fetchNcCreditedQtyMap(int $facturaOrigenId): array
+    {
+        if (
+            $facturaOrigenId <= 0
+            || !flus_table_exists($this->pdo, 'facturas')
+            || !flus_table_exists($this->pdo, 'factura_items')
+            || !flus_column_exists($this->pdo, 'facturas', 'factura_asociada_id')
+        ) {
+            return [];
+        }
+
+        $sql = "
+            SELECT fi.venta_item_id, COALESCE(SUM(fi.cantidad), 0) AS qty
+            FROM factura_items fi
+            INNER JOIN facturas f ON f.id = fi.factura_id
+            WHERE f.factura_asociada_id = ?
+              AND fi.venta_item_id IS NOT NULL
+        ";
+
+        if (flus_column_exists($this->pdo, 'facturas', 'naturaleza')) {
+            $sql .= " AND f.naturaleza = 'NC'";
+        }
+
+        if (flus_column_exists($this->pdo, 'facturas', 'estado')) {
+            $sql .= " AND COALESCE(f.estado, 'EMITIDA') <> 'ANULADA'";
+        }
+
+        $sql .= ' GROUP BY fi.venta_item_id';
+
+        $st = $this->pdo->prepare($sql);
+        $st->execute([$facturaOrigenId]);
+
+        $map = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $map[(int)$row['venta_item_id']] = round((float)$row['qty'], 3);
+        }
+
+        return $map;
     }
 
     /**

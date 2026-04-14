@@ -297,13 +297,13 @@ final class ArcaNotaCreditoService implements NotaCreditoService
                     'linea_orden' => $idx + 1,
                     'origen_tipo' => 'ANULACION',
                     'snapshot_source' => 'RECONSTRUIDO',
-                    'venta_item_id' => null,
+                    'venta_item_id' => $this->manualLegacyItemId((int)($row['id'] ?? 0)) ?: null,
                     'venta_anulacion_item_id' => null,
                     'producto_id' => null,
                     'codigo_snapshot' => (string)($row['codigo'] ?? ''),
-                    'descripcion_snapshot' => (string)($row['descripcion'] ?? 'NC venta #' . $ventaId),
+                    'descripcion_snapshot' => (string)($row['descripcion'] ?? $row['nombre'] ?? 'NC venta #' . $ventaId),
                     'cantidad' => round((float)($row['cantidad'] ?? 1), 3),
-                    'precio_unitario_bruto' => round((float)($row['precio_unitario'] ?? 0), 6),
+                    'precio_unitario_bruto' => round((float)($row['precio_unitario'] ?? $row['precio'] ?? 0), 6),
                     'descuento_total' => 0.0,
                     'iva_porcentaje' => $ivaPct,
                     'neto_gravado' => $neto,
@@ -469,14 +469,14 @@ final class ArcaNotaCreditoService implements NotaCreditoService
         $baseByVentaItem = [];
         foreach ($baseItems as $row) {
             $ventaItemId = (int)($row['venta_item_id'] ?? 0);
-            if ($ventaItemId > 0) {
+            if ($ventaItemId !== 0) {
                 $baseByVentaItem[$ventaItemId] = $row;
             }
         }
 
         if ($baseByVentaItem === []) {
             throw new RuntimeException(
-                'La factura original no tiene líneas fiscales vinculadas a venta_item_id. No es seguro emitir NC parcial automática.'
+                'La factura original no tiene líneas fiscales vinculadas a una línea estable. No es seguro emitir NC parcial automática.'
             );
         }
 
@@ -614,6 +614,11 @@ final class ArcaNotaCreditoService implements NotaCreditoService
         }
 
         return $map;
+    }
+
+    private function manualLegacyItemId(int $manualItemId): int
+    {
+        return $manualItemId > 0 ? -$manualItemId : 0;
     }
 
     /**

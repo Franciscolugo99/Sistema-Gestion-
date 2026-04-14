@@ -368,6 +368,163 @@
   gap: 6px;
   padding: 10px;
 }
+
+.factura-cobro-status__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.factura-cobro-status__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.factura-cobro-status__grid div {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid #c7c7c7;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.factura-cobro-status__grid span {
+  font-size: 11px;
+  color: var(--fact-muted);
+  text-transform: uppercase;
+}
+
+.factura-cobro-modal[hidden] {
+  display: none;
+}
+
+.factura-cobro-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 4001);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.factura-cobro-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.54);
+}
+
+.factura-cobro-modal__dialog {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid #c9ced6;
+  background: #ffffff;
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.22);
+}
+
+.factura-cobro-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #d8dde6;
+}
+
+.factura-cobro-modal__head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.factura-cobro-modal__eyebrow {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.factura-cobro-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.factura-cobro-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+
+.factura-cobro-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.factura-cobro-form input,
+.factura-cobro-form select,
+.factura-cobro-form textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+}
+
+.factura-cobro-form textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.factura-cobro-form__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #b6c8dc;
+  border-radius: 8px;
+  background: #edf6ff;
+}
+
+.factura-cobro-form__check {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  font-weight: 600;
+}
+
+.factura-cobro-form__check input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.factura-cobro-form__hint {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.factura-cobro-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .fiscal-note {
   font-size: 11px;
   color: var(--fact-muted);
@@ -450,6 +607,10 @@
   .qr-area,
   .qr-area--empty,
   .client-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .factura-cobro-status__grid {
     grid-template-columns: 1fr;
   }
 
