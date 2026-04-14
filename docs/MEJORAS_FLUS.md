@@ -68,5 +68,6 @@ Finalmente, cubre cobranzas y recibos para una venta facturada: registra la cobr
 Tambien cubre cuenta corriente sobre una venta facturada: habilita CC, registra cargo, registra pago con `request_uid` idempotente, genera cobranza/recibo aplicado a factura y confirma el saldo recalculado en cero.
 
 Tambien se hizo una extraccion chica del hotspot `src/facturacion_lib.php`: los helpers de PDF quedaron en `src/facturacion_pdf_lib.php`, con smoke dedicado para evitar que vuelvan al archivo principal.
+El runner quedo formalizado como ritual de release en `docs/INTEGRATION_DB_RUNNER.md`: prerequisitos, comando definitivo, cobertura, momento de ejecucion y manejo de fallas.
 
-Siguiente paso recomendado: ordenar el diff para commit o seguir separando helpers chicos de `src/facturacion_lib.php`.
+Siguiente paso recomendado: segundo corte chico de `src/facturacion_lib.php`, preferentemente recovery/envio/finalizacion fiscal o contexto/registro desde venta-documento.

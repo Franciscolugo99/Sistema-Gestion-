@@ -14,12 +14,15 @@ declare(strict_types=1);
  *   $env:FLUS_TEST_DB_USER='root'
  *   $env:FLUS_TEST_DB_PASS=''
  *   C:\xampp\php\php.exe tests\integration_db.php
+ *
+ * See docs/INTEGRATION_DB_RUNNER.md for the release checklist and failure
+ * handling.
  */
 
 $root = dirname(__DIR__);
 
 if ((string)getenv('FLUS_TEST_DB') !== '1') {
-    echo "[SKIP] Set FLUS_TEST_DB=1 to run the DB integration check.\n";
+    echo "[SKIP] Set FLUS_TEST_DB=1 to run the DB integration check. See docs/INTEGRATION_DB_RUNNER.md.\n";
     exit(0);
 }
 

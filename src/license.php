@@ -603,9 +603,16 @@ if (!function_exists('flus_license_status')) {
     if ($expTs === false) $expTs = 0;
 
     $daysLeft = (int)floor(($expTs - $effectiveNowTs) / 86400);
+    $licenseMeta = [
+      'customer' => (string)($lic['customer'] ?? ''),
+      'license_key' => (string)($lic['license_key'] ?? ''),
+      'issued_at' => (string)($lic['issued_at'] ?? ''),
+      '_signed' => (bool)($lic['_signed'] ?? false),
+      '_alg' => (string)($lic['_alg'] ?? ($lic['alg'] ?? '')),
+    ];
 
     if ($expTs > 0 && $effectiveNowTs > $expTs) {
-      return [
+      return array_merge([
         'status' => 'expired',
         'status_label' => 'vencida',
         'plan' => $plan,
@@ -615,10 +622,10 @@ if (!function_exists('flus_license_status')) {
         'limited' => true,
         'reason' => 'LICENSE_EXPIRED',
         'clock_warning' => $clockWarning,
-      ];
+      ], $licenseMeta);
     }
 
-    return [
+    return array_merge([
       'status' => 'active',
       'status_label' => 'activa',
       'plan' => $plan,
@@ -628,6 +635,6 @@ if (!function_exists('flus_license_status')) {
       'limited' => false,
       'reason' => null,
       'clock_warning' => $clockWarning,
-    ];
+    ], $licenseMeta);
   }
 }

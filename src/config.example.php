@@ -26,6 +26,8 @@ define('DB_CHARSET', 'utf8mb4');
 define('APP_DEBUG', false);  // false en produccion
 define('APP_NAME', 'FLUS');
 define('APP_VERSION', defined('FLUS_VERSION') ? FLUS_VERSION : '3.8.3');
+define('APP_BUILD', defined('FLUS_BUILD') ? FLUS_BUILD : '');
+define('APP_SECRET', 'flus-default-secret-change-me'); // reemplazar por un secreto fuerte y persistente
 
 // ============================================
 // CONEXION PDO

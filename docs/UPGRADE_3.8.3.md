@@ -59,13 +59,14 @@ Guia pensada para actualizar instalaciones existentes con datos reales.
 2. Hacer backup completo de la base de datos.
 3. Hacer backup de la carpeta del proyecto actual.
 4. Preservar `src/config.php` y el contenido de `storage/`.
-5. Tener a mano el PHP del servidor para correr migraciones.
-6. Si la instancia usa cache agresiva del navegador, planear una recarga forzada despues del deploy.
+5. Verificar que `src/config.php` defina `APP_BUILD` y un `APP_SECRET` fuerte y persistente. No usar placeholders ni regenerarlo en cada deploy, porque invalida tokens publicos existentes.
+6. Tener a mano el PHP del servidor para correr migraciones.
+7. Si la instancia usa cache agresiva del navegador, planear una recarga forzada despues del deploy.
 
 ## Pasos de actualizacion
 
 1. Copiar la nueva version del proyecto sobre la instancia existente.
-2. Verificar que `src/config.php` no haya sido sobrescrito.
+2. Verificar que `src/config.php` no haya sido sobrescrito y conserve `APP_SECRET`; si viene de un config viejo, agregar `APP_BUILD` y `APP_SECRET` tomando `src/config.example.php` como referencia.
 3. Ejecutar:
 
 ```powershell
@@ -96,8 +97,10 @@ C:\xampp\php\php.exe scripts\migrate.php
 - Diagnostico:
   - abrir `diagnostico.php`
   - revisar sesiones activas y refresco en vivo
-- Integracion DB opcional:
-  - ejecutar `tests/integration_db.php` con `FLUS_TEST_DB=1` contra una base temporal si hay MySQL/MariaDB local disponible
+- Integracion DB de release:
+  - correr `tests/integration_db.php` con `FLUS_TEST_DB=1` contra MySQL/MariaDB descartable antes de publicar cuando la release toque schema, facturacion, NC, cobranzas, recibos o cuenta corriente
+  - usar `docs/INTEGRATION_DB_RUNNER.md` como checklist operativo
+  - si falla, no publicar la release hasta corregir y repetir smoke + runner
 
 ## Riesgos a vigilar
 

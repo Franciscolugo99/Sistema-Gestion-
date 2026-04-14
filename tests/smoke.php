@@ -1404,6 +1404,32 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains('cuenta corriente recalculated balance is zero', $integrationPhp);
 });
 
+$results[] = flus_run_test('integration db runner queda formalizado para release', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $runnerDocPath = $repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'INTEGRATION_DB_RUNNER.md';
+    $upgradePath = $repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'UPGRADE_3.8.3.md';
+    $integrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'integration_db.php';
+
+    foreach ([$runnerDocPath, $upgradePath, $integrationPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $runnerDoc = (string)file_get_contents($runnerDocPath);
+    $upgradeDoc = (string)file_get_contents($upgradePath);
+    $integrationPhp = (string)file_get_contents($integrationPath);
+
+    flus_assert_contains('## Prerequisitos', $runnerDoc);
+    flus_assert_contains('$env:FLUS_TEST_DB=', $runnerDoc);
+    flus_assert_contains('FLUS_TEST_DB_KEEP', $runnerDoc);
+    flus_assert_contains('No apuntar este runner a produccion', $runnerDoc);
+    flus_assert_contains('No publicar la release.', $runnerDoc);
+    flus_assert_contains('Cuenta corriente con cargo, pago idempotente por `request_uid`', $runnerDoc);
+    flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $upgradeDoc);
+    flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
+});
+
 $results[] = flus_run_test('technical panel access stays centralized and visible in nav', function (): void {
     $repoRoot = dirname(__DIR__);
     $authPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php';
@@ -2894,6 +2920,8 @@ $results[] = flus_run_test('pdo reconnection helpers stay centralized in config 
     flus_assert_contains("require_once FLUS_ROOT . '/src/db_helpers.php';", $bootstrapPhp);
     flus_assert_contains('if (flus_pdo_exception_is_connectivity($e)) {', $authPhp);
     flus_assert_contains("function flus_pdo_fresh(int \$timeout = 3): PDO {", $configExamplePhp);
+    flus_assert_contains("define('APP_BUILD', defined('FLUS_BUILD') ? FLUS_BUILD : '');", $configExamplePhp);
+    flus_assert_contains("define('APP_SECRET', 'flus-default-secret-change-me');", $configExamplePhp);
     flus_assert_contains('// CONEXION PDO', $installPhp);
     flus_assert_contains('function flus_pdo_fresh(int \\$timeout = 3): PDO {\\n', $installPhp);
 });
@@ -3070,6 +3098,8 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     $repoRoot = dirname(__DIR__);
     $cuentaCorrienteApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
     $licenseStatusPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'license_status.php');
+    $licensePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license.php');
+    $licenciaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'licencia.php');
     $preciosApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'precios_api.php');
 
     flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $cuentaCorrienteApiPhp);
@@ -3084,6 +3114,12 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("'status' => is_array(\$lic) ? (string)(\$lic['status'] ?? '') : ''", $licenseStatusPhp);
     flus_assert_contains("'days_left' => is_array(\$lic) ? (\$lic['days_left'] ?? null) : null", $licenseStatusPhp);
     flus_assert_not_contains("'license' => \$lic", $licenseStatusPhp);
+    flus_assert_contains("'customer' => (string)(\$lic['customer'] ?? '')", $licensePhp);
+    flus_assert_contains("'license_key' => (string)(\$lic['license_key'] ?? '')", $licensePhp);
+    flus_assert_contains("'issued_at' => (string)(\$lic['issued_at'] ?? '')", $licensePhp);
+    flus_assert_contains('Cliente</dt><dd><?= h((string)($licenseMeta[\'customer\']', $licenciaPhp);
+    flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)($licenseMeta[\'license_key\']', $licenciaPhp);
+    flus_assert_contains('Emitida</dt><dd><?= h($formatDate((string)($licenseMeta[\'issued_at\']', $licenciaPhp);
 
     flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $preciosApiPhp);
     flus_assert_contains('require_login_json();', $preciosApiPhp);
