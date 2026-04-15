@@ -166,7 +166,7 @@ if ($cajaSesion) {
     SELECT COUNT(*)
     FROM ventas
     WHERE caja_id = ?
-      AND (estado IS NULL OR estado <> 'ANULADA')
+      AND (estado IS NULL OR UPPER(estado) NOT LIKE '%ANUL%')
   ");
   $stVentasCount->execute([(int)$cajaSesion['id']]);
   $ventasActivasCount = (int)$stVentasCount->fetchColumn();
@@ -509,6 +509,15 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
           <p class="ticket-empty-state__copy">Escanea o escribi un producto para empezar la venta.</p>
         </div>
         <table id="tabla">
+          <colgroup>
+            <col class="col-rownum">
+            <col class="col-code">
+            <col class="col-product">
+            <col class="col-qty">
+            <col class="col-price">
+            <col class="col-subtotal">
+            <col class="col-actions">
+          </colgroup>
           <thead>
             <tr>
               <th>#</th>
@@ -586,6 +595,21 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <div class="pagos-row__copy">
           <div class="pagos-row__eyebrow">Medio de pago</div>
           <div class="pagos-row__title">Elegi como cobra el cajero</div>
+        </div>
+      </div>
+
+      <div class="caja-payment-health" aria-live="polite">
+        <div class="caja-payment-health__row">
+          <span class="caja-payment-health__label">Ticket</span>
+          <strong class="caja-payment-health__value" id="sidebarTicketTotal">$0,00</strong>
+        </div>
+        <div class="caja-payment-health__row">
+          <span class="caja-payment-health__label">Pagado</span>
+          <strong class="caja-payment-health__value" id="sidebarTicketPaid">$0,00</strong>
+        </div>
+        <div class="caja-payment-health__row" id="sidebarPendingWrap">
+          <span class="caja-payment-health__label" id="sidebarPendingLabel">Vuelto</span>
+          <strong class="caja-payment-health__value caja-payment-health__value--accent" id="sidebarPendingValue">$0,00</strong>
         </div>
       </div>
 

@@ -87,6 +87,23 @@
   color: #334155;
 }
 
+.tecnico-copy-bar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+}
+
+.tecnico-copy-hint {
+  color: #64748b;
+  font-size: .9rem;
+}
+
+.tecnico-copy-source {
+  display: none;
+}
+
 .health-list {
   display: grid;
   gap: .75rem;

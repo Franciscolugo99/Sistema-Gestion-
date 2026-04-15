@@ -490,155 +490,89 @@
 
 
 /* ==========================================================================
-   Caja fullscreen - compactar navegacion sin tocar el resto del sistema
+   NAV compacto para caja fullscreen
 ============================================================================ */
 
 body.caja-fullscreen-page .nav-container {
-    gap: 12px;
-    padding: 8px 12px;
-}
-
-body.caja-fullscreen-page .nav-menu-wrapper,
-body.caja-fullscreen-page .nav-left,
-body.caja-fullscreen-page .nav-right {
-    gap: 8px;
+  gap: 12px;
+  padding: 8px 12px;
 }
 
 body.caja-fullscreen-page .nav-brand {
-    margin-right: 10px;
+  margin-right: 10px;
 }
 
 body.caja-fullscreen-page .nav-logo {
-    font-size: 1.24rem;
-    letter-spacing: 0.08em;
+  font-size: 1.18rem;
+  letter-spacing: 0.08em;
 }
 
-body.caja-fullscreen-page .nav-pill,
-body.caja-fullscreen-page .nav-vender,
-body.caja-fullscreen-page .nav-icon,
-body.caja-fullscreen-page .theme-switch {
-    min-height: 34px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    border-radius: 10px;
+body.caja-fullscreen-page .nav-menu-wrapper {
+  gap: 12px;
+}
+
+body.caja-fullscreen-page .nav-left {
+  gap: 8px;
+}
+
+body.caja-fullscreen-page .nav-right {
+  gap: 8px;
 }
 
 body.caja-fullscreen-page .nav-pill {
-    padding-left: 12px;
-    padding-right: 12px;
-    font-size: 0.88rem;
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.88rem;
 }
 
 body.caja-fullscreen-page .nav-vender {
-    gap: 6px;
-    padding-left: 10px;
-    padding-right: 14px;
+  min-height: 34px;
+  padding: 6px 12px 6px 9px;
+  gap: 7px;
+  font-size: 0.85rem;
+}
+
+body.caja-fullscreen-page .nav-vender-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 0.88rem;
 }
 
 body.caja-fullscreen-page .nav-vender-label {
-    font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 body.caja-fullscreen-page .nav-user-block {
-    min-height: 36px;
-    padding: 4px 8px;
-    gap: 8px;
-    border-radius: 10px;
+  min-height: 36px;
+  gap: 8px;
+  padding: 4px 8px;
 }
 
 body.caja-fullscreen-page .nav-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 0.68rem;
 }
 
 body.caja-fullscreen-page .nav-username {
-    max-width: 88px;
-    font-size: 0.82rem;
-}
-
-body.caja-fullscreen-page .nav-user-role {
-    font-size: 0.64rem;
+  max-width: 88px;
+  font-size: 0.82rem;
 }
 
 body.caja-fullscreen-page .nav-user-block .logout-btn {
-    padding: 4px 8px;
-    font-size: 0.78rem;
+  padding: 3px 8px;
+  font-size: 0.78rem;
 }
 
-body.caja-fullscreen-page .nav-shortcuts-btn,
-body.caja-fullscreen-page .nav-bell-btn {
-    min-width: 34px;
+body.caja-fullscreen-page .nav-icon {
+  width: 36px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 1rem;
 }
 
-body.caja-fullscreen-page .nav-breadcrumb {
-    display: none !important;
-}
-
-@media (min-width: 1081px) and (max-height: 760px) {
-    body.caja-fullscreen-page .nav-container {
-        gap: 8px;
-        padding: 6px 10px;
-    }
-
-    body.caja-fullscreen-page .nav-menu-wrapper,
-    body.caja-fullscreen-page .nav-left,
-    body.caja-fullscreen-page .nav-right {
-        gap: 6px;
-    }
-
-    body.caja-fullscreen-page .nav-brand {
-        margin-right: 6px;
-    }
-
-    body.caja-fullscreen-page .nav-logo {
-        font-size: 1.08rem;
-    }
-
-    body.caja-fullscreen-page .nav-pill,
-    body.caja-fullscreen-page .nav-vender,
-    body.caja-fullscreen-page .nav-icon,
-    body.caja-fullscreen-page .theme-switch {
-        min-height: 30px;
-        padding-top: 4px;
-        padding-bottom: 4px;
-        border-radius: 9px;
-    }
-
-    body.caja-fullscreen-page .nav-pill {
-        padding-left: 10px;
-        padding-right: 10px;
-        font-size: 0.8rem;
-    }
-
-    body.caja-fullscreen-page .nav-vender {
-        padding-left: 9px;
-        padding-right: 11px;
-    }
-
-    body.caja-fullscreen-page .nav-vender-label {
-        font-size: 0.8rem;
-    }
-
-    body.caja-fullscreen-page .nav-user-block {
-        min-height: 32px;
-        padding: 3px 7px;
-        gap: 6px;
-    }
-
-    body.caja-fullscreen-page .nav-avatar {
-        width: 24px;
-        height: 24px;
-        border-radius: 6px;
-    }
-
-    body.caja-fullscreen-page .nav-username {
-        max-width: 76px;
-        font-size: 0.76rem;
-    }
-
-    body.caja-fullscreen-page .nav-user-role,
-    body.caja-fullscreen-page .nav-user-block .logout-btn {
-        font-size: 0.62rem;
-    }
+body.caja-fullscreen-page .theme-switch .theme-toggle {
+  transform: scale(0.92);
+  transform-origin: center;
 }

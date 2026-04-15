@@ -436,6 +436,11 @@ a {
   font-weight: 800;
 }
 
+.nav-pill.active:hover {
+  transform: none;
+  cursor: default;
+}
+
 .nav-group-btn {
   cursor: pointer;
 }
@@ -447,6 +452,8 @@ a {
 .nav-caret {
   font-size: 0.72rem;
   opacity: 0.75;
+  display: inline-block;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-group.open .nav-caret {
@@ -455,6 +462,8 @@ a {
 
 .nav-group-menu {
   min-width: 220px;
+  left: 0;
+  right: auto;
 }
 /* Bloquear scroll del fondo cuando el menú está abierto */
 html.nav-open,
@@ -463,73 +472,6 @@ body.nav-open {
   overflow: hidden;
 }
 
-/* ===== MOBILE DRAWER ===== */
-@media (max-width: 900px) {
-  /* Mostrar hamburguesa */
-  .nav-hamburger {
-    display: flex;
-  }
-
-  /* El menú pasa a ser drawer */
-  .nav-menu-wrapper {
-    position: fixed;
-    top: 0;
-    right: 0;
-    height: 100dvh;
-    width: min(88vw, 420px);
-    z-index: 2000;
-
-    background: var(--nav-bg);
-    border-left: 1px solid var(--nav-border);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-
-    transform: translateX(105%);
-    transition: transform 0.22s ease;
-    will-change: transform;
-  }
-
-  .nav-menu-wrapper.open {
-    transform: translateX(0);
-  }
-
-  /* Importante: en mobile el listado NO tiene que wrappear */
-  .nav-left {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    gap: 10px;
-
-    padding: 14px;
-    overflow-y: auto; /* ✅ acá scrollea */
-    -webkit-overflow-scrolling: touch; /* iOS */
-    overscroll-behavior: contain; /* evita scroll al fondo */
-    touch-action: pan-y; /* swipe vertical dentro */
-  }
-
-  /* Parte de abajo fija (usuario/toggles) */
-  .nav-right {
-    flex: 0 0 auto;
-    padding: 12px 14px;
-    border-top: 1px solid var(--nav-border);
-    background: var(--nav-bg);
-  }
-
-  /* Pills full width para que sea cómodo en móvil */
-  .nav-pill {
-    width: 100%;
-    justify-content: flex-start;
-    white-space: normal;
-    padding: 12px 14px;
-    border-radius: 14px;
-    font-size: 0.95rem;
-  }
-}
 
 /* ============================================================================
    BADGE CAJA (ESTADO)
@@ -751,11 +693,13 @@ body.nav-open {
 
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-10px);
+  pointer-events: none;
+  transform: translateY(-5px) scale(0.97);
+  transform-origin: top center;
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease,
-    visibility 0.2s ease;
+    opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.18s;
 
   z-index: 2000;
 }
@@ -763,7 +707,8 @@ body.nav-open {
 .nav-dropdown-menu.open {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0);
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .nav-dropdown-menu a {
@@ -932,6 +877,10 @@ body.nav-open {
   }
 
   .nav-left {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding-bottom: 10px;
   }
 
@@ -1018,14 +967,23 @@ body.nav-open {
 
   .nav-dropdown-menu {
     position: static;
-    display: none;
+    max-height: 0;
+    overflow: hidden;
     margin-top: 0;
     box-shadow: none;
-    border: 1px solid var(--panel-border);
-    opacity: 1;
-    visibility: visible;
+    border: 1px solid transparent;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
     transform: none;
+    transform-origin: top center;
     min-width: 0;
+    transition:
+      max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.22s ease,
+      visibility 0.22s,
+      margin-top 0.22s ease,
+      border-color 0.22s ease;
   }
 
   .nav-group-menu {
@@ -1042,12 +1000,20 @@ body.nav-open {
 
   .nav-group.open > .nav-group-menu,
   .nav-dropdown.open > .nav-dropdown-menu {
-    display: block;
+    max-height: 520px;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
     margin-top: 8px;
+    border-color: var(--panel-border);
   }
 
   .nav-dropdown-menu.open {
-    display: block;
+    max-height: 520px;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    border-color: var(--panel-border);
   }
 }
 

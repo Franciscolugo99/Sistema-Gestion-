@@ -5249,3 +5249,158 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal {
     font-size: 0.5rem !important;
   }
 }
+
+/* ==========================================================================
+   LOCAL PAYMENT SIDEBAR + COLGROUP OVERRIDES
+============================================================================ */
+
+body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell,
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-shell {
+  grid-template-columns: minmax(0, 1fr) 328px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-neo-sidebar {
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health {
+  display: grid !important;
+  gap: 2px !important;
+  padding: 8px 10px !important;
+  border: 1px solid var(--neo-border) !important;
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--neo-surface) 84%, var(--neo-surface-2)) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health__row {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 26px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health__label {
+  color: var(--neo-muted) !important;
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health__value {
+  font-variant-numeric: tabular-nums !important;
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+  color: var(--neo-text) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health__value--accent {
+  color: var(--neo-green) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-payment-health__value--danger {
+  color: var(--neo-red) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .pagos-row {
+  display: grid !important;
+  grid-auto-rows: max-content !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 2px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla {
+  table-layout: fixed !important;
+  width: 100% !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th,
+body.caja-fullscreen-page .caja-panel--neo #tabla td {
+  padding: 8px 6px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-rownum {
+  width: 38px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-code {
+  width: 78px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-qty {
+  width: 86px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-price {
+  width: 108px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-subtotal {
+  width: 116px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla col.col-actions {
+  width: 84px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(1),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(1) {
+  width: 38px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(2),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(2) {
+  width: 78px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(3),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(3) {
+  width: auto !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(4),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(4) {
+  width: 86px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(5),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(5) {
+  width: 108px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(6),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(6) {
+  width: 116px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo #tabla th:nth-child(7),
+body.caja-fullscreen-page .caja-panel--neo #tabla td:nth-child(7) {
+  width: 84px !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-code {
+  font-size: 0.76rem !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-product-name {
+  font-size: 0.96rem !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal,
+body.caja-fullscreen-page .caja-panel--neo .modal,
+body.caja-fullscreen-page .vuelto-overlay-flus {
+  z-index: 3200 !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .modal-content,
+body.caja-fullscreen-page .ticket-preview-modal__dialog,
+body.caja-fullscreen-page .vuelto-overlay-flus__inner {
+  position: relative;
+  z-index: 3201;
+}

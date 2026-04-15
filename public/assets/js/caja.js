@@ -482,6 +482,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const paymentMiniFeedbackLabel = document.getElementById(
     "paymentMiniFeedbackLabel",
   );
+  const sidebarTicketTotal = document.getElementById("sidebarTicketTotal");
+  const sidebarTicketPaid = document.getElementById("sidebarTicketPaid");
+  const sidebarPendingWrap = document.getElementById("sidebarPendingWrap");
+  const sidebarPendingLabel = document.getElementById("sidebarPendingLabel");
+  const sidebarPendingValue = document.getElementById("sidebarPendingValue");
   const paymentMethodButtons = Array.from(
     document.querySelectorAll(".payment-method"),
   );
@@ -684,19 +689,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const formatearMoneda = (n) => "$" + fmt.format(Number(n) || 0);
-
-  function escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function escapeHtmlAttr(value) {
-    return escapeHtml(value).replace(/`/g, "&#96;");
-  }
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
 
   function getNumericDataValue(el) {
     const raw = el?.dataset?.value ?? "0";
@@ -728,13 +727,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function paymentNeedsCompactLayout() {
+    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
+    const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
+    return splitActivo() || medio1 === "CC" || (splitActivo() && medio2 === "CC");
+  }
+
   function actualizarModoCobroCompacto() {
     if (!cajaPanel) return;
-    const split = splitActivo();
-    const ccActivo = tieneCC();
-    cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);
-    cajaPanel.classList.toggle("has-split-payment", split);
-    cajaPanel.classList.toggle("has-cc-payment", ccActivo);
+    cajaPanel.classList.toggle("is-payment-compact", paymentNeedsCompactLayout());
   }
 
   function getSelectPago(slot = "1") {
@@ -1268,9 +1269,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (lblTotalPagado)
       lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
+    if (sidebarTicketPaid) {
+      sidebarTicketPaid.textContent = formatearMoneda(pagadoTotal);
+    }
     if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
     if (lblCobroFeedback) {
-      const tieneFalta = splitActivo() && resta > 0.009;
+      const tieneFalta = resta > 0.009;
       cajaPanel?.classList.toggle("is-payment-pending", tieneFalta);
       if (lblCobroFeedbackLabel) {
         lblCobroFeedbackLabel.textContent = tieneFalta ? "Resta pagar" : "Vuelto";
@@ -1286,6 +1290,17 @@ document.addEventListener("DOMContentLoaded", () => {
           "payment-mini-summary__value--accent",
           !tieneFalta,
         );
+      }
+      if (sidebarPendingLabel) {
+        sidebarPendingLabel.textContent = tieneFalta ? "Resta pagar" : "Vuelto";
+      }
+      if (sidebarPendingValue) {
+        sidebarPendingValue.textContent = formatearMoneda(tieneFalta ? resta : vuelto);
+        sidebarPendingValue.classList.toggle("caja-payment-health__value--danger", tieneFalta);
+        sidebarPendingValue.classList.toggle("caja-payment-health__value--accent", !tieneFalta);
+      }
+      if (sidebarPendingWrap) {
+        sidebarPendingWrap.classList.toggle("is-pending", tieneFalta);
       }
     }
     actualizarKpisLive(pagadoTotal);
@@ -2221,17 +2236,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const btnEditarHtml = `<button class="btn-accion btn-editar" data-idx="${idx}" title="Editar cantidad">Cant.</button>`;
 
-      const codigoSeguro = escapeHtml(item.codigo);
-      const nombreSeguro = escapeHtml(item.nombre);
-      const codigoTitulo = escapeHtmlAttr(item.codigo);
-      const nombreTitulo = escapeHtmlAttr(item.nombre);
-
       const tr = document.createElement("tr");
       tr.dataset.idx = String(idx);
       tr.innerHTML = `
-          <td>${idx + 1}</td>
-          <td class="ticket-code-cell"><span class="ticket-code" title="${codigoTitulo}">${codigoSeguro}</span></td>
-          <td class="ticket-product-cell"><span class="ticket-product" title="${nombreTitulo}">${nombreSeguro}</span></td>
+          <td class="col-linea">${idx + 1}</td>
+          <td class="col-codigo"><span class="ticket-code" title="${escapeHtml(String(item.codigo ?? ""))}">${escapeHtml(String(item.codigo ?? ""))}</span></td>
+          <td class="col-producto"><span class="ticket-product-name" title="${escapeHtml(String(item.nombre ?? ""))}">${escapeHtml(String(item.nombre ?? ""))}</span></td>
           <td class="center col-cant">${formatearCantidadUI(item)}</td>
           <td class="right col-precio">${precioHtml}</td>
           <td class="right col-subtotal">${formatearMoneda(subtotalConPromo)}</td>
@@ -2283,6 +2293,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     lblTotalBruto.textContent = formatearMoneda(totalBruto);
     lblTotal.textContent = formatearMoneda(totalNeto);
+    if (sidebarTicketTotal) {
+      sidebarTicketTotal.textContent = formatearMoneda(totalNeto);
+    }
     if (lblDescGlobal) {
       lblDescGlobal.textContent = formatearMoneda(
         Math.max(0, totalBruto - totalNeto),

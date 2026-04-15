@@ -220,8 +220,10 @@ function tecnico_parse_smoke_output(
     $ranAt = date('c');
     $stdout = trim($stdout);
     $stderr = trim($stderr);
-    $stdoutPreview = tecnico_translate_smoke_output(tecnico_build_output_preview($stdout));
-    $stderrPreview = tecnico_build_output_preview($stderr, 40, 3000);
+    $stdoutSanitized = trim(tecnico_sanitize_output($stdout));
+    $stderrSanitized = trim(tecnico_sanitize_output($stderr));
+    $stdoutPreview = tecnico_translate_smoke_output(tecnico_build_output_preview($stdoutSanitized));
+    $stderrPreview = tecnico_build_output_preview($stderrSanitized, 40, 3000);
 
     return [
         'ran_at' => $ranAt,
@@ -234,6 +236,8 @@ function tecnico_parse_smoke_output(
         'duration_ms' => round($durationMs, 1),
         'timed_out' => $timedOut,
         'truncated_output' => $truncated,
+        'stdout_full' => $stdoutSanitized !== '' ? tecnico_translate_smoke_output($stdoutSanitized) : '',
+        'stderr_full' => $stderrSanitized,
         'stdout_preview' => $stdoutPreview !== '' ? $stdoutPreview : 'Todavia no hay salida registrada.',
         'stderr_preview' => $stderrPreview,
         'stdout_log' => tecnico_write_smoke_log('technical_smoke_stdout', $stdout, $ranAt),
@@ -413,6 +417,34 @@ function tecnico_read_text(string $path): string
     return is_string($raw) ? trim($raw) : '';
 }
 
+function tecnico_read_smoke_log_content(?string $relativePath, bool $translate = false): string
+{
+    $relativePath = trim((string)$relativePath);
+    if ($relativePath === '' || str_contains($relativePath, '..')) {
+        return '';
+    }
+
+    $candidate = FLUS_ROOT . '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+    $realPath = realpath($candidate);
+    if (!is_string($realPath) || !is_file($realPath)) {
+        return '';
+    }
+
+    $normalizedRealPath = str_replace('\\', '/', $realPath);
+    $normalizedRoot = rtrim(str_replace('\\', '/', FLUS_ROOT), '/');
+    if (!str_starts_with($normalizedRealPath, $normalizedRoot . '/')) {
+        return '';
+    }
+
+    $raw = @file_get_contents($realPath);
+    if (!is_string($raw) || trim($raw) === '') {
+        return '';
+    }
+
+    $sanitized = trim(tecnico_sanitize_output($raw));
+    return $translate ? tecnico_translate_smoke_output($sanitized) : $sanitized;
+}
+
 function tecnico_count_php_files(string $dir): int
 {
     if (!is_dir($dir)) {
@@ -559,6 +591,47 @@ $pageTitle = 'Tecnico - FLUS';
 $currentSection = 'tecnico';
 $extraCss = ['assets/css/tecnico.css'];
 $extraJs = [];
+$inlineJs = <<<'JS'
+(() => {
+  const copyBtn = document.getElementById("tecnicoSmokeCopyBtn");
+  const copyEl = document.getElementById("tecnicoSmokeCopyText");
+  if (!copyBtn || !copyEl) return;
+
+  copyBtn.addEventListener("click", async () => {
+    const text = copyEl.textContent || "";
+    if (!text.trim()) {
+      if (typeof window.showToast === "function") {
+        window.showToast("Todavia no hay salida para copiar", "warn", 2600);
+      }
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+
+      if (typeof window.showToast === "function") {
+        window.showToast("Smoke copiado", "success", 2200);
+      }
+    } catch {
+      if (typeof window.showToast === "function") {
+        window.showToast("No se pudo copiar el smoke", "error", 2800);
+      }
+    }
+  });
+})();
+JS;
 
 $info = null;
 $error = null;
@@ -635,6 +708,21 @@ $adminSessionStartCount = tecnico_count_pattern_matches($adminPages, '/session_s
 $smokeSuiteGreen = !empty($smoke['ok']) && (int)($smoke['failed'] ?? 0) === 0;
 $smokeTotal = (int)($smoke['total'] ?? 0);
 $smokePassed = (int)($smoke['passed'] ?? 0);
+$smokeStdoutFull = trim((string)($smoke['stdout_full'] ?? ''));
+$smokeStderrFull = trim((string)($smoke['stderr_full'] ?? ''));
+if ($smokeStdoutFull === '' && !empty($smoke['stdout_log'])) {
+    $smokeStdoutFull = tecnico_read_smoke_log_content((string)$smoke['stdout_log'], true);
+}
+if ($smokeStderrFull === '' && !empty($smoke['stderr_log'])) {
+    $smokeStderrFull = tecnico_read_smoke_log_content((string)$smoke['stderr_log']);
+}
+$smokeCopyText = trim($smokeStdoutFull);
+if ($smokeStderrFull !== '') {
+    $smokeCopyText .= ($smokeCopyText !== '' ? "\n\n===== STDERR =====\n" : '') . $smokeStderrFull;
+}
+if ($smokeCopyText === '') {
+    $smokeCopyText = (string)($smoke['stdout_preview'] ?? 'Todavia no hay salida registrada.');
+}
 
 $baseChecks = [
     tecnico_build_check(
@@ -810,6 +898,12 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Pantallas relevadas:</strong> <?= (int)$publicPageCount ?> public / <?= (int)$apiPageCount ?> api</div>
         <div><strong>Log stdout:</strong> <?= tecnico_h((string)($smoke['stdout_log'] ?? '-')) ?></div>
       </div>
+
+      <div class="tecnico-copy-bar">
+        <button type="button" id="tecnicoSmokeCopyBtn" class="btn btn-secondary">Copiar smoke completo</button>
+        <span class="tecnico-copy-hint">Copia la salida sanitizada completa de la corrida guardada.</span>
+      </div>
+      <pre id="tecnicoSmokeCopyText" class="tecnico-copy-source" hidden><?= tecnico_h($smokeCopyText) ?></pre>
 
       <details class="tecnico-details">
         <summary>Ver resumen sanitizado del smoke</summary>
