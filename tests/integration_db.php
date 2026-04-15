@@ -36,6 +36,7 @@ require_once $root . '/src/facturacion_lib.php';
 require_once $root . '/src/venta_anulaciones_lib.php';
 require_once $root . '/src/Fiscal/bootstrap.php';
 require_once $root . '/src/cobranzas_lib.php';
+require_once $root . '/src/tesoreria_lib.php';
 require_once $root . '/public/includes/CuentaCorrienteController.php';
 
 function flus_it_env(string $name, string $default = ''): string
@@ -1270,6 +1271,24 @@ function flus_it_run_invoice_direct_payment_case(PDO $pdo, array $posSale, array
     flus_it_assert(round((float)($after['cobrado'] ?? 0), 2) === 80.00, 'direct invoice payment summary shows paid amount');
     flus_it_assert(round((float)($after['saldo'] ?? 0), 2) === 70.00, 'direct invoice payment summary shows remaining balance');
 
+    $panel = flus_cobranzas_panel_read($pdo, [
+        'estado_cobro' => 'PARCIAL',
+        'cliente_id' => $clienteId,
+        'per_page' => 100,
+        'page' => 1,
+    ]);
+    $panelRow = null;
+    foreach (($panel['rows'] ?? []) as $candidate) {
+        if ((int)($candidate['id'] ?? 0) === $facturaId) {
+            $panelRow = $candidate;
+            break;
+        }
+    }
+    flus_it_assert(is_array($panelRow), 'direct invoice payment appears in cobranzas panel');
+    flus_it_assert((string)($panelRow['estado_cobro'] ?? '') === 'PARCIAL', 'direct invoice payment panel keeps partial state');
+    flus_it_assert(round((float)($panelRow['cobrado'] ?? 0), 2) === 80.00, 'direct invoice payment panel shows paid amount');
+    flus_it_assert(round((float)($panelRow['saldo'] ?? 0), 2) === 70.00, 'direct invoice payment panel shows remaining balance');
+
     $excess = flus_cobranzas_register_invoice_payment($pdo, [
         'factura_id' => $facturaId,
         'monto' => 71.00,
@@ -1406,6 +1425,183 @@ function flus_it_run_cuenta_corriente_case(PDO $pdo, array $fiscalCase): void
     flus_it_assert(round((float)($recalculo['saldo_calculado'] ?? -1), 2) === 0.00, 'cuenta corriente recalculated balance is zero');
 }
 
+function flus_it_tesoreria_categoria_id(PDO $pdo, string $slug): int
+{
+    $st = $pdo->prepare('SELECT id FROM tesoreria_categorias WHERE slug = ? LIMIT 1');
+    $st->execute([$slug]);
+    return (int)($st->fetchColumn() ?: 0);
+}
+
+function flus_it_run_tesoreria_v1_case(PDO $pdo): void
+{
+    flus_it_assert(flus_tesoreria_tables_ready($pdo), 'tesoreria tables are ready');
+
+    $banco = flus_tesoreria_save_cuenta($pdo, [
+        'nombre' => 'Banco integracion',
+        'tipo' => 'BANCO',
+        'saldo_inicial' => 10000.00,
+        'estado' => 'ACTIVA',
+    ]);
+    $caja = flus_tesoreria_save_cuenta($pdo, [
+        'nombre' => 'Caja central integracion',
+        'tipo' => 'CAJA',
+        'saldo_inicial' => 3000.00,
+        'estado' => 'ACTIVA',
+    ]);
+    $bancoId = (int)($banco['cuenta_id'] ?? 0);
+    $cajaId = (int)($caja['cuenta_id'] ?? 0);
+    flus_it_assert($bancoId > 0 && $cajaId > 0, 'tesoreria creates financial accounts');
+
+    $catAlquiler = flus_it_tesoreria_categoria_id($pdo, 'alquiler');
+    $catImpuestos = flus_it_tesoreria_categoria_id($pdo, 'impuestos');
+    $catServicios = flus_it_tesoreria_categoria_id($pdo, 'servicios');
+    flus_it_assert($catAlquiler > 0 && $catImpuestos > 0 && $catServicios > 0, 'tesoreria default categories exist');
+
+    $alquiler = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'EGRESO',
+        'cuenta_origen_id' => $bancoId,
+        'categoria_id' => $catAlquiler,
+        'fecha' => date('Y-m-d'),
+        'importe' => 1200.00,
+        'concepto' => 'Alquiler local centro',
+        'sucursal_nombre' => 'Centro',
+        'created_by' => 1,
+        'request_uid' => 'tes-it-alquiler',
+    ]);
+    flus_it_assert(($alquiler['success'] ?? false) === true, 'tesoreria registers rent expense from bank');
+
+    $impuesto = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'EGRESO',
+        'cuenta_origen_id' => $bancoId,
+        'categoria_id' => $catImpuestos,
+        'fecha' => date('Y-m-d'),
+        'importe' => 500.00,
+        'concepto' => 'Impuesto general',
+        'created_by' => 1,
+        'request_uid' => 'tes-it-impuesto',
+    ]);
+    flus_it_assert(($impuesto['success'] ?? false) === true, 'tesoreria registers general tax expense');
+
+    $servicio = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'EGRESO',
+        'cuenta_origen_id' => $bancoId,
+        'categoria_id' => $catServicios,
+        'fecha' => date('Y-m-d'),
+        'importe' => 300.00,
+        'concepto' => 'Internet sucursal Godoy Cruz',
+        'sucursal_nombre' => 'Godoy Cruz',
+        'created_by' => 1,
+        'request_uid' => 'tes-it-servicio',
+    ]);
+    flus_it_assert(($servicio['success'] ?? false) === true, 'tesoreria registers branch service expense');
+
+    $transfer = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'TRANSFERENCIA',
+        'cuenta_origen_id' => $cajaId,
+        'cuenta_destino_id' => $bancoId,
+        'fecha' => date('Y-m-d'),
+        'importe' => '1.000',
+        'concepto' => 'Deposito de caja a banco',
+        'created_by' => 1,
+        'request_uid' => 'tes-it-transfer',
+    ]);
+    flus_it_assert(($transfer['success'] ?? false) === true, 'tesoreria registers internal transfer');
+
+    $saldos = flus_tesoreria_cuentas($pdo, true);
+    $saldoBanco = 0.0;
+    $saldoCaja = 0.0;
+    foreach ($saldos as $cuenta) {
+        if ((int)$cuenta['id'] === $bancoId) {
+            $saldoBanco = round((float)$cuenta['saldo_actual'], 2);
+        }
+        if ((int)$cuenta['id'] === $cajaId) {
+            $saldoCaja = round((float)$cuenta['saldo_actual'], 2);
+        }
+    }
+    flus_it_assert($saldoBanco === 9000.00 && $saldoCaja === 2000.00, 'tesoreria transfer does not inflate total balances');
+
+    $ob = flus_tesoreria_save_obligacion($pdo, [
+        'descripcion' => 'Alquiler a pagar integracion',
+        'categoria_id' => $catAlquiler,
+        'fecha_vencimiento' => date('Y-m-d', strtotime('+5 days')),
+        'importe_estimado' => 800.00,
+        'cuenta_sugerida_id' => $bancoId,
+        'sucursal_nombre' => 'Centro',
+        'created_by' => 1,
+    ]);
+    $obId = (int)($ob['obligacion_id'] ?? 0);
+    flus_it_assert($obId > 0, 'tesoreria creates rent obligation');
+
+    $pago = flus_tesoreria_pagar_obligacion($pdo, $obId, [
+        'cuenta_origen_id' => $bancoId,
+        'importe' => 800.00,
+        'fecha' => date('Y-m-d'),
+        'request_uid' => 'tes-it-pago-obligacion',
+    ]);
+    flus_it_assert(($pago['success'] ?? false) === true, 'tesoreria pays obligation with expense movement');
+    flus_it_assert((string)($pago['estado'] ?? '') === 'PAGADO', 'tesoreria marks paid obligation as paid');
+
+    $dup = flus_tesoreria_pagar_obligacion($pdo, $obId, [
+        'cuenta_origen_id' => $bancoId,
+        'importe' => 800.00,
+        'fecha' => date('Y-m-d'),
+        'request_uid' => 'tes-it-pago-obligacion-dup',
+    ]);
+    flus_it_assert(($dup['success'] ?? false) === false, 'tesoreria does not duplicate paid obligation');
+    $stDup = $pdo->prepare('SELECT COUNT(*) FROM tesoreria_movimientos WHERE obligacion_id = ?');
+    $stDup->execute([$obId]);
+    flus_it_assert((int)$stDup->fetchColumn() === 1, 'tesoreria paid obligation has one payment movement');
+
+    flus_tesoreria_save_obligacion($pdo, [
+        'descripcion' => 'Internet proximo integracion',
+        'categoria_id' => $catServicios,
+        'fecha_vencimiento' => date('Y-m-d', strtotime('+7 days')),
+        'importe_estimado' => 250.00,
+        'sucursal_nombre' => 'Godoy Cruz',
+        'created_by' => 1,
+    ]);
+    flus_tesoreria_save_obligacion($pdo, [
+        'descripcion' => 'Impuesto vencido integracion',
+        'categoria_id' => $catImpuestos,
+        'fecha_vencimiento' => date('Y-m-d', strtotime('-1 day')),
+        'importe_estimado' => 700.00,
+        'created_by' => 1,
+    ]);
+
+    $report = flus_tesoreria_reportes($pdo, ['desde' => date('Y-m-01'), 'hasta' => date('Y-m-t')]);
+    flus_it_assert((float)($report['flujo']['egresos'] ?? 0) === 2800.00, 'tesoreria report sums period expenses');
+    flus_it_assert(count($report['proximos_vencimientos']) >= 1, 'tesoreria report shows upcoming obligations');
+    flus_it_assert(count($report['obligaciones_vencidas']) >= 1, 'tesoreria report shows overdue obligations');
+
+    $badAmount = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'EGRESO',
+        'cuenta_origen_id' => $bancoId,
+        'categoria_id' => $catAlquiler,
+        'fecha' => date('Y-m-d'),
+        'importe' => -10,
+        'concepto' => 'Monto invalido',
+    ]);
+    flus_it_assert(($badAmount['success'] ?? false) === false, 'tesoreria rejects negative amounts');
+
+    $badTransfer = flus_tesoreria_registrar_movimiento($pdo, [
+        'tipo' => 'TRANSFERENCIA',
+        'cuenta_origen_id' => $bancoId,
+        'cuenta_destino_id' => $bancoId,
+        'fecha' => date('Y-m-d'),
+        'importe' => 10,
+        'concepto' => 'Transferencia invalida',
+    ]);
+    flus_it_assert(($badTransfer['success'] ?? false) === false, 'tesoreria rejects same account transfer');
+
+    $badDate = flus_tesoreria_save_obligacion($pdo, [
+        'descripcion' => 'Fecha invalida',
+        'categoria_id' => $catAlquiler,
+        'fecha_vencimiento' => '2026-99-99',
+        'importe_estimado' => 10,
+    ]);
+    flus_it_assert(($badDate['success'] ?? false) === false, 'tesoreria rejects invalid obligation date');
+}
+
 $host = flus_it_env('FLUS_TEST_DB_HOST', '127.0.0.1');
 $port = flus_it_env('FLUS_TEST_DB_PORT', '3306');
 $user = flus_it_env('FLUS_TEST_DB_USER', 'root');
@@ -1451,7 +1647,7 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '027_reclasificar_arca_no_responde_transitorio.sql', 'latest migration is 027');
+    flus_it_assert($latest === '028_tesoreria_v1.sql', 'latest migration is 028');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_sesiones', 'categoria_nombre'), 'inventario_sesiones.categoria_nombre exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_conteos', 'stock_sistema_snapshot'), 'inventario_conteos.stock_sistema_snapshot exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'facturas', 'estado_fiscal'), 'facturas.estado_fiscal exists');
@@ -1479,6 +1675,8 @@ try {
     $ccPosSale = flus_it_run_pos_sale_case($pdo);
     $ccFiscalCase = flus_it_run_non_remote_fiscal_case($pdo, (int)$ccPosSale['venta_id']);
     flus_it_run_cuenta_corriente_case($pdo, $ccFiscalCase);
+
+    flus_it_run_tesoreria_v1_case($pdo);
 
     echo "[OK] DB integration check finished.\n";
 } catch (Throwable $e) {

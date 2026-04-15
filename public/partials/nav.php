@@ -54,6 +54,13 @@ if ($currentSection === '') {
         'movimientos.php'              => 'movimientos',
         'ventas.php'                   => 'ventas',
         'venta_detalle.php'            => 'ventas',
+        'cobranzas.php'                => 'cobranzas',
+        'tesoreria.php'                => 'tesoreria',
+        'tesoreria_cuentas.php'        => 'tesoreria',
+        'tesoreria_categorias.php'     => 'tesoreria',
+        'tesoreria_movimientos.php'    => 'tesoreria',
+        'tesoreria_obligaciones.php'   => 'tesoreria',
+        'tesoreria_reportes.php'       => 'tesoreria',
         'compras.php'                  => 'compras',
         'compra_detalle.php'           => 'compras',
         'proveedores.php'              => 'proveedores',
@@ -233,6 +240,8 @@ $canStockEdit        = $can('editar_stock');
 $canInventario       = $can('editar_stock') || $can('ver_reportes');
 $canMovimientos      = $can('ver_movimientos');
 $canVentas           = $can('ver_reportes');
+$canCobranzas        = $can('ver_facturacion') || $can('registrar_pago_cc') || $can('ver_cuenta_corriente');
+$canTesoreria        = $can('ver_tesoreria') || $can('gestionar_tesoreria') || $can('ver_reportes_tesoreria');
 $canCompras          = $can('editar_stock');
 $canProveedores      = $can('ver_proveedores') || $can('editar_proveedores');
 $canHistCaja         = $can('ver_historial_caja');
@@ -289,6 +298,20 @@ if ($canClientes)        $clientLinks[] = ['href' => 'clientes.php',         'se
 if ($canCuentaCorriente) $clientLinks[] = ['href' => 'cuenta_corriente.php', 'section' => 'cuenta_corriente', 'label' => 'Cuenta corriente', 'shortcut' => ''];
 if ($canProveedores)     $clientLinks[] = ['href' => 'proveedores.php',      'section' => 'proveedores',      'label' => 'Proveedores',      'shortcut' => ''];
 
+// Tesoreria
+$tesoreriaLinks = [];
+if ($canTesoreria) {
+    $tesoreriaLinks[] = ['href' => 'tesoreria.php',              'section' => 'tesoreria', 'label' => 'Resumen',       'shortcut' => '', 'active_files' => ['tesoreria.php']];
+    $tesoreriaLinks[] = ['href' => 'tesoreria_cuentas.php',      'section' => 'tesoreria', 'label' => 'Cuentas',       'shortcut' => '', 'active_files' => ['tesoreria_cuentas.php']];
+    $tesoreriaLinks[] = ['href' => 'tesoreria_movimientos.php',  'section' => 'tesoreria', 'label' => 'Movimientos',   'shortcut' => '', 'active_files' => ['tesoreria_movimientos.php']];
+    $tesoreriaLinks[] = ['href' => 'tesoreria_obligaciones.php', 'section' => 'tesoreria', 'label' => 'Obligaciones',  'shortcut' => '', 'active_files' => ['tesoreria_obligaciones.php']];
+    $tesoreriaLinks[] = ['href' => 'tesoreria_reportes.php',     'section' => 'tesoreria', 'label' => 'Reportes',      'shortcut' => '', 'active_files' => ['tesoreria_reportes.php']];
+    $tesoreriaLinks[] = ['href' => 'tesoreria_categorias.php',   'section' => 'tesoreria', 'label' => 'Categorias',    'shortcut' => '', 'active_files' => ['tesoreria_categorias.php']];
+}
+if ($canCobranzas) {
+    $tesoreriaLinks[] = ['href' => 'cobranzas.php',              'section' => 'cobranzas', 'label' => 'Cobranzas',     'shortcut' => '', 'active_files' => ['cobranzas.php']];
+}
+
 // Facturacion
 $facturacionLinks = [];
 if ($canFacturacion) {
@@ -320,18 +343,21 @@ if ($canTecnico)                  $adminLinks[] = ['href' => 'tecnico.php',     
 $catalogSections   = ['productos', 'precios_historial', 'promos'];
 $inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
 $clientSections    = ['clientes', 'cuenta_corriente', 'proveedores'];
+$tesoreriaSections = ['tesoreria', 'cobranzas'];
 $facturacionSections = ['facturacion'];
 $adminSections     = ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico', 'caja_historial'];
 
 $catalogActive   = in_array($currentSection, $catalogSections,   true);
 $inventoryActive = in_array($currentSection, $inventorySections, true);
 $clientActive    = in_array($currentSection, $clientSections,    true);
+$tesoreriaActive = in_array($currentSection, $tesoreriaSections, true);
 $facturacionActive = in_array($currentSection, $facturacionSections, true);
 $adminActive     = in_array($currentSection, $adminSections,     true);
 
 $catalogLabel   = $groupCurrentLabel("Cat\u{00E1}logo",   $catalogLinks,   $currentSection);
 $inventoryLabel = $groupCurrentLabel('Inventario', $inventoryLinks, $currentSection);
 $clientLabel    = $groupCurrentLabel('Clientes',   $clientLinks,    $currentSection);
+$tesoreriaLabel = 'Tesoreria';
 $facturacionLabel = 'Facturacion';
 
 /* ═══════════════════════════════════════════
@@ -399,6 +425,15 @@ if ($clientLinks !== []) {
         'links'      => $clientLinks,
         'menuLabel'  => 'Clientes',
         'title'      => 'Clientes, cuenta corriente y proveedores',
+    ];
+}
+if ($tesoreriaLinks !== []) {
+    $navGroups[] = [
+        'active'     => $tesoreriaActive,
+        'buttonText' => $tesoreriaLabel,
+        'links'      => $tesoreriaLinks,
+        'menuLabel'  => 'Tesoreria',
+        'title'      => 'Cuentas, movimientos, cobranzas y obligaciones',
     ];
 }
 if ($facturacionLinks !== []) {
@@ -631,6 +666,8 @@ $sectionBreadcrumbLabels = [
     'dashboard'           => 'Panel',
     'caja'                => 'Caja',
     'ventas'              => 'Ventas',
+    'cobranzas'           => 'Cobranzas',
+    'tesoreria'           => 'Tesoreria',
     'compras'             => 'Compras',
     'productos'           => 'Productos',
     'precios_historial'   => 'Precios',
@@ -695,6 +732,33 @@ $autoBreadcrumbsByFile = [
     'venta_detalle.php' => [
         ['label' => 'Ventas', 'url' => 'ventas.php'],
         ['label' => 'Detalle de venta', 'url' => null],
+    ],
+    'cobranzas.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Cobranzas', 'url' => null],
+    ],
+    'tesoreria.php' => [
+        ['label' => 'Tesoreria', 'url' => null],
+    ],
+    'tesoreria_cuentas.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Cuentas', 'url' => null],
+    ],
+    'tesoreria_categorias.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Categorias', 'url' => null],
+    ],
+    'tesoreria_movimientos.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Movimientos', 'url' => null],
+    ],
+    'tesoreria_obligaciones.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Obligaciones', 'url' => null],
+    ],
+    'tesoreria_reportes.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Reportes', 'url' => null],
     ],
     'factura_ver.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],

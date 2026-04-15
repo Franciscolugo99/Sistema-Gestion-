@@ -1,0 +1,182 @@
+.cobranzas-page .module-header-icon svg {
+  stroke: currentColor;
+}
+
+.cobranzas-overview {
+  border-color: #c9d7e2;
+}
+
+.cobranzas-table .btn-mini--primary {
+  border-color: #0e7490;
+  background: #0e7490;
+  color: #ffffff;
+}
+
+.cobranzas-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cobranzas-status--ok {
+  border-color: #a7d3b2;
+  background: #edf8ef;
+  color: #166534;
+}
+
+.cobranzas-status--warn {
+  border-color: #dec16a;
+  background: #fff8d7;
+  color: #7a4b00;
+}
+
+.cobranzas-status--pending {
+  border-color: #b7c8d9;
+  background: #f3f7fb;
+  color: #334155;
+}
+
+.cobranza-modal[hidden] {
+  display: none;
+}
+
+.cobranza-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 4001);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.cobranza-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.54);
+}
+
+.cobranza-modal__dialog {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid #c9ced6;
+  background: #ffffff;
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.22);
+}
+
+.cobranza-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid #d8dde6;
+}
+
+.cobranza-modal__head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.cobranza-modal__head p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.cobranza-modal__eyebrow {
+  margin-bottom: 4px;
+  color: #4b5563;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.cobranza-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.cobranza-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+
+.cobranza-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.cobranza-form input,
+.cobranza-form select,
+.cobranza-form textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+}
+
+.cobranza-form textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.cobranza-form__check {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  font-weight: 600;
+}
+
+.cobranza-form__check input {
+  width: 18px;
+  min-height: 18px;
+}
+
+.cobranza-form__hint {
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.cobranza-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .cobranzas-status {
+    white-space: normal;
+  }
+
+  .cobranza-modal {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .cobranza-modal__dialog {
+    width: 100%;
+  }
+}

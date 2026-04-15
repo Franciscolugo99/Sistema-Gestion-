@@ -7,6 +7,7 @@ require_once __DIR__ . '/../src/compras_helpers.php';
 require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/cobranzas_lib.php';
+require_once __DIR__ . '/../src/tesoreria_lib.php';
 require_once __DIR__ . '/../public/includes/CuentaCorrienteController.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
 
@@ -1285,6 +1286,15 @@ $results[] = flus_run_test('pagination helper is centralized in src helpers', fu
         flus_assert_not_contains('function render_pagination', $pagePhp, $pageFile);
     }
 });
+
+$results[] = flus_run_test('parse_money_ar entiende miles argentinos sin coma', function (): void {
+    flus_assert_same(40000.0, parse_money_ar('40.000'));
+    flus_assert_same(40000.0, parse_money_ar('40.000,00'));
+    flus_assert_same(40000.0, parse_money_ar('40000'));
+    flus_assert_same(1234.56, parse_money_ar('1234.56'));
+    flus_assert_same(1234567.89, parse_money_ar('$ 1.234.567,89'));
+});
+
 $results[] = flus_run_test('schema checks are centralized outside public pages', function (): void {
     $repoRoot = dirname(__DIR__);
     $schemaPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_schema.php';
@@ -1406,7 +1416,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     }
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 027", $integrationPhp);
+    flus_assert_contains("latest migration is 028", $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
     flus_assert_contains('non-remote fiscal invoice has one local ARCA event', $integrationPhp);
     flus_assert_contains('non-remote NC total is linked to original invoice', $integrationPhp);
@@ -3262,12 +3272,16 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     $cobranzasLib = file_get_contents($repoRoot . '/src/cobranzas_lib.php') ?: '';
     $facturaViewLib = file_get_contents($repoRoot . '/src/factura_view_lib.php') ?: '';
     $facturaVerPhp = file_get_contents($repoRoot . '/public/factura_ver.php') ?: '';
+    $cobranzasPhp = file_get_contents($repoRoot . '/public/cobranzas.php') ?: '';
     $facturaCobranzaApi = file_get_contents($repoRoot . '/public/api/factura_cobranza_api.php') ?: '';
     $facturaCss = file_get_contents($repoRoot . '/public/assets/css/factura.css') ?: '';
+    $cobranzasCss = file_get_contents($repoRoot . '/public/assets/css/cobranzas.css') ?: '';
+    $navPhp = file_get_contents($repoRoot . '/public/partials/nav.php') ?: '';
     $integrationPhp = file_get_contents($repoRoot . '/tests/integration_db.php') ?: '';
 
     flus_assert_contains('function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array', $cobranzasLib);
     flus_assert_contains('function flus_cobranzas_register_invoice_payment(PDO $pdo, array $payload): array', $cobranzasLib);
+    flus_assert_contains('function flus_cobranzas_panel_read(PDO $pdo, array $filters): array', $cobranzasLib);
     flus_assert_contains("'origen' => 'FACTURA'", $cobranzasLib);
     flus_assert_contains("'tipo_aplicacion' => 'FACTURA'", $cobranzasLib);
     flus_assert_contains('flus_cobranzas_attach_receipt_to_cobranza($pdo, $cobranzaId', $cobranzasLib);
@@ -3279,8 +3293,71 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     flus_assert_contains('flus_cobranzas_register_invoice_payment($pdo', $facturaCobranzaApi);
     flus_assert_contains('no se envia a ARCA', $facturaVerPhp);
     flus_assert_contains('.factura-cobro-modal', $facturaCss);
+    flus_assert_contains("require_any_permission(['ver_facturacion', 'registrar_pago_cc', 'ver_cuenta_corriente']);", $cobranzasPhp);
+    flus_assert_contains('flus_cobranzas_panel_read($pdo', $cobranzasPhp);
+    flus_assert_contains('data-cobrar-factura', $cobranzasPhp);
+    flus_assert_contains('api/factura_cobranza_api.php', $cobranzasPhp);
+    flus_assert_contains('no se envia a ARCA', $cobranzasPhp);
+    flus_assert_contains('.cobranza-modal', $cobranzasCss);
+    flus_assert_contains("'cobranzas.php'                => 'cobranzas'", $navPhp);
+    flus_assert_contains("'href' => 'cobranzas.php'", $navPhp);
     flus_assert_contains('flus_it_run_invoice_direct_payment_case', $integrationPhp);
     flus_assert_contains('direct invoice payment rejects amount over balance', $integrationPhp);
+    flus_assert_contains('direct invoice payment appears in cobranzas panel', $integrationPhp);
+});
+
+$results[] = flus_run_test('tesoreria v1 agrega cuentas movimientos obligaciones y reportes operativos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $tesoreriaLib = file_get_contents($repoRoot . '/src/tesoreria_lib.php') ?: '';
+    $migrationSql = file_get_contents($repoRoot . '/migrations/028_tesoreria_v1.sql') ?: '';
+    $installSql = file_get_contents($repoRoot . '/install.sql') ?: '';
+    $navPhp = file_get_contents($repoRoot . '/public/partials/nav.php') ?: '';
+    $tesoreriaPhp = file_get_contents($repoRoot . '/public/tesoreria.php') ?: '';
+    $cuentasPhp = file_get_contents($repoRoot . '/public/tesoreria_cuentas.php') ?: '';
+    $categoriasPhp = file_get_contents($repoRoot . '/public/tesoreria_categorias.php') ?: '';
+    $movimientosPhp = file_get_contents($repoRoot . '/public/tesoreria_movimientos.php') ?: '';
+    $obligacionesPhp = file_get_contents($repoRoot . '/public/tesoreria_obligaciones.php') ?: '';
+    $reportesPhp = file_get_contents($repoRoot . '/public/tesoreria_reportes.php') ?: '';
+    $tesoreriaCss = file_get_contents($repoRoot . '/public/assets/css/tesoreria.css') ?: '';
+    $integrationPhp = file_get_contents($repoRoot . '/tests/integration_db.php') ?: '';
+
+    foreach (['tesoreria_cuentas', 'tesoreria_categorias', 'tesoreria_movimientos', 'tesoreria_obligaciones'] as $table) {
+        flus_assert_contains("CREATE TABLE IF NOT EXISTS `{$table}`", $migrationSql);
+        flus_assert_contains("CREATE TABLE `{$table}`", $installSql);
+    }
+    foreach (['ver_tesoreria', 'gestionar_tesoreria', 'ver_reportes_tesoreria'] as $perm) {
+        flus_assert_contains($perm, $migrationSql);
+        flus_assert_contains($perm, $installSql);
+        flus_assert_contains($perm, $navPhp);
+    }
+    foreach (['alquiler', 'impuestos', 'servicios', 'sueldos', 'mantenimiento', 'marketing', 'comisiones', 'retiros', 'ajustes', 'otros'] as $slug) {
+        flus_assert_contains("'{$slug}'", $migrationSql);
+    }
+
+    flus_assert_contains('function flus_tesoreria_registrar_movimiento(PDO $pdo, array $payload): array', $tesoreriaLib);
+    flus_assert_contains('function flus_tesoreria_pagar_obligacion(PDO $pdo, int $obligacionId, array $payload): array', $tesoreriaLib);
+    flus_assert_contains('function flus_tesoreria_reportes(PDO $pdo, array $filters = []): array', $tesoreriaLib);
+    flus_assert_contains("WHEN m.tipo = 'TRANSFERENCIA' AND m.cuenta_destino_id = c.id THEN m.importe", $tesoreriaLib);
+    flus_assert_contains("WHEN m.tipo = 'TRANSFERENCIA' AND m.cuenta_origen_id = c.id THEN -m.importe", $tesoreriaLib);
+    flus_assert_contains('$cuentaOrigenId === $cuentaDestinoId', $tesoreriaLib);
+
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria', 'ver_reportes_tesoreria']);", $tesoreriaPhp);
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $cuentasPhp);
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $categoriasPhp);
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $movimientosPhp);
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $obligacionesPhp);
+    flus_assert_contains("require_any_permission(['ver_tesoreria', 'ver_reportes_tesoreria', 'gestionar_tesoreria']);", $reportesPhp);
+    flus_assert_contains('flus_tesoreria_save_cuenta($pdo', $cuentasPhp);
+    flus_assert_contains('flus_tesoreria_save_categoria($pdo', $categoriasPhp);
+    flus_assert_contains('flus_tesoreria_registrar_movimiento($pdo', $movimientosPhp);
+    flus_assert_contains('flus_tesoreria_pagar_obligacion($pdo', $obligacionesPhp);
+    flus_assert_contains('flus_tesoreria_reportes($pdo', $reportesPhp);
+    flus_assert_contains('tesoreriaLinks', $navPhp);
+    flus_assert_contains('tesoreria_reportes.php', $navPhp);
+    flus_assert_contains('.tesoreria-form-grid', $tesoreriaCss);
+    flus_assert_contains('flus_it_run_tesoreria_v1_case', $integrationPhp);
+    flus_assert_contains('tesoreria transfer does not inflate total balances', $integrationPhp);
+    flus_assert_contains('tesoreria does not duplicate paid obligation', $integrationPhp);
 });
 
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {

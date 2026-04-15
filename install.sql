@@ -769,6 +769,112 @@ CREATE TABLE `terminales` (
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+DROP TABLE IF EXISTS `tesoreria_cuentas`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tesoreria_cuentas` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(120) NOT NULL,
+  `tipo` varchar(30) NOT NULL DEFAULT 'OTRO',
+  `sucursal_id` int(11) DEFAULT NULL,
+  `sucursal_nombre` varchar(120) DEFAULT NULL,
+  `saldo_inicial` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `estado` varchar(20) NOT NULL DEFAULT 'ACTIVA',
+  `observaciones` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tes_cuentas_tipo` (`tipo`),
+  KEY `idx_tes_cuentas_estado` (`estado`),
+  KEY `idx_tes_cuentas_sucursal` (`sucursal_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `tesoreria_categorias`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tesoreria_categorias` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(120) NOT NULL,
+  `slug` varchar(120) NOT NULL,
+  `tipo` varchar(20) NOT NULL DEFAULT 'EGRESO',
+  `estado` varchar(20) NOT NULL DEFAULT 'ACTIVA',
+  `orden` int(11) NOT NULL DEFAULT 100,
+  `observaciones` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_tes_categorias_slug` (`slug`),
+  KEY `idx_tes_categorias_tipo` (`tipo`),
+  KEY `idx_tes_categorias_estado` (`estado`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `tesoreria_movimientos`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tesoreria_movimientos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `request_uid` varchar(64) DEFAULT NULL,
+  `tipo` varchar(20) NOT NULL,
+  `estado` varchar(20) NOT NULL DEFAULT 'ACTIVO',
+  `cuenta_origen_id` int(11) DEFAULT NULL,
+  `cuenta_destino_id` int(11) DEFAULT NULL,
+  `categoria_id` int(11) DEFAULT NULL,
+  `sucursal_id` int(11) DEFAULT NULL,
+  `sucursal_nombre` varchar(120) DEFAULT NULL,
+  `fecha` datetime NOT NULL,
+  `importe` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `concepto` varchar(180) NOT NULL,
+  `referencia` varchar(120) DEFAULT NULL,
+  `observaciones` varchar(255) DEFAULT NULL,
+  `entidad_tipo` varchar(40) DEFAULT NULL,
+  `entidad_id` int(11) DEFAULT NULL,
+  `obligacion_id` int(11) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_tes_mov_request_uid` (`request_uid`),
+  KEY `idx_tes_mov_tipo_fecha` (`tipo`,`fecha`),
+  KEY `idx_tes_mov_estado` (`estado`),
+  KEY `idx_tes_mov_cuenta_origen` (`cuenta_origen_id`),
+  KEY `idx_tes_mov_cuenta_destino` (`cuenta_destino_id`),
+  KEY `idx_tes_mov_categoria` (`categoria_id`),
+  KEY `idx_tes_mov_sucursal` (`sucursal_id`),
+  KEY `idx_tes_mov_obligacion` (`obligacion_id`),
+  KEY `idx_tes_mov_entidad` (`entidad_tipo`,`entidad_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+DROP TABLE IF EXISTS `tesoreria_obligaciones`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tesoreria_obligaciones` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `descripcion` varchar(180) NOT NULL,
+  `categoria_id` int(11) DEFAULT NULL,
+  `sucursal_id` int(11) DEFAULT NULL,
+  `sucursal_nombre` varchar(120) DEFAULT NULL,
+  `fecha_vencimiento` date NOT NULL,
+  `importe_estimado` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `importe_pagado` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `estado` varchar(20) NOT NULL DEFAULT 'PENDIENTE',
+  `cuenta_sugerida_id` int(11) DEFAULT NULL,
+  `movimiento_pago_id` int(11) DEFAULT NULL,
+  `observaciones` varchar(255) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_tes_obl_estado_vto` (`estado`,`fecha_vencimiento`),
+  KEY `idx_tes_obl_categoria` (`categoria_id`),
+  KEY `idx_tes_obl_sucursal` (`sucursal_id`),
+  KEY `idx_tes_obl_cuenta` (`cuenta_sugerida_id`),
+  KEY `idx_tes_obl_mov_pago` (`movimiento_pago_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
 DROP TABLE IF EXISTS `user_sessions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -906,7 +1012,10 @@ INSERT INTO `permissions` (`id`, `nombre`, `slug`, `created_at`) VALUES
   (51, 'Recalcular saldo CC', 'recalcular_saldo_cc', NOW()),
   (52, 'Gestionar stock', 'gestionar_stock', NOW()),
   (53, 'Ver diagnostico', 'ver_diagnostico', NOW()),
-  (54, 'Anular items de venta', 'anular_items_venta', NOW())
+  (54, 'Anular items de venta', 'anular_items_venta', NOW()),
+  (55, 'Ver tesoreria', 'ver_tesoreria', NOW()),
+  (56, 'Gestionar tesoreria', 'gestionar_tesoreria', NOW()),
+  (57, 'Ver reportes de tesoreria', 'ver_reportes_tesoreria', NOW())
 ON DUPLICATE KEY UPDATE
   `nombre` = VALUES(`nombre`),
   `slug` = VALUES(`slug`);
@@ -921,7 +1030,8 @@ FROM `permissions` p
 WHERE p.`slug` IN (
   'ver_costos','editar_productos','editar_stock','abrir_caja','cerrar_caja','ver_reportes','ver_movimientos',
   'realizar_ventas','ver_historial_caja','administrar_config','caja_modificar_precio','emitir_factura',
-  'emitir_nota_credito','editar_promos','ver_productos','ver_stock','ver_proveedores','editar_proveedores','ver_facturacion'
+  'emitir_nota_credito','editar_promos','ver_productos','ver_stock','ver_proveedores','editar_proveedores','ver_facturacion',
+  'ver_tesoreria','gestionar_tesoreria','ver_reportes_tesoreria'
 );
 
 INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
@@ -934,7 +1044,7 @@ WHERE p.`slug` IN (
 INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
 SELECT 4, p.`id`
 FROM `permissions` p
-WHERE p.`slug` IN ('ver_costos','ver_reportes','ver_movimientos','ver_auditoria','ver_historial_caja','ver_diagnostico');
+WHERE p.`slug` IN ('ver_costos','ver_reportes','ver_movimientos','ver_auditoria','ver_historial_caja','ver_diagnostico','ver_tesoreria','ver_reportes_tesoreria');
 
 INSERT IGNORE INTO `role_permission` (`role_id`, `permission_id`)
 SELECT 5, p.`id`
@@ -959,6 +1069,25 @@ ON DUPLICATE KEY UPDATE
   `nombre` = VALUES(`nombre`),
   `codigo` = VALUES(`codigo`),
   `activo` = VALUES(`activo`);
+
+INSERT INTO `tesoreria_categorias` (`nombre`, `slug`, `tipo`, `orden`, `created_at`, `updated_at`) VALUES
+  ('Alquiler', 'alquiler', 'EGRESO', 10, NOW(), NOW()),
+  ('Impuestos', 'impuestos', 'EGRESO', 20, NOW(), NOW()),
+  ('Servicios', 'servicios', 'EGRESO', 30, NOW(), NOW()),
+  ('Sueldos', 'sueldos', 'EGRESO', 40, NOW(), NOW()),
+  ('Mantenimiento', 'mantenimiento', 'EGRESO', 50, NOW(), NOW()),
+  ('Marketing', 'marketing', 'EGRESO', 60, NOW(), NOW()),
+  ('Comisiones', 'comisiones', 'EGRESO', 70, NOW(), NOW()),
+  ('Retiros', 'retiros', 'EGRESO', 80, NOW(), NOW()),
+  ('Ajustes', 'ajustes', 'AMBOS', 90, NOW(), NOW()),
+  ('Otros', 'otros', 'AMBOS', 100, NOW(), NOW()),
+  ('Aporte de capital', 'aporte-capital', 'INGRESO', 110, NOW(), NOW()),
+  ('Ingreso extraordinario', 'ingreso-extraordinario', 'INGRESO', 120, NOW(), NOW())
+ON DUPLICATE KEY UPDATE
+  `nombre` = VALUES(`nombre`),
+  `tipo` = VALUES(`tipo`),
+  `orden` = VALUES(`orden`),
+  `updated_at` = NOW();
 
 INSERT INTO `config_facturacion` (`id`, `punto_venta`, `tipo_comprobante`, `cond_iva`, `descripcion`, `tipo_default`, `proximo_numero`, `modo`, `activo`, `razon_social`, `cuit`, `domicilio`, `inicio_actividades`, `creado_en`, `actualizado_en`) VALUES
   (1, 1, 'FA', 'RI', 'Punto de venta 1', 'C', 1, 'demo', 1, NULL, NULL, NULL, NULL, NOW(), NOW())

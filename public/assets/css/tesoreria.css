@@ -1,0 +1,358 @@
+.tesoreria-page .module-header-icon svg {
+  stroke: currentColor;
+}
+
+.tesoreria-page {
+  --tes-surface: var(--panel, #ffffff);
+  --tes-surface-soft: #f8fbfd;
+  --tes-surface-muted: #ffffff;
+  --tes-border: var(--panel-border, #d8e1ec);
+  --tes-border-strong: #cbd5e1;
+  --tes-text: var(--text, #0f172a);
+  --tes-text-strong: var(--text-strong, #0b1120);
+  --tes-muted: var(--muted, #4b5563);
+  --tes-input-bg: var(--input-bg, #ffffff);
+  --tes-input-text: var(--input-text, #111111);
+  --tes-input-border: var(--input-border, #cbd5e1);
+  --tes-pill-bg: #edfaff;
+  --tes-pill-border: #9ed8e8;
+  --tes-pill-text: #075569;
+  --tes-status-bg: #f3f7fb;
+  --tes-status-border: #b7c8d9;
+  --tes-status-text: #334155;
+  --tes-ok-bg: #edf8ef;
+  --tes-ok-border: #a7d3b2;
+  --tes-ok-text: #166534;
+  --tes-warn-bg: #fff8d7;
+  --tes-warn-border: #dec16a;
+  --tes-warn-text: #7a4b00;
+  --tes-danger-bg: #fff0f0;
+  --tes-danger-border: #e7a6a6;
+  --tes-danger-text: #991b1b;
+}
+
+html[data-theme="dark"] .tesoreria-page,
+body[data-theme="dark"] .tesoreria-page,
+body.theme-dark .tesoreria-page,
+body.dark .tesoreria-page,
+:root.dark .tesoreria-page {
+  --tes-surface: rgba(17, 24, 39, 0.98);
+  --tes-surface-soft: rgba(15, 23, 42, 0.74);
+  --tes-surface-muted: rgba(2, 6, 23, 0.28);
+  --tes-border: rgba(148, 163, 184, 0.22);
+  --tes-border-strong: rgba(148, 163, 184, 0.34);
+  --tes-text: var(--text, #eef2ff);
+  --tes-text-strong: var(--text-strong, #ffffff);
+  --tes-muted: rgba(226, 232, 240, 0.72);
+  --tes-input-bg: var(--input-bg, #0f172a);
+  --tes-input-text: var(--input-text, #f1f5f9);
+  --tes-input-border: var(--input-border, #374151);
+  --tes-pill-bg: rgba(34, 211, 238, 0.12);
+  --tes-pill-border: rgba(34, 211, 238, 0.38);
+  --tes-pill-text: #a5f3fc;
+  --tes-status-bg: rgba(148, 163, 184, 0.12);
+  --tes-status-border: rgba(148, 163, 184, 0.34);
+  --tes-status-text: #dbeafe;
+  --tes-ok-bg: rgba(34, 197, 94, 0.16);
+  --tes-ok-border: rgba(74, 222, 128, 0.42);
+  --tes-ok-text: #bbf7d0;
+  --tes-warn-bg: rgba(251, 191, 36, 0.14);
+  --tes-warn-border: rgba(251, 191, 36, 0.44);
+  --tes-warn-text: #fde68a;
+  --tes-danger-bg: rgba(248, 113, 113, 0.16);
+  --tes-danger-border: rgba(248, 113, 113, 0.44);
+  --tes-danger-text: #fecaca;
+}
+
+.tesoreria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.tesoreria-action {
+  display: grid;
+  gap: 8px;
+  min-height: 124px;
+  padding: 14px;
+  border: 1px solid var(--tes-border);
+  border-radius: 8px;
+  background: var(--tes-surface-soft);
+  text-decoration: none;
+  color: inherit;
+}
+
+.tesoreria-action strong {
+  font-size: 18px;
+}
+
+.tesoreria-action span {
+  color: var(--tes-muted);
+  line-height: 1.35;
+}
+
+.tesoreria-form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.tesoreria-entry-form {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--tes-border);
+  border-radius: 8px;
+  background: var(--tes-surface-soft);
+}
+
+.tesoreria-form-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--tes-border);
+}
+
+.tesoreria-form-title {
+  display: grid;
+  gap: 4px;
+}
+
+.tesoreria-form-title span {
+  color: var(--tes-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+.tesoreria-form-title strong {
+  color: var(--tes-text-strong);
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.tesoreria-form-title small {
+  color: var(--tes-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.tesoreria-form-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid var(--tes-pill-border);
+  border-radius: 8px;
+  background: var(--tes-pill-bg);
+  color: var(--tes-pill-text);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tesoreria-form-grid label,
+.tesoreria-inline-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.tesoreria-field {
+  grid-column: span 3;
+}
+
+.tesoreria-field--short {
+  grid-column: span 2;
+}
+
+.tesoreria-field--medium {
+  grid-column: span 4;
+}
+
+.tesoreria-field--large {
+  grid-column: span 6;
+}
+
+.tesoreria-field--full {
+  grid-column: 1 / -1;
+}
+
+.tesoreria-field--amount input {
+  font-weight: 800;
+}
+
+.tesoreria-guide {
+  grid-column: span 4;
+  align-self: stretch;
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--tes-border);
+  border-radius: 8px;
+  background: var(--tes-surface-muted);
+}
+
+.tesoreria-guide strong {
+  color: var(--tes-text-strong);
+  font-size: 13px;
+}
+
+.tesoreria-guide span {
+  color: var(--tes-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tesoreria-form-grid input,
+.tesoreria-form-grid select,
+.tesoreria-form-grid textarea,
+.tesoreria-inline-form input,
+.tesoreria-inline-form select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--tes-input-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--tes-input-bg);
+  color: var(--tes-input-text);
+  font: inherit;
+}
+
+.tesoreria-form-grid input::placeholder,
+.tesoreria-form-grid textarea::placeholder,
+.tesoreria-inline-form input::placeholder {
+  color: var(--tes-muted);
+  opacity: 0.72;
+}
+
+.tesoreria-form-grid textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.tesoreria-form-wide {
+  grid-column: 1 / -1;
+}
+
+.tesoreria-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border: 1px solid var(--tes-status-border);
+  border-radius: 8px;
+  background: var(--tes-status-bg);
+  color: var(--tes-status-text);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tesoreria-status--ok {
+  border-color: var(--tes-ok-border);
+  background: var(--tes-ok-bg);
+  color: var(--tes-ok-text);
+}
+
+.tesoreria-status--warn {
+  border-color: var(--tes-warn-border);
+  background: var(--tes-warn-bg);
+  color: var(--tes-warn-text);
+}
+
+.tesoreria-status--danger {
+  border-color: var(--tes-danger-border);
+  background: var(--tes-danger-bg);
+  color: var(--tes-danger-text);
+}
+
+.tesoreria-inline-form {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+.tesoreria-muted-note {
+  color: var(--tes-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.tesoreria-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.tesoreria-form-actions .tesoreria-muted-note {
+  margin-right: auto;
+}
+
+.tesoreria-form-actions .btn,
+.tesoreria-form-actions .btn-mini {
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .tesoreria-page input,
+html[data-theme="dark"] .tesoreria-page select,
+html[data-theme="dark"] .tesoreria-page textarea,
+body[data-theme="dark"] .tesoreria-page input,
+body[data-theme="dark"] .tesoreria-page select,
+body[data-theme="dark"] .tesoreria-page textarea,
+body.theme-dark .tesoreria-page input,
+body.theme-dark .tesoreria-page select,
+body.theme-dark .tesoreria-page textarea,
+body.dark .tesoreria-page input,
+body.dark .tesoreria-page select,
+body.dark .tesoreria-page textarea,
+:root.dark .tesoreria-page input,
+:root.dark .tesoreria-page select,
+:root.dark .tesoreria-page textarea {
+  color-scheme: dark;
+}
+
+@media (max-width: 760px) {
+  .tesoreria-entry-form {
+    padding: 14px;
+  }
+
+  .tesoreria-form-head,
+  .tesoreria-form-actions {
+    display: grid;
+  }
+
+  .tesoreria-form-pill {
+    justify-self: start;
+    white-space: normal;
+  }
+
+  .tesoreria-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tesoreria-field,
+  .tesoreria-field--short,
+  .tesoreria-field--medium,
+  .tesoreria-field--large,
+  .tesoreria-field--full,
+  .tesoreria-guide,
+  .tesoreria-form-wide {
+    grid-column: 1 / -1;
+  }
+
+  .tesoreria-inline-form {
+    grid-template-columns: 1fr;
+  }
+}

@@ -243,6 +243,278 @@ function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array
     ]);
 }
 
+function flus_cobranzas_panel_like_param(string $value): string
+{
+    return '%' . addcslashes($value, "\\%_") . '%';
+}
+
+function flus_cobranzas_panel_normalize_filters(array $filters): array
+{
+    $validDate = static function (string $value): string {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        $dt = DateTime::createFromFormat('Y-m-d', $value);
+        return ($dt && $dt->format('Y-m-d') === $value) ? $value : '';
+    };
+
+    $desde = $validDate((string)($filters['desde'] ?? ''));
+    $hasta = $validDate((string)($filters['hasta'] ?? ''));
+    if ($desde !== '' && $hasta !== '' && $desde > $hasta) {
+        [$desde, $hasta] = [$hasta, $desde];
+    }
+
+    $estadoCobro = strtoupper(trim((string)($filters['estado_cobro'] ?? 'PENDIENTE')));
+    if (!in_array($estadoCobro, ['PENDIENTE', 'SIN_COBRAR', 'PARCIAL', 'COBRADA', 'TODAS'], true)) {
+        $estadoCobro = 'PENDIENTE';
+    }
+
+    $perPage = (int)($filters['per_page'] ?? 50);
+    if (!in_array($perPage, [20, 50, 100], true)) {
+        $perPage = 50;
+    }
+
+    return [
+        'desde' => $desde,
+        'hasta' => $hasta,
+        'estado_cobro' => $estadoCobro,
+        'search' => trim((string)($filters['search'] ?? $filters['q'] ?? '')),
+        'cliente_id' => max(0, (int)($filters['cliente_id'] ?? 0)),
+        'per_page' => $perPage,
+        'page' => max(1, (int)($filters['page'] ?? 1)),
+    ];
+}
+
+function flus_cobranzas_panel_estado_desde_montos(float $total, float $cobrado): array
+{
+    $total = round(max(0.0, $total), 2);
+    $cobrado = round(max(0.0, $cobrado), 2);
+    $saldo = round(max(0.0, $total - $cobrado), 2);
+
+    if ($saldo <= 0.009 && $total > 0) {
+        return ['estado' => 'COBRADA', 'label' => 'Cobrada', 'saldo' => 0.0];
+    }
+    if ($cobrado > 0.009) {
+        return ['estado' => 'PARCIAL', 'label' => 'Cobro parcial', 'saldo' => $saldo];
+    }
+
+    return ['estado' => 'SIN_COBRAR', 'label' => 'Sin cobrar', 'saldo' => $saldo];
+}
+
+function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
+{
+    $filters = flus_cobranzas_panel_normalize_filters($filters);
+    $avisos = [];
+    $rows = [];
+    $stats = [
+        'total_facturado' => 0.0,
+        'total_cobrado' => 0.0,
+        'total_saldo' => 0.0,
+        'sin_cobrar' => 0,
+        'parciales' => 0,
+        'cobradas' => 0,
+        'pendientes' => 0,
+    ];
+
+    if (!flus_table_exists($pdo, 'facturas')) {
+        return [
+            'filters' => $filters,
+            'avisos' => ['La tabla facturas no existe todavia.'],
+            'rows' => [],
+            'stats' => $stats,
+            'total_rows' => 0,
+            'total_pages' => 1,
+            'from_row' => 0,
+            'to_row' => 0,
+            'receipts_ready' => flus_cobranzas_receipts_ready($pdo),
+        ];
+    }
+
+    $fechaCol = flus_first_existing_column($pdo, 'facturas', ['creado_en', 'fecha']);
+    $fechaExpr = $fechaCol !== null ? 'f.`' . $fechaCol . '`' : 'NULL';
+    $hasClientes = flus_table_exists($pdo, 'clientes') && flus_column_exists($pdo, 'facturas', 'cliente_id');
+    $hasDocumentoId = flus_column_exists($pdo, 'facturas', 'documento_id');
+    $hasNaturaleza = flus_column_exists($pdo, 'facturas', 'naturaleza');
+    $hasTipo = flus_column_exists($pdo, 'facturas', 'tipo');
+    $hasEstado = flus_column_exists($pdo, 'facturas', 'estado');
+    $receiptsReady = flus_cobranzas_receipts_ready($pdo);
+
+    if (!$receiptsReady) {
+        $avisos[] = 'Falta aplicar el esquema de cobranzas y recibos para calcular saldos.';
+    }
+
+    $where = ['1=1'];
+    $params = [];
+    if ($hasNaturaleza) {
+        $where[] = "UPPER(COALESCE(f.`naturaleza`, '')) <> 'NC'";
+    }
+    if ($hasTipo) {
+        $where[] = "UPPER(COALESCE(f.`tipo`, '')) NOT LIKE 'NC%'";
+    }
+    if ($hasEstado) {
+        $where[] = "UPPER(COALESCE(f.`estado`, 'EMITIDA')) <> 'ANULADA'";
+    }
+    if ($filters['desde'] !== '' && $fechaCol !== null) {
+        $where[] = $fechaExpr . ' >= :desde';
+        $params[':desde'] = $filters['desde'] . ' 00:00:00';
+    }
+    if ($filters['hasta'] !== '' && $fechaCol !== null) {
+        $where[] = $fechaExpr . ' <= :hasta';
+        $params[':hasta'] = $filters['hasta'] . ' 23:59:59';
+    }
+    if (($filters['desde'] !== '' || $filters['hasta'] !== '') && $fechaCol === null) {
+        $avisos[] = 'Esta instalacion no tiene una fecha de factura estandar; no se aplico el filtro por fecha.';
+    }
+    if ($filters['cliente_id'] > 0 && flus_column_exists($pdo, 'facturas', 'cliente_id')) {
+        $where[] = 'f.`cliente_id` = :cliente_id';
+        $params[':cliente_id'] = $filters['cliente_id'];
+    }
+    if ($filters['search'] !== '') {
+        $searchWhere = [];
+        $params[':search_like'] = flus_cobranzas_panel_like_param($filters['search']);
+        if ($hasClientes) {
+            $searchWhere[] = "c.`nombre` LIKE :search_like ESCAPE '\\\\'";
+            if (flus_column_exists($pdo, 'clientes', 'cuit')) {
+                $searchWhere[] = "c.`cuit` LIKE :search_like ESCAPE '\\\\'";
+            }
+        }
+        if (flus_column_exists($pdo, 'facturas', 'cae')) {
+            $searchWhere[] = "f.`cae` LIKE :search_like ESCAPE '\\\\'";
+        }
+        if ($hasTipo) {
+            $searchWhere[] = "f.`tipo` LIKE :search_like ESCAPE '\\\\'";
+        }
+        if (flus_column_exists($pdo, 'facturas', 'numero') && ctype_digit($filters['search'])) {
+            $searchWhere[] = 'f.`numero` = :search_numero';
+            $params[':search_numero'] = (int)$filters['search'];
+        }
+        if (flus_column_exists($pdo, 'facturas', 'venta_id') && ctype_digit($filters['search'])) {
+            $searchWhere[] = 'f.`venta_id` = :search_venta_id';
+            $params[':search_venta_id'] = (int)$filters['search'];
+        }
+        if (flus_column_exists($pdo, 'facturas', 'punto_venta')
+            && flus_column_exists($pdo, 'facturas', 'numero')
+            && preg_match('/^\s*(\d{1,4})\D+(\d{1,8})\s*$/', $filters['search'], $m) === 1) {
+            $searchWhere[] = '(f.`punto_venta` = :search_pv AND f.`numero` = :search_comp_num)';
+            $params[':search_pv'] = (int)$m[1];
+            $params[':search_comp_num'] = (int)$m[2];
+        }
+        if ($searchWhere !== []) {
+            $where[] = '(' . implode(' OR ', $searchWhere) . ')';
+        }
+    }
+
+    $joinClientes = $hasClientes ? 'LEFT JOIN clientes c ON c.id = f.cliente_id' : '';
+    $clienteNombreExpr = $hasClientes ? 'c.`nombre`' : 'NULL';
+    $clienteCuitExpr = $hasClientes && flus_column_exists($pdo, 'clientes', 'cuit') ? 'c.`cuit`' : 'NULL';
+    $documentoExpr = $hasDocumentoId ? 'f.`documento_id`' : 'NULL';
+    $joinRecibos = '';
+    $cobradoExpr = '0';
+    $recibosCountExpr = '0';
+    if ($receiptsReady) {
+        $docFallback = $hasDocumentoId
+            ? " OR ((ra.factura_id IS NULL OR ra.factura_id = 0) AND ra.documento_id = f.`documento_id`)"
+            : '';
+        $joinRecibos = "
+            LEFT JOIN recibo_aplicaciones ra ON (ra.factura_id = f.id{$docFallback})
+            LEFT JOIN cobranzas cb ON cb.id = ra.cobranza_id
+            LEFT JOIN documentos_comerciales rd ON rd.id = ra.recibo_documento_id
+        ";
+        $activeReceipt = "COALESCE(UPPER(cb.estado), 'ACTIVA') NOT IN ('ANULADA', 'CANCELADA')
+            AND COALESCE(UPPER(rd.estado), 'EMITIDO') NOT IN ('ANULADO', 'CANCELADO')";
+        $cobradoExpr = "COALESCE(SUM(CASE WHEN {$activeReceipt} THEN ra.monto ELSE 0 END), 0)";
+        $recibosCountExpr = "COUNT(DISTINCT CASE WHEN {$activeReceipt} THEN ra.recibo_documento_id ELSE NULL END)";
+    }
+
+    $sql = "
+        SELECT
+            f.id,
+            {$fechaExpr} AS fecha,
+            " . (flus_column_exists($pdo, 'facturas', 'tipo') ? 'f.`tipo`' : "''") . " AS tipo,
+            " . (flus_column_exists($pdo, 'facturas', 'punto_venta') ? 'f.`punto_venta`' : 'NULL') . " AS punto_venta,
+            " . (flus_column_exists($pdo, 'facturas', 'numero') ? 'f.`numero`' : 'NULL') . " AS numero,
+            " . (flus_column_exists($pdo, 'facturas', 'total') ? 'f.`total`' : '0') . " AS total,
+            " . (flus_column_exists($pdo, 'facturas', 'estado') ? 'f.`estado`' : "'EMITIDA'") . " AS estado,
+            " . (flus_column_exists($pdo, 'facturas', 'estado_fiscal') ? "COALESCE(f.`estado_fiscal`, 'NO_APLICA')" : "'NO_APLICA'") . " AS estado_fiscal,
+            " . (flus_column_exists($pdo, 'facturas', 'cliente_id') ? 'f.`cliente_id`' : 'NULL') . " AS cliente_id,
+            {$clienteNombreExpr} AS cliente_nombre,
+            {$clienteCuitExpr} AS cliente_cuit,
+            " . (flus_column_exists($pdo, 'facturas', 'venta_id') ? 'f.`venta_id`' : 'NULL') . " AS venta_id,
+            " . (flus_column_exists($pdo, 'facturas', 'cae') ? 'f.`cae`' : 'NULL') . " AS cae,
+            {$documentoExpr} AS documento_id,
+            {$cobradoExpr} AS cobrado,
+            {$recibosCountExpr} AS recibos_count
+        FROM facturas f
+        {$joinClientes}
+        {$joinRecibos}
+        WHERE " . implode(' AND ', $where) . "
+        GROUP BY f.id
+        ORDER BY " . ($fechaCol !== null ? "{$fechaExpr} DESC, f.id DESC" : 'f.id DESC') . "
+    ";
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $allRows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    foreach ($allRows as $row) {
+        $total = round(abs((float)($row['total'] ?? 0)), 2);
+        $cobrado = round(max(0.0, (float)($row['cobrado'] ?? 0)), 2);
+        $estado = flus_cobranzas_panel_estado_desde_montos($total, $cobrado);
+        $row['total'] = $total;
+        $row['cobrado'] = $cobrado;
+        $row['saldo'] = $estado['saldo'];
+        $row['estado_cobro'] = $estado['estado'];
+        $row['estado_cobro_label'] = $estado['label'];
+        $row['recibos_count'] = (int)($row['recibos_count'] ?? 0);
+
+        $estadoFiltro = $filters['estado_cobro'];
+        $matchesEstado = $estadoFiltro === 'TODAS'
+            || $estadoFiltro === $row['estado_cobro']
+            || ($estadoFiltro === 'PENDIENTE' && in_array($row['estado_cobro'], ['SIN_COBRAR', 'PARCIAL'], true));
+        if ($matchesEstado) {
+            $stats['total_facturado'] += $total;
+            $stats['total_cobrado'] += min($cobrado, $total);
+            $stats['total_saldo'] += (float)$row['saldo'];
+            if ($row['estado_cobro'] === 'COBRADA') {
+                $stats['cobradas']++;
+            } elseif ($row['estado_cobro'] === 'PARCIAL') {
+                $stats['parciales']++;
+                $stats['pendientes']++;
+            } else {
+                $stats['sin_cobrar']++;
+                $stats['pendientes']++;
+            }
+            $rows[] = $row;
+        }
+    }
+
+    foreach (['total_facturado', 'total_cobrado', 'total_saldo'] as $key) {
+        $stats[$key] = round((float)$stats[$key], 2);
+    }
+
+    $totalRows = count($rows);
+    $perPage = max(1, (int)$filters['per_page']);
+    $totalPages = max(1, (int)ceil($totalRows / $perPage));
+    if ($filters['page'] > $totalPages) {
+        $filters['page'] = $totalPages;
+    }
+    $offset = ($filters['page'] - 1) * $perPage;
+    $pagedRows = array_slice($rows, $offset, $perPage);
+
+    return [
+        'filters' => $filters,
+        'avisos' => $avisos,
+        'rows' => $pagedRows,
+        'stats' => $stats,
+        'total_rows' => $totalRows,
+        'total_pages' => $totalPages,
+        'from_row' => $totalRows > 0 ? $offset + 1 : 0,
+        'to_row' => min($offset + $perPage, $totalRows),
+        'receipts_ready' => $receiptsReady,
+    ];
+}
+
 function flus_cobranzas_find_application_by_key(PDO $pdo, string $applicationKey): ?array
 {
     $applicationKey = trim($applicationKey);

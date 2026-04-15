@@ -74,10 +74,13 @@ if (!function_exists('parse_money_ar')) {
       return 0.0;
     }
 
-    // Si tiene coma, asumimos formato AR 1.234,56
+    // Si tiene coma, asumimos formato AR 1.234,56.
     if (strpos($s, ',') !== false) {
       $s = str_replace('.', '', $s);
       $s = str_replace(',', '.', $s);
+    } elseif (preg_match('/^-?\d{1,3}(?:\.\d{3})+$/', $s)) {
+      // Si solo hay puntos y calza como miles AR, 40.000 es 40000.
+      $s = str_replace('.', '', $s);
     }
 
     return is_numeric($s) ? (float)$s : 0.0;
