@@ -659,6 +659,26 @@ body[data-theme="light"] .kpi-delta {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Donut: caja cuadrada para evitar que el canvas estire el circulo */
+.chart-wrap.chart-wrap-donut {
+  width: min(260px, 100%);
+  height: 260px;
+  margin: 0 auto;
+}
+
+.chart-wrap.chart-wrap-donut canvas {
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1;
+}
+
+@media (max-width: 520px) {
+  .chart-wrap.chart-wrap-donut {
+    width: min(230px, 100%);
+    height: 230px;
+  }
+}
+
 /* =========================================================
    A11Y helpers
 ========================================================= */

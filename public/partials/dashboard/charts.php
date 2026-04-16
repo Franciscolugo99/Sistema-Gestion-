@@ -71,7 +71,7 @@
       <h2>Metodos de pago</h2>
       <span class="dash-card-sub">Distribucion</span>
     </div>
-    <div class="chart-wrap">
+    <div class="chart-wrap chart-wrap-donut">
       <canvas id="chartMetodosPago" role="img" tabindex="0" aria-label="Distribucion por metodos de pago" aria-describedby="chartMetodosPagoData"></canvas>
     </div>
 

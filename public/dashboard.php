@@ -687,7 +687,7 @@ dashboard_store_cache($dashCacheState, $dashPayload);
 $pageTitle = 'Panel de Control';
 $currentSection = 'dashboard';
 $extraCss = [
-  'assets/css/dashboard.css?v=3', 
+  'assets/css/dashboard.css?v=4',
   'assets/css/dashboard-advanced.css?v=3',
   'assets/css/dashboard-enhanced.css?v=1'
 ];
