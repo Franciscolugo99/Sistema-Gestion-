@@ -1,12 +1,10 @@
 <?php
-// public/compras.php
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
 require_login();
 require_permission('editar_stock');
-// El esquema de compras se versiona por migraciones SQL.
 
 $HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
 $HAS_COMPRAS_TOTAL_IVA       = flus_column_exists($pdo, 'compras', 'total_iva');
@@ -45,9 +43,6 @@ $isAjaxRequest = (
   (string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest'
   || (string)($_POST['autosave'] ?? '') === '1'
 );
-/* -----------------------------
-   Helpers
------------------------------- */
 function compras_json_response(array $payload, int $status = 200): void {
   http_response_code($status);
   header('Content-Type: application/json; charset=UTF-8');
@@ -58,30 +53,24 @@ function compras_json_response(array $payload, int $status = 200): void {
 function normalizeProveedorName(string $name): string {
   $name = trim($name);
   $name = preg_replace('/\s+/', ' ', $name); // múltiples espacios → uno
-  // Capitalizar cada palabra
   return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
 }
 
-/**
- * Obtiene o crea un proveedor de forma segura (evita duplicados por race condition)
- */
 function getOrCreateProveedor(PDO $pdo, string $nombre): int {
   $nombre = normalizeProveedorName($nombre);
-  
-  // Primero intentar buscar
+
   $stFind = $pdo->prepare("
-    SELECT id FROM proveedores 
-    WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?)) 
+    SELECT id FROM proveedores
+    WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(?))
     LIMIT 1
   ");
   $stFind->execute([$nombre]);
   $proveedorId = (int)($stFind->fetchColumn() ?: 0);
-  
+
   if ($proveedorId > 0) {
     return $proveedorId;
   }
-  
-  // Intentar crear (con manejo de duplicate key por si otro proceso lo creó)
+
   try {
     $stIns = $pdo->prepare("
       INSERT INTO proveedores (nombre, activo)
@@ -90,7 +79,6 @@ function getOrCreateProveedor(PDO $pdo, string $nombre): int {
     $stIns->execute([$nombre]);
     return (int)$pdo->lastInsertId();
   } catch (PDOException $e) {
-    // Si es error de duplicate key (código 23000), buscar de nuevo
     if ($e->getCode() == 23000 || str_contains($e->getMessage(), 'Duplicate')) {
       $stFind->execute([$nombre]);
       $proveedorId = (int)($stFind->fetchColumn() ?: 0);
@@ -147,7 +135,7 @@ function compras_lock_product_stocks(PDO $pdo, array $productoIds): array {
 ------------------------------ */
 if (isset($_GET['editar'])) {
   $editId = (int)$_GET['editar'];
-  
+
   try {
     $st = $pdo->prepare("
       SELECT c.*, p.nombre AS proveedor_nombre
@@ -157,10 +145,10 @@ if (isset($_GET['editar'])) {
     ");
     $st->execute([$editId]);
     $compraEdit = $st->fetch(PDO::FETCH_ASSOC);
-    
+
     if ($compraEdit) {
       $editMode = true;
-      
+
       // Traer items
       $stItems = $pdo->prepare("
         SELECT ci.*, p.nombre, p.codigo, p.es_pesable, p.unidad_venta
@@ -254,15 +242,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $qty = parse_decimal((string)($cants[$i] ?? ''), 0.0);
           $cu  = parse_decimal((string)($costos[$i] ?? ''), 0.0);
 
-          if ($qty <= 0) { 
-            $msg = 'Cantidad invalida en un item.'; 
+          if ($qty <= 0) {
+            $msg = 'Cantidad invalida en un item.';
             $msgType = 'warning';
-            break; 
+            break;
           }
-          if ($cu < 0) { 
-            $msg = 'Costo unitario invalido en un item.'; 
+          if ($cu < 0) {
+            $msg = 'Costo unitario invalido en un item.';
             $msgType = 'warning';
-            break; 
+            break;
           }
 
           // Validaciones de rango
@@ -383,12 +371,12 @@ if ($compraId > 0) {
             $stCheck = $pdo->prepare("SELECT estado FROM compras WHERE id = ? FOR UPDATE");
             $stCheck->execute([$compraId]);
             $estadoActual = (string)($stCheck->fetchColumn() ?: '');
-            
+
             if ($estadoActual !== 'BORRADOR') {
               throw new RuntimeException('Solo se pueden editar compras en BORRADOR.');
             }
 
-            
+
             // Actualizar compra (compat: columnas opcionales)
             $set = [
               "proveedor_id = :proveedor_id",
@@ -428,7 +416,7 @@ WHERE id = :id AND estado = 'BORRADOR'";
                ->execute([$compraId]);
 
           } else {
-            
+
 // CREAR nueva (compat: columnas opcionales)
 $cols = ['fecha','proveedor_id','tipo_comp','nro_comp','obs','estado','total'];
 $vals = ['NOW()',':proveedor_id',':tipo_comp',':nro_comp',':obs',"'BORRADOR'",':total'];
@@ -534,7 +522,7 @@ $compraId = (int)$pdo->lastInsertId();
     ========================================================= */
     if ($accion === 'eliminar_borrador') {
       $compraId = (int)($_POST['compra_id'] ?? 0);
-      
+
       if ($compraId <= 0) {
         $msg = 'ID invalido.';
         $msgType = 'error';
@@ -804,7 +792,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
     if ($accion === 'anular_confirmada') {
       $compraId = (int)($_POST['compra_id'] ?? 0);
       $revertirStock = isset($_POST['revertir_stock']); // checkbox
-      
+
       if ($compraId <= 0) {
         $msg = 'ID invalido.';
         $msgType = 'error';
@@ -1082,6 +1070,7 @@ require __DIR__ . "/partials/header.php";
         </div>
       </div>
       <div class="module-header-actions">
+        <div id="autosave-status" class="autosave-status autosave-status-idle" aria-live="polite"></div>
         <?php if ($editMode): ?>
           <a href="compras.php" class="btn btn-secondary">Cancelar edicion</a>
         <?php endif; ?>
@@ -1118,57 +1107,60 @@ require __DIR__ . "/partials/header.php";
 
       <script type="application/json" id="quickAddFrequentData"><?= h((string)json_encode($productosFrecuentesUi, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></script>
 
-      <div class="form-grid">
-        <div class="field">
-          <label for="proveedorInput">Proveedor</label>
-          <input
-            id="proveedorInput"
-            name="proveedor"
-            placeholder="Escribe o elige un proveedor"
-            required
-            autocomplete="off"
-            list="proveedoresData"
-            value="<?= $editMode ? h((string)$compraEdit['proveedor_nombre']) : '' ?>"
-          >
-          <input type="hidden" name="proveedor_id" id="proveedorId" value="<?= $editMode ? (int)($compraEdit['proveedor_id'] ?? 0) : 0 ?>">
-          <div class="help" id="proveedorHelp">Si no coincide con uno existente, se creara al guardar.</div>
-          <div class="provider-match" id="proveedorMatch" hidden></div>
-        </div>
+      <div class="form-section">
+        <h3 class="form-section-title"><span class="form-step">1</span> Identificar la compra</h3>
+        <div class="form-grid">
+          <div class="field field-proveedor">
+            <label for="proveedorInput">Proveedor <span class="field-required">Requerido</span></label>
+            <input
+              id="proveedorInput"
+              name="proveedor"
+              placeholder="Escribe o elige un proveedor..."
+              required
+              autocomplete="off"
+              list="proveedoresData"
+              value="<?= $editMode ? h((string)$compraEdit['proveedor_nombre']) : '' ?>"
+            >
+            <input type="hidden" name="proveedor_id" id="proveedorId" value="<?= $editMode ? (int)($compraEdit['proveedor_id'] ?? 0) : 0 ?>">
+            <div class="help" id="proveedorHelp">Si no coincide con uno existente, se creara al guardar.</div>
+            <div class="provider-match" id="proveedorMatch" hidden></div>
+          </div>
 
-        <div class="field">
-          <label>Tipo comprobante</label>
-          <input
-            name="tipo_comp"
-            placeholder="Ej: Factura A"
-            autocomplete="off"
-            value="<?= $editMode ? h((string)$compraEdit['tipo_comp']) : '' ?>"
-          >
-        </div>
+          <div class="field">
+            <label>Tipo comprobante <span class="field-optional">Opcional</span></label>
+            <input
+              name="tipo_comp"
+              placeholder="Ej: Factura A"
+              autocomplete="off"
+              value="<?= $editMode ? h((string)$compraEdit['tipo_comp']) : '' ?>"
+            >
+          </div>
 
-        <div class="field">
-          <label>Nro comprobante</label>
-          <input
-            name="nro_comp"
-            placeholder="Ej: 0001-00001234"
-            autocomplete="off"
-            value="<?= $editMode ? h((string)$compraEdit['nro_comp']) : '' ?>"
-          >
-        </div>
+          <div class="field">
+            <label>Nro comprobante <span class="field-optional">Opcional</span></label>
+            <input
+              name="nro_comp"
+              placeholder="Ej: 0001-00001234"
+              autocomplete="off"
+              value="<?= $editMode ? h((string)$compraEdit['nro_comp']) : '' ?>"
+            >
+          </div>
 
-        <div class="field field-wide">
-          <label>Observacion</label>
-          <input
-            name="observacion"
-            placeholder="Notas internas (opcional)"
-            autocomplete="off"
-            value="<?= $editMode ? h((string)$compraEdit['obs']) : '' ?>"
-          >
+          <div class="field field-wide">
+            <label>Observacion <span class="field-optional">Opcional</span></label>
+            <input
+              name="observacion"
+              placeholder="Notas internas..."
+              autocomplete="off"
+              value="<?= $editMode ? h((string)$compraEdit['obs']) : '' ?>"
+            >
+          </div>
         </div>
       </div>
 
-      <div class="hr"></div>
-
-      <div class="items-grid">
+      <div class="form-section">
+        <h3 class="form-section-title"><span class="form-step">2</span> Cargar productos</h3>
+        <div class="items-grid">
         <div class="field field-wide">
           <label>Buscar producto</label>
           <div class="search-wrapper">
@@ -1238,12 +1230,23 @@ require __DIR__ . "/partials/header.php";
               <?php endforeach; ?>
             <?php else: ?>
               <tr class="empty-row">
-                <td colspan="6" class="empty-cell">Todavia no agregaste items. Busca un producto arriba para comenzar.</td>
+                <td colspan="6" class="empty-cell">
+                  <div class="empty-state">
+                    <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                      <path d="M3 6h3l2.4 9.5a1 1 0 0 0 1 .75H18a1 1 0 0 0 .98-.8L20 9H7"/>
+                      <circle cx="10" cy="20" r="1.5"/>
+                      <circle cx="17" cy="20" r="1.5"/>
+                    </svg>
+                    <p class="empty-state-title">Sin productos todavia</p>
+                    <p class="empty-state-sub">Buscá un producto arriba o usá <strong>Ver lista de productos</strong> para agregar varios a la vez.</p>
+                  </div>
+                </td>
               </tr>
             <?php endif; ?>
           </tbody>
         </table>
       </div>
+      </div><!-- /form-section-2 -->
 
       <section class="compras-summary" aria-label="Resumen de la compra">
         <article class="summary-card">
@@ -1644,4 +1647,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>
-

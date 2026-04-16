@@ -8,8 +8,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const MAX_QTY = 99999;
   const MAX_COST = 9999999;
+  const PAGE_SIZE = 36;
   let currentTab = "proveedor";
   let currentSearch = "";
+  let visibleCount = PAGE_SIZE;
   let frequentItems = [];
   let selectedProducts = new Map();
 
@@ -133,8 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     return products
-      .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"))
-      .slice(0, 36);
+      .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es"));
   };
 
   const buildRows = (products) =>
@@ -179,6 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const providerState = api.getProveedorState();
     const products = getProductsForCurrentTab();
+    const visibleProducts = products.slice(0, visibleCount);
     const noProvider =
       currentTab === "proveedor" &&
       !providerState.proveedorId &&
@@ -221,9 +223,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 <th class="center">Accion</th>
               </tr>
             </thead>
-            <tbody>${buildRows(products)}</tbody>
+            <tbody>${buildRows(visibleProducts)}</tbody>
           </table>
         </div>
+        ${products.length > visibleCount ? `
+          <div class="quick-add-show-more">
+            <button type="button" class="btn btn-secondary btn-compact" data-quick-show-more>
+              Mostrar mas (${products.length - visibleCount} restantes)
+            </button>
+          </div>
+        ` : ""}
       ` : `<div class="quick-add-empty">${helpText}</div>`}
     `;
   };
@@ -278,6 +287,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const provState = api.getProveedorState();
+    if (!provState.proveedorId && !provState.proveedorNombreNormalizado) {
+      notify("Completa el campo Proveedor antes de agregar productos", "warning");
+      return;
+    }
+
     let added = 0;
     let merged = 0;
     let skipped = 0;
@@ -316,6 +331,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const tabButton = event.target.closest("[data-tab]");
     if (tabButton) {
       currentTab = tabButton.dataset.tab || "proveedor";
+      visibleCount = PAGE_SIZE;
+      render();
+      return;
+    }
+
+    if (event.target.closest("[data-quick-show-more]")) {
+      visibleCount += PAGE_SIZE;
       render();
       return;
     }
@@ -361,6 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
   panel.addEventListener("input", (event) => {
     if (event.target.matches(".quick-add-search")) {
       currentSearch = event.target.value || "";
+      visibleCount = PAGE_SIZE;
       renderPreservingSearchFocus();
       return;
     }

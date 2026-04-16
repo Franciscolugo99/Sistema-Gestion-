@@ -513,8 +513,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function addEmptyRowIfNeeded() {
     if (!tbody.querySelector("tr[data-row='item']")) {
-      tbody.innerHTML =
-        '<tr class="empty-row"><td colspan="6" class="empty-cell">Todavia no agregaste items.</td></tr>';
+      tbody.innerHTML = `
+        <tr class="empty-row">
+          <td colspan="6" class="empty-cell">
+            <div class="empty-state">
+              <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M3 6h3l2.4 9.5a1 1 0 0 0 1 .75H18a1 1 0 0 0 .98-.8L20 9H7"/>
+                <circle cx="10" cy="20" r="1.5"/>
+                <circle cx="17" cy="20" r="1.5"/>
+              </svg>
+              <p class="empty-state-title">Sin productos todavia</p>
+              <p class="empty-state-sub">Buscá un producto arriba o usá <strong>Ver lista de productos</strong> para agregar varios a la vez.</p>
+            </div>
+          </td>
+        </tr>
+      `;
     }
   }
 
@@ -1431,14 +1444,17 @@ document.addEventListener("DOMContentLoaded", () => {
     tr.dataset.subtotal = String(subtotal);
     tr.dataset.descItemMonto = String(norm.monto);
     tr.classList.add("fade-in");
+    if (pes) tr.classList.add("is-pesable-row");
 
     const safeName = escapeHtml(product?.nombre || "");
     const safeCode = escapeHtml(product?.codigo || "");
+    const safeUnit = escapeHtml(String(product?.unidad || "").toUpperCase());
 
     tr.innerHTML = `
       <td>
         <div class="item-name">
           <span class="item-name-text">${safeName}</span>
+          ${pes ? `<span class="unit-tag">${safeUnit}</span>` : ""}
           <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>Con descuento</span>
         </div>
         <div class="item-code">${safeCode}</div>
@@ -1708,10 +1724,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggleContainer = document.createElement("div");
     toggleContainer.className = "quick-add-toggle";
     toggleContainer.innerHTML = `
-      <label class="toggle-label">
-        <input type="checkbox" id="quickAddCheckbox">
-        <span class="toggle-text">Carga masiva</span>
-        <span class="toggle-hint">(varios productos por proveedor o frecuentes)</span>
+      <input type="checkbox" id="quickAddCheckbox" class="quick-add-checkbox-hidden">
+      <label class="quick-add-toggle-btn" for="quickAddCheckbox">
+        <span class="quick-add-toggle-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/>
+            <line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/>
+            <line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+        </span>
+        <span class="quick-add-toggle-copy">
+          <span class="toggle-text">Ver lista de productos</span>
+          <span class="toggle-hint">del proveedor · frecuentes · todos</span>
+        </span>
+        <span class="quick-add-toggle-arrow" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
       </label>
     `;
 
@@ -1719,22 +1752,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (itemsGrid) {
       const setQuickAddMode = (enabled) => {
         quickAddMode = enabled;
-        itemsGrid.classList.toggle("is-hidden-by-quick-add", enabled);
+        toggleContainer.classList.toggle("is-open", enabled);
       };
 
       itemsGrid.insertAdjacentElement("beforebegin", toggleContainer);
 
       const checkbox = document.getElementById("quickAddCheckbox");
-      checkbox?.addEventListener("change", (e) => {
-        setQuickAddMode(!!e.target.checked);
-        if (quickAddMode) {
-          showToast("Carga masiva activada", "info");
-        }
-      });
+      const stored = localStorage.getItem("flus_lista_productos_open");
+      const initialOpen = stored === "1";
+      if (initialOpen) checkbox.checked = true;
+      setQuickAddMode(initialOpen);
 
-      setQuickAddMode(false);
-  }
+      checkbox?.addEventListener("change", (e) => {
+        const enabled = !!e.target.checked;
+        setQuickAddMode(enabled);
+        localStorage.setItem("flus_lista_productos_open", enabled ? "1" : "0");
+      });
     }
+  }
   createQuickAddToggle();
 
   /* ============================================================================
@@ -1779,11 +1814,13 @@ document.addEventListener("DOMContentLoaded", () => {
       tr.dataset.rowId = String(rowId);
       tr.dataset.subtotal = String(subtotal);
       tr.dataset.descItemMonto = String(norm.monto);
+      if (pes2) tr.classList.add("is-pesable-row");
 
       tr.innerHTML = `
         <td>
           <div class="item-name">
             <span class="item-name-text">${escapeHtml(nombre)}</span>
+            ${pes2 ? `<span class="unit-tag">${escapeHtml(String(unidad || "").toUpperCase())}</span>` : ""}
             <span class="item-discount-badge" ${norm.monto > 0 ? "" : "hidden"}>Con descuento</span>
           </div>
           <div class="item-code">${escapeHtml(codigo)}</div>

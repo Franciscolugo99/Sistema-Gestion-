@@ -1,4 +1,4 @@
-﻿/* ============================================================================
+/* ============================================================================
    COMPRAS - CSS UNIFICADO Y OPTIMIZADO
    ============================================================================ */
 
@@ -175,39 +175,32 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   PRODUCTOS PESABLES - UX MEJORADA
+   PRODUCTOS PESABLES
 ============================================================================ */
+/* Badge inline en el label — pequeño, no rompe layout */
 .compras-page .badge-pesable {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: white;
-  border-radius: 6px;
-  font-size: 0.75rem;
+  padding: 1px 6px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border-radius: 4px;
+  font-size: 0.67rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
-  animation: pulseGlow 2s ease-in-out infinite;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  letter-spacing: 0.04em;
+  margin-left: 5px;
+  vertical-align: middle;
+  text-transform: uppercase;
 }
 
-@keyframes pulseGlow {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
-  }
-  50% {
-    opacity: 0.85;
-    box-shadow: 0 2px 12px rgba(245, 158, 11, 0.5);
-  }
+html[data-theme="light"] .compras-page .badge-pesable {
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
 }
 
 .compras-page .input-pesable {
   border-color: #f59e0b !important;
-  background: rgba(245, 158, 11, 0.05) !important;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12) !important;
 }
 
 .compras-page .input-pesable:focus {
@@ -215,35 +208,9 @@ body.theme-light .compras-page {
   box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2) !important;
 }
 
+/* Ayuda pesable — oculta en el grid angosto, visible debajo del campo */
 .compras-page .help-pesable {
-  padding: 10px 14px;
-  background: rgba(245, 158, 11, 0.1);
-  border-left: 3px solid #f59e0b;
-  border-radius: 8px;
-  margin-top: 6px;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  animation: slideInHelp 0.3s ease;
-}
-
-.compras-page .help-pesable code {
-  background: rgba(245, 158, 11, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: "Courier New", monospace;
-  font-weight: 700;
-  color: #ea580c;
-}
-
-@keyframes slideInHelp {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  display: none;
 }
 
 /* ============================================================================
@@ -346,36 +313,91 @@ body.theme-light .compras-page {
 }
 
 /* ============================================================================
-   ITEMS GRID
+   ITEMS GRID — flexbox con anchos fijos para inputs consistentes
 ============================================================================ */
 .compras-page .items-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1.2fr auto;
-  gap: 14px;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
   background: rgba(56, 189, 248, 0.05);
-  padding: 16px;
+  padding: 14px 16px 20px;
   border-radius: 14px;
   border: 1.5px dashed rgba(56, 189, 248, 0.25);
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 .compras-page .items-grid > .field {
+  flex: 0 0 auto;
   min-width: 0;
 }
 
-/* Inline controls (select + input) */
+/* Buscar producto — fila completa */
+.compras-page .items-grid > .field.field-wide {
+  flex: 0 0 100%;
+}
+
+/* Cantidad — angosto, con help text en posición absoluta para no romper alineación */
+.compras-page #qtyFieldContainer {
+  width: 92px;
+  position: relative;
+  padding-bottom: 18px;
+}
+.compras-page #qtyFieldContainer > .help {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  white-space: nowrap;
+  font-size: 0.72rem;
+}
+
+/* Costo unitario — ancho fijo */
+.compras-page .items-grid > .field:nth-child(3) {
+  width: 148px;
+}
+
+/* Desc. item — ancho fijo para select+input */
+.compras-page .items-grid > .field:nth-child(4) {
+  width: 240px;
+  position: relative;
+}
+
+/* Botón Agregar — empuja al borde derecho, se alinea abajo */
+.compras-page .items-grid > .field:last-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.compras-page .items-grid > .field:last-child .btn {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+/* Inline controls (select + input) dentro de Desc. item */
 .compras-page .inline-controls {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  width: 100%;
 }
 .compras-page .inline-controls select {
-  width: 130px;
+  width: 108px;
+  flex-shrink: 0;
 }
 .compras-page .inline-controls input {
   flex: 1;
-  min-width: 120px;
+  min-width: 0;
+}
+
+/* Desc. item help text — no ocupa espacio vertical */
+.compras-page .discount-help-inline {
+  font-size: 0.72rem;
+  opacity: 0.65;
+  margin-top: 3px;
+  line-height: 1.3;
 }
 
 /* ============================================================================
@@ -1086,47 +1108,24 @@ body.theme-light .detalle-info {
 /* ============================================================================
    RESPONSIVE
 ============================================================================ */
-@media (max-width: 1360px) {
-  .compras-page .items-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    align-items: start;
-  }
-
-  .compras-page .items-grid .field-wide {
-    grid-column: 1 / -1;
-  }
-
-  .compras-page .items-grid > .field:nth-child(2),
+@media (max-width: 680px) {
+  /* En móvil: campos apilados */
+  .compras-page #qtyFieldContainer,
   .compras-page .items-grid > .field:nth-child(3),
   .compras-page .items-grid > .field:nth-child(4) {
-    grid-column: span 2;
+    width: 100%;
   }
 
   .compras-page .items-grid > .field:last-child {
-    grid-column: 1 / -1;
+    width: 100%;
+    align-items: stretch;
   }
 
   .compras-page .items-grid > .field:last-child .btn {
     width: 100%;
   }
 
-  .compras-page .inline-controls {
-    flex-wrap: wrap;
-  }
-
-  .compras-page .inline-controls select,
-  .compras-page .inline-controls input {
-    width: 100%;
-    min-width: 0;
-    flex: 1 1 100%;
-  }
-
-  .compras-page .discount-help-inline {
-    max-width: none;
-  }
-
   .compras-page .subtotal-preview {
-    justify-self: stretch;
     width: 100%;
   }
 }
@@ -1134,25 +1133,6 @@ body.theme-light .detalle-info {
 @media (max-width: 980px) {
   .compras-page .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .compras-page .items-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .compras-page .items-grid .field-wide {
-    grid-column: 1 / -1;
-  }
-
-  .compras-page .items-grid > .field:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .compras-page .items-grid > .field:last-child .btn {
-    width: 100%;
-  }
-
-  .compras-page .subtotal-preview {
-    justify-self: stretch;
-    width: 100%;
   }
 
   .compras-page .page-header {
@@ -1213,15 +1193,6 @@ body.theme-light .detalle-info {
   }
   .compras-page .items-grid {
     grid-template-columns: 1fr;
-  }
-
-  .compras-page .quick-add-toggle .toggle-label {
-    align-items: flex-start;
-  }
-
-  .compras-page .quick-add-toggle .toggle-hint {
-    display: block;
-    margin-left: 30px;
   }
 
   .compras-page .filters {
@@ -1370,16 +1341,16 @@ body.theme-light .compras-page .compras-table tfoot td {
    comentario saneado
 ============================================================================ */
 
-/* Vista previa de subtotal */
+/* Vista previa de subtotal — fila completa (flex), alineada a la derecha */
 .compras-page .subtotal-preview {
-  grid-column: 1 / -1;
-  justify-self: end;
-  width: min(100%, 360px);
+  flex: 0 0 100%;
+  width: min(100%, 320px);
+  margin-left: auto;
   background: var(--c-surface-2);
   border: 1.5px solid var(--c-border);
-  border-radius: 12px;
-  padding: 14px;
-  margin-top: 12px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-top: 0;
   animation: slideIn 0.2s ease;
 }
 
@@ -1405,55 +1376,95 @@ body.theme-light .compras-page .compras-table tfoot td {
   color: var(--c-primary);
 }
 
-/* comentario saneado */
+/* ============================================================================
+   TOGGLE VER LISTA — boton expandible
+============================================================================ */
 .compras-page .quick-add-toggle {
-  margin: 20px 0;
-  padding: 14px;
-  background: linear-gradient(
-    135deg,
-    rgba(56, 189, 248, 0.08),
-    rgba(168, 85, 247, 0.08)
-  );
-  border: 1.5px solid rgba(56, 189, 248, 0.25);
-  border-radius: 12px;
+  position: relative;
+  margin: 20px 0 0;
 }
 
-.compras-page .quick-add-toggle .toggle-label {
+.compras-page .quick-add-checkbox-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.compras-page .quick-add-toggle-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(56, 189, 248, 0.28);
+  background: linear-gradient(135deg, rgba(56,189,248,0.06), rgba(168,85,247,0.04));
   cursor: pointer;
   user-select: none;
+  transition: background 0.18s, border-color 0.18s;
+  color: var(--c-text);
 }
 
-.compras-page .quick-add-toggle input[type="checkbox"] {
-  appearance: auto;
-  -webkit-appearance: auto;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--c-primary);
+.compras-page .quick-add-toggle-btn:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
-.compras-page .quick-add-toggle input[type="checkbox"]:hover {
-  filter: saturate(1.05);
+.compras-page .quick-add-toggle.is-open .quick-add-toggle-btn {
+  background: rgba(56, 189, 248, 0.13);
+  border-color: rgba(56, 189, 248, 0.55);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-.compras-page .quick-add-toggle input[type="checkbox"]:focus-visible {
-  outline: none;
-  box-shadow: none;
+.compras-page .quick-add-toggle-icon {
+  flex-shrink: 0;
+  color: var(--c-primary);
+  display: flex;
+  align-items: center;
+}
+
+.compras-page .quick-add-toggle-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .compras-page .quick-add-toggle .toggle-text {
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .compras-page .quick-add-toggle .toggle-hint {
-  font-size: 0.82rem;
-  opacity: 0.7;
-  font-style: italic;
+  font-size: 0.78rem;
+  opacity: 0.6;
+  font-style: normal;
+}
+
+.compras-page .quick-add-toggle-arrow {
+  flex-shrink: 0;
+  color: var(--c-muted);
+  display: flex;
+  align-items: center;
+  transition: transform 0.22s ease;
+}
+
+.compras-page .quick-add-toggle.is-open .quick-add-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.compras-page .quick-add-toggle.is-open + .quick-add-panel {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: 0;
+  border-top-color: rgba(56, 189, 248, 0.5);
 }
 
 /* comentario saneado */
@@ -1473,6 +1484,13 @@ body.theme-light .compras-page .compras-table tfoot td {
   font-weight: 900;
   margin-left: 8px;
   box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25);
+}
+
+/* Sin descuento: mostrar guion tenue en lugar de $0,00 */
+.compras-page .compras-table .desc-item-cell:not(.has-discount) {
+  color: var(--c-muted);
+  opacity: 0.35;
+  font-size: 0.8rem;
 }
 
 .compras-page .compras-table .desc-item-cell.has-discount {
@@ -1662,10 +1680,6 @@ body.theme-light .compras-page .compras-table tfoot td {
   }
 }
 
-.compras-page .discount-help-inline {
-  min-height: 18px;
-}
-
 .compras-page .discount-copy {
   display: flex;
   flex-direction: column;
@@ -1778,21 +1792,195 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 
-.compras-page .items-grid {
-  align-items: start;
-}
+/* align-items: start eliminado — la regla principal ya tiene align-items: end */
 
 .compras-page .items-grid.is-hidden-by-quick-add {
   display: none;
 }
 
-.compras-page .items-grid > .field:last-child {
-  align-self: end;
+/* ============================================================================
+   SECCIONES DEL FORMULARIO — jerarquía visual 1/2
+============================================================================ */
+.compras-page .form-section {
+  margin-bottom: 32px;
 }
 
-.compras-page .discount-help-inline {
-  font-size: 0.76rem;
-  max-width: 320px;
+.compras-page .form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+  margin: 0 0 14px;
+}
+
+.compras-page .form-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--c-border), transparent);
+}
+
+.compras-page .form-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #0f172a;
+  font-size: 0.75rem;
+  font-weight: 900;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ============================================================================
+   BADGES DE CAMPO — Requerido / Opcional
+============================================================================ */
+.compras-page .field-required {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: rgba(14, 165, 233, 0.14);
+  color: var(--c-primary);
+  border-radius: 4px;
+  font-size: 0.67rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 4px;
+}
+
+.compras-page .field-optional {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--c-muted);
+  border-radius: 4px;
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+}
+
+/* Proveedor — campo obligatorio, más prominente */
+.compras-page .field-proveedor input {
+  height: 48px;
+  font-size: 1rem;
+  border-width: 2px;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.compras-page .field-proveedor input:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.16);
+}
+
+/* ============================================================================
+   EMPTY STATE DE LA TABLA DE ITEMS
+============================================================================ */
+.compras-page .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  color: var(--c-muted);
+}
+
+.compras-page .empty-state-icon {
+  width: 44px;
+  height: 44px;
+  opacity: 0.25;
+  stroke: var(--c-muted);
+}
+
+.compras-page .empty-state-title {
+  margin: 4px 0 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  opacity: 0.65;
+}
+
+.compras-page .empty-state-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.5;
+  text-align: center;
+  max-width: 380px;
+  line-height: 1.55;
+}
+
+/* ============================================================================
+   FILAS PESABLES — distinción visual ámbar
+============================================================================ */
+.compras-page .is-pesable-row td:first-child {
+  border-left: 3px solid #f59e0b;
+}
+
+.compras-page .unit-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+  border-radius: 4px;
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-left: 5px;
+  vertical-align: middle;
+  text-transform: uppercase;
+}
+
+html[data-theme="light"] .compras-page .unit-tag,
+body[data-theme="light"] .compras-page .unit-tag {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+
+/* Paginacion carga masiva */
+.compras-page .quick-add-show-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
+/* ============================================================================
+   SUMMARY — total más prominente
+============================================================================ */
+.compras-page .summary-card-total {
+  background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(56,189,248,0.18));
+  border-color: rgba(14, 165, 233, 0.4);
+  border-width: 2px;
+}
+
+.compras-page .summary-card-total .summary-label {
+  color: var(--c-primary);
+  opacity: 1;
+  font-size: 0.8rem;
+}
+
+.compras-page .summary-card-total .summary-value {
+  font-size: 2rem;
+  color: var(--c-primary);
+}
+
+@media (max-width: 768px) {
+  .compras-page .quick-add-toggle-btn {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .compras-page .quick-add-toggle .toggle-hint {
+    display: none;
+  }
 }
 
 .compras-page .summary-card {
