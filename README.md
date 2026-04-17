@@ -4,12 +4,35 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 **Version:** 3.8.3  
 **Build:** 2026-04-03  
+**Release objetivo:** 3.9.0  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado actual (2026-04-03)
+## Estado de release 3.9.0 (2026-04-17)
+
+- Smoke tecnico: `116 OK / 0 fallidas / 0 skipped`
+- Migraciones y baseline: validados sobre upgrade local e instalacion limpia
+- Tesoreria v1: incorporada en navegacion, permisos y esquema
+- Facturacion: flujo fiscal, documental, visor, PDF, recovery y NC alineados a nivel tecnico
+- Entorno fiscal real: no validado end-to-end en este repo de referencia
+
+### Nota sobre ARCA y entorno simulado
+
+Esta base de trabajo se usa con datos simulados.
+
+- No hay negocio real cargado para completar `Ingresos Brutos` ni `inicio de actividades`.
+- Por eso la configuracion fiscal real no queda cerrada en este entorno.
+- Si ARCA o WSAA no responde, el repo puede validarse tecnicamente, pero no queda probada la salida fiscal real.
+- Antes de habilitar homologacion o produccion en una instalacion real, completar datos del emisor, punto de venta, certificados y prueba de conexion.
+
+Ver tambien:
+
+- [docs/RELEASE_3_9_0.md](docs/RELEASE_3_9_0.md)
+- [docs/QA_FACTURACION_PRODUCCION.md](docs/QA_FACTURACION_PRODUCCION.md)
+
+## Estado actual (2026-04-17)
 
 ### Ventas y anulaciones
 
@@ -270,9 +293,15 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `024_permissions_backfill_nc_y_anulacion_items.sql`.
+- Verificar que corran las migraciones pendientes hasta `028_tesoreria_v1.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
+
+Si la instalacion va a usar facturacion real:
+
+- completar los datos fiscales reales del negocio
+- probar conexion con ARCA desde configuracion
+- no tomar este entorno demo/simulado como validacion fiscal final
 
 ## Instalacion limpia
 

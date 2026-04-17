@@ -728,14 +728,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function paymentNeedsCompactLayout() {
-    const medio1 = String(selMedio?.value || "EFECTIVO").toUpperCase();
-    const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
-    return splitActivo() || medio1 === "CC" || (splitActivo() && medio2 === "CC");
+    const split = splitActivo();
+    const ccActivo = tieneCC();
+    return split || ccActivo;
   }
 
   function actualizarModoCobroCompacto() {
     if (!cajaPanel) return;
-    cajaPanel.classList.toggle("is-payment-compact", paymentNeedsCompactLayout());
+    const split = splitActivo();
+    const ccActivo = tieneCC();
+    cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);
+    cajaPanel.classList.toggle("has-cc-payment", ccActivo);
   }
 
   function getSelectPago(slot = "1") {

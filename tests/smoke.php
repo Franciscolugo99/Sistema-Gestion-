@@ -3022,8 +3022,14 @@ $results[] = flus_run_test('caja activa modo compacto con split o cuenta corrien
     $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
 
     flus_assert_contains('function paymentNeedsCompactLayout()', $cajaJs);
-    flus_assert_contains('medio1 === "CC"', $cajaJs);
-    flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", paymentNeedsCompactLayout());', $cajaJs);
+    flus_assert_contains('const split = splitActivo();', $cajaJs);
+    flus_assert_contains('const ccActivo = tieneCC();', $cajaJs);
+    flus_assert_contains('return split || ccActivo;', $cajaJs);
+    flus_assert_contains('function tieneCC()', $cajaJs);
+    flus_assert_contains('if (m1 === "CC") return true;', $cajaJs);
+    flus_assert_contains('if (m2 === "CC") return true;', $cajaJs);
+    flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);', $cajaJs);
+    flus_assert_contains('cajaPanel.classList.toggle("has-cc-payment", ccActivo);', $cajaJs);
     flus_assert_not_contains('insertAdjacentElement("afterend", ccWrap)', $cajaJs);
     flus_assert_not_contains('ccWrap.classList.toggle("cc-wrap--compact"', $cajaJs);
     flus_assert_contains('.pagos-row > #ccWrap', $cajaNeoCss);
