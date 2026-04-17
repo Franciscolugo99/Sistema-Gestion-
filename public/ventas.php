@@ -1089,9 +1089,6 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
   </div>
 </div>
 
-<!-- Toast Container (NUEVO - consistente con productos/stock) -->
-<div id="toastContainer" class="toast-container"></div>
-
 <!-- Keyboard hints -->
 <div class="keyboard-hints" id="keyboardHints">
     <div class="keyboard-hints-item">

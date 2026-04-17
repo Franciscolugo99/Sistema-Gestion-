@@ -28,11 +28,33 @@ document.addEventListener("DOMContentLoaded", () => {
   toggle.insertAdjacentElement("afterend", panel);
 
   const notify = (message, type = "info") => {
+    const text = String(message || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
     if (typeof window.showToast === "function") {
-      window.showToast(message, type);
+      window.showToast(text, type);
       return;
     }
-    console.log(`[${type}] ${message}`);
+    console.log(`[${type}] ${text}`);
   };
 
   const escapeHtml = (value) =>

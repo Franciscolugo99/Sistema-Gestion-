@@ -409,6 +409,4 @@ require __DIR__ . '/partials/header.php';
   </section>
 </div>
 
-<div class="form-toast" id="formToast"></div>
-
 <?php require __DIR__ . '/partials/footer.php'; ?>

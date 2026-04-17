@@ -227,16 +227,6 @@ require __DIR__ . '/partials/header.php';
       <div class="alert alert-warning" style="margin-top:12px;"><?= h((string)$emitWarning) ?></div>
     <?php endforeach; ?>
 
-    <?php if ($errores !== []): ?>
-      <div class="msg msg-visible msg-error" style="margin:12px 0;">
-        <ul>
-          <?php foreach ($errores as $error): ?>
-            <li><?= h($error) ?></li>
-          <?php endforeach; ?>
-        </ul>
-      </div>
-    <?php endif; ?>
-
     <form
       method="post"
       class="fact-form fact-manual-form"
@@ -569,5 +559,24 @@ require __DIR__ . '/partials/header.php';
     <td class="fact-manual-row-actions"><button type="button" class="btn btn-ghost btn-compact" data-fm-remove-row data-fm-remove-mode="icon" aria-label="Quitar fila">&times;</button></td>
   </tr>
 </template>
+
+<?php if ($errores !== []): ?>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const errores = <?= json_encode(array_values($errores), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const msg = errores.filter(Boolean).join('\n');
+    if (!msg) return;
+
+    if (window.Notif && typeof window.Notif.error === 'function') {
+      window.Notif.error(msg);
+      return;
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, 'error');
+    }
+  });
+</script>
+<?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

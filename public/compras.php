@@ -1107,10 +1107,10 @@ require __DIR__ . "/partials/header.php";
 
       <script type="application/json" id="quickAddFrequentData"><?= h((string)json_encode($productosFrecuentesUi, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?></script>
 
-      <div class="form-section">
+      <div class="form-section form-card">
         <h3 class="form-section-title"><span class="form-step">1</span> Identificar la compra</h3>
-        <div class="form-grid">
-          <div class="field field-proveedor">
+        <div class="form-grid form-grid-identify">
+          <div class="field field-proveedor field-span-2">
             <label for="proveedorInput">Proveedor <span class="field-required">Requerido</span></label>
             <input
               id="proveedorInput"
@@ -1150,7 +1150,7 @@ require __DIR__ . "/partials/header.php";
             <label>Observacion <span class="field-optional">Opcional</span></label>
             <input
               name="observacion"
-              placeholder="Notas internas..."
+              placeholder="Notas internas (ej: remito 123, entrega en sucursal...)"
               autocomplete="off"
               value="<?= $editMode ? h((string)$compraEdit['obs']) : '' ?>"
             >
@@ -1158,10 +1158,10 @@ require __DIR__ . "/partials/header.php";
         </div>
       </div>
 
-      <div class="form-section">
+      <div class="form-section form-card">
         <h3 class="form-section-title"><span class="form-step">2</span> Cargar productos</h3>
         <div class="items-grid">
-        <div class="field field-wide">
+        <div class="field field-wide items-grid-search">
           <label>Buscar producto</label>
           <div class="search-wrapper">
             <svg class="search-icon" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
@@ -1172,36 +1172,44 @@ require __DIR__ . "/partials/header.php";
           </div>
         </div>
 
-        <div class="field" id="qtyFieldContainer">
-          <label>Cantidad</label>
-          <input id="itemCantidad" type="number" step="1" min="1" value="1" autocomplete="off">
-          <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
-        </div>
-
-        <div class="field">
-          <label>Costo unitario</label>
-          <input id="itemCosto" type="number" step="0.01" min="0" value="0" autocomplete="off">
-        </div>
-
-        <div class="field">
-          <label>Desc. item</label>
-          <div class="inline-controls">
-            <select id="itemDescTipo" title="Tipo de descuento por item">
-              <option value="MONTO">$ Monto</option>
-              <option value="PORC">% Porcentaje</option>
-            </select>
-            <input id="itemDescValor" type="number" step="0.01" min="0" value="0" autocomplete="off" placeholder="0">
+        <div class="items-grid-row">
+          <div class="field" id="qtyFieldContainer">
+            <label>Cantidad</label>
+            <input id="itemCantidad" type="number" step="1" min="1" value="1" autocomplete="off">
+            <div class="help" id="itemUnidad">Unidad: UNIDAD</div>
           </div>
-          <div class="help discount-help-inline">Solo se aplica al producto que estas agregando ahora.</div>
-        </div>
 
-        <div class="field">
-          <label>&nbsp;</label>
-          <button type="button" class="btn btn-primary" id="btnAddItem">Agregar</button>
+          <div class="field">
+            <label>Costo unitario</label>
+            <input id="itemCosto" type="number" step="0.01" min="0" value="0" autocomplete="off" placeholder="0.00">
+          </div>
+
+          <div class="field field-desc-item">
+            <label>Desc. item <span class="field-optional">Opcional</span></label>
+            <div class="inline-controls">
+              <select id="itemDescTipo" title="Tipo de descuento por item">
+                <option value="MONTO">$ Monto</option>
+                <option value="PORC">% Porcentaje</option>
+              </select>
+              <input id="itemDescValor" type="number" step="0.01" min="0" value="0" autocomplete="off" placeholder="0">
+            </div>
+            <div class="help discount-help-inline">Solo al producto que agregas ahora.</div>
+          </div>
+
+          <div class="field field-btn-add">
+            <label class="label-invisible" aria-hidden="true">&nbsp;</label>
+            <button type="button" class="btn btn-primary btn-add-item" id="btnAddItem">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Agregar
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="table-wrapper">
+      <div class="table-wrapper items-table-wrapper">
         <table class="compras-table" id="itemsTable">
           <thead>
             <tr>
@@ -1258,7 +1266,7 @@ require __DIR__ . "/partials/header.php";
         <article class="summary-card">
           <span class="summary-label">Desc. por items</span>
           <strong class="summary-value summary-value-warning" id="descuentoItemsLbl">-$0,00</strong>
-          <small class="summary-help">Descuentos aplicados producto por producto.</small>
+          <small class="summary-help">Descuentos producto por producto.</small>
         </article>
 
         <article class="summary-card summary-card-global">
@@ -1286,15 +1294,28 @@ require __DIR__ . "/partials/header.php";
         </article>
 
         <article class="summary-card summary-card-total">
-          <span class="summary-label">Total</span>
+          <span class="summary-label">Total a pagar</span>
           <strong class="summary-value" id="totalLbl">$0,00</strong>
           <small class="summary-help">Importe final que se guardara en la compra.</small>
         </article>
       </section>
 
-      <div class="actions">
-        <button class="btn btn-primary" type="submit"><?= $editMode ? 'Actualizar' : 'Guardar' ?> borrador</button>
-        <button class="btn btn-secondary" type="button" id="btnResetCompra"><?= $editMode ? 'Cancelar' : 'Limpiar todo' ?></button>
+      <div class="actions compras-actions">
+        <button class="btn btn-primary btn-save" type="submit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          <?= $editMode ? 'Actualizar' : 'Guardar' ?> borrador
+        </button>
+        <button class="btn btn-secondary" type="button" id="btnResetCompra">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+          <?= $editMode ? 'Cancelar' : 'Limpiar todo' ?>
+        </button>
       </div>
 
 
@@ -1304,11 +1325,6 @@ require __DIR__ . "/partials/header.php";
         </div>
       <?php endif; ?>
 
-      <?php if ($msg): ?>
-        <div class="msg msg-visible msg-<?= h($msgType) ?>">
-          <?= h($msg) ?>
-        </div>
-      <?php endif; ?>
     </form>
   </div>
 
@@ -1454,28 +1470,27 @@ require __DIR__ . "/partials/header.php";
   </div>
 </div>
 
-<?php if ($savedFlag !== ''): ?>
+<?php if ($savedFlag !== '' || $msg !== ''): ?>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const messages = {
-      created: 'Compra guardada en borrador.',
-      updated: 'Compra actualizada correctamente.',
-      confirmed: 'Compra confirmada. Stock actualizado.',
-      deleted: 'Compra eliminada correctamente.',
-      anulada: 'Compra anulada.'
+    const messages = {created:'Compra guardada en borrador.',updated:'Compra actualizada correctamente.',confirmed:'Compra confirmada. Stock actualizado.',deleted:'Compra eliminada correctamente.',anulada:'Compra anulada.'};
+    const flash = {success: messages[<?= json_encode($savedFlag) ?>] || '', message: <?= json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>, type: <?= json_encode($msgType, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>};
+    const notify = (type, message) => {
+      const text = String(message || '').trim();
+      if (!text) return;
+      if (window.Notif) {
+        if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') return window.Notif.exito(text);
+        if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') return window.Notif.advertencia(text);
+        if (type === 'error' && typeof window.Notif.error === 'function') return window.Notif.error(text);
+        if (typeof window.Notif.info === 'function') return window.Notif.info(text);
+      }
+      if (typeof window.showToast === 'function') {
+        const fallbackType = type === 'success' || type === 'ok' ? 'success' : (type === 'warning' || type === 'warn' ? 'warn' : 'error');
+        window.showToast(text, fallbackType);
+      }
     };
-
-    const msg = messages[<?= json_encode($savedFlag) ?>] || 'Operacion exitosa';
-
-    if (window.showToast) {
-      window.showToast(msg, 'success');
-    } else {
-      const toast = document.createElement("div");
-      toast.className = "toast toast-success show";
-      toast.textContent = msg;
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
+    if (flash.success) notify('success', flash.success);
+    if (flash.message) notify(flash.type || 'info', flash.message);
   });
 </script>
 <?php endif; ?>
@@ -1485,10 +1500,8 @@ function verDetalle(id) {
   const modal = document.getElementById('modalDetalle');
   const content = document.getElementById('modalContent');
   const title = document.getElementById('modalTitle');
-
   modal.style.display = 'flex';
   content.innerHTML = '<div class="loading">Cargando...</div>';
-
   fetch(`api/compra_detalle.php?id=${id}`)
     .then((response) => {
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
@@ -1499,9 +1512,7 @@ function verDetalle(id) {
         content.innerHTML = `<div class="msg msg-error">${data.error}</div>`;
         return;
       }
-
       title.textContent = `Compra #${data.id} - ${data.proveedor}`;
-
       let html = `
         <div class="detalle-info">
           <div><strong>Fecha:</strong> ${data.fecha}</div>
@@ -1522,7 +1533,6 @@ function verDetalle(id) {
             </thead>
             <tbody>
       `;
-
       data.items.forEach((item) => {
         html += `
           <tr>
@@ -1537,7 +1547,6 @@ function verDetalle(id) {
           </tr>
         `;
       });
-
       html += `
             </tbody>
             <tfoot>
@@ -1561,7 +1570,6 @@ function verDetalle(id) {
           </table>
         </div>
       `;
-
       content.innerHTML = html;
     })
     .catch((error) => {
@@ -1574,11 +1582,9 @@ function verDetalle(id) {
       `;
     });
 }
-
 function cerrarDetalle() {
   document.getElementById('modalDetalle').style.display = 'none';
 }
-
 function anularCompra(id) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay compras-modal-overlay';
@@ -1589,17 +1595,14 @@ function anularCompra(id) {
         <button type="button" class="btn-close js-close" aria-label="Cerrar">X</button>
       </div>
       <p style="margin-bottom:16px;">Confirma si quieres anular esta compra.</p>
-
       <form method="post" id="formAnular">
         ${document.querySelector('input[name="csrf_token"]').outerHTML}
         <input type="hidden" name="accion" value="anular_confirmada">
         <input type="hidden" name="compra_id" value="${id}">
-
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;">
           <input type="checkbox" name="revertir_stock" value="1" style="width:auto;">
           <span>Revertir stock (quitar productos del inventario)</span>
         </label>
-
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary js-close">Cancelar</button>
           <button type="submit" class="btn btn-primary" style="background:#ef4444;">Anular compra</button>
@@ -1607,10 +1610,8 @@ function anularCompra(id) {
       </form>
     </div>
   `;
-
   document.body.appendChild(modal);
   setTimeout(() => modal.classList.add('active'), 10);
-
   modal.addEventListener('click', (event) => {
     if (event.target === modal) modal.remove();
   });
@@ -1618,7 +1619,6 @@ function anularCompra(id) {
     button.addEventListener('click', () => modal.remove());
   });
 }
-
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     const detalle = document.getElementById('modalDetalle');
@@ -1629,7 +1629,6 @@ document.addEventListener('keydown', (event) => {
     if (anularModal) anularModal.remove();
   }
 });
-
 document.addEventListener('DOMContentLoaded', () => {
   const detalleId = <?= json_encode($detalleCompraId) ?>;
   if (Number(detalleId) > 0) {
@@ -1642,8 +1641,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
-
-
 </script>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>

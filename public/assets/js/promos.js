@@ -14,10 +14,37 @@
   }
 
   function notify(message, type = "info") {
-    const toast = document.getElementById("promoToast");
-    if (!toast) return Notif.advertencia(message);
+    const text = String(message || "").trim();
+    if (!text) return;
 
-    toast.textContent = message;
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === "function") {
+      window.showToast(text, type);
+      return;
+    }
+
+    const toast = document.getElementById("promoToast");
+    if (!toast) return;
+
+    toast.textContent = text;
     toast.className = `promo-toast show promo-toast--${type}`;
     setTimeout(() => toast.classList.remove("show"), 2800);
   }

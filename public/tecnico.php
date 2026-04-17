@@ -597,12 +597,38 @@ $inlineJs = <<<'JS'
   const copyEl = document.getElementById("tecnicoSmokeCopyText");
   if (!copyBtn || !copyEl) return;
 
+  const notify = (message, type = "info", ms = 2600) => {
+    const text = String(message || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === "function") {
+      window.showToast(text, type, ms);
+    }
+  };
+
   copyBtn.addEventListener("click", async () => {
     const text = copyEl.textContent || "";
     if (!text.trim()) {
-      if (typeof window.showToast === "function") {
-        window.showToast("Todavia no hay salida para copiar", "warn", 2600);
-      }
+      notify("Todavia no hay salida para copiar", "warn", 2600);
       return;
     }
 
@@ -621,13 +647,9 @@ $inlineJs = <<<'JS'
         document.body.removeChild(ta);
       }
 
-      if (typeof window.showToast === "function") {
-        window.showToast("Smoke copiado", "success", 2200);
-      }
+      notify("Smoke copiado", "success", 2200);
     } catch {
-      if (typeof window.showToast === "function") {
-        window.showToast("No se pudo copiar el smoke", "error", 2800);
-      }
+      notify("No se pudo copiar el smoke", "error", 2800);
     }
   });
 })();

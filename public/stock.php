@@ -710,9 +710,6 @@ require __DIR__ . "/partials/header.php";
   </div>
 </div>
 
-<!-- Toast Container -->
-<div id="toastContainer" class="toast-container"></div>
-
 <!-- Keyboard hints (NUEVO) -->
 <div class="keyboard-hints" id="keyboardHints">
     <div class="keyboard-hints-item">
@@ -724,5 +721,4 @@ require __DIR__ . "/partials/header.php";
 </div>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>
-
 

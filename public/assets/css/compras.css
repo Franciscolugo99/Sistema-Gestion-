@@ -105,20 +105,49 @@ body.theme-light .compras-page {
   gap: 14px;
 }
 
+/* Grid especifico de "Identificar la compra":
+   Fila 1: Proveedor ocupa 2 cols | Tipo + Nro en cols 3
+   -> Como tenemos 3 cols, distribuimos: proveedor(2) + tipo(1)
+   -> Fila 2: Nro (1) + Observacion (2)
+   Resultado: layout balanceado, sin huecos vacios. */
+.compras-page .form-grid-identify {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compras-page .form-grid-identify .field-span-2 {
+  grid-column: span 2;
+}
+
+.compras-page .form-grid-identify .field-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 820px) {
+  .compras-page .form-grid-identify {
+    grid-template-columns: 1fr;
+  }
+  .compras-page .form-grid-identify .field-span-2,
+  .compras-page .form-grid-identify .field-wide {
+    grid-column: 1 / -1;
+  }
+}
+
 .compras-page .field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .compras-page .field label {
-  font-size: 0.88rem;
-  opacity: 0.85;
+  font-size: 0.82rem;
+  opacity: 0.9;
   font-weight: 700;
   color: var(--c-text);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin: 0;
 }
 
 .compras-page .field-wide {
@@ -136,15 +165,17 @@ body.theme-light .compras-page {
 .compras-page .compras-form select,
 .compras-page .filters input,
 .compras-page .filters select {
-  height: 42px;
+  height: 44px;
   padding: 0 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1.5px solid var(--c-border);
   background: var(--c-input);
   color: var(--c-text);
   outline: none;
   font-size: 0.95rem;
-  transition: all 0.18s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .compras-page .compras-form input::placeholder,
@@ -165,7 +196,6 @@ body.theme-light .compras-page {
 .compras-page .filters select:focus {
   border-color: var(--c-primary);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
-  transform: translateY(-1px);
 }
 
 .compras-page .hr {
@@ -313,91 +343,136 @@ html[data-theme="light"] .compras-page .badge-pesable {
 }
 
 /* ============================================================================
-   ITEMS GRID — flexbox con anchos fijos para inputs consistentes
+   ITEMS GRID — buscador arriba, fila ordenada abajo con grid de columnas
 ============================================================================ */
 .compras-page .items-grid {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  align-items: flex-end;
-  background: rgba(56, 189, 248, 0.05);
-  padding: 14px 16px 20px;
-  border-radius: 14px;
-  border: 1.5px dashed rgba(56, 189, 248, 0.25);
-  margin: 16px 0;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(56, 189, 248, 0.045);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  margin: 0 0 18px;
 }
 
-.compras-page .items-grid > .field {
-  flex: 0 0 auto;
+.compras-page .items-grid .field {
+  flex: none;
   min-width: 0;
 }
 
-/* Buscar producto — fila completa */
-.compras-page .items-grid > .field.field-wide {
-  flex: 0 0 100%;
+/* Buscador — ocupa ancho completo, arriba */
+.compras-page .items-grid-search {
+  width: 100%;
 }
 
-/* Cantidad — angosto, con help text en posición absoluta para no romper alineación */
-.compras-page #qtyFieldContainer {
-  width: 92px;
-  position: relative;
-  padding-bottom: 18px;
-}
-.compras-page #qtyFieldContainer > .help {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  white-space: nowrap;
-  font-size: 0.72rem;
+/* Fila de inputs alineados: Cantidad / Costo / Desc. item / Agregar
+   Grid con columnas de ancho definido y el boton ocupa espacio flexible final */
+.compras-page .items-grid-row {
+  display: grid;
+  grid-template-columns: 110px 160px minmax(220px, 280px) 1fr;
+  gap: 12px;
+  align-items: end;
 }
 
-/* Costo unitario — ancho fijo */
-.compras-page .items-grid > .field:nth-child(3) {
-  width: 148px;
-}
-
-/* Desc. item — ancho fijo para select+input */
-.compras-page .items-grid > .field:nth-child(4) {
-  width: 240px;
-  position: relative;
-}
-
-/* Botón Agregar — empuja al borde derecho, se alinea abajo */
-.compras-page .items-grid > .field:last-child {
-  flex: 1;
+.compras-page .items-grid-row .field {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
+  gap: 6px;
   min-width: 0;
 }
-.compras-page .items-grid > .field:last-child .btn {
-  min-width: 120px;
+
+/* Label invisible para alinear el boton con los otros campos */
+.compras-page .label-invisible {
+  visibility: hidden;
+  height: 0.82rem;
+  line-height: 1.2;
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Campo cantidad */
+.compras-page #qtyFieldContainer {
+  position: relative;
+}
+
+.compras-page #qtyFieldContainer > .help {
+  font-size: 0.74rem;
   white-space: nowrap;
+  margin-top: 2px;
+  opacity: 0.75;
+}
+
+/* Desc. item — select + input inline */
+.compras-page .field-desc-item {
+  position: relative;
+}
+
+/* Boton AGREGAR — alineado a la derecha, misma altura que los inputs */
+.compras-page .field-btn-add {
+  align-items: flex-end;
+}
+
+.compras-page .btn-add-item {
+  width: 100%;
+  height: 44px;
+  padding: 0 18px;
+  white-space: nowrap;
+  justify-content: center;
 }
 
 /* Inline controls (select + input) dentro de Desc. item */
 .compras-page .inline-controls {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
 }
+
 .compras-page .inline-controls select {
-  width: 108px;
+  width: 110px;
   flex-shrink: 0;
 }
+
 .compras-page .inline-controls input {
   flex: 1;
   min-width: 0;
 }
 
-/* Desc. item help text — no ocupa espacio vertical */
+/* Desc. item help text — compacto, no rompe altura */
 .compras-page .discount-help-inline {
-  font-size: 0.72rem;
-  opacity: 0.65;
-  margin-top: 3px;
+  font-size: 0.74rem;
+  opacity: 0.7;
+  margin-top: 2px;
   line-height: 1.3;
+}
+
+/* Responsive: en pantallas chicas, la fila se acomoda */
+@media (max-width: 900px) {
+  .compras-page .items-grid-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .compras-page .field-btn-add {
+    grid-column: 1 / -1;
+  }
+  .compras-page .btn-add-item {
+    width: auto;
+    min-width: 140px;
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 520px) {
+  .compras-page .items-grid-row {
+    grid-template-columns: 1fr;
+  }
+  .compras-page .field-btn-add {
+    grid-column: 1;
+  }
+  .compras-page .btn-add-item {
+    width: 100%;
+  }
 }
 
 /* ============================================================================
@@ -1711,32 +1786,7 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 
-.compras-page .compras-summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
-}
-
-.compras-page .summary-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  border: 1px solid var(--c-border);
-  background: var(--c-surface);
-  box-shadow: var(--c-shadow);
-}
-
-.compras-page .summary-card-global {
-  grid-column: span 2;
-}
-
-.compras-page .summary-card-total {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(56, 189, 248, 0.18));
-  border-color: rgba(14, 165, 233, 0.28);
-}
+/* Reglas del summary: ver al final del archivo (seccion UX IMPROVEMENTS) */
 
 .compras-page .summary-label {
   font-size: 0.78rem;
@@ -1744,13 +1794,6 @@ body.theme-light .compras-page .compras-table tfoot td {
   letter-spacing: 0.08em;
   color: var(--c-muted);
   font-weight: 800;
-}
-
-.compras-page .summary-value {
-  font-size: 1.6rem;
-  line-height: 1.1;
-  font-weight: 900;
-  color: var(--c-text);
 }
 
 .compras-page .summary-value-warning {
@@ -1765,30 +1808,6 @@ body.theme-light .compras-page .compras-table tfoot td {
 
 .compras-page .summary-card .discount-controls {
   justify-content: flex-start;
-}
-
-@media (max-width: 980px) {
-  .compras-page .compras-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .compras-page .summary-card-global {
-    grid-column: span 2;
-  }
-}
-
-@media (max-width: 640px) {
-  .compras-page .compras-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .compras-page .summary-card-global {
-    grid-column: span 1;
-  }
-
-  .compras-page .summary-value {
-    font-size: 1.35rem;
-  }
 }
 
 
@@ -1870,12 +1889,11 @@ body.theme-light .compras-page .compras-table tfoot td {
   margin-left: 4px;
 }
 
-/* Proveedor — campo obligatorio, más prominente */
+/* Proveedor — campo obligatorio, borde mas prominente pero misma altura */
 .compras-page .field-proveedor input {
-  height: 48px;
-  font-size: 1rem;
   border-width: 2px;
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: rgba(56, 189, 248, 0.38);
+  font-weight: 600;
 }
 
 .compras-page .field-proveedor input:focus {
@@ -1953,25 +1971,7 @@ body[data-theme="light"] .compras-page .unit-tag {
   padding: 12px 0 4px;
 }
 
-/* ============================================================================
-   SUMMARY — total más prominente
-============================================================================ */
-.compras-page .summary-card-total {
-  background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(56,189,248,0.18));
-  border-color: rgba(14, 165, 233, 0.4);
-  border-width: 2px;
-}
-
-.compras-page .summary-card-total .summary-label {
-  color: var(--c-primary);
-  opacity: 1;
-  font-size: 0.8rem;
-}
-
-.compras-page .summary-card-total .summary-value {
-  font-size: 2rem;
-  color: var(--c-primary);
-}
+/* Reglas del summary — ver seccion "UX IMPROVEMENTS" al final del archivo */
 
 @media (max-width: 768px) {
   .compras-page .quick-add-toggle-btn {
@@ -1980,51 +1980,6 @@ body[data-theme="light"] .compras-page .unit-tag {
   }
   .compras-page .quick-add-toggle .toggle-hint {
     display: none;
-  }
-}
-
-.compras-page .summary-card {
-  gap: 6px;
-  padding: 14px 16px;
-}
-
-.compras-page .summary-card-global {
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
-.compras-page .summary-value {
-  font-size: 1.3rem;
-  font-weight: 800;
-}
-
-.compras-page .summary-card .discount-controls {
-  gap: 6px;
-}
-.compras-page .summary-card .discount-controls select {
-  width: 118px;
-}
-
-.compras-page .summary-card .discount-controls input {
-  width: 86px;
-}
-
-.compras-page .summary-card-global .summary-value {
-  font-size: 1.15rem;
-}
-
-.compras-page .summary-card-global .discount-copy {
-  align-items: flex-start;
-  text-align: left;
-}
-
-.compras-page .summary-card-global .summary-help {
-  max-width: 100%;
-}
-
-@media (max-width: 980px) {
-  .compras-page .summary-card-global {
-    justify-content: flex-start;
   }
 }
 
@@ -2248,6 +2203,10 @@ body[data-theme="light"] .compras-page .unit-tag {
   opacity: 0.9;
 }
 
+.compras-page .autosave-status:empty {
+  display: none;
+}
+
 .compras-page .autosave-status-saving,
 .compras-page .autosave-status-pending {
   color: var(--c-primary-dark);
@@ -2265,4 +2224,750 @@ body[data-theme="light"] .compras-page .unit-tag {
   color: #d14343;
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.22);
+}
+
+/* ============================================================================
+   UX IMPROVEMENTS — tarjetas de seccion, summary rediseñado, acciones
+============================================================================ */
+
+/* Tarjetas que agrupan cada seccion del formulario */
+.compras-page .form-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+html[data-theme="light"] .compras-page .form-card,
+body[data-theme="light"] .compras-page .form-card,
+html.light .compras-page .form-card,
+body.light .compras-page .form-card,
+html.theme-light .compras-page .form-card,
+body.theme-light .compras-page .form-card {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.compras-page .form-card .form-section-title {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.compras-page .form-card:last-child {
+  margin-bottom: 0;
+}
+
+/* Tabla de items dentro del form-card — sin doble borde */
+.compras-page .items-table-wrapper {
+  margin-top: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--c-border);
+}
+
+/* ============================================================================
+   SUMMARY REDISEÑADO — 3 cols + total full width abajo
+============================================================================ */
+.compras-page .compras-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    "bruto descItems descGlobal"
+    "total total total";
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.compras-page .compras-summary .summary-card:nth-child(1) { grid-area: bruto; }
+.compras-page .compras-summary .summary-card:nth-child(2) { grid-area: descItems; }
+.compras-page .compras-summary .summary-card-global { grid-area: descGlobal; grid-column: auto; }
+.compras-page .compras-summary .summary-card-total { grid-area: total; }
+
+.compras-page .summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  box-shadow: none;
+  min-height: 92px;
+  justify-content: space-between;
+}
+
+html[data-theme="light"] .compras-page .summary-card,
+body[data-theme="light"] .compras-page .summary-card,
+html.light .compras-page .summary-card,
+body.light .compras-page .summary-card,
+html.theme-light .compras-page .summary-card,
+body.theme-light .compras-page .summary-card {
+  background: #ffffff;
+}
+
+.compras-page .summary-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
+  font-weight: 700;
+}
+
+.compras-page .summary-value {
+  font-size: 1.45rem;
+  line-height: 1.1;
+  font-weight: 800;
+  color: var(--c-text);
+  margin: 2px 0;
+}
+
+.compras-page .summary-help {
+  color: var(--c-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+/* Card global: layout interno compacto (copy a la izq, controles y valor a la der) */
+.compras-page .summary-card-global {
+  padding: 12px 14px;
+  gap: 8px;
+}
+
+.compras-page .summary-card-global .discount-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.compras-page .summary-card-global .discount-controls {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.9fr) minmax(132px, 1fr);
+  gap: 8px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.compras-page .summary-card-global .discount-controls select {
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 30px 0 12px !important;
+  font-size: 0.85rem !important;
+  text-overflow: ellipsis;
+}
+
+.compras-page .summary-card-global .discount-controls input {
+  width: 100% !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 0.9rem !important;
+  text-align: right;
+}
+
+.compras-page .summary-card-global .summary-value {
+  font-size: 1.15rem;
+  margin-top: 2px;
+}
+
+/* Total: card destacada, full width, mas grande */
+.compras-page .summary-card-total {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(56, 189, 248, 0.22));
+  border: 2px solid rgba(14, 165, 233, 0.35);
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: auto;
+  padding: 16px 22px;
+}
+
+html[data-theme="light"] .compras-page .summary-card-total,
+body[data-theme="light"] .compras-page .summary-card-total,
+html.light .compras-page .summary-card-total,
+body.light .compras-page .summary-card-total,
+html.theme-light .compras-page .summary-card-total,
+body.theme-light .compras-page .summary-card-total {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(56, 189, 248, 0.14));
+  border-color: rgba(14, 165, 233, 0.32);
+}
+
+.compras-page .summary-card-total .summary-label {
+  color: var(--c-primary-dark);
+  font-size: 0.8rem;
+  opacity: 1;
+}
+
+.compras-page .summary-card-total .summary-value {
+  font-size: 2rem;
+  color: var(--c-primary-dark);
+  margin: 0;
+  text-align: right;
+}
+
+.compras-page .summary-card-total .summary-help {
+  display: none;
+}
+
+/* Grupo texto a la izquierda del total */
+.compras-page .summary-card-total {
+  gap: 16px;
+}
+
+.compras-page .summary-card-total::before {
+  content: "";
+  display: block;
+  width: 4px;
+  align-self: stretch;
+  border-radius: 3px;
+  background: var(--c-primary);
+  margin-right: 4px;
+}
+
+.compras-page .summary-value-warning {
+  color: var(--c-warning);
+}
+
+/* Responsive summary */
+@media (max-width: 900px) {
+  .compras-page .compras-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "bruto descItems"
+      "descGlobal descGlobal"
+      "total total";
+  }
+}
+
+@media (max-width: 560px) {
+  .compras-page .compras-summary {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "bruto"
+      "descItems"
+      "descGlobal"
+      "total";
+  }
+  .compras-page .summary-card-total {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .compras-page .summary-card-total .summary-value {
+    text-align: left;
+    font-size: 1.8rem;
+  }
+}
+
+/* ============================================================================
+   ACCIONES FINALES — botones guardar / limpiar
+============================================================================ */
+.compras-page .compras-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--c-border);
+}
+
+.compras-page .compras-actions .btn {
+  padding: 11px 20px;
+  font-size: 0.92rem;
+}
+
+.compras-page .btn-save {
+  min-width: 180px;
+}
+
+.compras-page .compras-actions .btn svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .compras-page .compras-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .compras-page .compras-actions .btn {
+    width: 100%;
+  }
+}
+
+/* Items-grid ajuste: sin margen superior extra cuando esta dentro del form-card */
+.compras-page .form-card .items-grid {
+  margin-top: 0;
+}
+
+/* Quick-add toggle dentro del form-card: sin margenes negativos */
+.compras-page .form-card .quick-add-toggle {
+  margin-bottom: 12px;
+}
+
+.compras-page .form-card .quick-add-panel {
+  margin: 0 0 14px;
+}
+
+/* Ajuste del label dentro de los fields para que quede compacto */
+.compras-page .field label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--c-text);
+  margin-bottom: 0;
+}
+
+.compras-page .help {
+  font-size: 0.78rem;
+  opacity: 0.72;
+  margin-top: 2px;
+  color: var(--c-muted);
+}
+
+/* ============================================================================
+   FORM POLISH - compras compactas y alineadas
+============================================================================ */
+.compras-page {
+  --compras-field-height: 42px;
+  --compras-item-control-width: 144px;
+  --compras-radius: 8px;
+  --compras-form-gap: 12px;
+}
+
+.compras-page .panel {
+  padding: 22px 28px;
+}
+
+.compras-page .compras-form {
+  margin-top: 12px;
+}
+
+.compras-page .page-header {
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.compras-page .form-card {
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .form-card .form-section-title {
+  margin-bottom: 14px;
+}
+
+.compras-page .form-grid {
+  gap: var(--compras-form-gap);
+}
+
+.compras-page .field {
+  gap: 5px;
+}
+
+.compras-page .field label {
+  min-height: 19px;
+  line-height: 1.2;
+}
+
+.compras-page .field-required,
+.compras-page .field-optional {
+  border-radius: 4px;
+  line-height: 1.25;
+}
+
+.compras-page .compras-form input,
+.compras-page .compras-form select,
+.compras-page .filters input,
+.compras-page .filters select {
+  height: var(--compras-field-height);
+  border-width: 1px;
+  border-radius: var(--compras-radius);
+  font-size: 0.94rem;
+}
+
+.compras-page .field-proveedor input {
+  border-width: 1px;
+}
+
+.compras-page .help {
+  min-height: 16px;
+  line-height: 1.25;
+}
+
+.compras-page .form-grid-identify {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+}
+
+.compras-page .form-grid-identify .field-proveedor {
+  grid-column: span 6;
+}
+
+.compras-page .form-grid-identify .field:nth-of-type(2),
+.compras-page .form-grid-identify .field:nth-of-type(3) {
+  grid-column: span 3;
+}
+
+.compras-page .form-grid-identify .field-wide {
+  grid-column: 1 / -1;
+}
+
+.compras-page .items-grid {
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .items-grid-row {
+  grid-template-columns:
+    var(--compras-item-control-width)
+    var(--compras-item-control-width)
+    calc((var(--compras-item-control-width) * 2) + 6px)
+    minmax(420px, 1fr);
+  justify-content: start;
+  align-items: start;
+  gap: var(--compras-form-gap);
+}
+
+.compras-page .items-grid-row .field {
+  align-self: start;
+}
+
+.compras-page .items-grid-row .field-btn-add {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(180px, 220px);
+  grid-template-rows: 19px var(--compras-field-height) minmax(16px, auto);
+  column-gap: var(--compras-form-gap);
+  row-gap: 5px;
+  align-self: start;
+  align-items: start;
+}
+
+.compras-page .inline-controls {
+  display: grid;
+  grid-template-columns: repeat(2, var(--compras-item-control-width));
+  gap: 6px;
+}
+
+.compras-page .inline-controls select {
+  width: 100%;
+}
+
+.compras-page .inline-controls input {
+  width: 100%;
+}
+
+.compras-page .btn,
+.compras-page .quick-add-toggle-btn,
+.compras-page .summary-card,
+.compras-page .table-wrapper {
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .btn {
+  min-height: var(--compras-field-height);
+  padding: 0 16px;
+}
+
+.compras-page .btn-add-item {
+  height: var(--compras-field-height);
+  width: 100%;
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.compras-page .field-btn-add .label-invisible {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.compras-page .field-btn-add .subtotal-preview {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--compras-field-height);
+  margin: 0;
+  padding: 0 12px;
+  border-width: 1px;
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .field-btn-add .subtotal-preview + .help,
+.compras-page .field-btn-add .discount-help-inline {
+  grid-column: 1 / -1;
+}
+
+.compras-page .field-btn-add .subtotal-preview .preview-line {
+  width: 100%;
+  padding: 0;
+}
+
+.compras-page .field-btn-add .subtotal-preview .preview-line:not(.total) {
+  display: none;
+}
+
+.compras-page .field-btn-add .subtotal-preview .preview-line.total {
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  font-size: 0.95rem;
+}
+
+.compras-page .quick-add-toggle {
+  margin: 0 0 12px;
+}
+
+.compras-page .quick-add-toggle-btn {
+  min-height: 56px;
+  padding: 10px 14px;
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.compras-page .quick-add-toggle.is-open .quick-add-toggle-btn {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.compras-page .quick-add-panel {
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .items-table-wrapper {
+  margin-top: 0;
+}
+
+.compras-page .compras-summary {
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.compras-page .summary-card {
+  min-height: 84px;
+  padding: 13px 16px;
+}
+
+.compras-page .summary-card-global {
+  padding: 13px 16px;
+}
+
+.compras-page .summary-card-total {
+  min-height: 62px;
+  padding: 14px 20px;
+  border-width: 1px;
+}
+
+.compras-page .summary-card-total .summary-value {
+  font-size: 1.85rem;
+}
+
+.compras-page .compras-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.compras-page .compras-actions .btn {
+  min-width: 190px;
+}
+
+.compras-page .sub-title-page {
+  margin-bottom: 14px;
+}
+
+.compras-page .filters {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(520px, 1.7fr);
+  align-items: end;
+  gap: 12px;
+  margin: 14px 0 16px;
+  padding: 14px 16px;
+  border-radius: var(--compras-radius);
+}
+
+.compras-page .filters-left {
+  min-width: 0;
+  flex: none;
+}
+
+.compras-page .filters-right {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 1fr)
+    minmax(140px, 0.85fr)
+    minmax(140px, 0.85fr)
+    minmax(104px, 0.65fr)
+    minmax(108px, auto)
+    minmax(106px, auto);
+  gap: 10px;
+  align-items: end;
+}
+
+.compras-page .filters-left input,
+.compras-page .filters-right input,
+.compras-page .filters-right select,
+.compras-page .filters-right .btn {
+  width: 100%;
+}
+
+.compras-page .filters .btn {
+  height: var(--compras-field-height);
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .compras-page .items-grid-row {
+    grid-template-columns:
+      var(--compras-item-control-width)
+      var(--compras-item-control-width)
+      calc((var(--compras-item-control-width) * 2) + 6px)
+      minmax(380px, 1fr);
+  }
+
+  .compras-page .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .compras-page .filters-right {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .compras-page .panel {
+    padding: 20px;
+  }
+
+  .compras-page .form-grid-identify {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .compras-page .form-grid-identify .field-proveedor {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .form-grid-identify .field:nth-of-type(2),
+  .compras-page .form-grid-identify .field:nth-of-type(3) {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 900px) {
+  .compras-page .items-grid-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compras-page .field-btn-add {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .btn-add-item {
+    max-width: 240px;
+    margin-left: auto;
+  }
+
+  .compras-page .items-grid-row .field-btn-add {
+    grid-template-columns: minmax(190px, 1fr) minmax(180px, 240px);
+  }
+}
+
+@media (max-width: 760px) {
+  .compras-page .form-card {
+    padding: 16px;
+  }
+
+  .compras-page .items-grid-row,
+  .compras-page .filters-right {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compras-page .field-btn-add {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .btn-add-item {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .compras-page .items-grid-row .field-btn-add {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compras-page .inline-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .compras-page .panel {
+    padding: 16px;
+  }
+
+  .compras-page .form-grid-identify,
+  .compras-page .items-grid-row,
+  .compras-page .filters-right {
+    grid-template-columns: 1fr;
+  }
+
+  .compras-page .form-grid-identify .field:nth-of-type(2),
+  .compras-page .form-grid-identify .field:nth-of-type(3) {
+    grid-column: 1 / -1;
+  }
+
+  .compras-page .compras-actions .btn {
+    min-width: 0;
+  }
+
+  .compras-page .items-grid-row .field-btn-add {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .compras-page .field-btn-add .label-invisible {
+    display: none;
+  }
+
+  .compras-page .field-btn-add .subtotal-preview,
+  .compras-page .btn-add-item {
+    width: 100%;
+  }
+}
+
+.compras-page .summary-card-global .discount-controls {
+  display: grid;
+  grid-template-columns: minmax(132px, 0.9fr) minmax(132px, 1fr);
+  gap: 8px;
+  max-width: 300px;
+}
+
+.compras-page .summary-card-global .discount-controls select,
+.compras-page .summary-card-global .discount-controls input {
+  width: 100% !important;
+  height: 38px !important;
+  border-radius: var(--compras-radius) !important;
+}
+
+.compras-page .summary-card-global .discount-controls select {
+  padding-left: 12px !important;
+  padding-right: 30px !important;
+  min-width: 0;
+}
+
+.compras-page .summary-card-global .discount-controls input {
+  min-width: 0;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .compras-page .summary-card-global .discount-controls {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
 }

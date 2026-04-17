@@ -128,17 +128,38 @@ const ProductosManager = {
     // TOAST
     // ============================================
     showToast(message, type = 'success', duration = 3000) {
+        const text = String(message ?? '').trim();
+        if (!text) return;
+
+        if (window.Notif) {
+            if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
+                window.Notif.exito(text);
+                return;
+            }
+            if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') {
+                window.Notif.advertencia(text);
+                return;
+            }
+            if (type === 'error' && typeof window.Notif.error === 'function') {
+                window.Notif.error(text);
+                return;
+            }
+            if (typeof window.Notif.info === 'function') {
+                window.Notif.info(text);
+                return;
+            }
+        }
         const container = document.getElementById('toastContainer') || this.createToastContainer();
-        
+
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        
+
         const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
         toast.innerHTML = `
             <span class="toast-icon">${icons[type] || icons.info}</span>
-            <span class="toast-message">${this.escapeHtml(message)}</span>
+            <span class="toast-message">${this.escapeHtml(text)}</span>
         `;
-        
+
         container.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('show'));
 
@@ -174,7 +195,7 @@ const ProductosManager = {
             if (!res.ok) return;
 
             const data = await res.json();
-            
+
             const setVal = (id, val) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = val ?? '—';
@@ -331,7 +352,7 @@ const ProductosManager = {
         // Submit con validación
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             // Validar código antes de enviar
             const codigo = form.querySelector('input[name="codigo"]')?.value.trim();
             if (!codigo) {
@@ -937,7 +958,7 @@ const ProductosManager = {
         if (!modal) return;
 
         title.textContent = action === 'desactivar' ? 'Desactivar producto' : 'Activar producto';
-        text.textContent = action === 'desactivar' 
+        text.textContent = action === 'desactivar'
             ? '¿Desactivar este producto? No aparecerá en Caja ni búsquedas.'
             : '¿Activar este producto?';
 
@@ -1452,7 +1473,7 @@ const ProductosManager = {
             const stockVal = toNum(stockInput.value);
             const b = toBase(stockVal, chosen);
             const internal = baseToLegacyStock(b.base, uVenta);
-            
+
             let helpText = '';
             if (stockVal > 0) {
                 const uLabel = (b.baseUnit === 'g') ? `${b.base.toLocaleString('es-AR')} g` : `${b.base.toLocaleString('es-AR')} ml`;
@@ -1470,7 +1491,7 @@ const ProductosManager = {
             if (!stockInput || !stockMinInput || !sel1 || !sel2) return;
 
             const oldUnit = sel1.dataset.prevUnit || sel1.value;
-            
+
             // Convertir valores actuales a la nueva unidad
             const b1 = toBase(stockInput.value, oldUnit);
             const b2 = toBase(stockMinInput.value, oldUnit);
@@ -1495,7 +1516,7 @@ const ProductosManager = {
         // Listeners para los selects de unidad
         const sel1 = form?.querySelector('select[name="stock_unidad"]');
         const sel2 = form?.querySelector('select[name="stock_min_unidad"]');
-        
+
         if (sel1) {
             sel1.dataset.prevUnit = sel1.value;
             sel1.addEventListener('change', () => convertOnUnitChange(sel1.value, sel1));
@@ -1712,7 +1733,7 @@ const ProductosManager = {
     // ============================================
     // KEYBOARD SHORTCUTS
     // ============================================
-    
+
     // ============================================
     // LISTADO AJAX (sin recargar)
     // ============================================
@@ -1945,7 +1966,7 @@ bindKeyboardShortcuts() {
                 e.preventDefault();
                 const formBlock = document.getElementById('productFormBlock');
                 const btn = document.getElementById('toggleFormBtn');
-                
+
                 if (formBlock?.classList.contains('is-collapsed')) {
                     btn?.click();
                 }
@@ -1987,7 +2008,7 @@ window.ProductosManager = ProductosManager;
 window.openEditPanel = (id) => ProductosManager.openEdit(id);
 window.closeEditPanel = () => ProductosManager.closeEdit();
 window.toggleDetailRow = (id) => ProductosManager.toggleDetail(id);
-window.showToast = (msg, type) => ProductosManager.showToast(msg, type);
+if (!window.showToast) window.showToast = (msg, type) => ProductosManager.showToast(msg, type);
 
 // Inicializar
 document.addEventListener('DOMContentLoaded', () => ProductosManager.init());

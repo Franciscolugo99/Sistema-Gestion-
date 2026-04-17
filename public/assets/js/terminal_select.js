@@ -44,10 +44,32 @@
   const API_ENDPOINT = new URL("api/index.php", window.location.href).toString();
 
   function toast(msg, type = "info", ms = 2400) {
-    if (typeof window.showToast === "function") return window.showToast(msg, type, ms);
+    const text = String(msg || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === "function") return window.showToast(text, type, ms);
     const t = document.createElement("div");
     t.className = "ts-toast";
-    t.textContent = msg;
+    t.textContent = text;
     document.body.appendChild(t);
     requestAnimationFrame(() => t.classList.add("show"));
     setTimeout(() => t.classList.remove("show"), ms);

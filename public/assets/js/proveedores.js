@@ -12,17 +12,21 @@
   const closeBtn = document.getElementById('provDrawerClose');
   const cancelBtn = document.getElementById('provCancelBtn');
   const form = document.getElementById('provForm');
+  const submitBtn = document.getElementById('provSubmitBtn');
 
   if (!drawer) return; // Solo ejecutar si existe el drawer
 
+  let formChanged = false;
+  let closeDrawerOpen = false;
+
   // ========== Drawer Functions ==========
-  
+
   function openDrawer() {
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
     overlay.classList.add('is-open');
     document.body.style.overflow = 'hidden';
-    
+
     // Focus en primer input
     setTimeout(() => {
       const firstInput = form?.querySelector('input:not([type="hidden"])');
@@ -30,21 +34,43 @@
     }, 100);
   }
 
-  function closeDrawer() {
-    drawer.classList.remove('is-open');
-    drawer.setAttribute('aria-hidden', 'true');
-    overlay.classList.remove('is-open');
-    document.body.style.overflow = '';
-    
-    // Limpiar URL si tiene parámetros de edición
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('new') || url.searchParams.has('editar')) {
-      url.searchParams.delete('new');
-      url.searchParams.delete('editar');
-      window.history.replaceState({}, '', url.toString());
+  async function closeDrawer(e) {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+
+    if (window.Swal && typeof window.Swal.isVisible === 'function' && window.Swal.isVisible()) return;
+    if (closeDrawerOpen) return;
+
+    closeDrawerOpen = true;
+    try {
+      if (formChanged && window.Notif && typeof window.Notif.confirmar === 'function') {
+        const ok = await window.Notif.confirmar(
+          'Cambios sin guardar',
+          '<p>Tenes cambios sin guardar. Queres salir igual?</p>',
+          { icon: 'warning', confirmText: 'Salir igual', cancelText: 'Quedarme' }
+        );
+        if (!ok) return;
+      } else if (formChanged && !window.confirm('Tenes cambios sin guardar. Queres salir igual?')) {
+        return;
+      }
+
+      drawer.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      overlay.classList.remove('is-open');
+      document.body.style.overflow = '';
+      formChanged = false;
+
+      // Limpiar URL si tiene parametros de edicion
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('new') || url.searchParams.has('editar')) {
+        url.searchParams.delete('new');
+        url.searchParams.delete('editar');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } finally {
+      closeDrawerOpen = false;
     }
   }
-
   // ========== Event Listeners ==========
 
   // Cerrar drawer
@@ -88,32 +114,33 @@
   document.querySelectorAll('a[href*="new=1"]').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      
+
       // Limpiar form
       if (form) {
         form.reset();
+        formChanged = false;
         const idInput = form.querySelector('input[name="id"]');
         if (idInput) idInput.remove();
-        
+
         // Marcar activo por defecto
         const activoCheck = form.querySelector('input[name="activo"]');
         if (activoCheck) activoCheck.checked = true;
       }
-      
+
       // Actualizar título
       const title = drawer.querySelector('.drawer-title');
       if (title) title.textContent = 'Nuevo proveedor';
-      
+
       // Ocultar stats
       const stats = drawer.querySelector('.edit-stats');
       if (stats) stats.style.display = 'none';
-      
+
       // Actualizar URL
       const url = new URL(window.location.href);
       url.searchParams.set('new', '1');
       url.searchParams.delete('editar');
       window.history.replaceState({}, '', url.toString());
-      
+
       openDrawer();
     });
   });
@@ -139,7 +166,7 @@
 
   // ========== WhatsApp Formatting ==========
 
-  
+
   const waInput = form?.querySelector('input[name="whatsapp"]');
   if (waInput) {
     waInput.addEventListener('input', function() {
@@ -149,29 +176,44 @@
   }
 
   // ========== Form Validation ==========
-  
+
   if (form) {
+    form.addEventListener('input', () => {
+      formChanged = true;
+    });
+
     form.addEventListener('submit', function(e) {
       const nombre = form.querySelector('input[name="nombre"]');
-      
+
       if (!nombre || nombre.value.trim() === '') {
         e.preventDefault();
         nombre?.focus();
-        showToast?.('El nombre del proveedor es obligatorio', 'error');
+        if (window.Notif && typeof window.Notif.advertencia === 'function') {
+          window.Notif.advertencia('El nombre del proveedor es obligatorio.');
+        } else if (window.showToast) {
+          window.showToast('El nombre del proveedor es obligatorio', 'error');
+        }
         return;
       }
-      
+
       // Deshabilitar botón para evitar doble submit
-      const submitBtn = document.getElementById('provSubmitBtn');
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Guardando...';
       }
+      formChanged = false;
     });
   }
 
+  window.addEventListener('beforeunload', (e) => {
+    if (formChanged && drawer.classList.contains('is-open')) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
   // ========== Toggle Forms (activar/desactivar) ==========
-  
+
   document.querySelectorAll('.toggle-form').forEach(form => {
     form.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -199,7 +241,7 @@
   });
 
   // ========== Search on Enter ==========
-  
+
   const searchInput = document.querySelector('.search-input');
   if (searchInput) {
     searchInput.addEventListener('keypress', (e) => {
@@ -210,7 +252,7 @@
   }
 
   // ========== Auto-open drawer if URL has params ==========
-  
+
   const url = new URL(window.location.href);
   if (url.searchParams.has('new') || url.searchParams.has('editar')) {
     // El drawer ya viene abierto desde PHP, solo asegurar estado correcto
@@ -220,7 +262,7 @@
   }
 
   // ========== Keyboard Shortcuts ==========
-  
+
   document.addEventListener('keydown', (e) => {
     // Ctrl+N o Alt+N = Nuevo proveedor
     if ((e.ctrlKey || e.altKey) && e.key === 'n' && !drawer.classList.contains('is-open')) {
@@ -228,7 +270,7 @@
       const newBtn = document.querySelector('a[href*="new=1"]');
       if (newBtn) newBtn.click();
     }
-    
+
     // Ctrl+F o / = Focus en búsqueda
     if ((e.ctrlKey && e.key === 'f') || (e.key === '/' && !e.target.matches('input, textarea'))) {
       if (!drawer.classList.contains('is-open')) {
@@ -351,16 +393,16 @@
   }
 
   // ========== Row Click to Edit ==========
-  
+
   document.querySelectorAll('.prov-table tbody tr').forEach(row => {
     row.style.cursor = 'pointer';
-    
+
     row.addEventListener('click', (e) => {
       // Ignorar si se hizo click en acciones
       if (e.target.closest('.col-actions')) return;
       if (e.target.closest('button')) return;
       if (e.target.closest('a')) return;
-      
+
       // Buscar link de editar en la fila
       const editLink = row.querySelector('a[href*="editar="]');
       if (editLink) {

@@ -795,6 +795,33 @@ const StockManager = {
   // TOAST SYSTEM
   // ============================================
   showToast(message, type = 'info', duration = null) {
+    const text = String(message ?? '').trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === 'error' && typeof window.Notif.error === 'function') {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === 'function') {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(text, type, duration ?? this.config.TOAST_DURATION);
+      return;
+    }
+
     const container = document.getElementById('toastContainer');
     if (!container) return;
 
@@ -809,7 +836,7 @@ const StockManager = {
 
     const msg = document.createElement('span');
     msg.className = 'toast-message';
-    msg.textContent = String(message ?? '');
+    msg.textContent = text;
 
     toast.appendChild(icon);
     toast.appendChild(msg);

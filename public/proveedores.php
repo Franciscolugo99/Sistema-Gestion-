@@ -28,24 +28,24 @@ $errores = [];
 /* ========== HELPERS ========== */
 function validateProveedorForm(array $data): array {
     $errors = [];
-    
+
     $nombre = trim((string)($data['nombre'] ?? ''));
     if ($nombre === '') {
         $errors[] = 'El nombre del proveedor es obligatorio.';
     } elseif (strlen($nombre) > 120) {
         $errors[] = 'El nombre no puede superar 120 caracteres.';
     }
-    
+
     $cuit = trim((string)($data['cuit'] ?? ''));
     if ($cuit !== '' && !preg_match('/^\d{2}-?\d{8}-?\d{1}$/', $cuit)) {
         $errors[] = 'El CUIT tiene un formato inválido.';
     }
-    
+
     $email = trim((string)($data['email'] ?? ''));
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'El email no es válido.';
     }
-    
+
     return $errors;
 }
 
@@ -203,7 +203,7 @@ function syncProveedorProducts(PDO $pdo, int $proveedorId, string $oldName, stri
 
 function createProveedor(PDO $pdo, array $data): int {
     $cols = getProveedorColumns($pdo);
-    
+
     // Columnas base (siempre existen)
     $fields = ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'activo'];
     $values = [
@@ -214,7 +214,7 @@ function createProveedor(PDO $pdo, array $data): int {
         ':direccion' => trim((string)($data['direccion'] ?? '')) ?: null,
         ':activo' => isset($data['activo']) ? 1 : 0,
     ];
-    
+
     // Columnas opcionales (pueden no existir antes de migración)
     $optionalCols = [
         'razon_social' => trim((string)($data['razon_social'] ?? '')) ?: null,
@@ -226,20 +226,20 @@ function createProveedor(PDO $pdo, array $data): int {
         'descuento_habitual' => (float)($data['descuento_habitual'] ?? 0),
         'notas' => trim((string)($data['notas'] ?? '')) ?: null,
     ];
-    
+
     foreach ($optionalCols as $col => $val) {
         if (in_array($col, $cols, true)) {
             $fields[] = $col;
             $values[':' . $col] = $val;
         }
     }
-    
+
     $fieldList = implode(', ', $fields);
     $placeholders = implode(', ', array_map(fn($f) => ':' . $f, $fields));
-    
+
     $st = $pdo->prepare("INSERT INTO proveedores ($fieldList) VALUES ($placeholders)");
     $st->execute($values);
-    
+
     return (int)$pdo->lastInsertId();
 }
 
@@ -249,7 +249,7 @@ function updateProveedor(PDO $pdo, int $id, array $data): array {
     if (!$before) {
         return ['ok' => false, 'linked' => 0, 'legacy' => 0, 'warnings' => ['Proveedor no encontrado.']];
     }
-    
+
     // Campos base
     $sets = ['nombre = :nombre', 'cuit = :cuit', 'telefono = :telefono', 'email = :email', 'direccion = :direccion', 'activo = :activo'];
     $values = [
@@ -261,7 +261,7 @@ function updateProveedor(PDO $pdo, int $id, array $data): array {
         ':direccion' => trim((string)($data['direccion'] ?? '')) ?: null,
         ':activo' => isset($data['activo']) ? 1 : 0,
     ];
-    
+
     // Campos opcionales
     $optionalCols = [
         'razon_social' => trim((string)($data['razon_social'] ?? '')) ?: null,
@@ -273,14 +273,14 @@ function updateProveedor(PDO $pdo, int $id, array $data): array {
         'descuento_habitual' => (float)($data['descuento_habitual'] ?? 0),
         'notas' => trim((string)($data['notas'] ?? '')) ?: null,
     ];
-    
+
     foreach ($optionalCols as $col => $val) {
         if (in_array($col, $cols, true)) {
             $sets[] = "$col = :$col";
             $values[':' . $col] = $val;
         }
     }
-    
+
     $setSql = implode(', ', $sets);
     $ownsTx = !$pdo->inTransaction();
 
@@ -374,7 +374,7 @@ function getProveedorStats(PDO $pdo, int $id): array {
             $legacy = $productos;
         }
     }
-    
+
     // Compras
     $stCompras = $pdo->prepare("
         SELECT COUNT(*) as total,
@@ -399,7 +399,7 @@ function getProveedorStats(PDO $pdo, int $id): array {
         $stUlt->execute([$id]);
         $ultimaCompra = $stUlt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
-    
+
     return [
         'productos' => $productos,
         'productos_legacy' => $legacy,
@@ -544,27 +544,27 @@ function relinkAllProveedorProducts(PDO $pdo): array {
 /* ========== EXPORTAR CSV ========== */
 if (($_GET['export'] ?? '') === 'csv' && $canEdit) {
     $cols = getProveedorColumns($pdo);
-    
+
     // Construir SELECT dinámico
     $selectCols = ['nombre', 'cuit', 'telefono', 'email', 'direccion', 'activo'];
     $optionalExportCols = ['razon_social', 'contacto_nombre', 'whatsapp', 'ciudad', 'provincia', 'dias_pago', 'descuento_habitual'];
-    
+
     foreach ($optionalExportCols as $col) {
         if (in_array($col, $cols, true)) {
             $selectCols[] = $col;
         }
     }
-    
+
     $selectSql = implode(', ', $selectCols);
     $st = $pdo->query("SELECT $selectSql FROM proveedores ORDER BY nombre ASC");
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    
+
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="proveedores_' . date('Ymd') . '.csv"');
-    
+
     $out = fopen('php://output', 'w');
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8
-    
+
     // Headers dinámicos
     $headers = ['Nombre', 'CUIT', 'Teléfono', 'Email', 'Dirección', 'Activo'];
     $headerMap = [
@@ -582,7 +582,7 @@ if (($_GET['export'] ?? '') === 'csv' && $canEdit) {
         }
     }
     fputcsv($out, $headers);
-    
+
     foreach ($rows as $r) {
         $row = [
             $r['nombre'] ?? '',
@@ -599,7 +599,7 @@ if (($_GET['export'] ?? '') === 'csv' && $canEdit) {
         }
         fputcsv($out, $row);
     }
-    
+
     fclose($out);
     exit;
 }
@@ -661,7 +661,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && (string)($_POST['accion'
 
     $id = (int)($_POST['id'] ?? 0);
     $valor = (int)($_POST['valor'] ?? 0);
-    
+
     if ($id > 0) {
         $success = toggleProveedorActivo($pdo, $id, $valor);
         header('Location: ' . urlWithProv([
@@ -794,7 +794,7 @@ $legacyProductosSql = hasTableColumn($pdo, 'productos', 'proveedor')
     ? "(SELECT COUNT(*) FROM productos prd WHERE (prd.proveedor_id IS NULL OR prd.proveedor_id = 0) AND TRIM(LOWER(COALESCE(prd.proveedor, ''))) = TRIM(LOWER(p.nombre)))"
     : "0";
 $stList = $pdo->prepare("
-    SELECT p.*, 
+    SELECT p.*,
            (SELECT COUNT(*) FROM productos prd WHERE $productosJoinSql) as productos_count,
            $legacyProductosSql as productos_legacy_count,
            (SELECT COUNT(*) FROM compras WHERE proveedor_id = p.id) as compras_count,
@@ -821,7 +821,7 @@ $drawerOpen = $canEdit && ($isNew || !empty($editProveedor) || !empty($errores))
 /* ========== HEADER ========== */
 $pageTitle = 'Proveedores';
 $currentSection = 'proveedores';
-$extraCss = ['assets/css/proveedores.css'];
+$extraCss = ['assets/css/proveedores.css', 'assets/css/entity_module.css'];
 $extraJs = ['assets/js/proveedores.js'];
 
 require __DIR__ . '/partials/header.php';
@@ -897,22 +897,22 @@ require __DIR__ . '/partials/header.php';
 
         <form method="get" class="filters">
             <div class="filters-left">
-                <input type="search" name="q" placeholder="Buscar por nombre, CUIT, email, contacto..." 
+                <input type="search" name="q" placeholder="Buscar por nombre, CUIT, email, contacto..."
                        value="<?= h($q) ?>" class="search-input">
-                
+
                 <select name="estado" onchange="this.form.submit()">
                     <option value="">Todos</option>
                     <option value="activo" <?= $estado === 'activo' ? 'selected' : '' ?>>Activos</option>
                     <option value="inactivo" <?= $estado === 'inactivo' ? 'selected' : '' ?>>Inactivos</option>
                 </select>
-                
+
                 <button type="submit" class="btn btn-secondary">Buscar</button>
-                
+
                 <?php if ($q !== '' || $estado !== ''): ?>
                     <a href="proveedores.php" class="btn btn-ghost">Limpiar</a>
                 <?php endif; ?>
             </div>
-            
+
             <div class="filters-right">
                 <span class="results-count"><?= number_format($totalRows) ?> proveedor<?= $totalRows !== 1 ? 'es' : '' ?></span>
             </div>
@@ -965,7 +965,7 @@ require __DIR__ . '/partials/header.php';
                                         <span><?= h($p['telefono']) ?></span>
                                     <?php endif; ?>
                                     <?php if (!empty($p['whatsapp'])): ?>
-                                        <a href="https://wa.me/<?= h(preg_replace('/[^0-9]/', '', $p['whatsapp'])) ?>" 
+                                        <a href="https://wa.me/<?= h(preg_replace('/[^0-9]/', '', $p['whatsapp'])) ?>"
                                            target="_blank" class="wa-link" title="WhatsApp">💬</a>
                                     <?php endif; ?>
                                 </td>
@@ -1003,17 +1003,17 @@ require __DIR__ . '/partials/header.php';
                                 </td>
                                 <?php if ($canEdit): ?>
                                     <td class="col-actions center">
-                                        <a href="<?= h(urlWithProv(['editar' => $p['id']])) ?>" 
-                                           class="btn-icon" title="Editar">✏️</a>
-                                        
+                                        <a href="<?= h(urlWithProv(['editar' => $p['id']])) ?>"
+                                           class="btn-icon btn-action-edit" title="Editar">Editar</a>
+
                                         <form method="post" class="inline-form toggle-form">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="accion" value="toggle_activo">
                                             <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
                                             <input type="hidden" name="valor" value="<?= $p['activo'] ? '0' : '1' ?>">
-                                            <button type="submit" class="btn-icon" 
+                                            <button type="submit" class="btn-icon <?= $p['activo'] ? 'btn-action-danger' : 'btn-action-ok' ?>"
                                                     title="<?= $p['activo'] ? 'Desactivar' : 'Activar' ?>">
-                                                <?= $p['activo'] ? '🚫' : '✅' ?>
+                                                <?= $p['activo'] ? 'Desactivar' : 'Activar' ?>
                                             </button>
                                         </form>
                                     </td>
@@ -1027,14 +1027,48 @@ require __DIR__ . '/partials/header.php';
 
         <!-- Paginación -->
         <?php if ($totalPages > 1): ?>
-            <div class="pager">
-                <a class="pager-btn <?= $page <= 1 ? 'disabled' : '' ?>"
-                   href="<?= $page <= 1 ? '#' : h(urlWithProv(['page' => $page - 1])) ?>">← Anterior</a>
+            <div class="pagination">
+                <div class="pagination-info">
+                    Mostrando <strong><?= $totalRows ? ($offset + 1) : 0 ?>-<?= min($offset + $perPage, $totalRows) ?></strong>
+                    de <strong><?= number_format($totalRows) ?></strong> proveedores
+                </div>
 
-                <div class="pager-mid">Página <?= (int)$page ?> de <?= (int)$totalPages ?></div>
+                <div class="pagination-pages">
+                    <?php
+                    $showPages = 5;
+                    $start = max(1, $page - (int)floor($showPages / 2));
+                    $end = min($totalPages, $start + $showPages - 1);
+                    $start = max(1, $end - $showPages + 1);
+                    ?>
 
-                <a class="pager-btn <?= $page >= $totalPages ? 'disabled' : '' ?>"
-                   href="<?= $page >= $totalPages ? '#' : h(urlWithProv(['page' => $page + 1])) ?>">Siguiente →</a>
+                    <?php if ($page > 1): ?>
+                        <a class="page-btn" href="<?= h(urlWithProv(['page' => $page - 1])) ?>">Anterior</a>
+                    <?php endif; ?>
+
+                    <?php if ($start > 1): ?>
+                        <a class="page-btn" href="<?= h(urlWithProv(['page' => 1])) ?>">1</a>
+                        <?php if ($start > 2): ?>
+                            <span class="page-ellipsis">...</span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
+                    <?php for ($i = $start; $i <= $end; $i++): ?>
+                        <a class="page-btn <?= $i === $page ? 'active' : '' ?>" href="<?= h(urlWithProv(['page' => $i])) ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+
+                    <?php if ($end < $totalPages): ?>
+                        <?php if ($end < $totalPages - 1): ?>
+                            <span class="page-ellipsis">...</span>
+                        <?php endif; ?>
+                        <a class="page-btn" href="<?= h(urlWithProv(['page' => $totalPages])) ?>"><?= (int)$totalPages ?></a>
+                    <?php endif; ?>
+
+                    <?php if ($page < $totalPages): ?>
+                        <a class="page-btn" href="<?= h(urlWithProv(['page' => $page + 1])) ?>">Siguiente</a>
+                    <?php endif; ?>
+                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -1188,7 +1222,7 @@ require __DIR__ . '/partials/header.php';
                     <?php endif; ?>
                 </section>
             <?php endif; ?>
-            
+
             <form method="post" class="prov-form" id="provForm">
                 <?= csrf_field() ?>
                 <input type="hidden" name="submit_token" value="<?= bin2hex(random_bytes(8)) ?>">
@@ -1200,7 +1234,7 @@ require __DIR__ . '/partials/header.php';
 
                 <div class="form-section">
                     <h4 class="section-title">Datos principales</h4>
-                    
+
                     <div class="prov-grid">
                         <!-- NOMBRE -->
                         <div class="prov-field prov-field-wide">
@@ -1231,7 +1265,7 @@ require __DIR__ . '/partials/header.php';
 
                 <div class="form-section">
                     <h4 class="section-title">Contacto</h4>
-                    
+
                     <div class="prov-grid">
                         <?php if (in_array('contacto_nombre', $availableCols, true)): ?>
                         <!-- CONTACTO NOMBRE -->
@@ -1274,7 +1308,7 @@ require __DIR__ . '/partials/header.php';
 
                 <div class="form-section">
                     <h4 class="section-title">Dirección</h4>
-                    
+
                     <div class="prov-grid">
                         <!-- DIRECCIÓN -->
                         <div class="prov-field prov-field-wide">
@@ -1309,14 +1343,14 @@ require __DIR__ . '/partials/header.php';
                 <?php if (in_array('dias_pago', $availableCols, true) || in_array('descuento_habitual', $availableCols, true)): ?>
                 <div class="form-section">
                     <h4 class="section-title">Condiciones comerciales</h4>
-                    
+
                     <div class="prov-grid">
                         <?php if (in_array('dias_pago', $availableCols, true)): ?>
                         <!-- DÍAS DE PAGO -->
                         <div class="prov-field">
                             <label>Días de pago</label>
                             <select name="dias_pago">
-                                <?php 
+                                <?php
                                 $diasActual = (int)($editProveedor['dias_pago'] ?? ($_POST['dias_pago'] ?? 0));
                                 $diasOpciones = [0 => 'Contado', 7 => '7 días', 15 => '15 días', 30 => '30 días', 45 => '45 días', 60 => '60 días', 90 => '90 días'];
                                 foreach ($diasOpciones as $val => $label):
@@ -1343,7 +1377,7 @@ require __DIR__ . '/partials/header.php';
                 <?php if (in_array('notas', $availableCols, true)): ?>
                 <div class="form-section">
                     <h4 class="section-title">Notas</h4>
-                    
+
                     <div class="prov-grid">
                         <!-- NOTAS -->
                         <div class="prov-field prov-field-wide">
@@ -1526,8 +1560,24 @@ require __DIR__ . '/partials/header.php';
     }
     ?>
     <script>
-        if (window.showToast) {
-            window.showToast(<?= json_encode($toastMsg, JSON_UNESCAPED_UNICODE) ?>);
-        }
+        (() => {
+            const msg = <?= json_encode($toastMsg, JSON_UNESCAPED_UNICODE) ?>;
+            const type = <?= json_encode(in_array($savedFlag, ['csrf', 'duplicate', 'error'], true) ? 'error' : 'success') ?>;
+
+            if (window.Notif) {
+                if (type === 'success' && typeof window.Notif.exito === 'function') {
+                    window.Notif.exito(msg);
+                    return;
+                }
+                if (typeof window.Notif.error === 'function') {
+                    window.Notif.error(msg);
+                    return;
+                }
+            }
+
+            if (window.showToast) {
+                window.showToast(msg, type);
+            }
+        })();
     </script>
 <?php endif; ?>

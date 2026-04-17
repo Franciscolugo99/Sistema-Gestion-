@@ -76,25 +76,47 @@ const VentasManager = {
   // SISTEMA DE TOASTS
   // ============================================
   showToast(message, type = 'info', duration = null) {
+    const text = String(message ?? '').trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === 'warning' || type === 'warn') && typeof window.Notif.advertencia === 'function') {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === 'error' && typeof window.Notif.error === 'function') {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === 'function') {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
     const container = document.getElementById('toastContainer') || this.createToastContainer();
-    
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    
+
     const icons = { success: 'OK', error: 'X', warning: '!', info: 'i' };
-    
+
     const icon = document.createElement('span');
     icon.className = 'toast-icon';
     icon.textContent = icons[type] || icons.info;
-    
+
     const msg = document.createElement('span');
     msg.className = 'toast-message';
-    msg.textContent = String(message ?? '');
-    
+    msg.textContent = text;
+
     toast.appendChild(icon);
     toast.appendChild(msg);
     container.appendChild(toast);
-    
+
     requestAnimationFrame(() => toast.classList.add('show'));
 
     const ms = duration ?? this.config.TOAST_DURATION;
@@ -359,20 +381,20 @@ const VentasManager = {
   // Convertir formato 24h (HH:MM) a selectores 12h AM/PM
   loadAmpmFromTime(time24, horaSelect, minSelect, ampmSelect) {
     if (!time24 || !horaSelect || !minSelect || !ampmSelect) return;
-    
+
     const [h, m] = time24.split(':').map(Number);
-    
+
     let hora12 = h % 12;
     if (hora12 === 0) hora12 = 12;
     const ampm = h < 12 ? 'AM' : 'PM';
-    
+
     // Redondear minutos al más cercano disponible (00, 15, 30, 45)
     const mins = ['00', '15', '30', '45'];
     const minStr = String(m).padStart(2, '0');
-    const closestMin = mins.reduce((prev, curr) => 
+    const closestMin = mins.reduce((prev, curr) =>
       Math.abs(parseInt(curr) - m) < Math.abs(parseInt(prev) - m) ? curr : prev
     );
-    
+
     horaSelect.value = hora12;
     minSelect.value = closestMin;
     ampmSelect.value = ampm;
@@ -381,16 +403,16 @@ const VentasManager = {
   // Convertir selectores 12h AM/PM a formato 24h (HH:MM)
   ampmToTime(hora, min, ampm) {
     if (!hora || hora === '') return '';
-    
+
     let h = parseInt(hora);
     const m = min || '00';
-    
+
     if (ampm === 'PM' && h !== 12) {
       h += 12;
     } else if (ampm === 'AM' && h === 12) {
       h = 0;
     }
-    
+
     return String(h).padStart(2, '0') + ':' + m;
   },
 
@@ -494,8 +516,8 @@ const VentasManager = {
         // Escape seguro para atributos HTML
         const safeNombre = this.escapeHtml(c.nombre || '').replace(/"/g, '&quot;');
         return `
-        <div class="cliente-item ${i === 0 ? 'active' : ''}" 
-             data-id="${c.id}" 
+        <div class="cliente-item ${i === 0 ? 'active' : ''}"
+             data-id="${c.id}"
              data-nombre="${safeNombre}">
           <span class="cliente-nombre">${this.escapeHtml(c.nombre)}</span>
           ${c.documento ? `<span class="cliente-doc">${this.escapeHtml(c.documento)}</span>` : ''}
@@ -591,12 +613,12 @@ const VentasManager = {
         if (horaHastaHidden) horaHastaHidden.value = h2;
 
         // Actualizar selectores visuales AM/PM
-        this.loadAmpmFromTime(h1, 
+        this.loadAmpmFromTime(h1,
           document.getElementById('horaDesdeHora'),
           document.getElementById('horaDesdeMin'),
           document.getElementById('horaDesdeAmpm')
         );
-        this.loadAmpmFromTime(h2, 
+        this.loadAmpmFromTime(h2,
           document.getElementById('horaHastaHora'),
           document.getElementById('horaHastaMin'),
           document.getElementById('horaHastaAmpm')
@@ -678,7 +700,7 @@ const VentasManager = {
       card.addEventListener('click', () => {
         const filterType = card.dataset.filter;
         const filterValue = card.dataset.filterValue || '';
-        
+
         const url = new URL(window.location.href);
         url.searchParams.set('page', '1');
 

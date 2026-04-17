@@ -160,7 +160,7 @@ $currentSection = 'clientes';
 $breadcrumbs = [
     ['label' => 'Clientes', 'url' => null],
 ];
-$extraCss = ['assets/css/clientes.css'];
+$extraCss = ['assets/css/clientes.css', 'assets/css/entity_module.css'];
 $extraJs = ['assets/js/clientes.js'];
 
 require __DIR__ . '/partials/header.php';
@@ -263,6 +263,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="filters-right">
+                <span class="results-count"><?= number_format($totalRows) ?> cliente<?= $totalRows !== 1 ? 's' : '' ?></span>
                 <select name="per_page" onchange="this.form.submit()">
                     <option value="20" <?= $perPage === 20 ? 'selected' : '' ?>>20 por página</option>
                     <option value="50" <?= $perPage === 50 ? 'selected' : '' ?>>50 por página</option>
@@ -366,11 +367,11 @@ require __DIR__ . '/partials/header.php';
                                             <a class="btn-mini" href="<?= h(urlWithCli(['editar' => (int)$c['id'], 'new' => null])) ?>">Editar</a>
                                         
                                         <?php if ($hasCC && $ccHab && $canViewCuentaCorriente): ?>
-                                            <a class="btn-mini btn-mini-cc" href="cuenta_corriente_cliente.php?id=<?= (int)$c['id'] ?>" title="Ver cuenta corriente">💳</a>
+                                            <a class="btn-mini btn-mini-cc" href="cuenta_corriente_cliente.php?id=<?= (int)$c['id'] ?>" title="Ver cuenta corriente">Cuenta Cte.</a>
                                         <?php endif; ?>
 
                                         <?php if ((int)($c['activo'] ?? 0) === 1): ?>
-                                            <form method="post" style="display:inline" onsubmit="return confirm('¿Desactivar?');">
+                                            <form method="post" class="cli-toggle-form">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="accion" value="toggle_activo">
                                                 <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
@@ -378,7 +379,7 @@ require __DIR__ . '/partials/header.php';
                                                 <button type="submit" class="btn-mini btn-mini-ghost">Desactivar</button>
                                             </form>
                                         <?php else: ?>
-                                            <form method="post" style="display:inline" onsubmit="return confirm('¿Activar?');">
+                                            <form method="post" class="cli-toggle-form">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="accion" value="toggle_activo">
                                                 <input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
@@ -724,9 +725,25 @@ require __DIR__ . '/partials/header.php';
     };
     ?>
     <script>
-        if (window.showToast) {
-            window.showToast(<?= json_encode($toastMsg, JSON_UNESCAPED_UNICODE) ?>);
-        }
+        (() => {
+            const msg = <?= json_encode($toastMsg, JSON_UNESCAPED_UNICODE) ?>;
+            const type = <?= json_encode(in_array($savedFlag, ['csrf', 'duplicate', 'error'], true) ? 'error' : 'success') ?>;
+
+            if (window.Notif) {
+                if (type === 'success' && typeof window.Notif.exito === 'function') {
+                    window.Notif.exito(msg);
+                    return;
+                }
+                if (typeof window.Notif.error === 'function') {
+                    window.Notif.error(msg);
+                    return;
+                }
+            }
+
+            if (window.showToast) {
+                window.showToast(msg, type);
+            }
+        })();
     </script>
 <?php endif; ?>
 

@@ -403,9 +403,6 @@ require __DIR__ . '/partials/header.php';
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="promo-toast" id="promoToast"></div>
-
 <?php require __DIR__ . '/partials/footer.php'; ?>
 
 

@@ -1,0 +1,750 @@
+/* ==========================================================================
+   Entity modules shared UI
+   Clientes and Proveedores keep their own data, but share the same rhythm.
+   ========================================================================== */
+
+.clientes-page,
+.proveedores-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+.clientes-page .cli-panel,
+.proveedores-page .prov-panel,
+.clientes-page .cli-list-panel,
+.proveedores-page .prov-list-panel {
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  border-radius: 8px;
+  background: var(--panel, rgba(255, 255, 255, 0.94));
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+}
+
+.clientes-page .cli-panel,
+.proveedores-page .prov-panel {
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+
+.clientes-page .cli-content-shell {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.clientes-page .cli-content-shell .cli-list-panel,
+.proveedores-page .prov-list-panel {
+  margin-top: 18px;
+  padding: 20px 22px 22px;
+}
+
+.clientes-page .module-header,
+.proveedores-page .module-header {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.clientes-page .module-header-main,
+.proveedores-page .module-header-main {
+  min-width: 0;
+}
+
+.clientes-page .module-header-hero,
+.proveedores-page .module-header-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.clientes-page .module-header-icon,
+.proveedores-page .module-header-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--accent-blue, #0284c7);
+  flex: 0 0 auto;
+}
+
+.clientes-page .module-header-icon svg,
+.proveedores-page .module-header-icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+}
+
+.clientes-page .module-eyebrow,
+.proveedores-page .module-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.clientes-page .page-title,
+.proveedores-page .page-title {
+  margin: 0;
+  color: var(--text, #0f172a);
+  font-size: 1.8rem;
+  line-height: 1.05;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.clientes-page .page-sub,
+.proveedores-page .page-sub {
+  margin: 6px 0 0;
+  color: var(--muted, #64748b);
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
+.clientes-page .module-header-actions,
+.proveedores-page .module-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.clientes-page .sub-title-page,
+.proveedores-page .sub-title-page {
+  margin: 0 0 14px;
+  color: var(--text, #0f172a);
+  font-size: 0.92rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.clientes-page .cli-cc-stats,
+.proveedores-page .prov-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.clientes-page .cc-stat-card,
+.proveedores-page .prov-overview-card,
+.proveedores-page .prov-insight-card,
+.clientes-page .cli-related-stat,
+.proveedores-page .stat-item {
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  border-radius: 8px;
+  background: var(--panel, rgba(255, 255, 255, 0.94));
+  box-shadow: none;
+}
+
+.clientes-page .cc-stat-card,
+.proveedores-page .prov-overview-card {
+  padding: 14px 16px;
+}
+
+.clientes-page .cc-stat-value,
+.proveedores-page .prov-overview-value,
+.proveedores-page .stat-value,
+.proveedores-page .prov-insight-value {
+  display: block;
+  color: var(--text, #0f172a);
+  font-size: 1.45rem;
+  line-height: 1.1;
+  font-weight: 850;
+}
+
+.clientes-page .cc-stat-value.cc-stat-money,
+.proveedores-page .prov-overview-card.is-warning .prov-overview-value {
+  color: var(--accent-red, #dc2626);
+}
+
+.clientes-page .cc-stat-label,
+.proveedores-page .prov-overview-label,
+.proveedores-page .stat-label,
+.proveedores-page .prov-insight-label {
+  display: block;
+  color: var(--muted, #64748b);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.proveedores-page .prov-overview-help,
+.proveedores-page .prov-insight-help,
+.clientes-page .cli-related-stat small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.82rem;
+}
+
+.clientes-page .filters,
+.proveedores-page .filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.04);
+}
+
+.clientes-page .filters-left,
+.proveedores-page .filters-left,
+.clientes-page .filters-right,
+.proveedores-page .filters-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.clientes-page .filters-right,
+.proveedores-page .filters-right {
+  justify-content: flex-end;
+}
+
+.clientes-page .search-input,
+.proveedores-page .search-input {
+  min-width: min(420px, 100%);
+  flex: 1 1 320px;
+}
+
+.clientes-page .filters input,
+.clientes-page .filters select,
+.proveedores-page .filters input,
+.proveedores-page .filters select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.35));
+  border-radius: 8px;
+  background: var(--input-bg, var(--panel, #fff));
+  color: var(--text, #0f172a);
+  font-size: 0.93rem;
+  outline: none;
+}
+
+.clientes-page .filters input:focus,
+.clientes-page .filters select:focus,
+.proveedores-page .filters input:focus,
+.proveedores-page .filters select:focus {
+  border-color: rgba(14, 165, 233, 0.75);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.13);
+}
+
+.clientes-page .results-count,
+.proveedores-page .results-count {
+  color: var(--muted, #64748b);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.clientes-page .table-wrap,
+.proveedores-page .table-wrap {
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  border-radius: 8px;
+}
+
+.clientes-page .cli-table,
+.proveedores-page .prov-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--panel, #fff);
+  font-size: 0.9rem;
+}
+
+.clientes-page .cli-table th,
+.proveedores-page .prov-table th {
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(14, 165, 233, 0.22);
+  background: rgba(14, 165, 233, 0.05);
+  color: var(--text, #0f172a);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.clientes-page .cli-table td,
+.proveedores-page .prov-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  color: var(--text, #0f172a);
+  vertical-align: middle;
+}
+
+.clientes-page .cli-table tbody tr:last-child td,
+.proveedores-page .prov-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.clientes-page .cli-table tbody tr:hover,
+.proveedores-page .prov-table tbody tr:hover {
+  background: rgba(14, 165, 233, 0.045);
+}
+
+.clientes-page .tag,
+.proveedores-page .badge,
+.proveedores-page .status-badge {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.clientes-page .tag-ok,
+.proveedores-page .status-badge.active,
+.proveedores-page .badge-success {
+  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.clientes-page .tag-inactivo,
+.proveedores-page .status-badge.inactive {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted, #64748b);
+}
+
+.clientes-page .tag-descuento,
+.proveedores-page .badge-info {
+  border: 1px solid rgba(14, 165, 233, 0.24);
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--accent-blue, #0284c7);
+}
+
+.clientes-page .tag-danger {
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.clientes-page .btn-mini-cc {
+  border-color: rgba(14, 165, 233, 0.26);
+  background: rgba(14, 165, 233, 0.09);
+  color: var(--accent-blue, #0284c7);
+}
+
+.clientes-page .btn-mini-cc:hover {
+  border-color: rgba(14, 165, 233, 0.38);
+  background: rgba(14, 165, 233, 0.14);
+}
+
+.clientes-page .cli-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.proveedores-page .col-actions {
+  min-width: 174px;
+  white-space: nowrap;
+}
+
+.proveedores-page .prov-table th:nth-child(8),
+.proveedores-page .prov-table td:nth-child(8) {
+  width: 110px;
+  text-align: center;
+}
+
+.proveedores-page .prov-table th:nth-child(9),
+.proveedores-page .prov-table td:nth-child(9) {
+  width: 188px;
+  text-align: center;
+}
+
+.clientes-page .cli-row-actions form,
+.proveedores-page .inline-form {
+  display: inline-flex;
+}
+
+.proveedores-page .col-actions .inline-form {
+  margin-left: 6px;
+}
+
+.clientes-page .btn-mini,
+.proveedores-page .btn-icon {
+  width: auto;
+  min-width: 34px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.28));
+  border-radius: 8px;
+  background: var(--panel, #fff);
+  color: var(--text, #0f172a);
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.clientes-page .btn-mini:hover,
+.proveedores-page .btn-icon:hover {
+  border-color: rgba(14, 165, 233, 0.38);
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.proveedores-page .btn-action-edit {
+  color: var(--accent-blue, #0284c7);
+}
+
+.proveedores-page .btn-action-danger {
+  border-color: rgba(220, 38, 38, 0.24);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+}
+
+.proveedores-page .btn-action-danger:hover {
+  border-color: rgba(220, 38, 38, 0.34);
+  background: rgba(220, 38, 38, 0.13);
+}
+
+.proveedores-page .btn-action-ok {
+  border-color: rgba(22, 163, 74, 0.24);
+  background: rgba(22, 163, 74, 0.09);
+  color: #15803d;
+}
+
+.proveedores-page .btn-action-ok:hover {
+  border-color: rgba(22, 163, 74, 0.34);
+  background: rgba(22, 163, 74, 0.14);
+}
+
+.drawer {
+  width: min(620px, 100vw);
+  max-width: 620px;
+  background: var(--panel, #fff);
+  border-left: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+}
+
+.drawer-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+}
+
+.drawer-title {
+  color: var(--text, #0f172a);
+  font-size: 1.16rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.drawer-close {
+  border-radius: 8px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  background: var(--panel, #fff);
+  color: var(--muted, #64748b);
+}
+
+.drawer-body {
+  padding: 20px 22px 24px;
+}
+
+.clientes-form,
+.proveedores-page .prov-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.clientes-form .cli-grid,
+.proveedores-page .prov-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.clientes-form .cli-field-wide,
+.proveedores-page .prov-field-wide {
+  grid-column: 1 / -1;
+}
+
+.clientes-form .cli-field,
+.proveedores-page .prov-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clientes-form .cli-field label,
+.proveedores-page .prov-field label,
+.proveedores-page .section-title,
+.clientes-page .cli-cc-header h4,
+.clientes-page .cli-related-head h4 {
+  color: var(--text, #0f172a);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.proveedores-page .form-section,
+.clientes-page .cli-cc-section,
+.clientes-page .cli-related-card,
+.proveedores-page .prov-detail-section {
+  padding: 15px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.58);
+  box-shadow: none;
+}
+
+.proveedores-page .form-section {
+  margin-bottom: 0;
+}
+
+.proveedores-page .section-title {
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.clientes-form input,
+.clientes-form select,
+.clientes-form textarea,
+.proveedores-page .prov-field input,
+.proveedores-page .prov-field select,
+.proveedores-page .prov-field textarea {
+  min-height: 42px;
+  width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.34));
+  border-radius: 8px;
+  background: var(--input-bg, var(--panel, #fff));
+  color: var(--text, #0f172a);
+  font-size: 0.94rem;
+  outline: none;
+}
+
+.clientes-form textarea,
+.proveedores-page .prov-field textarea {
+  min-height: 92px;
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.clientes-form input:focus,
+.clientes-form select:focus,
+.clientes-form textarea:focus,
+.proveedores-page .prov-field input:focus,
+.proveedores-page .prov-field select:focus,
+.proveedores-page .prov-field textarea:focus {
+  border-color: rgba(14, 165, 233, 0.76);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.13);
+}
+
+.clientes-page .cli-actions,
+.proveedores-page .prov-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.clientes-page .cli-form-errors,
+.proveedores-page .prov-form-errors {
+  margin-top: 0;
+  padding: 13px 15px;
+  border: 1px solid rgba(220, 38, 38, 0.24);
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.proveedores-page .edit-stats,
+.proveedores-page .prov-insight-grid,
+.clientes-page .cli-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.proveedores-page .edit-stats {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.proveedores-page .prov-detail-section {
+  margin-bottom: 12px;
+}
+
+.proveedores-page .prov-mini-item,
+.proveedores-page .prov-products-modal-item,
+.proveedores-page .prov-compras-modal-item {
+  border-radius: 8px;
+  background: var(--panel, #fff);
+}
+
+.proveedores-page .prov-products-modal-card,
+.proveedores-page .prov-compras-modal-card {
+  border-radius: 8px;
+}
+
+.clientes-page .empty-cell,
+.proveedores-page .empty-state {
+  padding: 36px 18px;
+  color: var(--muted, #64748b);
+  text-align: center;
+}
+
+.proveedores-page .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+  flex-wrap: wrap;
+}
+
+.proveedores-page .pagination-info {
+  color: var(--muted, #64748b);
+  font-size: 0.86rem;
+}
+
+.proveedores-page .pagination-info strong {
+  color: var(--text, #0f172a);
+}
+
+.proveedores-page .pagination-pages {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.proveedores-page .page-btn {
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.3));
+  border-radius: 8px;
+  background: var(--panel, #fff);
+  color: var(--text, #0f172a);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.proveedores-page .page-btn:hover {
+  border-color: rgba(14, 165, 233, 0.42);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--accent-blue, #0284c7);
+}
+
+.proveedores-page .page-btn.active {
+  border-color: rgba(14, 165, 233, 0.52);
+  background: rgba(14, 165, 233, 0.14);
+  color: var(--accent-blue, #0284c7);
+}
+
+.proveedores-page .page-ellipsis {
+  padding: 0 3px;
+  color: var(--muted, #64748b);
+}
+
+body[data-theme="dark"] .clientes-page .cli-panel,
+body[data-theme="dark"] .proveedores-page .prov-panel,
+body[data-theme="dark"] .clientes-page .cli-list-panel,
+body[data-theme="dark"] .proveedores-page .prov-list-panel,
+body[data-theme="dark"] .clientes-page .cc-stat-card,
+body[data-theme="dark"] .proveedores-page .prov-overview-card,
+body[data-theme="dark"] .proveedores-page .prov-insight-card,
+body[data-theme="dark"] .clientes-page .cli-related-stat,
+body[data-theme="dark"] .proveedores-page .stat-item,
+body[data-theme="dark"] .drawer {
+  background: var(--panel, rgba(15, 23, 42, 0.92));
+}
+
+body[data-theme="dark"] .proveedores-page .form-section,
+body[data-theme="dark"] .clientes-page .cli-cc-section,
+body[data-theme="dark"] .clientes-page .cli-related-card,
+body[data-theme="dark"] .proveedores-page .prov-detail-section,
+body[data-theme="dark"] .clientes-page .filters,
+body[data-theme="dark"] .proveedores-page .filters {
+  background: rgba(15, 23, 42, 0.46);
+}
+
+@media (max-width: 900px) {
+  .clientes-page .module-header,
+  .proveedores-page .module-header,
+  .clientes-page .filters,
+  .proveedores-page .filters {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .clientes-page .module-header-actions,
+  .proveedores-page .module-header-actions,
+  .clientes-page .filters-right,
+  .proveedores-page .filters-right {
+    justify-content: flex-start;
+  }
+
+  .clientes-form .cli-grid,
+  .proveedores-page .prov-grid,
+  .clientes-page .cli-actions,
+  .proveedores-page .prov-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .clientes-page,
+  .proveedores-page {
+    padding-inline: 0.5rem;
+  }
+
+  .clientes-page .cli-panel,
+  .proveedores-page .prov-panel,
+  .clientes-page .cli-content-shell .cli-list-panel,
+  .proveedores-page .prov-list-panel {
+    padding: 16px;
+  }
+
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}

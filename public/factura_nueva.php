@@ -228,16 +228,6 @@ require __DIR__ . '/partials/header.php';
         <?= csrf_field() ?>
         <input type="hidden" name="venta_id" value="<?= (int)$ventaId ?>">
 
-        <?php if ($errores !== []): ?>
-          <div class="msg msg-visible msg-error" style="margin:12px 0;">
-            <ul>
-              <?php foreach ($errores as $e): ?>
-                <li><?= h($e) ?></li>
-              <?php endforeach; ?>
-            </ul>
-          </div>
-        <?php endif; ?>
-
         <div class="fact-form-grid">
           <div class="ff-field ff-field-wide">
             <label>Cliente</label>
@@ -354,5 +344,24 @@ require __DIR__ . '/partials/header.php';
     </section>
   </div>
 </div>
+
+<?php if ($errores !== []): ?>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const errores = <?= json_encode(array_values($errores), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const msg = errores.filter(Boolean).join('\n');
+    if (!msg) return;
+
+    if (window.Notif && typeof window.Notif.error === 'function') {
+      window.Notif.error(msg);
+      return;
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, 'error');
+    }
+  });
+</script>
+<?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

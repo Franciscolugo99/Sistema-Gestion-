@@ -494,7 +494,8 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
     }
 
-    itemsGrid.appendChild(preview);
+    const previewHost = document.querySelector(".field-btn-add") || itemsGrid;
+    previewHost.appendChild(preview);
   }
 
   [inQty, inCost, itemDescTipo, itemDescValor].forEach((el) => {
@@ -646,6 +647,28 @@ document.addEventListener("DOMContentLoaded", () => {
      UI HELPERS
   ============================================================================ */
   function showToast(msg, type = "info") {
+    const text = String(msg || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
     if (window.showToast) {
       window.showToast(msg, type);
       return;
@@ -665,15 +688,18 @@ document.addEventListener("DOMContentLoaded", () => {
   function ensureAutosaveStatus() {
     if (autosaveStatusEl) return autosaveStatusEl;
 
-    autosaveStatusEl = document.createElement("div");
-    autosaveStatusEl.className = "autosave-status autosave-status-idle";
-    autosaveStatusEl.textContent = "Borrador automatico listo";
+    autosaveStatusEl = document.getElementById("autosave-status");
+    if (autosaveStatusEl) return autosaveStatusEl;
 
     const host =
       document.querySelector(".module-header-actions") ||
       form?.querySelector(".form-grid") ||
       form;
 
+    autosaveStatusEl = document.createElement("div");
+    autosaveStatusEl.id = "autosave-status";
+    autosaveStatusEl.className = "autosave-status autosave-status-idle";
+    autosaveStatusEl.setAttribute("aria-live", "polite");
     host?.appendChild(autosaveStatusEl);
     return autosaveStatusEl;
   }

@@ -249,6 +249,29 @@
     }
   });
 
+  document.querySelectorAll(".cli-toggle-form").forEach((toggleForm) => {
+    toggleForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const valor = toggleForm.querySelector('input[name="valor"]')?.value;
+      const action = valor === "0" ? "desactivar" : "activar";
+
+      if (!window.Notif || typeof window.Notif.confirmar !== "function") {
+        if (window.confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} cliente?`)) {
+          toggleForm.submit();
+        }
+        return;
+      }
+
+      window.Notif.confirmar(
+        `${action.charAt(0).toUpperCase() + action.slice(1)} cliente`,
+        `<p>¿Seguro que querés <strong>${action}</strong> este cliente?</p>`,
+        { icon: "warning", confirmText: `Sí, ${action}`, cancelText: "Cancelar" }
+      ).then((ok) => {
+        if (ok) toggleForm.submit();
+      });
+    });
+  });
+
   window.addEventListener("beforeunload", (e) => {
     if (formChanged && drawer.classList.contains("is-open")) {
       e.preventDefault();
@@ -283,11 +306,22 @@
     let afipInFlight = false;
 
     const toast = (msg, type) => {
-      if (!window.showToast) return;
-      try {
-        window.showToast(msg, type);
-      } catch (_) {
-        window.showToast(msg);
+      if (window.Notif) {
+        if (type === "success" && typeof window.Notif.exito === "function") {
+          window.Notif.exito(msg);
+          return;
+        }
+        if (typeof window.Notif.info === "function") {
+          window.Notif.info(msg);
+          return;
+        }
+      }
+      if (window.showToast) {
+        try {
+          window.showToast(msg, type);
+        } catch (_) {
+          window.showToast(msg);
+        }
       }
     };
 

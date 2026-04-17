@@ -68,12 +68,38 @@
   }
 
   function toast(msg, type = "info") {
-    if (!el.toast) {
-      Notif.advertencia(msg);
+    const text = String(msg || "").trim();
+    if (!text) return;
+
+    if (window.Notif) {
+      if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+        window.Notif.exito(text);
+        return;
+      }
+      if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+        window.Notif.advertencia(text);
+        return;
+      }
+      if (type === "error" && typeof window.Notif.error === "function") {
+        window.Notif.error(text);
+        return;
+      }
+      if (typeof window.Notif.info === "function") {
+        window.Notif.info(text);
+        return;
+      }
+    }
+
+    if (typeof window.showToast === "function") {
+      window.showToast(text, type);
       return;
     }
 
-    el.toast.textContent = msg;
+    if (!el.toast) {
+      return;
+    }
+
+    el.toast.textContent = text;
     el.toast.className = `form-toast show toast-${type}`;
 
     setTimeout(() => {
