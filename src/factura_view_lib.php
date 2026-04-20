@@ -138,6 +138,8 @@ function flus_factura_view_load(PDO $pdo, int $facturaId): ?array
         'fiscal_error_message' => trim((string)($factura['fiscal_error_message'] ?? '')),
         'fiscal_requested_at' => trim((string)($factura['fiscal_requested_at'] ?? '')),
         'fiscal_approved_at' => trim((string)($factura['fiscal_approved_at'] ?? '')),
+        'fiscal_cerrada_at' => trim((string)($factura['fiscal_cerrada_at'] ?? '')),
+        'fiscal_cierre_motivo' => trim((string)($factura['fiscal_cierre_motivo'] ?? '')),
         'envio_ultimo_canal' => trim((string)($factura['envio_ultimo_canal'] ?? '')),
         'envio_ultimo_estado' => trim((string)($factura['envio_ultimo_estado'] ?? '')),
         'envio_ultimo_destino' => trim((string)($factura['envio_ultimo_destino'] ?? '')),

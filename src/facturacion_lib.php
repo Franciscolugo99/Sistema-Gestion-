@@ -929,6 +929,61 @@ function flus_facturacion_regularizar_factura(PDO $pdo, int $facturaId, array $o
     return flus_facturacion_procesar_factura_registrada($pdo, $registro, $baseOpciones + ['origen_regularizacion' => true]);
 }
 
+function flus_facturacion_cerrar_incidencia_fiscal(PDO $pdo, int $facturaId, string $motivo, ?int $usuarioId = null): void
+{
+    if ($facturaId <= 0) {
+        throw new RuntimeException('Factura invalida para cerrar incidencia.');
+    }
+    if (!flus_table_exists($pdo, 'facturas')) {
+        throw new RuntimeException('La tabla de facturas no esta disponible.');
+    }
+    foreach (['fiscal_cerrada_at', 'fiscal_cerrada_por', 'fiscal_cierre_motivo'] as $column) {
+        if (!flus_column_exists($pdo, 'facturas', $column)) {
+            throw new RuntimeException('Falta aplicar la migracion 029 para cerrar incidencias fiscales.');
+        }
+    }
+
+    $st = $pdo->prepare('SELECT * FROM facturas WHERE id = ? LIMIT 1');
+    $st->execute([$facturaId]);
+    $factura = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!is_array($factura)) {
+        throw new RuntimeException('Factura no encontrada para cerrar incidencia.');
+    }
+
+    $estadoFiscal = flus_facturacion_estado_fiscal_resolver_desde_factura($factura);
+    if ($estadoFiscal !== 'RECHAZADA') {
+        throw new RuntimeException('Solo se pueden cerrar manualmente las facturas rechazadas por ARCA.');
+    }
+    if (trim((string)($factura['cae'] ?? '')) !== '') {
+        throw new RuntimeException('La factura ya tiene CAE y no corresponde cerrar incidencia manual.');
+    }
+    if (trim((string)($factura['fiscal_cerrada_at'] ?? '')) !== '') {
+        return;
+    }
+
+    $motivo = trim(preg_replace('/\s+/', ' ', $motivo) ?? $motivo);
+    if ($motivo === '') {
+        $motivo = 'Cerrada manualmente sin reemision.';
+    }
+    if (strlen($motivo) > 255) {
+        $motivo = substr($motivo, 0, 255);
+    }
+
+    $stUpdate = $pdo->prepare("
+        UPDATE facturas
+        SET fiscal_cerrada_at = NOW(),
+            fiscal_cerrada_por = :usuario_id,
+            fiscal_cierre_motivo = :motivo
+        WHERE id = :id
+          AND fiscal_cerrada_at IS NULL
+    ");
+    $stUpdate->execute([
+        ':usuario_id' => $usuarioId !== null && $usuarioId > 0 ? $usuarioId : null,
+        ':motivo' => $motivo,
+        ':id' => $facturaId,
+    ]);
+}
+
 function regularizarFacturaFiscal(int $facturaId, array $opciones = []): int
 {
     $pdo = getPDO();

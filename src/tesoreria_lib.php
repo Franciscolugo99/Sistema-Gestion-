@@ -131,6 +131,42 @@ function flus_tesoreria_find_categoria(PDO $pdo, int $categoriaId): ?array
     return is_array($row) ? $row : null;
 }
 
+function flus_tesoreria_find_categoria_by_slug(PDO $pdo, string $slug): ?array
+{
+    $slug = trim($slug);
+    if ($slug === '' || !flus_tesoreria_tables_ready($pdo)) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM tesoreria_categorias WHERE slug = ? LIMIT 1');
+    $st->execute([$slug]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+}
+
+function flus_tesoreria_obligaciones_compras_ready(PDO $pdo): bool
+{
+    return flus_tesoreria_tables_ready($pdo)
+        && flus_column_exists($pdo, 'tesoreria_obligaciones', 'external_key')
+        && flus_column_exists($pdo, 'tesoreria_obligaciones', 'entidad_tipo')
+        && flus_column_exists($pdo, 'tesoreria_obligaciones', 'entidad_id')
+        && flus_column_exists($pdo, 'tesoreria_obligaciones', 'proveedor_id')
+        && flus_column_exists($pdo, 'tesoreria_obligaciones', 'compra_id');
+}
+
+function flus_tesoreria_find_obligacion_by_external_key(PDO $pdo, string $externalKey): ?array
+{
+    $externalKey = trim($externalKey);
+    if ($externalKey === '' || !flus_tesoreria_obligaciones_compras_ready($pdo)) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM tesoreria_obligaciones WHERE external_key = ? LIMIT 1');
+    $st->execute([$externalKey]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+}
+
 function flus_tesoreria_cuentas(PDO $pdo, bool $includeInactive = false): array
 {
     if (!flus_tesoreria_tables_ready($pdo)) {
@@ -610,6 +646,110 @@ function flus_tesoreria_save_obligacion(PDO $pdo, array $payload): array
     return ['success' => true, 'obligacion_id' => (int)$pdo->lastInsertId()];
 }
 
+function flus_tesoreria_create_purchase_obligation(PDO $pdo, int $compraId, array $payload = []): array
+{
+    if ($compraId <= 0) {
+        return ['success' => false, 'error' => 'Compra invalida.'];
+    }
+    if (!flus_tesoreria_obligaciones_compras_ready($pdo)) {
+        return ['success' => false, 'error' => 'Falta aplicar la migracion de obligaciones por compra.'];
+    }
+
+    $externalKey = 'compra:' . $compraId;
+    $existing = flus_tesoreria_find_obligacion_by_external_key($pdo, $externalKey);
+    if (is_array($existing)) {
+        return [
+            'success' => true,
+            'obligacion_id' => (int)$existing['id'],
+            'already_exists' => true,
+        ];
+    }
+
+    $stCompra = $pdo->prepare("
+        SELECT c.id, c.proveedor_id, c.fecha, c.tipo_comp, c.nro_comp, c.estado, c.total,
+               p.nombre AS proveedor_nombre
+        FROM compras c
+        LEFT JOIN proveedores p ON p.id = c.proveedor_id
+        WHERE c.id = ?
+        LIMIT 1
+    ");
+    $stCompra->execute([$compraId]);
+    $compra = $stCompra->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($compra)) {
+        return ['success' => false, 'error' => 'Compra no encontrada.'];
+    }
+
+    $estado = strtoupper((string)($compra['estado'] ?? ''));
+    if ($estado !== 'CONFIRMADA') {
+        return ['success' => false, 'error' => 'Solo se puede generar deuda de compras confirmadas.'];
+    }
+
+    $total = round((float)($compra['total'] ?? 0), 2);
+    if ($total <= 0) {
+        return ['success' => false, 'error' => 'La compra no tiene total valido para generar deuda.'];
+    }
+
+    $categoriaId = (int)($payload['categoria_id'] ?? 0);
+    if ($categoriaId <= 0) {
+        $categoria = flus_tesoreria_find_categoria_by_slug($pdo, 'compras-mercaderia');
+        $categoriaId = is_array($categoria) ? (int)$categoria['id'] : 0;
+    }
+    if ($categoriaId <= 0) {
+        return ['success' => false, 'error' => 'Falta la categoria de tesoreria para compras de mercaderia.'];
+    }
+
+    $proveedorId = (int)($compra['proveedor_id'] ?? 0);
+    $proveedorNombre = trim((string)($compra['proveedor_nombre'] ?? ''));
+    $comprobante = trim((string)($compra['tipo_comp'] ?? '') . ' ' . (string)($compra['nro_comp'] ?? ''));
+    $fechaCompra = substr((string)($compra['fecha'] ?? ''), 0, 10);
+    $fechaVencimiento = flus_tesoreria_valid_date((string)($payload['fecha_vencimiento'] ?? '')) ?? date('Y-m-d');
+    $descripcion = 'Compra #' . $compraId;
+    if ($proveedorNombre !== '') {
+        $descripcion .= ' - ' . $proveedorNombre;
+    }
+
+    $observaciones = 'Generada desde compras.';
+    if ($comprobante !== '') {
+        $observaciones .= ' Comprobante: ' . $comprobante . '.';
+    }
+    if (flus_tesoreria_valid_date($fechaCompra) !== null) {
+        $observaciones .= ' Fecha compra: ' . $fechaCompra . '.';
+    }
+
+    $createdBy = (int)($payload['created_by'] ?? 0);
+    if ($createdBy <= 0) {
+        $createdBy = (int)(flus_tesoreria_user_id() ?? 0);
+    }
+
+    $estadoObligacion = $fechaVencimiento < date('Y-m-d') ? 'VENCIDO' : 'PENDIENTE';
+    $st = $pdo->prepare("
+        INSERT INTO tesoreria_obligaciones
+            (external_key, descripcion, categoria_id, sucursal_id, sucursal_nombre, fecha_vencimiento,
+             importe_estimado, importe_pagado, estado, cuenta_sugerida_id, observaciones,
+             entidad_tipo, entidad_id, proveedor_id, compra_id, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, NULL, NULL, ?, ?, 0.00, ?, NULL, ?, 'COMPRA', ?, ?, ?, ?, NOW(), NOW())
+    ");
+    $st->execute([
+        $externalKey,
+        mb_substr($descripcion, 0, 180),
+        $categoriaId,
+        $fechaVencimiento,
+        $total,
+        $estadoObligacion,
+        mb_substr($observaciones, 0, 255),
+        $compraId,
+        $proveedorId > 0 ? $proveedorId : null,
+        $compraId,
+        $createdBy > 0 ? $createdBy : null,
+    ]);
+
+    return [
+        'success' => true,
+        'obligacion_id' => (int)$pdo->lastInsertId(),
+        'already_exists' => false,
+    ];
+}
+
 function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
 {
     if (!flus_tesoreria_tables_ready($pdo)) {
@@ -618,6 +758,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
 
     $estado = strtoupper(trim((string)($filters['estado'] ?? '')));
     $categoriaId = max(0, (int)($filters['categoria_id'] ?? 0));
+    $proveedorId = max(0, (int)($filters['proveedor_id'] ?? 0));
+    $compraId = max(0, (int)($filters['compra_id'] ?? 0));
     $sucursal = trim((string)($filters['sucursal_nombre'] ?? ''));
     $where = ['1=1'];
     $params = [];
@@ -633,6 +775,14 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         $where[] = 'o.categoria_id = :categoria_id';
         $params[':categoria_id'] = $categoriaId;
     }
+    if ($proveedorId > 0 && flus_column_exists($pdo, 'tesoreria_obligaciones', 'proveedor_id')) {
+        $where[] = 'o.proveedor_id = :proveedor_id';
+        $params[':proveedor_id'] = $proveedorId;
+    }
+    if ($compraId > 0 && flus_column_exists($pdo, 'tesoreria_obligaciones', 'compra_id')) {
+        $where[] = 'o.compra_id = :compra_id';
+        $params[':compra_id'] = $compraId;
+    }
     if ($sucursal !== '') {
         $where[] = 'o.sucursal_nombre LIKE :sucursal';
         $params[':sucursal'] = '%' . addcslashes($sucursal, "\\%_") . '%';
@@ -642,6 +792,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         SELECT o.*,
                cat.nombre AS categoria_nombre,
                cs.nombre AS cuenta_sugerida_nombre,
+               p.nombre AS proveedor_nombre,
+               c.nro_comp AS compra_nro_comp,
                CASE
                  WHEN o.estado IN ('PAGADO', 'CANCELADO') THEN o.estado
                  WHEN o.fecha_vencimiento < CURDATE() THEN 'VENCIDO'
@@ -650,6 +802,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         FROM tesoreria_obligaciones o
         LEFT JOIN tesoreria_categorias cat ON cat.id = o.categoria_id
         LEFT JOIN tesoreria_cuentas cs ON cs.id = o.cuenta_sugerida_id
+        LEFT JOIN proveedores p ON p.id = o.proveedor_id
+        LEFT JOIN compras c ON c.id = o.compra_id
         WHERE " . implode(' AND ', $where) . "
         ORDER BY o.fecha_vencimiento ASC, o.id ASC
     ";

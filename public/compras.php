@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
-
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
+require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';
 require_login();
 require_permission('editar_stock');
-
+$canManageTesoreria = function_exists('user_has_permission') && user_has_permission('gestionar_tesoreria');
 $HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
 $HAS_COMPRAS_TOTAL_IVA       = flus_column_exists($pdo, 'compras', 'total_iva');
 $HAS_COMPRAS_TOTAL_BRUTO     = flus_column_exists($pdo, 'compras', 'total_bruto');
@@ -784,11 +784,12 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
         }
       }
     }
-
-
-    /* =========================================================
-       4) Anular CONFIRMADA (opcional: revierte stock)
-    ========================================================= */
+    if ($accion === 'crear_obligacion_tesoreria') {
+      $res = flus_compras_crear_obligacion_tesoreria($pdo, (int)($_POST['compra_id'] ?? 0), $canManageTesoreria);
+      if (($res['success'] ?? false) === true) { header('Location: compras.php?saved=' . urlencode((string)$res['saved'])); exit; }
+      $msg = (string)($res['error'] ?? 'No se pudo crear la deuda en tesoreria.');
+      $msgType = 'error';
+    }
     if ($accion === 'anular_confirmada') {
       $compraId = (int)($_POST['compra_id'] ?? 0);
       $revertirStock = isset($_POST['revertir_stock']); // checkbox
@@ -1003,8 +1004,9 @@ if ($hasta) {
 }
 
 $whereSql = 'WHERE ' . implode(' AND ', $where);
-
-// Count
+$hasTesOblCompra = flus_tesoreria_obligaciones_compras_ready($pdo);
+$tesOblSelect = $hasTesOblCompra ? ", o.id AS tes_obligacion_id, o.estado AS tes_obligacion_estado, o.importe_estimado AS tes_obligacion_total, o.importe_pagado AS tes_obligacion_pagado" : ", NULL AS tes_obligacion_id, NULL AS tes_obligacion_estado, NULL AS tes_obligacion_total, NULL AS tes_obligacion_pagado";
+$tesOblJoin = $hasTesOblCompra ? "LEFT JOIN tesoreria_obligaciones o ON o.compra_id = c.id AND o.external_key = CONCAT('compra:', c.id)" : "";
 $stCount = $pdo->prepare("
   SELECT COUNT(*)
   FROM compras c
@@ -1017,11 +1019,11 @@ $totalRows = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 if ($page > $totalPages) { $page = $totalPages; $offset = ($page-1)*$perPage; }
 
-// List
 $stList = $pdo->prepare("
-  SELECT c.*, p.nombre AS proveedor_nombre
+  SELECT c.*, p.nombre AS proveedor_nombre {$tesOblSelect}
   FROM compras c
   LEFT JOIN proveedores p ON p.id = c.proveedor_id
+  {$tesOblJoin}
   {$whereSql}
   ORDER BY c.id DESC
   LIMIT :lim OFFSET :off
@@ -1408,6 +1410,7 @@ require __DIR__ . "/partials/header.php";
                       <button class="btn btn-danger btn-compact" type="submit" title="Eliminar">Eliminar</button>
                     </form>
                   <?php elseif ((string)$c['estado'] === 'CONFIRMADA'): ?>
+                    <?php require __DIR__ . '/partials/compra_tesoreria_action.php'; ?>
                     <button type="button" class="btn btn-warning btn-compact" onclick="anularCompra(<?= (int)$c['id'] ?>)" title="Anular">Anular</button>
                   <?php endif; ?>
                 </div>
@@ -1473,7 +1476,7 @@ require __DIR__ . "/partials/header.php";
 <?php if ($savedFlag !== '' || $msg !== ''): ?>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const messages = {created:'Compra guardada en borrador.',updated:'Compra actualizada correctamente.',confirmed:'Compra confirmada. Stock actualizado.',deleted:'Compra eliminada correctamente.',anulada:'Compra anulada.'};
+    const messages = {created:'Compra guardada en borrador.',updated:'Compra actualizada correctamente.',confirmed:'Compra confirmada. Stock actualizado.',deleted:'Compra eliminada correctamente.',anulada:'Compra anulada.',obligation_created:'Deuda creada en Tesoreria.',obligation_exists:'La compra ya tenia una deuda vinculada en Tesoreria.'};
     const flash = {success: messages[<?= json_encode($savedFlag) ?>] || '', message: <?= json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>, type: <?= json_encode($msgType, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>};
     const notify = (type, message) => {
       const text = String(message || '').trim();

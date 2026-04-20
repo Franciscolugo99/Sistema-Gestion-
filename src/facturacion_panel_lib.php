@@ -66,6 +66,7 @@ function flus_facturacion_panel_resolve_schema(PDO $pdo): array
             'cae_vto_col' => false,
             'modo_col' => false,
             'estado_fiscal_col' => false,
+            'fiscal_cerrada_at_col' => false,
             'join_clientes' => false,
             'fecha_expr' => 'NULL',
             'tipo_expr' => "''",
@@ -79,6 +80,7 @@ function flus_facturacion_panel_resolve_schema(PDO $pdo): array
             'cae_vto_expr' => 'NULL',
             'modo_expr' => 'NULL',
             'estado_fiscal_expr' => "'NO_APLICA'",
+            'incidencia_abierta_sql' => '1=1',
             'cliente_nombre_expr' => 'NULL',
             'cliente_cuit_expr' => 'NULL',
             'cae_vto_sql' => 'NULL',
@@ -96,6 +98,7 @@ function flus_facturacion_panel_resolve_schema(PDO $pdo): array
     $caeVtoCol = flus_column_exists($pdo, 'facturas', 'cae_vto');
     $modoCol = flus_column_exists($pdo, 'facturas', 'modo');
     $estadoFiscalCol = flus_column_exists($pdo, 'facturas', 'estado_fiscal');
+    $fiscalCerradaAtCol = flus_column_exists($pdo, 'facturas', 'fiscal_cerrada_at');
     $joinClientes = $clienteIdCol && flus_table_exists($pdo, 'clientes');
 
     return [
@@ -111,6 +114,7 @@ function flus_facturacion_panel_resolve_schema(PDO $pdo): array
         'cae_vto_col' => $caeVtoCol,
         'modo_col' => $modoCol,
         'estado_fiscal_col' => $estadoFiscalCol,
+        'fiscal_cerrada_at_col' => $fiscalCerradaAtCol,
         'join_clientes' => $joinClientes,
         'fecha_expr' => $fechaCol ? 'f.`' . $fechaCol . '`' : 'NULL',
         'tipo_expr' => $tipoCol ? 'f.`tipo`' : "''",
@@ -124,6 +128,7 @@ function flus_facturacion_panel_resolve_schema(PDO $pdo): array
         'cae_vto_expr' => $caeVtoCol ? 'f.`cae_vto`' : 'NULL',
         'modo_expr' => $modoCol ? 'f.`modo`' : 'NULL',
         'estado_fiscal_expr' => $estadoFiscalCol ? "COALESCE(f.`estado_fiscal`, 'NO_APLICA')" : "'NO_APLICA'",
+        'incidencia_abierta_sql' => $fiscalCerradaAtCol ? 'f.`fiscal_cerrada_at` IS NULL' : '1=1',
         'cliente_nombre_expr' => $joinClientes
             ? (flus_column_exists($pdo, 'clientes', 'nombre') ? 'c.`nombre`' : 'CONCAT("Cliente #", c.id)')
             : 'NULL',
@@ -343,10 +348,10 @@ function flus_facturacion_panel_read(PDO $pdo, array $filters): array
         if ($schema['estado_fiscal_col']) {
             $sqlIncidencias = "
                 SELECT
-                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'PENDIENTE_ENVIO' THEN 1 ELSE 0 END) AS pendientes,
-                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_TRANSITORIO' THEN 1 ELSE 0 END) AS transitorios,
-                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_POST_ARCA' THEN 1 ELSE 0 END) AS post_arca,
-                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECHAZADA' THEN 1 ELSE 0 END) AS rechazadas,
+                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'PENDIENTE_ENVIO' AND {$schema['incidencia_abierta_sql']} THEN 1 ELSE 0 END) AS pendientes,
+                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_TRANSITORIO' AND {$schema['incidencia_abierta_sql']} THEN 1 ELSE 0 END) AS transitorios,
+                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'ERROR_POST_ARCA' AND {$schema['incidencia_abierta_sql']} THEN 1 ELSE 0 END) AS post_arca,
+                    SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECHAZADA' AND {$schema['incidencia_abierta_sql']} THEN 1 ELSE 0 END) AS rechazadas,
                     SUM(CASE WHEN COALESCE(f.`estado_fiscal`, 'NO_APLICA') = 'RECUPERADA' THEN 1 ELSE 0 END) AS recuperadas
                 FROM facturas f
                 {$plan['join_sql']}

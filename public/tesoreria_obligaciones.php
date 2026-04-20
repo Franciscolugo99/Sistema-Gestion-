@@ -41,6 +41,8 @@ $cuentas = flus_tesoreria_cuentas($pdo);
 $categorias = flus_tesoreria_categorias($pdo, 'EGRESO');
 $obligaciones = flus_tesoreria_obligaciones($pdo, $_GET);
 $estadoFiltro = strtoupper(trim((string)($_GET['estado'] ?? '')));
+$proveedorFiltro = max(0, (int)($_GET['proveedor_id'] ?? 0));
+$compraFiltro = max(0, (int)($_GET['compra_id'] ?? 0));
 
 $pageTitle = 'Obligaciones de tesoreria - FLUS';
 $currentSection = 'tesoreria';
@@ -149,6 +151,8 @@ require __DIR__ . '/partials/header.php';
             <option value="<?= (int)$cat['id'] ?>" <?= (int)($_GET['categoria_id'] ?? 0) === (int)$cat['id'] ? 'selected' : '' ?>><?= h((string)$cat['nombre']) ?></option>
           <?php endforeach; ?>
         </select>
+        <?php if ($proveedorFiltro > 0): ?><input type="hidden" name="proveedor_id" value="<?= (int)$proveedorFiltro ?>"><?php endif; ?>
+        <?php if ($compraFiltro > 0): ?><input type="hidden" name="compra_id" value="<?= (int)$compraFiltro ?>"><?php endif; ?>
         <input name="sucursal_nombre" value="<?= h((string)($_GET['sucursal_nombre'] ?? '')) ?>" placeholder="Sucursal">
       </div>
       <div class="filters-right">
@@ -163,17 +167,19 @@ require __DIR__ . '/partials/header.php';
           <tr>
             <th>Vence</th>
             <th>Obligacion</th>
+            <th>Origen</th>
             <th>Categoria</th>
             <th>Sucursal</th>
             <th class="t-right">Importe</th>
             <th class="t-right">Pagado</th>
+            <th class="t-right">Saldo</th>
             <th>Estado</th>
             <th>Pago</th>
           </tr>
         </thead>
         <tbody>
           <?php if ($obligaciones === []): ?>
-            <tr><td colspan="8" class="muted">No hay obligaciones para esta vista.</td></tr>
+            <tr><td colspan="10" class="muted">No hay obligaciones para esta vista.</td></tr>
           <?php else: ?>
             <?php foreach ($obligaciones as $ob): ?>
               <?php
@@ -184,14 +190,28 @@ require __DIR__ . '/partials/header.php';
               <tr>
                 <td class="mono"><?= h(date('d/m/Y', strtotime((string)$ob['fecha_vencimiento']))) ?></td>
                 <td><strong><?= h((string)$ob['descripcion']) ?></strong><div class="fact-cell-sub"><?= h((string)($ob['observaciones'] ?? '')) ?></div></td>
+                <td>
+                  <?php if (!empty($ob['proveedor_nombre'])): ?>
+                    <strong><?= h((string)$ob['proveedor_nombre']) ?></strong>
+                    <div class="fact-cell-sub">
+                      <?php if ((int)($ob['compra_id'] ?? 0) > 0): ?>
+                        <a href="compra_detalle.php?id=<?= (int)$ob['compra_id'] ?>">Compra #<?= (int)$ob['compra_id'] ?></a>
+                      <?php endif; ?>
+                      <?= h((string)($ob['compra_nro_comp'] ?? '')) ?>
+                    </div>
+                  <?php else: ?>
+                    <span class="muted">Manual</span>
+                  <?php endif; ?>
+                </td>
                 <td><?= h((string)($ob['categoria_nombre'] ?? '')) ?></td>
                 <td><?= h((string)($ob['sucursal_nombre'] ?? 'General')) ?></td>
                 <td class="t-right"><?= money_ar((float)$ob['importe_estimado']) ?></td>
                 <td class="t-right"><?= money_ar((float)$ob['importe_pagado']) ?></td>
+                <td class="t-right"><strong><?= money_ar($saldo) ?></strong></td>
                 <td><span class="tesoreria-status <?= h($estadoClass) ?>"><?= h($estado) ?></span></td>
                 <td>
                   <?php if ($canManage && !in_array($estado, ['PAGADO', 'CANCELADO'], true)): ?>
-                    <form method="post" class="tesoreria-inline-form">
+                    <form method="post" class="tesoreria-inline-form js-tes-pay-form" data-saldo="<?= h(number_format($saldo, 2, '.', '')) ?>">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="pagar">
                       <input type="hidden" name="obligacion_id" value="<?= (int)$ob['id'] ?>">
@@ -206,10 +226,14 @@ require __DIR__ . '/partials/header.php';
                         </select>
                       </label>
                       <label>
-                        <span>Monto</span>
-                        <input name="importe" inputmode="decimal" value="<?= h(number_format($saldo, 2, ',', '.')) ?>">
+                        <span>Pagar monto</span>
+                        <input name="importe" class="js-tes-pay-amount" inputmode="decimal" value="<?= h(number_format($saldo, 2, ',', '.')) ?>" data-saldo="<?= h(number_format($saldo, 2, '.', '')) ?>">
+                        <small class="tesoreria-pay-hint">Saldo <?= h(money_ar($saldo)) ?></small>
                       </label>
-                      <button class="btn-mini btn-mini--primary" type="submit">Pagar</button>
+                      <div class="tesoreria-pay-actions">
+                        <button class="btn-mini" type="button" data-pay-total="<?= h(number_format($saldo, 2, ',', '.')) ?>">Total</button>
+                        <button class="btn-mini btn-mini--primary" type="submit">Pagar</button>
+                      </div>
                     </form>
                   <?php elseif ($estado === 'PAGADO'): ?>
                     <span class="muted">Pagada</span>
@@ -225,5 +249,34 @@ require __DIR__ . '/partials/header.php';
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const parseAmount = (value) => {
+    const raw = String(value || '').trim().replace(/\s/g, '');
+    if (!raw) return 0;
+    const hasComma = raw.includes(',');
+    const normalized = hasComma ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : NaN;
+  };
+  document.querySelectorAll('.js-tes-pay-form').forEach((form) => {
+    const input = form.querySelector('.js-tes-pay-amount');
+    const totalBtn = form.querySelector('[data-pay-total]');
+    const saldo = Number(form.dataset.saldo || input?.dataset.saldo || 0);
+    totalBtn?.addEventListener('click', () => { if (input) input.value = totalBtn.dataset.payTotal || ''; });
+    form.addEventListener('submit', (ev) => {
+      const amount = parseAmount(input?.value);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > saldo + 0.009) {
+        ev.preventDefault();
+        input?.focus();
+        input?.classList.add('is-invalid');
+        if (window.Notif?.error) window.Notif.error('El pago debe ser mayor a cero y no superar el saldo pendiente.');
+        else alert('El pago debe ser mayor a cero y no superar el saldo pendiente.');
+      }
+    });
+  });
+});
+</script>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

@@ -6,7 +6,7 @@ Objetivo: sacar FLUS 3.9.0 como release estable, con alcance congelado y criteri
 
 ## Estado de partida
 
-- smoke tecnico en verde: `116 OK / 0 fallidas / 0 skipped`
+- smoke tecnico en verde: `118 OK / 0 fallidas / 0 skipped`
 - migraciones versionadas y baseline presentes
 - modulos principales operativos:
   - ventas
@@ -151,14 +151,14 @@ Siguiente chequeo recomendado para ARCA:
 
 Si la salida no incluye fiscal real:
 
-- [ ] dejar documentado que 3.9.0 sale con modo demo/controlado
+- [x] dejar documentado que 3.9.0-rc1 sale con modo demo/controlado
 
 ### Fase 4 - Cierre de release
 
 - [x] actualizar `CHANGELOG.md`
 - [x] actualizar `README.md`
-- [ ] subir version visible a `3.9.0`
-- [ ] preparar nota corta de release
+- [x] subir version visible a `3.9.0-rc1`
+- [x] preparar nota corta de release
 - [ ] generar tag o commit de release
 
 ## Criterio de aprobacion

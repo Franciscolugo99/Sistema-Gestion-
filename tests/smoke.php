@@ -1153,6 +1153,9 @@ $results[] = flus_run_test('facturacion iva and comprobante helpers stay stable'
     flus_assert_same('CF', determinarCondIvaReceptor(['cond_iva' => 'Consumidor Final']));
     flus_assert_same(5, obtenerIdAlicuotaAfip(21.0));
     flus_assert_same(4, obtenerIdAlicuotaAfip(10.5));
+    flus_assert_same(1, determinarTipoComprobante('RI', 'MT'));
+    flus_assert_same(1, determinarTipoComprobante('Responsable Inscripto', 'Monotributo'));
+    flus_assert_same(6, determinarTipoComprobante('RI', 'CF'));
     flus_assert_same('FA', obtenerNombreTipoComprobante(1));
     flus_assert_same('FC', obtenerNombreTipoComprobante(11));
 });
@@ -1416,7 +1419,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     }
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 028", $integrationPhp);
+    flus_assert_contains("latest migration is 030", $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
     flus_assert_contains('non-remote fiscal invoice has one local ARCA event', $integrationPhp);
     flus_assert_contains('non-remote NC total is linked to original invoice', $integrationPhp);
@@ -1793,6 +1796,19 @@ $results[] = flus_run_test('fiscal scaffold bootstrap loads cleanly', function (
     flus_assert_true(class_exists('StubAnulacionFiscalCoordinator', false));
     flus_assert_true(class_exists('ArcaNotaCreditoService', false));
     flus_assert_true(class_exists('DbAnulacionFiscalCoordinator', false));
+});
+
+$results[] = flus_run_test('wsaa tra timestamps use local arca format with safety skew', function (): void {
+    require_once dirname(__DIR__) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'ArcaWsaa.php';
+
+    $method = new ReflectionMethod(ArcaWsaa::class, 'formatTraDateTime');
+    $method->setAccessible(true);
+
+    $formatted = (string)$method->invoke(null, 1776686400);
+
+    flus_assert_same('2026-04-20T09:00:00', $formatted);
+    flus_assert_false(str_contains($formatted, 'Z'));
+    flus_assert_false(str_contains($formatted, '+'));
 });
 
 $results[] = flus_run_test('facturacion arca degradation keeps availability criteria consistent', function (): void {
@@ -3366,12 +3382,54 @@ $results[] = flus_run_test('tesoreria v1 agrega cuentas movimientos obligaciones
     flus_assert_contains('tesoreria does not duplicate paid obligation', $integrationPhp);
 });
 
+$results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma idempotente', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $tesoreriaLib = file_get_contents($repoRoot . '/src/tesoreria_lib.php') ?: '';
+    $comprasTesoreriaLib = file_get_contents($repoRoot . '/src/compras_tesoreria_lib.php') ?: '';
+    $comprasPhp = (file_get_contents($repoRoot . '/public/compras.php') ?: '')
+        . (file_get_contents($repoRoot . '/public/partials/compra_tesoreria_action.php') ?: '');
+    $proveedoresPhp = file_get_contents($repoRoot . '/public/proveedores.php') ?: '';
+    $obligacionesPhp = file_get_contents($repoRoot . '/public/tesoreria_obligaciones.php') ?: '';
+    $migrationSql = file_get_contents($repoRoot . '/migrations/030_tesoreria_obligaciones_compras.sql') ?: '';
+    $contractDoc = file_get_contents($repoRoot . '/docs/CONTRATO_FINANCIERO_FLUS.md') ?: '';
+
+    foreach (['external_key', 'entidad_tipo', 'entidad_id', 'proveedor_id', 'compra_id'] as $column) {
+        flus_assert_contains("COLUMN `{$column}`", $migrationSql);
+    }
+    flus_assert_contains('ux_tes_obl_external_key', $migrationSql);
+    flus_assert_contains('compras-mercaderia', $migrationSql);
+    flus_assert_contains('function flus_tesoreria_create_purchase_obligation(PDO $pdo, int $compraId, array $payload = []): array', $tesoreriaLib);
+    flus_assert_contains("'compra:' . \$compraId", $tesoreriaLib);
+    flus_assert_contains('flus_tesoreria_find_obligacion_by_external_key($pdo, $externalKey)', $tesoreriaLib);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';", $comprasPhp);
+    flus_assert_contains('function flus_compras_crear_obligacion_tesoreria(PDO $pdo, int $compraId, bool $canManage): array', $comprasTesoreriaLib);
+    flus_assert_contains("name=\"accion\" value=\"crear_obligacion_tesoreria\"", $comprasPhp);
+    flus_assert_contains('tes_obligacion_estado', $comprasPhp);
+    flus_assert_contains('deuda_pendiente', $proveedoresPhp);
+    flus_assert_contains('obligaciones_pendientes', $proveedoresPhp);
+    flus_assert_contains('tesoreria_obligaciones.php?proveedor_id=', $proveedoresPhp);
+    flus_assert_contains('proveedor_nombre', $obligacionesPhp);
+    flus_assert_contains('Compra #', $obligacionesPhp);
+    flus_assert_contains('name="proveedor_id"', $obligacionesPhp);
+    flus_assert_contains('tesoreria_obligaciones.php?compra_id=', $comprasPhp);
+    flus_assert_contains('js-tes-pay-form', $obligacionesPhp);
+    flus_assert_contains('data-pay-total', $obligacionesPhp);
+    flus_assert_contains('El pago debe ser mayor a cero y no superar el saldo pendiente.', $obligacionesPhp);
+    flus_assert_contains('o.proveedor_id = :proveedor_id', $tesoreriaLib);
+    flus_assert_contains('o.compra_id = :compra_id', $tesoreriaLib);
+    flus_assert_contains('obligation_created', $comprasPhp);
+    flus_assert_contains('Compra no es pago', $contractDoc);
+});
+
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {
     $repoRoot = dirname(__DIR__);
     $runtimeLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_runtime_lib.php');
     $panelLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
     $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
     $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+    $facturacionLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_lib.php');
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+    $migration029 = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '029_facturas_cierre_incidencia_fiscal.sql');
 
     flus_assert_contains("function flus_facturacion_estado_fiscal_visible_en_incidencias(?string \$raw): bool", $runtimeLib);
     flus_assert_contains("function flus_facturacion_estado_fiscal_resolver_desde_factura(array \$factura): string", $runtimeLib);
@@ -3379,11 +3437,20 @@ $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expon
     flus_assert_contains("'label' => 'Corregir y reemitir'", $runtimeLib);
     flus_assert_contains("'arca no responde'", $runtimeLib);
     flus_assert_contains("'rechazadas' => 0", $panelLib);
-    flus_assert_contains("= 'RECHAZADA' THEN 1 ELSE 0 END) AS rechazadas", $panelLib);
+    flus_assert_contains("= 'RECHAZADA' AND", $panelLib);
+    flus_assert_contains("f.`fiscal_cerrada_at` IS NULL", $panelLib);
     flus_assert_contains("\$incidencias['rechazadas']", $facturacionPhp);
     flus_assert_contains("\$estadoFiscalFila = flus_facturacion_estado_fiscal_resolver_desde_factura(\$factura);", $facturacionPhp);
     flus_assert_contains("\$accionFiscal = flus_facturacion_factura_accion_operativa(\$factura);", $facturacionPhp);
     flus_assert_contains("IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'RECHAZADA')", $recoveryPhp);
+    flus_assert_contains('AND f.fiscal_cerrada_at IS NULL', $recoveryPhp);
+    flus_assert_contains('cerrar_incidencia', $recoveryPhp);
+    flus_assert_contains('Cerrar incidencia', $recoveryPhp);
+    flus_assert_contains('function flus_facturacion_cerrar_incidencia_fiscal', $facturacionLib);
+    flus_assert_contains('Solo se pueden cerrar manualmente las facturas rechazadas por ARCA.', $facturacionLib);
+    flus_assert_contains('Incidencia cerrada:', $facturaVerPhp);
+    flus_assert_contains('ADD COLUMN `fiscal_cerrada_at`', $migration029);
+    flus_assert_contains('idx_facturas_fiscal_cierre', $migration029);
     flus_assert_contains("\$estadoFiscal = flus_facturacion_estado_fiscal_resolver_desde_factura(\$caso);", $recoveryPhp);
     flus_assert_contains("\$accionFiscal = flus_facturacion_factura_accion_operativa(\$caso);", $recoveryPhp);
 });

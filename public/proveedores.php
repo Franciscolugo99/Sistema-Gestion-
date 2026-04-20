@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/db_helpers.php';
 require_once FLUS_ROOT . '/src/logger.php';
+require_once FLUS_ROOT . '/src/tesoreria_lib.php';
 
 require_login();
 require_any_permission(['ver_proveedores','editar_proveedores']);
@@ -384,6 +385,22 @@ function getProveedorStats(PDO $pdo, int $id): array {
     ");
     $stCompras->execute([$id]);
     $compras = $stCompras->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'monto' => 0, 'ultima_fecha' => null];
+    $deudaPendiente = 0.0;
+    $obligacionesPendientes = 0;
+    if (flus_tesoreria_obligaciones_compras_ready($pdo)) {
+        $stDeuda = $pdo->prepare("
+            SELECT
+                COUNT(*) AS obligaciones,
+                COALESCE(SUM(GREATEST(importe_estimado - importe_pagado, 0)), 0) AS saldo
+            FROM tesoreria_obligaciones
+            WHERE proveedor_id = ?
+              AND estado IN ('PENDIENTE','PARCIAL','VENCIDO')
+        ");
+        $stDeuda->execute([$id]);
+        $deuda = $stDeuda->fetch(PDO::FETCH_ASSOC) ?: [];
+        $deudaPendiente = (float)($deuda['saldo'] ?? 0);
+        $obligacionesPendientes = (int)($deuda['obligaciones'] ?? 0);
+    }
 
     $ultimaCompra = null;
     if ((int)$compras['total'] > 0) {
@@ -405,6 +422,8 @@ function getProveedorStats(PDO $pdo, int $id): array {
         'productos_legacy' => $legacy,
         'compras_count' => (int)$compras['total'],
         'compras_monto' => (float)$compras['monto'],
+        'deuda_pendiente' => $deudaPendiente,
+        'obligaciones_pendientes' => $obligacionesPendientes,
         'ultima_compra_fecha' => $compras['ultima_fecha'] ?? null,
         'ultima_compra' => $ultimaCompra,
     ];
@@ -793,11 +812,20 @@ $productosJoinSql = buildProveedorProductoMatchSql('prd', 'p', hasTableColumn($p
 $legacyProductosSql = hasTableColumn($pdo, 'productos', 'proveedor')
     ? "(SELECT COUNT(*) FROM productos prd WHERE (prd.proveedor_id IS NULL OR prd.proveedor_id = 0) AND TRIM(LOWER(COALESCE(prd.proveedor, ''))) = TRIM(LOWER(p.nombre)))"
     : "0";
+$hasTesOblCompra = flus_tesoreria_obligaciones_compras_ready($pdo);
+$deudaPendienteSql = $hasTesOblCompra
+    ? "(SELECT COALESCE(SUM(GREATEST(o.importe_estimado - o.importe_pagado, 0)), 0) FROM tesoreria_obligaciones o WHERE o.proveedor_id = p.id AND o.estado IN ('PENDIENTE','PARCIAL','VENCIDO'))"
+    : "0";
+$obligacionesPendientesSql = $hasTesOblCompra
+    ? "(SELECT COUNT(*) FROM tesoreria_obligaciones o WHERE o.proveedor_id = p.id AND o.estado IN ('PENDIENTE','PARCIAL','VENCIDO'))"
+    : "0";
 $stList = $pdo->prepare("
     SELECT p.*,
            (SELECT COUNT(*) FROM productos prd WHERE $productosJoinSql) as productos_count,
            $legacyProductosSql as productos_legacy_count,
            (SELECT COUNT(*) FROM compras WHERE proveedor_id = p.id) as compras_count,
+           $deudaPendienteSql as deuda_pendiente,
+           $obligacionesPendientesSql as obligaciones_pendientes,
            (SELECT MAX(c.fecha) FROM compras c WHERE c.proveedor_id = p.id) as ultima_compra_fecha,
            (SELECT c2.total FROM compras c2 WHERE c2.proveedor_id = p.id ORDER BY c2.fecha DESC, c2.id DESC LIMIT 1) as ultima_compra_total
     FROM proveedores p
@@ -982,6 +1010,13 @@ require __DIR__ . '/partials/header.php';
                                 <td class="center">
                                     <?php if ($p['compras_count'] > 0): ?>
                                         <span class="badge badge-success"><?= (int)$p['compras_count'] ?></span>
+                                        <?php if ((float)($p['deuda_pendiente'] ?? 0) > 0): ?>
+                                            <small class="email-small">
+                                                <a href="tesoreria_obligaciones.php?proveedor_id=<?= (int)$p['id'] ?>&estado=PENDIENTE">
+                                                    Debe <?= money_ar((float)$p['deuda_pendiente']) ?>
+                                                </a>
+                                            </small>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span class="text-muted">0</span>
                                     <?php endif; ?>
@@ -1104,6 +1139,12 @@ require __DIR__ . '/partials/header.php';
                         <span class="stat-value"><?= money_ar($editStats['compras_monto']) ?></span>
                         <span class="stat-label">Total comprado</span>
                     </div>
+                    <?php if ((float)($editStats['deuda_pendiente'] ?? 0) > 0): ?>
+                    <div class="stat-item">
+                        <span class="stat-value"><?= money_ar((float)$editStats['deuda_pendiente']) ?></span>
+                        <span class="stat-label">Deuda pendiente</span>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="prov-insight-grid">

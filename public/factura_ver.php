@@ -400,6 +400,8 @@ $fiscalErrorCode = (string)$viewData['fiscal_error_code'];
 $fiscalErrorMessage = (string)$viewData['fiscal_error_message'];
 $fiscalRequestedAt = (string)$viewData['fiscal_requested_at'];
 $fiscalApprovedAt = (string)$viewData['fiscal_approved_at'];
+$fiscalCerradaAt = (string)($viewData['fiscal_cerrada_at'] ?? '');
+$fiscalCierreMotivo = (string)($viewData['fiscal_cierre_motivo'] ?? '');
 $envioUltimoCanal = (string)$viewData['envio_ultimo_canal'];
 $envioUltimoEstado = (string)$viewData['envio_ultimo_estado'];
 $envioUltimoDestino = (string)$viewData['envio_ultimo_destino'];
@@ -1047,7 +1049,7 @@ if ($pdfMode) {
         <?php endif; ?>
       <?php endif; ?>
 
-      <?php if (!$pdfMode && flus_facturacion_estado_fiscal_requiere_intervencion($estadoFiscal)): ?>
+      <?php if (!$pdfMode && flus_facturacion_estado_fiscal_requiere_intervencion($estadoFiscal) && $fiscalCerradaAt === ''): ?>
         <section class="factura-box factura-box--payment no-print" style="border-color:var(--color-warning,#f59e0b);">
           <div class="box-title">Incidencia fiscal</div>
           <div class="payment-stack">
@@ -1079,6 +1081,9 @@ if ($pdfMode) {
           <?php endif; ?>
           <?php if (!$pdfMode && $fiscalApprovedAt !== ''): ?>
             <div class="fiscal-row--internal"><strong>Aprobado:</strong> <?= h($fiscalApprovedAt) ?></div>
+          <?php endif; ?>
+          <?php if (!$pdfMode && $fiscalCerradaAt !== ''): ?>
+            <div class="fiscal-row--internal"><strong>Incidencia cerrada:</strong> <?= h($fiscalCerradaAt) ?><?= $fiscalCierreMotivo !== '' ? ' · ' . h($fiscalCierreMotivo) : '' ?></div>
           <?php endif; ?>
           <?php if (!$pdfMode && ($fiscalErrorCode !== '' || $fiscalErrorMessage !== '')): ?>
             <div class="fiscal-row--internal"><strong>Error fiscal:</strong> <?= h(trim($fiscalErrorCode . ' ' . $fiscalErrorMessage)) ?></div>

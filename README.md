@@ -2,21 +2,22 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.8.3  
-**Build:** 2026-04-03  
+**Version:** 3.9.0-rc1
+**Build:** 2026-04-20
 **Release objetivo:** 3.9.0  
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 3.9.0 (2026-04-17)
+## Estado de release 3.9.0-rc1 (2026-04-20)
 
-- Smoke tecnico: `116 OK / 0 fallidas / 0 skipped`
+- Smoke tecnico: `118 OK / 0 fallidas / 0 skipped`
 - Migraciones y baseline: validados sobre upgrade local e instalacion limpia
 - Tesoreria v1: incorporada en navegacion, permisos y esquema
 - Facturacion: flujo fiscal, documental, visor, PDF, recovery y NC alineados a nivel tecnico
 - Entorno fiscal real: no validado end-to-end en este repo de referencia
+- Salida actual: `3.9.0-rc1`, con fiscal real pendiente de datos/certificados del entorno objetivo
 
 ### Nota sobre ARCA y entorno simulado
 
@@ -31,6 +32,8 @@ Ver tambien:
 
 - [docs/RELEASE_3_9_0.md](docs/RELEASE_3_9_0.md)
 - [docs/QA_FACTURACION_PRODUCCION.md](docs/QA_FACTURACION_PRODUCCION.md)
+- [docs/PLAN_INTEGRACION_FLUS.md](docs/PLAN_INTEGRACION_FLUS.md)
+- [docs/CONTRATO_FINANCIERO_FLUS.md](docs/CONTRATO_FINANCIERO_FLUS.md)
 
 ## Estado actual (2026-04-17)
 
@@ -293,7 +296,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `028_tesoreria_v1.sql`.
+- Verificar que corran las migraciones pendientes hasta `030_tesoreria_obligaciones_compras.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

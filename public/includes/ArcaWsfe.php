@@ -364,11 +364,18 @@ final class ArcaWsfe
 
         // Responsable Inscripto
         if ($condIvaEmisor === 'RI' || $condIvaEmisor === 'RESPONSABLE INSCRIPTO') {
-            // A otro RI -> Factura A
-            if ($condIvaReceptor === 'RI' || $condIvaReceptor === 'RESPONSABLE INSCRIPTO') {
+            // A otro RI o a monotributista -> Factura A.
+            // ARCA rechaza CondicionIVAReceptorId=6 si se informa sobre clase B.
+            if (
+                $condIvaReceptor === 'RI'
+                || $condIvaReceptor === 'RESPONSABLE INSCRIPTO'
+                || $condIvaReceptor === 'MT'
+                || $condIvaReceptor === 'MONOTRIBUTISTA'
+                || $condIvaReceptor === 'MONOTRIBUTO'
+            ) {
                 return self::FACTURA_A;
             }
-            // A cualquier otro -> Factura B
+            // A consumidores finales, exentos y no alcanzados -> Factura B
             return self::FACTURA_B;
         }
 

@@ -144,9 +144,10 @@ final class ArcaWsaa
         $traFile = $tmpDir . DIRECTORY_SEPARATOR . 'flus_tra_' . bin2hex(random_bytes(4)) . '.xml';
         $signedFile = $tmpDir . DIRECTORY_SEPARATOR . 'flus_tra_' . bin2hex(random_bytes(4)) . '.p7s';
 
-        $uniqueId = (string)time();
-        $genTime = gmdate('Y-m-d\TH:i:s\Z', time() - 60);
-        $expTime = gmdate('Y-m-d\TH:i:s\Z', time() + 60 * 60 * 12);
+        $now = time();
+        $uniqueId = (string)$now;
+        $genTime = self::formatTraDateTime($now - 600);
+        $expTime = self::formatTraDateTime($now + 60 * 60 * 12);
 
         $tra = '<?xml version="1.0" encoding="UTF-8"?>'
             . '<loginTicketRequest version="1.0">'
@@ -198,6 +199,18 @@ final class ArcaWsaa
         }
 
         return $cms;
+    }
+
+    private static function formatTraDateTime(int $timestamp): string
+    {
+        $timezone = defined('APP_TIMEZONE') ? (string)APP_TIMEZONE : 'America/Argentina/Buenos_Aires';
+        try {
+            $date = (new DateTimeImmutable('@' . $timestamp))->setTimezone(new DateTimeZone($timezone));
+        } catch (Throwable $e) {
+            $date = (new DateTimeImmutable('@' . $timestamp))->setTimezone(new DateTimeZone('America/Argentina/Buenos_Aires'));
+        }
+
+        return $date->format('Y-m-d\TH:i:s');
     }
 
     private static function cacheFile(string $serviceId): string

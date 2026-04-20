@@ -29,11 +29,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $facturaId = max(0, (int)($_POST['factura_id'] ?? 0));
     if ($facturaId <= 0) {
-        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Factura invalida para regularizar.'));
+        header('Location: facturacion_recovery.php?msgerr=' . urlencode('Factura invalida para operar.'));
         exit;
     }
 
+    $action = trim((string)($_POST['action'] ?? 'regularizar'));
     try {
+        if ($action === 'cerrar_incidencia') {
+            $motivo = trim((string)($_POST['motivo'] ?? ''));
+            $usuarioId = function_exists('session_user_id') ? session_user_id() : (int)($_SESSION['user_id'] ?? 0);
+            flus_facturacion_cerrar_incidencia_fiscal($pdo, $facturaId, $motivo, $usuarioId > 0 ? $usuarioId : null);
+            header('Location: facturacion_recovery.php?msg=' . urlencode('Incidencia fiscal de factura #' . $facturaId . ' cerrada localmente sin borrar la traza.') . '&factura_id=' . $facturaId);
+            exit;
+        }
+
         $facturaRegularizadaId = flus_facturacion_regularizar_factura($pdo, $facturaId);
         header('Location: facturacion_recovery.php?msg=' . urlencode('Factura #' . $facturaRegularizadaId . ' regularizada o confirmada sin duplicar emision.') . '&factura_id=' . $facturaRegularizadaId);
     } catch (Throwable $e) {
@@ -43,7 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $casos = [];
+$hasFiscalCierre = false;
 if (flus_table_exists($pdo, 'facturas') && flus_column_exists($pdo, 'facturas', 'estado_fiscal')) {
+    $hasFiscalCierre = flus_column_exists($pdo, 'facturas', 'fiscal_cerrada_at');
     $joinClientes = flus_table_exists($pdo, 'clientes') && flus_column_exists($pdo, 'facturas', 'cliente_id');
     $joinEventosArca = flus_table_exists($pdo, 'factura_eventos_arca')
         && flus_column_exists($pdo, 'facturas', 'fiscal_request_uid')
@@ -68,6 +79,7 @@ if (flus_table_exists($pdo, 'facturas') && flus_column_exists($pdo, 'facturas', 
         " . ($joinClientes ? 'LEFT JOIN clientes c ON c.id = f.cliente_id' : '') . "
         " . ($joinEventosArca ? 'LEFT JOIN factura_eventos_arca fe ON CONVERT(fe.request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(f.fiscal_request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci' : '') . "
         WHERE COALESCE(f.estado_fiscal, 'NO_APLICA') IN ('PENDIENTE_ENVIO', 'ERROR_TRANSITORIO', 'ERROR_POST_ARCA', 'RECHAZADA')
+          " . ($hasFiscalCierre ? 'AND f.fiscal_cerrada_at IS NULL' : '') . "
         ORDER BY COALESCE(f.fiscal_requested_at, f.fiscal_approved_at) DESC, f.id DESC
         LIMIT 200
     ";
@@ -108,6 +120,7 @@ require __DIR__ . '/partials/header.php';
             <p class="page-sub module-subtitle">
               Vista minima de comprobantes pendientes, transitorios, en ERROR_POST_ARCA o rechazados.
               La regularizacion reutiliza request_uid, eventos ARCA y recovery simple antes de cualquier reintento; los rechazados se corrigen y reemiten manualmente.
+              Los rechazos de prueba pueden cerrarse localmente sin borrar auditoria.
             </p>
           </div>
         </div>
@@ -122,6 +135,11 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
     <?php if ($msgErr !== ''): ?>
       <div class="alert alert-error" style="margin-bottom:12px;"><?= frc_h($msgErr) ?></div>
+    <?php endif; ?>
+    <?php if (!$hasFiscalCierre): ?>
+      <div class="alert alert-warning" style="margin-bottom:12px;">
+        Para cerrar rechazos de prueba falta aplicar la migracion 029 de cierre de incidencias fiscales.
+      </div>
     <?php endif; ?>
 
     <?php if ($casos === []): ?>
@@ -187,12 +205,22 @@ require __DIR__ . '/partials/header.php';
  FLUS intentara recuperar desde trazas/eventos y solo reenviara cuando el caso sea seguro.');">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
+                      <input type="hidden" name="action" value="regularizar">
                       <button type="submit" class="btn-mini btn-mini--danger">Regularizar</button>
                     </form>
                   <?php elseif ($puedeOperarFiscal && ($accionFiscal['url'] ?? '') !== '' && ($accionFiscal['label'] ?? '') !== ''): ?>
                     <a href="<?= frc_h((string)$accionFiscal['url']) ?>" class="btn-mini btn-mini--ghost"><?= frc_h((string)$accionFiscal['label']) ?></a>
                   <?php else: ?>
                     <span class="fact-inline-badge">Solo lectura</span>
+                  <?php endif; ?>
+                  <?php if ($puedeOperarFiscal && $hasFiscalCierre && $estadoFiscal === 'RECHAZADA'): ?>
+                    <form method="post" action="facturacion_recovery.php" style="margin-top:8px;" onsubmit="return confirm('Cerrar la incidencia fiscal #<?= (int)$caso['id'] ?> sin reemitir? La factura rechazada queda en auditoria, pero sale de la bandeja activa.');">
+                      <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
+                      <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
+                      <input type="hidden" name="action" value="cerrar_incidencia">
+                      <input type="text" name="motivo" value="Prueba de homologacion / no reemitir" maxlength="255" style="width:220px;max-width:100%;margin-bottom:6px;">
+                      <button type="submit" class="btn-mini btn-mini--ghost">Cerrar incidencia</button>
+                    </form>
                   <?php endif; ?>
                   <?php if (trim((string)($accionFiscal['help'] ?? '')) !== ''): ?>
                     <div class="fact-cell-sub" style="margin-top:6px;max-width:220px;"><?= frc_h((string)$accionFiscal['help']) ?></div>
