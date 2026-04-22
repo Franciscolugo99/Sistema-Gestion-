@@ -181,19 +181,58 @@ function flus_cobranzas_factura_es_cobrable(array $factura): bool
     return $naturaleza !== 'NC' && !str_starts_with($tipo, 'NC');
 }
 
+function flus_cobranzas_notas_credito_para_factura(PDO $pdo, int $facturaId): array
+{
+    if ($facturaId <= 0
+        || !flus_table_exists($pdo, 'facturas')
+        || !flus_column_exists($pdo, 'facturas', 'factura_asociada_id')) {
+        return ['count' => 0, 'total' => 0.0];
+    }
+
+    $where = ['factura_asociada_id = ?'];
+    if (flus_column_exists($pdo, 'facturas', 'naturaleza')) {
+        $where[] = "UPPER(COALESCE(naturaleza, '')) = 'NC'";
+    } elseif (flus_column_exists($pdo, 'facturas', 'tipo')) {
+        $where[] = "UPPER(COALESCE(tipo, '')) LIKE 'NC%'";
+    }
+    if (flus_column_exists($pdo, 'facturas', 'estado')) {
+        $where[] = "UPPER(COALESCE(estado, 'EMITIDA')) NOT IN ('ANULADA', 'CANCELADA')";
+    }
+
+    $totalExpr = flus_column_exists($pdo, 'facturas', 'total') ? 'ABS(COALESCE(total, 0))' : '0';
+    $st = $pdo->prepare('
+        SELECT COUNT(*) AS count, COALESCE(SUM(' . $totalExpr . '), 0) AS total
+        FROM facturas
+        WHERE ' . implode(' AND ', $where)
+    );
+    $st->execute([$facturaId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return [
+        'count' => (int)($row['count'] ?? 0),
+        'total' => round(max(0.0, (float)($row['total'] ?? 0)), 2),
+    ];
+}
+
 function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array
 {
     $facturaId = (int)($factura['id'] ?? 0);
     $documentoId = (int)($factura['documento_id'] ?? 0);
-    $total = round(abs((float)($factura['total'] ?? $factura['venta_total'] ?? 0)), 2);
-    $cobrable = $facturaId > 0 && $total > 0 && flus_cobranzas_factura_es_cobrable($factura);
+    $totalOriginal = round(abs((float)($factura['total'] ?? $factura['venta_total'] ?? 0)), 2);
+    $notasCredito = flus_cobranzas_notas_credito_para_factura($pdo, $facturaId);
+    $totalNc = round(min($totalOriginal, (float)($notasCredito['total'] ?? 0)), 2);
+    $total = round(max(0.0, $totalOriginal - $totalNc), 2);
+    $cobrable = $facturaId > 0 && $totalOriginal > 0 && flus_cobranzas_factura_es_cobrable($factura);
 
     $base = [
         'total' => $total,
+        'total_original' => $totalOriginal,
+        'total_nc' => $totalNc,
+        'nc_count' => (int)($notasCredito['count'] ?? 0),
         'cobrado' => 0.0,
         'saldo' => $total,
-        'estado' => $cobrable ? 'SIN_COBRAR' : 'NO_APLICA',
-        'label' => $cobrable ? 'Sin cobrar' : 'No aplica',
+        'estado' => $cobrable ? ($total <= 0.009 ? 'COMPENSADA' : 'SIN_COBRAR') : 'NO_APLICA',
+        'label' => $cobrable ? ($total <= 0.009 ? 'Compensada por NC' : 'Sin cobrar') : 'No aplica',
         'cobrable' => $cobrable,
         'receipts_ready' => flus_cobranzas_receipts_ready($pdo),
         'recibos_count' => 0,
@@ -225,7 +264,11 @@ function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array
     $estado = 'SIN_COBRAR';
     $label = 'Sin cobrar';
 
-    if ($saldo <= 0.009) {
+    if ($total <= 0.009 && $totalNc > 0.009) {
+        $estado = 'COMPENSADA';
+        $label = 'Compensada por NC';
+        $saldo = 0.0;
+    } elseif ($saldo <= 0.009) {
         $estado = 'COBRADA';
         $label = 'Cobrada';
         $saldo = 0.0;
@@ -266,7 +309,7 @@ function flus_cobranzas_panel_normalize_filters(array $filters): array
     }
 
     $estadoCobro = strtoupper(trim((string)($filters['estado_cobro'] ?? 'PENDIENTE')));
-    if (!in_array($estadoCobro, ['PENDIENTE', 'SIN_COBRAR', 'PARCIAL', 'COBRADA', 'TODAS'], true)) {
+    if (!in_array($estadoCobro, ['PENDIENTE', 'SIN_COBRAR', 'PARCIAL', 'COBRADA', 'COMPENSADA', 'TODAS'], true)) {
         $estadoCobro = 'PENDIENTE';
     }
 
@@ -286,20 +329,25 @@ function flus_cobranzas_panel_normalize_filters(array $filters): array
     ];
 }
 
-function flus_cobranzas_panel_estado_desde_montos(float $total, float $cobrado): array
+function flus_cobranzas_panel_estado_desde_montos(float $total, float $cobrado, float $creditado = 0.0): array
 {
     $total = round(max(0.0, $total), 2);
     $cobrado = round(max(0.0, $cobrado), 2);
-    $saldo = round(max(0.0, $total - $cobrado), 2);
+    $creditado = round(min($total, max(0.0, $creditado)), 2);
+    $neto = round(max(0.0, $total - $creditado), 2);
+    $saldo = round(max(0.0, $neto - $cobrado), 2);
 
-    if ($saldo <= 0.009 && $total > 0) {
-        return ['estado' => 'COBRADA', 'label' => 'Cobrada', 'saldo' => 0.0];
+    if ($neto <= 0.009 && $creditado > 0.009) {
+        return ['estado' => 'COMPENSADA', 'label' => 'Compensada por NC', 'saldo' => 0.0, 'neto' => 0.0];
+    }
+    if ($saldo <= 0.009 && $neto > 0) {
+        return ['estado' => 'COBRADA', 'label' => 'Cobrada', 'saldo' => 0.0, 'neto' => $neto];
     }
     if ($cobrado > 0.009) {
-        return ['estado' => 'PARCIAL', 'label' => 'Cobro parcial', 'saldo' => $saldo];
+        return ['estado' => 'PARCIAL', 'label' => 'Cobro parcial', 'saldo' => $saldo, 'neto' => $neto];
     }
 
-    return ['estado' => 'SIN_COBRAR', 'label' => 'Sin cobrar', 'saldo' => $saldo];
+    return ['estado' => 'SIN_COBRAR', 'label' => 'Sin cobrar', 'saldo' => $saldo, 'neto' => $neto];
 }
 
 function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
@@ -309,11 +357,14 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
     $rows = [];
     $stats = [
         'total_facturado' => 0.0,
+        'total_nc' => 0.0,
+        'total_neto' => 0.0,
         'total_cobrado' => 0.0,
         'total_saldo' => 0.0,
         'sin_cobrar' => 0,
         'parciales' => 0,
         'cobradas' => 0,
+        'compensadas' => 0,
         'pendientes' => 0,
     ];
 
@@ -412,6 +463,8 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
     $joinRecibos = '';
     $cobradoExpr = '0';
     $recibosCountExpr = '0';
+    $ncTotalExpr = '0';
+    $ncCountExpr = '0';
     if ($receiptsReady) {
         $docFallback = $hasDocumentoId
             ? " OR ((ra.factura_id IS NULL OR ra.factura_id = 0) AND ra.documento_id = f.`documento_id`)"
@@ -425,6 +478,20 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
             AND COALESCE(UPPER(rd.estado), 'EMITIDO') NOT IN ('ANULADO', 'CANCELADO')";
         $cobradoExpr = "COALESCE(SUM(CASE WHEN {$activeReceipt} THEN ra.monto ELSE 0 END), 0)";
         $recibosCountExpr = "COUNT(DISTINCT CASE WHEN {$activeReceipt} THEN ra.recibo_documento_id ELSE NULL END)";
+    }
+    if (flus_column_exists($pdo, 'facturas', 'factura_asociada_id')) {
+        $ncWhere = ['fnc.`factura_asociada_id` = f.id'];
+        if ($hasNaturaleza) {
+            $ncWhere[] = "UPPER(COALESCE(fnc.`naturaleza`, '')) = 'NC'";
+        } elseif ($hasTipo) {
+            $ncWhere[] = "UPPER(COALESCE(fnc.`tipo`, '')) LIKE 'NC%'";
+        }
+        if ($hasEstado) {
+            $ncWhere[] = "UPPER(COALESCE(fnc.`estado`, 'EMITIDA')) NOT IN ('ANULADA', 'CANCELADA')";
+        }
+        $ncTotalCol = flus_column_exists($pdo, 'facturas', 'total') ? 'ABS(COALESCE(fnc.`total`, 0))' : '0';
+        $ncTotalExpr = "(SELECT COALESCE(SUM({$ncTotalCol}), 0) FROM facturas fnc WHERE " . implode(' AND ', $ncWhere) . ')';
+        $ncCountExpr = "(SELECT COUNT(*) FROM facturas fnc WHERE " . implode(' AND ', $ncWhere) . ')';
     }
 
     $sql = "
@@ -443,6 +510,8 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
             " . (flus_column_exists($pdo, 'facturas', 'venta_id') ? 'f.`venta_id`' : 'NULL') . " AS venta_id,
             " . (flus_column_exists($pdo, 'facturas', 'cae') ? 'f.`cae`' : 'NULL') . " AS cae,
             {$documentoExpr} AS documento_id,
+            {$ncTotalExpr} AS total_nc,
+            {$ncCountExpr} AS nc_count,
             {$cobradoExpr} AS cobrado,
             {$recibosCountExpr} AS recibos_count
         FROM facturas f
@@ -459,13 +528,17 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
 
     foreach ($allRows as $row) {
         $total = round(abs((float)($row['total'] ?? 0)), 2);
+        $totalNc = round(min($total, max(0.0, (float)($row['total_nc'] ?? 0))), 2);
         $cobrado = round(max(0.0, (float)($row['cobrado'] ?? 0)), 2);
-        $estado = flus_cobranzas_panel_estado_desde_montos($total, $cobrado);
+        $estado = flus_cobranzas_panel_estado_desde_montos($total, $cobrado, $totalNc);
         $row['total'] = $total;
+        $row['total_nc'] = $totalNc;
+        $row['total_neto'] = round(max(0.0, (float)($estado['neto'] ?? ($total - $totalNc))), 2);
         $row['cobrado'] = $cobrado;
         $row['saldo'] = $estado['saldo'];
         $row['estado_cobro'] = $estado['estado'];
         $row['estado_cobro_label'] = $estado['label'];
+        $row['nc_count'] = (int)($row['nc_count'] ?? 0);
         $row['recibos_count'] = (int)($row['recibos_count'] ?? 0);
 
         $estadoFiltro = $filters['estado_cobro'];
@@ -474,10 +547,14 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
             || ($estadoFiltro === 'PENDIENTE' && in_array($row['estado_cobro'], ['SIN_COBRAR', 'PARCIAL'], true));
         if ($matchesEstado) {
             $stats['total_facturado'] += $total;
-            $stats['total_cobrado'] += min($cobrado, $total);
+            $stats['total_nc'] += $totalNc;
+            $stats['total_neto'] += (float)$row['total_neto'];
+            $stats['total_cobrado'] += min($cobrado, (float)$row['total_neto']);
             $stats['total_saldo'] += (float)$row['saldo'];
             if ($row['estado_cobro'] === 'COBRADA') {
                 $stats['cobradas']++;
+            } elseif ($row['estado_cobro'] === 'COMPENSADA') {
+                $stats['compensadas']++;
             } elseif ($row['estado_cobro'] === 'PARCIAL') {
                 $stats['parciales']++;
                 $stats['pendientes']++;
@@ -489,7 +566,7 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
         }
     }
 
-    foreach (['total_facturado', 'total_cobrado', 'total_saldo'] as $key) {
+    foreach (['total_facturado', 'total_nc', 'total_neto', 'total_cobrado', 'total_saldo'] as $key) {
         $stats[$key] = round((float)$stats[$key], 2);
     }
 

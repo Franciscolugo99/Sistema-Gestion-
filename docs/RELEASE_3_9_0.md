@@ -6,7 +6,7 @@ Objetivo: sacar FLUS 3.9.0 como release estable, con alcance congelado y criteri
 
 ## Estado de partida
 
-- smoke tecnico en verde: `118 OK / 0 fallidas / 0 skipped`
+- smoke tecnico en verde: `119 OK / 0 fallidas / 0 skipped`
 - migraciones versionadas y baseline presentes
 - modulos principales operativos:
   - ventas

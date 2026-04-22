@@ -409,7 +409,6 @@ if ($compraId > 0) {
 WHERE id = :id AND estado = 'BORRADOR'";
             $stUpd = $pdo->prepare($sqlUpd);
             $stUpd->execute($paramsUpd);
-            compras_require_row_change($stUpd, 'No se pudo actualizar el borrador. Recarga la lista e intenta de nuevo.');
 
             // Borrar items viejos
             $pdo->prepare("DELETE FROM compra_items WHERE compra_id = ?")

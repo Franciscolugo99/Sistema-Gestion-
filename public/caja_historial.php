@@ -80,8 +80,14 @@ function flus_bind_params(PDOStatement $st, array $params): void {
 $LONG_MIN      = 12 * 60;  // 12h
 $VERY_LONG_MIN = 24 * 60;  // 24h
 
+$hasTransferCol = function_exists('flus_column_exists')
+  ? flus_column_exists($pdo, 'caja_sesiones', 'total_transferencia')
+  : true;
+$transferExpr = $hasTransferCol ? 'COALESCE(cs.total_transferencia,0)' : '0';
+$mediosExpr = "(COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0)+{$transferExpr})";
+
 $condDif    = "ABS(COALESCE(cs.diferencia,0)) > 0.00001";
-$condMedios = "ABS(COALESCE(cs.total_ventas,0) - (COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0))) > 0.009";
+$condMedios = "ABS(COALESCE(cs.total_ventas,0) - {$mediosExpr}) > 0.009";
 $endExpr    = "IF(cs.fecha_cierre IS NULL OR cs.fecha_cierre = '' OR cs.fecha_cierre = '0000-00-00 00:00:00', NOW(), cs.fecha_cierre)";
 $condLong   = "TIMESTAMPDIFF(MINUTE, cs.fecha_apertura, {$endExpr}) >= " . (int)$LONG_MIN;
 
@@ -433,12 +439,13 @@ try {
       cs.total_mp,
       cs.total_debito,
       cs.total_credito,
+      {$transferExpr} AS total_transferencia,
       cs.total_anulaciones,
       cs.total_productos,
       cs.notas,
 
-      (COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0)) AS medios_sum,
-      (COALESCE(cs.total_ventas,0) - (COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0))) AS medios_diff,
+      {$mediosExpr} AS medios_sum,
+      (COALESCE(cs.total_ventas,0) - {$mediosExpr}) AS medios_diff,
 
       {$selMov},
       {$selAudit}
@@ -510,7 +517,8 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
         cs.total_mp,
         cs.total_debito,
         cs.total_credito,
-        (COALESCE(cs.total_ventas,0) - (COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0))) AS medios_diff,
+        {$transferExpr} AS total_transferencia,
+        (COALESCE(cs.total_ventas,0) - {$mediosExpr}) AS medios_diff,
 
         cs.saldo_inicial,
         cs.saldo_sistema,
@@ -542,7 +550,7 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
 
     fputcsv($out, [
       'id','terminal_id','terminal','usuario','apertura','cierre','dur_min',
-      'total_ventas','total_efectivo','total_mp','total_debito','total_credito','medios_diff',
+      'total_ventas','total_efectivo','total_mp','total_debito','total_credito','total_transferencia','medios_diff',
       'saldo_inicial','saldo_sistema','saldo_declarado','diferencia',
       'mov_ingresos','mov_egresos',
       'audit_status','audit_by','audit_at','audit_nota'
@@ -566,6 +574,7 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
         (float)($r['total_mp'] ?? 0),
         (float)($r['total_debito'] ?? 0),
         (float)($r['total_credito'] ?? 0),
+        (float)($r['total_transferencia'] ?? 0),
         (float)($r['medios_diff'] ?? 0),
 
         (float)($r['saldo_inicial'] ?? 0),
@@ -687,7 +696,7 @@ function pill_class_for_amount(float $v): string {
         <?php endif; ?>
 
         <a class="btn btn-secondary" href="<?= h(url_with_query(['export' => 'csv', 'page' => 1])) ?>">Exportar CSV</a>
-      </div></div>
+      </div>
     </header>
 
     <?php if ($flashOk): ?>
@@ -870,7 +879,7 @@ function pill_class_for_amount(float $v): string {
             $flags = [];
             if (abs($dif) > 0.009) $flags[] = ['Dif', 'flag-danger'];
             if (abs($mediosDiff) > 0.009) $flags[] = ['Medios', 'flag-warn'];
-            if ($durMin >= ($LONG_MIN * 60)) $flags[] = [$durMin >= ($VERY_LONG_MIN * 60) ? 'Muy largo' : 'Largo', 'flag-warn'];
+            if ($durMin >= $LONG_MIN) $flags[] = [$durMin >= $VERY_LONG_MIN ? 'Muy largo' : 'Largo', 'flag-warn'];
             if ($isOpen) $flags[] = ['Abierta', 'flag-open'];
 
             $auditStatus = strtoupper(trim((string)($r['audit_status'] ?? '')));
@@ -929,6 +938,7 @@ function pill_class_for_amount(float $v): string {
                   <div class="detail-row"><span>MercadoPago</span><strong><?= money_ar((float)($r['total_mp'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Débito</span><strong><?= money_ar((float)($r['total_debito'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Crédito</span><strong><?= money_ar((float)($r['total_credito'] ?? 0)) ?></strong></div>
+                  <div class="detail-row"><span>Transferencia</span><strong><?= money_ar((float)($r['total_transferencia'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Suma medios</span><strong><?= money_ar($mediosSum) ?></strong></div>
                   <div class="detail-row"><span>Total ventas</span><strong><?= money_ar($ventas) ?></strong></div>
                   <div class="detail-row"><span>Diff medios</span><strong><?= money_ar($mediosDiff) ?></strong></div>

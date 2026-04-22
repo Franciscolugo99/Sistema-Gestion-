@@ -105,7 +105,7 @@ if ($userId <= 0) {
 }
 
 $facturaId = (int)($input['factura_id'] ?? 0);
-$monto = function_exists('parse_num') ? parse_num($input['monto'] ?? 0) : (float)($input['monto'] ?? 0);
+$monto = function_exists('parse_money_ar') ? parse_money_ar($input['monto'] ?? 0) : (float)($input['monto'] ?? 0);
 $medioPago = function_exists('norm_medio_pago')
     ? norm_medio_pago((string)($input['medio_pago'] ?? 'EFECTIVO'))
     : strtoupper(trim((string)($input['medio_pago'] ?? 'EFECTIVO')));

@@ -12,7 +12,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## Estado de release 3.9.0-rc1 (2026-04-20)
 
-- Smoke tecnico: `118 OK / 0 fallidas / 0 skipped`
+- Smoke tecnico: `119 OK / 0 fallidas / 0 skipped`
 - Migraciones y baseline: validados sobre upgrade local e instalacion limpia
 - Tesoreria v1: incorporada en navegacion, permisos y esquema
 - Facturacion: flujo fiscal, documental, visor, PDF, recovery y NC alineados a nivel tecnico

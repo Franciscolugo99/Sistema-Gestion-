@@ -62,6 +62,7 @@ function cobranzas_estado_badge_class(string $estado): string
 {
     return match (strtoupper(trim($estado))) {
         'COBRADA' => 'cobranzas-status--ok',
+        'COMPENSADA' => 'cobranzas-status--info',
         'PARCIAL' => 'cobranzas-status--warn',
         default => 'cobranzas-status--pending',
     };
@@ -150,6 +151,7 @@ if ($estadoCobro !== 'PENDIENTE') {
         'SIN_COBRAR' => 'Sin cobrar',
         'PARCIAL' => 'Parciales',
         'COBRADA' => 'Cobradas',
+        'COMPENSADA' => 'Compensadas por NC',
         'TODAS' => 'Todas',
     ];
     $filterTags[] = ['label' => 'Estado: ' . ($labels[$estadoCobro] ?? $estadoCobro), 'url' => cobranzas_url(['estado_cobro' => null, 'page' => 1])];
@@ -337,6 +339,16 @@ require __DIR__ . '/partials/header.php';
         <span class="fact-kpi-card__help">Aplicado a facturas visibles</span>
       </article>
       <article class="fact-kpi-card">
+        <span class="fact-kpi-card__label">Notas de credito</span>
+        <strong class="fact-kpi-card__value"><?= money_ar($stats['total_nc'] ?? 0) ?></strong>
+        <span class="fact-kpi-card__help">Compensan saldo de facturas</span>
+      </article>
+      <article class="fact-kpi-card">
+        <span class="fact-kpi-card__label">Neto a cobrar</span>
+        <strong class="fact-kpi-card__value"><?= money_ar($stats['total_neto'] ?? 0) ?></strong>
+        <span class="fact-kpi-card__help">Facturado menos NC</span>
+      </article>
+      <article class="fact-kpi-card">
         <span class="fact-kpi-card__label">Sin cobrar</span>
         <strong class="fact-kpi-card__value"><?= number_format($stats['sin_cobrar']) ?></strong>
         <span class="fact-kpi-card__help">Sin recibos aplicados</span>
@@ -350,6 +362,11 @@ require __DIR__ . '/partials/header.php';
         <span class="fact-kpi-card__label">Cobradas</span>
         <strong class="fact-kpi-card__value"><?= number_format($stats['cobradas']) ?></strong>
         <span class="fact-kpi-card__help">Saldo cancelado</span>
+      </article>
+      <article class="fact-kpi-card">
+        <span class="fact-kpi-card__label">Compensadas</span>
+        <strong class="fact-kpi-card__value"><?= number_format($stats['compensadas'] ?? 0) ?></strong>
+        <span class="fact-kpi-card__help">Canceladas por NC</span>
       </article>
       <article class="fact-kpi-card">
         <span class="fact-kpi-card__label">Facturado</span>
@@ -391,6 +408,7 @@ require __DIR__ . '/partials/header.php';
           <option value="SIN_COBRAR" <?= $estadoCobro === 'SIN_COBRAR' ? 'selected' : '' ?>>Sin cobrar</option>
           <option value="PARCIAL" <?= $estadoCobro === 'PARCIAL' ? 'selected' : '' ?>>Parciales</option>
           <option value="COBRADA" <?= $estadoCobro === 'COBRADA' ? 'selected' : '' ?>>Cobradas</option>
+          <option value="COMPENSADA" <?= $estadoCobro === 'COMPENSADA' ? 'selected' : '' ?>>Compensadas por NC</option>
           <option value="TODAS" <?= $estadoCobro === 'TODAS' ? 'selected' : '' ?>>Todas</option>
         </select>
       </div>
@@ -470,6 +488,8 @@ require __DIR__ . '/partials/header.php';
               <th>Factura</th>
               <th>Cliente</th>
               <th class="t-right">Total</th>
+              <th class="t-right">NC</th>
+              <th class="t-right">Neto</th>
               <th class="t-right">Cobrado</th>
               <th class="t-right">Saldo</th>
               <th>Estado</th>
@@ -520,6 +540,13 @@ require __DIR__ . '/partials/header.php';
                 <div class="fact-cell-sub"><?= $clienteCuit !== '' ? h($clienteCuit) : 'Sin documento fiscal cargado' ?></div>
               </td>
               <td class="t-right"><strong><?= money_ar((float)($row['total'] ?? 0)) ?></strong></td>
+              <td class="t-right">
+                <?= money_ar((float)($row['total_nc'] ?? 0)) ?>
+                <?php if ((int)($row['nc_count'] ?? 0) > 0): ?>
+                  <div class="fact-cell-sub"><?= number_format((int)$row['nc_count']) ?> NC</div>
+                <?php endif; ?>
+              </td>
+              <td class="t-right"><strong><?= money_ar((float)($row['total_neto'] ?? $row['total'] ?? 0)) ?></strong></td>
               <td class="t-right"><?= money_ar((float)($row['cobrado'] ?? 0)) ?></td>
               <td class="t-right"><strong><?= money_ar($saldo) ?></strong></td>
               <td>
@@ -561,6 +588,8 @@ require __DIR__ . '/partials/header.php';
 
       <div class="fact-table-footer">
         <div class="fact-table-footer__item">Mostrando <?= $fromRow ?>-<?= $toRow ?> de <?= number_format($totalRows) ?> facturas</div>
+        <div class="fact-table-footer__item">NC: <strong><?= money_ar($stats['total_nc'] ?? 0) ?></strong></div>
+        <div class="fact-table-footer__item">Neto: <strong><?= money_ar($stats['total_neto'] ?? 0) ?></strong></div>
         <div class="fact-table-footer__item">Por cobrar: <strong><?= money_ar($stats['total_saldo']) ?></strong></div>
         <div class="fact-table-footer__item">Cobrado: <strong><?= money_ar($stats['total_cobrado']) ?></strong></div>
       </div>

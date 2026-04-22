@@ -4,7 +4,7 @@
 
 ### Estado de salida
 
-- Base tecnica validada con smoke tecnico en verde: `118 OK / 0 fallidas / 0 skipped`
+- Base tecnica validada con smoke tecnico en verde: `119 OK / 0 fallidas / 0 skipped`
 - Migraciones y baseline validadas sobre upgrade local e instalacion limpia
 - Tesoreria v1 incorporada al alcance operativo de la release
 - La validacion fiscal real con ARCA queda pendiente de un entorno con datos reales del negocio
@@ -120,6 +120,8 @@
   - El cobro de cuenta corriente desde Caja ahora muestra una confirmación visible y contextual al registrar el pago, evitando la sensación de operación “muda” cuando el modal se cierra enseguida.
   - El modal de cobro CC devuelve el foco al flujo principal y permite confirmar con `Enter` sin cortar la operatoria de teclado del cajero.
   - Quitar un item ya no obliga a reescanear para deshacer: el snack restaura el item real dentro del ticket conservando cantidad, posicion y foco de trabajo.
+- **Caja / Historial:**
+  - El historial de caja incluye `total_transferencia` en la conciliacion de medios, el detalle expandible y el CSV exportado, evitando falsos positivos de inconsistencia cuando hubo pagos por transferencia.
 - **Facturación / visor, impresión y documentos:**
   - El botón `Imprimir` de `factura_ver.php` ahora abre una vista limpia/autoprint del comprobante, evitando arrastrar breadcrumbs del sistema y alineando mejor la salida impresa con el visor/PDF.
   - La impresión del comprobante oculta también la navegación contextual en `@media print`, reduciendo ruido visual en copias físicas o guardadas desde el navegador.
@@ -127,7 +129,7 @@
   - Al facturar desde remitos sin venta válida, el sistema ya no expone SQL/FK crudo y devuelve mensajes operativos entendibles para el usuario.
   - `documento_comercial.php` muestra también los flashes importantes como notificación visible, evitando que el resultado quede perdido si la pantalla está scrolleada.
 - **Testing / documentación técnica:**
-  - Se amplía la cobertura smoke para reversas de cuenta corriente y para el wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
+  - Se amplía la cobertura smoke para reversas de cuenta corriente, historial de caja y wiring del panel de Facturación, reforzando confianza en releases sin cambiar comportamiento observable.
   - Se normalizan referencias internas de versión/fechas para alinear changelog y build actual del repo.
 - **Facturación / Fase 1 (factura común):**
   - Se reduce la duplicación real entre emisión desde venta y emisión manual sin reescribir toda la arquitectura.

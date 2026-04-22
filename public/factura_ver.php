@@ -602,6 +602,9 @@ $esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
 $comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
 $cobroSaldo = round((float)($cobranzaResumen['saldo'] ?? 0), 2);
 $cobroTotal = round((float)($cobranzaResumen['total'] ?? $resumenFiscal['total'] ?? 0), 2);
+$cobroTotalOriginal = round((float)($cobranzaResumen['total_original'] ?? $resumenFiscal['total'] ?? $cobroTotal), 2);
+$cobroTotalNc = round((float)($cobranzaResumen['total_nc'] ?? 0), 2);
+$cobroNcCount = (int)($cobranzaResumen['nc_count'] ?? 0);
 $cobroCobrado = round((float)($cobranzaResumen['cobrado'] ?? 0), 2);
 $cobroEstado = (string)($cobranzaResumen['estado'] ?? 'SIN_COBRAR');
 $cobroLabel = (string)($cobranzaResumen['label'] ?? 'Sin cobrar');
@@ -940,10 +943,15 @@ if ($pdfMode) {
               <span class="badge <?= h($cobroEstado === 'COBRADA' ? 'badge-info' : ($cobroEstado === 'PARCIAL' ? 'badge-warning' : 'badge-secondary')) ?>"><?= h($cobroEstado) ?></span>
             </div>
             <div class="factura-cobro-status__grid">
-              <div><span>Total</span><strong><?= money($cobroTotal) ?></strong></div>
+              <div><span>Total</span><strong><?= money($cobroTotalOriginal) ?></strong></div>
+              <div><span>NC</span><strong><?= money($cobroTotalNc) ?></strong></div>
+              <div><span>Neto</span><strong><?= money($cobroTotal) ?></strong></div>
               <div><span>Cobrado</span><strong><?= money($cobroCobrado) ?></strong></div>
               <div><span>Saldo</span><strong><?= money($cobroSaldo) ?></strong></div>
             </div>
+            <?php if ($cobroNcCount > 0): ?>
+              <div class="text-muted" style="font-size:.85em"><?= number_format($cobroNcCount) ?> nota<?= $cobroNcCount === 1 ? '' : 's' ?> de credito aplicada<?= $cobroNcCount === 1 ? '' : 's' ?> al saldo.</div>
+            <?php endif; ?>
             <?php if ($puedeRegistrarCobro): ?>
               <button type="button" class="btn-mini" data-open-cobro>Registrar cobro</button>
             <?php elseif ($cobroEstado === 'SIN_TABLAS'): ?>

@@ -37,6 +37,12 @@
   color: #7a4b00;
 }
 
+.cobranzas-status--info {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .cobranzas-status--pending {
   border-color: #b7c8d9;
   background: #f3f7fb;

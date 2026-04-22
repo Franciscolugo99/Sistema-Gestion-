@@ -1255,6 +1255,7 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     flus_assert_contains('function compras_require_row_change', $comprasPhp);
     flus_assert_contains('function compras_lock_product_stocks', $comprasPhp);
     flus_assert_contains('SELECT estado FROM compras WHERE id = ? FOR UPDATE', $comprasPhp);
+    flus_assert_not_contains('No se pudo actualizar el borrador. Recarga la lista e intenta de nuevo.', $comprasPhp);
     flus_assert_contains("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'", $comprasPhp);
     flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
     flus_assert_contains('No hay stock suficiente para revertir la compra', $comprasPhp);
@@ -1295,6 +1296,7 @@ $results[] = flus_run_test('parse_money_ar entiende miles argentinos sin coma', 
     flus_assert_same(40000.0, parse_money_ar('40.000,00'));
     flus_assert_same(40000.0, parse_money_ar('40000'));
     flus_assert_same(1234.56, parse_money_ar('1234.56'));
+    flus_assert_same(13260.0, parse_money_ar('13260.00'));
     flus_assert_same(1234567.89, parse_money_ar('$ 1.234.567,89'));
 });
 
@@ -3302,8 +3304,12 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     $integrationPhp = file_get_contents($repoRoot . '/tests/integration_db.php') ?: '';
 
     flus_assert_contains('function flus_cobranzas_resumen_para_factura(PDO $pdo, array $factura): array', $cobranzasLib);
+    flus_assert_contains('function flus_cobranzas_notas_credito_para_factura(PDO $pdo, int $facturaId): array', $cobranzasLib);
     flus_assert_contains('function flus_cobranzas_register_invoice_payment(PDO $pdo, array $payload): array', $cobranzasLib);
     flus_assert_contains('function flus_cobranzas_panel_read(PDO $pdo, array $filters): array', $cobranzasLib);
+    flus_assert_contains("factura_asociada_id = ?", $cobranzasLib);
+    flus_assert_contains("'total_nc' => \$totalNc", $cobranzasLib);
+    flus_assert_contains("'estado' => 'COMPENSADA'", $cobranzasLib);
     flus_assert_contains("'origen' => 'FACTURA'", $cobranzasLib);
     flus_assert_contains("'tipo_aplicacion' => 'FACTURA'", $cobranzasLib);
     flus_assert_contains('flus_cobranzas_attach_receipt_to_cobranza($pdo, $cobranzaId', $cobranzasLib);
@@ -3312,15 +3318,23 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     flus_assert_contains('facturaCobroForm', $facturaVerPhp);
     flus_assert_contains('api/factura_cobranza_api.php', $facturaVerPhp);
     flus_assert_contains("require_perm_json('registrar_pago_cc');", $facturaCobranzaApi);
+    flus_assert_contains("parse_money_ar(\$input['monto'] ?? 0)", $facturaCobranzaApi);
+    flus_assert_not_contains("parse_num(\$input['monto'] ?? 0)", $facturaCobranzaApi);
     flus_assert_contains('flus_cobranzas_register_invoice_payment($pdo', $facturaCobranzaApi);
+    flus_assert_contains("\$cobroTotalNc", $facturaVerPhp);
+    flus_assert_contains('nota<?= $cobroNcCount === 1 ? \'\' : \'s\' ?> de credito aplicada', $facturaVerPhp);
     flus_assert_contains('no se envia a ARCA', $facturaVerPhp);
     flus_assert_contains('.factura-cobro-modal', $facturaCss);
     flus_assert_contains("require_any_permission(['ver_facturacion', 'registrar_pago_cc', 'ver_cuenta_corriente']);", $cobranzasPhp);
     flus_assert_contains('flus_cobranzas_panel_read($pdo', $cobranzasPhp);
+    flus_assert_contains('Compensadas por NC', $cobranzasPhp);
+    flus_assert_contains("money_ar(\$stats['total_nc'] ?? 0)", $cobranzasPhp);
+    flus_assert_contains("money_ar((float)(\$row['total_neto'] ?? \$row['total'] ?? 0))", $cobranzasPhp);
     flus_assert_contains('data-cobrar-factura', $cobranzasPhp);
     flus_assert_contains('api/factura_cobranza_api.php', $cobranzasPhp);
     flus_assert_contains('no se envia a ARCA', $cobranzasPhp);
     flus_assert_contains('.cobranza-modal', $cobranzasCss);
+    flus_assert_contains('.cobranzas-status--info', $cobranzasCss);
     flus_assert_contains("'cobranzas.php'                => 'cobranzas'", $navPhp);
     flus_assert_contains("'href' => 'cobranzas.php'", $navPhp);
     flus_assert_contains('flus_it_run_invoice_direct_payment_case', $integrationPhp);
@@ -3419,6 +3433,18 @@ $results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma 
     flus_assert_contains('o.compra_id = :compra_id', $tesoreriaLib);
     flus_assert_contains('obligation_created', $comprasPhp);
     flus_assert_contains('Compra no es pago', $contractDoc);
+});
+
+$results[] = flus_run_test('historial de caja contempla transferencias en medios y export', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaHistorialPhp = file_get_contents($repoRoot . '/public/caja_historial.php') ?: '';
+
+    flus_assert_contains("flus_column_exists(\$pdo, 'caja_sesiones', 'total_transferencia')", $cajaHistorialPhp);
+    flus_assert_contains("\$transferExpr = \$hasTransferCol ? 'COALESCE(cs.total_transferencia,0)' : '0';", $cajaHistorialPhp);
+    flus_assert_contains("\$condMedios = \"ABS(COALESCE(cs.total_ventas,0) - {\$mediosExpr}) > 0.009\";", $cajaHistorialPhp);
+    flus_assert_contains('{$transferExpr} AS total_transferencia', $cajaHistorialPhp);
+    flus_assert_contains("'total_transferencia','medios_diff'", $cajaHistorialPhp);
+    flus_assert_contains('<span>Transferencia</span>', $cajaHistorialPhp);
 });
 
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {
