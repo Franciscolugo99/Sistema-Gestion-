@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/caja_session_summary.php';
 require_login();
 require_permission('ver_historial_caja');
 
@@ -54,21 +55,38 @@ try {
     die('Sesión no encontrada');
   }
 
+  $hasVentaMontoCc = flus_column_exists($pdo, 'ventas', 'monto_cc');
+  $hasVentaPagos = flus_table_exists($pdo, 'venta_pagos');
+  $ventaMontoCcSelect = $hasVentaMontoCc ? 'v.monto_cc' : '0 AS monto_cc';
+  $ventaPagosSelect = $hasVentaPagos ? 'vp.pagos_label' : "NULL AS pagos_label";
+  $ventaPagosJoin = $hasVentaPagos ? "
+    LEFT JOIN (
+      SELECT venta_id, GROUP_CONCAT(UPPER(medio_pago) ORDER BY id SEPARATOR ' + ') AS pagos_label
+      FROM venta_pagos
+      GROUP BY venta_id
+    ) vp ON vp.venta_id = v.id
+  " : '';
+  $ventaMontoCcGroup = $hasVentaMontoCc ? ', v.monto_cc' : '';
+  $ventaPagosGroup = $hasVentaPagos ? ', vp.pagos_label' : '';
+
   // Ventas
   $sqlVentas = "
     SELECT
       v.id,
       v.fecha,
       v.total,
+      {$ventaMontoCcSelect},
       v.medio_pago,
+      {$ventaPagosSelect},
       v.estado,
       COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre,
       COALESCE(SUM(vi.cantidad), 0) AS productos_count
     FROM ventas v
     LEFT JOIN clientes c ON c.id = v.cliente_id
     LEFT JOIN venta_items vi ON vi.venta_id = v.id
+    {$ventaPagosJoin}
     WHERE v.caja_id = :sesion_id
-    GROUP BY v.id, v.fecha, v.total, v.medio_pago, v.estado, c.nombre
+    GROUP BY v.id, v.fecha, v.total{$ventaMontoCcGroup}, v.medio_pago, v.estado, c.nombre{$ventaPagosGroup}
     ORDER BY v.fecha DESC
   ";
   $stVentas = $pdo->prepare($sqlVentas);
@@ -76,8 +94,10 @@ try {
   $ventas = $stVentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
   // Movimientos
+  $movMedioPagoSelect = flus_column_exists($pdo, 'caja_movimientos', 'medio_pago') ? 'medio_pago' : 'NULL AS medio_pago';
+  $movCcSelect = flus_column_exists($pdo, 'caja_movimientos', 'cc_movimiento_id') ? 'cc_movimiento_id' : 'NULL AS cc_movimiento_id';
   $sqlMovimientos = "
-    SELECT id, tipo, concepto, monto, fecha, usuario_registro
+    SELECT id, tipo, concepto, monto, fecha, usuario_registro, {$movMedioPagoSelect}, {$movCcSelect}
     FROM caja_movimientos
     WHERE caja_id = :sesion_id
     ORDER BY fecha DESC
@@ -85,6 +105,7 @@ try {
   $stMovimientos = $pdo->prepare($sqlMovimientos);
   $stMovimientos->execute([':sesion_id' => $sesion_id]);
   $movimientos = $stMovimientos->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $mediosResumen = flus_caja_sesion_medios_resumen($pdo, $sesion_id, $sesion);
 
 } catch (PDOException $e) {
   error_log("Error en caja_sesion_export: " . $e->getMessage());
@@ -134,6 +155,11 @@ fputcsv($output, ['RESUMEN FINANCIERO'], ';');
 fputcsv($output, ['Concepto', 'Monto'], ';');
 fputcsv($output, ['Saldo Inicial', number_format((float)($sesion['saldo_inicial'] ?? 0), 2, ',', '.')], ';');
 fputcsv($output, ['Total Ventas', number_format((float)($sesion['total_ventas'] ?? 0), 2, ',', '.')], ';');
+fputcsv($output, ['Ventas a CC', number_format((float)$mediosResumen['ventas_cc'], 2, ',', '.')], ';');
+fputcsv($output, ['Cobros CC', number_format((float)$mediosResumen['cobros_cc'], 2, ',', '.')], ';');
+fputcsv($output, ['Base Medios', number_format((float)$mediosResumen['base_medios'], 2, ',', '.')], ';');
+fputcsv($output, ['Suma Medios', number_format((float)$mediosResumen['suma_medios'], 2, ',', '.')], ';');
+fputcsv($output, ['Diff Medios', number_format((float)$mediosResumen['diff_medios'], 2, ',', '.')], ';');
 fputcsv($output, ['Efectivo', number_format((float)($sesion['total_efectivo'] ?? 0), 2, ',', '.')], ';');
 fputcsv($output, ['Mercado Pago', number_format((float)($sesion['total_mp'] ?? 0), 2, ',', '.')], ';');
 fputcsv($output, ['Débito', number_format((float)($sesion['total_debito'] ?? 0), 2, ',', '.')], ';');
@@ -157,12 +183,14 @@ fputcsv($output, ['MOVIMIENTOS DE CAJA'], ';');
 if (empty($movimientos)) {
   fputcsv($output, ['Sin movimientos registrados'], ';');
 } else {
-  fputcsv($output, ['ID', 'Fecha', 'Tipo', 'Concepto', 'Monto', 'Registrado Por'], ';');
+  fputcsv($output, ['ID', 'Fecha', 'Tipo', 'Medio', 'CC Movimiento', 'Concepto', 'Monto', 'Registrado Por'], ';');
   foreach ($movimientos as $mov) {
     fputcsv($output, [
       $mov['id'],
       $mov['fecha'] ?? '',
       strtoupper($mov['tipo'] ?? ''),
+      strtoupper((string)($mov['medio_pago'] ?? '')),
+      (int)($mov['cc_movimiento_id'] ?? 0) > 0 ? (int)$mov['cc_movimiento_id'] : '',
       csv_safe($mov['concepto'] ?? ''),
       number_format((float)($mov['monto'] ?? 0), 2, ',', '.'),
       csv_safe($mov['usuario_registro'] ?? '')
@@ -178,14 +206,15 @@ fputcsv($output, ['VENTAS REALIZADAS'], ';');
 if (empty($ventas)) {
   fputcsv($output, ['Sin ventas registradas'], ';');
 } else {
-  fputcsv($output, ['ID', 'Fecha', 'Cliente', 'Productos', 'Método Pago', 'Total', 'Estado'], ';');
+  fputcsv($output, ['ID', 'Fecha', 'Cliente', 'Productos', 'Metodo Pago', 'Monto CC', 'Total', 'Estado'], ';');
   foreach ($ventas as $venta) {
     fputcsv($output, [
       $venta['id'],
       $venta['fecha'] ?? '',
       csv_safe($venta['cliente_nombre'] ?? 'Consumidor Final'),
       (int)($venta['productos_count'] ?? 0),
-      strtoupper($venta['medio_pago'] ?? ''),
+      flus_caja_sesion_pago_label($venta),
+      number_format((float)($venta['monto_cc'] ?? 0), 2, ',', '.'),
       number_format((float)($venta['total'] ?? 0), 2, ',', '.'),
       strtoupper($venta['estado'] ?? 'EMITIDA')
     ], ';');
