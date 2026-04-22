@@ -808,3 +808,215 @@ body[data-theme="dark"] {
     align-items: stretch;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TABLA COMPACTA — Alertas
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.repo-alert-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.repo-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.repo-filter-btn:hover { background: var(--bg-light); color: var(--text); }
+
+.repo-filter-btn.is-active {
+  border-color: var(--text-muted);
+  background: var(--bg-light);
+  color: var(--text);
+}
+
+.repo-filter-btn--danger.is-active {
+  background: var(--repo-danger-bg);
+  color: var(--repo-danger);
+  border-color: var(--repo-danger);
+}
+
+.repo-filter-btn--warning.is-active {
+  background: var(--repo-warning-bg);
+  color: var(--repo-warning);
+  border-color: var(--repo-warning);
+}
+
+.repo-filter-btn--info.is-active {
+  background: var(--repo-info-bg);
+  color: var(--repo-info);
+  border-color: var(--repo-info);
+}
+
+.repo-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.2rem;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+body[data-theme="dark"] .repo-filter-count {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.repo-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 12px);
+  margin-bottom: 1rem;
+}
+
+.repo-alert-table {
+  margin: 0;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+.repo-alert-table tbody tr:last-child td { border-bottom: none; }
+
+.repo-alert-row:hover { background: var(--bg-light); }
+
+/* Borde izquierdo por estado */
+.repo-alert-row[data-estado="SIN_STOCK"] td:first-child   { box-shadow: inset 3px 0 0 var(--repo-danger); }
+.repo-alert-row[data-estado="BAJO_MINIMO"] td:first-child { box-shadow: inset 3px 0 0 var(--repo-warning); }
+.repo-alert-row[data-estado="REORDEN"] td:first-child     { box-shadow: inset 3px 0 0 var(--repo-info); }
+
+/* Badges de estado */
+.repo-badge-sin-stock,
+.repo-badge-bajo-minimo,
+.repo-badge-reorden {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.repo-badge-sin-stock  { background: var(--repo-danger-bg);  color: var(--repo-danger);  }
+.repo-badge-bajo-minimo { background: var(--repo-warning-bg); color: var(--repo-warning); }
+.repo-badge-reorden    { background: var(--repo-info-bg);    color: var(--repo-info);    }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TABLA COMPACTA — Config inline
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.repo-config-table {
+  margin: 0;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+.repo-config-table tbody tr:last-child td { border-bottom: none; }
+
+.repo-config-table tr[data-config-card].is-selected {
+  background: color-mix(in srgb, var(--primary) 6%, var(--card-bg));
+}
+
+.config-product-name {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.config-product-prov {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+/* Anchos de columna */
+.col-check  { width: 32px; padding-right: 0; }
+.col-stock  { width: 64px; }
+.col-num    { width: 88px; }
+.col-prov   { min-width: 130px; max-width: 190px; }
+.col-action { width: 76px; }
+.col-estado { width: 100px; padding-left: 8px; }
+
+.repo-num-input {
+  padding: 0.28rem 0.4rem;
+  font-size: 0.8125rem;
+  width: 76px;
+  text-align: right;
+}
+
+.repo-select-input {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.8125rem;
+  max-width: 180px;
+  width: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ACCORDION — Lista de compras
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.repo-lista-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.repo-lista-controls {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.proveedor-header[data-proveedor-toggle] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.proveedor-header[data-proveedor-toggle]:hover {
+  filter: brightness(0.97);
+}
+
+body[data-theme="dark"] .proveedor-header[data-proveedor-toggle]:hover {
+  filter: brightness(1.06);
+}
+
+.proveedor-collapse-btn {
+  padding: 0.2rem;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+.proveedor-collapse-icon {
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.proveedor-section.is-collapsed .proveedor-collapse-icon {
+  transform: rotate(-180deg);
+}
+
+@media (max-width: 720px) {
+  .repo-lista-top { flex-direction: column; align-items: flex-start; }
+  .repo-config-table .col-prov,
+  .repo-config-table .col-num  { display: none; }
+}
