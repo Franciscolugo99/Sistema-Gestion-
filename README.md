@@ -10,23 +10,24 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ---
 
-## Estado de release 3.9.0-rc1 (2026-04-20)
+## Estado de release 3.9.0-rc1 (2026-04-23)
 
-- Smoke tecnico: `119 OK / 0 fallidas / 0 skipped`
+- Smoke tecnico: `120 OK / 0 fallidas / 0 skipped`
 - Migraciones y baseline: validados sobre upgrade local e instalacion limpia
 - Tesoreria v1: incorporada en navegacion, permisos y esquema
 - Facturacion: flujo fiscal, documental, visor, PDF, recovery y NC alineados a nivel tecnico
-- Entorno fiscal real: no validado end-to-end en este repo de referencia
-- Salida actual: `3.9.0-rc1`, con fiscal real pendiente de datos/certificados del entorno objetivo
+- Homologacion fiscal local: preflight en OK y ARCA disponible
+- Entorno fiscal real de produccion: no validado end-to-end en este repo de referencia
+- Salida actual: `3.9.0-rc1`, con QA funcional corta y fiscal real de produccion pendientes del entorno objetivo
 
 ### Nota sobre ARCA y entorno simulado
 
-Esta base de trabajo se usa con datos simulados.
+Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
-- No hay negocio real cargado para completar `Ingresos Brutos` ni `inicio de actividades`.
-- Por eso la configuracion fiscal real no queda cerrada en este entorno.
+- El entorno local hoy responde en `homologacion`, con `Preflight de emision` apto y prueba ARCA/WSFE operativa.
+- Eso no equivale a cierre fiscal de produccion: sigue faltando validacion con datos reales del negocio y QA operativa del circuito completo.
 - Si ARCA o WSAA no responde, el repo puede validarse tecnicamente, pero no queda probada la salida fiscal real.
-- Antes de habilitar homologacion o produccion en una instalacion real, completar datos del emisor, punto de venta, certificados y prueba de conexion.
+- Antes de habilitar produccion en una instalacion real, completar datos reales del emisor, punto de venta, certificados, numeracion y prueba end-to-end.
 
 Ver tambien:
 

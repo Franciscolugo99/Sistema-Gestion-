@@ -1250,17 +1250,44 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     }
 
     $comprasPhp = (string)file_get_contents($comprasPath);
+    $comprasPrecioHistLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'compras_precio_historial_lib.php');
+    $comprasMargenesPartial = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'compras_margenes_confirmacion.php');
 
     flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $comprasPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';", $comprasPhp);
     flus_assert_contains('function compras_require_row_change', $comprasPhp);
     flus_assert_contains('function compras_lock_product_stocks', $comprasPhp);
     flus_assert_contains('SELECT estado FROM compras WHERE id = ? FOR UPDATE', $comprasPhp);
+    flus_assert_contains('flus_compras_actualizar_costo_con_historial($pdo, $pid, $cuAdj, $compraId);', $comprasPhp);
+    flus_assert_contains('SELECT costo FROM productos WHERE id = ? FOR UPDATE', $comprasPrecioHistLib);
+    flus_assert_contains("precio_registrar_cambio(", $comprasPrecioHistLib);
+    flus_assert_contains("'COSTO'", $comprasPrecioHistLib);
+    flus_assert_contains('"Compra #{$compraId} confirmada"', $comprasPrecioHistLib);
+    flus_assert_contains('function flus_compras_margenes_para_compra', $comprasPrecioHistLib);
+    flus_assert_contains('compras.php?saved=confirmed&compra_id=', $comprasPhp);
+    flus_assert_contains("require __DIR__ . '/partials/compras_margenes_confirmacion.php';", $comprasPhp);
+    flus_assert_contains('flus_compras_margenes_para_compra($pdo, $compraMargenId)', $comprasMargenesPartial);
+    flus_assert_contains('precios_historial.php?v=herramientas&ids=', $comprasMargenesPartial);
     flus_assert_not_contains('No se pudo actualizar el borrador. Recarga la lista e intenta de nuevo.', $comprasPhp);
     flus_assert_contains("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'", $comprasPhp);
     flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
     flus_assert_contains('No hay stock suficiente para revertir la compra', $comprasPhp);
     flus_assert_contains("flus_log_error('compras confirmar failed'", $comprasPhp);
     flus_assert_contains("flus_log_error('compras anular_confirmada failed'", $comprasPhp);
+});
+
+$results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
+    $preciosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'precios.js');
+
+    flus_assert_contains("\$_GET['ids']", $preciosPhp);
+    flus_assert_contains('window.FLUS_PRESELECT_PRODUCTOS', $preciosPhp);
+    flus_assert_contains('window.FLUS_PRESELECT_MARGEN = 30;', $preciosPhp);
+    flus_assert_contains('function preloadSelectedProductsFromServer()', $preciosJs);
+    flus_assert_contains('Array.isArray(window.FLUS_PRESELECT_PRODUCTOS)', $preciosJs);
+    flus_assert_contains('state.selectedProducts.set(id, {', $preciosJs);
+    flus_assert_contains('preloadSelectedProductsFromServer();', $preciosJs);
 });
 
 $results[] = flus_run_test('pagination helper is centralized in src helpers', function (): void {

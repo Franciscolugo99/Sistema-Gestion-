@@ -4,11 +4,12 @@
 
 ### Estado de salida
 
-- Base tecnica validada con smoke tecnico en verde: `119 OK / 0 fallidas / 0 skipped`
+- Base tecnica validada con smoke tecnico en verde: `120 OK / 0 fallidas / 0 skipped`
 - Migraciones y baseline validadas sobre upgrade local e instalacion limpia
 - Tesoreria v1 incorporada al alcance operativo de la release
-- La validacion fiscal real con ARCA queda pendiente de un entorno con datos reales del negocio
-- Este repo de referencia se esta usando con datos simulados, por lo que no se cargan `Ingresos Brutos` ni `inicio de actividades`
+- La homologacion fiscal local queda operativa con preflight apto y ARCA disponible
+- La validacion fiscal real con ARCA sigue pendiente de un entorno con datos reales del negocio
+- Este repo de referencia se sigue usando con datos simulados y no debe tomarse como cierre fiscal productivo
 - Si ARCA o WSAA se cae o no responde, la capa tecnica puede quedar validada igual, pero no debe asumirse emision fiscal real aprobada
 - Esta version se corta como `3.9.0-rc1` hasta completar QA funcional y validacion fiscal real en el entorno objetivo
 

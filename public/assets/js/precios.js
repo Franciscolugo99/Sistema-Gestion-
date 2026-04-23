@@ -526,6 +526,37 @@
       });
   }
 
+  function preloadSelectedProductsFromServer() {
+    const items = Array.isArray(window.FLUS_PRESELECT_PRODUCTOS)
+      ? window.FLUS_PRESELECT_PRODUCTOS
+      : [];
+    if (items.length === 0) return;
+
+    items.forEach((p) => {
+      const id = parseInt(p?.id, 10);
+      if (!id) return;
+
+      state.selectedProducts.set(id, {
+        id: id,
+        categoria: (p.categoria || "").trim(),
+        codigo: p.codigo || "",
+        nombre: p.nombre || "",
+        precio: parseFloat(p.precio) || 0,
+        costo: parseFloat(p.costo) || 0,
+      });
+    });
+
+    const margenInput = document.getElementById("margenInput");
+    const margenSugerido = parseFloat(window.FLUS_PRESELECT_MARGEN);
+    if (margenInput && !margenInput.value && Number.isFinite(margenSugerido)) {
+      margenInput.value = String(margenSugerido);
+    }
+
+    syncCheckboxesFromState(document);
+    updateCategoryCheckboxes();
+    updatePreview();
+  }
+
   async function loadCategoria(catItem, { append = false } = {}) {
     const catName = (catItem?.dataset.cat || "").trim();
     const container = catItem?.querySelector(".categoria-productos");
@@ -1060,6 +1091,7 @@
     initKeyboardShortcuts();
 
     // Actualizar UI inicial
+    preloadSelectedProductsFromServer();
     updateSelectionUI();
 
     console.log("[FLUS Precios] Módulo inicializado");

@@ -531,9 +531,9 @@ require __DIR__ . '/partials/header.php';
         <div class="alert alert-error">
             <div><?= h($error) ?></div>
             <?php if ($errorDetail !== ''): ?>
-                <details style="margin-top:8px;">
+                <details class="error-detail">
                     <summary>Ver detalle tecnico</summary>
-                    <div class="muted" style="margin-top:8px; overflow-wrap:anywhere; word-break:break-word;">
+                    <div class="error-detail-content muted">
                         <?= nl2br(h($errorDetail)) ?>
                     </div>
                 </details>
@@ -548,27 +548,38 @@ require __DIR__ . '/partials/header.php';
     <section class="config-section">
         <h2 class="section-title">Estado del sistema</h2>
 
+        <div class="emit-banner <?= h($emitReadyClass) ?>">
+            <span class="emit-banner-icon"><?= ($emitPreflight['ok'] ?? false) ? '✓' : '✗' ?></span>
+            <div class="emit-banner-body">
+                <strong><?= ($emitPreflight['ok'] ?? false) ? 'Listo para emitir' : 'Emisión bloqueada' ?></strong>
+                <?php if (!($emitPreflight['ok'] ?? false)): ?>
+                    <span class="emit-banner-reason"><?= h(flus_facturacion_preflight_emision_error($emitPreflight)) ?></span>
+                <?php endif; ?>
+            </div>
+            <span class="emit-banner-mode"><?= h($configModoLabel) ?></span>
+        </div>
+
         <div class="status-grid">
             <div class="status-item <?= $facturacionHabilitada ? 'ok' : 'warning' ?>">
-                <span class="status-icon"><?= $facturacionHabilitada ? 'ON' : 'OFF' ?></span>
+                <span class="status-icon"><?= $facturacionHabilitada ? '✓' : '✗' ?></span>
                 <span class="status-label">Modulo de facturacion</span>
                 <span class="status-value"><?= $facturacionHabilitada ? 'Habilitado' : 'Deshabilitado' ?></span>
             </div>
 
             <div class="status-item <?= h($arcaStatusClass) ?>">
-                <span class="status-icon"><?= ($arcaEstado['status'] ?? '') === 'available' ? 'OK' : (($arcaEstado['status'] ?? '') === 'not_required' ? 'N/A' : (($arcaEstado['status'] ?? '') === 'unknown' ? 'INFO' : 'ERR')) ?></span>
+                <span class="status-icon"><?= ($arcaEstado['status'] ?? '') === 'available' ? '✓' : (($arcaEstado['status'] ?? '') === 'not_required' ? '—' : (($arcaEstado['status'] ?? '') === 'unknown' ? 'ℹ' : '✗')) ?></span>
                 <span class="status-label">Estado ARCA</span>
                 <span class="status-value"><?= h((string)($arcaEstado['label'] ?? 'ARCA no disponible')) ?></span>
             </div>
 
             <div class="status-item <?= $arcaLastErrorClass ?>">
-                <span class="status-icon"><?= $arcaLastErrorTechnical === '' ? 'OK' : 'INFO' ?></span>
+                <span class="status-icon"><?= $arcaLastErrorTechnical === '' ? '✓' : 'ℹ' ?></span>
                 <span class="status-label">Ultimo error</span>
                 <span class="status-value"><?= h($arcaLastErrorSummary) ?></span>
                 <?php if ($arcaHasTechnicalDetail): ?>
-                    <details style="margin-top:8px;">
+                    <details class="error-detail">
                         <summary>Ver detalle tecnico</summary>
-                        <div class="muted" style="margin-top:8px; overflow-wrap:anywhere; word-break:break-word;">
+                        <div class="error-detail-content muted">
                             <?= nl2br(h($arcaLastErrorTechnical)) ?>
                         </div>
                     </details>
@@ -576,45 +587,45 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="status-item <?= $arcaCheckedAtClass ?>">
-                <span class="status-icon"><?= $arcaCheckedAtRaw !== '' ? 'OK' : 'INFO' ?></span>
+                <span class="status-icon"><?= $arcaCheckedAtRaw !== '' ? '✓' : 'ℹ' ?></span>
                 <span class="status-label">Ultima verificacion</span>
                 <span class="status-value"><?= h($arcaCheckedAtLabel) ?></span>
             </div>
 
             <div class="status-item <?= $soapOk ? 'ok' : 'error' ?>">
-                <span class="status-icon"><?= $soapOk ? 'OK' : 'NO' ?></span>
+                <span class="status-icon"><?= $soapOk ? '✓' : '✗' ?></span>
                 <span class="status-label">Extension SOAP</span>
                 <span class="status-value"><?= $soapOk ? 'Habilitada' : 'No instalada' ?></span>
             </div>
 
             <div class="status-item <?= $opensslOk ? 'ok' : 'error' ?>">
-                <span class="status-icon"><?= $opensslOk ? 'OK' : 'NO' ?></span>
+                <span class="status-icon"><?= $opensslOk ? '✓' : '✗' ?></span>
                 <span class="status-label">Extension OpenSSL</span>
                 <span class="status-value"><?= $opensslOk ? 'Habilitada' : 'No instalada' ?></span>
             </div>
 
             <?php foreach ($preflightArca['items'] as $preflightItem): ?>
                 <div class="status-item <?= h((string)($preflightItem['status'] ?? 'warning')) ?>">
-                    <span class="status-icon"><?= ($preflightItem['status'] ?? 'warning') === 'ok' ? 'OK' : (($preflightItem['status'] ?? 'warning') === 'error' ? 'ERR' : 'WARN') ?></span>
+                    <span class="status-icon"><?= ($preflightItem['status'] ?? 'warning') === 'ok' ? '✓' : (($preflightItem['status'] ?? 'warning') === 'error' ? '✗' : '⚠') ?></span>
                     <span class="status-label"><?= h((string)($preflightItem['label'] ?? 'Estado')) ?></span>
                     <span class="status-value"><?= h((string)($preflightItem['value'] ?? '-')) ?></span>
                 </div>
             <?php endforeach; ?>
 
             <div class="status-item <?= $tableReady ? 'ok' : 'warning' ?>">
-                <span class="status-icon"><?= $tableReady ? 'OK' : 'WARN' ?></span>
+                <span class="status-icon"><?= $tableReady ? '✓' : '⚠' ?></span>
                 <span class="status-label">Tabla config_facturacion</span>
                 <span class="status-value"><?= $tableReady ? 'Disponible' : 'Pendiente de migracion' ?></span>
             </div>
 
             <div class="status-item <?= $configModo === 'demo' ? 'warning' : 'ok' ?>">
-                <span class="status-icon"><?= $configModo === 'produccion' ? 'PROD' : ($configModo === 'homologacion' ? 'HOMO' : 'DEMO') ?></span>
+                <span class="mode-badge mode-<?= h($configModo) ?>"><?= strtoupper(h($configModo)) ?></span>
                 <span class="status-label">Modo actual</span>
                 <span class="status-value"><?= h($configModoLabel) ?></span>
             </div>
 
             <div class="status-item <?= h($emitReadyClass) ?>">
-                <span class="status-icon"><?= ($emitPreflight['ok'] ?? false) ? 'OK' : 'ERR' ?></span>
+                <span class="status-icon"><?= ($emitPreflight['ok'] ?? false) ? '✓' : '✗' ?></span>
                 <span class="status-label">Preflight de emision</span>
                 <span class="status-value"><?= h($emitReadyLabel) ?></span>
             </div>
@@ -631,12 +642,6 @@ require __DIR__ . '/partials/header.php';
         <?php foreach ($preflightArca['warnings'] as $warning): ?>
             <p class="section-desc"><?= h($warning) ?></p>
         <?php endforeach; ?>
-
-        <?php if (!($emitPreflight['ok'] ?? false)): ?>
-            <div class="alert alert-error" style="margin-top:12px;">
-                <div><strong>Emision bloqueada:</strong> <?= h(flus_facturacion_preflight_emision_error($emitPreflight)) ?></div>
-            </div>
-        <?php endif; ?>
 
         <?php foreach ((array)($emitPreflight['warnings'] ?? []) as $emitWarning): ?>
             <p class="section-desc"><?= h((string)$emitWarning) ?></p>
@@ -692,17 +697,18 @@ require __DIR__ . '/partials/header.php';
                         value="<?= h($config['logo_url']) ?>"
                         placeholder="Ej: img/logo_factura.png o https://sitio.com/logo.png"
                     >
-                    <small>Usa una ruta publica dentro de <code>public/</code>, una URL completa o sube un archivo abajo.</small>
+                    <small>Usa una ruta publica dentro de <code>public/</code> o una URL completa.</small>
+                    <div class="logo-or-sep"><span>o subí un archivo</span></div>
                     <input
                         type="file"
                         id="logo_file"
                         name="logo_file"
                         accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
                     >
-                    <small>Formatos permitidos: PNG, JPG, WEBP o GIF. Tamano maximo: 2 MB.</small>
+                    <small>PNG, JPG, WEBP o GIF — máximo 2 MB.</small>
                     <?php if ($config['logo_url'] !== ''): ?>
-                        <div style="margin-top:10px;">
-                            <img src="<?= h($config['logo_url']) ?>" alt="Logo actual" style="max-width:220px;max-height:90px;object-fit:contain;border:1px solid #d0d7e2;padding:8px;background:#fff;">
+                        <div class="logo-preview-wrap">
+                            <img src="<?= h($config['logo_url']) ?>" alt="Logo actual" class="logo-preview">
                         </div>
                     <?php endif; ?>
                 </div>
@@ -775,7 +781,7 @@ require __DIR__ . '/partials/header.php';
                     <small>Controla la impresion en una sola hoja. No es una regla fiscal.</small>
                 </div>
 
-                <div class="form-group">
+                <div class="form-group full-width form-group--info">
                     <label>Proximo numero</label>
                     <div class="numero-display">
                         <span class="numero-valor"><?= (int)$config['proximo_numero'] ?></span>
@@ -814,7 +820,8 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <section class="config-section instructions">
-        <h2 class="section-title">Pasos para homologacion y produccion</h2>
+        <details class="instructions-details">
+        <summary class="section-title">Pasos para homologacion y produccion</summary>
 
         <div class="instruction-steps">
             <div class="step">
@@ -865,6 +872,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
             </div>
         </div>
+        </details>
     </section>
 </div>
 
