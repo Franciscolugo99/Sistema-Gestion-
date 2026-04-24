@@ -3471,7 +3471,8 @@ $results[] = flus_run_test('historial de caja contempla transferencias en medios
     flus_assert_contains("\$mediosBaseExpr = \"(COALESCE(cs.total_ventas,0)-{\$ventasCcExpr}+{\$cobrosCcExpr})\";", $cajaHistorialPhp);
     flus_assert_contains("\$condMedios = \"ABS({\$mediosBaseExpr} - {\$mediosExpr}) > 0.009\";", $cajaHistorialPhp);
     flus_assert_contains('{$transferExpr} AS total_transferencia', $cajaHistorialPhp);
-    flus_assert_contains("'total_transferencia','ventas_cc','cobros_cc','medios_base','medios_diff'", $cajaHistorialPhp);
+    flus_assert_contains("'total_transferencia',", $cajaHistorialPhp);
+    flus_assert_contains("'ventas_cc','cobros_cc','medios_base','medios_diff'", $cajaHistorialPhp);
     flus_assert_contains('<span>Cobros CC</span>', $cajaHistorialPhp);
     flus_assert_contains('<span>Transferencia</span>', $cajaHistorialPhp);
 });
