@@ -4,6 +4,15 @@
    Archivo: public/assets/css/promo_combo_fijo.css
 ============================================ */
 
+/* --panel-alt no está definido en theme.css global; lo declaramos aquí */
+:root {
+  --panel-alt: rgba(0, 0, 0, 0.04);
+}
+
+body[data-theme="dark"] {
+  --panel-alt: rgba(0, 0, 0, 0.18);
+}
+
 /* === LAYOUT PÁGINA === */
 .page-wrap-promos {
   width: 100%;
@@ -681,7 +690,7 @@
   background: var(--panel, #0f172a);
   border: 1px solid var(--panel-border, #1e293b);
   border-radius: 12px;
-  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.26);
+  box-shadow: var(--shadow-lg);
   max-height: 280px;
   overflow-y: auto;
   display: none;

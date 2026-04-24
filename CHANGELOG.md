@@ -1,5 +1,46 @@
 # CHANGELOG - FLUS
 
+## [Unreleased] - 2026-04-24
+
+### Changed
+
+- **Backups / tip de automatización:**
+  - La ruta sugerida para el Programador de Tareas de Windows ya no está hardcodeada a `C:\xampp`.
+  - Ahora se genera dinámicamente con `PHP_BINARY` y `realpath()`, por lo que muestra el path real del servidor en cualquier entorno: XAMPP de desarrollo, instalación FLUS portable del cliente (`C:\FLUS\stack\php\php.exe`), o cualquier otra ruta de instalación.
+
+- **Backups / UX de borrado:**
+  - El botón "Borrar" migró de `<form method="post">` con `window.confirm()` nativo a AJAX + `Notif.prompt()`, igual que las acciones de Crear y Restaurar.
+  - La tabla y las stats se actualizan sin recargar la página tras borrar.
+  - Cuando se borra el último backup, el estado vacío se muestra correctamente y el stat "Último Backup" pasa a `—`.
+
+- **Backups / stat "Último Backup":**
+  - Cuando el backup más reciente es de un año anterior, el stat muestra la fecha completa `dd/mm/AAAA` en vez de solo `dd/mm HH:mm`, evitando ambigüedad.
+
+### Fixed
+
+- **CSS / compatibilidad modo claro y oscuro (`promos.css`, `promo_combo_fijo.css`, `tecnico.css`):**
+  - Auditoría completa de módulos CSS. Se identificaron 3 archivos sin bloque `body[data-theme="dark"]` que usaban colores hardcodeados incompatibles con el sistema de temas.
+  - **`promos.css`:**
+    - Agregada definición de `--panel-alt` (faltaba en `theme.css` global) para `:root` y `body[data-theme="dark"]`, evitando que el fallback oscuro `rgba(0,0,0,0.15)` se activara en modo claro.
+    - Reemplazado `box-shadow: 0 18px 40px rgba(2, 6, 23, 0.24)` por `var(--shadow-lg)` en `.promo-search-suggestions`.
+  - **`promo_combo_fijo.css`:**
+    - Misma corrección de `--panel-alt` aplicada al tope del archivo.
+    - Reemplazado `box-shadow: 0 16px 40px rgba(2, 6, 23, 0.26)` por `var(--shadow-lg)` en `.product-search-suggestions`.
+  - **`tecnico.css`:**
+    - Reemplazados todos los colores hex hardcodeados por variables semánticas: `#0f172a`/`#334155` → `var(--text)`, `#475569`/`#64748b` → `var(--muted)`, `#15803d` → `var(--success)`, `#b91c1c` → `var(--danger)`.
+    - `.tecnico-card`: borde y sombra migrados a `var(--panel-border)` y `var(--shadow-lg)`.
+    - `.health-item` base: fondo `rgba(248,250,252,.8)` → `var(--bg-alt)`.
+    - `.health-item.is-ok` / `.is-warning`: se mantienen los fondos pastel en modo claro; se añadieron overrides `body[data-theme="dark"]` con fondos tintados oscuros (verde/ámbar sobre fondo oscuro).
+    - `.tecnico-link-card`: gradiente blanco reemplazado por `var(--panel-bg, var(--panel))`; hover shadow usa `var(--shadow-color)`.
+    - `.terminal-output`: mantenido con fondo `#0f172a` hardcodeado intencional (terminal de consola, siempre oscuro).
+
+- **Backups / validación antes de restaurar:**
+  - `backup_restore()` ahora valida el contenido del archivo SQL antes de tomar el lock y activar el modo mantenimiento.
+  - Nueva función `backup_validate_sql_file()` en `src/backup_lib.php`: lee los primeros 8 KB del archivo y verifica que contenga marcas propias de un dump MySQL (`mysqldump`, `CREATE TABLE`, `INSERT INTO`). Si el archivo está corrupto, truncado o no es un dump válido, falla con mensaje claro sin dejar el sistema en estado de mantenimiento.
+  - Archivos modificados: `src/backup_lib.php`, `public/backups.php`, `public/assets/js/backups.js`.
+
+---
+
 ## [3.9.0-rc1] - 2026-04-20
 
 ### Estado de salida
