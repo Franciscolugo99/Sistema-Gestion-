@@ -32,88 +32,100 @@ define('APP_SECRET', 'flus-default-secret-change-me'); // reemplazar por un secr
 // ============================================
 // CONEXION PDO
 // ============================================
-function flus_pdo_dsn(int $connectTimeout = 0): string {
-    $dsn = sprintf(
-        "mysql:host=%s;port=%d;dbname=%s;charset=%s",
-        DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
-    );
+if (!function_exists('flus_pdo_dsn')) {
+    function flus_pdo_dsn(int $connectTimeout = 0): string {
+        $dsn = sprintf(
+            "mysql:host=%s;port=%d;dbname=%s;charset=%s",
+            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
+        );
 
-    if ($connectTimeout > 0) {
-        $dsn .= ';connect_timeout=' . $connectTimeout;
-    }
-
-    return $dsn;
-}
-
-function flus_pdo_options(int $timeout = 0): array {
-    $options = [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-        PDO::ATTR_PERSISTENT         => false,
-    ];
-
-    if ($timeout > 0) {
-        $options[PDO::ATTR_TIMEOUT] = $timeout;
-    }
-
-    return $options;
-}
-
-function flus_pdo_exception_is_connection_lost(Throwable $e): bool {
-    if (!$e instanceof PDOException) {
-        return false;
-    }
-
-    $message = $e->getMessage();
-    return strpos($message, '2006') !== false
-        || strpos($message, '2013') !== false
-        || stripos($message, 'server has gone away') !== false
-        || stripos($message, 'lost connection') !== false;
-}
-
-function flus_pdo_exception_is_connectivity(Throwable $e): bool {
-    if (!$e instanceof PDOException) {
-        return false;
-    }
-
-    $message = $e->getMessage();
-    return strpos($message, '2002') !== false
-        || strpos($message, '(10061)') !== false
-        || strpos($message, '(10060)') !== false
-        || stripos($message, "can't connect") !== false
-        || flus_pdo_exception_is_connection_lost($e);
-}
-
-function flus_pdo_fresh(int $timeout = 3): PDO {
-    $pdo = new PDO(flus_pdo_dsn($timeout), DB_USER, DB_PASS, flus_pdo_options($timeout));
-    $pdo->exec("SET time_zone = '-03:00'");
-    return $pdo;
-}
-
-function getPDO(): PDO {
-    static $pdo = null;
-    static $lastPingAt = 0.0;
-
-    $now = microtime(true);
-    if ($pdo instanceof PDO) {
-        if (($now - $lastPingAt) < 2.0) {
-            return $pdo;
+        if ($connectTimeout > 0) {
+            $dsn .= ';connect_timeout=' . $connectTimeout;
         }
 
-        try {
-            $pdo->query('SELECT 1')->fetchColumn();
-            $lastPingAt = $now;
-            return $pdo;
-        } catch (PDOException $e) {
-            if (!flus_pdo_exception_is_connectivity($e)) {
-                throw $e;
+        return $dsn;
+    }
+}
+
+if (!function_exists('flus_pdo_options')) {
+    function flus_pdo_options(int $timeout = 0): array {
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_PERSISTENT         => false,
+        ];
+
+        if ($timeout > 0) {
+            $options[PDO::ATTR_TIMEOUT] = $timeout;
+        }
+
+        return $options;
+    }
+}
+
+if (!function_exists('flus_pdo_exception_is_connection_lost')) {
+    function flus_pdo_exception_is_connection_lost(Throwable $e): bool {
+        if (!$e instanceof PDOException) {
+            return false;
+        }
+
+        $message = $e->getMessage();
+        return strpos($message, '2006') !== false
+            || strpos($message, '2013') !== false
+            || stripos($message, 'server has gone away') !== false
+            || stripos($message, 'lost connection') !== false;
+    }
+}
+
+if (!function_exists('flus_pdo_exception_is_connectivity')) {
+    function flus_pdo_exception_is_connectivity(Throwable $e): bool {
+        if (!$e instanceof PDOException) {
+            return false;
+        }
+
+        $message = $e->getMessage();
+        return strpos($message, '2002') !== false
+            || strpos($message, '(10061)') !== false
+            || strpos($message, '(10060)') !== false
+            || stripos($message, "can't connect") !== false
+            || flus_pdo_exception_is_connection_lost($e);
+    }
+}
+
+if (!function_exists('flus_pdo_fresh')) {
+    function flus_pdo_fresh(int $timeout = 3): PDO {
+        $pdo = new PDO(flus_pdo_dsn($timeout), DB_USER, DB_PASS, flus_pdo_options($timeout));
+        $pdo->exec("SET time_zone = '-03:00'");
+        return $pdo;
+    }
+}
+
+if (!function_exists('getPDO')) {
+    function getPDO(): PDO {
+        static $pdo = null;
+        static $lastPingAt = 0.0;
+
+        $now = microtime(true);
+        if ($pdo instanceof PDO) {
+            if (($now - $lastPingAt) < 2.0) {
+                return $pdo;
             }
-            $pdo = null;
-        }
-    }
 
-    $pdo = flus_pdo_fresh();
-    $lastPingAt = microtime(true);
-    return $pdo;
+            try {
+                $pdo->query('SELECT 1')->fetchColumn();
+                $lastPingAt = $now;
+                return $pdo;
+            } catch (PDOException $e) {
+                if (!flus_pdo_exception_is_connectivity($e)) {
+                    throw $e;
+                }
+                $pdo = null;
+            }
+        }
+
+        $pdo = flus_pdo_fresh();
+        $lastPingAt = microtime(true);
+        return $pdo;
+    }
 }
