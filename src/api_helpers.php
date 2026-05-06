@@ -13,6 +13,7 @@ if (is_file($__flus_schema_helpers)) require_once $__flus_schema_helpers;
 
 // Evitar redefinición
 if (defined('FLUS_API_HELPERS_LOADED')) return;
+define('FLUS_API_HELPERS_LOADED', true);
 require_once __DIR__ . '/http_helpers.php';
 /**
  * Respuesta JSON exitosa
@@ -181,6 +182,12 @@ if (!function_exists('flus_csrf_from_request')) {
       }
     }
     if ($h !== '') return trim($h);
+
+    foreach (['HTTP_X_CSRF_TOKEN', 'HTTP_X_CSRF', 'HTTP_X_XSRF_TOKEN'] as $serverKey) {
+      if (isset($_SERVER[$serverKey]) && (string)$_SERVER[$serverKey] !== '') {
+        return trim((string)$_SERVER[$serverKey]);
+      }
+    }
 
     // Body JSON / POST
     foreach (['csrf_token','csrf','_csrf'] as $k) {

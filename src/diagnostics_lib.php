@@ -1672,6 +1672,15 @@ if (!function_exists('flus_check_security_config')) {
             $issues[] = ['message' => 'allow_url_include está habilitado (riesgo alto)'];
         }
 
+        if ($env === 'production') {
+            if (defined('DB_USER') && strtolower((string)DB_USER) === 'root') {
+                $warnings[] = ['message' => 'DB_USER usa root en produccion; conviene usar un usuario con permisos minimos'];
+            }
+            if (defined('DB_PASS') && (string)DB_PASS === '') {
+                $warnings[] = ['message' => 'DB_PASS esta vacio en produccion'];
+            }
+        }
+
         // HTTPS (solo advertir si no es localhost)
         $host = (string)($_SERVER['HTTP_HOST'] ?? '');
         $isLocal = $host === '' || stripos($host, 'localhost') !== false || preg_match('/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/', $host);
@@ -1680,16 +1689,25 @@ if (!function_exists('flus_check_security_config')) {
             $warnings[] = ['message' => 'El sitio no está usando HTTPS'];
         }
 
-        // uploads dentro de docroot => warning (no ejecuta pruebas activas)
+        // storage dentro de docroot => depende del bloqueo del webserver.
         $root = defined('FLUS_ROOT') ? FLUS_ROOT : dirname(__DIR__);
-        $uploads = $root . '/storage/uploads';
+        $storage = $root . '/storage';
         $docroot = (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
 
-        if ($docroot !== '' && is_dir($uploads)) {
-            $realUp = realpath($uploads);
+        if ($docroot !== '' && is_dir($storage)) {
+            $realStorage = realpath($storage);
             $realDoc = realpath($docroot);
-            if ($realUp && $realDoc && strpos($realUp, $realDoc) === 0) {
-                $warnings[] = ['message' => 'storage/uploads está dentro del document_root (revisar .htaccess / permisos)'];
+            if ($realStorage && $realDoc && strpos($realStorage, $realDoc) === 0) {
+                $htaccess = $storage . DIRECTORY_SEPARATOR . '.htaccess';
+                $htaccessRaw = is_file($htaccess) ? (string)@file_get_contents($htaccess) : '';
+                $hasDenyRule = stripos($htaccessRaw, 'deny from all') !== false
+                    || stripos($htaccessRaw, 'require all denied') !== false;
+
+                if ($hasDenyRule) {
+                    $warnings[] = ['message' => 'storage esta dentro del document_root; .htaccess contiene bloqueo, validar AllowOverride en Apache'];
+                } else {
+                    $issues[] = ['message' => 'storage esta dentro del document_root y no se detecto bloqueo .htaccess efectivo'];
+                }
             }
         }
 

@@ -392,38 +392,7 @@ function calcular_totales_con_promos(array $items, array $promos): array {
 /* --------------------------------------------------------
    HELPERS API (permisos + CSRF)
 -------------------------------------------------------- */
-function require_perm_json(string $slug): void {
-  if (function_exists('user_has_permission') && !user_has_permission($slug)) {
-    json_fail('No autorizado', 403);
-  }
-}
-
-function require_any_perm_json(array $slugs): void {
-  if (!function_exists('user_has_permission')) return;
-  foreach ($slugs as $s) {
-    if (user_has_permission((string)$s)) return;
-  }
-  json_fail('No autorizado', 403);
-}
-
-function csrf_from_request(array $body): string {
-  $h = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-  if ($h === '' && isset($_SERVER['HTTP_X_CSRF'])) $h = (string)$_SERVER['HTTP_X_CSRF'];
-  return (string)($body['csrf'] ?? ($body['csrf_token'] ?? $h));
-}
-
-function require_csrf_json(array $body): void {
-  $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-  if ($method === 'GET' || $method === 'HEAD' || $method === 'OPTIONS') return;
-
-  $t = csrf_from_request($body);
-
-  // CSRF obligatorio para requests con sesión (POST/PUT/PATCH/DELETE)
-  if ($t === '' || !function_exists('csrf_verify') || !csrf_verify($t)) {
-    json_fail('CSRF', 419, ['hint' => 'Token CSRF inválido o ausente. Recargá la página e intentá de nuevo.']);
-  }
-}
-
+// Los helpers de permisos y CSRF viven en src/api_helpers.php.
 function invalidate_promos_cache(PDO $pdo): void {
   $GLOBALS['pdo'] = $pdo;
   if (function_exists('invalidarCachePromos')) {
