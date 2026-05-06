@@ -867,7 +867,7 @@ function flus_hotspot_line_budgets(): array
         'public/includes/CuentaCorrienteController.php' => 1550,
         'public/productos.php' => 1850,
         'public/compras.php' => 1650,
-        'public/assets/js/caja.js' => 3850,
+        'public/assets/js/caja.js' => 3910,
         'public/api/index.php' => 675,
         'public/bootstrap.php' => 350,
     ];

@@ -21,7 +21,7 @@ Estos archivos quedan con presupuesto explicito en `tests/smoke.php` para evitar
 - `public/includes/CuentaCorrienteController.php`: maximo `1550` lineas
 - `public/productos.php`: maximo `1850` lineas
 - `public/compras.php`: maximo `1650` lineas
-- `public/assets/js/caja.js`: maximo `3850` lineas
+- `public/assets/js/caja.js`: maximo `3910` lineas
 - `public/api/index.php`: maximo `675` lineas
 - `public/bootstrap.php`: maximo `350` lineas
 

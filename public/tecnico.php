@@ -918,7 +918,7 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Timeout:</strong> <?= !empty($smoke['timed_out']) ? 'Si' : 'No' ?></div>
         <div><strong>PHP CLI:</strong> <?= tecnico_h($phpBinary ?? 'No detectado') ?></div>
         <div><strong>Pantallas relevadas:</strong> <?= (int)$publicPageCount ?> public / <?= (int)$apiPageCount ?> api</div>
-        <div><strong>Log stdout:</strong> <?= tecnico_h((string)($smoke['stdout_log'] ?? '-')) ?></div>
+        <div style="grid-column:1/-1"><strong>Log stdout:</strong> <code style="word-break:break-all;font-size:0.85em;opacity:0.8;"><?= tecnico_h((string)($smoke['stdout_log'] ?? '-')) ?></code></div>
       </div>
 
       <div class="tecnico-copy-bar">
