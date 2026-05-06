@@ -1,0 +1,184 @@
+/* assets/css/caja_movimientos.css
+   Movimientos de caja – estilos propios, integrados al theme
+*/
+
+/* =====================
+   CONTAINER ANCHO
+   Sobreescribe el 80% del container global para usar más espacio
+   en monitores de 19-22" donde el panel queda muy angosto
+===================== */
+body:has(.mov-header) .root.container-global {
+  width: 96%;
+  max-width: 1600px;
+}
+
+/* =====================
+   HEADER DE LA PÁGINA
+===================== */
+.mov-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
+}
+
+body[data-theme="dark"] .mov-header {
+  background: radial-gradient(
+    circle at top left,
+    rgba(34, 211, 238, 0.08),
+    rgba(17, 24, 39, 0.92) 55%
+  );
+}
+
+body[data-theme="light"] .mov-header {
+  background: radial-gradient(
+    circle at top left,
+    rgba(14, 165, 233, 0.07),
+    #ffffff 60%
+  );
+}
+
+.mov-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mov-header__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.mov-header__pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* =====================
+   CARD FORMULARIO
+===================== */
+.mov-form-card {
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mov-form-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent-cyan, #06b6d4);
+  opacity: 0.9;
+}
+
+.mov-form-title {
+  margin: 0 0 14px 0;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+/* =====================
+   GRID DEL FORMULARIO
+===================== */
+.mov-form-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr 180px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 860px) {
+  .mov-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mov-form-grid .mov-form-submit {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 540px) {
+  .mov-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mov-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mov-form-field label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.mov-form-field input,
+.mov-form-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text, var(--text));
+  font-size: 0.95rem;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.mov-form-field input:focus,
+.mov-form-field select:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+}
+
+.mov-form-submit {
+  min-height: 44px;
+  align-self: end;
+}
+
+/* =====================
+   HISTORIAL (tabla)
+===================== */
+.mov-history-title {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.mov-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+  border-radius: 14px;
+  border: 1px dashed var(--panel-border);
+}

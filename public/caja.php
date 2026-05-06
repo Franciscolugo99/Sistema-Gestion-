@@ -200,7 +200,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
         <div class="apertura-wrapper">
           <div class="apertura-card">
-            <p class="apertura-help" style="margin:0;">
+            <p class="apertura-help">
               Si este usuario tambien necesita cobrar ventas, dale el permiso <strong>realizar_ventas</strong>.
               <?php if (function_exists('user_has_permission') && user_has_permission('cerrar_caja')): ?>
                 Si solo debe cerrar el turno, puede continuar desde <a href="caja_cerrar.php">Cerrar caja</a>.
@@ -463,7 +463,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
       <div class="caja-scan-meta" aria-live="polite">
         <span class="caja-scan-mode" id="scanModeBadge">Producto activo</span>
-        <span class="caja-scan-copy" id="scanModeText">Escanea o escribi un producto. Enter agrega y Tab pasa a cantidad.</span>
+        <span class="caja-scan-copy" id="scanModeText">Escanea o escribi un producto. Enter agrega &middot; Tab pasa a cantidad &middot; F3 vuelve aca.</span>
       </div>
 
       <div class="caja-scan-hints">
@@ -820,11 +820,11 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
     
     <div class="field">
       <label for="ccPagoBuscar">Cliente</label>
-      <div style="position:relative;">
+      <div class="cc-buscar-wrap">
         <input type="text" id="ccPagoBuscar" placeholder="Buscar cliente (nombre / telefono / CUIT)" autocomplete="off">
         <input type="hidden" id="ccPagoClienteId" value="">
       </div>
-      <div id="ccPagoInfo" class="cc-info" style="margin-top:4px;font-size:0.9em;color:#666;"></div>
+      <div id="ccPagoInfo" class="cc-info cc-info--modal"></div>
     </div>
     
     <div class="field">

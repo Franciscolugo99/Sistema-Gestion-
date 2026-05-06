@@ -355,9 +355,9 @@ require __DIR__ . '/partials/header.php';
       <div class="cierre-meta">
         Realizado por
         <span class="strong"><?= h($usernameCaja) ?></span>
-        · Desde <?= h($fechaApertura) ?>
+        · Desde <?= h(format_datetime_ar($fechaApertura)) ?>
         <?php if (!$abierta && !empty($caja['fecha_cierre'])): ?>
-          · Hasta <?= h((string)$caja['fecha_cierre']) ?>
+          · Hasta <?= h(format_datetime_ar((string)$caja['fecha_cierre'])) ?>
         <?php endif; ?>
       </div>
     </div>
