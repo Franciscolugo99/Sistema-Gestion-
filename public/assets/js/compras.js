@@ -308,7 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applySearchPrefill() {
     if (!searchInput) return;
 
-    const preset = new URLSearchParams(window.location.search).get("q");
+    const preset = new URLSearchParams(window.location.search).get("product_q");
     if (!preset) return;
 
     searchInput.value = preset;

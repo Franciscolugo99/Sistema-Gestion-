@@ -296,7 +296,7 @@ if (!function_exists('inv_render_producto_acciones')) {
             $items[] = '<a class="inv-action-chip inv-action-chip--warning" href="reposicion.php?' . http_build_query(['q' => $busqueda]) . '">Reposicion</a>';
         }
         if ($canVerCompras && $busqueda !== '') {
-            $items[] = '<a class="inv-action-chip inv-action-chip--success" href="compras.php?' . http_build_query(['q' => $busqueda]) . '">Comprar</a>';
+            $items[] = '<a class="inv-action-chip inv-action-chip--success" href="compras.php?' . http_build_query(['product_q' => $busqueda]) . '">Comprar</a>';
         }
         if ($canVerConteo && $busqueda !== '') {
             $items[] = '<a class="inv-action-chip inv-action-chip--neutral" href="inventario_fisico.php?' . http_build_query(['q' => $busqueda]) . '">Conteo</a>';

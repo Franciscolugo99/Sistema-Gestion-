@@ -428,7 +428,7 @@ const ProductosManager = {
     async submitMainForm(form) {
         const btn = form.querySelector('button[type="submit"]');
         const btnText = btn?.querySelector('.btn-text');
-        const btnSpinner = btn?.querySelector('.btn-spinner');
+        const btnSpinner = btn?.querySelector('.btn-spinner, .btn-loading');
 
         if (btn) btn.disabled = true;
         if (btnText) btnText.style.display = 'none';
@@ -448,7 +448,9 @@ const ProductosManager = {
             if (!res.ok) throw new Error('HTTP_' + res.status);
 
             const data = await res.json();
-            if (!data || data.success !== true) throw new Error(data?.error || 'SAVE_FAIL');
+            if (!data || data.success !== true) {
+                throw new Error(data?.message || data?.error || 'SAVE_FAIL');
+            }
 
             this.showToast(data.message || 'Guardado', 'success');
             this.state.formDirty = false;
@@ -466,7 +468,7 @@ const ProductosManager = {
 
         } catch (err) {
             console.error('[ProductosManager] submitMainForm error:', err);
-            this.showToast('Error al guardar', 'error');
+            this.showToast(err.message && err.message !== 'SAVE_FAIL' ? err.message : 'Error al guardar', 'error');
         } finally {
             if (btn) btn.disabled = false;
             if (btnText) btnText.style.display = 'inline';
