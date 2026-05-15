@@ -26,7 +26,7 @@ $pageTitle = 'Inventario FÃ­sico - FLUS';
 $currentSection = 'inventario_fisico';
 
 $extraCss = ['assets/css/inventario_fisico.css?v=2.0'];
-$extraJs  = ['assets/js/inventario_fisico.js?v=2.0'];
+$extraJs  = ['assets/js/inventario_fisico.js?v=2.1'];
 $isAjaxRequest = !empty($_SERVER['HTTP_X_REQUESTED_WITH'])
     && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
 
@@ -518,11 +518,11 @@ require __DIR__ . '/partials/header.php';
                 Ver resumen
             </a>
             <?php if (($currentSession['estado'] ?? '') === 'ABIERTA'): ?>
-            <form method="post" class="inv-inline-form">
+            <form method="post" class="inv-inline-form js-inv-confirm-form" data-confirm-title="Cerrar sesión" data-confirm-message="Luego podrás aplicar ajustes desde Resumen." data-confirm-icon="warning" data-confirm-text="Cerrar sesión" data-cancel-text="Cancelar">
                 <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="cerrar_sesion">
                 <input type="hidden" name="motivo" value="Cerrado para aplicar ajustes">
-                <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('Â¿Cerrar la sesiÃ³n? Luego podrÃ¡s aplicar ajustes desde Resumen.');">
+                <button type="submit" class="btn btn-warning btn-sm">
                     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
@@ -807,11 +807,11 @@ require __DIR__ . '/partials/header.php';
                     </svg>
                     Volver al conteo
                 </a>
-                <form method="post" class="inv-inline-form">
+                <form method="post" class="inv-inline-form js-inv-confirm-form" data-confirm-title="Cerrar sesión" data-confirm-message="Esto bloquea nuevos conteos. Después podrás aplicar ajustes desde Resumen." data-confirm-icon="warning" data-confirm-text="Cerrar sesión" data-cancel-text="Cancelar">
                     <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                     <input type="hidden" name="accion" value="cerrar_sesion">
                     <input type="hidden" name="motivo" value="Cerrado para aplicar ajustes">
-                    <button type="submit" class="btn btn-warning" onclick="return confirm('Â¿Cerrar la sesiÃ³n? Esto bloquea nuevos conteos.');">
+                    <button type="submit" class="btn btn-warning">
                         <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
@@ -833,10 +833,10 @@ require __DIR__ . '/partials/header.php';
                 </a>
                 
                 <?php if ((int)($resumen['productos_con_diferencia'] ?? 0) > 0): ?>
-                <form method="post" class="inv-inline-form">
+                <form method="post" class="inv-inline-form js-inv-confirm-form" data-confirm-title="Aplicar ajustes de stock" data-confirm-message="Esta acción no se puede deshacer. Se ajustarán <?= (int)$resumen['productos_con_diferencia'] ?> productos." data-confirm-icon="warning" data-confirm-text="Aplicar ajustes" data-confirm-color="#0f766e" data-cancel-text="Cancelar">
                     <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                     <input type="hidden" name="accion" value="aplicar_ajustes">
-                    <button type="submit" class="btn btn-primary" onclick="return confirm('Â¿Aplicar ajustes de stock? Esta acciÃ³n NO se puede deshacer.\n\nSe ajustarÃ¡n <?= (int)$resumen['productos_con_diferencia'] ?> productos.');">
+                    <button type="submit" class="btn btn-primary">
                         <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="20 6 9 17 4 12"/>
                         </svg>

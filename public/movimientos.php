@@ -69,6 +69,9 @@ function tipoDisplayFromRow(string $tipoRaw, $refVenta, $refCompra, ?string $com
 function mov_tipo_norm(string $value): string
 {
     $value = strtoupper(trim($value));
+    if (in_array($value, ['ANULACION_VENTA', 'ANULACION_COMPRA'], true)) {
+        return $value;
+    }
     if ($value !== '' && str_starts_with($value, 'ANULACI')) {
         return 'ANULACION';
     }

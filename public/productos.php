@@ -1041,7 +1041,6 @@ if (isset($_GET['ajaxTbody'])) {
     $st2 = $pdo->prepare($sql2);
     $st2->execute(array_merge($params2, $orderParams2));
     $productos2 = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    $productos2 = $st2->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     header('Content-Type: text/html; charset=utf-8');
     echo productos_render_tbody($productos2, $uploadDirUrl, $csrfQ, $_GET);

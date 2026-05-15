@@ -378,13 +378,22 @@ class ClienteController
         $hasTipo = $this->hasColumn('tipo_cliente');
 
         if ($q !== '') {
-            $searchFields = ['nombre LIKE :q'];
-            if ($hasCuit) $searchFields[] = 'cuit LIKE :q';
-            if ($hasEmail) $searchFields[] = 'email LIKE :q';
-            if ($hasTelefono) $searchFields[] = 'telefono LIKE :q';
+            $searchFields = ['nombre LIKE :q_nombre'];
+            $params[':q_nombre'] = '%' . $q . '%';
+            if ($hasCuit) {
+                $searchFields[] = 'cuit LIKE :q_cuit';
+                $params[':q_cuit'] = '%' . $q . '%';
+            }
+            if ($hasEmail) {
+                $searchFields[] = 'email LIKE :q_email';
+                $params[':q_email'] = '%' . $q . '%';
+            }
+            if ($hasTelefono) {
+                $searchFields[] = 'telefono LIKE :q_telefono';
+                $params[':q_telefono'] = '%' . $q . '%';
+            }
             
             $where[] = '(' . implode(' OR ', $searchFields) . ')';
-            $params[':q'] = '%' . $q . '%';
         }
 
         if ($estado === 'activos') {

@@ -707,14 +707,19 @@ $where = [];
 $params = [];
 
 if ($q !== '') {
-    // Construir búsqueda dinámica según columnas disponibles
+    // Construir busqueda dinamica segun columnas disponibles.
     $searchFields = ['nombre', 'cuit', 'email'];
     if (in_array('contacto_nombre', $availableCols, true)) {
         $searchFields[] = 'contacto_nombre';
     }
-    $searchSql = implode(' LIKE :q OR ', $searchFields) . ' LIKE :q';
+    $searchParts = [];
+    foreach ($searchFields as $field) {
+        $placeholder = ':q_' . $field;
+        $searchParts[] = $field . ' LIKE ' . $placeholder;
+        $params[$placeholder] = '%' . $q . '%';
+    }
+    $searchSql = implode(' OR ', $searchParts);
     $where[] = "($searchSql)";
-    $params[':q'] = '%' . $q . '%';
 }
 
 if ($estado === 'activo') {
