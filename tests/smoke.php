@@ -2545,6 +2545,9 @@ $results[] = flus_run_test('facturacion panel delega lectura y export a helper d
 
     flus_assert_contains("function flus_facturacion_panel_read", $panelHelper);
     flus_assert_contains("function flus_facturacion_panel_export_rows", $panelHelper);
+    flus_assert_not_contains(':search_like', $panelHelper);
+    flus_assert_contains(':search_cliente_nombre', $panelHelper);
+    flus_assert_contains(':search_cae', $panelHelper);
     flus_assert_contains("require_once __DIR__ . '/../src/facturacion_panel_lib.php';", $facturacionPhp);
     flus_assert_contains("\$panel = flus_facturacion_panel_read(\$pdo", $facturacionPhp);
     flus_assert_contains("\$exportRows = flus_facturacion_panel_export_rows(\$pdo, \$panel['plan']);", $facturacionPhp);
@@ -2758,6 +2761,34 @@ $results[] = flus_run_test('fase 6 presupuesto convierte a venta manual y no dup
     flus_assert_same($ventaA, $ventaB);
     flus_assert_same(1, count($pdo->rows('ventas')));
     flus_assert_same(1, count($pdo->rows('factura_manual_items')));
+    flus_assert_same($ventaA, (int)($presupuesto['venta_id'] ?? 0));
+    flus_assert_same('CONVERTIDO_VENTA', (string)($presupuesto['estado'] ?? ''));
+});
+
+$results[] = flus_run_test('fase 6 remito convierte a venta y vincula presupuesto origen', function (): void {
+    $pdo = flus_test_facturacion_fake_pdo();
+    $items = flus_facturacion_normalize_manual_items([
+        ['descripcion' => 'Producto remitido', 'cantidad' => 1, 'precio' => 520, 'iva_porcentaje' => 21],
+    ]);
+
+    $presupuestoId = flus_facturacion_documento_crear($pdo, 'PRESUPUESTO', 55, $items, [
+        'nota' => 'Presupuesto origen de remito',
+        'medio_pago' => 'PRESUPUESTO',
+    ], [
+        'request_uid' => 'fase6-pres-remito-venta',
+    ]);
+    $remitoId = flus_facturacion_documento_clonar($pdo, $presupuestoId, 'REMITO', [], [
+        'request_uid' => 'fase6-remito-venta',
+    ]);
+
+    $ventaA = flus_facturacion_documento_convertir_a_venta_manual($pdo, $remitoId);
+    $ventaB = flus_facturacion_documento_convertir_a_venta_manual($pdo, $remitoId);
+    $remito = flus_facturacion_documento_buscar($pdo, $remitoId);
+    $presupuesto = flus_facturacion_documento_buscar($pdo, $presupuestoId);
+
+    flus_assert_same($ventaA, $ventaB);
+    flus_assert_same(1, count($pdo->rows('ventas')));
+    flus_assert_same($ventaA, (int)($remito['venta_id'] ?? 0));
     flus_assert_same($ventaA, (int)($presupuesto['venta_id'] ?? 0));
     flus_assert_same('CONVERTIDO_VENTA', (string)($presupuesto['estado'] ?? ''));
 });
@@ -3334,6 +3365,9 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     flus_assert_contains('function flus_cobranzas_notas_credito_para_factura(PDO $pdo, int $facturaId): array', $cobranzasLib);
     flus_assert_contains('function flus_cobranzas_register_invoice_payment(PDO $pdo, array $payload): array', $cobranzasLib);
     flus_assert_contains('function flus_cobranzas_panel_read(PDO $pdo, array $filters): array', $cobranzasLib);
+    flus_assert_not_contains(':search_like', $cobranzasLib);
+    flus_assert_contains(':search_cliente_nombre', $cobranzasLib);
+    flus_assert_contains(':search_cae', $cobranzasLib);
     flus_assert_contains("factura_asociada_id = ?", $cobranzasLib);
     flus_assert_contains("'total_nc' => \$totalNc", $cobranzasLib);
     flus_assert_contains("'estado' => 'COMPENSADA'", $cobranzasLib);

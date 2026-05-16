@@ -221,19 +221,23 @@ function flus_facturacion_panel_build_plan(PDO $pdo, array $filters): array
 
     if ($filters['search'] !== '') {
         $searchWhere = [];
-        $params[':search_like'] = flus_facturacion_panel_like_param($filters['search']);
+        $searchLike = flus_facturacion_panel_like_param($filters['search']);
 
         if ($schema['join_clientes']) {
-            $searchWhere[] = $schema['cliente_nombre_expr'] . " LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = $schema['cliente_nombre_expr'] . " LIKE :search_cliente_nombre ESCAPE '\\\\'";
+            $params[':search_cliente_nombre'] = $searchLike;
             if ($schema['cliente_cuit_expr'] !== 'NULL') {
-                $searchWhere[] = $schema['cliente_cuit_expr'] . " LIKE :search_like ESCAPE '\\\\'";
+                $searchWhere[] = $schema['cliente_cuit_expr'] . " LIKE :search_cliente_cuit ESCAPE '\\\\'";
+                $params[':search_cliente_cuit'] = $searchLike;
             }
         }
         if ($schema['cae_col']) {
-            $searchWhere[] = "f.`cae` LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = "f.`cae` LIKE :search_cae ESCAPE '\\\\'";
+            $params[':search_cae'] = $searchLike;
         }
         if ($schema['tipo_col']) {
-            $searchWhere[] = "f.`tipo` LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = "f.`tipo` LIKE :search_tipo ESCAPE '\\\\'";
+            $params[':search_tipo'] = $searchLike;
         }
         if ($schema['numero_col'] && ctype_digit($filters['search'])) {
             $searchWhere[] = 'f.`numero` = :search_numero';

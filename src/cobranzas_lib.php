@@ -423,18 +423,22 @@ function flus_cobranzas_panel_read(PDO $pdo, array $filters): array
     }
     if ($filters['search'] !== '') {
         $searchWhere = [];
-        $params[':search_like'] = flus_cobranzas_panel_like_param($filters['search']);
+        $searchLike = flus_cobranzas_panel_like_param($filters['search']);
         if ($hasClientes) {
-            $searchWhere[] = "c.`nombre` LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = "c.`nombre` LIKE :search_cliente_nombre ESCAPE '\\\\'";
+            $params[':search_cliente_nombre'] = $searchLike;
             if (flus_column_exists($pdo, 'clientes', 'cuit')) {
-                $searchWhere[] = "c.`cuit` LIKE :search_like ESCAPE '\\\\'";
+                $searchWhere[] = "c.`cuit` LIKE :search_cliente_cuit ESCAPE '\\\\'";
+                $params[':search_cliente_cuit'] = $searchLike;
             }
         }
         if (flus_column_exists($pdo, 'facturas', 'cae')) {
-            $searchWhere[] = "f.`cae` LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = "f.`cae` LIKE :search_cae ESCAPE '\\\\'";
+            $params[':search_cae'] = $searchLike;
         }
         if ($hasTipo) {
-            $searchWhere[] = "f.`tipo` LIKE :search_like ESCAPE '\\\\'";
+            $searchWhere[] = "f.`tipo` LIKE :search_tipo ESCAPE '\\\\'";
+            $params[':search_tipo'] = $searchLike;
         }
         if (flus_column_exists($pdo, 'facturas', 'numero') && ctype_digit($filters['search'])) {
             $searchWhere[] = 'f.`numero` = :search_numero';
