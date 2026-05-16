@@ -461,6 +461,41 @@ $results[] = flus_run_test('schema checks are centralized outside public pages',
     }
 });
 
+$results[] = flus_run_test('productos csrf refresh endpoint matches frontend contract', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $endpointPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . '_csrf_token.php';
+    $productosJsPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'productos.js';
+
+    if (!is_file($endpointPath)) {
+        throw new RuntimeException('Missing productos CSRF endpoint');
+    }
+    if (!is_file($productosJsPath)) {
+        throw new RuntimeException('Missing productos.js');
+    }
+
+    $endpointPhp = (string)file_get_contents($endpointPath);
+    $productosJs = (string)file_get_contents($productosJsPath);
+
+    flus_assert_contains("fetch('_csrf_token.php", $productosJs);
+    flus_assert_contains("'csrf_token' => \$token", $endpointPhp);
+    flus_assert_contains("'csrf' => \$token", $endpointPhp);
+});
+
+$results[] = flus_run_test('productos thumbnails fall back when image file is missing', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $productosPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'productos.php';
+
+    if (!is_file($productosPath)) {
+        throw new RuntimeException('Missing productos.php');
+    }
+
+    $productosPhp = (string)file_get_contents($productosPath);
+
+    flus_assert_contains("basename((string)\$p['imagen'])", $productosPhp);
+    flus_assert_contains("is_file(__DIR__ . '/img/productos/' . \$imagenNombre)", $productosPhp);
+    flus_assert_contains('prod-thumb-placeholder', $productosPhp);
+});
+
 $results[] = flus_run_test('diagnostics access keeps dedicated permission compatibility', function (): void {
     $repoRoot = dirname(__DIR__);
     $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
