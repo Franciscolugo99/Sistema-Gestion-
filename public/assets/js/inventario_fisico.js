@@ -670,6 +670,67 @@
   // ═══════════════════════════════════════════════════════════════════════════
   // INICIALIZACIÓN
   // ═══════════════════════════════════════════════════════════════════════════
+  function confirmInPage(title, message, form) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'inv-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="inv-confirm-modal" role="dialog" aria-modal="true">
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(message)}</p>
+          <div class="inv-confirm-actions">
+            <button type="button" class="btn btn-secondary" data-action="cancel">Cancelar</button>
+            <button type="button" class="btn btn-warning" data-action="confirm">${escapeHtml(form.dataset.confirmText || 'Confirmar')}</button>
+          </div>
+        </div>
+      `;
+      const finish = (ok) => {
+        overlay.remove();
+        resolve(ok);
+      };
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay || event.target?.dataset?.action === 'cancel') finish(false);
+        if (event.target?.dataset?.action === 'confirm') finish(true);
+      });
+      document.body.appendChild(overlay);
+      overlay.querySelector('[data-action="cancel"]')?.focus();
+    });
+  }
+  function initConfirmForms() {
+    document.querySelectorAll('.js-inv-confirm-form').forEach((form) => {
+      if (form.dataset.confirmBound === '1') return;
+      form.dataset.confirmBound = '1';
+
+      form.addEventListener('submit', async (event) => {
+        if (form.dataset.confirmSubmitting === '1') return;
+
+        const title = form.dataset.confirmTitle || 'Confirmar accion';
+        const message = form.dataset.confirmMessage || 'Queres continuar?';
+        let ok = true;
+
+        event.preventDefault();
+
+        if (window.Notif && typeof window.Notif.confirmar === 'function') {
+          ok = await window.Notif.confirmar(
+            title,
+            `<p>${escapeHtml(message)}</p>`,
+            {
+              icon: form.dataset.confirmIcon || 'question',
+              confirmText: form.dataset.confirmText || 'Confirmar',
+              cancelText: form.dataset.cancelText || 'Cancelar',
+              confirmColor: form.dataset.confirmColor || undefined,
+            }
+          );
+        } else {
+          ok = await confirmInPage(title, message, form);
+        }
+
+        if (!ok) return;
+        form.dataset.confirmSubmitting = '1';
+        form.submit();
+      });
+    });
+  }
   function init() {
     injectStyles();
     cargarProductosContados();
@@ -681,6 +742,7 @@
     initFiltroTabla();
     initAtajos();
     initModalAyuda();
+    initConfirmForms();
 
     console.log('📋 Inventario Físico v2.0 iniciado');
   }

@@ -215,7 +215,11 @@
     if (p.endsWith("/login.php") || p.endsWith("/terminal_select.php") || p.includes("/login")) return;
 
     // En Caja sí necesitamos terminal; en el resto de módulos no queremos molestar.
-    const isCajaPage = (p.endsWith("/caja.php") || p.includes("/caja_"));
+    const isCajaPage = (
+      p.endsWith("/caja.php") ||
+      p.endsWith("/caja_cerrar.php") ||
+      p.endsWith("/caja_movimientos.php")
+    );
 
     let stopped = false;
 
