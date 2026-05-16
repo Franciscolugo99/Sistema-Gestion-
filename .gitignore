@@ -70,7 +70,6 @@ public/img/productos/*
 !public/img/productos/.gitkeep
 # Backups locales
 *.bak_*
-public/_csrf_token.php
 *.bak3
 qa!
 # --- FLUS: caches locales ---
