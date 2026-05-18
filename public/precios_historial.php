@@ -509,6 +509,7 @@ if ($vista === 'historial') {
 }
 // VISTA: HERRAMIENTAS
 $categorias = [];
+$preselectedProductos = [];
 if ($vista === 'herramientas') {
     try {
         $stmt = $pdo->query("
@@ -530,6 +531,42 @@ if ($vista === 'herramientas') {
         }
     } catch (Throwable $e) {
         $categorias = [];
+    }
+
+    $preselectedIdsRaw = trim((string)($_GET['ids'] ?? ''));
+    if ($preselectedIdsRaw !== '') {
+        $preselectedIds = array_values(array_unique(array_filter(
+            array_map('intval', explode(',', $preselectedIdsRaw)),
+            static fn(int $id): bool => $id > 0
+        )));
+        $preselectedIds = array_slice($preselectedIds, 0, 200);
+
+        if ($preselectedIds !== []) {
+            try {
+                $placeholders = implode(',', array_fill(0, count($preselectedIds), '?'));
+                $stmt = $pdo->prepare("
+                    SELECT
+                        p.id,
+                        {$catExpr} as categoria,
+                        p.codigo,
+                        p.nombre,
+                        p.precio,
+                        p.costo,
+                        CASE
+                            WHEN p.costo > 0 THEN ROUND(((p.precio - p.costo) / p.costo) * 100, 2)
+                            ELSE NULL
+                        END as margen_pct
+                    FROM productos p
+                    WHERE p.activo = 1
+                      AND p.id IN ({$placeholders})
+                    ORDER BY p.nombre ASC
+                ");
+                $stmt->execute($preselectedIds);
+                $preselectedProductos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable $e) {
+                $preselectedProductos = [];
+            }
+        }
     }
 }
 
@@ -748,6 +785,21 @@ require __DIR__ . '/partials/header.php';
          VISTA: HERRAMIENTAS
     ============================================ -->
     <?php elseif ($vista === 'herramientas'): ?>
+
+        <?php if ($preselectedProductos !== []): ?>
+            <div class="alert alert-info">
+                <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <span><?= count($preselectedProductos) ?> producto(s) de la compra cargados para revisar precio de venta.</span>
+            </div>
+            <script>
+            window.FLUS_PRESELECT_PRODUCTOS = <?= json_encode($preselectedProductos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+            window.FLUS_PRESELECT_MARGEN = 30;
+            </script>
+        <?php endif; ?>
         
         <div class="precios-layout">
             <!-- Panel izquierdo: Categorías y productos -->

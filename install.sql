@@ -852,6 +852,7 @@ DROP TABLE IF EXISTS `tesoreria_obligaciones`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `tesoreria_obligaciones` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `external_key` varchar(191) DEFAULT NULL,
   `descripcion` varchar(180) NOT NULL,
   `categoria_id` int(11) DEFAULT NULL,
   `sucursal_id` int(11) DEFAULT NULL,
@@ -863,15 +864,23 @@ CREATE TABLE `tesoreria_obligaciones` (
   `cuenta_sugerida_id` int(11) DEFAULT NULL,
   `movimiento_pago_id` int(11) DEFAULT NULL,
   `observaciones` varchar(255) DEFAULT NULL,
+  `entidad_tipo` varchar(40) DEFAULT NULL,
+  `entidad_id` int(11) DEFAULT NULL,
+  `proveedor_id` int(11) DEFAULT NULL,
+  `compra_id` int(11) DEFAULT NULL,
   `created_by` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_tes_obl_external_key` (`external_key`),
   KEY `idx_tes_obl_estado_vto` (`estado`,`fecha_vencimiento`),
   KEY `idx_tes_obl_categoria` (`categoria_id`),
   KEY `idx_tes_obl_sucursal` (`sucursal_id`),
   KEY `idx_tes_obl_cuenta` (`cuenta_sugerida_id`),
-  KEY `idx_tes_obl_mov_pago` (`movimiento_pago_id`)
+  KEY `idx_tes_obl_mov_pago` (`movimiento_pago_id`),
+  KEY `idx_tes_obl_entidad` (`entidad_tipo`,`entidad_id`),
+  KEY `idx_tes_obl_proveedor` (`proveedor_id`),
+  KEY `idx_tes_obl_compra` (`compra_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -272,7 +272,7 @@ require __DIR__ . '/partials/header.php';
     </svg>
     <div>
       <strong>Automatización:</strong> Para programar backups automáticos en Windows, usá el Programador de Tareas con:
-      <code>C:\xampp\php\php.exe C:\xampp\htdocs\kiosco\scripts\backup_db.php</code>
+      <code>C:\FLUS\stack\php\php.exe C:\FLUS\app\scripts\backup_db.php</code>
     </div>
   </div>
 

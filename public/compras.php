@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
 require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';
+require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';
 require_login();
 require_permission('editar_stock');
 $canManageTesoreria = function_exists('user_has_permission') && user_has_permission('gestionar_tesoreria');
@@ -29,7 +30,7 @@ if (!$HAS_COMPRA_ITEMS_DESCUENTO_PORC) { $comprasSchemaMissing[] = 'compra_items
 $comprasSchemaWarning = '';
 if ($comprasSchemaMissing !== []) {
   $comprasSchemaWarning = 'La base de compras esta en modo compatibilidad. Ejecuta '
-    . 'C:\xampp\php\php.exe scripts\migrate.php '
+    . 'stack\php\php.exe scripts\migrate.php '
     . 'para aplicar la migracion 005_compras_descuentos_schema.sql. '
     . 'Columnas faltantes: ' . implode(', ', $comprasSchemaMissing) . '.';
 }
@@ -720,8 +721,6 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
               (NOW(), :pid, 'COMPRA', :qty, NULL, :compra_id, :com)
           ");
 
-          $stUpdCosto = $pdo->prepare("UPDATE productos SET costo = :costo WHERE id = :pid");
-
           foreach ($items as $it) {
             $itemId = (int)$it['id'];
             $pid = (int)$it['producto_id'];
@@ -751,7 +750,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
             $cuAdj = round($netItem / $qty, 2);
             if ($cuAdj > 0) {
-              $stUpdCosto->execute([':costo' => $cuAdj, ':pid' => $pid]);
+              flus_compras_actualizar_costo_con_historial($pdo, $pid, $cuAdj, $compraId);
             }
           }
 
@@ -772,7 +771,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
           $pdo->commit();
 
-          header("Location: compras.php?saved=confirmed");
+          header("Location: compras.php?saved=confirmed&compra_id=" . (int)$compraId);
           exit;
 
         } catch (Throwable $e) {
@@ -1327,6 +1326,7 @@ require __DIR__ . "/partials/header.php";
       <?php endif; ?>
 
     </form>
+    <?php require __DIR__ . '/partials/compras_margenes_confirmacion.php'; ?>
   </div>
 
   <div class="panel" style="margin-top:22px;">
