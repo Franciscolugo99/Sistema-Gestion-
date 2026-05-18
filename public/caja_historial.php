@@ -8,6 +8,7 @@ require_login();
 require_permission('ver_historial_caja');
 
 require_once __DIR__ . '/lib/terminal.php';
+require_once __DIR__ . '/../src/venta_anulaciones_lib.php';
 
 /* --------------------------------------------------------
    Helpers locales (chicos y seguros)
@@ -83,11 +84,47 @@ $VERY_LONG_MIN = 24 * 60;  // 24h
 $hasTransferCol = function_exists('flus_column_exists')
   ? flus_column_exists($pdo, 'caja_sesiones', 'total_transferencia')
   : true;
+$movTableExists = function_exists('flus_table_exists') ? flus_table_exists($pdo, 'caja_movimientos') : false;
+$hasMovCcCol = $movTableExists && function_exists('flus_column_exists')
+  ? flus_column_exists($pdo, 'caja_movimientos', 'cc_movimiento_id')
+  : false;
+$hasVentasMontoCcCol = function_exists('flus_column_exists')
+  ? flus_column_exists($pdo, 'ventas', 'monto_cc')
+  : false;
+
 $transferExpr = $hasTransferCol ? 'COALESCE(cs.total_transferencia,0)' : '0';
 $mediosExpr = "(COALESCE(cs.total_efectivo,0)+COALESCE(cs.total_mp,0)+COALESCE(cs.total_debito,0)+COALESCE(cs.total_credito,0)+{$transferExpr})";
+$ventasCcExpr = '0';
+if ($hasVentasMontoCcCol) {
+  $ventasCcAnulJoin = flus_venta_anulaciones_totales_join_sql($pdo, 'vcc', 'vcc_vaa');
+  $ventasCcAnuladoExpr = $ventasCcAnulJoin !== '' ? 'COALESCE(vcc_vaa.monto_anulado_total,0)' : '0';
+  $ventasCcVigenteExpr = flus_venta_cc_vigente_expr_sql(
+    'COALESCE(vcc.monto_cc,0)',
+    'COALESCE(vcc.total,0)',
+    $ventasCcAnuladoExpr
+  );
+  $ventasCcExpr = "(
+    SELECT COALESCE(SUM({$ventasCcVigenteExpr}),0)
+    FROM ventas vcc
+    {$ventasCcAnulJoin}
+    WHERE vcc.caja_id = cs.id
+      AND (vcc.estado IS NULL OR UPPER(vcc.estado) <> 'ANULADA')
+  )";
+}
+$cobrosCcExpr = $hasMovCcCol ? "(
+  SELECT COALESCE(SUM(CASE
+    WHEN UPPER(cmcc.tipo) = 'INGRESO' THEN cmcc.monto
+    WHEN UPPER(cmcc.tipo) = 'EGRESO' THEN -cmcc.monto
+    ELSE 0
+  END),0)
+  FROM caja_movimientos cmcc
+  WHERE cmcc.caja_id = cs.id
+    AND COALESCE(cmcc.cc_movimiento_id,0) > 0
+)" : '0';
+$mediosBaseExpr = "(COALESCE(cs.total_ventas,0)-{$ventasCcExpr}+{$cobrosCcExpr})";
 
 $condDif    = "ABS(COALESCE(cs.diferencia,0)) > 0.00001";
-$condMedios = "ABS(COALESCE(cs.total_ventas,0) - {$mediosExpr}) > 0.009";
+$condMedios = "ABS({$mediosBaseExpr} - {$mediosExpr}) > 0.009";
 $endExpr    = "IF(cs.fecha_cierre IS NULL OR cs.fecha_cierre = '' OR cs.fecha_cierre = '0000-00-00 00:00:00', NOW(), cs.fecha_cierre)";
 $condLong   = "TIMESTAMPDIFF(MINUTE, cs.fecha_apertura, {$endExpr}) >= " . (int)$LONG_MIN;
 
@@ -102,8 +139,6 @@ $auditDisabled = is_file($auditFlagPath);
 $auditTableExistsRaw = function_exists('flus_table_exists') ? flus_table_exists($pdo, 'caja_auditoria') : false;
 // "Activa" = tabla existe y NO está desactivada por flag (no borra datos)
 $auditTableExists = $auditTableExistsRaw && !$auditDisabled;
-
-$movTableExists   = function_exists('flus_table_exists') ? flus_table_exists($pdo, 'caja_movimientos') : false;
 
 /* --------------------------------------------------------
    POST: setup auditoría / guardar auditoría
@@ -443,9 +478,11 @@ try {
       cs.total_anulaciones,
       cs.total_productos,
       cs.notas,
-
+      {$ventasCcExpr} AS ventas_cc,
+      {$cobrosCcExpr} AS cobros_cc,
+      {$mediosBaseExpr} AS medios_base,
       {$mediosExpr} AS medios_sum,
-      (COALESCE(cs.total_ventas,0) - {$mediosExpr}) AS medios_diff,
+      ({$mediosBaseExpr} - {$mediosExpr}) AS medios_diff,
 
       {$selMov},
       {$selAudit}
@@ -518,7 +555,10 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
         cs.total_debito,
         cs.total_credito,
         {$transferExpr} AS total_transferencia,
-        (COALESCE(cs.total_ventas,0) - {$mediosExpr}) AS medios_diff,
+        {$ventasCcExpr} AS ventas_cc,
+        {$cobrosCcExpr} AS cobros_cc,
+        {$mediosBaseExpr} AS medios_base,
+        ({$mediosBaseExpr} - {$mediosExpr}) AS medios_diff,
 
         cs.saldo_inicial,
         cs.saldo_sistema,
@@ -550,7 +590,8 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
 
     fputcsv($out, [
       'id','terminal_id','terminal','usuario','apertura','cierre','dur_min',
-      'total_ventas','total_efectivo','total_mp','total_debito','total_credito','total_transferencia','medios_diff',
+      'total_ventas','total_efectivo','total_mp','total_debito','total_credito','total_transferencia',
+      'ventas_cc','cobros_cc','medios_base','medios_diff',
       'saldo_inicial','saldo_sistema','saldo_declarado','diferencia',
       'mov_ingresos','mov_egresos',
       'audit_status','audit_by','audit_at','audit_nota'
@@ -575,6 +616,9 @@ if (($error_msg === null) && ((string)($_GET['export'] ?? '') === 'csv')) {
         (float)($r['total_debito'] ?? 0),
         (float)($r['total_credito'] ?? 0),
         (float)($r['total_transferencia'] ?? 0),
+        (float)($r['ventas_cc'] ?? 0),
+        (float)($r['cobros_cc'] ?? 0),
+        (float)($r['medios_base'] ?? 0),
         (float)($r['medios_diff'] ?? 0),
 
         (float)($r['saldo_inicial'] ?? 0),
@@ -862,6 +906,9 @@ function pill_class_for_amount(float $v): string {
             $ventas = (float)($r['total_ventas'] ?? 0);
             $dif = (float)($r['diferencia'] ?? 0);
 
+            $ventasCc    = (float)($r['ventas_cc'] ?? 0);
+            $cobrosCc    = (float)($r['cobros_cc'] ?? 0);
+            $mediosBase  = (float)($r['medios_base'] ?? 0);
             $mediosSum  = (float)($r['medios_sum'] ?? 0);
             $mediosDiff = (float)($r['medios_diff'] ?? 0);
 
@@ -941,6 +988,9 @@ function pill_class_for_amount(float $v): string {
                   <div class="detail-row"><span>Transferencia</span><strong><?= money_ar((float)($r['total_transferencia'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Suma medios</span><strong><?= money_ar($mediosSum) ?></strong></div>
                   <div class="detail-row"><span>Total ventas</span><strong><?= money_ar($ventas) ?></strong></div>
+                  <div class="detail-row"><span>Ventas a CC</span><strong><?= money_ar($ventasCc) ?></strong></div>
+                  <div class="detail-row"><span>Cobros CC</span><strong><?= money_ar($cobrosCc) ?></strong></div>
+                  <div class="detail-row"><span>Base medios</span><strong><?= money_ar($mediosBase) ?></strong></div>
                   <div class="detail-row"><span>Diff medios</span><strong><?= money_ar($mediosDiff) ?></strong></div>
                 </div>
 

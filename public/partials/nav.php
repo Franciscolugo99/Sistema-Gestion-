@@ -511,7 +511,7 @@ $renderNavGroup = static function (array $group) use ($buildClassName, $esc, $re
                 aria-expanded="false"
                 title="<?= $esc((string)$group['title']) ?>">
             <?= $esc((string)$group['buttonText']) ?>
-            <span class="nav-caret" aria-hidden="true">&#9662;</span>
+            <svg class="nav-caret" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,4 6,8 10,4"/></svg>
         </button>
         <div class="nav-dropdown-menu nav-group-menu" role="menu" aria-label="<?= $esc((string)$group['menuLabel']) ?>">
             <?php foreach ($group['links'] as $link): ?>

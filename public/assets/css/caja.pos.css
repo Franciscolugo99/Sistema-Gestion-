@@ -52,7 +52,19 @@
   color: var(--accent-green, #22c55e);
 }
 
-/* 
+/* Contenedor del buscador de cliente CC (reemplaza style="position:relative") */
+.cc-buscar-wrap {
+  position: relative;
+}
+
+/* Info de cliente en modal CC (reemplaza inline color/font-size) */
+.cc-info--modal {
+  margin-top: 4px;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+/*
    MODAL COBRAR CUENTA CORRIENTE (fuera de .caja-panel)
 ============================================================================ */
 #modalCcPago {

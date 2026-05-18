@@ -491,57 +491,79 @@ require __DIR__ . '/partials/header.php';
                 <p class="repo-empty-hint">Si esperabas una sugerencia, usa el boton Generar reposicion sugerida o revisa la configuracion minima y de reorden.</p>
             </div>
         <?php else: ?>
-            <?php foreach ($stockBajo as $producto): ?>
-            <div class="alert-card">
-                <div class="alert-icon <?= strtolower(str_replace('_', '-', $producto['estado'])) ?>">
-                    <?php if ($producto['estado'] === 'SIN_STOCK'): ?>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="15" y1="9" x2="9" y2="15"/>
-                            <line x1="9" y1="9" x2="15" y2="15"/>
-                        </svg>
-                    <?php elseif ($producto['estado'] === 'BAJO_MINIMO'): ?>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
-                    <?php else: ?>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                    <?php endif; ?>
-                </div>
-
-                <div class="alert-info">
-                    <h4><?= h($producto['codigo']) ?> - <?= h($producto['nombre']) ?></h4>
-                    <p>
-                        <?= h($producto['proveedor_nombre'] ?? 'Sin proveedor') ?>
-                        | Minimo: <?= number_format((float)($producto['stock_minimo'] ?? 0), 0) ?>
-                    </p>
-                </div>
-
-                <div class="alert-stock">
-                    <div class="alert-stock-value <?= $producto['estado'] === 'SIN_STOCK' ? 'danger' : 'warning' ?>">
-                        <?= number_format((float)$producto['stock'], 0) ?>
-                    </div>
-                    <div class="alert-stock-label">Stock Actual</div>
-                </div>
-
-                <div class="alert-action">
-                    <div class="sugerido">
-                        Pedir: <?= number_format((float)($producto['cantidad_sugerida'] ?? 0), 0) ?>
-                    </div>
-                    <?php if (!empty($producto['costo'])): ?>
-                        <div class="repo-cost-muted">
-                            ~$<?= number_format((float)$producto['cantidad_sugerida'] * (float)$producto['costo'], 2) ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
+            <?php
+            $sinStockCount = 0; $bajoMinimoCount = 0; $reordenCount = 0;
+            foreach ($stockBajo as $_p) {
+                if ($_p['estado'] === 'SIN_STOCK')        $sinStockCount++;
+                elseif ($_p['estado'] === 'BAJO_MINIMO')  $bajoMinimoCount++;
+                else                                       $reordenCount++;
+            }
+            ?>
+            <div class="repo-alert-filters">
+                <button type="button" class="repo-filter-btn is-active" data-filter-estado="">
+                    Todos <span class="repo-filter-count"><?= count($stockBajo) ?></span>
+                </button>
+                <?php if ($sinStockCount > 0): ?>
+                <button type="button" class="repo-filter-btn repo-filter-btn--danger" data-filter-estado="SIN_STOCK">
+                    Sin stock <span class="repo-filter-count"><?= $sinStockCount ?></span>
+                </button>
+                <?php endif; ?>
+                <?php if ($bajoMinimoCount > 0): ?>
+                <button type="button" class="repo-filter-btn repo-filter-btn--warning" data-filter-estado="BAJO_MINIMO">
+                    Bajo mín. <span class="repo-filter-count"><?= $bajoMinimoCount ?></span>
+                </button>
+                <?php endif; ?>
+                <?php if ($reordenCount > 0): ?>
+                <button type="button" class="repo-filter-btn repo-filter-btn--info" data-filter-estado="REORDEN">
+                    Reorden <span class="repo-filter-count"><?= $reordenCount ?></span>
+                </button>
+                <?php endif; ?>
             </div>
-            <?php endforeach; ?>
+
+            <div class="repo-table-wrap">
+                <table class="table repo-alert-table">
+                    <thead>
+                        <tr>
+                            <th class="col-estado">Estado</th>
+                            <th>Código</th>
+                            <th>Producto</th>
+                            <th>Proveedor</th>
+                            <th class="t-right">Stock</th>
+                            <th class="t-right">Mín.</th>
+                            <th class="t-right">Pedir</th>
+                            <th class="t-right">Costo est.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($stockBajo as $producto): ?>
+                        <?php
+                            $estadoSlug  = strtolower(str_replace('_', '-', $producto['estado']));
+                            $estadoLabel = match($producto['estado']) {
+                                'SIN_STOCK'   => 'Sin stock',
+                                'BAJO_MINIMO' => 'Bajo mín.',
+                                'REORDEN'     => 'Reorden',
+                                default       => $producto['estado'],
+                            };
+                            $costoEst = (float)($producto['cantidad_sugerida'] ?? 0) * (float)($producto['costo'] ?? 0);
+                        ?>
+                        <tr class="repo-alert-row" data-estado="<?= h($producto['estado']) ?>">
+                            <td><span class="repo-badge-<?= $estadoSlug ?>"><?= $estadoLabel ?></span></td>
+                            <td><code><?= h($producto['codigo']) ?></code></td>
+                            <td><?= h($producto['nombre']) ?></td>
+                            <td class="text-muted"><?= h($producto['proveedor_nombre'] ?? 'Sin proveedor') ?></td>
+                            <td class="t-right">
+                                <strong class="<?= $producto['estado'] === 'SIN_STOCK' ? 'text-danger' : 'text-warning' ?>">
+                                    <?= number_format((float)$producto['stock'], 0, ',', '.') ?>
+                                </strong>
+                            </td>
+                            <td class="t-right"><?= number_format((float)($producto['stock_minimo'] ?? 0), 0, ',', '.') ?></td>
+                            <td class="t-right"><strong><?= number_format((float)($producto['cantidad_sugerida'] ?? 0), 0, ',', '.') ?></strong></td>
+                            <td class="t-right text-muted"><?= $costoEst > 0 ? '$' . number_format($costoEst, 2, ',', '.') : '—' ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
 
         <?php if (!empty($sugerenciasVentas)): ?>
@@ -605,10 +627,18 @@ require __DIR__ . '/partials/header.php';
                 <p class="repo-empty-hint">Si quieres forzar una revision, usa Generar reposicion sugerida o revisa las sugerencias por ventas recientes.</p>
             </div>
         <?php else: ?>
-            <div class="repo-pager-info">
-                <strong><?= number_format((int)($listaResumen['grupos'] ?? 0), 0, ',', '.') ?></strong> proveedores,
-                <strong><?= number_format((int)($listaResumen['items'] ?? 0), 0, ',', '.') ?></strong> productos sugeridos
-                y costo estimado total de <strong>$<?= number_format((float)($listaResumen['costo_total'] ?? 0), 2, ',', '.') ?></strong>.
+            <div class="repo-lista-top">
+                <div class="repo-pager-info">
+                    <strong><?= number_format((int)($listaResumen['grupos'] ?? 0), 0, ',', '.') ?></strong> proveedores,
+                    <strong><?= number_format((int)($listaResumen['items'] ?? 0), 0, ',', '.') ?></strong> productos sugeridos
+                    y costo estimado <strong>$<?= number_format((float)($listaResumen['costo_total'] ?? 0), 2, ',', '.') ?></strong>.
+                </div>
+                <?php if (count($listaPorProveedor) > 1): ?>
+                <div class="repo-lista-controls">
+                    <button type="button" class="btn btn-ghost btn-sm" data-expand-all>Expandir todos</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-collapse-all>Colapsar todos</button>
+                </div>
+                <?php endif; ?>
             </div>
             <?php foreach ($listaPorProveedor as $grupo): ?>
             <?php
@@ -641,17 +671,20 @@ require __DIR__ . '/partials/header.php';
                 $costoTotal = (float)$costoTotal;
             ?>
 
-            <div class="proveedor-section">
-                <div class="proveedor-header">
+            <div class="proveedor-section" data-proveedor-section>
+                <div class="proveedor-header" data-proveedor-toggle>
                     <div class="proveedor-name">
                         <?= h($proveedorNombre) ?>
                     </div>
                     <div class="proveedor-stats">
                         <span><strong><?= $totalItems ?></strong> productos</span>
-                        <span>Costo estimado: <strong>$<?= number_format($costoTotal, 2, ',', '.') ?></strong></span>
+                        <span>Costo est.: <strong>$<?= number_format($costoTotal, 2, ',', '.') ?></strong></span>
+                        <button class="btn btn-ghost btn-sm proveedor-collapse-btn" type="button" aria-label="Colapsar / Expandir">
+                            <svg class="proveedor-collapse-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
                     </div>
                 </div>
-
+                <div class="proveedor-body" data-proveedor-body>
                 <div class="proveedor-table">
                     <table class="table repo-table">
                         <thead>
@@ -691,6 +724,7 @@ require __DIR__ . '/partials/header.php';
                         </tbody>
                     </table>
                 </div>
+                </div><!-- /proveedor-body -->
             </div>
             <?php endforeach; ?>
         <?php endif; ?>
@@ -820,66 +854,80 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <?php foreach ($productos as $p): ?>
-            <div class="config-card" data-config-card>
-                <div class="config-header">
-                    <label class="config-select">
-                        <input
-                            type="checkbox"
-                            class="repo-bulk-checkbox"
-                            name="producto_ids[]"
-                            value="<?= (int)$p['id'] ?>"
-                            form="bulk-config-form"
-                        >
-                        <span>Seleccionar</span>
-                    </label>
-
-                    <div class="config-product">
-                        <h4><?= h($p['codigo']) ?> - <?= h($p['nombre']) ?></h4>
-                        <p>
-                            Stock actual: <strong><?= number_format((float)$p['stock'], 0) ?></strong>
-                            | <?= h($p['proveedor_nombre']) ?>
-                        </p>
-                    </div>
-                </div>
-
-                <form method="post" class="config-form">
-                    <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-                    <input type="hidden" name="accion" value="guardar_config">
-                    <input type="hidden" name="producto_id" value="<?= (int)$p['id'] ?>">
-
-                    <div class="form-group">
-                        <label>Stock minimo</label>
-                        <input type="number" name="stock_minimo" value="<?= (float)($p['stock_minimo'] ?? 0) ?>" min="0" step="1" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Punto de reorden</label>
-                        <input type="number" name="punto_reorden" value="<?= (float)($p['punto_reorden'] ?? 0) ?>" min="0" step="1" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Stock maximo</label>
-                        <input type="number" name="stock_maximo" value="<?= (float)($p['stock_maximo'] ?? 0) ?>" min="0" step="1" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Proveedor</label>
-                        <select name="proveedor_id" class="form-control">
-                            <option value="0" <?= empty($p['proveedor_id_efectivo']) ? 'selected' : '' ?>>Sin proveedor</option>
-                            <?php foreach ($proveedores as $pr): ?>
-                                <option value="<?= (int)$pr['id'] ?>" <?= ((int)($p['proveedor_id_efectivo'] ?? 0) === (int)$pr['id']) ? 'selected' : '' ?>>
-                                    <?= h($pr['nombre']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group repo-form-actions">
-                        <button type="submit" class="btn btn-sm btn-primary">Guardar solo este</button>
-                    </div>
-                </form>
-            </div>
+            <form id="config-form-<?= (int)$p['id'] ?>" method="post" class="config-form" style="display:none">
+                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
+                <input type="hidden" name="accion" value="guardar_config">
+                <input type="hidden" name="producto_id" value="<?= (int)$p['id'] ?>">
+            </form>
             <?php endforeach; ?>
+
+            <div class="repo-table-wrap">
+            <table class="table repo-config-table">
+                <thead>
+                    <tr>
+                        <th class="col-check"></th>
+                        <th>Producto</th>
+                        <th class="t-right col-stock">Stock</th>
+                        <th class="col-num">Mín.</th>
+                        <th class="col-num">Reorden</th>
+                        <th class="col-num">Máx.</th>
+                        <th class="col-prov">Proveedor</th>
+                        <th class="col-action"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($productos as $p): ?>
+                    <tr data-config-card>
+                        <td class="col-check">
+                            <input type="checkbox" class="repo-bulk-checkbox"
+                                name="producto_ids[]" value="<?= (int)$p['id'] ?>"
+                                form="bulk-config-form">
+                        </td>
+                        <td>
+                            <strong class="config-product-name"><?= h($p['codigo']) ?> — <?= h($p['nombre']) ?></strong>
+                            <small class="config-product-prov"><?= h($p['proveedor_nombre']) ?></small>
+                        </td>
+                        <td class="t-right col-stock">
+                            <strong><?= number_format((float)$p['stock'], 0, ',', '.') ?></strong>
+                        </td>
+                        <td class="col-num">
+                            <input type="number" name="stock_minimo"
+                                value="<?= (float)($p['stock_minimo'] ?? 0) ?>"
+                                min="0" step="1" class="form-control repo-num-input"
+                                form="config-form-<?= (int)$p['id'] ?>">
+                        </td>
+                        <td class="col-num">
+                            <input type="number" name="punto_reorden"
+                                value="<?= (float)($p['punto_reorden'] ?? 0) ?>"
+                                min="0" step="1" class="form-control repo-num-input"
+                                form="config-form-<?= (int)$p['id'] ?>">
+                        </td>
+                        <td class="col-num">
+                            <input type="number" name="stock_maximo"
+                                value="<?= (float)($p['stock_maximo'] ?? 0) ?>"
+                                min="0" step="1" class="form-control repo-num-input"
+                                form="config-form-<?= (int)$p['id'] ?>">
+                        </td>
+                        <td class="col-prov">
+                            <select name="proveedor_id" class="form-control repo-select-input"
+                                form="config-form-<?= (int)$p['id'] ?>">
+                                <option value="0" <?= empty($p['proveedor_id_efectivo']) ? 'selected' : '' ?>>Sin proveedor</option>
+                                <?php foreach ($proveedores as $pr): ?>
+                                    <option value="<?= (int)$pr['id'] ?>" <?= ((int)($p['proveedor_id_efectivo'] ?? 0) === (int)$pr['id']) ? 'selected' : '' ?>>
+                                        <?= h($pr['nombre']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                        <td class="col-action">
+                            <button type="submit" class="btn btn-sm btn-ghost"
+                                form="config-form-<?= (int)$p['id'] ?>">Guardar</button>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
 
             <div class="repo-pager">
                 <?php

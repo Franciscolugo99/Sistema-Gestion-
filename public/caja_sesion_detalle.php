@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/caja_session_summary.php';
 require_login();
 require_permission('ver_historial_caja');
 
@@ -17,6 +18,13 @@ $sesion = null;
 $ventas = [];
 $movimientos = [];
 $terminal_nombre = null;
+$mediosResumen = [
+  'ventas_cc' => 0.0,
+  'cobros_cc' => 0.0,
+  'base_medios' => 0.0,
+  'suma_medios' => 0.0,
+  'diff_medios' => 0.0,
+];
 
 try {
   // ═══════════════════════════════════════════════════════════════════
@@ -44,20 +52,37 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 2. VENTAS DE LA SESIÓN + CLIENTE
     // ═══════════════════════════════════════════════════════════════════
+    $hasVentaMontoCc = flus_column_exists($pdo, 'ventas', 'monto_cc');
+    $hasVentaPagos = flus_table_exists($pdo, 'venta_pagos');
+    $ventaMontoCcSelect = $hasVentaMontoCc ? 'v.monto_cc' : '0 AS monto_cc';
+    $ventaPagosSelect = $hasVentaPagos ? 'vp.pagos_label' : "NULL AS pagos_label";
+    $ventaPagosJoin = $hasVentaPagos ? "
+      LEFT JOIN (
+        SELECT venta_id, GROUP_CONCAT(UPPER(medio_pago) ORDER BY id SEPARATOR ' + ') AS pagos_label
+        FROM venta_pagos
+        GROUP BY venta_id
+      ) vp ON vp.venta_id = v.id
+    " : '';
+    $ventaMontoCcGroup = $hasVentaMontoCc ? ', v.monto_cc' : '';
+    $ventaPagosGroup = $hasVentaPagos ? ', vp.pagos_label' : '';
+
     $sqlVentas = "
       SELECT
         v.id,
         v.fecha,
         v.total,
+        {$ventaMontoCcSelect},
         v.medio_pago,
+        {$ventaPagosSelect},
         v.estado,
         COALESCE(c.nombre, 'Consumidor Final') AS cliente_nombre,
         COALESCE(SUM(vi.cantidad), 0) AS productos_count
       FROM ventas v
       LEFT JOIN clientes c ON c.id = v.cliente_id
       LEFT JOIN venta_items vi ON vi.venta_id = v.id
+      {$ventaPagosJoin}
       WHERE v.caja_id = :sesion_id
-      GROUP BY v.id, v.fecha, v.total, v.medio_pago, v.estado, c.nombre
+      GROUP BY v.id, v.fecha, v.total{$ventaMontoCcGroup}, v.medio_pago, v.estado, c.nombre{$ventaPagosGroup}
       ORDER BY v.fecha DESC
     ";
     $stVentas = $pdo->prepare($sqlVentas);
@@ -67,8 +92,10 @@ try {
     // ═══════════════════════════════════════════════════════════════════
     // 3. MOVIMIENTOS DE CAJA
     // ═══════════════════════════════════════════════════════════════════
+    $movMedioPagoSelect = flus_column_exists($pdo, 'caja_movimientos', 'medio_pago') ? 'medio_pago' : 'NULL AS medio_pago';
+    $movCcSelect = flus_column_exists($pdo, 'caja_movimientos', 'cc_movimiento_id') ? 'cc_movimiento_id' : 'NULL AS cc_movimiento_id';
     $sqlMovimientos = "
-      SELECT id, tipo, concepto, monto, fecha, usuario_registro
+      SELECT id, tipo, concepto, monto, fecha, usuario_registro, {$movMedioPagoSelect}, {$movCcSelect}
       FROM caja_movimientos
       WHERE caja_id = :sesion_id
       ORDER BY fecha DESC
@@ -76,6 +103,7 @@ try {
     $stMovimientos = $pdo->prepare($sqlMovimientos);
     $stMovimientos->execute([':sesion_id' => $sesion_id]);
     $movimientos = $stMovimientos->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $mediosResumen = flus_caja_sesion_medios_resumen($pdo, $sesion_id, $sesion);
   }
 } catch (PDOException $e) {
   error_log("Error en caja_sesion_detalle: " . $e->getMessage());
@@ -338,6 +366,26 @@ require __DIR__ . '/partials/header.php';
           <strong><?= money_ar($sesion['total_ventas'] ?? 0) ?></strong>
         </div>
         <div class="stat-item">
+          <span>Ventas a CC</span>
+          <strong><?= money_ar((float)$mediosResumen['ventas_cc']) ?></strong>
+        </div>
+        <div class="stat-item">
+          <span>Cobros CC</span>
+          <strong><?= money_ar((float)$mediosResumen['cobros_cc']) ?></strong>
+        </div>
+        <div class="stat-item">
+          <span>Base medios</span>
+          <strong><?= money_ar((float)$mediosResumen['base_medios']) ?></strong>
+        </div>
+        <div class="stat-item">
+          <span>Suma medios</span>
+          <strong><?= money_ar((float)$mediosResumen['suma_medios']) ?></strong>
+        </div>
+        <div class="stat-item">
+          <span>Diff medios</span>
+          <strong><?= money_ar((float)$mediosResumen['diff_medios']) ?></strong>
+        </div>
+        <div class="stat-item">
           <span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
             Productos Vendidos
@@ -505,8 +553,9 @@ require __DIR__ . '/partials/header.php';
                   $estadoClass = $isAnulada ? 'pill-danger' : 'pill-success';
                   
                   // Normalizar método de pago para filtros
-                  $metodoRaw = strtoupper(trim((string)($venta['medio_pago'] ?? 'EFECTIVO')));
+                  $metodoRaw = flus_caja_sesion_pago_label($venta);
                   $metodoNorm = match(true) {
+                    str_contains($metodoRaw, 'CC') => 'otro',
                     str_contains($metodoRaw, 'EFEC') => 'efectivo',
                     str_contains($metodoRaw, 'MP') || str_contains($metodoRaw, 'MERCADO') => 'mp',
                     str_contains($metodoRaw, 'DEB') => 'debito',
@@ -518,7 +567,7 @@ require __DIR__ . '/partials/header.php';
                     'mp' => 'Mercado Pago',
                     'debito' => 'Débito',
                     'credito' => 'Crédito',
-                    default => ucfirst($metodoRaw)
+                    default => $metodoRaw
                   };
                   
                   $cliente = (string)($venta['cliente_nombre'] ?? 'Consumidor Final');

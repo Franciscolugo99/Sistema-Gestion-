@@ -94,12 +94,16 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
         $params[':venta_id'] = $ventaId;
     }
     if ($q !== '') {
-        $params[':like'] = '%' . addcslashes($q, "\\%_") . '%';
-        $search = ['CAST(d.id AS CHAR) LIKE :like', 'd.nota LIKE :like ESCAPE "\\"'];
+        $like = '%' . addcslashes($q, "\\%_") . '%';
+        $search = ['CAST(d.id AS CHAR) LIKE :q_doc_id', "d.nota LIKE :q_nota ESCAPE '\\\\'"];
+        $params[':q_doc_id'] = $like;
+        $params[':q_nota'] = $like;
         if ($joinClientes) {
-            $search[] = 'c.nombre LIKE :like ESCAPE "\\"';
+            $search[] = "c.nombre LIKE :q_cliente_nombre ESCAPE '\\\\'";
+            $params[':q_cliente_nombre'] = $like;
             if (flus_column_exists($pdo, 'clientes', 'cuit')) {
-                $search[] = 'c.cuit LIKE :like ESCAPE "\\"';
+                $search[] = "c.cuit LIKE :q_cliente_cuit ESCAPE '\\\\'";
+                $params[':q_cliente_cuit'] = $like;
             }
         }
         $where[] = '(' . implode(' OR ', $search) . ')';

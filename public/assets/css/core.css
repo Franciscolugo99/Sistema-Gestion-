@@ -314,8 +314,8 @@ a {
   font-size: 1.42rem;
   font-weight: 900;
   letter-spacing: 0.1em;
-  color: var(--nav-pill-active-text, #38bdf8);
-  text-shadow: 0 1px 5px rgba(56, 189, 248, 0.16);
+  color: var(--nav-logo-color, #22d3ee);
+  text-shadow: 0 1px 8px rgba(34, 211, 238, 0.18);
 
   transition:
     transform 0.2s ease,
@@ -398,33 +398,34 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 38px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 
-  border: 1px solid var(--nav-pill-border);
-  background: var(--nav-pill-bg);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--nav-pill-text);
 
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
 .nav-pill:hover {
   background: var(--nav-pill-hover-bg);
+  border-color: color-mix(in srgb, var(--nav-pill-text) 12%, transparent);
   transform: translateY(-1px);
 }
 
 .nav-pill:focus-visible {
-  outline: 2px solid var(--nav-pill-active-bg);
+  outline: 2px solid var(--accent-cyan, #06b6d4);
   outline-offset: 2px;
 }
 
@@ -432,8 +433,8 @@ a {
   background: var(--nav-pill-active-bg);
   color: var(--nav-pill-active-text);
   border-color: transparent;
-  box-shadow: 0 10px 22px rgba(56, 189, 248, 0.22);
-  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.28);
+  font-weight: 700;
 }
 
 .nav-pill.active:hover {
@@ -450,14 +451,17 @@ a {
 }
 
 .nav-caret {
-  font-size: 0.72rem;
-  opacity: 0.75;
-  display: inline-block;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.55;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
+  margin-left: -2px;
 }
 
+.nav-dropdown.open .nav-caret,
 .nav-group.open .nav-caret {
   transform: rotate(180deg);
+  opacity: 0.9;
 }
 
 .nav-group-menu {
@@ -715,28 +719,29 @@ body.nav-open {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
   text-decoration: none;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 500;
   white-space: nowrap;
 
-  transition:
-    background 0.15s ease,
-    transform 0.15s ease;
+  transition: background 0.12s ease;
 }
 
 .nav-dropdown-menu a.active {
-  background: rgba(56, 189, 248, 0.14);
-  color: var(--nav-pill-active-text);
-  border: 1px solid rgba(56, 189, 248, 0.24);
-  transform: none;
+  background: color-mix(in srgb, var(--accent-cyan, #0ea5e9) 12%, transparent);
+  color: var(--accent-cyan, #0ea5e9);
+  font-weight: 700;
 }
 
 .nav-dropdown-menu a:hover {
-  background: var(--row-hover);
-  transform: translateX(2px);
+  background: var(--nav-pill-hover-bg);
+}
+
+.nav-dropdown-menu a.active:hover {
+  background: color-mix(in srgb, var(--accent-cyan, #0ea5e9) 18%, transparent);
 }
 
 .nav-group-menu a {
@@ -747,12 +752,12 @@ body.nav-open {
 .nav-group-menu a.active::before {
   content: "";
   position: absolute;
-  left: 6px;
+  left: 5px;
   top: 50%;
-  width: 4px;
-  height: 18px;
+  width: 3px;
+  height: 16px;
   border-radius: 999px;
-  background: var(--nav-pill-active-bg);
+  background: var(--accent-cyan, #0ea5e9);
   transform: translateY(-50%);
 }
 

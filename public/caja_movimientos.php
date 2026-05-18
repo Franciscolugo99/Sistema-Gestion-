@@ -129,58 +129,61 @@ $egr = (float)($rowS['egresos'] ?? 0);
 // Header
 $pageTitle      = 'Movimiento de caja - Apertura #' . $cajaId;
 $currentSection = 'caja';
-$extraCss       = []; // si querés luego le hacemos css
+$extraCss       = ['assets/css/caja_movimientos.css?v=' . filemtime(__DIR__ . '/assets/css/caja_movimientos.css')];
 
 require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel">
-  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-    <div>
-      <h1 style="margin:0;">Movimiento de caja · Apertura #<?= (int)$cajaId ?></h1>
-      <div class="muted" style="margin-top:6px;">
-        <span class="pill pill-open">Ingresos: <?= money_ar($ing) ?></span>
-        <span class="pill pill-closed" style="margin-left:8px;">Egresos: <?= money_ar($egr) ?></span>
+
+  <div class="mov-header">
+    <div class="mov-header__info">
+      <h1 class="mov-header__title">Movimiento de caja · Apertura #<?= (int)$cajaId ?></h1>
+      <div class="mov-header__pills">
+        <span class="pill pill-success">+ Ingresos: <?= money_ar($ing) ?></span>
+        <span class="pill pill-danger">− Egresos: <?= money_ar($egr) ?></span>
       </div>
     </div>
-    <a class="btn btn-secondary" href="caja.php">← Volver a Caja</a>
+    <a class="btn btn-secondary btn-sm" href="caja.php">← Volver a Caja</a>
   </div>
 
   <?php if ($error): ?>
-    <div class="alert alert-error" style="margin-top:12px;"><?= h($error) ?></div>
+    <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
   <?php endif; ?>
 
-  <form method="post" style="margin-top:14px;">
-    <?= csrf_field() ?>
+  <div class="mov-form-card">
+    <div class="mov-form-title">Registrar movimiento</div>
+    <form method="post">
+      <?= csrf_field() ?>
+      <div class="mov-form-grid">
+        <div class="mov-form-field">
+          <label for="mov-tipo">Tipo</label>
+          <select id="mov-tipo" name="tipo">
+            <option value="ingreso">Ingreso</option>
+            <option value="egreso">Egreso</option>
+          </select>
+        </div>
 
-    <div style="display:grid; grid-template-columns: 1fr 2fr 1fr auto; gap:10px; align-items:end;">
-      <div>
-        <label style="display:block; margin-bottom:6px;">Tipo</label>
-        <select name="tipo" class="input" style="width:100%;">
-          <option value="ingreso">Ingreso</option>
-          <option value="egreso">Egreso</option>
-        </select>
+        <div class="mov-form-field">
+          <label for="mov-concepto">Concepto</label>
+          <input id="mov-concepto" name="concepto" maxlength="255"
+                 placeholder="Ej: Cambio, retiro, pago proveedor" required>
+        </div>
+
+        <div class="mov-form-field">
+          <label for="mov-monto">Monto</label>
+          <input id="mov-monto" name="monto" placeholder="Ej: 1.200,00" required>
+        </div>
+
+        <button class="btn btn-primary mov-form-submit" type="submit">Guardar</button>
       </div>
+    </form>
+  </div>
 
-      <div>
-        <label style="display:block; margin-bottom:6px;">Concepto</label>
-        <input name="concepto" class="input" style="width:100%;" maxlength="255"
-               placeholder="Ej: Cambio, retiro, pago proveedor" required>
-      </div>
-
-      <div>
-        <label style="display:block; margin-bottom:6px;">Monto</label>
-        <input name="monto" class="input" style="width:100%;" placeholder="Ej: 1.200,00" required>
-      </div>
-
-      <button class="btn btn-primary" type="submit">Guardar</button>
-    </div>
-  </form>
-
-  <h2 style="margin-top:18px;">Últimos movimientos</h2>
+  <h2 class="mov-history-title">Últimos movimientos</h2>
 
   <?php if (!$movs): ?>
-    <p class="muted">Todavía no hay movimientos en esta apertura.</p>
+    <div class="mov-empty">Todavía no hay movimientos en esta apertura.</div>
   <?php else: ?>
     <div class="table-wrapper">
       <table class="table">

@@ -2,6 +2,7 @@
 // public/caja_sesion_print.php
 declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/caja_session_summary.php';
 
 require_login();
 require_permission('ver_historial_caja');
@@ -23,6 +24,13 @@ if ($sesion_id <= 0) {
 $sesion = null;
 $ventas = [];
 $movimientos = [];
+$mediosResumen = [
+  'ventas_cc' => 0.0,
+  'cobros_cc' => 0.0,
+  'base_medios' => 0.0,
+  'suma_medios' => 0.0,
+  'diff_medios' => 0.0,
+];
 
 try {
   // Sesión
@@ -41,19 +49,36 @@ try {
     flus_abort(404, 'Sesión no encontrada');
   }
 
+  $hasVentaMontoCc = flus_column_exists($pdo, 'ventas', 'monto_cc');
+  $hasVentaPagos = flus_table_exists($pdo, 'venta_pagos');
+  $ventaMontoCcSelect = $hasVentaMontoCc ? 'v.monto_cc' : '0 AS monto_cc';
+  $ventaPagosSelect = $hasVentaPagos ? 'vp.pagos_label' : "NULL AS pagos_label";
+  $ventaPagosJoin = $hasVentaPagos ? "
+    LEFT JOIN (
+      SELECT venta_id, GROUP_CONCAT(UPPER(medio_pago) ORDER BY id SEPARATOR ' + ') AS pagos_label
+      FROM venta_pagos
+      GROUP BY venta_id
+    ) vp ON vp.venta_id = v.id
+  " : '';
+  $ventaMontoCcGroup = $hasVentaMontoCc ? ', v.monto_cc' : '';
+  $ventaPagosGroup = $hasVentaPagos ? ', vp.pagos_label' : '';
+
   // Ventas + productos_count desde venta_items (TU DB)
   $sqlVentas = "
     SELECT
       v.id,
       v.fecha,
       v.total,
+      {$ventaMontoCcSelect},
       v.medio_pago,
+      {$ventaPagosSelect},
       v.estado,
       COALESCE(SUM(vi.cantidad), 0) AS productos_count
     FROM ventas v
     LEFT JOIN venta_items vi ON vi.venta_id = v.id
+    {$ventaPagosJoin}
     WHERE v.caja_id = :sesion_id
-    GROUP BY v.id, v.fecha, v.total, v.medio_pago, v.estado
+    GROUP BY v.id, v.fecha, v.total{$ventaMontoCcGroup}, v.medio_pago, v.estado{$ventaPagosGroup}
     ORDER BY v.fecha ASC
   ";
   $stVentas = $pdo->prepare($sqlVentas);
@@ -61,8 +86,10 @@ try {
   $ventas = $stVentas->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
   // Movimientos
+  $movMedioPagoSelect = flus_column_exists($pdo, 'caja_movimientos', 'medio_pago') ? 'medio_pago' : 'NULL AS medio_pago';
+  $movCcSelect = flus_column_exists($pdo, 'caja_movimientos', 'cc_movimiento_id') ? 'cc_movimiento_id' : 'NULL AS cc_movimiento_id';
   $sqlMovimientos = "
-    SELECT id, tipo, concepto, monto, fecha, usuario_registro
+    SELECT id, tipo, concepto, monto, fecha, usuario_registro, {$movMedioPagoSelect}, {$movCcSelect}
     FROM caja_movimientos
     WHERE caja_id = :sesion_id
     ORDER BY fecha ASC
@@ -70,6 +97,7 @@ try {
   $stMovimientos = $pdo->prepare($sqlMovimientos);
   $stMovimientos->execute([':sesion_id' => $sesion_id]);
   $movimientos = $stMovimientos->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $mediosResumen = flus_caja_sesion_medios_resumen($pdo, $sesion_id, $sesion);
 
 } catch (PDOException $e) {
   error_log("Error en caja_sesion_print: " . $e->getMessage());
@@ -194,6 +222,31 @@ $difClass = $dif > 0.00001 ? 'positivo' : ($dif < -0.00001 ? 'negativo' : 'neutr
     </div>
 
     <div class="resumen-item">
+      <span class="resumen-label">Ventas a CC</span>
+      <span class="resumen-value"><?= money_ar((float)$mediosResumen['ventas_cc']) ?></span>
+    </div>
+
+    <div class="resumen-item">
+      <span class="resumen-label">Cobros CC</span>
+      <span class="resumen-value"><?= money_ar((float)$mediosResumen['cobros_cc']) ?></span>
+    </div>
+
+    <div class="resumen-item">
+      <span class="resumen-label">Base Medios</span>
+      <span class="resumen-value"><?= money_ar((float)$mediosResumen['base_medios']) ?></span>
+    </div>
+
+    <div class="resumen-item">
+      <span class="resumen-label">Suma Medios</span>
+      <span class="resumen-value"><?= money_ar((float)$mediosResumen['suma_medios']) ?></span>
+    </div>
+
+    <div class="resumen-item">
+      <span class="resumen-label">Diff Medios</span>
+      <span class="resumen-value"><?= money_ar((float)$mediosResumen['diff_medios']) ?></span>
+    </div>
+
+    <div class="resumen-item">
       <span class="resumen-label">Productos Vendidos</span>
       <span class="resumen-value"><?= (int)($sesion['total_productos'] ?? 0) ?></span>
     </div>
@@ -287,7 +340,7 @@ $difClass = $dif > 0.00001 ? 'positivo' : ($dif < -0.00001 ? 'negativo' : 'neutr
           $estadoUp  = strtoupper($estadoRaw);
           $isAnul    = ($estadoUp !== '' && str_contains($estadoUp, 'ANUL'));
           $estadoClass = $isAnul ? 'estado-anulada' : 'estado-activa';
-          $metodo = (string)($venta['medio_pago'] ?? '—');
+          $metodo = flus_caja_sesion_pago_label($venta);
         ?>
         <tr>
           <td class="mono"><?= (int)($venta['id'] ?? 0) ?></td>

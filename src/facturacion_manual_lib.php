@@ -716,34 +716,42 @@ function flus_facturacion_documento_convertir_a_venta_manual(PDO $pdo, int $docu
     if (!is_array($documento)) {
         throw new RuntimeException('El documento comercial no existe.');
     }
-
     $tipo = flus_facturacion_documento_tipo_normalizar((string)($documento['tipo_documento'] ?? ''));
-    if ($tipo !== 'PRESUPUESTO') {
-        throw new RuntimeException('Solo los presupuestos se pueden convertir a venta en esta fase.');
+    if (!in_array($tipo, ['PRESUPUESTO', 'REMITO'], true)) {
+        throw new RuntimeException('Solo presupuestos o remitos se pueden convertir a venta en esta fase.');
     }
     if (flus_facturacion_documento_estado_bloqueado((string)($documento['estado'] ?? ''))) {
-        throw new RuntimeException('El presupuesto esta anulado o cancelado.');
+        throw new RuntimeException('El documento esta anulado o cancelado.');
     }
-
     $ventaExistente = (int)($documento['venta_id'] ?? 0);
     if ($ventaExistente > 0) {
         return $ventaExistente;
     }
-
     $items = flus_facturacion_documento_items_normalizar_payload(flus_facturacion_documento_items_fetch($pdo, $documentoId));
     if ($items === []) {
-        throw new RuntimeException('El presupuesto no tiene items para convertir.');
+        throw new RuntimeException('El documento no tiene items para convertir.');
     }
-
     $clienteId = (int)($documento['cliente_id'] ?? 0);
+    $tipoLabel = $tipo === 'REMITO' ? 'Remito' : 'Presupuesto';
     $ventaId = flus_facturacion_crear_venta_manual($pdo, $clienteId, $items, [
-        'nota' => trim((string)($meta['nota'] ?? ($documento['nota'] ?? 'Presupuesto convertido a venta'))) ?: 'Presupuesto convertido a venta',
-        'medio_pago' => trim((string)($meta['medio_pago'] ?? 'PRESUPUESTO')) ?: 'PRESUPUESTO',
+        'nota' => trim((string)($meta['nota'] ?? ($documento['nota'] ?? ($tipoLabel . ' convertido a venta')))) ?: ($tipoLabel . ' convertido a venta'),
+        'medio_pago' => trim((string)($meta['medio_pago'] ?? $tipo)) ?: $tipo,
     ]);
-
     flus_facturacion_documento_actualizar_venta($pdo, $documentoId, $ventaId);
-    flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'CONVERTIDO_VENTA');
-
+    if ($tipo === 'PRESUPUESTO') {
+        flus_facturacion_documento_actualizar_estado($pdo, $documentoId, 'CONVERTIDO_VENTA');
+    }
+    $origenId = (int)($documento['documento_origen_id'] ?? 0);
+    if ($tipo === 'REMITO' && $origenId > 0) {
+        $origen = flus_facturacion_documento_buscar($pdo, $origenId);
+        if (is_array($origen) && flus_facturacion_documento_tipo_normalizar((string)($origen['tipo_documento'] ?? '')) === 'PRESUPUESTO') {
+            $ventaOrigen = (int)($origen['venta_id'] ?? 0);
+            if ($ventaOrigen <= 0 || $ventaOrigen === $ventaId) {
+                flus_facturacion_documento_actualizar_venta($pdo, $origenId, $ventaId);
+                flus_facturacion_documento_actualizar_estado($pdo, $origenId, 'CONVERTIDO_VENTA');
+            }
+        }
+    }
     return $ventaId;
 }
 

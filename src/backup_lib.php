@@ -501,9 +501,38 @@ function backup_restore_in_progress(): bool {
    Nota: restaura la DB desde un backup generado por mysqldump.
    Seguridad:
    - valida nombre de archivo
+   - valida contenido SQL antes de entrar en mantenimiento
    - lock de restauración
    - activa maintenance.flag durante el proceso
 ========================================================================== */
+
+/**
+ * Valida que un archivo sea un dump MySQL válido antes de restaurar.
+ * Evita entrar en modo mantenimiento si el archivo está corrupto o no es un backup real.
+ */
+function backup_validate_sql_file(string $path, ?string &$err = null): bool {
+    $size = @filesize($path);
+    if ($size === false || $size < 500) {
+        $err = 'El archivo es demasiado pequeño para ser un backup válido.';
+        return false;
+    }
+
+    $handle = @fopen($path, 'r');
+    if (!$handle) {
+        $err = 'No se puede leer el archivo de backup.';
+        return false;
+    }
+
+    $sample = fread($handle, 8192);
+    @fclose($handle);
+
+    if (!preg_match('/mysqldump|MySQL dump|CREATE TABLE|INSERT INTO/i', $sample)) {
+        $err = 'El archivo no parece ser un dump válido de MySQL.';
+        return false;
+    }
+
+    return true;
+}
 
 function find_mysql_cli(): ?array {
     $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
@@ -674,6 +703,14 @@ function backup_restore(string $file, ?string &$err = null): bool {
     $path = $dir . DIRECTORY_SEPARATOR . $file;
     if (!is_file($path)) {
         $err = 'Archivo no encontrado.';
+        return false;
+    }
+
+    // Validar contenido antes de tomar el lock ni activar mantenimiento
+    $validateErr = null;
+    if (!backup_validate_sql_file($path, $validateErr)) {
+        $err = 'El backup no pasó la validación: ' . $validateErr;
+        app_log('WARNING', 'backup_restore: archivo inválido', ['file' => $file, 'reason' => $validateErr]);
         return false;
     }
 

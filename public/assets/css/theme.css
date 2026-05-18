@@ -74,12 +74,13 @@
   --nav-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 
   /* Nav Pills */
-  --nav-pill-bg: #e5e9f5;
+  --nav-logo-color: #1e293b;
+  --nav-pill-bg: transparent;
   --nav-pill-text: #1f2937;
-  --nav-pill-border: #cbd5e1;
-  --nav-pill-hover-bg: #dbe4f3;
+  --nav-pill-border: transparent;
+  --nav-pill-hover-bg: rgba(15, 23, 42, 0.07);
   --nav-pill-active-bg: linear-gradient(135deg, #0ea5e9, #22c55e);
-  --nav-pill-active-text: #0f172a;
+  --nav-pill-active-text: #ffffff;
 
   /* Nav Icons */
   --nav-icon-bg: rgba(255, 255, 255, 0.85);
@@ -184,10 +185,11 @@ body[data-theme="dark"] {
   --nav-shadow: 0 12px 30px rgba(15, 23, 42, 0.65);
 
   /* Nav Pills */
-  --nav-pill-bg: rgba(15, 23, 42, 0.9);
+  --nav-logo-color: #22d3ee;
+  --nav-pill-bg: transparent;
   --nav-pill-text: #e5e7eb;
-  --nav-pill-border: rgba(148, 163, 184, 0.45);
-  --nav-pill-hover-bg: rgba(30, 41, 59, 0.55);
+  --nav-pill-border: transparent;
+  --nav-pill-hover-bg: rgba(255, 255, 255, 0.08);
   --nav-pill-active-bg: linear-gradient(135deg, #22d3ee, #22c55e);
   --nav-pill-active-text: #020617;
 

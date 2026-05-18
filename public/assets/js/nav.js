@@ -25,32 +25,12 @@
 
   function getToast() {
     let toast = document.querySelector('.nav-shortcut-toast');
-    if (toast) {
-      return toast;
-    }
-
+    if (toast) return toast;
     toast = document.createElement('div');
     toast.className = 'nav-shortcut-toast';
     toast.setAttribute('aria-live', 'polite');
     document.body.appendChild(toast);
     return toast;
-  }
-
-  function getShortcutItems(shortcuts) {
-    return Object.keys(shortcuts)
-      .map((shortcut) => {
-        const el = document.querySelector(`[data-shortcut="${shortcut}"]`);
-        const label =
-          (el && el.querySelector('.nav-vender-label') && el.querySelector('.nav-vender-label').textContent) ||
-          (el && el.textContent ? el.textContent.replace(/alt\+\S+/gi, '').trim() : '') ||
-          shortcuts[shortcut];
-
-        return {
-          label: label.trim(),
-          shortcut: shortcut.toUpperCase(),
-        };
-      })
-      .sort((a, b) => a.shortcut.localeCompare(b.shortcut));
   }
 
   function escapeHtml(value) {
@@ -62,56 +42,160 @@
       .replaceAll("'", '&#39;');
   }
 
-  function getShortcutHelp(shortcuts) {
-    let help = document.getElementById('navShortcutHelp');
-    if (help) {
-      return help;
+  // ─── Recolecta todos los módulos navegables del DOM ───────────────────────
+  function collectNavItems(shortcuts) {
+    const items = [];
+    const seen = new Set();
+
+    const shortcutByHref = {};
+    Object.entries(shortcuts).forEach(([key, href]) => {
+      shortcutByHref[href] = key.toUpperCase();
+    });
+
+    function addItem(el, labelOverride) {
+      const href = el.getAttribute('href');
+      if (!href || href === '#' || href.startsWith('logout') || seen.has(href)) return;
+      seen.add(href);
+      const rawText = labelOverride || el.textContent || '';
+      const label = rawText.replace(/ALT\+[\S]+/gi, '').replace(/\s+/g, ' ').trim();
+      if (!label) return;
+      items.push({
+        label,
+        href,
+        shortcut: el.dataset.shortcut
+          ? el.dataset.shortcut.toUpperCase()
+          : (shortcutByHref[href] || ''),
+        active: el.classList.contains('active'),
+      });
     }
 
-    help = document.createElement('div');
-    help.id = 'navShortcutHelp';
-    help.className = 'nav-shortcut-help';
-    help.innerHTML = `
+    // Botón Vender (prioritario)
+    const vender = nav.querySelector('.nav-vender[href]');
+    if (vender) addItem(vender, 'Vender');
+
+    // Pills directos (Panel, Ventas, Compras)
+    nav.querySelectorAll('.nav-left .nav-pill:not(.nav-group-btn)[href]').forEach(el => addItem(el));
+
+    // Ítems de los grupos dropdown (Catálogo, Inventario, etc.)
+    nav.querySelectorAll('.nav-group-menu a[role="menuitem"][href]').forEach(el => addItem(el));
+
+    // Ítems del menú admin
+    const adminMenu = document.getElementById('adminMenu');
+    if (adminMenu) adminMenu.querySelectorAll('a[role="menuitem"][href]').forEach(el => addItem(el));
+
+    return items;
+  }
+
+  // ─── Panel de búsqueda rápida ──────────────────────────────────────────────
+  function buildQuickNav(allItems) {
+    const panel = document.createElement('div');
+    panel.id = 'navShortcutHelp';
+    panel.className = 'nav-shortcut-help';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Navegación rápida');
+
+    panel.innerHTML = `
       <div class="nav-shortcut-help-backdrop" data-nav-shortcut-close="1"></div>
-      <div class="nav-shortcut-help-card" role="dialog" aria-modal="true" aria-labelledby="navShortcutHelpTitle">
+      <div class="nav-shortcut-help-card">
         <div class="nav-shortcut-help-head">
           <div class="nav-shortcut-help-title">
-            <strong id="navShortcutHelpTitle">Atajos del teclado</strong>
-            <span>Accesos rapidos del menu principal.</span>
+            <strong id="navShortcutHelpTitle">Ir a módulo</strong>
+            <span>Escribí para filtrar &middot; ↑↓ para mover &middot; Enter para ir</span>
           </div>
-          <button type="button" class="nav-shortcut-help-close" data-nav-shortcut-close="1" aria-label="Cerrar ayuda de atajos">×</button>
+          <button type="button" class="nav-shortcut-help-close" data-nav-shortcut-close="1" aria-label="Cerrar">×</button>
+        </div>
+        <div class="nav-quick-search-wrap">
+          <input type="text"
+                 class="nav-quick-search"
+                 placeholder="Buscar módulo..."
+                 autocomplete="off"
+                 spellcheck="false"
+                 aria-label="Buscar módulo"
+                 aria-controls="navQuickList">
         </div>
         <div class="nav-shortcut-help-body">
-          <div class="nav-shortcut-help-list"></div>
+          <div class="nav-shortcut-help-list" id="navQuickList" role="listbox" aria-label="Módulos disponibles"></div>
         </div>
-      </div>
-    `;
+      </div>`;
 
-    const list = help.querySelector('.nav-shortcut-help-list');
-    const items = getShortcutItems(shortcuts);
-    if (items.length === 0) {
-      list.innerHTML = '<div class="nav-shortcut-help-empty">No hay atajos configurados en este modulo.</div>';
-    } else {
-      list.innerHTML = items
-        .map(
-          (item) => `
-            <div class="nav-shortcut-help-item">
-              <span class="nav-shortcut-help-label">${escapeHtml(item.label)}</span>
-              <span class="nav-shortcut-help-key">${escapeHtml(item.shortcut)}</span>
-            </div>
-          `
-        )
+    const input = panel.querySelector('.nav-quick-search');
+    const list  = panel.querySelector('#navQuickList');
+
+    function renderItems(query) {
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? allItems.filter(item => item.label.toLowerCase().includes(q))
+        : allItems;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="nav-shortcut-help-empty">Sin resultados para "${escapeHtml(query)}"</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered
+        .map((item, i) => `
+          <a class="nav-shortcut-help-item nav-quick-item${item.active ? ' is-current' : ''}"
+             href="${escapeHtml(item.href)}"
+             role="option"
+             data-idx="${i}"
+             tabindex="-1"
+             aria-selected="${item.active ? 'true' : 'false'}">
+            <span class="nav-shortcut-help-label">
+              ${item.active ? '<span class="nav-quick-dot" aria-hidden="true"></span>' : ''}${escapeHtml(item.label)}
+            </span>
+            ${item.shortcut ? `<span class="nav-shortcut-help-key">${escapeHtml(item.shortcut)}</span>` : ''}
+          </a>`)
         .join('');
     }
 
-    help.addEventListener('click', (event) => {
-      if (event.target.closest('[data-nav-shortcut-close="1"]')) {
-        help.classList.remove('is-open');
+    renderItems('');
+
+    // Re-render on search
+    input.addEventListener('input', () => {
+      renderItems(input.value);
+    });
+
+    // Teclado dentro del input
+    input.addEventListener('keydown', (e) => {
+      const els = Array.from(list.querySelectorAll('.nav-quick-item'));
+      if (!els.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        els[0].focus();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        window.location.href = els[0].getAttribute('href');
       }
     });
 
-    document.body.appendChild(help);
-    return help;
+    // Teclado dentro de la lista
+    list.addEventListener('keydown', (e) => {
+      const els = Array.from(list.querySelectorAll('.nav-quick-item'));
+      const cur = e.target.closest('.nav-quick-item');
+      const idx = cur ? parseInt(cur.dataset.idx, 10) : 0;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = els.find(el => parseInt(el.dataset.idx, 10) > idx);
+        if (next) next.focus(); else els[0]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = [...els].reverse().find(el => parseInt(el.dataset.idx, 10) < idx);
+        if (prev) prev.focus(); else input.focus();
+      }
+    });
+
+    // Cerrar
+    panel.addEventListener('click', (e) => {
+      if (e.target.closest('[data-nav-shortcut-close="1"]')) {
+        panel.classList.remove('is-open');
+      }
+    });
+
+    document.body.appendChild(panel);
+    return panel;
   }
 
   function lockBodyScroll() {
@@ -127,35 +211,22 @@
   }
 
   function setNavOpen(open) {
-    if (!hamburger || !navMenu) {
-      return;
-    }
-
+    if (!hamburger || !navMenu) return;
     hamburger.setAttribute('aria-expanded', open ? 'true' : 'false');
     hamburger.classList.toggle('active', open);
     navMenu.classList.toggle('open', open);
-
-    if (open) {
-      lockBodyScroll();
-    } else {
-      unlockBodyScroll();
-    }
+    if (open) lockBodyScroll(); else unlockBodyScroll();
   }
 
   function closeShortcutHelp() {
     const help = document.getElementById('navShortcutHelp');
-    if (help) {
-      help.classList.remove('is-open');
-    }
+    if (help) help.classList.remove('is-open');
   }
 
   function setDropdownOpen(wrapper, open) {
-    const btn = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn, .nav-bell-btn');
+    const btn  = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn, .nav-bell-btn');
     const menu = wrapper.querySelector('.nav-dropdown-menu');
-    if (!btn || !menu) {
-      return;
-    }
-
+    if (!btn || !menu) return;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     menu.classList.toggle('open', open);
     wrapper.classList.toggle('open', open);
@@ -163,9 +234,7 @@
 
   function closeOthers(current) {
     dropdowns.forEach((wrapper) => {
-      if (wrapper !== current) {
-        setDropdownOpen(wrapper, false);
-      }
+      if (wrapper !== current) setDropdownOpen(wrapper, false);
     });
   }
 
@@ -183,14 +252,11 @@
 
   dropdowns.forEach((wrapper) => {
     const btn = wrapper.querySelector('.nav-dropdown-btn, .nav-group-btn, .nav-bell-btn');
-    if (!btn) {
-      return;
-    }
+    if (!btn) return;
 
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-
       const isOpen = btn.getAttribute('aria-expanded') === 'true';
       closeOthers(wrapper);
       setDropdownOpen(wrapper, !isOpen);
@@ -209,9 +275,7 @@
     }
 
     dropdowns.forEach((wrapper) => {
-      if (!wrapper.contains(event.target)) {
-        setDropdownOpen(wrapper, false);
-      }
+      if (!wrapper.contains(event.target)) setDropdownOpen(wrapper, false);
     });
   });
 
@@ -223,6 +287,7 @@
     }
   });
 
+  // ─── Atajos de teclado ─────────────────────────────────────────────────────
   const shortcuts = parseShortcuts();
   const toast = getToast();
   let toastTimer = null;
@@ -231,20 +296,28 @@
     clearTimeout(toastTimer);
     toast.textContent = message;
     toast.classList.add('show');
-    toastTimer = window.setTimeout(() => {
-      toast.classList.remove('show');
-    }, 1200);
+    toastTimer = window.setTimeout(() => toast.classList.remove('show'), 1200);
   }
 
-  function openShortcutHelp() {
-    const help = getShortcutHelp(shortcuts);
-    help.classList.add('is-open');
+  function openQuickNav() {
+    // Reconstruye siempre para reflejar estado activo actual
+    const existing = document.getElementById('navShortcutHelp');
+    if (existing) existing.remove();
+
+    const allItems = collectNavItems(shortcuts);
+    const panel = buildQuickNav(allItems);
+    panel.classList.add('is-open');
+
+    // Scroll al ítem activo si existe
+    setTimeout(() => {
+      const searchInput = panel.querySelector('.nav-quick-search');
+      searchInput?.focus();
+      panel.querySelector('.nav-quick-item.is-current')?.scrollIntoView({ block: 'nearest' });
+    }, 40);
   }
 
   if (shortcutHelpBtn) {
-    shortcutHelpBtn.addEventListener('click', () => {
-      openShortcutHelp();
-    });
+    shortcutHelpBtn.addEventListener('click', () => openQuickNav());
   }
 
   if (logoutBtn && logoutBtn.dataset.cajaOpen === '1') {
@@ -264,44 +337,34 @@
           cancelText: 'Quedarme',
         });
       } else {
-        confirmed = window.confirm('Hay una caja abierta en esta terminal. Si salís ahora, vas a tener que volver para cerrarla.');
+        confirmed = window.confirm(
+          'Hay una caja abierta en esta terminal. Si salís ahora, vas a tener que volver para cerrarla.'
+        );
       }
 
-      if (confirmed) {
-        window.location.href = href;
-      }
+      if (confirmed) window.location.href = href;
     });
   }
 
   document.addEventListener('keydown', (event) => {
-    const tag = (event.target && event.target.tagName ? event.target.tagName : '').toLowerCase();
-    if (['input', 'textarea', 'select'].includes(tag)) {
-      return;
-    }
-    if (event.target && event.target.isContentEditable) {
-      return;
-    }
+    const tag = (event.target?.tagName ?? '').toLowerCase();
+    if (['input', 'textarea', 'select'].includes(tag)) return;
+    if (event.target?.isContentEditable) return;
+
     if (event.key === '?') {
       event.preventDefault();
-      openShortcutHelp();
+      openQuickNav();
       return;
     }
-    if (!event.altKey) {
-      return;
-    }
+    if (!event.altKey) return;
 
     const key = `alt+${event.key.toLowerCase()}`;
-    if (!(key in shortcuts)) {
-      return;
-    }
+    if (!(key in shortcuts)) return;
 
     event.preventDefault();
-
     const url = shortcuts[key];
-    const item = getShortcutItems(shortcuts).find((entry) => entry.shortcut === key.toUpperCase());
-    const label = item ? item.label : url;
-
-    showToast(`-> ${label.trim()}`);
+    const label = collectNavItems(shortcuts).find(i => i.href === url)?.label || url;
+    showToast(`-> ${label}`);
     window.location.href = url;
   });
 })();

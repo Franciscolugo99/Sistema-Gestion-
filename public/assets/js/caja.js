@@ -336,13 +336,77 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   // (A) BOTÓN CERRAR CAJA
   // =========================
+  let _intentionalExit = false;
+
   const btnCerrar = document.getElementById("btnCerrarCaja");
   if (btnCerrar) {
     btnCerrar.addEventListener("click", () => {
       const id = btnCerrar.dataset.cajaId;
       if (!id) return;
+
+      // Si hay items en el ticket, pedir confirmación con modal propio
+      if (Array.isArray(carrito) && carrito.length > 0) {
+        abrirModalConfirmarCierre(id);
+        return;
+      }
+
+      _intentionalExit = true;
       window.location.href = `caja_cerrar.php?id=${encodeURIComponent(id)}`;
     });
+  }
+
+  function abrirModalConfirmarCierre(cajaId) {
+    const overlay = document.createElement("div");
+    overlay.id = "modalCerrarCajaConfirm";
+    overlay.style.cssText = [
+      "position:fixed", "inset:0", "z-index:10100",
+      "display:flex", "align-items:center", "justify-content:center",
+      "background:rgba(15,23,42,0.6)", "backdrop-filter:blur(6px)"
+    ].join(";");
+
+    overlay.innerHTML = `
+      <div style="
+        max-width:420px;width:92vw;border-radius:20px;padding:28px 24px 22px;
+        background:var(--panel);border:1px solid var(--panel-border);
+        box-shadow:0 24px 60px rgba(15,23,42,0.25);
+      ">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <h3 style="margin:0;font-size:1.1rem;font-weight:900;color:var(--text);">Cerrar caja con ticket activo</h3>
+        </div>
+        <p style="margin:0 0 20px;color:var(--muted);font-size:0.95rem;line-height:1.5;">
+          Hay productos cargados en el ticket actual. Al cerrar la caja se va a cancelar la venta en curso.
+        </p>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button id="cerrarCajaNo" style="
+            padding:9px 18px;border-radius:10px;font-size:0.88rem;font-weight:700;
+            cursor:pointer;border:1.5px solid var(--panel-border);
+            background:transparent;color:var(--text);
+            transition:background 0.12s;
+          ">Volver</button>
+          <button id="cerrarCajaSi" style="
+            padding:9px 18px;border-radius:10px;font-size:0.88rem;font-weight:700;
+            cursor:pointer;border:none;
+            background:#dc2626;color:#fff;
+            transition:background 0.12s;
+          ">Cerrar caja igual</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector("#cerrarCajaNo").addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector("#cerrarCajaSi").addEventListener("click", () => {
+      guardarEstado();
+      _intentionalExit = true;
+      window.location.href = `caja_cerrar.php?id=${encodeURIComponent(cajaId)}`;
+    });
+
+    overlay.querySelector("#cerrarCajaNo").focus();
   }
 
   // =========================
@@ -3505,6 +3569,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("beforeunload", (e) => {
+    if (_intentionalExit) return;
     if (!Array.isArray(carrito) || carrito.length === 0) return;
     guardarEstado();
     e.preventDefault();

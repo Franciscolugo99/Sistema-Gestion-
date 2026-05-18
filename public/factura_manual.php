@@ -92,7 +92,7 @@ $emitReady = (bool)($emitPreflight['ok'] ?? false);
 $lookupArcaEnv = flus_facturacion_arca_env_actual();
 $lookupArcaEnvLabel = $lookupArcaEnv === 'homo' ? 'Homologacion' : 'Produccion';
 $clientes = flus_facturacion_clientes_disponibles($pdo);
-$rows = $_SERVER['REQUEST_METHOD'] === 'POST' ? factura_manual_rows_from_post() : factura_manual_default_rows();
+$rows = $_SERVER['REQUEST_METHOD'] === 'POST' ? factura_manual_rows_from_post() : factura_manual_default_rows(1);
 $itemLimit = flus_facturacion_print_item_limit($pdo);
 $itemCountPreview = factura_manual_print_item_count($rows);
 $itemCountExceeded = $itemCountPreview > $itemLimit;
@@ -185,7 +185,7 @@ $breadcrumbs = [
     ['label' => 'Facturación', 'url' => 'facturacion.php'],
     ['label' => 'Factura manual', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=18'];
+$extraCss = ['assets/css/facturacion.css?v=20'];
 $extraJs = ['assets/js/facturacion_cliente_lookup.js?v=7', 'assets/js/factura_manual.js?v=5'];
 require __DIR__ . '/partials/header.php';
 ?>
@@ -240,64 +240,51 @@ require __DIR__ . '/partials/header.php';
 
       <div class="fact-manual-layout fact-manual-layout--mock">
         <section class="fact-manual-main">
-          <article class="fact-card fact-card-receptor fact-card-receptor--mock">
-            <div class="fact-card-head">
-              <div>
-                <div class="fact-card-kicker">Cabecera</div>
-                <h3 class="fact-card-title">Receptor</h3>
-              </div>
+          <div class="fm-cabecera-bar">
+            <div class="fm-cab-concepto">
+              <label class="fm-cab-label" for="factManualConcepto">Concepto</label>
+              <select id="factManualConcepto" name="concepto" class="fm-cab-select" <?= $cfgError !== null ? 'disabled' : '' ?>>
+                <option value="1" <?= $concepto === 1 ? 'selected' : '' ?>>Productos</option>
+                <option value="2" <?= $concepto === 2 ? 'selected' : '' ?>>Servicios</option>
+                <option value="3" <?= $concepto === 3 ? 'selected' : '' ?>>Prod. y servicios</option>
+              </select>
             </div>
 
-            <div class="fact-card-body fact-card-body-cabecera">
-              <div class="ff-field fact-cabecera-concepto">
-                <label>Concepto</label>
-                <select name="concepto" <?= $cfgError !== null ? 'disabled' : '' ?>>
-                  <option value="1" <?= $concepto === 1 ? 'selected' : '' ?>>Productos</option>
-                  <option value="2" <?= $concepto === 2 ? 'selected' : '' ?>>Servicios</option>
-                  <option value="3" <?= $concepto === 3 ? 'selected' : '' ?>>Productos y servicios</option>
-                </select>
-              </div>
+            <div class="fm-cab-sep" aria-hidden="true"></div>
 
-              <div class="fact-receptor-workspace">
-                <div class="fact-receptor-empty fact-receptor-empty--inline" data-receptor-empty hidden>
-                  <strong>Sin receptor aplicado</strong>
-                  <span>Usa el panel derecho para buscar en ARCA o elegir un cliente de FLUS.</span>
-                </div>
-
-                <div class="fact-receptor-selected fact-receptor-selected--workspace" data-receptor-selected>
-                  <div class="fact-form-grid">
-                    <div class="ff-field ff-field-wide">
-                      <label>Razon social / nombre</label>
-                      <input type="text" value="<?= h($clienteLookupUi['nombre']) ?>" placeholder="Nombre del receptor" data-receptor-mirror-nombre>
-                    </div>
-                    <div class="ff-field">
-                      <label>CUIT / CUIL</label>
-                      <input type="text" value="<?= h($clienteLookupUi['cuit']) ?>" placeholder="20-12345678-9" data-receptor-mirror-cuit>
-                    </div>
-                    <div class="ff-field">
-                      <label>Condicion IVA</label>
-                      <select data-receptor-mirror-cond-iva>
-                        <option value="">Elegir condicion IVA...</option>
-                        <?php foreach (['RI' => 'Responsable Inscripto', 'MT' => 'Monotributo', 'EX' => 'Exento', 'CF' => 'Consumidor Final'] as $condKey => $condLabel): ?>
-                          <option value="<?= h($condKey) ?>" <?= strtoupper($clienteLookupUi['cond_iva']) === $condKey ? 'selected' : '' ?>><?= h($condLabel) ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                    <div class="ff-field ff-field-wide">
-                      <label>Domicilio</label>
-                      <input type="text" value="<?= h($clienteLookupUi['direccion']) ?>" placeholder="Domicilio del receptor" data-receptor-mirror-direccion>
-                    </div>
+            <div class="fm-cab-receptor">
+              <span class="fm-cab-label">Receptor</span>
+              <div class="fm-cab-receptor-wrap">
+                <span class="fm-cab-empty-msg muted" data-receptor-empty hidden>Sin receptor — elige un cliente o busca en ARCA →</span>
+                <div class="fm-cab-receptor-body" data-receptor-selected>
+                  <div class="fm-cab-fields-row">
+                    <input type="text" class="fm-cab-input fm-cab-input--nombre" placeholder="Nombre del receptor"
+                      value="<?= h($clienteLookupUi['nombre']) ?>"
+                      <?= $cfgError !== null ? 'disabled' : '' ?>
+                      data-receptor-mirror-nombre>
+                    <input type="text" class="fm-cab-input fm-cab-input--cuit" placeholder="CUIT / CUIL"
+                      value="<?= h($clienteLookupUi['cuit']) ?>"
+                      <?= $cfgError !== null ? 'disabled' : '' ?>
+                      data-receptor-mirror-cuit>
+                    <select class="fm-cab-select fm-cab-select--iva"
+                      <?= $cfgError !== null ? 'disabled' : '' ?>
+                      data-receptor-mirror-cond-iva>
+                      <option value="">— Cond. IVA —</option>
+                      <?php foreach (['RI' => 'Responsable Inscripto', 'MT' => 'Monotributo', 'EX' => 'Exento', 'CF' => 'Consumidor Final'] as $condKey => $condLabel): ?>
+                        <option value="<?= h($condKey) ?>" <?= strtoupper($clienteLookupUi['cond_iva']) === $condKey ? 'selected' : '' ?>><?= h($condLabel) ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <input type="text" class="fm-cab-input fm-cab-input--dir" placeholder="Domicilio"
+                      value="<?= h($clienteLookupUi['direccion']) ?>"
+                      <?= $cfgError !== null ? 'disabled' : '' ?>
+                      data-receptor-mirror-direccion>
+                    <button type="button" class="btn btn-ghost btn-compact" data-receptor-clear hidden>× Limpiar</button>
                   </div>
-                  <div class="fact-receptor-workspace__foot">
-                    <div class="fact-receptor-applied-note muted" data-receptor-applied-note>
-                      El receptor se completa desde FLUS o ARCA y luego puedes ajustarlo antes de emitir.
-                    </div>
-                    <button type="button" class="btn btn-secondary" data-receptor-clear hidden>Limpiar</button>
-                  </div>
+                  <div class="fm-cab-note muted" data-receptor-applied-note>Elige un cliente o busca en ARCA con el panel derecho.</div>
                 </div>
               </div>
             </div>
-          </article>
+          </div>
 
           <article class="fact-card fact-card-items-shell">
             <div class="fact-card-head">
@@ -311,38 +298,44 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="fact-card-body fact-card-body-items">
-              <div class="fact-manual-toolbar">
-                <div class="fact-manual-search">
-                  <label for="factManualBuscar">Buscar producto del sistema</label>
-                  <div class="fact-manual-search-inline">
-                    <input
-                      type="search"
-                      id="factManualBuscar"
-                      placeholder="Escribe nombre o codigo para agregar rapido"
-                      autocomplete="off"
-                      <?= $cfgError !== null ? 'disabled' : '' ?>
-                      data-fm-product-search
-                    >
-                    <button type="button" class="btn btn-secondary" <?= $cfgError !== null ? 'disabled' : '' ?> data-fm-add-row>+ Agregar fila</button>
-                  </div>
-                  <div class="fact-manual-suggestions" data-fm-search-results hidden></div>
-                </div>
-
-                <div class="fact-manual-toolbar-sep">o</div>
-
-                <div class="fact-manual-code">
-                  <label for="factManualCodigo">Cargar por codigo</label>
-                  <div class="fact-manual-search-inline">
+              <div class="fact-manual-toolbar fact-manual-toolbar--v2">
+                <!-- PRIMARIO: scanner / código directo -->
+                <div class="fact-manual-code fact-manual-code--primary">
+                  <label for="factManualCodigo">
+                    Código de barras o código de producto
+                    <span class="fm-kbd-hint">&#8629; Enter para agregar</span>
+                  </label>
+                  <div class="fact-manual-search-inline fact-manual-search-inline--code">
+                    <svg class="fm-scan-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                      <path d="M3 4h2v16H3zM7 4h1v16H7zM10 4h2v16h-2zM15 4h1v16h-1zM18 4h1v16h-1zM21 4h1v16h-1z"/>
+                    </svg>
                     <input
                       type="text"
                       id="factManualCodigo"
-                      placeholder="Escanea o escribe el codigo y presiona Enter"
+                      placeholder="Escanea o escribe el código..."
                       autocomplete="off"
                       <?= $cfgError !== null ? 'disabled' : '' ?>
                       data-fm-code-search
                     >
-                    <button type="button" class="btn btn-secondary" <?= $cfgError !== null ? 'disabled' : '' ?> data-fm-code-btn>Agregar</button>
+                    <button type="button" class="btn btn-primary" <?= $cfgError !== null ? 'disabled' : '' ?> data-fm-code-btn>Agregar</button>
                   </div>
+                </div>
+
+                <!-- SECUNDARIO: buscar por nombre -->
+                <div class="fact-manual-search fact-manual-search--secondary">
+                  <label for="factManualBuscar">o buscá por nombre</label>
+                  <div class="fact-manual-search-inline">
+                    <input
+                      type="search"
+                      id="factManualBuscar"
+                      placeholder="Escribe el nombre del producto..."
+                      autocomplete="off"
+                      <?= $cfgError !== null ? 'disabled' : '' ?>
+                      data-fm-product-search
+                    >
+                    <button type="button" class="btn btn-ghost" <?= $cfgError !== null ? 'disabled' : '' ?> data-fm-add-row>+ Fila vacía</button>
+                  </div>
+                  <div class="fact-manual-suggestions" data-fm-search-results hidden></div>
                 </div>
               </div>
 

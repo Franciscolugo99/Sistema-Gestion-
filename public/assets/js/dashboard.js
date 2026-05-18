@@ -25,10 +25,12 @@ if (window.__flus_dashboard_js_loaded) {
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bootDashboard);
-  } else {
-    bootDashboard();
+  function scheduleDashboardBoot() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootDashboard, { once: true });
+    } else {
+      bootDashboard();
+    }
   }
 
 /* =========================
@@ -155,6 +157,15 @@ function getDetailRows(detailsId) {
 
   const rows = Array.from(detail.querySelectorAll("tbody tr"));
   return rows.filter((row) => !row.querySelector(".muted"));
+}
+
+function updateCardSub(canvasId, text) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const card = canvas.closest(".dash-card");
+  if (!card) return;
+  const sub = card.querySelector(".dash-card-sub");
+  if (sub && text) sub.textContent = text;
 }
 
 function getDataWithDomFallback(data) {
@@ -404,35 +415,22 @@ function renderAllCharts(data) {
             donutBorder: "rgba(15,23,42,0.65)",
           };
 
-    renderLineChart(
-      "chartVentas",
-      "noVentasMsg",
-      chartData.ventasLabels,
-      chartData.ventasData,
-      palette,
-      textColor,
-      gridColor
-    );
+    const _render = (fn) => { try { fn(); } catch (e) { console.error("[dashboard chart]", e); } };
 
-    renderBarChart(
-      "chartTopProductos",
-      "noTopMsg",
-      chartData.topProdLabels,
-      chartData.topProdData,
-      palette,
-      textColor,
-      gridColor
-    );
-
-    renderMetodosPago(chartData.metodosPago, palette, textColor);
-    renderCategorias(chartData.categorias, palette, textColor, gridColor);
-    renderHorarios(chartData.ventasPorHora, palette, textColor, gridColor);
-    renderProductosRentables(
-      chartData.productosRentables,
-      palette,
-      textColor,
-      gridColor
-    );
+    _render(() => renderLineChart(
+      "chartVentas", "noVentasMsg",
+      chartData.ventasLabels, chartData.ventasData,
+      palette, textColor, gridColor
+    ));
+    _render(() => renderBarChart(
+      "chartTopProductos", "noTopMsg",
+      chartData.topProdLabels, chartData.topProdData,
+      palette, textColor, gridColor
+    ));
+    _render(() => renderMetodosPago(chartData.metodosPago, palette, textColor));
+    _render(() => renderCategorias(chartData.categorias, palette, textColor, gridColor));
+    _render(() => renderHorarios(chartData.ventasPorHora, palette, textColor, gridColor));
+    _render(() => renderProductosRentables(chartData.productosRentables, palette, textColor, gridColor));
   } finally {
     window.setTimeout(() => {
       loadingCards.forEach((c) => c.classList.remove("is-loading"));
@@ -475,14 +473,40 @@ function renderLineChart(
 
   const safeLabels = Array.isArray(labels) ? labels : [];
 
+  const n = safeVals.length;
+  let displayLabels = safeLabels.map((d) => formatShortDate(d));
+  let displayValues = safeVals;
+  let granularity = "día";
+  let maxTicks = 10;
+  if (n > 120) {
+    const agg = aggregateByMonth(safeLabels, safeVals);
+    if (agg.values.length > 0) {
+      displayLabels = agg.labels;
+      displayValues = agg.values;
+      granularity = "mes";
+      maxTicks = 18;
+    }
+  } else if (n > 60) {
+    const agg = aggregateByWeek(safeLabels, safeVals);
+    if (agg.values.length > 0) {
+      displayLabels = agg.labels;
+      displayValues = agg.values;
+      granularity = "semana";
+      maxTicks = 18;
+    }
+  }
+
+  const total = displayValues.reduce((a, b) => a + b, 0);
+  const avg   = displayValues.length > 0 ? total / displayValues.length : 0;
+
   const chart = new Chart(canvas.getContext("2d"), {
     type: "line",
     data: {
-      labels: safeLabels.map((d) => formatShortDate(d)),
+      labels: displayLabels,
       datasets: [
         {
           label: "Ventas",
-          data: safeVals,
+          data: displayValues,
           tension: 0.25,
           fill: true,
           borderColor: palette.primary,
@@ -497,12 +521,19 @@ function renderLineChart(
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${nfNum1.format(num(ctx.parsed.y, 0))} tickets`,
+          },
+        },
+      },
       interaction: { mode: "index", intersect: false },
       scales: {
         x: {
           grid: { color: gridColor },
-          ticks: { color: textColor, maxTicksLimit: 10 },
+          ticks: { color: textColor, maxTicksLimit: maxTicks },
         },
         y: {
           beginAtZero: true,
@@ -514,6 +545,7 @@ function renderLineChart(
   });
 
   __dashCharts.push(chart);
+  updateCardSub(canvasId, `${nfNum1.format(total)} tickets · prom. ${nfNum1.format(avg)}/${granularity}`);
 }
 
 /* =========================
@@ -561,6 +593,7 @@ function renderBarChart(
           borderColor: palette.secondary,
           borderWidth: 1,
           borderRadius: 10,
+          maxBarThickness: 40,
         },
       ],
     },
@@ -568,7 +601,14 @@ function renderBarChart(
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${nfNum1.format(num(ctx.parsed.x, 0))} un.`,
+          },
+        },
+      },
       scales: {
         x: {
           beginAtZero: true,
@@ -584,6 +624,8 @@ function renderBarChart(
   });
 
   __dashCharts.push(chart);
+  const topLabel = safeLabels[0] || "";
+  if (topLabel) updateCardSub(canvasId, `Top: ${topLabel} — ${nfNum1.format(safeVals[0] || 0)} un.`);
 }
 
 /* =========================
@@ -654,6 +696,12 @@ function renderMetodosPago(metodosPago, palette, textColor) {
   });
 
   __dashCharts.push(chart);
+  const metTotal = values.reduce((a, b) => a + b, 0);
+  const metPeak  = values.indexOf(Math.max(...values));
+  if (metPeak >= 0 && metTotal > 0) {
+    const pct = Math.round((values[metPeak] / metTotal) * 100);
+    updateCardSub("chartMetodosPago", `${labels[metPeak]} ${pct}%`);
+  }
 }
 
 /* =========================
@@ -704,13 +752,21 @@ function renderCategorias(categorias, palette, textColor, gridColor) {
           borderColor: palette.donutBorder,
           borderWidth: 1,
           borderRadius: 8,
+          maxBarThickness: 52,
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` $${nfMoney0.format(num(ctx.parsed.y, 0))}`,
+          },
+        },
+      },
       scales: {
         x: {
           grid: { color: gridColor },
@@ -726,6 +782,7 @@ function renderCategorias(categorias, palette, textColor, gridColor) {
   });
 
   __dashCharts.push(chart);
+  if (labels[0]) updateCardSub("chartCategorias", `Top: ${labels[0]}`);
 }
 
 
@@ -740,15 +797,20 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
 
   const list = Array.isArray(ventasPorHora) ? ventasPorHora : [];
 
-  const horasCompletas = Array.from({ length: 24 }, (_, i) => i);
   const dataMap = {};
   list.forEach((v) => {
     const h = parseInt(v?.hora, 10);
     if (Number.isFinite(h)) dataMap[h] = num(v?.monto, 0);
   });
 
-  const labels = horasCompletas.map((h) => `${h}:00`);
-  const values = horasCompletas.map((h) => num(dataMap[h], 0));
+  // Recortar horas vacías al inicio y al final; mantener al menos +/-1h de margen
+  const activeHours = Object.keys(dataMap).map(Number).filter((h) => dataMap[h] > 0);
+  const firstH = activeHours.length ? Math.max(0,  Math.min(...activeHours) - 1) : 0;
+  const lastH  = activeHours.length ? Math.min(23, Math.max(...activeHours) + 1) : 23;
+  const horasRango = Array.from({ length: lastH - firstH + 1 }, (_, i) => firstH + i);
+
+  const labels = horasRango.map((h) => `${h}:00`);
+  const values = horasRango.map((h) => num(dataMap[h], 0));
 
   const hasData = hasSomePositive(values);
   if (!hasData) {
@@ -759,6 +821,10 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
   canvas.style.display = "block";
   if (empty) empty.style.display = "none";
 
+  const peakIdx  = values.reduce((iMax, v, i) => v > values[iMax] ? i : iMax, 0);
+  const bgColors = values.map((v, i) => (i === peakIdx && v > 0) ? palette.warning      : palette.primaryFill);
+  const bdColors = values.map((v, i) => (i === peakIdx && v > 0) ? palette.warning      : palette.primary);
+
   const chart = new Chart(canvas.getContext("2d"), {
     type: "bar",
     data: {
@@ -767,10 +833,11 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
         {
           label: "Facturación ($)",
           data: values,
-          backgroundColor: palette.primaryFill,
-          borderColor: palette.primary,
+          backgroundColor: bgColors,
+          borderColor: bdColors,
           borderWidth: 1,
           borderRadius: 6,
+          maxBarThickness: 44,
         },
       ],
     },
@@ -781,22 +848,14 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function (context) {
-              return `$${nfMoney0.format(num(context.parsed.y, 0))}`;
-            },
+            label: (ctx) => `$${nfMoney0.format(num(ctx.parsed.y, 0))}`,
           },
         },
       },
       scales: {
         x: {
           grid: { color: gridColor },
-          ticks: {
-            color: textColor,
-            maxRotation: 0,
-            callback: function (val, idx) {
-              return idx % 2 === 0 ? this.getLabelForValue(val) : "";
-            },
-          },
+          ticks: { color: textColor, maxRotation: 0 },
         },
         y: {
           beginAtZero: true,
@@ -808,6 +867,7 @@ function renderHorarios(ventasPorHora, palette, textColor, gridColor) {
   });
 
   __dashCharts.push(chart);
+  if (labels[peakIdx]) updateCardSub("chartHorarios", `Pico: ${labels[peakIdx]} hs`);
 }
 
 /* =========================
@@ -847,18 +907,21 @@ function renderProductosRentables(productos, palette, textColor, gridColor) {
           data: ventas,
           backgroundColor: palette.primary,
           borderRadius: 6,
+          maxBarThickness: 36,
         },
         {
           label: "Costos",
           data: costos,
           backgroundColor: palette.danger,
           borderRadius: 6,
+          maxBarThickness: 36,
         },
         {
           label: "Ganancia",
           data: ganancias,
           backgroundColor: palette.accent,
           borderRadius: 6,
+          maxBarThickness: 36,
         },
       ],
     },
@@ -893,6 +956,7 @@ function renderProductosRentables(productos, palette, textColor, gridColor) {
   });
 
   __dashCharts.push(chart);
+  if (labels[0]) updateCardSub("chartRentables", `Mejor ganancia: ${labels[0]}`);
 }
 
 /* =========================
@@ -1035,6 +1099,51 @@ function formatHumanDate(ymd) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
   return `${day}/${month}/${year}`;
+}
+
+const MONTHS_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+function aggregateByWeek(rawLabels, rawValues) {
+  const map = new Map();
+  const order = [];
+  rawLabels.forEach((lbl, i) => {
+    const d = parseDate(lbl);
+    if (!d) return;
+    const dow = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((dow + 6) % 7));
+    const key = formatDate(monday);
+    if (!map.has(key)) { map.set(key, 0); order.push(key); }
+    map.set(key, map.get(key) + num(rawValues[i], 0));
+  });
+  return {
+    labels: order.map((k) => {
+      const d = parseDate(k);
+      if (!d) return k;
+      return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
+    }),
+    values: order.map((k) => map.get(k)),
+  };
+}
+
+function aggregateByMonth(rawLabels, rawValues) {
+  const map = new Map();
+  const order = [];
+  rawLabels.forEach((lbl, i) => {
+    const d = parseDate(lbl);
+    if (!d) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    if (!map.has(key)) { map.set(key, 0); order.push(key); }
+    map.set(key, map.get(key) + num(rawValues[i], 0));
+  });
+  return {
+    labels: order.map((k) => {
+      const [y, m] = k.split("-").map(Number);
+      if (!y || !m || !MONTHS_ES[m - 1]) return k;
+      return `${MONTHS_ES[m-1]} ${y}`;
+    }),
+    values: order.map((k) => map.get(k)),
+  };
 }
 
 /* =========================
@@ -1185,5 +1294,6 @@ function initTimeFilters() {
   validate();
 }
 
+scheduleDashboardBoot();
 
 }

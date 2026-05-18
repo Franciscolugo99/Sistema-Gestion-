@@ -31,6 +31,14 @@
         return;
       }
 
+      const deleteBtn = ev.target.closest('.btn-delete');
+      if (deleteBtn) {
+        ev.preventDefault();
+        const f = deleteBtn.getAttribute('data-file') || '';
+        if (f) handleDeleteBackup(f);
+        return;
+      }
+
       const maintBtn = ev.target.closest('#btnMaintenanceOff');
       if (maintBtn) {
         ev.preventDefault();
@@ -159,6 +167,74 @@
   }
 
   /**
+   * Eliminar un backup existente (AJAX)
+   */
+  async function handleDeleteBackup(file) {
+    const fileSafe = String(file || '').trim();
+    if (!fileSafe) return;
+
+    const confirmWord = await Notif.prompt(
+      "Eliminar backup",
+      `Se eliminará permanentemente:\n${fileSafe}`,
+      {
+        placeholder: "Escribí BORRAR para confirmar",
+        confirmText: "Eliminar",
+        validator: v => v !== 'BORRAR' ? 'Escribí exactamente BORRAR para confirmar' : null
+      }
+    );
+    if (confirmWord === null || confirmWord !== 'BORRAR') return;
+
+    const csrf = (document.querySelector('input[name="csrf_token"]') || {}).value || '';
+    if (!csrf) {
+      showAlert('error', 'CSRF faltante. Recargá la página e intentá de nuevo.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('csrf_token', csrf);
+    formData.append('accion', 'borrar');
+    formData.append('file', fileSafe);
+    formData.append('ajax', '1');
+
+    try {
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+
+      if (data.ok || data.success) {
+        showAlert('success', data.message || 'Backup eliminado');
+        if (Array.isArray(data.items)) {
+          if (data.items.length > 0) {
+            updateBackupsTable(data.items);
+          } else {
+            backupsTableBody.innerHTML = `
+              <tr>
+                <td colspan="4" class="empty-state">
+                  <svg class="icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  </svg>
+                  <p>No hay backups disponibles</p>
+                  <small>Creá tu primer backup usando el botón de arriba</small>
+                </td>
+              </tr>`;
+          }
+          updateStats(data.items);
+        }
+      } else {
+        showAlert('error', data.message || 'Error al eliminar el backup');
+      }
+    } catch (error) {
+      console.error('Error al eliminar backup:', error);
+      showAlert('error', 'Error de conexión al intentar eliminar el backup.');
+    }
+  }
+
+  /**
    * Desactivar mantenimiento manualmente (si quedó activo)
    */
   async function handleMaintenanceOff() {
@@ -252,7 +328,7 @@
 
     // Auto-hide después de 5 segundos
     setTimeout(() => {
-      alert.style.animation = 'slideOut 0.3s ease';
+      alert.style.animation = 'bk-slide-out 0.3s ease';
       setTimeout(() => alert.remove(), 300);
     }, 5000);
   }
@@ -284,7 +360,6 @@
       }
 
       const dateAbs = formatDateTime(time);
-      const csrfToken = document.querySelector('input[name="csrf_token"]').value;
 
       return `
         <tr>
@@ -302,38 +377,33 @@
             <span class="date-rel">${escapeHtml(rel)}</span>
             <span class="date-abs">${escapeHtml(dateAbs)}</span>
           </td>
-          <td class="actions-cell t-right">
-            <a class="btn btn-ghost btn-sm" 
-               href="backup_download.php?f=${encodeURIComponent(item.file)}"
-               title="Descargar backup">
-              <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Descargar
-            </a>
-
-            <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="${escapeHtml(item.file)}" title="Restaurar este backup">
-              <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="1 4 1 10 7 10"/>
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-              </svg>
-              Restaurar
-            </button>
-
-            <form method="post" class="inline-form" onsubmit="return confirmarBorrado('${escapeHtml(item.file)}');">
-              <input type="hidden" name="csrf_token" value="${escapeHtml(csrfToken)}">
-              <input type="hidden" name="accion" value="borrar">
-              <input type="hidden" name="file" value="${escapeHtml(item.file)}">
-              <button class="btn btn-danger btn-sm" type="submit" title="Eliminar backup">
+          <td class="actions-cell">
+            <div class="actions-group">
+              <a class="btn btn-ghost btn-sm"
+                 href="backup_download.php?f=${encodeURIComponent(item.file)}"
+                 title="Descargar backup">
+                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Descargar
+              </a>
+              <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="${escapeHtml(item.file)}" title="Restaurar este backup">
+                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="1 4 1 10 7 10"/>
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                Restaurar
+              </button>
+              <button class="btn btn-danger btn-sm btn-delete" type="button" data-file="${escapeHtml(item.file)}" title="Eliminar backup">
                 <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                 </svg>
                 Borrar
               </button>
-            </form>
+            </div>
           </td>
         </tr>
       `;
@@ -360,11 +430,12 @@
     }
 
     // Último backup
-    if (items.length > 0) {
-      const lastTime = parseInt(items[0].mtime);
-      const lastElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
-      if (lastElement) {
-        lastElement.textContent = formatShortDateTime(lastTime);
+    const lastElement = document.querySelector('.stat-card:nth-child(3) .stat-value');
+    if (lastElement) {
+      if (items.length > 0) {
+        lastElement.textContent = formatShortDateTime(parseInt(items[0].mtime));
+      } else {
+        lastElement.textContent = '—';
       }
     }
   }
@@ -376,7 +447,7 @@
     const alerts = document.querySelectorAll('.alert');
     alerts.forEach(alert => {
       setTimeout(() => {
-        alert.style.animation = 'slideOut 0.3s ease';
+        alert.style.animation = 'bk-slide-out 0.3s ease';
         setTimeout(() => alert.remove(), 300);
       }, 5000);
     });
@@ -431,20 +502,5 @@
     return `${day}/${month} ${hours}:${minutes}`;
   }
 
-  // Agregar animación slideOut al CSS si no existe
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideOut {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-    }
-  `;
-  document.head.appendChild(style);
 
 })();

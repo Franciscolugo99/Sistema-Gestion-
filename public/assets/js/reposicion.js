@@ -66,13 +66,67 @@
 
     qsa("form.config-form").forEach((form) => {
       form.addEventListener("submit", () => {
-        const btn = form.querySelector('button[type="submit"]');
+        const btn = form.querySelector('button[type="submit"]')
+          || (form.id ? document.querySelector(`button[form="${form.id}"][type="submit"]`) : null);
         if (!btn || btn.disabled) return;
         btn.disabled = true;
         btn.dataset.originalText = btn.textContent || "Guardar";
         btn.textContent = "Guardando...";
       });
     });
+
+    // Filtro de estado en tabla de alertas
+    const filterBtns = qsa(".repo-filter-btn");
+    if (filterBtns.length > 0) {
+      const alertRows = qsa(".repo-alert-row");
+      filterBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const estado = btn.dataset.filterEstado || "";
+          filterBtns.forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          alertRows.forEach((row) => {
+            const match = estado === "" || row.dataset.estado === estado;
+            row.style.display = match ? "" : "none";
+          });
+        });
+      });
+    }
+
+    // Accordion en vista Lista de compras
+    const proveedorToggles = qsa("[data-proveedor-toggle]");
+    if (proveedorToggles.length > 0) {
+      const toggleSection = (toggle, open) => {
+        const section = toggle.closest("[data-proveedor-section]");
+        const body = section?.querySelector("[data-proveedor-body]");
+        if (!body) return;
+        body.style.display = open ? "" : "none";
+        toggle.setAttribute("aria-expanded", String(open));
+        section.classList.toggle("is-collapsed", !open);
+      };
+
+      proveedorToggles.forEach((toggle) => {
+        toggle.addEventListener("click", (e) => {
+          if (e.target.closest("button") && !e.target.closest(".proveedor-collapse-btn")) return;
+          const section = toggle.closest("[data-proveedor-section]");
+          const isOpen = !section.classList.contains("is-collapsed");
+          toggleSection(toggle, !isOpen);
+        });
+      });
+
+      // Auto-colapso si hay 4 o más proveedores
+      if (proveedorToggles.length >= 4) {
+        proveedorToggles.forEach((toggle, i) => {
+          if (i > 0) toggleSection(toggle, false);
+        });
+      }
+
+      qs("[data-expand-all]")?.addEventListener("click", () => {
+        proveedorToggles.forEach((t) => toggleSection(t, true));
+      });
+      qs("[data-collapse-all]")?.addEventListener("click", () => {
+        proveedorToggles.forEach((t) => toggleSection(t, false));
+      });
+    }
 
     const bulkForm = qs("#bulk-config-form");
     if (!bulkForm) {

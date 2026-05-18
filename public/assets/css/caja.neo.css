@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    CAJA NEO
    - Rediseno inspirado en mockup operativo
    - Misma logica, otra jerarquia visual
@@ -2475,7 +2475,7 @@ body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
   }
 
   body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label {
-    font-size: 0.5rem;
+    font-size: 0.65rem;
   }
 
   body.caja-fullscreen-page .caja-panel--neo .caja-topbar__value {
@@ -2513,7 +2513,7 @@ body.caja-fullscreen-page .caja-panel--neo .cc-advertencia {
   }
 
   body.caja-fullscreen-page .caja-panel--neo .caja-scan-card label {
-    font-size: 0.56rem;
+    font-size: 0.65rem;
     margin-bottom: 4px;
   }
 
@@ -4173,7 +4173,7 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal {
 
   body.caja-fullscreen-page .caja-panel--neo .caja-topbar__label,
   body.caja-fullscreen-page .caja-panel--neo .caja-topbar__print-label {
-    font-size: 0.56rem;
+    font-size: 0.65rem;
   }
 
   body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn,

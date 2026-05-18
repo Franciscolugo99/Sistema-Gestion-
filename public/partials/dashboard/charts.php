@@ -13,9 +13,6 @@
       <canvas id="chartVentas" role="img" tabindex="0" aria-label="Ventas por dia (cantidad de tickets)" aria-describedby="chartVentasData"></canvas>
       <div id="noVentasMsg" class="chart-empty" style="display:none;">No hay ventas en el rango</div>
     </div>
-    <div class="chart-context">
-      <span class="chart-context-tip">Busca tendencias ascendentes. Los picos indican dias de mayor actividad.</span>
-    </div>
 
     <details class="chart-data" id="chartVentasData">
       <summary>Ver datos</summary>
@@ -43,9 +40,6 @@
     <div class="chart-wrap">
       <canvas id="chartTopProductos" role="img" tabindex="0" aria-label="Top productos mas vendidos" aria-describedby="chartTopProductosData"></canvas>
       <div id="noTopMsg" class="chart-empty" style="display:none;">Sin datos</div>
-    </div>
-    <div class="chart-context">
-      <span class="chart-context-tip">Estos productos son tu motor de ventas. Asegura stock suficiente.</span>
     </div>
 
     <details class="chart-data" id="chartTopProductosData">
@@ -180,9 +174,6 @@
     <div class="chart-wrap chart-wrap-wide">
       <canvas id="chartHorarios" role="img" tabindex="0" aria-label="Distribucion de ventas por hora" aria-describedby="chartHorariosData"></canvas>
     </div>
-    <div class="chart-context">
-      <span class="chart-context-tip">Los picos indican cuando necesitas mas personal. Considera horarios de apertura y cierre.</span>
-    </div>
 
     <details class="chart-data" id="chartHorariosData">
       <summary>Ver datos</summary>
@@ -210,9 +201,6 @@
     </div>
     <div class="chart-wrap chart-wrap-wide">
       <canvas id="chartRentables" role="img" tabindex="0" aria-label="Top productos mas rentables por ganancia" aria-describedby="chartRentablesData"></canvas>
-    </div>
-    <div class="chart-context">
-      <span class="chart-context-tip">Verde = ganancia, rojo = costos. Prioriza productos con mayor barra verde.</span>
     </div>
 
     <details class="chart-data" id="chartRentablesData">

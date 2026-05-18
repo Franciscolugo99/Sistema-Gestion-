@@ -250,9 +250,12 @@ require __DIR__ . '/partials/header.php';
       </div>
       <div class="stat-content">
         <div class="stat-value">
-          <?php 
+          <?php
           if (!empty($items)) {
-            echo h(date('d/m H:i', (int)$items[0]['mtime']));
+            $lastMtime = (int)$items[0]['mtime'];
+            echo h(date('Y', $lastMtime) === date('Y')
+              ? date('d/m H:i', $lastMtime)
+              : date('d/m/Y', $lastMtime));
           } else {
             echo '—';
           }
@@ -272,7 +275,11 @@ require __DIR__ . '/partials/header.php';
     </svg>
     <div>
       <strong>Automatización:</strong> Para programar backups automáticos en Windows, usá el Programador de Tareas con:
-      <code>C:\FLUS\stack\php\php.exe C:\FLUS\app\scripts\backup_db.php</code>
+      <?php
+        $phpCli    = PHP_BINDIR . DIRECTORY_SEPARATOR . 'php' . (PHP_OS_FAMILY === 'Windows' ? '.exe' : '');
+        $bkScript  = realpath(__DIR__ . '/../scripts/backup_db.php') ?: FLUS_ROOT . '/scripts/backup_db.php';
+      ?>
+      <code><?= h($phpCli) ?> <?= h($bkScript) ?></code>
     </div>
   </div>
 
@@ -355,38 +362,33 @@ require __DIR__ . '/partials/header.php';
               <span class="date-rel"><?= h($rel) ?></span>
               <span class="date-abs"><?= h(date('d/m/Y H:i:s', $time)) ?></span>
             </td>
-            <td class="actions-cell t-right">
-              <a class="btn btn-ghost btn-sm" 
-                 href="backup_download.php?f=<?= urlencode($it['file']) ?>"
-                 title="Descargar backup">
-                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Descargar
-              </a>
-
-              <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="<?= h($it['file']) ?>" title="Restaurar este backup" <?= ($maintenanceActive || $restoreInProgress) ? 'disabled' : '' ?>>
-                <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="1 4 1 10 7 10"/>
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                </svg>
-                Restaurar
-              </button>
-
-              <form method="post" class="inline-form" onsubmit="return confirmarBorrado('<?= h($it['file']) ?>');">
-                <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
-                <input type="hidden" name="accion" value="borrar">
-                <input type="hidden" name="file" value="<?= h($it['file']) ?>">
-                <button class="btn btn-danger btn-sm" type="submit" title="Eliminar backup">
+            <td class="actions-cell">
+              <div class="actions-group">
+                <a class="btn btn-ghost btn-sm"
+                   href="backup_download.php?f=<?= urlencode($it['file']) ?>"
+                   title="Descargar backup">
+                  <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Descargar
+                </a>
+                <button class="btn btn-warning btn-sm btn-restore" type="button" data-file="<?= h($it['file']) ?>" title="Restaurar este backup" <?= ($maintenanceActive || $restoreInProgress) ? 'disabled' : '' ?>>
+                  <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                  </svg>
+                  Restaurar
+                </button>
+                <button class="btn btn-danger btn-sm btn-delete" type="button" data-file="<?= h($it['file']) ?>" title="Eliminar backup">
                   <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                   </svg>
                   Borrar
                 </button>
-              </form>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>
@@ -403,11 +405,5 @@ require __DIR__ . '/partials/header.php';
     <p id="loadingText">Creando backup...</p>
   </div>
 </div>
-
-<script>
-function confirmarBorrado(file) {
-  return confirm('¿Estás seguro de que querés eliminar el backup "' + file + '"?\n\nEsta acción no se puede deshacer.');
-}
-</script>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

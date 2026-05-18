@@ -6,7 +6,7 @@ Objetivo: sacar FLUS 3.9.0 como release estable, con alcance congelado y criteri
 
 ## Estado de partida
 
-- smoke tecnico en verde: `119 OK / 0 fallidas / 0 skipped`
+- smoke tecnico en verde: `120 OK / 0 fallidas / 0 skipped`
 - migraciones versionadas y baseline presentes
 - modulos principales operativos:
   - ventas
@@ -124,30 +124,31 @@ Si 3.9.0 va a salir con facturacion real habilitada:
 - [ ] ejecutar prueba de conexion
 - [ ] validar numeracion
 
-Estado actual relevado el 2026-04-17:
+Estado actual relevado el 2026-04-23:
 
 - `facturacion_habilitada = 1`
 - `facturacion_modo = homologacion`
-- `iibb = NULL`
-- `inicio_actividades = NULL`
-- `facturacion_arca_status = unavailable`
-- ultimo error ARCA/WSAA: autenticacion con `Zero length BigInteger`
-- entorno de referencia: simulado, sin datos reales de negocio para `iibb` ni `inicio_actividades`
+- `iibb = HOMOLOGACION`
+- `inicio_actividades = 01/01/2026`
+- `facturacion_arca_status = available`
+- ultima verificacion ARCA/WSAA: `2026-04-23 09:29:50`
+- prueba WSFE directa en homologacion: `FECompUltimoAutorizado` responde para `A=26`, `B=8`, `C=0`
+- entorno de referencia: homologacion tecnica local, todavia sin datos reales de negocio para un cierre productivo
 
 Interpretacion:
 
-- hoy facturacion existe y compila, pero la salida fiscal real no esta lista para release estable
-- 3.9.0 solo puede salir con fiscal real si primero se completa configuracion y se resuelve ARCA
-- si no se resuelve ese frente, conviene declarar salida controlada o no fiscal
-- en este repo puntual no puede cerrarse la validacion fiscal real porque no hay datos de negocio reales para completar el emisor
+- hoy el frente ARCA de homologacion ya no esta bloqueado: preflight OK y conectividad fiscal disponible
+- 3.9.0 solo puede salir con fiscal real de produccion si ademas se valida el entorno objetivo con datos reales del negocio
+- el pendiente principal deja de ser tecnico-fiscal y pasa a ser QA funcional corta + decision de salida final (`3.9.0` vs `3.9.0-rc1`)
+- en este repo puntual no puede cerrarse la validacion fiscal productiva porque el entorno sigue siendo de homologacion/controlado
 
 Siguiente chequeo recomendado para ARCA:
 
-1. completar `iibb`
-2. completar `inicio_actividades`
-3. volver a ejecutar la prueba de conexion desde configuracion fiscal
-4. si sigue en `Zero length BigInteger`, revisar en WSASS/ARCA que el certificado actual este asociado al servicio de facturacion del CUIT correcto
-5. solo si eso esta bien y aun falla, tratarlo como incidencia externa o intermitencia del entorno homo
+1. sincronizar numeracion local segun el tipo de comprobante que se vaya a emitir primero
+2. emitir un comprobante real de QA en homologacion desde venta
+3. emitir una factura manual de QA en homologacion
+4. validar visor, PDF, recovery y NC sobre esos casos
+5. recien despues decidir si se corta `3.9.0` final o si se mantiene `3.9.0-rc1` hasta cerrar QA operativa completa
 
 Si la salida no incluye fiscal real:
 
@@ -212,4 +213,5 @@ Al cierre de esta revision:
 - upgrade real: OK
 - instalacion limpia + migraciones: OK
 - superficie principal PHP: OK
-- bloqueo objetivo pendiente: configuracion fiscal / ARCA
+- homologacion ARCA: OK
+- bloqueo objetivo pendiente: QA funcional corta y validacion productiva del entorno final

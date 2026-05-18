@@ -1318,8 +1318,7 @@ require __DIR__ . "/partials/header.php";
         </button>
       </div>
 
-
-      <?php if ($comprasSchemaWarning !== ''): ?>
+        <?php if ($comprasSchemaWarning !== ''): ?>
         <div class="msg msg-visible msg-warning">
           <?= h($comprasSchemaWarning) ?>
         </div>
