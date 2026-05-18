@@ -112,3 +112,8 @@ storage/login_throttle/
 .tmp_flus_review/
 .claude/
 .codex_worktrees/
+AGENTS.local.md
+.claude-mem/
+.claude-memory/
+claude-mem/
+claude-men/
