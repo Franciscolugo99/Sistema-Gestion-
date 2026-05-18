@@ -1,73 +1,38 @@
-<claude-mem-context>
-# Memory Context
+# FLUS / Sistema-Gestion-
 
-# [kiosco] recent context, 2026-05-16 10:31am GMT-3
+Este archivo es la guia corta para trabajar en `Ver-3.9.0` sin releer todo el repo.
+La memoria previa, commits y ramas anteriores son pistas, no fuente de verdad.
+La fuente de verdad siempre es el repo actual.
 
-Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
-Format: ID TIME TYPE TITLE
-Fetch details: get_observations([IDs]) | Search: mem-search skill
+## Stack y limites
 
-Stats: 50 obs (11.344t read) | 300.454t work | 96% savings
+- FLUS usa PHP, MySQL/MariaDB, JavaScript vanilla y CSS propio.
+- No introducir React, Tailwind, shadcn ni frameworks nuevos salvo pedido explicito.
+- No tocar `install.sql` ni `migrations/` sin justificar instalacion limpia y upgrade.
+- No mezclar logica fiscal con UI.
+- No mezclar trazabilidad ARCA con envio de email.
+- Mantener compatibilidad legacy de ventas, facturas, caja, notas de credito y reportes.
 
-### Apr 22, 2026
-29 1:43p 🟣 Payment processing for transfers via credit card from POS
-### Apr 23, 2026
-30 9:06a 🔵 Initial session state check
-31 9:07a 🟣 Payment processing for transfers via credit card from POS
-32 " 🟣 Payment processing with credit card and transfer option
-33 " 🔵 Payment processing with credit card and transfer option
-34 " 🔵 Total_transferencia is correctly selected and exported, but not used in Medios reconciliation logic.
-38 9:31a 🔵 PHP module configuration in Apache
-35 " ✅ User confirmed task completion
-### Apr 24, 2026
-41 11:44a 🟣 Implementación de endpoint para obtener todos los elementos nuevos
-43 11:49a 🔵 Git no reconocido en el entorno de shell
-44 " 🔵 Comando Git 'remote -v' no reconocido
-45 " 🔵 Comando Git 'branch --show-current' no reconocido
-46 " 🔵 Git no encontrado en el PATH del sistema
-47 " 🔵 Comando 'Get-Command git' no reconocido
-42 " 🟣 Implementación de endpoint para obtener todos los elementos nuevos
-61 11:52a 🔵 Git merge conflict markers found in code
-63 11:55a 🟣 Implemented user profile image upload
-### May 5, 2026
-72 11:23a 🔵 Search for 'caja_historial tecnico.php' yielded no results
-67 " 🔵 Claude-Mem utility for Codex
-69 11:24a 🔵 Kiosco health check successful
-71 " 🔵 Claude-Mem worker service status confirmed
-### May 15, 2026
-104 11:20a 🟣 AI Agent for Antigravity Testing
-105 " 🔵 Exploración inicial del proyecto Kiosco
-106 " 🔵 Identificación de la estructura de directorios y archivos clave
-107 " 🔵 Análisis del archivo de configuración principal
-108 " 🔵 Identificación de la URL probable de ejecución
-109 " 🔵 Ausencia de credenciales de login y datos demo explícitos
-110 " 🔵 Identificación de módulos de alto valor para barrido UI
-111 " 🔵 Evaluación de riesgos de pruebas que podrían alterar datos
-113 11:21a 🔵 Project Directory Structure
-122 " 🔵 Agent Documentation Found
-112 " 🟣 AI Agent for Antigravity Testing
-114 " 🔵 Exploración inicial del proyecto Kiosco
-115 " 🔵 Identificación de la estructura de directorios y archivos clave
-116 " 🔵 Análisis del archivo de configuración principal
-117 " 🔵 Identificación de la URL probable de ejecución
-118 " 🔵 Ausencia de credenciales de login y datos demo explícitos
-119 " 🔵 Identificación de módulos de alto valor para barrido UI
-120 " 🔵 Evaluación de riesgos de pruebas que podrían alterar datos
-123 11:37a 🔵 Kiosco App Local Execution and Configuration Findings
-124 11:38a 🔵 Kiosco App Local Execution and Configuration Details
-### May 16, 2026
-125 10:19a 🔴 Kiosco chat visualization issue
-126 " 🔵 Chat ID not found in Kiosco project files
-127 " 🔵 Windows Sandbox environment error during file listing
-128 " 🔵 Windows Sandbox environment error during Git status check
-129 " 🔵 Kiosco project directory contents listed successfully
-130 " 🔵 Git command not found in Windows Sandbox environment
-131 10:22a 🟣 Agent Workflows Documentation for FLUS Repository
-132 10:25a 🔵 FLUS Repository File Structure
-133 10:29a 🟣 Agent Workflows Documented in AGENTS.md
+## Lectura minima
 
-Access 300k tokens of past work via get_observations([IDs]) or mem-search skill.
-</claude-mem-context>
+- Antes de leer archivos grandes, usar `rg`, `git diff`, `git log`, `git blame` o Graphify si esta disponible.
+- Leer primero el archivo directamente involucrado y sus dependencias reales.
+- No recorrer carpetas completas si una busqueda puntual alcanza.
+- No leer ni commitear `storage/`, backups, dumps, exports, `vendor/`, `node_modules/`, uploads ni configs sensibles.
+- No asumir tablas, columnas, rutas, endpoints ni helpers: verificarlos en el repo.
+
+## Validaciones
+
+- Para PHP modificado, correr `php -l` sobre los archivos tocados.
+- Si el cambio toca logica critica, permisos, migraciones, caja, ventas, facturacion o helpers compartidos, correr `php tests/smoke.php`.
+- Usar `tests/integration_db.php` solo si el cambio necesita DB real o migraciones completas.
+- Si una validacion no se puede correr, explicar el motivo exacto.
+
+## Base actual
+
+- Rama base candidata: `Ver-3.9.0`.
+- Remoto esperado: `origin/Ver-3.9.0`.
+- `.codex_worktrees/` es temporal local y no debe commitearse.
 
 ## Agent Workflows / Skills probados para FLUS
 
@@ -262,3 +227,74 @@ Checklist FLUS:
 - Confirmar que no se reemite contra ARCA a ciegas si ya existe autorizacion o `request_uid`.
 - Mantener separada la trazabilidad fiscal de la trazabilidad comercial/email.
 - Mejorar errores operativos sin exponer detalles sensibles.
+
+
+<claude-mem-context>
+# Memory Context
+
+# [kiosco] recent context, 2026-05-18 11:56am GMT-3
+
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision
+Format: ID TIME TYPE TITLE
+Fetch details: get_observations([IDs]) | Search: mem-search skill
+
+Stats: 50 obs (12.124t read) | 310.252t work | 96% savings
+
+### Apr 24, 2026
+63 11:55a 🟣 Implemented user profile image upload
+### May 5, 2026
+72 11:23a 🔵 Search for 'caja_historial tecnico.php' yielded no results
+67 " 🔵 Claude-Mem utility for Codex
+69 11:24a 🔵 Kiosco health check successful
+71 " 🔵 Claude-Mem worker service status confirmed
+### May 15, 2026
+104 11:20a 🟣 AI Agent for Antigravity Testing
+105 " 🔵 Exploración inicial del proyecto Kiosco
+106 " 🔵 Identificación de la estructura de directorios y archivos clave
+107 " 🔵 Análisis del archivo de configuración principal
+108 " 🔵 Identificación de la URL probable de ejecución
+109 " 🔵 Ausencia de credenciales de login y datos demo explícitos
+110 " 🔵 Identificación de módulos de alto valor para barrido UI
+111 " 🔵 Evaluación de riesgos de pruebas que podrían alterar datos
+113 11:21a 🔵 Project Directory Structure
+122 " 🔵 Agent Documentation Found
+112 " 🟣 AI Agent for Antigravity Testing
+114 " 🔵 Exploración inicial del proyecto Kiosco
+115 " 🔵 Identificación de la estructura de directorios y archivos clave
+116 " 🔵 Análisis del archivo de configuración principal
+117 " 🔵 Identificación de la URL probable de ejecución
+118 " 🔵 Ausencia de credenciales de login y datos demo explícitos
+119 " 🔵 Identificación de módulos de alto valor para barrido UI
+120 " 🔵 Evaluación de riesgos de pruebas que podrían alterar datos
+123 11:37a 🔵 Kiosco App Local Execution and Configuration Findings
+124 11:38a 🔵 Kiosco App Local Execution and Configuration Details
+### May 16, 2026
+125 10:19a 🔴 Kiosco chat visualization issue
+126 " 🔵 Chat ID not found in Kiosco project files
+127 " 🔵 Windows Sandbox environment error during file listing
+128 " 🔵 Windows Sandbox environment error during Git status check
+129 " 🔵 Kiosco project directory contents listed successfully
+130 " 🔵 Git command not found in Windows Sandbox environment
+131 10:22a 🟣 Agent Workflows Documentation for FLUS Repository
+132 10:25a 🔵 FLUS Repository File Structure
+136 " 🔵 Identified relevant application data directories via PowerShell command
+133 10:29a 🟣 Agent Workflows Documented in AGENTS.md
+134 11:23a 🔵 User cannot visualize chat in the Kiosco project
+135 11:24a 🔴 PowerShell command execution failed due to incorrect path handling and missing arguments
+137 11:25a 🟣 AI Agent for Automated Testing
+### May 18, 2026
+139 11:35a 🔴 Git Command Not Found
+140 " 🔴 Git Command Not Found (Repeated)
+141 " 🔴 Git Command Not Found (Persistent)
+149 " 🔵 Git Repository Status and Modifications Identified
+150 " 🔵 Git Branch Overview and Synchronization Status
+151 " 🔵 Git Commit History Visualization
+152 " 🔵 Git Fetch Operation Completed
+138 " 🟣 Git Branch Merging Strategy
+148 11:37a 🔵 .git Directory Contents Examined
+153 11:38a 🔵 Git Branch Status and Modifications
+154 11:39a 🔵 Git Diffs Show File Modifications
+155 11:42a 🟣 Git Branch Merging Strategy
+
+Access 310k tokens of past work via get_observations([IDs]) or mem-search skill.
+</claude-mem-context>
