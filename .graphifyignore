@@ -1,0 +1,72 @@
+# Ignorar todo por defecto
+*
+
+# Archivos raíz útiles
+!AGENTS.md
+!README.md
+!CHANGELOG.md
+!CLAUDE.md
+!install.sql
+!composer.json
+!composer.lock
+!facturacion_analysis.md
+
+# Código / app
+!src/
+!src/**
+!public/
+!public/**
+!migrations/
+!migrations/**
+!scripts/
+!scripts/**
+!tests/
+!tests/**
+!docs/
+!docs/**
+
+# Exclusiones sensibles / pesadas / generadas
+vendor/
+node_modules/
+storage/
+backups/
+tmp/
+.tmp_flus_review/
+.codex_worktrees/
+logs/
+public/backups/
+public/uploads/
+public/img/productos/
+uploads/
+graphify-out/
+
+# Configs sensibles
+.env
+.env.*
+config.php
+src/config.php
+storage/license.json
+storage/*.json
+
+# Dumps, backups, paquetes, logs
+*.bak
+*.zip
+*.7z
+*.rar
+*.sql.gz
+*.log
+
+# Medios: evitar costo/privacidad en primera prueba
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.svg
+*.pdf
+*.docx
+*.xlsx
+*.mp4
+*.mov
+*.mp3
+*.wav
