@@ -169,7 +169,10 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
 
         $thumbUrl = '';
         if (!empty($p['imagen'])) {
-            $thumbUrl = $uploadDirUrl . (string)$p['imagen'];
+            $imagenNombre = basename((string)$p['imagen']);
+            if ($imagenNombre !== '' && is_file(__DIR__ . '/img/productos/' . $imagenNombre)) {
+                $thumbUrl = $uploadDirUrl . $imagenNombre;
+            }
         }
 
         $tag = productos_status_tag($p);
