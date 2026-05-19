@@ -882,6 +882,22 @@ $results[] = flus_run_test('sh_quote handles platform quoting', function (): voi
     flus_assert_same($expected, $quoted);
 });
 
+$results[] = flus_run_test('mysql cli discovery prefers current PHP stack over fixed XAMPP paths', function (): void {
+    $backupLib = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php');
+    $tecnicoPhp = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
+
+    flus_assert_contains('function flus_mysql_stack_bin_candidates', $backupLib);
+    flus_assert_contains('defined(\'PHP_BINARY\')', $backupLib);
+    flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysqldump.exe\')', $backupLib);
+    flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysql.exe\')', $backupLib);
+    flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
+    flus_assert_contains('$candidates[] = \'C:/xampp82/php/php.exe\';', $tecnicoPhp);
+
+    $hardcodedPos = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp/php/php.exe\';');
+    $runtimePos = strpos($tecnicoPhp, '$candidates[] = $phpBinary;');
+    flus_assert_true($runtimePos !== false && $hardcodedPos !== false && $runtimePos < $hardcodedPos, 'technical panel should prefer runtime PHP before old XAMPP fallback');
+});
+
 $results[] = flus_run_test('backup_restore_in_progress detects active lock', function (): void {
     $lockPath = FLUS_ROOT . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'restore.lock';
 
@@ -3137,13 +3153,15 @@ $results[] = flus_run_test('caja activa modo compacto con split o cuenta corrien
     flus_assert_contains('const ccActivo = tieneCC();', $cajaJs);
     flus_assert_contains('return split || ccActivo;', $cajaJs);
     flus_assert_contains('function tieneCC()', $cajaJs);
-    flus_assert_contains('if (m1 === "CC") return true;', $cajaJs);
-    flus_assert_contains('if (m2 === "CC") return true;', $cajaJs);
+    flus_assert_contains('String(selMedio?.value || "").toUpperCase() === "CC"', $cajaJs);
+    flus_assert_contains('splitActivo() && String(selMedio2?.value || "").toUpperCase() === "CC"', $cajaJs);
     flus_assert_contains('cajaPanel.classList.toggle("is-payment-compact", split || ccActivo);', $cajaJs);
     flus_assert_contains('cajaPanel.classList.toggle("has-cc-payment", ccActivo);', $cajaJs);
     flus_assert_not_contains('insertAdjacentElement("afterend", ccWrap)', $cajaJs);
     flus_assert_not_contains('ccWrap.classList.toggle("cc-wrap--compact"', $cajaJs);
+    flus_assert_contains('id="ccMontoResumen"', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php'));
     flus_assert_contains('.pagos-row > #ccWrap', $cajaNeoCss);
+    flus_assert_contains("@media (min-width: 1081px) {\n  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split", $cajaNeoCss);
     flus_assert_not_contains('.cc-wrap.cc-wrap--compact', $cajaNeoCss);
     flus_assert_not_contains('.cc-wrap.cc-wrap--after-pago2', $cajaNeoCss);
 });

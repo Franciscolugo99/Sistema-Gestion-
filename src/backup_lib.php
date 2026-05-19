@@ -37,6 +37,28 @@ function sh_quote(string $s): string {
     return escapeshellarg($s);
 }
 
+/**
+ * Detecta binarios MySQL cercanos al PHP que esta ejecutando FLUS.
+ * Cubre XAMPP portable o stacks locales sin depender de C:\xampp.
+ *
+ * @return list<string>
+ */
+function flus_mysql_stack_bin_candidates(string $binaryName): array {
+    $phpBinary = defined('PHP_BINARY') ? (string)PHP_BINARY : '';
+    if ($phpBinary === '') {
+        return [];
+    }
+
+    $stackRoot = dirname(dirname($phpBinary));
+    if ($stackRoot === '.' || $stackRoot === DIRECTORY_SEPARATOR) {
+        return [];
+    }
+
+    return [
+        $stackRoot . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName,
+    ];
+}
+
 
 /**
  * Crea un archivo temporal de credenciales para mysql/mysqldump.
@@ -109,13 +131,14 @@ function find_mysqldump(): ?array {
     
     if ($isWindows) {
         // Rutas comunes en Windows
-        $candidates = [
+        $candidates = array_merge(flus_mysql_stack_bin_candidates('mysqldump.exe'), [
+            'C:\\xampp82\\mysql\\bin\\mysqldump.exe',
             'C:\\xampp\\mysql\\bin\\mysqldump.exe',
             'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqldump.exe',
             'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
-        ];
+        ]);
         
         // Intentar encontrar en PATH
         $output = [];
@@ -551,13 +574,14 @@ function find_mysql_cli(): ?array {
 
     $candidates = [];
     if ($isWindows) {
-        $candidates = [
+        $candidates = array_merge(flus_mysql_stack_bin_candidates('mysql.exe'), [
+            'C:\\xampp82\\mysql\\bin\\mysql.exe',
             'C:\\xampp\\mysql\\bin\\mysql.exe',
             'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysql.exe',
             'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysql.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysql.exe',
-        ];
+        ]);
 
         $output = [];
         $rc = 0;
@@ -894,4 +918,3 @@ function backup_restore(string $file, ?string &$err = null): bool {
         @fclose($lockFp);
     }
 }
-

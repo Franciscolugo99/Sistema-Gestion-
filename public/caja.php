@@ -613,6 +613,22 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         </div>
       </div>
 
+      <!-- Cuenta Corriente (solo si se elige CC en algun pago) -->
+      <div id="ccWrap" class="cc-wrap is-hidden">
+        <div class="cc-wrap__head">
+          <div class="cc-wrap__copy">
+            <div class="total-label-inline">Cuenta Corriente</div>
+            <strong class="cc-wrap__title">Cliente requerido</strong>
+          </div>
+          <span class="cc-wrap__amount" id="ccMontoResumen">$0,00</span>
+        </div>
+        <div class="cc-row">
+          <input type="text" id="ccClienteBuscar" placeholder="Buscar cliente (nombre / telefono / CUIT)" autocomplete="off">
+          <input type="hidden" id="ccClienteId" value="">
+        </div>
+        <div id="ccClienteInfo" class="cc-info"></div>
+      </div>
+
       <div class="field-small payment-card payment-card--primary" id="pago1Wrap" data-payment-wrap="1">
         <div class="total-label-inline">Pago 1</div>
         <div class="payment-methods" data-payment-slot="1" role="group" aria-label="Medio de pago principal">
@@ -690,16 +706,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
           <strong class="payment-card__summary-value" id="paymentSummaryValue2">$0,00</strong>
         </div>
       </div>
-
-    <!-- Cuenta Corriente (solo si se elige CC en algun pago) -->
-    <div id="ccWrap" class="cc-wrap is-hidden">
-      <div class="total-label-inline">Cliente (Cuenta Corriente)</div>
-      <div class="cc-row">
-        <input type="text" id="ccClienteBuscar" placeholder="Buscar cliente (nombre / telefono / CUIT)" autocomplete="off">
-        <input type="hidden" id="ccClienteId" value="">
-      </div>
-      <div id="ccClienteInfo" class="cc-info"></div>
-    </div>
 
 </div>
       </aside>

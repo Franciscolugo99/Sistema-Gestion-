@@ -1376,6 +1376,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     actualizarKpisLive(pagadoTotal);
     updatePaymentSummaries();
+    actualizarResumenCC();
 
     // ✅ Mostrar "Resta pagar" solo cuando hay 2 medios y falta dinero
     if (restaWrap && lblRestaPagar) {
@@ -1396,37 +1397,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const ccInputBuscar = document.getElementById("ccClienteBuscar");
   const ccInputId = document.getElementById("ccClienteId");
   const ccInfo = document.getElementById("ccClienteInfo");
+  const ccMontoResumen = document.getElementById("ccMontoResumen");
 
-  let ccDropdown = null;
-  let ccResults = [];
-  let ccSelectedIdx = -1;
-  let ccAbort = null;
-  let ccClienteSeleccionado = null;
+  let ccDropdown = null, ccResults = [], ccSelectedIdx = -1, ccAbort = null, ccClienteSeleccionado = null;
 
   // Verificar si algún pago usa CC
   function tieneCC() {
-    const m1 = String(selMedio?.value || "").toUpperCase();
-    if (m1 === "CC") return true;
-    if (splitActivo()) {
-      const m2 = String(selMedio2?.value || "").toUpperCase();
-      if (m2 === "CC") return true;
-    }
-    return false;
+    return String(selMedio?.value || "").toUpperCase() === "CC"
+      || (splitActivo() && String(selMedio2?.value || "").toUpperCase() === "CC");
   }
 
   // Calcular monto total en CC
   function montoEnCC() {
-    let total = 0;
-    const m1 = String(selMedio?.value || "").toUpperCase();
-    const a1 = parseMonto(inputPagado?.value || "0");
-    if (m1 === "CC" && a1 > 0) total += a1;
+    return [
+      [selMedio, inputPagado, true],
+      [selMedio2, inputPagado2, splitActivo()],
+    ].reduce((total, [select, input, activo]) => {
+      const medio = String(select?.value || "").toUpperCase();
+      const monto = parseMonto(input?.value || "0");
+      return total + (activo && medio === "CC" && monto > 0 ? monto : 0);
+    }, 0);
+  }
 
-    if (splitActivo()) {
-      const m2 = String(selMedio2?.value || "").toUpperCase();
-      const a2 = parseMonto(inputPagado2?.value || "0");
-      if (m2 === "CC" && a2 > 0) total += a2;
-    }
-    return total;
+  function actualizarResumenCC() {
+    if (!ccWrap) return;
+    const monto = montoEnCC();
+    ccWrap.classList.toggle("has-client", !!ccClienteSeleccionado);
+    if (ccMontoResumen) ccMontoResumen.textContent = monto > 0 ? formatearMoneda(monto) : "$0,00";
   }
 
   // Mostrar/ocultar panel CC
@@ -1434,6 +1431,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ccWrap) return;
     if (tieneCC()) {
       ccWrap.classList.remove("is-hidden");
+      actualizarResumenCC();
       if (!ccClienteSeleccionado) {
         setTimeout(() => ccInputBuscar?.focus?.(), 50);
       }
@@ -1450,6 +1448,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ccInputId) ccInputId.value = "";
     if (ccInfo) ccInfo.innerHTML = "";
     ccClienteSeleccionado = null;
+    actualizarResumenCC();
     ocultarDropdownCC();
   }
 
@@ -1466,6 +1465,7 @@ document.addEventListener("DOMContentLoaded", () => {
           Disp. <strong>$${disp}</strong> · Saldo $${saldo} · Lim. $${limite}
         </span>
       </div>`;
+    actualizarResumenCC();
   }
 
   function setAdvertenciaCC(texto = "") {

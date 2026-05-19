@@ -260,6 +260,8 @@ println("\n📂 Buscando en rutas comunes...", 'info');
 $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
 if ($isWindows) {
     $paths = [
+        dirname(dirname((string)PHP_BINARY)) . '\\mysql\\bin\\mysqldump.exe',
+        'C:\\xampp82\\mysql\\bin\\mysqldump.exe',
         'C:\\xampp\\mysql\\bin\\mysqldump.exe',
         'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqldump.exe',
     ];
@@ -286,7 +288,7 @@ if (!$found && !defined('MYSQLDUMP_BIN')) {
         echo '<div class="alert alert-error">
             <strong>⚠️ mysqldump no encontrado</strong>
             <p>Agregá esta línea a tu <code>src/config.php</code>:</p>
-            <pre>define(\'MYSQLDUMP_BIN\', \'C:\\xampp\\mysql\\bin\\mysqldump.exe\');</pre>
+            <pre>define(\'MYSQLDUMP_BIN\', \'C:\\ruta\\a\\mysql\\bin\\mysqldump.exe\');</pre>
         </div>';
     }
 }

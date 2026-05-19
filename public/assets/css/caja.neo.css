@@ -1477,6 +1477,19 @@ body.caja-fullscreen-page .caja-panel--neo .cc-info {
   margin-top: 4px;
 }
 
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap__head {
+  margin-bottom: 6px;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap__title {
+  font-size: 0.84rem;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .cc-wrap__amount {
+  font-size: 0.8rem;
+  padding: 6px 9px;
+}
+
 body.caja-fullscreen-page .caja-panel--neo .cc-cliente-info {
   gap: 2px;
   padding: 8px 10px;
@@ -5313,6 +5326,71 @@ body.caja-fullscreen-page .caja-panel--neo .pagos-row {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   padding-right: 2px !important;
+}
+
+@media (min-width: 1081px) {
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split {
+    overflow-y: hidden !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago1Wrap {
+    padding: 7px 8px !important;
+    gap: 5px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago1Wrap .payment-methods {
+    display: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago1Wrap .denom-chips {
+    display: none !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago1Wrap .total-label-inline:first-child::after {
+    content: " · resumen";
+    color: var(--neo-muted);
+    font-weight: 800;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago1Wrap #montoPagado {
+    min-height: 32px !important;
+    font-size: 0.82rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split #pago2Wrap {
+    padding: 7px 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .payment-card__summary {
+    min-height: 28px !important;
+    padding: 4px 7px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .payment-card__summary-chip {
+    font-size: 0.58rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .payment-card__summary-value {
+    font-size: 0.9rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .cc-wrap {
+    padding: 7px 8px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .cc-cliente-info {
+    padding: 5px 7px !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .cc-cliente-detalle {
+    font-size: 0.68rem !important;
+  }
+
+  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split .cc-advertencia {
+    margin-top: 4px !important;
+    padding: 4px 6px !important;
+    font-size: 0.66rem !important;
+  }
 }
 
 body.caja-fullscreen-page .caja-panel--neo #tabla {
