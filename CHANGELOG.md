@@ -1,6 +1,19 @@
 # CHANGELOG - FLUS
 
-## [Unreleased] - 2026-04-24
+## [Unreleased]
+
+---
+
+## [4.0.0] - 2026-05-19
+
+### Release baseline
+
+- FLUS pasa a `4.0.0` como nueva base estable de trabajo sobre XAMPP 8.2.
+- La fuente local activa queda formalizada en `C:\xampp82\htdocs\kiosco`.
+- La rama de release local queda como `Ver-4.0.0`, creada desde `Ver-3.9.0`.
+- Smoke tecnico validado con `C:\xampp82\php\php.exe tests\smoke.php`: `123 OK / 0 fallidas / 0 skipped`.
+- Caja queda incorporada al corte con los fixes de doble cobro, estado de procesamiento, cancelacion y accesibilidad ya cerrados.
+- `install.sql` y `migrations/` no se modifican en este corte; 4.0.0 es un alineamiento de base, version visible y documentacion.
 
 ### Changed
 

@@ -2,23 +2,23 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 3.9.0-rc1
-**Build:** 2026-04-20
-**Release objetivo:** 3.9.0  
+**Version:** 4.0.0
+**Build:** 2026-05-19
+**Release objetivo:** 4.0.0
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 3.9.0-rc1 (2026-04-23)
+## Estado de release 4.0.0 (2026-05-19)
 
-- Smoke tecnico: `120 OK / 0 fallidas / 0 skipped`
-- Migraciones y baseline: validados sobre upgrade local e instalacion limpia
-- Tesoreria v1: incorporada en navegacion, permisos y esquema
-- Facturacion: flujo fiscal, documental, visor, PDF, recovery y NC alineados a nivel tecnico
-- Homologacion fiscal local: preflight en OK y ARCA disponible
-- Entorno fiscal real de produccion: no validado end-to-end en este repo de referencia
-- Salida actual: `3.9.0-rc1`, con QA funcional corta y fiscal real de produccion pendientes del entorno objetivo
+- Smoke tecnico: `123 OK / 0 fallidas / 0 skipped`
+- Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
+- Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
+- Caja: QA operativa y fixes de estado/accesibilidad cerrados en la base anterior
+- Migraciones y baseline: versionados; no se modifican en este corte
+- Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.0
+- Salida actual: `4.0.0`, pensada como nueva base estable para el siguiente ciclo de FLUS
 
 ### Nota sobre ARCA y entorno simulado
 
@@ -31,6 +31,7 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_0_0.md](docs/RELEASE_4_0_0.md)
 - [docs/RELEASE_3_9_0.md](docs/RELEASE_3_9_0.md)
 - [docs/QA_FACTURACION_PRODUCCION.md](docs/QA_FACTURACION_PRODUCCION.md)
 - [docs/PLAN_INTEGRACION_FLUS.md](docs/PLAN_INTEGRACION_FLUS.md)

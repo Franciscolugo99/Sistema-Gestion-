@@ -1,6 +1,6 @@
 # FLUS / Sistema-Gestion-
 
-Este archivo es la guia corta para trabajar en `Ver-3.9.0` sin releer todo el repo.
+Este archivo es la guia corta para trabajar en `Ver-4.0.0` sin releer todo el repo.
 La memoria previa, commits y ramas anteriores son pistas, no fuente de verdad.
 La fuente de verdad siempre es el repo actual.
 
@@ -30,8 +30,8 @@ La fuente de verdad siempre es el repo actual.
 
 ## Base actual
 
-- Rama base candidata: `Ver-3.9.0`.
-- Remoto esperado: `origin/Ver-3.9.0`.
+- Rama base candidata: `Ver-4.0.0`.
+- Remoto esperado: `origin/Ver-4.0.0` cuando exista remoto publicado.
 - `.codex_worktrees/` es temporal local y no debe commitearse.
 
 ## Agent Workflows / Skills probados para FLUS
