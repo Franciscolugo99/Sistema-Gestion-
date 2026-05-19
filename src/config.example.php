@@ -52,7 +52,7 @@ if (!in_array($flusAppEnv, ['production', 'development', 'testing'], true)) {
 define('APP_ENV', $flusAppEnv); // production | development | testing
 define('APP_DEBUG', flus_env_bool('FLUS_APP_DEBUG', APP_ENV !== 'production' && APP_ENV !== 'testing'));
 define('APP_NAME', 'FLUS');
-define('APP_VERSION', defined('FLUS_VERSION') ? FLUS_VERSION : '3.8.3');
+define('APP_VERSION', defined('FLUS_VERSION') ? FLUS_VERSION : '4.0.0');
 define('APP_BUILD', defined('FLUS_BUILD') ? FLUS_BUILD : '');
 define('APP_SECRET', 'flus-default-secret-change-me'); // reemplazar por un secreto fuerte y persistente
 
