@@ -616,23 +616,23 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
       <div class="field-small payment-card payment-card--primary" id="pago1Wrap" data-payment-wrap="1">
         <div class="total-label-inline">Pago 1</div>
         <div class="payment-methods" data-payment-slot="1" role="group" aria-label="Medio de pago principal">
-          <button type="button" class="payment-method" data-slot="1" data-value="EFECTIVO">
+          <button type="button" class="payment-method" data-slot="1" data-value="EFECTIVO" aria-pressed="true">
             <span class="payment-method__label">Efectivo</span>
             <span class="payment-method__key">F5</span>
           </button>
-          <button type="button" class="payment-method" data-slot="1" data-value="MP">
+          <button type="button" class="payment-method" data-slot="1" data-value="MP" aria-pressed="false">
             <span class="payment-method__label">Mercado Pago</span>
             <span class="payment-method__key">F6</span>
           </button>
-          <button type="button" class="payment-method" data-slot="1" data-value="DEBITO">
+          <button type="button" class="payment-method" data-slot="1" data-value="DEBITO" aria-pressed="false">
             <span class="payment-method__label">Debito</span>
             <span class="payment-method__key">F7</span>
           </button>
-          <button type="button" class="payment-method" data-slot="1" data-value="CREDITO">
+          <button type="button" class="payment-method" data-slot="1" data-value="CREDITO" aria-pressed="false">
             <span class="payment-method__label">Credito</span>
           </button>
           <?php if (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc')): ?>
-            <button type="button" class="payment-method" data-slot="1" data-value="CC">
+            <button type="button" class="payment-method" data-slot="1" data-value="CC" aria-pressed="false">
               <span class="payment-method__label">Cta. Corriente</span>
             </button>
           <?php endif; ?>
@@ -736,7 +736,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </div>
 
     <!-- Modal custom caja -->
-    <div id="modal" class="modal hidden">
+    <div id="modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" aria-describedby="modal-texto">
       <div class="modal-content">
         <h3 id="modal-titulo">Titulo</h3>
         <p id="modal-texto"></p>
@@ -751,7 +751,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
           </select>
 
           <input id="modal-input" type="number" min="1" step="1">
-          
+
           <!-- Alerta de stock dentro del modal -->
           <div id="modal-stock-alert" class="modal-stock-alert hidden"></div>
         </div>
@@ -814,10 +814,10 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
 
 <!-- MODAL: COBRAR CUENTA CORRIENTE -->
 <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
-<div id="modalCcPago" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="modalCcPagoTitle">
+<div id="modalCcPago" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modalCcPagoTitle">
   <div class="modal-content modal-content--md">
     <h3 id="modalCcPagoTitle" class="modal-title">Cobrar Cuenta Corriente</h3>
-    
+
     <div class="field">
       <label for="ccPagoBuscar">Cliente</label>
       <div class="cc-buscar-wrap">
@@ -826,12 +826,12 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
       </div>
       <div id="ccPagoInfo" class="cc-info cc-info--modal"></div>
     </div>
-    
+
     <div class="field">
       <label for="ccPagoMonto">Monto a cobrar</label>
       <input type="number" id="ccPagoMonto" min="0.01" step="0.01" placeholder="0,00">
     </div>
-    
+
     <div class="field">
       <label for="ccPagoMedio">Medio de pago</label>
       <select id="ccPagoMedio">
@@ -842,12 +842,12 @@ if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
         <option value="CREDITO">Credito</option>
       </select>
     </div>
-    
+
     <div class="field">
       <label for="ccPagoRef">Referencia (opcional)</label>
       <input type="text" id="ccPagoRef" placeholder="Nro. de transferencia, etc.">
     </div>
-    
+
     <div class="modal-buttons">
       <button type="button" id="ccPagoCancel" class="btn-cancel">Cancelar</button>
       <button type="button" id="ccPagoConfirm" class="btn-confirm">Registrar pago</button>

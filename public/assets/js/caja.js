@@ -358,6 +358,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function abrirModalConfirmarCierre(cajaId) {
     const overlay = document.createElement("div");
     overlay.id = "modalCerrarCajaConfirm";
+    Object.entries({ role: "dialog", "aria-modal": "true", "aria-labelledby": "cerrarCajaConfirmTitle", "aria-describedby": "cerrarCajaConfirmText" }).forEach(([k, v]) => overlay.setAttribute(k, v));
     overlay.style.cssText = [
       "position:fixed", "inset:0", "z-index:10100",
       "display:flex", "align-items:center", "justify-content:center",
@@ -375,9 +376,9 @@ document.addEventListener("DOMContentLoaded", () => {
             <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
           </svg>
-          <h3 style="margin:0;font-size:1.1rem;font-weight:900;color:var(--text);">Cerrar caja con ticket activo</h3>
+          <h3 id="cerrarCajaConfirmTitle" style="margin:0;font-size:1.1rem;font-weight:900;color:var(--text);">Cerrar caja con ticket activo</h3>
         </div>
-        <p style="margin:0 0 20px;color:var(--muted);font-size:0.95rem;line-height:1.5;">
+        <p id="cerrarCajaConfirmText" style="margin:0 0 20px;color:var(--muted);font-size:0.95rem;line-height:1.5;">
           Hay productos cargados en el ticket actual. Al cerrar la caja se va a cancelar la venta en curso.
         </p>
         <div style="display:flex;justify-content:flex-end;gap:10px;">
@@ -398,8 +399,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.body.appendChild(overlay);
 
-    overlay.querySelector("#cerrarCajaNo").addEventListener("click", () => overlay.remove());
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    const closeOverlay = () => overlay.remove();
+    overlay.querySelector("#cerrarCajaNo").addEventListener("click", closeOverlay);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeOverlay(); });
+    overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); closeOverlay(); } });
     overlay.querySelector("#cerrarCajaSi").addEventListener("click", () => {
       guardarEstado();
       _intentionalExit = true;
@@ -863,7 +866,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const value = String(button.dataset.value || "").toUpperCase();
       const select = getSelectPago(slot);
       const current = String(select?.value || "").toUpperCase();
-      button.classList.toggle("is-active", current === value);
+      const isActive = current === value;
+      button.classList.toggle("is-active", isActive); button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
   }
 
@@ -1777,13 +1781,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!raw) return;
     try {
       const data = JSON.parse(raw);
-      carrito = data.carrito || [];
+      carrito = data.carrito || []; const hasSavedCart = Array.isArray(carrito) && carrito.length > 0;
       descGlobal = DESCUENTO_GLOBAL_HABILITADO
         ? data.descGlobal || null
         : null;
 
-      // Pagos (nuevo)
-      const pagosRaw = Array.isArray(data.pagos) ? data.pagos : null;
+      const pagosRaw = hasSavedCart && Array.isArray(data.pagos) ? data.pagos : null;
 
       if (pagosRaw && pagosRaw.length) {
         const p1 = pagosRaw[0] || {};
@@ -1802,10 +1805,11 @@ document.addEventListener("DOMContentLoaded", () => {
           if (inputPagado2 && p2.monto != null)
             inputPagado2.value = String(p2.monto);
         }
-      } else {
-        // Legacy (por compat): medio + pagado
+      } else if (hasSavedCart) {
         if (selMedio && data.medio) selMedio.value = data.medio;
         if (inputPagado && data.pagado != null) inputPagado.value = data.pagado;
+      } else {
+        setSplitActivo(false); if (selMedio) selMedio.value = "EFECTIVO"; if (inputPagado) inputPagado.value = "";
       }
 
       if (data.ccCliente && data.ccCliente.id) {
@@ -1813,11 +1817,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (ccInputBuscar) ccInputBuscar.value = String(data.ccCliente.nombre || "");
         if (ccInputId) ccInputId.value = String(data.ccCliente.id || "");
         renderClienteCCSeleccionado(data.ccCliente);
+      } else {
+        if (selMedio?.value === "CC") selMedio.value = "EFECTIVO"; if (selMedio2?.value === "CC") selMedio2.value = "EFECTIVO";
       }
 
       estadoRecuperado = !!(
         (Array.isArray(carrito) && carrito.length > 0) ||
-        (Array.isArray(pagosRaw) && pagosRaw.some((p) => Number(parseMonto(p?.monto || 0)) > 0)) ||
         descGlobal
       );
 
@@ -2407,7 +2412,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================
   async function agregarItem() {
     const codigo = (inputCodigo?.value || "").trim();
-    if (!codigo) return;
+    if (!codigo) { mostrarMensaje("warning", "Escanea o escribi un producto"); focusProductoInput(); return; }
 
     // ✅ SMART: permitir escribir nombre (o parte) y resolver el producto más relevante
     async function resolverProductoPorTexto(q) {
@@ -2634,7 +2639,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modalInputArea.classList.add("hidden");
       }
 
-      modal.classList.remove("hidden");
+      modal.classList.remove("hidden"); modal.setAttribute("aria-hidden", "false");
     });
   }
 
@@ -2723,6 +2728,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function cerrarModal(v) {
     modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
     if (modalResolver) modalResolver(v);
     modalResolver = null;
     modalIsInput = false;
