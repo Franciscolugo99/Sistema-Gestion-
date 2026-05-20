@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
+require_once FLUS_ROOT . '/src/recargo_horario.php';
 
 $canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
 $canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
 require_any_permission(['abrir_caja', 'realizar_ventas']);
 require_pos();
 
-
+$recargoHorarioEstado = flus_recargo_horario_estado($pdo);
 
 
 
@@ -298,6 +299,17 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 <div class="caja-topbar">
   <div class="caja-topbar__left">
     <div class="caja-topbar__badge">Caja abierta</div>
+    <?php if (!empty($recargoHorarioEstado['active'])): ?>
+      <div
+        class="caja-topbar__mode24"
+        title="Precio horario activo: <?= h((string)$recargoHorarioEstado['nombre']) ?> +<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 2, ',', '.')) ?>% hasta <?= h((string)$recargoHorarioEstado['fin']) ?>"
+        aria-label="Modo 24 horas activo"
+      >
+        <span class="caja-topbar__mode24-led" aria-hidden="true"></span>
+        <span class="caja-topbar__mode24-main">24 hs</span>
+        <span class="caja-topbar__mode24-sub">+<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 0, ',', '.')) ?>% hasta <?= h((string)$recargoHorarioEstado['fin']) ?></span>
+      </div>
+    <?php endif; ?>
 
     <div class="caja-topbar__meta">
       <div class="caja-topbar__item">

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/recargo_horario.php';
+
 if (!class_exists('FlusVentaDomainException')) {
     final class FlusVentaDomainException extends RuntimeException
     {
@@ -71,7 +73,8 @@ function flus_venta_aggregate_items(array $itemsIn): array
             continue;
         }
 
-        $precioReq = isset($it['precio']) ? parse_num($it['precio']) : 0.0;
+        $precioManual = !empty($it['precio_manual']);
+        $precioReq = ($precioManual && isset($it['precio'])) ? parse_num($it['precio']) : 0.0;
         if (!isset($agg[$pid])) {
             $agg[$pid] = [
                 'producto_id' => $pid,
@@ -101,6 +104,7 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
 
     $srvItems = [];
     $totalProductos = 0.0;
+    $recargoHorario = flus_recargo_horario_estado($pdo);
 
     foreach ($items as $it) {
         $pid = (int)$it['producto_id'];
@@ -130,7 +134,7 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
             flus_venta_fail("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})", 'STOCK_INSUFICIENTE', 409);
         }
 
-        $precioLista = (float)$p['precio'];
+        $precioLista = flus_recargo_horario_aplicar_precio((float)$p['precio'], $recargoHorario);
         $precioActual = $precioLista;
         if ($puedeCambiarPrecio) {
             $pr = (float)$it['precio_req'];

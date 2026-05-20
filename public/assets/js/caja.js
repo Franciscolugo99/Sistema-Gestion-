@@ -1781,7 +1781,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!raw) return;
     try {
       const data = JSON.parse(raw);
-      carrito = data.carrito || []; const hasSavedCart = Array.isArray(carrito) && carrito.length > 0;
+      carrito = (data.carrito || []).map((it) => {
+        const precioGuardado = Number(it?.precio) || 0, precioListaGuardado = Number(it?.precioLista) || 0;
+        return { ...it, precioManual: it?.precioManual === true || (precioListaGuardado > 0 && Math.abs(precioGuardado - precioListaGuardado) > 0.009) };
+      });
+      const hasSavedCart = Array.isArray(carrito) && carrito.length > 0;
       descGlobal = DESCUENTO_GLOBAL_HABILITADO
         ? data.descGlobal || null
         : null;
@@ -2106,6 +2110,7 @@ document.addEventListener("DOMContentLoaded", () => {
         id: Number(i.id),
         cantidad: Number(i.cantidad),
         precio: Number(i.precio) || Number(i.precioLista) || 0, // precio manual si existe
+        precio_manual: i.precioManual === true,
       }));
 
       const fd = new FormData();
@@ -2134,6 +2139,8 @@ document.addEventListener("DOMContentLoaded", () => {
             localItem.subtotalServidor = serverItem.subtotal || serverItem.neto;
             localItem.descuentoServidor = serverItem.descuento || 0;
             localItem.promoServidor = serverItem.promo || "";
+            localItem.precioLista = Number(serverItem.precio_lista) || localItem.precioLista;
+            localItem.precio = Number(serverItem.precio_actual) || localItem.precioLista;
           }
         });
 
@@ -2537,6 +2544,7 @@ document.addEventListener("DOMContentLoaded", () => {
           cantidad: Number(cantidad),
           precio: Number(precioLista),
           precioLista: Number(precioLista),
+          precioManual: false,
           esPesable,
           unidadVenta,
 
@@ -3017,6 +3025,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         item.precio = Number(nuevo.toFixed(2));
+        item.precioManual = true;
         actualizarVistaInmediata();
       });
 
@@ -3224,6 +3233,7 @@ document.addEventListener("DOMContentLoaded", () => {
         id: Number(i.id),
         cantidad: Number(i.cantidad),
         precio: Number(i.precio), // precio unitario actual (manual si aplicaste)
+        precio_manual: i.precioManual === true,
       }));
 
       const token = getCsrf();

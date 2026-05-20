@@ -41,6 +41,7 @@ if (!is_file($cfg)) {
 require_once $cfg;
 require_once __DIR__ . '/../../src/api_helpers.php';  // ? Helpers centralizados
 require_once __DIR__ . '/../../src/cobranzas_lib.php';
+require_once __DIR__ . '/../../src/recargo_horario.php';
 require_once __DIR__ . '/../../src/venta_api_lib.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../lib/csrf.php';

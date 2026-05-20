@@ -68,7 +68,7 @@ $itemsMap = [];
 foreach ($itemsRaw as $item) {
   $pid = (int)($item['id'] ?? $item['producto_id'] ?? 0);
   $cant = (float)($item['cantidad'] ?? 0);
-  $precioManual = isset($item['precio']) ? (float)$item['precio'] : null;
+  $precioManual = !empty($item['precio_manual']) && isset($item['precio']) ? (float)$item['precio'] : null;
 
   if ($pid > 0 && $cant > 0) {
     $itemsMap[$pid] = [
@@ -78,13 +78,14 @@ foreach ($itemsRaw as $item) {
   }
 }
 
+$recargoHorario = flus_recargo_horario_estado($pdo);
 foreach ($itemsMap as $pid => $itemData) {
   if (!isset($productsMap[$pid])) {
     continue;
   }
 
   $producto = $productsMap[$pid];
-  $precioLista = (float)$producto['precio'];
+  $precioLista = flus_recargo_horario_aplicar_precio((float)$producto['precio'], $recargoHorario);
   $precioActual = $precioLista;
 
   if ($canModifyPrice && $itemData['precio_manual'] !== null && $itemData['precio_manual'] > 0) {
@@ -130,5 +131,6 @@ json_ok([
   'descuento_total' => $descTotal,
   'descuento_promos' => $descPromos,
   'descuento_global' => round($descGlobalMonto, 2),
+  'recargo_horario' => $recargoHorario,
   'promos_aplicadas' => $calc['promos_aplicadas'] ?? [],
 ]);

@@ -281,7 +281,7 @@
     }
 
     // Habilitar/deshabilitar botones
-    document.querySelectorAll(".btn-apply").forEach((btn) => {
+    document.querySelectorAll(".btn-apply:not([data-allow-empty])").forEach((btn) => {
       btn.disabled = count === 0;
     });
   }

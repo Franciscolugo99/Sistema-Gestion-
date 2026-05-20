@@ -62,5 +62,6 @@ $producto['precio'] = (float)($producto['precio'] ?? 0);
 $producto['stock'] = (float)($producto['stock'] ?? 0);
 $producto['es_pesable'] = ((int)($producto['es_pesable'] ?? 0) === 1);
 $producto['unidad_venta'] = $producto['unidad_venta'] ?: 'UNIDAD';
+$producto = flus_recargo_horario_aplicar_producto($producto, flus_recargo_horario_estado($pdo));
 
 json_ok(['producto' => $producto]);

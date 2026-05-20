@@ -8,6 +8,7 @@ require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/cobranzas_lib.php';
 require_once __DIR__ . '/../src/tesoreria_lib.php';
+require_once __DIR__ . '/../src/recargo_horario.php';
 require_once __DIR__ . '/../public/includes/CuentaCorrienteController.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
 
@@ -867,7 +868,7 @@ function flus_hotspot_line_budgets(): array
         'public/includes/CuentaCorrienteController.php' => 1550,
         'public/productos.php' => 1850,
         'public/compras.php' => 1650,
-        'public/assets/js/caja.js' => 3910,
+        'public/assets/js/caja.js' => 3920,
         'public/api/index.php' => 675,
         'public/bootstrap.php' => 350,
     ];
@@ -1348,6 +1349,37 @@ $results[] = flus_run_test('parse_money_ar entiende miles argentinos sin coma', 
     flus_assert_same(1234567.89, parse_money_ar('$ 1.234.567,89'));
 });
 
+$results[] = flus_run_test('precio horario aplica solo como precio vigente de caja', function (): void {
+    $cfg = [
+        'enabled' => true,
+        'nombre' => 'Noche',
+        'porcentaje' => 15,
+        'inicio' => '22:00',
+        'fin' => '06:00',
+        'dias' => [3],
+    ];
+
+    $activeStart = flus_recargo_horario_estado_desde_config($cfg, new DateTimeImmutable('2026-05-20 23:30:00'));
+    $activeEarly = flus_recargo_horario_estado_desde_config($cfg, new DateTimeImmutable('2026-05-21 05:30:00'));
+    $inactive = flus_recargo_horario_estado_desde_config($cfg, new DateTimeImmutable('2026-05-21 07:00:00'));
+
+    flus_assert_true((bool)$activeStart['active']);
+    flus_assert_true((bool)$activeEarly['active']);
+    flus_assert_false((bool)$inactive['active']);
+    flus_assert_same(1150.0, flus_recargo_horario_aplicar_precio(1000.0, $activeStart));
+    flus_assert_same(1000.0, flus_recargo_horario_aplicar_precio(1000.0, $inactive));
+});
+
+$results[] = flus_run_test('precio horario permite activar y desactivar sin seleccionar productos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
+    $preciosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'precios.js');
+
+    flus_assert_contains("name=\"accion\" value=\"toggle_recargo_horario\"", $preciosPhp);
+    flus_assert_contains('data-allow-empty="1"', $preciosPhp);
+    flus_assert_contains('.btn-apply:not([data-allow-empty])', $preciosJs);
+});
+
 $results[] = flus_run_test('schema checks are centralized outside public pages', function (): void {
     $repoRoot = dirname(__DIR__);
     $schemaPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_schema.php';
@@ -1737,9 +1769,12 @@ $results[] = flus_run_test('ventas y promos chicos salen del switch y usan actio
     }
 
     flus_assert_contains("WHERE codigo = :cod AND activo = 1", $buscarProductoPhp);
+    flus_assert_contains('flus_recargo_horario_aplicar_producto', $buscarProductoPhp);
+    flus_assert_contains('flus_recargo_horario_aplicar_producto', $buscarProductosPhp);
     flus_assert_contains("\$limit = max(1, min(\$limit, 20));", $buscarProductosPhp);
     flus_assert_contains("json_fail('buscar_productos SQL execute fallo: ' . (\$error[2] ?? 'sin detalle'), 500);", $buscarProductosPhp);
     flus_assert_contains("\$promos = obtenerPromosActivas(\$pdo);", $listarPromosPhp);
+    flus_assert_contains('flus_recargo_horario_aplicar_precio', $calcularCarritoPhp);
     flus_assert_contains("\$calc = calcular_totales_con_promos(\$srvItems, \$promos);", $calcularCarritoPhp);
     flus_assert_contains("'descuento_global' => round(\$descGlobalMonto, 2),", $calcularCarritoPhp);
     flus_assert_contains("'current_terminal_id' => \$currentTid,", $terminalListPhp);
@@ -1795,6 +1830,8 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains('catch (FlusVentaDomainException $e)', $registrarVentaPhp);
     flus_assert_contains("json_fail('No se pudo registrar la venta.', 500, ['error_code' => 'INTERNAL_ERROR']);", $registrarVentaPhp);
     flus_assert_contains('final class FlusVentaDomainException extends RuntimeException', $ventaLibPhp);
+    flus_assert_contains("require_once __DIR__ . '/recargo_horario.php';", $ventaLibPhp);
+    flus_assert_contains('flus_recargo_horario_aplicar_precio', $ventaLibPhp);
     flus_assert_contains('function flus_venta_fail(string $message, string $errorCode = \'VALIDATION_ERROR\', int $statusCode = 422): never', $ventaLibPhp);
     flus_assert_contains("function flus_venta_build_items_snapshot(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_register_cc_charge(", $ventaLibPhp);

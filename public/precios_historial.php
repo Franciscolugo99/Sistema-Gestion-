@@ -25,6 +25,7 @@ if (!user_has_permission('editar_productos')) {
 }
 
 require_once __DIR__ . '/../src/precio_historial.php';
+require_once __DIR__ . '/../src/recargo_horario.php';
 
 $pdo = getPDO();
 $error = null;
@@ -51,7 +52,7 @@ $info = null;
 
 // Vista actual
 $vista = $_GET['v'] ?? 'historial';
-$vistaValida = in_array($vista, ['historial', 'herramientas', 'margenes']);
+$vistaValida = in_array($vista, ['historial', 'herramientas', 'horarios', 'margenes']);
 if (!$vistaValida) {
     $vista = 'historial';
 }
@@ -115,8 +116,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+
+        elseif ($accion === 'guardar_recargo_horario') {
+            $config = flus_recargo_horario_save($pdo, [
+                'enabled' => (string)($_POST['recargo_enabled'] ?? '0') === '1',
+                'nombre' => $_POST['recargo_nombre'] ?? '',
+                'porcentaje' => $_POST['recargo_porcentaje'] ?? 10,
+                'inicio' => $_POST['recargo_inicio'] ?? '22:00',
+                'fin' => $_POST['recargo_fin'] ?? '06:00',
+                'dias' => $_POST['recargo_dias'] ?? [],
+            ]);
+            $estado = flus_recargo_horario_estado_desde_config($config);
+            $info = 'Precio horario guardado: ' . ($config['enabled'] ? 'activo' : 'apagado') .
+                ' +' . number_format((float)$config['porcentaje'], 2, ',', '.') . '% de ' .
+                $config['inicio'] . ' a ' . $config['fin'] .
+                ($estado['active'] ? ' (aplicando ahora).' : '.');
+        }
+
+        elseif ($accion === 'toggle_recargo_horario') {
+            $actual = flus_recargo_horario_config($pdo);
+            $actual['enabled'] = (string)($_POST['recargo_enabled'] ?? '0') === '1';
+            $config = flus_recargo_horario_save($pdo, $actual);
+            $info = !empty($config['enabled'])
+                ? 'Regla horaria activada.'
+                : 'Regla horaria desactivada.';
+        }
     }
 }
+
+$recargoHorarioConfig = flus_recargo_horario_config($pdo);
+$recargoHorarioEstado = flus_recargo_horario_estado_desde_config($recargoHorarioConfig);
+$recargoHorarioNow = date('H:i');
 
 // ============================================
 // CARGAR DATOS SEGÚN VISTA
@@ -640,6 +670,13 @@ require __DIR__ . '/partials/header.php';
             </svg>
             Herramientas
         </a>
+        <a href="?v=horarios" class="precio-tab <?= $vista === 'horarios' ? 'active' : '' ?>" role="tab" aria-selected="<?= $vista === 'horarios' ? 'true' : 'false' ?>">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v5l3 2"/>
+            </svg>
+            Horario 24 hs
+        </a>
         <a href="?v=margenes" class="precio-tab <?= $vista === 'margenes' ? 'active' : '' ?>" role="tab" aria-selected="<?= $vista === 'margenes' ? 'true' : 'false' ?>">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="1" x2="12" y2="23"/>
@@ -781,6 +818,115 @@ require __DIR__ . '/partials/header.php';
         <?php if ($historialTotalRows > 0): ?>
             <?= render_pagination($historialPage, $historialTotalPages, $historialQueryParams, false) ?>
         <?php endif; ?>
+
+    <!-- ============================================
+         VISTA: HORARIO 24 HS
+    ============================================ -->
+    <?php elseif ($vista === 'horarios'): ?>
+
+        <div style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(280px, 420px);gap:1rem;align-items:start;">
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M12 7v5l3 2"/>
+                    </svg>
+                    <h3>Regla horaria vigente</h3>
+                    <span class="help-tooltip" data-tip="Esta pantalla edita una unica regla horaria; guardar no crea duplicados." tabindex="0" aria-label="Ayuda">?</span>
+                </div>
+                <div class="tool-card-body">
+                    <div class="alert alert-info" style="margin-bottom:1rem;">
+                        Esta regla se aplica a todos los productos activos vendidos en Caja, incluidos los productos sin categoria.
+                    </div>
+
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                        <input type="hidden" name="accion" value="guardar_recargo_horario">
+                        <input type="hidden" name="recargo_enabled" value="0">
+
+                        <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;font-weight:800;">
+                            <input type="checkbox" name="recargo_enabled" value="1" <?= !empty($recargoHorarioConfig['enabled']) ? 'checked' : '' ?>>
+                            Regla activa
+                        </label>
+                        <p class="form-hint" style="margin-top:0;">Para apagarla desde aca, desmarca Regla activa y toca Guardar regla. Tambien podes usar el boton Desactivar ahora del panel derecho.</p>
+
+                        <div class="form-group">
+                            <label>Nombre de la regla</label>
+                            <input type="text" name="recargo_nombre" class="form-control" maxlength="80" value="<?= htmlspecialchars((string)$recargoHorarioConfig['nombre']) ?>" placeholder="Ej: Noche 24 hs">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Porcentaje aplicado en Caja</label>
+                            <div class="input-with-suffix">
+                                <input type="number" name="recargo_porcentaje" step="0.01" min="1" max="100" class="form-control" value="<?= htmlspecialchars((string)$recargoHorarioConfig['porcentaje']) ?>" required>
+                                <span>%</span>
+                            </div>
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+                            <div class="form-group">
+                                <label>Desde</label>
+                                <input type="time" name="recargo_inicio" class="form-control" value="<?= htmlspecialchars((string)$recargoHorarioConfig['inicio']) ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Hasta</label>
+                                <input type="time" name="recargo_fin" class="form-control" value="<?= htmlspecialchars((string)$recargoHorarioConfig['fin']) ?>" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Dias de vigencia</label>
+                            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:.35rem;">
+                                <?php foreach ([1 => 'L', 2 => 'M', 3 => 'X', 4 => 'J', 5 => 'V', 6 => 'S', 7 => 'D'] as $dia => $label): ?>
+                                    <label style="display:flex;align-items:center;justify-content:center;gap:.25rem;padding:.45rem;border:1px solid var(--border-color,#d1d5db);border-radius:8px;">
+                                        <input type="checkbox" name="recargo_dias[]" value="<?= (int)$dia ?>" <?= in_array($dia, $recargoHorarioConfig['dias'], true) ? 'checked' : '' ?>>
+                                        <?= htmlspecialchars($label) ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-apply primary" data-allow-empty="1">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Guardar regla
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <h3>Estado actual</h3>
+                </div>
+                <div class="tool-card-body">
+                    <p style="margin-top:0;"><strong><?= htmlspecialchars((string)$recargoHorarioConfig['nombre']) ?></strong></p>
+                    <p class="form-hint">
+                        <?= !empty($recargoHorarioConfig['enabled']) ? (!empty($recargoHorarioEstado['active']) ? 'Aplicando ahora en Caja.' : 'Activa, esperando su horario.') : 'Apagada.' ?>
+                    </p>
+                    <p class="form-hint">Hora servidor: <?= htmlspecialchars($recargoHorarioNow) ?></p>
+                    <p class="form-hint">Horario: <?= htmlspecialchars((string)$recargoHorarioConfig['inicio']) ?> a <?= htmlspecialchars((string)$recargoHorarioConfig['fin']) ?></p>
+                    <p class="form-hint">Dias: <?= htmlspecialchars(flus_recargo_horario_dias_label($recargoHorarioConfig['dias'])) ?></p>
+                    <p class="form-hint">Porcentaje: +<?= htmlspecialchars(number_format((float)$recargoHorarioConfig['porcentaje'], 2, ',', '.')) ?>%</p>
+                    <p class="form-hint">Alcance: todos los productos activos, con o sin categoria.</p>
+                    <form method="post" style="margin-top:1rem;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                        <input type="hidden" name="accion" value="toggle_recargo_horario">
+                        <input type="hidden" name="recargo_enabled" value="<?= !empty($recargoHorarioConfig['enabled']) ? '0' : '1' ?>">
+                        <button type="submit" class="btn-apply <?= !empty($recargoHorarioConfig['enabled']) ? '' : 'primary' ?>" data-allow-empty="1" style="<?= !empty($recargoHorarioConfig['enabled']) ? 'background:#fee2e2;color:#991b1b;border-color:#fecaca;' : '' ?>">
+                            <?= !empty($recargoHorarioConfig['enabled']) ? 'Desactivar ahora' : 'Activar regla' ?>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
     <!-- ============================================
          VISTA: HERRAMIENTAS
     ============================================ -->
@@ -862,13 +1008,12 @@ require __DIR__ . '/partials/header.php';
 
             <!-- Panel derecho: Herramientas -->
             <div class="herramientas-panel">
-                
+
                 <!-- Contador de selección -->
                 <div class="selection-counter" style="display: none;">
                     <span><span id="selectionCount">0</span> producto(s) seleccionado(s)</span>
                     <button type="button" id="clearSelectionBtn" class="clear-btn">Limpiar</button>
                 </div>
-
                 <!-- Ajuste Masivo -->
                 <div class="tool-card">
                     <div class="tool-card-header">
