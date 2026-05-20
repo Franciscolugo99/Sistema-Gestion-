@@ -1499,6 +1499,8 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     flus_assert_contains('CREATE TABLE IF NOT EXISTS producto_precios_hist', $migrationSql);
     flus_assert_contains('CREATE TABLE IF NOT EXISTS inventario_sesiones', $migrationSql);
     flus_assert_contains('CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos', $migrationSql);
+    flus_assert_contains('ADD INDEX IF NOT EXISTS idx_clientes_cc', $migrationSql);
+    flus_assert_contains('ADD INDEX IF NOT EXISTS idx_clientes_cc_alerta', $migrationSql);
     flus_assert_contains('migrations/007_support_modules_schema.sql', $manualLibPhp);
     flus_assert_not_contains('CREATE TABLE IF NOT EXISTS factura_manual_items', $manualLibPhp);
 
@@ -3300,6 +3302,26 @@ $results[] = flus_run_test('hotspot policy documents and enforces line budgets f
             sprintf('%s tiene %d lineas y supera el presupuesto de %d', $relativePath, $lineCount, $budget)
         );
     }
+});
+
+$results[] = flus_run_test('apertura de sucursal exporta catalogo sin arrastrar ventas', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $transferPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'sucursal_transfer.php');
+    $transferLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'sucursal_transfer_lib.php');
+    $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
+
+    flus_assert_contains("require_permission('editar_productos');", $transferPhp);
+    flus_assert_contains('flus_sucursal_transfer_export($pdo', $transferPhp);
+    flus_assert_contains('flus_sucursal_transfer_import($pdo', $transferPhp);
+    flus_assert_contains('No mueve ventas, cajas, facturas, cuenta corriente ni historial fiscal.', $transferPhp);
+    flus_assert_contains("const FLUS_SUCURSAL_TRANSFER_FORMAT = 'flus_catalogo_sucursal_v1';", $transferLib);
+    flus_assert_contains('function flus_sucursal_transfer_export(PDO $pdo, array $options = []): array', $transferLib);
+    flus_assert_contains('function flus_sucursal_transfer_import(PDO $pdo, array $payload, array $options = []): array', $transferLib);
+    flus_assert_contains('FROM productos', $transferLib);
+    flus_assert_contains('FROM proveedores', $transferLib);
+    flus_assert_not_contains('FROM ventas', $transferLib);
+    flus_assert_not_contains('FROM facturas', $transferLib);
+    flus_assert_contains("'sucursal_transfer'", $navPhp);
 });
 
 $results[] = flus_run_test('ux documental explica flujo y carga manual sin esconder presupuesto o remito', function (): void {

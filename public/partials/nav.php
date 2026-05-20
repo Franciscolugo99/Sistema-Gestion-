@@ -283,6 +283,7 @@ $catalogLinks = [];
 if ($canProductos)        $catalogLinks[] = ['href' => $canProductosEdit ? 'productos.php' : 'productos_consulta.php', 'section' => 'productos', 'label' => 'Productos', 'shortcut' => 'alt+k'];
 if ($canPreciosHistorial) $catalogLinks[] = ['href' => 'precios_historial.php','section' => 'precios_historial','label' => 'Precios',     'shortcut' => ''];
 if ($canPromos)           $catalogLinks[] = ['href' => 'promos.php',           'section' => 'promos',           'label' => 'Promociones', 'shortcut' => ''];
+if ($canProductosEdit)    $catalogLinks[] = ['href' => 'sucursal_transfer.php','section' => 'sucursal_transfer','label' => 'Sucursales',   'shortcut' => ''];
 
 // Inventario
 $inventoryLinks = [];
@@ -340,7 +341,7 @@ if ($can('gestionar_backups'))    $adminLinks[] = ['href' => 'backups.php',     
 if ($canDiagnostico)              $adminLinks[] = ['href' => 'diagnostico.php',  'label' => "Diagn\u{00F3}stico"];
 if ($canTecnico)                  $adminLinks[] = ['href' => 'tecnico.php',      'label' => "T\u{00E9}cnico"];
 
-$catalogSections   = ['productos', 'precios_historial', 'promos'];
+$catalogSections   = ['productos', 'precios_historial', 'promos', 'sucursal_transfer'];
 $inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'reposicion', 'movimientos'];
 $clientSections    = ['clientes', 'cuenta_corriente', 'proveedores'];
 $tesoreriaSections = ['tesoreria', 'cobranzas'];
@@ -672,6 +673,7 @@ $sectionBreadcrumbLabels = [
     'productos'           => 'Productos',
     'precios_historial'   => 'Precios',
     'promos'              => 'Promociones',
+    'sucursal_transfer'   => 'Sucursales',
     'stock'               => 'Stock',
     'inventario_analisis' => "An\u{00E1}lisis",
     'inventario_fisico'   => "Conteo f\u{00ED}sico",

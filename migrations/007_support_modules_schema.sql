@@ -9,10 +9,10 @@ ALTER TABLE clientes
   ADD COLUMN IF NOT EXISTS cc_notas TEXT DEFAULT NULL COMMENT 'Notas internas sobre la cuenta corriente';
 
 ALTER TABLE clientes
-  ADD INDEX idx_clientes_cc (cc_habilitado, cc_saldo);
+  ADD INDEX IF NOT EXISTS idx_clientes_cc (cc_habilitado, cc_saldo);
 
 ALTER TABLE clientes
-  ADD INDEX idx_clientes_cc_alerta (cc_habilitado, cc_limite, cc_saldo);
+  ADD INDEX IF NOT EXISTS idx_clientes_cc_alerta (cc_habilitado, cc_limite, cc_saldo);
 
 CREATE TABLE IF NOT EXISTS cuenta_corriente_movimientos (
   id INT(11) NOT NULL AUTO_INCREMENT,
