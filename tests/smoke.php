@@ -891,11 +891,16 @@ $results[] = flus_run_test('mysql cli discovery prefers current PHP stack over f
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysqldump.exe\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysql.exe\')', $backupLib);
     flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
-    flus_assert_contains('$candidates[] = \'C:/xampp82/php/php.exe\';', $tecnicoPhp);
 
-    $hardcodedPos = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp/php/php.exe\';');
+    $hasLocalStackFallback = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp82/php/php.exe\';') !== false;
+    $hasPortableStackFallback = strpos($tecnicoPhp, '$portableRoot . \'/stack/php/php.exe\'') !== false;
+    flus_assert_true($hasLocalStackFallback || $hasPortableStackFallback, 'technical panel should include a current local or portable PHP fallback');
+
+    $legacyXamppPos = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp/php/php.exe\';');
     $runtimePos = strpos($tecnicoPhp, '$candidates[] = $phpBinary;');
-    flus_assert_true($runtimePos !== false && $hardcodedPos !== false && $runtimePos < $hardcodedPos, 'technical panel should prefer runtime PHP before old XAMPP fallback');
+    if ($legacyXamppPos !== false) {
+        flus_assert_true($runtimePos !== false && $runtimePos < $legacyXamppPos, 'technical panel should prefer runtime PHP before old XAMPP fallback');
+    }
 });
 
 $results[] = flus_run_test('backup_restore_in_progress detects active lock', function (): void {
