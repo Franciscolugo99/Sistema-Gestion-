@@ -3428,6 +3428,8 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("'issued_at' => (string)(\$lic['issued_at'] ?? '')", $licensePhp);
     flus_assert_contains("require_once \$flusLicensePublicKeyFile;", $licensePhp);
     flus_assert_contains("function_exists('flus_license_public_key_pem')", $licensePhp);
+    flus_assert_contains("!empty(\$lic['payload_b64'])", $licensePhp);
+    flus_assert_contains("'SIGNATURE_INVALID'", $licensePhp);
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     flus_assert_contains('Cliente</dt><dd><?= h((string)($licenseMeta[\'customer\']', $licenciaPhp);

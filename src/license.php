@@ -445,6 +445,13 @@ if (!function_exists('flus_license_validate_payload')) {
         $lic = $sod['license'];
       } else {
         // 3) No hay firma válida/presente
+        if (!empty($lic['payload_b64']) || !empty($lic['sig_b64']) || !empty($lic['payload']) || !empty($lic['sig'])) {
+          $err = 'SIGNATURE_INVALID';
+          if (($rsa['error'] ?? '') !== 'RSA_NOT_PRESENT' && ($rsa['error'] ?? '') !== 'BAD_RSA_FIELDS') $err = (string)$rsa['error'];
+          if (($sod['error'] ?? '') !== 'SODIUM_NOT_PRESENT' && ($sod['error'] ?? '') !== 'BAD_SIGNATURE_FIELDS') $err = (string)$sod['error'];
+          return ['ok' => false, 'error' => $err, 'license' => $lic];
+        }
+
         if ($requireSig) {
           // Si hay intento de firma pero falló, propagamos error relevante
           $err = 'SIGNATURE_REQUIRED';
