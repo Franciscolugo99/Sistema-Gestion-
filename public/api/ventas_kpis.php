@@ -167,14 +167,15 @@ if ($hasDescuentoTotal && $hasDescuentoMonto) {
 $hasVentaAnulaciones = has_table($pdo, 'venta_anulaciones');
 $hasMontoCC = has_column($pdo, 'ventas', 'monto_cc');
 $anulacionesJoin = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
-$importeVigenteExpr = $hasVentaAnulaciones
+$hasAnulacionesJoin = $anulacionesJoin !== '';
+$importeVigenteExpr = $hasAnulacionesJoin
   ? flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
   : 'v.total';
-$ratioVigenteExpr = $hasVentaAnulaciones
+$ratioVigenteExpr = $hasAnulacionesJoin
   ? flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
   : '1';
 $descuentoVigenteExpr = '(' . $descExpr . ') * ' . $ratioVigenteExpr;
-$montoAnuladoExpr = $hasVentaAnulaciones
+$montoAnuladoExpr = $hasAnulacionesJoin
   ? "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE COALESCE(vaa.monto_anulado_total, 0) END"
   : "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE 0 END";
 

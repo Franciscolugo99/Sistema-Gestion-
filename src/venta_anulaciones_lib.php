@@ -39,13 +39,23 @@ if (!function_exists('flus_venta_anulaciones_totales_join_sql')) {
             return '';
         }
 
+        if (
+            !flus_column_exists($pdo, 'venta_anulaciones', 'venta_id')
+            || !flus_column_exists($pdo, 'venta_anulaciones', 'monto_total')
+        ) {
+            return '';
+        }
+
         $where = flus_venta_anulaciones_confirmadas_where_sql($pdo, 'va');
+        $ultimaAnulacionExpr = flus_column_exists($pdo, 'venta_anulaciones', 'anulado_en')
+            ? 'MAX(va.anulado_en)'
+            : 'NULL';
 
         return "LEFT JOIN (
             SELECT va.venta_id,
                    COALESCE(SUM(va.monto_total), 0) AS monto_anulado_total,
                    COUNT(*) AS anulaciones_count,
-                   MAX(va.anulado_en) AS ultima_anulacion_en
+                   {$ultimaAnulacionExpr} AS ultima_anulacion_en
             FROM venta_anulaciones va
             WHERE {$where}
             GROUP BY va.venta_id
@@ -82,6 +92,15 @@ if (!function_exists('flus_venta_items_anulados_join_sql')) {
     function flus_venta_items_anulados_join_sql(PDO $pdo, string $ventaItemAlias = 'vi', string $joinAlias = 'vaix'): string
     {
         if (!flus_venta_anulaciones_habilitadas($pdo)) {
+            return '';
+        }
+
+        if (
+            !flus_column_exists($pdo, 'venta_anulacion_items', 'venta_item_id')
+            || !flus_column_exists($pdo, 'venta_anulacion_items', 'cantidad_anulada')
+            || !flus_column_exists($pdo, 'venta_anulacion_items', 'anulacion_id')
+            || !flus_column_exists($pdo, 'venta_anulaciones', 'id')
+        ) {
             return '';
         }
 

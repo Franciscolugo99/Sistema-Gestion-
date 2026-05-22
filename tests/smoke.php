@@ -1066,6 +1066,9 @@ $results[] = flus_run_test('anulacion total comparte trazabilidad con anulacione
     $action = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_venta.php');
 
     flus_assert_contains('function flus_venta_anulacion_registrar_total_restante', $lib);
+    flus_assert_contains("flus_column_exists(\$pdo, 'venta_anulaciones', 'monto_total')", $lib);
+    flus_assert_contains("\$ultimaAnulacionExpr = flus_column_exists(\$pdo, 'venta_anulaciones', 'anulado_en')", $lib);
+    flus_assert_contains("flus_column_exists(\$pdo, 'venta_anulacion_items', 'cantidad_anulada')", $lib);
     flus_assert_contains("flus_venta_anulacion_registrar_total_restante(\$pdo, \$ventaId, \$venta, \$itemsRestantes, \$motivo, \$userId)", $action);
     flus_assert_contains("\$payload['anulacion_id']", $action);
 });
@@ -1809,6 +1812,24 @@ $results[] = flus_run_test('terminal actions salen del switch y usan action file
     flus_assert_contains("terminal_set_cookie(\$newTid);", $terminalSwitchPhp);
     flus_assert_contains("\$res = terminal_lock_heartbeat(\$pdo, \$tid, \$uid, \$sid, \$ttl);", $terminalHeartbeatPhp);
     flus_assert_contains("json_ok(['session_id' => \$sid]);", $sessionHeartbeatPhp);
+});
+
+$results[] = flus_run_test('ventas api tolera esquema sin tablas de anulaciones', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ventasApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_api.php');
+    $ventasKpisPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_kpis.php');
+    $ventasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ventas.php');
+
+    flus_assert_contains('function flus_ventas_api_monto_anulado_expr(string $anulacionesJoin): string', $ventasApiPhp);
+    flus_assert_contains("return \$anulacionesJoin !== '' ? 'COALESCE(vaa.monto_anulado_total, 0)' : '0';", $ventasApiPhp);
+    flus_assert_contains('function flus_ventas_api_importe_vigente_expr(string $anulacionesJoin): string', $ventasApiPhp);
+    flus_assert_contains('function flus_ventas_api_ratio_vigente_expr(string $anulacionesJoin): string', $ventasApiPhp);
+    flus_assert_contains("\$cantidadAnuladaExpr = \$anulacionesItemsJoin !== '' ? 'COALESCE(vaix.cantidad_anulada_total, 0)' : '0';", $ventasApiPhp);
+    flus_assert_not_contains('flus_ventas_api_importe_vigente_expr();', $ventasApiPhp);
+    flus_assert_not_contains('flus_ventas_api_ratio_vigente_expr();', $ventasApiPhp);
+    flus_assert_contains("\$hasAnulacionesJoin = \$anulacionesJoin !== '';", $ventasKpisPhp);
+    flus_assert_contains("\$hasAnulacionesJoinMetricas = \$anulacionesJoinMetricas !== '';", $ventasPhp);
+    flus_assert_contains("\$anulacionesSelect = \$anulacionesJoin !== ''", $ventasPhp);
 });
 
 $results[] = flus_run_test('registrar venta delega logica interna a venta_api_lib', function (): void {

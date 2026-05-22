@@ -47,16 +47,17 @@ $hasVentaAnulaciones = has_table($pdo, 'venta_anulaciones');
 // Columna de descuento (compat: descuento_monto / descuento_total / ninguno)
 $descuentoCol = $hasDescuentoMonto ? 'v.descuento_monto' : ($hasDescuentoTotal ? 'v.descuento_total' : '0');
 $anulacionesJoinMetricas = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
-$importeVigenteExpr = $hasVentaAnulaciones
+$hasAnulacionesJoinMetricas = $anulacionesJoinMetricas !== '';
+$importeVigenteExpr = $hasAnulacionesJoinMetricas
   ? flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
   : 'v.total';
-$montoCCVigenteExpr = ($hasVentaAnulaciones && $hasMontoCC)
+$montoCCVigenteExpr = ($hasAnulacionesJoinMetricas && $hasMontoCC)
   ? flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
   : ($hasMontoCC ? 'COALESCE(v.monto_cc, 0)' : '0');
-$descuentoVigenteExpr = $hasVentaAnulaciones
+$descuentoVigenteExpr = $hasAnulacionesJoinMetricas
   ? '(' . $descuentoCol . ') * ' . flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)')
   : $descuentoCol;
-$montoAnuladoExpr = $hasVentaAnulaciones
+$montoAnuladoExpr = $hasAnulacionesJoinMetricas
   ? "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE COALESCE(vaa.monto_anulado_total, 0) END"
   : "CASE WHEN v.estado = 'ANULADA' THEN v.total ELSE 0 END";
 
@@ -549,7 +550,7 @@ $terminalJoin = $hasTerminalId ? "LEFT JOIN terminales t ON t.id = v.terminal_id
 $terminalSelect = $hasTerminalId ? 'v.terminal_id, t.nombre AS terminal_nombre,' : 'NULL AS terminal_id, NULL AS terminal_nombre,';
 $montoCCSelect = $hasMontoCC ? 'COALESCE(v.monto_cc, 0) AS monto_cc,' : '0 AS monto_cc,';
 $anulacionesJoin = $hasVentaAnulaciones ? flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa') : '';
-$anulacionesSelect = $hasVentaAnulaciones
+$anulacionesSelect = $anulacionesJoin !== ''
   ? 'COALESCE(vaa.monto_anulado_total, 0) AS monto_anulado_total, COALESCE(vaa.anulaciones_count, 0) AS anulaciones_count, vaa.ultima_anulacion_en,'
   : '0 AS monto_anulado_total, 0 AS anulaciones_count, NULL AS ultima_anulacion_en,';
 

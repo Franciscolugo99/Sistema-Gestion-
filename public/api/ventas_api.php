@@ -39,12 +39,18 @@ function flus_ventas_api_anulaciones_join(PDO $pdo, string $ventaAlias = 'v', st
   return flus_venta_anulaciones_totales_join_sql($pdo, $ventaAlias, $joinAlias);
 }
 
-function flus_ventas_api_importe_vigente_expr(): string {
-  return flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
+function flus_ventas_api_monto_anulado_expr(string $anulacionesJoin): string {
+  return $anulacionesJoin !== '' ? 'COALESCE(vaa.monto_anulado_total, 0)' : '0';
 }
 
-function flus_ventas_api_ratio_vigente_expr(): string {
-  return flus_venta_ratio_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
+function flus_ventas_api_importe_vigente_expr(string $anulacionesJoin): string {
+  return flus_venta_importe_vigente_expr_sql('v.total', flus_ventas_api_monto_anulado_expr($anulacionesJoin));
+}
+
+function flus_ventas_api_ratio_vigente_expr(string $anulacionesJoin): string {
+  return $anulacionesJoin !== ''
+    ? flus_venta_ratio_vigente_expr_sql('v.total', flus_ventas_api_monto_anulado_expr($anulacionesJoin))
+    : '1';
 }
 require_once __DIR__ . '/kpis_categoria_helper.php';
 
@@ -533,7 +539,7 @@ try {
     case 'stats_ventas_por_dia':
       require_login();
       $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
-      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr($anulacionesJoin);
       $whereEmitida = whereEmitida('');
       // Nota: sin alias porque la tabla es directa
       $stmt = $pdo->query("
@@ -568,8 +574,8 @@ try {
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
       $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
-      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
-      $ratioVigenteExpr = flus_ventas_api_ratio_vigente_expr();
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr($anulacionesJoin);
+      $ratioVigenteExpr = flus_ventas_api_ratio_vigente_expr($anulacionesJoin);
 
       $params = [];
       $whereParts = [whereEmitida('v')];
@@ -633,8 +639,9 @@ try {
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
       $anulacionesItemsJoin = flus_venta_items_anulados_join_sql($pdo, 'vi', 'vaix');
-      $cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
-      $subtotalVigenteExpr = flus_venta_item_subtotal_vigente_expr_sql('vi.subtotal', 'vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
+      $cantidadAnuladaExpr = $anulacionesItemsJoin !== '' ? 'COALESCE(vaix.cantidad_anulada_total, 0)' : '0';
+      $cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', $cantidadAnuladaExpr);
+      $subtotalVigenteExpr = flus_venta_item_subtotal_vigente_expr_sql('vi.subtotal', 'vi.cantidad', $cantidadAnuladaExpr);
 
       $whereParts = [whereEmitida('v')];
       $params = [];
@@ -691,7 +698,7 @@ try {
       $desde = $_GET['desde'] ?? null;
       $hasta = $_GET['hasta'] ?? null;
       $anulacionesJoin = flus_ventas_api_anulaciones_join($pdo, 'v', 'vaa');
-      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr();
+      $importeVigenteExpr = flus_ventas_api_importe_vigente_expr($anulacionesJoin);
 
       if (!$desde || !$hasta) {
         success_fail('Faltan parámetros desde/hasta', 400);
