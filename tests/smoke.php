@@ -1297,8 +1297,36 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     flus_assert_contains("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'", $comprasPhp);
     flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
     flus_assert_contains('No hay stock suficiente para revertir la compra', $comprasPhp);
+    flus_assert_contains("'ANULACION_COMPRA'", $comprasPhp);
+    flus_assert_not_contains("':qty' => -\$qty", $comprasPhp);
     flus_assert_contains("flus_log_error('compras confirmar failed'", $comprasPhp);
     flus_assert_contains("flus_log_error('compras anular_confirmada failed'", $comprasPhp);
+});
+
+$results[] = flus_run_test('movimientos stock quedan versionados y respetan stock anterior', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '031_movimientos_stock_tipo_compat.sql');
+    $ventaApiLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
+    $ventaAnulacionesLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
+    $stockAjax = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock_ajax.php');
+
+    flus_assert_contains('ANULACION_VENTA', $installSql);
+    flus_assert_contains('ANULACION_COMPRA', $installSql);
+    flus_assert_contains('MODIFY COLUMN `tipo` ENUM', $migrationSql);
+    flus_assert_contains('ANULACION_COMPRA', $migrationSql);
+    flus_assert_contains('DROP TRIGGER IF EXISTS `before_insert_movimiento_stock`', $migrationSql);
+
+    $ventaMovimientoPos = strpos($ventaApiLib, "insert_dynamic(\$pdo, 'movimientos_stock'");
+    $ventaUpdatePos = strpos($ventaApiLib, 'UPDATE productos SET stock = stock - :c');
+    $anulacionMovimientoPos = strpos($ventaAnulacionesLib, '$movimientos[] = insert_dynamic($pdo, \'movimientos_stock\'');
+    $anulacionUpdatePos = strpos($ventaAnulacionesLib, '$stStock->execute([');
+    $ajusteMovimientoPos = strpos($stockAjax, 'INSERT INTO movimientos_stock');
+    $ajusteUpdatePos = strpos($stockAjax, 'UPDATE productos SET stock = ?');
+
+    flus_assert_true($ventaMovimientoPos !== false && $ventaUpdatePos !== false && $ventaMovimientoPos < $ventaUpdatePos);
+    flus_assert_true($anulacionMovimientoPos !== false && $anulacionUpdatePos !== false && $anulacionMovimientoPos < $anulacionUpdatePos);
+    flus_assert_true($ajusteMovimientoPos !== false && $ajusteUpdatePos !== false && $ajusteMovimientoPos < $ajusteUpdatePos);
 });
 
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
@@ -1541,7 +1569,9 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     }
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 030", $integrationPhp);
+    flus_assert_contains("latest migration is 031", $integrationPhp);
+    flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
+    flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
     flus_assert_contains('non-remote fiscal invoice has one local ARCA event', $integrationPhp);
     flus_assert_contains('non-remote NC total is linked to original invoice', $integrationPhp);

@@ -195,10 +195,6 @@ $tipoConfig = $tiposAjuste[$tipo];
         throw new Exception('El stock no puede quedar negativo. Stock actual: ' . format_stock_con_unidad($p, 'stock'));
     }
 
-    // Actualizar stock
-    $upd = $pdo->prepare("UPDATE productos SET stock = ? WHERE id = ?");
-    $upd->execute([$nuevoStock, $producto_id]);
-
     // Insertar movimiento
     $ins = $pdo->prepare("
         INSERT INTO movimientos_stock
@@ -207,6 +203,10 @@ $tipoConfig = $tiposAjuste[$tipo];
           (NULL, NOW(), ?, ?, ?, NULL, NULL, ?)
     ");
     $ins->execute([$producto_id, $tipo_mov, $cantidad, $motivo]);
+
+    // Actualizar stock despues del movimiento para que el trigger guarde stock_anterior/stock_nuevo correctos.
+    $upd = $pdo->prepare("UPDATE productos SET stock = ? WHERE id = ?");
+    $upd->execute([$nuevoStock, $producto_id]);
 
     $pdo->commit();
 

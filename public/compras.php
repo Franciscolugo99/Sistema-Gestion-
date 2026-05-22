@@ -729,15 +729,14 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
             if ($qty <= 0) continue;
 
-            // stock + movimiento
-            $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
-            compras_require_row_change($stUpdStock, "No se pudo actualizar el stock del producto ID {$pid} al confirmar la compra.");
             $stMov->execute([
               ':pid'       => $pid,
               ':qty'       => $qty,
               ':compra_id' => $compraId,
               ':com'       => "Compra #{$compraId}",
             ]);
+            $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
+            compras_require_row_change($stUpdStock, "No se pudo actualizar el stock del producto ID {$pid} al confirmar la compra.");
 
             // costo neto: (subtotal - descuento_item) / qty
             $sub = (float)($it['subtotal'] ?? 0.0);
@@ -850,14 +849,14 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
               $qty = (float)$it['cantidad'];
               if ($qty <= 0) continue;
 
-              $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
-              compras_require_row_change($stUpdStock, "No se pudo revertir el stock del producto ID {$pid}.");
               $stMov->execute([
                 ':pid' => $pid,
-                ':qty' => -$qty, // negativo
+                ':qty' => $qty,
                 ':compra_id' => $compraId,
                 ':com' => "Anulacion compra #{$compraId}",
               ]);
+              $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
+              compras_require_row_change($stUpdStock, "No se pudo revertir el stock del producto ID {$pid}.");
             }
           }
 

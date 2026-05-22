@@ -314,8 +314,8 @@ if (!function_exists('flus_venta_stock_reponer_items')) {
             return [];
         }
 
-        $stStock = $pdo->prepare('UPDATE productos SET stock = stock + :qty WHERE id = :pid');
         $puedeMovimientos = flus_table_exists($pdo, 'movimientos_stock') && function_exists('insert_dynamic');
+        $stStock = $pdo->prepare('UPDATE productos SET stock = stock + :qty WHERE id = :pid');
         $movimientos = [];
 
         foreach ($items as $row) {
@@ -326,11 +326,6 @@ if (!function_exists('flus_venta_stock_reponer_items')) {
             if ($productoId <= 0 || $qty <= 0) {
                 continue;
             }
-
-            $stStock->execute([
-                ':qty' => $qty,
-                ':pid' => $productoId,
-            ]);
 
             if ($puedeMovimientos) {
                 $payload = [
@@ -349,6 +344,11 @@ if (!function_exists('flus_venta_stock_reponer_items')) {
 
                 $movimientos[] = insert_dynamic($pdo, 'movimientos_stock', $payload);
             }
+
+            $stStock->execute([
+                ':qty' => $qty,
+                ':pid' => $productoId,
+            ]);
         }
 
         return $movimientos;

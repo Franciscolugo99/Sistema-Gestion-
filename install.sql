@@ -442,7 +442,7 @@ CREATE TABLE `movimientos_stock` (
   `venta_id` int(11) DEFAULT NULL,
   `fecha` datetime NOT NULL DEFAULT current_timestamp(),
   `producto_id` int(11) NOT NULL,
-  `tipo` enum('VENTA','COMPRA','AJUSTE_POSITIVO','AJUSTE_NEGATIVO','ANULACION','DEVOLUCION') NOT NULL,
+  `tipo` enum('VENTA','COMPRA','AJUSTE_POSITIVO','AJUSTE_NEGATIVO','ANULACION','ANULACION_VENTA','ANULACION_COMPRA','DEVOLUCION') NOT NULL,
   `cantidad` decimal(10,3) NOT NULL,
   `referencia_venta_id` int(11) DEFAULT NULL,
   `referencia_compra_id` int(10) unsigned DEFAULT NULL,
@@ -520,6 +520,14 @@ CREATE TRIGGER `before_insert_movimiento_stock` BEFORE INSERT ON `movimientos_st
     WHEN 'ANULACION' THEN
 
       SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
+
+    WHEN 'ANULACION_VENTA' THEN
+
+      SET NEW.stock_nuevo = stock_actual + NEW.cantidad;
+
+    WHEN 'ANULACION_COMPRA' THEN
+
+      SET NEW.stock_nuevo = stock_actual - NEW.cantidad;
 
     WHEN 'DEVOLUCION' THEN
 

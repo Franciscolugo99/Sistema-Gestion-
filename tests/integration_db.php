@@ -130,14 +130,14 @@ function flus_it_run_pos_sale_case(PDO $pdo): array
         $stmt = $pdo->prepare("INSERT INTO venta_pagos (venta_id, medio_pago, monto) VALUES (?, 'MP', 50.00)");
         $stmt->execute([$ventaId]);
 
-        $stmt = $pdo->prepare("UPDATE productos SET stock = stock - 2.000 WHERE id = ?");
-        $stmt->execute([$productoId]);
-
         $stmt = $pdo->prepare("
             INSERT INTO movimientos_stock (producto_id, tipo, cantidad, venta_id, referencia_venta_id, comentario, fecha)
             VALUES (?, 'VENTA', 2.000, ?, ?, 'Venta integracion POS', NOW())
         ");
         $stmt->execute([$productoId, $ventaId, $ventaId]);
+
+        $stmt = $pdo->prepare("UPDATE productos SET stock = stock - 2.000 WHERE id = ?");
+        $stmt->execute([$productoId]);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -175,6 +175,12 @@ function flus_it_run_pos_sale_case(PDO $pdo): array
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM movimientos_stock WHERE venta_id = ? AND tipo = 'VENTA'");
     $stmt->execute([$ventaId]);
     flus_it_assert((int)$stmt->fetchColumn() === 1, 'POS sale writes stock movement');
+
+    $stmt = $pdo->prepare("SELECT stock_anterior, stock_nuevo FROM movimientos_stock WHERE venta_id = ? AND tipo = 'VENTA' ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$ventaId]);
+    $movement = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    flus_it_assert(round((float)($movement['stock_anterior'] ?? 0), 3) === 10.000, 'POS sale stock movement keeps previous stock');
+    flus_it_assert(round((float)($movement['stock_nuevo'] ?? 0), 3) === 8.000, 'POS sale stock movement keeps resulting stock');
 
     return [
         'caja_id' => $cajaId,
@@ -458,14 +464,14 @@ function flus_it_run_non_remote_nc_total_case(PDO $pdo, array $fiscalCase): void
         $stmt = $pdo->prepare("UPDATE ventas SET estado = 'ANULADA' WHERE id = ?");
         $stmt->execute([$ventaId]);
 
-        $stmt = $pdo->prepare("UPDATE productos SET stock = stock + 2.000 WHERE id = ?");
-        $stmt->execute([$productoId]);
-
         $stmt = $pdo->prepare("
             INSERT INTO movimientos_stock (producto_id, tipo, cantidad, venta_id, referencia_venta_id, comentario, fecha)
             VALUES (?, 'ANULACION', 2.000, ?, ?, 'NC total integracion', NOW())
         ");
         $stmt->execute([$productoId, $ventaId, $ventaId]);
+
+        $stmt = $pdo->prepare("UPDATE productos SET stock = stock + 2.000 WHERE id = ?");
+        $stmt->execute([$productoId]);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -652,14 +658,14 @@ function flus_it_run_non_remote_nc_partial_case(PDO $pdo, array $fiscalCase): vo
         $stmt = $pdo->prepare("UPDATE ventas SET estado = 'PARCIALMENTE_ANULADA' WHERE id = ?");
         $stmt->execute([$ventaId]);
 
-        $stmt = $pdo->prepare("UPDATE productos SET stock = stock + 1.000 WHERE id = ?");
-        $stmt->execute([$productoId]);
-
         $stmt = $pdo->prepare("
             INSERT INTO movimientos_stock (producto_id, tipo, cantidad, venta_id, referencia_venta_id, comentario, fecha)
             VALUES (?, 'ANULACION', 1.000, ?, ?, 'NC parcial integracion', NOW())
         ");
         $stmt->execute([$productoId, $ventaId, $ventaId]);
+
+        $stmt = $pdo->prepare("UPDATE productos SET stock = stock + 1.000 WHERE id = ?");
+        $stmt->execute([$productoId]);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -1647,7 +1653,13 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '030_tesoreria_obligaciones_compras.sql', 'latest migration is 030');
+    flus_it_assert($latest === '031_movimientos_stock_tipo_compat.sql', 'latest migration is 031');
+    $tipoColumn = $pdo
+        ->query("SHOW COLUMNS FROM movimientos_stock LIKE 'tipo'")
+        ->fetch(PDO::FETCH_ASSOC);
+    $tipoDefinition = (string)($tipoColumn['Type'] ?? '');
+    flus_it_assert(str_contains($tipoDefinition, 'ANULACION_VENTA'), 'movimientos_stock.tipo supports sale annulments');
+    flus_it_assert(str_contains($tipoDefinition, 'ANULACION_COMPRA'), 'movimientos_stock.tipo supports purchase annulments');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_sesiones', 'categoria_nombre'), 'inventario_sesiones.categoria_nombre exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_conteos', 'stock_sistema_snapshot'), 'inventario_conteos.stock_sistema_snapshot exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'facturas', 'estado_fiscal'), 'facturas.estado_fiscal exists');

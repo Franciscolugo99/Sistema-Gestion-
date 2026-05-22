@@ -482,9 +482,6 @@ function flus_venta_store_items_and_stock(PDO $pdo, int $ventaId, array $srvItem
             'precio_unit_final' => $precioUnitFinal,
         ]);
 
-        $st = $pdo->prepare('UPDATE productos SET stock = stock - :c WHERE id = :id');
-        $st->execute([':c' => $cant, ':id' => $pid]);
-
         insert_dynamic($pdo, 'movimientos_stock', [
             'producto_id' => $pid,
             'tipo' => 'VENTA',
@@ -494,6 +491,9 @@ function flus_venta_store_items_and_stock(PDO $pdo, int $ventaId, array $srvItem
             'comentario' => null,
             'fecha' => date('Y-m-d H:i:s'),
         ]);
+
+        $st = $pdo->prepare('UPDATE productos SET stock = stock - :c WHERE id = :id');
+        $st->execute([':c' => $cant, ':id' => $pid]);
     }
 }
 
