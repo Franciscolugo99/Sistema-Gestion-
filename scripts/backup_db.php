@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // Ejecutar con:
-//   C:\xampp\php\php.exe C:\xampp\htdocs\kiosco\scripts\backup_db.php
+//   C:\FLUS\stack\php\php.exe C:\FLUS\app\scripts\backup_db.php
 
 require_once __DIR__ . '/../src/backup_lib.php';
 

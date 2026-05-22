@@ -102,7 +102,8 @@ $totCredito      = (float)($caja['total_credito'] ?? 0);
 $hasTransferCol  = col_exists($pdo, 'caja_sesiones', 'total_transferencia');
 $totTransferencia = $hasTransferCol ? (float)($caja['total_transferencia'] ?? 0) : 0;
 $anulacionesJoinVentas = flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa');
-$importeVigenteExpr = flus_venta_importe_vigente_expr_sql('v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
+$montoAnuladoVentasExpr = $anulacionesJoinVentas !== '' ? 'COALESCE(vaa.monto_anulado_total, 0)' : '0';
+$importeVigenteExpr = flus_venta_importe_vigente_expr_sql('v.total', $montoAnuladoVentasExpr);
 
 // Total ventas (para mostrar, no para calcular caja)
 $stmt = $pdo->prepare("
@@ -119,7 +120,7 @@ $totalVentas = (float)($stmt->fetchColumn() ?: 0.0);
 $hasMontoCC = col_exists($pdo, 'ventas', 'monto_cc');
 $totalVentasCC = 0.0;
 if ($hasMontoCC) {
-  $montoCCVigenteExpr = flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', 'COALESCE(vaa.monto_anulado_total, 0)');
+  $montoCCVigenteExpr = flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', $montoAnuladoVentasExpr);
   $stmt = $pdo->prepare("
     SELECT COALESCE(SUM($montoCCVigenteExpr),0)
     FROM ventas v
@@ -133,7 +134,8 @@ if ($hasMontoCC) {
 
 // Ítems vendidos del turno (solo EMITIDA/NULL)
 $anulacionesItemsJoin = flus_venta_items_anulados_join_sql($pdo, 'vi', 'vaix');
-$cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', 'COALESCE(vaix.cantidad_anulada_total, 0)');
+$cantidadAnuladaItemsExpr = $anulacionesItemsJoin !== '' ? 'COALESCE(vaix.cantidad_anulada_total, 0)' : '0';
+$cantidadVigenteExpr = flus_venta_cantidad_vigente_expr_sql('vi.cantidad', $cantidadAnuladaItemsExpr);
 $stmt = $pdo->prepare("
   SELECT COALESCE(SUM($cantidadVigenteExpr),0) AS cant
   FROM ventas v

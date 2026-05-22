@@ -85,10 +85,29 @@ function flus_sucursal_transfer_export(PDO $pdo, array $options = []): array
     $providerById = [];
     $providers = [];
     if ($includeProviders && flus_table_exists($pdo, 'proveedores')) {
-        $provWhere = $includeInactive ? '' : 'WHERE activo = 1';
+        $providerExpr = static function (PDO $pdo, string $column, string $fallback): string {
+            return flus_column_exists($pdo, 'proveedores', $column) ? '`' . $column . '`' : $fallback . ' AS `' . $column . '`';
+        };
+        $provWhere = ($includeInactive || !flus_column_exists($pdo, 'proveedores', 'activo')) ? '' : 'WHERE activo = 1';
+        $providerSelect = implode(', ', [
+            '`id`',
+            $providerExpr($pdo, 'nombre', "''"),
+            $providerExpr($pdo, 'razon_social', "''"),
+            $providerExpr($pdo, 'cuit', "''"),
+            $providerExpr($pdo, 'contacto_nombre', "''"),
+            $providerExpr($pdo, 'telefono', "''"),
+            $providerExpr($pdo, 'email', "''"),
+            $providerExpr($pdo, 'whatsapp', "''"),
+            $providerExpr($pdo, 'direccion', "''"),
+            $providerExpr($pdo, 'ciudad', "''"),
+            $providerExpr($pdo, 'provincia', "''"),
+            $providerExpr($pdo, 'dias_pago', '0'),
+            $providerExpr($pdo, 'descuento_habitual', '0'),
+            $providerExpr($pdo, 'notas', "''"),
+            $providerExpr($pdo, 'activo', '1'),
+        ]);
         $stmt = $pdo->query(
-            "SELECT id, nombre, razon_social, cuit, contacto_nombre, telefono, email, whatsapp,
-                    direccion, ciudad, provincia, dias_pago, descuento_habitual, notas, activo
+            "SELECT {$providerSelect}
                FROM proveedores
                {$provWhere}
               ORDER BY nombre ASC"

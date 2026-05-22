@@ -258,12 +258,13 @@ if (defined('MYSQLDUMP_BIN')) {
 println("\n📂 Buscando en rutas comunes...", 'info');
 
 $isWindows = stripos(PHP_OS_FAMILY, 'Windows') === 0;
+$portableRoot = defined('FLUS_ROOT') ? dirname((string) FLUS_ROOT) : dirname(__DIR__, 2);
 if ($isWindows) {
     $paths = [
-        dirname(dirname((string)PHP_BINARY)) . '\\mysql\\bin\\mysqldump.exe',
-        'C:\\xampp82\\mysql\\bin\\mysqldump.exe',
-        'C:\\xampp\\mysql\\bin\\mysqldump.exe',
-        'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqldump.exe',
+        $portableRoot . DIRECTORY_SEPARATOR . 'stack' . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . 'mysqldump.exe',
+        $portableRoot . DIRECTORY_SEPARATOR . 'stack' . DIRECTORY_SEPARATOR . 'mariadb' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . 'mysqldump.exe',
+        'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
+        'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
     ];
 } else {
     $paths = [

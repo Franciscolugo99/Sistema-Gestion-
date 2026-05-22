@@ -37,9 +37,22 @@ function sh_quote(string $s): string {
     return escapeshellarg($s);
 }
 
+function flus_portable_root(): string {
+    if (defined('FLUS_ROOT')) {
+        return dirname((string) FLUS_ROOT);
+    }
+
+    return dirname(__DIR__, 2);
+}
+
+function flus_stack_candidate(string $relativePath): string {
+    $relativePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativePath);
+    return flus_portable_root() . DIRECTORY_SEPARATOR . $relativePath;
+}
+
 /**
  * Detecta binarios MySQL cercanos al PHP que esta ejecutando FLUS.
- * Cubre XAMPP portable o stacks locales sin depender de C:\xampp.
+ * Cubre XAMPP portable o stacks locales sin depender de una ruta fija de XAMPP.
  *
  * @return list<string>
  */
@@ -132,8 +145,8 @@ function find_mysqldump(): ?array {
     if ($isWindows) {
         // Rutas comunes en Windows
         $candidates = array_merge(flus_mysql_stack_bin_candidates('mysqldump.exe'), [
-            'C:\\xampp82\\mysql\\bin\\mysqldump.exe',
-            'C:\\xampp\\mysql\\bin\\mysqldump.exe',
+            flus_stack_candidate('stack/mysql/bin/mysqldump.exe'),
+            flus_stack_candidate('stack/mariadb/bin/mysqldump.exe'),
             'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysqldump.exe',
             'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
@@ -145,7 +158,7 @@ function find_mysqldump(): ?array {
         $returnCode = 0;
         @exec('where mysqldump 2>nul', $output, $returnCode);
         if ($returnCode === 0 && !empty($output[0])) {
-            array_unshift($candidates, $output[0]);
+            $candidates[] = $output[0];
         }
     } else {
         // Rutas comunes en Linux/Mac
@@ -161,7 +174,7 @@ function find_mysqldump(): ?array {
         $returnCode = 0;
         @exec('which mysqldump 2>/dev/null', $output, $returnCode);
         if ($returnCode === 0 && !empty($output[0])) {
-            array_unshift($candidates, $output[0]);
+            $candidates[] = $output[0];
         }
     }
     
@@ -575,8 +588,8 @@ function find_mysql_cli(): ?array {
     $candidates = [];
     if ($isWindows) {
         $candidates = array_merge(flus_mysql_stack_bin_candidates('mysql.exe'), [
-            'C:\\xampp82\\mysql\\bin\\mysql.exe',
-            'C:\\xampp\\mysql\\bin\\mysql.exe',
+            flus_stack_candidate('stack/mysql/bin/mysql.exe'),
+            flus_stack_candidate('stack/mariadb/bin/mysql.exe'),
             'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\mysql.exe',
             'C:\\wamp\\bin\\mysql\\mysql8.0.27\\bin\\mysql.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe',
@@ -587,7 +600,7 @@ function find_mysql_cli(): ?array {
         $rc = 0;
         @exec('where mysql 2>nul', $output, $rc);
         if ($rc === 0 && !empty($output[0])) {
-            array_unshift($candidates, $output[0]);
+            $candidates[] = $output[0];
         }
     } else {
         $candidates = [
@@ -601,7 +614,7 @@ function find_mysql_cli(): ?array {
         $rc = 0;
         @exec('which mysql 2>/dev/null', $output, $rc);
         if ($rc === 0 && !empty($output[0])) {
-            array_unshift($candidates, $output[0]);
+            $candidates[] = $output[0];
         }
     }
 

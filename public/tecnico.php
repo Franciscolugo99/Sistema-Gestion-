@@ -141,14 +141,15 @@ function tecnico_is_php_cli_binary(string $path): bool
 function tecnico_detect_php_binary(): ?string
 {
     $phpBinary = defined('PHP_BINARY') ? (string) PHP_BINARY : '';
+    $portableRoot = defined('FLUS_ROOT') ? dirname((string) FLUS_ROOT) : dirname(__DIR__, 2);
 
     $candidates = [];
+    $candidates[] = $portableRoot . '/stack/php/php.exe';
+    $candidates[] = $portableRoot . '/stack/php/windowsXamppPhp/php.exe';
     if ($phpBinary !== '') {
         $candidates[] = $phpBinary;
         $candidates[] = dirname($phpBinary) . '/php.exe';
     }
-    $candidates[] = 'C:/xampp82/php/php.exe';
-    $candidates[] = 'C:/xampp/php/php.exe';
 
     $candidates = array_values(array_unique(array_filter($candidates)));
 

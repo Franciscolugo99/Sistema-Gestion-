@@ -3171,6 +3171,17 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_contains('require_terminal_lock_json();', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php'));
 });
 
+$results[] = flus_run_test('caja cierre tolera instalaciones sin tablas de anulaciones', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaCerrarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
+
+    flus_assert_contains("\$montoAnuladoVentasExpr = \$anulacionesJoinVentas !== '' ? 'COALESCE(vaa.monto_anulado_total, 0)' : '0';", $cajaCerrarPhp);
+    flus_assert_contains("flus_venta_importe_vigente_expr_sql('v.total', \$montoAnuladoVentasExpr)", $cajaCerrarPhp);
+    flus_assert_contains("flus_venta_cc_vigente_expr_sql('COALESCE(v.monto_cc, 0)', 'v.total', \$montoAnuladoVentasExpr)", $cajaCerrarPhp);
+    flus_assert_contains("\$cantidadAnuladaItemsExpr = \$anulacionesItemsJoin !== '' ? 'COALESCE(vaix.cantidad_anulada_total, 0)' : '0';", $cajaCerrarPhp);
+    flus_assert_contains("flus_venta_cantidad_vigente_expr_sql('vi.cantidad', \$cantidadAnuladaItemsExpr)", $cajaCerrarPhp);
+});
+
 $results[] = flus_run_test('terminal release from admin redirects caja users with an explicit notice', function (): void {
     $repoRoot = dirname(__DIR__);
     $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
