@@ -44,6 +44,11 @@ if (!function_exists('flus_license_file_path')) {
   }
 }
 
+$flusLicensePublicKeyFile = __DIR__ . '/license_public_key.php';
+if (is_file($flusLicensePublicKeyFile)) {
+  require_once $flusLicensePublicKeyFile;
+}
+
 if (!function_exists('flus_license_state_file_path')) {
   function flus_license_state_file_path(): string {
     return FLUS_ROOT . '/storage/license_state.json';
@@ -332,6 +337,8 @@ if (!function_exists('flus_license_try_rsa_signed_payload')) {
       $pubPem = (string)file_get_contents(FLUS_LICENSE_PUBKEY_PATH);
     } elseif (defined('FLUS_LICENSE_PUBKEY_PEM')) {
       $pubPem = (string)FLUS_LICENSE_PUBKEY_PEM;
+    } elseif (function_exists('flus_license_public_key_pem')) {
+      $pubPem = flus_license_public_key_pem();
     }
 
     if (trim($pubPem) === '') {

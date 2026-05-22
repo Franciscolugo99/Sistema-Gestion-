@@ -3407,6 +3407,7 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     $cuentaCorrienteApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
     $licenseStatusPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'license_status.php');
     $licensePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license.php');
+    $licensePublicKeyPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_public_key.php');
     $licenciaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'licencia.php');
     $preciosApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'precios_api.php');
 
@@ -3425,6 +3426,10 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("'customer' => (string)(\$lic['customer'] ?? '')", $licensePhp);
     flus_assert_contains("'license_key' => (string)(\$lic['license_key'] ?? '')", $licensePhp);
     flus_assert_contains("'issued_at' => (string)(\$lic['issued_at'] ?? '')", $licensePhp);
+    flus_assert_contains("require_once \$flusLicensePublicKeyFile;", $licensePhp);
+    flus_assert_contains("function_exists('flus_license_public_key_pem')", $licensePhp);
+    flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
+    flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     flus_assert_contains('Cliente</dt><dd><?= h((string)($licenseMeta[\'customer\']', $licenciaPhp);
     flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)($licenseMeta[\'license_key\']', $licenciaPhp);
     flus_assert_contains('Emitida</dt><dd><?= h($formatDate((string)($licenseMeta[\'issued_at\']', $licenciaPhp);
