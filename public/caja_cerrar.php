@@ -88,6 +88,7 @@ if (!caja_user_can_cerrar_turno($caja, $currentUserId)) {
   exit;
 }
 
+$cierrePorSupervisor = !caja_turno_es_del_usuario($caja, $currentUserId);
 $abierta       = caja_is_open($caja['fecha_cierre'] ?? null);
 $saldoInicial  = (float)($caja['saldo_inicial'] ?? 0);
 $usernameCaja  = (string)($caja['username'] ?? '—');
@@ -266,21 +267,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!in_array($motivoCierre, $motivosValidos, true)) {
         $motivoCierre = 'CAMBIO_TURNO';
       }
-      $fondoSiguiente = parse_money_ar($_POST['cierre_fondo_siguiente'] ?? '0');
-      $retiroEfectivo = parse_money_ar($_POST['cierre_retiro_efectivo'] ?? '0');
-
       if (trim($rawSaldo) === '') {
         $errores[] = 'Ingresá el saldo contado por el cajero.';
       } elseif ($saldoDeclarado < 0) {
         $errores[] = 'El saldo declarado no puede ser negativo.';
-      } elseif ($fondoSiguiente < 0 || $retiroEfectivo < 0) {
-        $errores[] = 'El fondo siguiente y el retiro no pueden ser negativos.';
       } else {
 
         $diferencia = $saldoDeclarado - $saldoSistema;
+        $requiereNotaControl = abs($diferencia) > 0.009 || $cierrePorSupervisor || $motivoCierre === 'CIERRE_FORZADO';
 
-        $pdo->beginTransaction();
-        try {
+        if ($requiereNotaControl && mb_strlen($notas) < 8) {
+          $sentidoDiferencia = $diferencia < -0.009 ? 'faltan' : 'sobran';
+          $errores[] = 'Hay una diferencia: ' . $sentidoDiferencia . ' ' . money_ar(abs($diferencia)) . '. Podes cerrar igual, pero escribi una observacion breve para dejar registro.';
+        } else {
+
+          $pdo->beginTransaction();
+          try {
           $stLock = $pdo->prepare("SELECT fecha_cierre FROM caja_sesiones WHERE id = ? FOR UPDATE");
           $stLock->execute([$cajaId]);
           $fechaCierreActual = $stLock->fetchColumn();
@@ -329,15 +331,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $sets[] = 'cerrado_por_user_id = :cerrado_por_user_id';
               $paramsUpdate[':cerrado_por_user_id'] = $currentUserId > 0 ? $currentUserId : null;
             }
-            if ($hasFondoSiguienteCol) {
-              $sets[] = 'cierre_fondo_siguiente = :cierre_fondo_siguiente';
-              $paramsUpdate[':cierre_fondo_siguiente'] = $fondoSiguiente;
-            }
-            if ($hasRetiroEfectivoCol) {
-              $sets[] = 'cierre_retiro_efectivo = :cierre_retiro_efectivo';
-              $paramsUpdate[':cierre_retiro_efectivo'] = $retiroEfectivo;
-            }
-
             $stUpd = $pdo->prepare("
               UPDATE caja_sesiones
               SET " . implode(",\n                  ", $sets) . "
@@ -352,11 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $errores[] = 'No se pudo cerrar la caja (ya estaba cerrada o ID inválido).';
             } else {
               $pdo->commit();
-              $canVerHistorialCaja = function_exists('user_has_permission') && user_has_permission('ver_historial_caja');
-              $redirectTarget = $canVerHistorialCaja
-                ? 'caja_historial.php?ok=' . urlencode('Caja cerrada correctamente.')
-                : 'caja.php?ok=' . urlencode('Caja cerrada correctamente.');
-              header('Location: ' . $redirectTarget);
+              header('Location: caja.php?ok=' . urlencode('Caja cerrada correctamente.'));
               exit;
             }
           }
@@ -367,6 +356,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   }
+}
 }
 
 /* ----------------------------------------------------
@@ -509,7 +499,7 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <?php if ($abierta): ?>
-      <form method="post" class="cierre-form">
+      <form method="post" class="cierre-form" id="cierreForm" data-saldo-sistema="<?= h(number_format($saldoSistema, 2, '.', '')) ?>">
         <?= csrf_field() ?>
 
         <label for="saldo_declarado" class="cierre-label">
@@ -530,59 +520,42 @@ require __DIR__ . '/partials/header.php';
             Cerrar caja
           </button>
         </div>
+        <div class="cierre-diff-preview" id="cierreDiffPreview" aria-live="polite">
+          El sistema espera <?= money_ar($saldoSistema) ?> en efectivo. Carga el conteo para ver si falta o sobra plata.
+        </div>
 
-        <?php if ($hasCierreMotivoCol || $hasFondoSiguienteCol || $hasRetiroEfectivoCol): ?>
+        <?php if ($hasCierreMotivoCol): ?>
           <div class="cierre-input-row">
-            <?php if ($hasCierreMotivoCol): ?>
-              <select name="cierre_motivo" class="cierre-input" aria-label="Motivo de cierre">
-                <?php
-                  $motivoPost = strtoupper(trim((string)($_POST['cierre_motivo'] ?? 'CAMBIO_TURNO')));
-                  $motivosUi = [
-                    'CAMBIO_TURNO' => 'Cambio de turno',
-                    'FIN_DIA' => 'Fin del dÃ­a',
-                    'CORTE_PARCIAL' => 'Corte parcial',
-                    'CIERRE_FORZADO' => 'Cierre forzado',
-                  ];
-                ?>
-                <?php foreach ($motivosUi as $value => $label): ?>
-                  <option value="<?= h($value) ?>" <?= $motivoPost === $value ? 'selected' : '' ?>><?= h($label) ?></option>
-                <?php endforeach; ?>
-              </select>
-            <?php endif; ?>
-
-            <?php if ($hasFondoSiguienteCol): ?>
-              <input
-                type="text"
-                name="cierre_fondo_siguiente"
-                class="cierre-input"
-                placeholder="Fondo prox. turno"
-                autocomplete="off"
-                value="<?= h((string)($_POST['cierre_fondo_siguiente'] ?? '')) ?>"
-              >
-            <?php endif; ?>
-
-            <?php if ($hasRetiroEfectivoCol): ?>
-              <input
-                type="text"
-                name="cierre_retiro_efectivo"
-                class="cierre-input"
-                placeholder="Retiro efectivo"
-                autocomplete="off"
-                value="<?= h((string)($_POST['cierre_retiro_efectivo'] ?? '')) ?>"
-              >
-            <?php endif; ?>
+            <select name="cierre_motivo" class="cierre-input" aria-label="Motivo de cierre">
+              <?php
+                $motivoPost = strtoupper(trim((string)($_POST['cierre_motivo'] ?? 'CAMBIO_TURNO')));
+                $motivosUi = [
+                  'CAMBIO_TURNO' => 'Cambio de turno',
+                  'FIN_DIA' => 'Fin del dia',
+                  'CORTE_PARCIAL' => 'Corte parcial',
+                  'CIERRE_FORZADO' => 'Cierre forzado',
+                ];
+              ?>
+              <?php foreach ($motivosUi as $value => $label): ?>
+                <option value="<?= h($value) ?>" <?= $motivoPost === $value ? 'selected' : '' ?>><?= h($label) ?></option>
+              <?php endforeach; ?>
+            </select>
           </div>
+          <p class="cierre-control-help">
+            Cierre simple: conta el efectivo real. Si falta o sobra, deja una observacion. El saldo inicial del proximo cajero se declara al abrir su turno.
+          </p>
         <?php endif; ?>
 
         <label for="notas" class="cierre-label cierre-label-notas">
-          Notas (opcional)
+          Observacion del cierre
         </label>
         <textarea
           id="notas"
           name="notas"
           class="cierre-textarea"
           rows="2"
-          placeholder="Observaciones del turno, diferencias, etc."><?= h((string)($_POST['notas'] ?? ($caja['notas'] ?? ''))) ?></textarea>
+          placeholder="Ej: diferencia menor por redondeo, falta cambio, cierre revisado por encargado"><?= h((string)($_POST['notas'] ?? ($caja['notas'] ?? ''))) ?></textarea>
+        <p class="cierre-note-help">Solo hace falta si falta/sobra efectivo, si cierra un supervisor o si es cierre forzado.</p>
       </form>
 
     <?php else: ?>
@@ -612,7 +585,7 @@ require __DIR__ . '/partials/header.php';
 
         <?php if ($hasFondoSiguienteCol && (float)($caja['cierre_fondo_siguiente'] ?? 0) > 0): ?>
           <div class="cierre-total-line">
-            <span>Fondo prÃ³ximo turno</span>
+            <span>Fondo proximo turno</span>
             <span class="mono"><?= money_ar((float)$caja['cierre_fondo_siguiente']) ?></span>
           </div>
         <?php endif; ?>
@@ -632,8 +605,60 @@ require __DIR__ . '/partials/header.php';
       </div>
 
     <?php endif; ?>
-  </section>
+</section>
 
 </div>
+
+<?php if ($abierta): ?>
+<script>
+(function () {
+  const form = document.getElementById('cierreForm');
+  const saldoInput = document.getElementById('saldo_declarado');
+  const diffBox = document.getElementById('cierreDiffPreview');
+  if (!form || !saldoInput || !diffBox) return;
+
+  const saldoSistema = Number.parseFloat(form.dataset.saldoSistema || '0') || 0;
+  const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+
+  function parseMoneyAr(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const normalized = raw.replace(/\./g, '').replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function setDiffBox(kind, text) {
+    diffBox.classList.remove('is-ok', 'is-short', 'is-over');
+    diffBox.classList.add(kind);
+    diffBox.textContent = text;
+  }
+
+  function syncDiffPreview() {
+    const contado = parseMoneyAr(saldoInput.value);
+    if (contado === null) {
+      setDiffBox('', 'El sistema espera ' + money.format(saldoSistema) + ' en efectivo. Carga el conteo para ver si falta o sobra plata.');
+      return;
+    }
+
+    const diff = contado - saldoSistema;
+    if (Math.abs(diff) < 0.01) {
+      setDiffBox('is-ok', 'Sin diferencia: el efectivo contado coincide con el sistema.');
+      return;
+    }
+
+    if (diff < 0) {
+      setDiffBox('is-short', 'Faltan ' + money.format(Math.abs(diff)) + '. Podes cerrar igual, pero deja una observacion para que quede auditado.');
+      return;
+    }
+
+    setDiffBox('is-over', 'Sobran ' + money.format(diff) + '. Podes cerrar igual, pero deja una observacion para que quede auditado.');
+  }
+
+  saldoInput.addEventListener('input', syncDiffPreview);
+  syncDiffPreview();
+})();
+</script>
+<?php endif; ?>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

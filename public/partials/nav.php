@@ -99,6 +99,7 @@ if ($currentSection === '') {
         'backups.php'                  => 'backups',
         'roles.php'                    => 'roles',
         'rol_permisos.php'             => 'roles',
+        'cajeros_rendimiento.php'      => 'cajeros_rendimiento',
         'terminales.php'               => 'configuracion',
         'diagnostico.php'              => 'diagnostico',
         'tecnico.php'                  => 'tecnico',
@@ -245,6 +246,7 @@ $canTesoreria        = $can('ver_tesoreria') || $can('gestionar_tesoreria') || $
 $canCompras          = $can('editar_stock');
 $canProveedores      = $can('ver_proveedores') || $can('editar_proveedores');
 $canHistCaja         = $can('ver_historial_caja');
+$canRendCajeros      = $can('administrar_usuarios') || $can('administrar_config');
 $canPromos           = $can('editar_promos');
 $canClientes         = $can('ver_clientes') || $can('editar_clientes');
 $canCuentaCorriente  = $can('ver_cuenta_corriente') && $canClientes;
@@ -269,7 +271,7 @@ $showAdminMenu =
     $can('administrar_config') || $can('administrar_usuarios') ||
     $can('ver_auditoria')      || $can('gestionar_backups')    ||
     $canDiagnostico            || $canTecnico                  ||
-    $canHistCaja;
+    $canHistCaja               || $canRendCajeros;
 
 /* ═══════════════════════════════════════════
    GRUPOS DE NAVEGACIÓN
@@ -333,6 +335,7 @@ if ($canFacturacion) {
 $adminLinks = [];
 if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php',     'label' => 'Usuarios'];
 if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php',        'label' => 'Roles y permisos'];
+if ($canRendCajeros)              $adminLinks[] = ['href' => 'cajeros_rendimiento.php','label' => 'Rendimiento cajeros'];
 if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Control de turnos'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'configuracion.php','label' => "Configuraci\u{00F3}n"];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'licencia.php',     'label' => 'Licencia'];
@@ -347,7 +350,7 @@ $inventorySections = ['stock', 'inventario_analisis', 'inventario_fisico', 'repo
 $clientSections    = ['clientes', 'cuenta_corriente', 'proveedores'];
 $tesoreriaSections = ['tesoreria', 'cobranzas'];
 $facturacionSections = ['facturacion'];
-$adminSections     = ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico', 'caja_historial'];
+$adminSections     = ['configuracion', 'usuarios', 'auditoria', 'backups', 'roles', 'diagnostico', 'tecnico', 'caja_historial', 'cajeros_rendimiento'];
 
 $catalogActive   = in_array($currentSection, $catalogSections,   true);
 $inventoryActive = in_array($currentSection, $inventorySections, true);
@@ -668,6 +671,7 @@ $sectionBreadcrumbLabels = [
     'dashboard'           => 'Panel',
     'caja'                => 'Caja',
     'ventas'              => 'Ventas',
+    'cajeros_rendimiento' => 'Rendimiento de cajeros',
     'cobranzas'           => 'Cobranzas',
     'tesoreria'           => 'Tesoreria',
     'compras'             => 'Compras',

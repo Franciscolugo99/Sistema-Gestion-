@@ -61,12 +61,12 @@ body.caja-historial-page .alert-error {
 }
 
 body.caja-historial-page .caja-historial-shell {
-  margin-top: 1.2rem;
-  padding: 1.35rem;
-  border-radius: 24px;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: var(--panel-bg, rgba(255, 255, 255, 0.84));
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.07);
 }
 
 /* KPIs */
@@ -74,15 +74,32 @@ body.caja-historial-page .stats-row {
   margin-top: 0;
 }
 
+body.caja-historial-page .stats-row--compact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+body.caja-historial-page .stat-card {
+  min-height: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+body.caja-historial-page .stat-value {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
 body.caja-historial-page .stat-sub {
-  margin-top: 6px;
-  font-size: 0.9rem;
+  margin-top: 4px;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 
 /* Filtros: mismo patrón que clientes.css */
 body.caja-historial-page .filters {
-  margin-top: 18px;
+  margin-top: 14px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -93,7 +110,7 @@ body.caja-historial-page .filters {
 body.caja-historial-page .filters-left,
 body.caja-historial-page .filters-right {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -123,7 +140,7 @@ body.caja-historial-page .chk {
   display: inline-flex;
   gap: 8px;
   align-items: center;
-  padding: 6px 10px;
+  padding: 6px 9px;
   border-radius: 999px;
   border: 1px solid var(--panel-border);
   background: rgba(255, 255, 255, 0.04);
@@ -155,7 +172,14 @@ body.caja-historial-page .hist-summary {
 
 /* Tabla */
 body.caja-historial-page .hist-table {
-  min-width: 1420px;
+  min-width: 1040px;
+  table-layout: fixed;
+}
+
+body.caja-historial-page .hist-table th,
+body.caja-historial-page .hist-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
 }
 
 /* Sticky header opcional: útil en tablas largas */
@@ -166,7 +190,7 @@ body.caja-historial-page .hist-table thead th {
 }
 
 body.caja-historial-page .col-actions {
-  width: 200px;
+  width: 190px;
 }
 
 body.caja-historial-page .medio-col {
@@ -185,6 +209,46 @@ body.caja-historial-page .turno {
   gap: 4px;
 }
 
+body.caja-historial-page .turno--compact {
+  min-width: 190px;
+  gap: 3px;
+}
+
+body.caja-historial-page .turno--compact strong {
+  font-size: 0.94rem;
+}
+
+body.caja-historial-page .turno--compact span,
+body.caja-historial-page .turno-metrics .muted,
+body.caja-historial-page .cell-sub {
+  display: block;
+  font-size: 0.8rem;
+}
+
+body.caja-historial-page .turno-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+body.caja-historial-page .cell-sub {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+body.caja-historial-page .medios-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+body.caja-historial-page .medios-stack span {
+  white-space: nowrap;
+}
+
 /* Flags */
 body.caja-historial-page .flag {
   display: inline-flex;
@@ -196,8 +260,8 @@ body.caja-historial-page .flag {
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(148, 163, 184, 0.10);
   color: var(--muted);
-  margin-right: 6px;
-  margin-bottom: 4px;
+  margin-right: 4px;
+  margin-bottom: 3px;
 }
 
 body.caja-historial-page .flag-danger {
@@ -256,7 +320,7 @@ body.caja-historial-page .pill-neg {
 body.caja-historial-page .row-actions {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -432,6 +496,10 @@ body.caja-historial-page .pg-ellipsis {
     border-radius: 20px;
   }
 
+  body.caja-historial-page .stats-row--compact {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
   body.caja-historial-page .details-grid {
     grid-template-columns: 1fr;
   }
@@ -443,5 +511,11 @@ body.caja-historial-page .pg-ellipsis {
   }
   body.caja-historial-page .audit-wide {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  body.caja-historial-page .stats-row--compact {
+    grid-template-columns: 1fr;
   }
 }

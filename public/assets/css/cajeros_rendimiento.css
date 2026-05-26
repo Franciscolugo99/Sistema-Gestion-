@@ -1,0 +1,281 @@
+/* ==========================================================
+   RENDIMIENTO DE CAJEROS
+   Scoped to body.cajeros-rendimiento-page
+========================================================== */
+
+body.cajeros-rendimiento-page .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+body.cajeros-rendimiento-page .t-right { text-align: right; }
+body.cajeros-rendimiento-page .t-left { text-align: left; }
+
+body.cajeros-rendimiento-page .rend-page {
+  width: calc(100% - 32px);
+  max-width: 1460px;
+  margin: 18px auto 28px;
+}
+
+body.cajeros-rendimiento-page .rend-shell {
+  padding: 18px;
+  border-radius: 18px;
+}
+
+body.cajeros-rendimiento-page .rend-header {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+body.cajeros-rendimiento-page .rend-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(145px, 1fr));
+  gap: 10px;
+  margin: 16px 0 12px;
+}
+
+body.cajeros-rendimiento-page .rend-kpi {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel, #f8fafc) 86%, transparent);
+}
+
+body.cajeros-rendimiento-page .rend-kpi span,
+body.cajeros-rendimiento-page .rend-kpi small {
+  display: block;
+  color: var(--muted);
+}
+
+body.cajeros-rendimiento-page .rend-kpi span {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.cajeros-rendimiento-page .rend-kpi strong {
+  display: block;
+  margin: 4px 0 2px;
+  color: var(--text-main, #0f172a);
+  font-size: 1.28rem;
+  line-height: 1.15;
+}
+
+body.cajeros-rendimiento-page .rend-kpi small {
+  font-size: 0.82rem;
+}
+
+body.cajeros-rendimiento-page .rend-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0 10px;
+}
+
+body.cajeros-rendimiento-page .rend-filters select,
+body.cajeros-rendimiento-page .rend-filters input[type="date"] {
+  width: auto;
+  min-width: 150px;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.28));
+  background: var(--input-bg, rgba(248, 250, 252, 0.86));
+  color: var(--text-main, #0f172a);
+  outline: none;
+}
+
+body.cajeros-rendimiento-page .rend-filters select:focus,
+body.cajeros-rendimiento-page .rend-filters input[type="date"]:focus {
+  border-color: rgba(14, 165, 233, 0.78);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.14);
+}
+
+body.cajeros-rendimiento-page .rend-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+body.cajeros-rendimiento-page .rend-meta span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.11);
+}
+
+body.cajeros-rendimiento-page .rend-badge {
+  color: var(--text-main, #0f172a);
+  border: 1px solid rgba(14, 165, 233, 0.22);
+}
+
+body.cajeros-rendimiento-page .rend-alert,
+body.cajeros-rendimiento-page .rend-insight {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+body.cajeros-rendimiento-page .rend-insight {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border-color: rgba(20, 184, 166, 0.24);
+  background: rgba(20, 184, 166, 0.1);
+  color: var(--text-main, #0f172a);
+}
+
+body.cajeros-rendimiento-page .rend-table-wrap {
+  margin-top: 12px;
+  overflow: auto;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+  border-radius: 14px;
+}
+
+body.cajeros-rendimiento-page .rend-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+body.cajeros-rendimiento-page .rend-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 11px 12px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+body.cajeros-rendimiento-page .rend-table td {
+  padding: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  vertical-align: middle;
+}
+
+body.cajeros-rendimiento-page .rend-table tbody tr:hover {
+  background: rgba(14, 165, 233, 0.06);
+}
+
+body.cajeros-rendimiento-page .rend-person {
+  line-height: 1.35;
+}
+
+body.cajeros-rendimiento-page .rend-person strong,
+body.cajeros-rendimiento-page .rend-person span,
+body.cajeros-rendimiento-page .rend-table td:nth-child(2) .rend-shift,
+body.cajeros-rendimiento-page .rend-table td:nth-child(2) small {
+  display: block;
+}
+
+body.cajeros-rendimiento-page .rend-person strong,
+body.cajeros-rendimiento-page .rend-shift {
+  color: var(--text-main, #0f172a);
+  font-weight: 800;
+}
+
+body.cajeros-rendimiento-page .rend-person span,
+body.cajeros-rendimiento-page .rend-table small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+body.cajeros-rendimiento-page .rend-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+body.cajeros-rendimiento-page .rend-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-main, #0f172a);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+body.cajeros-rendimiento-page .rend-tag.is-ok {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+body.cajeros-rendimiento-page .rend-tag.is-warn,
+body.cajeros-rendimiento-page .is-warn {
+  color: #b45309;
+}
+
+body.cajeros-rendimiento-page .rend-tag.is-warn {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.13);
+}
+
+body.cajeros-rendimiento-page .rend-tag.is-open {
+  border-color: rgba(14, 165, 233, 0.28);
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
+
+body.cajeros-rendimiento-page .is-bad {
+  color: #dc2626;
+}
+
+body.cajeros-rendimiento-page .rend-empty {
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  body.cajeros-rendimiento-page .rend-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.cajeros-rendimiento-page .rend-header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  body.cajeros-rendimiento-page .rend-page {
+    width: calc(100% - 18px);
+    margin-top: 10px;
+  }
+
+  body.cajeros-rendimiento-page .rend-shell {
+    padding: 12px;
+  }
+
+  body.cajeros-rendimiento-page .rend-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  body.cajeros-rendimiento-page .rend-filters select,
+  body.cajeros-rendimiento-page .rend-filters input[type="date"],
+  body.cajeros-rendimiento-page .rend-filters .btn {
+    width: 100%;
+  }
+
+  body.cajeros-rendimiento-page .rend-insight {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

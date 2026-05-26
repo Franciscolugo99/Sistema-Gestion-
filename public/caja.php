@@ -338,7 +338,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
             <h1 class="caja-title caja-title--open" id="cajaOpenTitle">CAJA</h1>
             <p class="caja-open-lead">No hay ninguna caja abierta.</p>
             <p class="caja-open-sub">
-              Defini el saldo inicial para empezar a operar en esta terminal.
+              Defini el efectivo que recibe esta terminal antes de vender.
             </p>
           </div>
 
@@ -374,6 +374,10 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
               class="apertura-input"
               required
             >
+          </div>
+
+          <div class="alert alert-info apertura-fondo-info">
+            Carga el efectivo real que recibe este cajero. Si queda cambio del turno anterior, contalo y declaralo aca como saldo inicial.
           </div>
 
           <div id="aperturaAviso" class="alert alert-warn hidden"></div>

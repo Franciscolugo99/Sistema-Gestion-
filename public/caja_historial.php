@@ -682,7 +682,7 @@ if ($f_desde) $activeBadges[] = 'Desde';
 if ($f_hasta) $activeBadges[] = 'Hasta';
 if ($f_dif) $activeBadges[] = 'Solo diferencias';
 if ($f_medios) $activeBadges[] = 'Inconsistencia medios';
-if ($f_anom) $activeBadges[] = 'Solo anomalías';
+if ($f_anom) $activeBadges[] = 'Solo alertas';
 
 function pill_class_for_amount(float $v): string {
   if (abs($v) < 0.00001) return 'pill pill-zero';
@@ -707,8 +707,8 @@ function pill_class_for_amount(float $v): string {
           </span>
           <div class="module-header-copy">
             <span class="page-eyebrow module-eyebrow">Operacion de caja</span>
-            <h1 class="page-title">Control de Turnos</h1>
-        <p class="page-sub">Revisá turnos, diferencias, conciliación de efectivo y anomalías detectadas.</p>
+            <h1 class="page-title">Control de turnos</h1>
+            <p class="page-sub">Revisa cierres, diferencias y alertas operativas sin entrar turno por turno.</p>
           </div>
         </div>
       </div>
@@ -716,7 +716,7 @@ function pill_class_for_amount(float $v): string {
       <div class="page-actions module-header-actions">
         <?php if ($auditTableExistsRaw): ?>
           <?php if ($auditDisabled): ?>
-            <span class="tag tag-bajo" title="Desactivada por flag en storage/ (no se borraron datos)">Auditoría desactivada</span>
+            <span class="tag tag-bajo" title="Desactivada por flag en storage/ (no se borraron datos)">Auditoria desactivada</span>
             <?php if ($canAudit): ?>
               <form method="post" action="<?= h(url_with_query([])) ?>" class="inline">
                 <?= csrf_field() ?>
@@ -725,7 +725,7 @@ function pill_class_for_amount(float $v): string {
               </form>
             <?php endif; ?>
           <?php else: ?>
-            <span class="tag tag-ok">Auditoría activa</span>
+            <span class="tag tag-ok">Auditoria activa</span>
             <?php if ($canAudit): ?>
               <form method="post" action="<?= h(url_with_query([])) ?>" class="inline">
                 <?= csrf_field() ?>
@@ -739,7 +739,7 @@ function pill_class_for_amount(float $v): string {
           <form method="post" action="<?= h(url_with_query([])) ?>" class="inline">
             <?= csrf_field() ?>
             <input type="hidden" name="_action" value="audit_setup">
-            <button class="btn btn-primary" type="submit">Habilitar auditoría</button>
+            <button class="btn btn-primary" type="submit">Habilitar auditoria</button>
           </form>
         <?php else: ?>
           <span class="tag tag-inactivo" title="Requiere permiso ver_auditoria o administrar_config">Solo admins</span>
@@ -750,11 +750,11 @@ function pill_class_for_amount(float $v): string {
     </header>
 
     <?php if ($flashOk): ?>
-      <div class="alert alert-success">✅ <?= h($flashOk) ?></div>
+      <div class="alert alert-success"><?= h($flashOk) ?></div>
     <?php endif; ?>
 
     <?php if ($flashErr): ?>
-      <div class="alert alert-error">⚠️ <?= h($flashErr) ?></div>
+      <div class="alert alert-error"><?= h($flashErr) ?></div>
     <?php endif; ?>
 
     <?php if ($error_msg): ?>
@@ -762,36 +762,26 @@ function pill_class_for_amount(float $v): string {
     <?php endif; ?>
 
     <section class="caja-historial-shell">
-    <div class="stats-row">
+    <div class="stats-row stats-row--compact">
       <div class="stat-card">
-        <div class="stat-label">Sesiones</div>
+        <div class="stat-label">Turnos</div>
         <div class="stat-value"><?= number_format($total_sesiones, 0, ',', '.') ?></div>
-        <div class="stat-sub">En el filtro actual</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Abiertas</div>
-        <div class="stat-value"><?= number_format((int)$stats['abiertas'], 0, ',', '.') ?></div>
-        <div class="stat-sub">Turnos sin cierre</div>
+        <div class="stat-sub"><?= number_format((int)$stats['abiertas'], 0, ',', '.') ?> abiertos</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Ventas</div>
         <div class="stat-value"><?= money_ar($stats['ventas_sum']) ?></div>
-        <div class="stat-sub">Suma total ventas</div>
+        <div class="stat-sub">Total filtrado</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Diferencia</div>
         <div class="stat-value"><span class="<?= h(pill_class_for_amount((float)$stats['dif_sum'])) ?>"><?= money_ar((float)$stats['dif_sum']) ?></span></div>
-        <div class="stat-sub">Suma de diferencias</div>
+        <div class="stat-sub"><?= number_format((int)$stats['dif_count'], 0, ',', '.') ?> turnos con diferencia</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Anomalías</div>
+        <div class="stat-label">Alertas</div>
         <div class="stat-value"><?= number_format((int)$stats['anom_count'], 0, ',', '.') ?></div>
-        <div class="stat-sub">Dif / medios / turnos largos</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Medios</div>
-        <div class="stat-value"><?= number_format((int)$stats['medios_count'], 0, ',', '.') ?></div>
-        <div class="stat-sub">Total ≠ suma medios</div>
+        <div class="stat-sub"><?= number_format((int)$stats['medios_count'], 0, ',', '.') ?> por medios</div>
       </div>
     </div>
 
@@ -803,7 +793,7 @@ function pill_class_for_amount(float $v): string {
             $uid = (int)($u['id'] ?? 0);
             $label = (string)($u['username'] ?? ('#' . $uid));
             $label2 = trim((string)($u['nombre'] ?? ''));
-            if ($label2 !== '') $label .= ' — ' . $label2;
+            if ($label2 !== '') $label .= ' - ' . $label2;
           ?>
             <option value="<?= $uid ?>" <?= $uid === $f_usuario ? 'selected' : '' ?>><?= h($label) ?></option>
           <?php endforeach; ?>
@@ -832,7 +822,7 @@ function pill_class_for_amount(float $v): string {
 
         <select name="limit" aria-label="Filas">
           <?php foreach ([10,25,50,100] as $pp): ?>
-            <option value="<?= $pp ?>" <?= $pp === $per_page ? 'selected' : '' ?>><?= $pp ?>/pág</option>
+            <option value="<?= $pp ?>" <?= $pp === $per_page ? 'selected' : '' ?>><?= $pp ?>/pag</option>
           <?php endforeach; ?>
         </select>
 
@@ -848,7 +838,7 @@ function pill_class_for_amount(float $v): string {
 
         <label class="chk">
           <input type="checkbox" name="anom" value="1" <?= $f_anom ? 'checked' : '' ?>>
-          <span>Solo anomalías</span>
+          <span>Solo alertas</span>
         </label>
       </div>
 
@@ -875,18 +865,13 @@ function pill_class_for_amount(float $v): string {
           <tr>
             <th class="t-left">#</th>
             <th class="t-left">Terminal</th>
-            <th class="t-left">Cajero</th>
-            <th class="t-left">Turno</th>
-            <th class="t-center">Duración</th>
-            <th class="t-center">Tickets</th>
+            <th class="t-left">Cajero / turno</th>
+            <th class="t-center">Tiempo</th>
             <th class="t-right">Ventas</th>
-            <th class="t-right medio-col">Efectivo</th>
-            <th class="t-right medio-col">MP</th>
-            <th class="t-right medio-col">Debito</th>
-            <th class="t-right medio-col">Credito</th>
-            <th class="t-right medio-col">Transf.</th>
-            <th class="t-right">Dif.</th>
-            <th class="t-left">Flags</th>
+            <th class="t-right">Efectivo</th>
+            <th class="t-left">Otros medios</th>
+            <th class="t-right">Diferencia</th>
+            <th class="t-left">Estado</th>
             <th class="t-center col-actions">Acciones</th>
           </tr>
         </thead>
@@ -894,7 +879,7 @@ function pill_class_for_amount(float $v): string {
 
         <?php if (!$filas): ?>
           <tr>
-            <td colspan="15" class="empty-cell">No hay sesiones para los filtros seleccionados.</td>
+            <td colspan="10" class="empty-cell">No hay sesiones para los filtros seleccionados.</td>
           </tr>
         <?php else: ?>
 
@@ -906,7 +891,7 @@ function pill_class_for_amount(float $v): string {
             $u = (string)($r['username'] ?? '');
             $un = trim((string)($r['nombre'] ?? ''));
             $userLabel = $u !== '' ? $u : ('#' . (int)($r['user_id'] ?? 0));
-            if ($un !== '') $userLabel .= ' — ' . $un;
+            if ($un !== '') $userLabel .= ' - ' . $un;
 
             $ap = (string)($r['fecha_apertura'] ?? '');
             $ci = (string)($r['fecha_cierre'] ?? '');
@@ -955,23 +940,37 @@ function pill_class_for_amount(float $v): string {
           <tr id="caja-<?= $id ?>" class="<?= $isOpen ? 'row-open' : '' ?>">
             <td class="mono">#<?= $id ?></td>
             <td><?= h($tname) ?></td>
-            <td><?= h($userLabel) ?></td>
             <td>
-              <div class="turno">
-                <div><strong><?= h(format_datetime_ar($ap)) ?></strong></div>
-                <div class="muted">
-                  <?= $isOpen ? '<span class="pill pill-open">Sin cierre</span>' : h(format_datetime_ar($ci)) ?>
-                </div>
+              <div class="turno turno--compact">
+                <strong><?= h($userLabel) ?></strong>
+                <span><?= h(format_datetime_ar($ap)) ?></span>
+                <span class="muted"><?= $isOpen ? 'Sin cierre' : h(format_datetime_ar($ci)) ?></span>
               </div>
             </td>
-            <td class="t-center"><span class="mono"><?= h($durTxt) ?></span></td>
-            <td class="t-center"><span class="mono"><?= number_format($ventasCount, 0, ',', '.') ?></span></td>
-            <td class="t-right"><span class="mono"><?= money_ar($ventas) ?></span></td>
-            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioEfectivo) ?></span></td>
-            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioMp) ?></span></td>
-            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioDebito) ?></span></td>
-            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioCredito) ?></span></td>
-            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioTransferencia) ?></span></td>
+            <td class="t-center">
+              <div class="turno-metrics">
+                <span class="mono"><?= h($durTxt) ?></span>
+                <span class="muted"><?= number_format($ventasCount, 0, ',', '.') ?> tickets</span>
+              </div>
+            </td>
+            <td class="t-right">
+              <span class="mono"><?= money_ar($ventas) ?></span>
+              <?php if (abs($ventasCc) > 0.009): ?>
+                <span class="cell-sub">CC <?= money_ar($ventasCc) ?></span>
+              <?php endif; ?>
+            </td>
+            <td class="t-right"><span class="mono"><?= money_ar($medioEfectivo) ?></span></td>
+            <td>
+              <div class="medios-stack">
+                <?php if (abs($medioMp) > 0.009): ?><span>MP <?= money_ar($medioMp) ?></span><?php endif; ?>
+                <?php if (abs($medioDebito) > 0.009): ?><span>Deb <?= money_ar($medioDebito) ?></span><?php endif; ?>
+                <?php if (abs($medioCredito) > 0.009): ?><span>Cred <?= money_ar($medioCredito) ?></span><?php endif; ?>
+                <?php if (abs($medioTransferencia) > 0.009): ?><span>Transf <?= money_ar($medioTransferencia) ?></span><?php endif; ?>
+                <?php if (abs($medioMp) <= 0.009 && abs($medioDebito) <= 0.009 && abs($medioCredito) <= 0.009 && abs($medioTransferencia) <= 0.009): ?>
+                  <span class="muted">Sin otros medios</span>
+                <?php endif; ?>
+              </div>
+            </td>
             <td class="t-right"><span class="<?= h(pill_class_for_amount($dif)) ?>"><?= money_ar($dif) ?></span></td>
             <td>
               <?php if (!$flags): ?>
@@ -986,20 +985,20 @@ function pill_class_for_amount(float $v): string {
               <div class="row-actions">
                 <a class="btn-mini btn-mini-ghost" href="caja_sesion_detalle.php?id=<?= $id ?>">Detalle</a>
                 <a class="btn-mini btn-mini-ghost" href="caja_sesion_print.php?id=<?= $id ?>" target="_blank" rel="noopener">Imprimir</a>
-                <button class="btn-mini btn-mini-ghost js-toggle-details" type="button" data-id="<?= $id ?>" aria-expanded="false">Más ▾</button>
+                <button class="btn-mini btn-mini-ghost js-toggle-details" type="button" data-id="<?= $id ?>" aria-expanded="false">Mas</button>
               </div>
             </td>
           </tr>
 
           <tr class="row-details" data-details="<?= $id ?>" hidden>
-            <td colspan="15">
+            <td colspan="10">
               <div class="details-grid">
 
                 <div class="detail-block">
                   <div class="detail-title">Saldos</div>
                   <div class="detail-row"><span>Inicial</span><strong><?= money_ar($saldoInicial) ?></strong></div>
                   <div class="detail-row"><span>Sistema</span><strong><?= $saldoSistema !== null ? money_ar((float)$saldoSistema) : '<span class="muted">(no guardado)</span>' ?></strong></div>
-                  <div class="detail-row"><span>Declarado</span><strong><?= $saldoDeclarado !== null ? money_ar((float)$saldoDeclarado) : '<span class="muted">—</span>' ?></strong></div>
+                  <div class="detail-row"><span>Declarado</span><strong><?= $saldoDeclarado !== null ? money_ar((float)$saldoDeclarado) : '<span class="muted">-</span>' ?></strong></div>
                   <div class="detail-row"><span>Diferencia</span><strong><?= money_ar($dif) ?></strong></div>
                 </div>
 
@@ -1007,8 +1006,8 @@ function pill_class_for_amount(float $v): string {
                   <div class="detail-title">Medios de pago</div>
                   <div class="detail-row"><span>Efectivo</span><strong><?= money_ar((float)($r['total_efectivo'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>MercadoPago</span><strong><?= money_ar((float)($r['total_mp'] ?? 0)) ?></strong></div>
-                  <div class="detail-row"><span>Débito</span><strong><?= money_ar((float)($r['total_debito'] ?? 0)) ?></strong></div>
-                  <div class="detail-row"><span>Crédito</span><strong><?= money_ar((float)($r['total_credito'] ?? 0)) ?></strong></div>
+                  <div class="detail-row"><span>Debito</span><strong><?= money_ar((float)($r['total_debito'] ?? 0)) ?></strong></div>
+                  <div class="detail-row"><span>Credito</span><strong><?= money_ar((float)($r['total_credito'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Transferencia</span><strong><?= money_ar((float)($r['total_transferencia'] ?? 0)) ?></strong></div>
                   <div class="detail-row"><span>Suma medios</span><strong><?= money_ar($mediosSum) ?></strong></div>
                   <div class="detail-row"><span>Total ventas</span><strong><?= money_ar($ventas) ?></strong></div>
@@ -1035,16 +1034,16 @@ function pill_class_for_amount(float $v): string {
                   <div class="detail-row"><span>Tickets</span><strong><?= number_format($ventasCount, 0, ',', '.') ?></strong></div>
                   <div class="detail-row"><span>Productos</span><strong><?= (int)($r['total_productos'] ?? 0) ?></strong></div>
                   <div class="detail-row"><span>Anulaciones</span><strong><?= (int)($r['total_anulaciones'] ?? 0) ?></strong></div>
-                  <div class="detail-row"><span>Duración</span><strong><?= h($durTxt) ?></strong></div>
-                  <div class="detail-row"><span>Notas</span><strong><?= ($r['notas'] ?? '') !== '' ? h((string)$r['notas']) : '<span class="muted">—</span>' ?></strong></div>
+                  <div class="detail-row"><span>Duracion</span><strong><?= h($durTxt) ?></strong></div>
+                  <div class="detail-row"><span>Notas</span><strong><?= ($r['notas'] ?? '') !== '' ? h((string)$r['notas']) : '<span class="muted">-</span>' ?></strong></div>
                 </div>
 
                 <div class="detail-block">
-                  <div class="detail-title">Auditoría</div>
+                  <div class="detail-title">Auditoria</div>
 
                   <?php if (!$auditTableExists): ?>
                     <div class="muted">
-                      Auditoría deshabilitada. <?php if ($canAudit): ?>Usá “Habilitar auditoría” arriba.<?php endif; ?>
+                      Auditoria deshabilitada. <?php if ($canAudit): ?>Usa "Habilitar auditoria" arriba.<?php endif; ?>
                     </div>
                   <?php else: ?>
                     <?php
@@ -1054,9 +1053,9 @@ function pill_class_for_amount(float $v): string {
                     ?>
 
                     <div class="detail-row"><span>Estado</span><strong><?= h($auditStatus) ?></strong></div>
-                    <div class="detail-row"><span>Por</span><strong><?= $auditBy !== '' ? h($auditBy) : '<span class="muted">—</span>' ?></strong></div>
-                    <div class="detail-row"><span>Fecha</span><strong><?= $auditAt !== '' ? h(format_datetime_ar($auditAt)) : '<span class="muted">—</span>' ?></strong></div>
-                    <div class="detail-row"><span>Nota</span><strong><?= $auditNota !== '' ? h($auditNota) : '<span class="muted">—</span>' ?></strong></div>
+                    <div class="detail-row"><span>Por</span><strong><?= $auditBy !== '' ? h($auditBy) : '<span class="muted">-</span>' ?></strong></div>
+                    <div class="detail-row"><span>Fecha</span><strong><?= $auditAt !== '' ? h(format_datetime_ar($auditAt)) : '<span class="muted">-</span>' ?></strong></div>
+                    <div class="detail-row"><span>Nota</span><strong><?= $auditNota !== '' ? h($auditNota) : '<span class="muted">-</span>' ?></strong></div>
 
                     <?php if ($canAudit): ?>
                       <form method="post" action="<?= h(url_with_query([])) ?>" class="audit-form">

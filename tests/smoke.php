@@ -3211,7 +3211,7 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectActionPhp);
     flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectActionPhp);
     flus_assert_contains("!empty(\$open['id']) && caja_user_can_operar_turno(\$open, \$uid)", $terminalSelectActionPhp);
-    flus_assert_contains('$canHistCaja;', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
+    flus_assert_contains('$canHistCaja               || $canRendCajeros;', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
     flus_assert_contains("'label' => 'Control de turnos'", (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
     flus_assert_contains("setMsg(\"Elegí una terminal para seleccionarla y continuar.\");", $terminalSelectJs);
     flus_assert_contains('const isLocked = Boolean(t.locked) || String(t.status || "") === "locked";', $terminalSelectJs);
@@ -3250,9 +3250,16 @@ $results[] = flus_run_test('caja turno belongs to the opening cashier', function
     flus_assert_contains('function caja_user_can_operar_turno(?array $caja, int $userId): bool', $cajaLib);
     flus_assert_contains('function caja_user_can_cerrar_turno(?array $caja, int $userId): bool', $cajaLib);
     flus_assert_contains('$cajaSesionBloqueada = $cajaSesion !== null && !caja_user_can_operar_turno($cajaSesion, $currentUserId);', $cajaPhp);
+    flus_assert_contains('Carga el efectivo real que recibe este cajero.', $cajaPhp);
     flus_assert_contains("'CAJA_TURNO_AJENO'", $registrarVentaPhp);
     flus_assert_contains('!caja_user_can_operar_turno($caja, $userId)', $cajaMovimientosPhp);
     flus_assert_contains('!caja_user_can_cerrar_turno($caja, $currentUserId)', $cajaCerrarPhp);
+    flus_assert_contains('Cierre simple: conta el efectivo real.', $cajaCerrarPhp);
+    flus_assert_not_contains('El efectivo contado debe coincidir con fondo proximo turno + retiro de efectivo.', $cajaCerrarPhp);
+    flus_assert_contains('$requiereNotaControl = abs($diferencia) > 0.009 || $cierrePorSupervisor || $motivoCierre === \'CIERRE_FORZADO\';', $cajaCerrarPhp);
+    flus_assert_contains('id="cierreDiffPreview"', $cajaCerrarPhp);
+    flus_assert_contains('Faltan \' + money.format(Math.abs(diff)) + \'. Podes cerrar igual', $cajaCerrarPhp);
+    flus_assert_contains('Hay una diferencia: \' . $sentidoDiferencia', $cajaCerrarPhp);
     flus_assert_contains("'CAJA_TURNO_AJENO'", $ccApiPhp);
     flus_assert_contains("'CAJA_TURNO_AJENO'", $facturaCobranzaPhp);
     flus_assert_contains('cierre_motivo', $migration);
@@ -3727,15 +3734,37 @@ $results[] = flus_run_test('historial de caja contempla transferencias en medios
     flus_assert_contains("'ventas_cc','cobros_cc','medios_base','medios_diff'", $cajaHistorialPhp);
     flus_assert_contains('<span>Cobros CC</span>', $cajaHistorialPhp);
     flus_assert_contains('<span>Transferencia</span>', $cajaHistorialPhp);
-    flus_assert_contains('<th class="t-right medio-col">Efectivo</th>', $cajaHistorialPhp);
-    flus_assert_contains('<th class="t-right medio-col">MP</th>', $cajaHistorialPhp);
-    flus_assert_contains('<td class="t-right medio-col"><span class="mono"><?= money_ar($medioTransferencia) ?></span></td>', $cajaHistorialPhp);
-    flus_assert_contains('min-width: 1420px;', $cajaHistorialCss);
+    flus_assert_contains('<th class="t-left">Otros medios</th>', $cajaHistorialPhp);
+    flus_assert_contains('MP <?= money_ar($medioMp) ?>', $cajaHistorialPhp);
+    flus_assert_contains('Transf <?= money_ar($medioTransferencia) ?>', $cajaHistorialPhp);
+    flus_assert_contains('min-width: 1040px;', $cajaHistorialCss);
+    flus_assert_contains('.stats-row--compact', $cajaHistorialCss);
     flus_assert_contains('Efectivo sistema', $cajaDetallePhp);
     flus_assert_contains('Efectivo declarado', $cajaDetallePhp);
     flus_assert_contains('Efectivo sistema', $cajaPrintPhp);
     flus_assert_contains("['Efectivo declarado',", $cajaExportPhp);
     flus_assert_contains('.caja-panel > .alert-success', $cajaBaseCss);
+});
+
+$results[] = flus_run_test('rendimiento de cajeros queda protegido para administradores', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $rendimientoPhp = file_get_contents($repoRoot . '/public/cajeros_rendimiento.php') ?: '';
+    $rendimientoCss = file_get_contents($repoRoot . '/public/assets/css/cajeros_rendimiento.css') ?: '';
+    $navPhp = file_get_contents($repoRoot . '/public/partials/nav.php') ?: '';
+
+    flus_assert_contains("require_any_permission(['administrar_usuarios', 'administrar_config'])", $rendimientoPhp);
+    flus_assert_contains('Rendimiento de cajeros', $rendimientoPhp);
+    flus_assert_contains('Analisis administrativo', $rendimientoPhp);
+    flus_assert_contains('ventas_hora_calc', $rendimientoPhp);
+    flus_assert_contains('cajeros_shift_label', $rendimientoPhp);
+    flus_assert_contains("Ma\\u{00F1}ana", $rendimientoPhp);
+    flus_assert_contains('Exportar CSV', $rendimientoPhp);
+    flus_assert_contains('body.cajeros-rendimiento-page', $rendimientoCss);
+    flus_assert_contains('min-width: 1120px;', $rendimientoCss);
+    flus_assert_contains('$canRendCajeros      = $can(\'administrar_usuarios\') || $can(\'administrar_config\');', $navPhp);
+    flus_assert_contains("'cajeros_rendimiento.php'      => 'cajeros_rendimiento'", $navPhp);
+    flus_assert_contains("if (\$canRendCajeros)              \$adminLinks[] = ['href' => 'cajeros_rendimiento.php','label' => 'Rendimiento cajeros'];", $navPhp);
+    flus_assert_not_contains("['href' => 'cajeros_rendimiento.php', 'section' => 'cajeros_rendimiento', 'label' => 'Rendimiento'", $navPhp);
 });
 
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {

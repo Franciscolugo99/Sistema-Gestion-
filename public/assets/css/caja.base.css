@@ -41,6 +41,12 @@
   color: var(--danger);
 }
 
+.caja-panel .alert-info {
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: rgba(59, 130, 246, 0.10);
+  color: var(--text);
+}
+
 /* =====================
    FILA SCAN / CANT / BOTON
 ===================== */
@@ -731,8 +737,17 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 
 .caja-panel .form-apertura #aperturaAviso,
 .caja-panel .form-apertura .alert-error,
+.caja-panel .form-apertura .apertura-fondo-info,
 .caja-panel .form-apertura .apertura-help {
   grid-column: 1 / -1;
+}
+
+.caja-panel .form-apertura .apertura-fondo-info {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .caja-panel .apertura-help {
