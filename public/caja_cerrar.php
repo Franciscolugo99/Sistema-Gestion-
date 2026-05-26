@@ -81,6 +81,13 @@ if (!$caja) {
   exit;
 }
 
+$currentUserId = (int)($user['id'] ?? 0);
+if (!caja_user_can_cerrar_turno($caja, $currentUserId)) {
+  http_response_code(403);
+  echo 'No podes cerrar un turno abierto por ' . h(caja_turno_owner_label($caja)) . '.';
+  exit;
+}
+
 $abierta       = caja_is_open($caja['fecha_cierre'] ?? null);
 $saldoInicial  = (float)($caja['saldo_inicial'] ?? 0);
 $usernameCaja  = (string)($caja['username'] ?? '—');
@@ -101,6 +108,10 @@ $totDebito       = (float)($caja['total_debito'] ?? 0);
 $totCredito      = (float)($caja['total_credito'] ?? 0);
 $hasTransferCol  = col_exists($pdo, 'caja_sesiones', 'total_transferencia');
 $totTransferencia = $hasTransferCol ? (float)($caja['total_transferencia'] ?? 0) : 0;
+$hasCierreMotivoCol = col_exists($pdo, 'caja_sesiones', 'cierre_motivo');
+$hasCerradoPorCol = col_exists($pdo, 'caja_sesiones', 'cerrado_por_user_id');
+$hasFondoSiguienteCol = col_exists($pdo, 'caja_sesiones', 'cierre_fondo_siguiente');
+$hasRetiroEfectivoCol = col_exists($pdo, 'caja_sesiones', 'cierre_retiro_efectivo');
 $anulacionesJoinVentas = flus_venta_anulaciones_totales_join_sql($pdo, 'v', 'vaa');
 $montoAnuladoVentasExpr = $anulacionesJoinVentas !== '' ? 'COALESCE(vaa.monto_anulado_total, 0)' : '0';
 $importeVigenteExpr = flus_venta_importe_vigente_expr_sql('v.total', $montoAnuladoVentasExpr);
@@ -250,11 +261,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $rawSaldo = (string)($_POST['saldo_declarado'] ?? '');
       $saldoDeclarado = parse_money_ar($rawSaldo);
       $notas = trim((string)($_POST['notas'] ?? ''));
+      $motivoCierre = strtoupper(trim((string)($_POST['cierre_motivo'] ?? 'CAMBIO_TURNO')));
+      $motivosValidos = ['CAMBIO_TURNO', 'FIN_DIA', 'CORTE_PARCIAL', 'CIERRE_FORZADO'];
+      if (!in_array($motivoCierre, $motivosValidos, true)) {
+        $motivoCierre = 'CAMBIO_TURNO';
+      }
+      $fondoSiguiente = parse_money_ar($_POST['cierre_fondo_siguiente'] ?? '0');
+      $retiroEfectivo = parse_money_ar($_POST['cierre_retiro_efectivo'] ?? '0');
 
       if (trim($rawSaldo) === '') {
         $errores[] = 'Ingresá el saldo contado por el cajero.';
       } elseif ($saldoDeclarado < 0) {
         $errores[] = 'El saldo declarado no puede ser negativo.';
+      } elseif ($fondoSiguiente < 0 || $retiroEfectivo < 0) {
+        $errores[] = 'El fondo siguiente y el retiro no pueden ser negativos.';
       } else {
 
         $diferencia = $saldoDeclarado - $saldoSistema;
@@ -281,31 +301,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // diferencia, notas, total_ventas, total_productos, total_anulaciones.
             // ═══════════════════════════════════════════════════════════════
             
+            $sets = [
+              'fecha_cierre      = NOW()',
+              'saldo_sistema     = :saldo_sistema',
+              'saldo_declarado   = :saldo_declarado',
+              'diferencia        = :diferencia',
+              'notas             = :notas',
+              'total_ventas      = :total_ventas',
+              'total_productos   = :total_productos',
+              'total_anulaciones = :total_anulaciones',
+            ];
+            $paramsUpdate = [
+              ':saldo_sistema' => $saldoSistema,
+              ':saldo_declarado' => $saldoDeclarado,
+              ':diferencia' => $diferencia,
+              ':notas' => $notas,
+              ':total_ventas' => $totalVentas,
+              ':total_productos' => $itemsVendidos,
+              ':total_anulaciones' => $totalAnulaciones,
+              ':id' => $cajaId,
+            ];
+            if ($hasCierreMotivoCol) {
+              $sets[] = 'cierre_motivo = :cierre_motivo';
+              $paramsUpdate[':cierre_motivo'] = $motivoCierre;
+            }
+            if ($hasCerradoPorCol) {
+              $sets[] = 'cerrado_por_user_id = :cerrado_por_user_id';
+              $paramsUpdate[':cerrado_por_user_id'] = $currentUserId > 0 ? $currentUserId : null;
+            }
+            if ($hasFondoSiguienteCol) {
+              $sets[] = 'cierre_fondo_siguiente = :cierre_fondo_siguiente';
+              $paramsUpdate[':cierre_fondo_siguiente'] = $fondoSiguiente;
+            }
+            if ($hasRetiroEfectivoCol) {
+              $sets[] = 'cierre_retiro_efectivo = :cierre_retiro_efectivo';
+              $paramsUpdate[':cierre_retiro_efectivo'] = $retiroEfectivo;
+            }
+
             $stUpd = $pdo->prepare("
               UPDATE caja_sesiones
-              SET
-                fecha_cierre      = NOW(),
-                saldo_sistema     = ?,
-                saldo_declarado   = ?,
-                diferencia        = ?,
-                notas             = ?,
-                total_ventas      = ?,
-                total_productos   = ?,
-                total_anulaciones = ?
-              WHERE id = ?
+              SET " . implode(",\n                  ", $sets) . "
+              WHERE id = :id
                 AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
             ");
 
-            $stUpd->execute([
-              $saldoSistema,
-              $saldoDeclarado,
-              $diferencia,
-              $notas,
-              $totalVentas,
-              $itemsVendidos,
-              $totalAnulaciones,
-              $cajaId,
-            ]);
+            $stUpd->execute($paramsUpdate);
 
             if ($stUpd->rowCount() === 0) {
               $pdo->rollBack();
@@ -491,6 +531,49 @@ require __DIR__ . '/partials/header.php';
           </button>
         </div>
 
+        <?php if ($hasCierreMotivoCol || $hasFondoSiguienteCol || $hasRetiroEfectivoCol): ?>
+          <div class="cierre-input-row">
+            <?php if ($hasCierreMotivoCol): ?>
+              <select name="cierre_motivo" class="cierre-input" aria-label="Motivo de cierre">
+                <?php
+                  $motivoPost = strtoupper(trim((string)($_POST['cierre_motivo'] ?? 'CAMBIO_TURNO')));
+                  $motivosUi = [
+                    'CAMBIO_TURNO' => 'Cambio de turno',
+                    'FIN_DIA' => 'Fin del dÃ­a',
+                    'CORTE_PARCIAL' => 'Corte parcial',
+                    'CIERRE_FORZADO' => 'Cierre forzado',
+                  ];
+                ?>
+                <?php foreach ($motivosUi as $value => $label): ?>
+                  <option value="<?= h($value) ?>" <?= $motivoPost === $value ? 'selected' : '' ?>><?= h($label) ?></option>
+                <?php endforeach; ?>
+              </select>
+            <?php endif; ?>
+
+            <?php if ($hasFondoSiguienteCol): ?>
+              <input
+                type="text"
+                name="cierre_fondo_siguiente"
+                class="cierre-input"
+                placeholder="Fondo prox. turno"
+                autocomplete="off"
+                value="<?= h((string)($_POST['cierre_fondo_siguiente'] ?? '')) ?>"
+              >
+            <?php endif; ?>
+
+            <?php if ($hasRetiroEfectivoCol): ?>
+              <input
+                type="text"
+                name="cierre_retiro_efectivo"
+                class="cierre-input"
+                placeholder="Retiro efectivo"
+                autocomplete="off"
+                value="<?= h((string)($_POST['cierre_retiro_efectivo'] ?? '')) ?>"
+              >
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
+
         <label for="notas" class="cierre-label cierre-label-notas">
           Notas (opcional)
         </label>
@@ -519,6 +602,27 @@ require __DIR__ . '/partials/header.php';
           ?>
           <span class="mono <?= $classDif ?>"><?= money_ar($diferencia) ?></span>
         </div>
+
+        <?php if ($hasCierreMotivoCol && !empty($caja['cierre_motivo'])): ?>
+          <div class="cierre-total-line">
+            <span>Motivo</span>
+            <span class="mono"><?= h((string)$caja['cierre_motivo']) ?></span>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($hasFondoSiguienteCol && (float)($caja['cierre_fondo_siguiente'] ?? 0) > 0): ?>
+          <div class="cierre-total-line">
+            <span>Fondo prÃ³ximo turno</span>
+            <span class="mono"><?= money_ar((float)$caja['cierre_fondo_siguiente']) ?></span>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($hasRetiroEfectivoCol && (float)($caja['cierre_retiro_efectivo'] ?? 0) > 0): ?>
+          <div class="cierre-total-line">
+            <span>Retiro efectivo</span>
+            <span class="mono"><?= money_ar((float)$caja['cierre_retiro_efectivo']) ?></span>
+          </div>
+        <?php endif; ?>
 
         <?php if (!empty($caja['notas'])): ?>
           <div class="cierre-notas">

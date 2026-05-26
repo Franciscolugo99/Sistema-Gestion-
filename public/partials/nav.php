@@ -268,7 +268,8 @@ $canFacturacion = ($can('ver_facturacion') || $can('emitir_factura') || $can('ad
 $showAdminMenu =
     $can('administrar_config') || $can('administrar_usuarios') ||
     $can('ver_auditoria')      || $can('gestionar_backups')    ||
-    $canDiagnostico            || $canTecnico;
+    $canDiagnostico            || $canTecnico                  ||
+    $canHistCaja;
 
 /* ═══════════════════════════════════════════
    GRUPOS DE NAVEGACIÓN
@@ -332,7 +333,7 @@ if ($canFacturacion) {
 $adminLinks = [];
 if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'usuarios.php',     'label' => 'Usuarios'];
 if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php',        'label' => 'Roles y permisos'];
-if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Historial caja'];
+if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Control de turnos'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'configuracion.php','label' => "Configuraci\u{00F3}n"];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'licencia.php',     'label' => 'Licencia'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'terminales.php',   'label' => 'Terminales'];
@@ -690,7 +691,7 @@ $sectionBreadcrumbLabels = [
     'backups'             => 'Backups',
     'diagnostico'         => "Diagn\u{00F3}stico",
     'tecnico'             => "T\u{00E9}cnico",
-    'caja_historial'      => 'Historial caja',
+    'caja_historial'      => 'Control de turnos',
 ];
 
 $promoIsEditing = (int)($_GET['id'] ?? $_POST['id'] ?? 0) > 0;

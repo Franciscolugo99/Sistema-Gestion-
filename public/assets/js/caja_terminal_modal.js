@@ -1,6 +1,6 @@
 // public/assets/js/caja_terminal_modal.js
 document.addEventListener("DOMContentLoaded", () => {
-  const btnOpen = document.getElementById("btnCambiarTerminal");
+  const btnOpenList = document.querySelectorAll("[data-terminal-modal-open], #btnCambiarTerminal");
   const modal = document.getElementById("terminalModal");
   if (!modal) return;
 
@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function api(body) {
     const csrf = getCsrf();
     if (!csrf) {
-      // Esto evita requests inútiles que van a devolver 403
+      // Esto evita requests inutiles que van a devolver 403
       return { r: { ok: false, status: 403 }, j: { ok: false, error: "CSRF_MISSING" } };
     }
 
@@ -94,12 +94,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="terminal-name">${escapeHtml(t.nombre || "Caja #" + t.id)}</div>
           ${
             t.codigo
-              ? `<div class="terminal-code">Código: ${escapeHtml(t.codigo)}</div>`
+              ? `<div class="terminal-code">Codigo: ${escapeHtml(t.codigo)}</div>`
               : ""
           }
         </div>
         <div class="terminal-pill ${isLocked ? "is-locked" : "is-free"}">
-          ${isLocked ? `Ocupada · ${escapeHtml(t.lockedBy || "Otro")}` : "Libre"}
+          ${isLocked ? `Ocupada - ${escapeHtml(t.lockedBy || "Otro")}` : "Libre"}
         </div>
       `;
 
@@ -113,9 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const { r, j } = await api({}); // lista
     if (!r.ok || !j || !j.ok) {
       if (j?.error === "CSRF_MISSING") {
-        showError("Falta CSRF token en la página (meta csrf-token).");
+        showError("Falta CSRF token en la pagina (meta csrf-token).");
       } else {
-        showError("No se pudo cargar la lista de terminales. Reintentá.");
+        showError("No se pudo cargar la lista de terminales. Reintenta.");
       }
       return;
     }
@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // abrir/cerrar
-  if (btnOpen) btnOpen.addEventListener("click", openModal);
+  btnOpenList.forEach((btnOpen) => btnOpen.addEventListener("click", openModal));
   closeEls.forEach((el) => el.addEventListener("click", closeModal));
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
@@ -142,28 +142,28 @@ document.addEventListener("DOMContentLoaded", () => {
       const fd = new FormData(form);
       const tid = Number(fd.get("terminal_id") || 0);
       if (!tid) {
-        showError("Elegí una terminal.");
+        showError("Elegi una terminal.");
         return;
       }
 
       const { r, j } = await api({ terminal_id: tid });
 
       if (r.status === 409 && j && j.error === "CAJA_ABIERTA") {
-        showError("Cerrá la caja actual antes de cambiar de terminal.");
+        showError("Cerra la caja actual antes de cambiar de terminal.");
         return;
       }
 
       if (!r.ok || !j || !j.ok) {
         if (j && (j.error === "LOCKED" || j.error === "LOCK_LOST")) {
-          showError("Esa terminal está ocupada.");
+          showError("Esa terminal esta ocupada.");
           await loadList();
           return;
         }
         if (j?.error === "CSRF_MISSING") {
-          showError("Falta CSRF token en la página (meta csrf-token).");
+          showError("Falta CSRF token en la pagina (meta csrf-token).");
           return;
         }
-        showError("No se pudo cambiar la terminal. Reintentá.");
+        showError("No se pudo cambiar la terminal. Reintenta.");
         return;
       }
 

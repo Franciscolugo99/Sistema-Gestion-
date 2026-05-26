@@ -33,6 +33,9 @@ $cajaId = (int)($caja['id'] ?? 0);
 if ($cajaId <= 0) {
   json_fail('No hay caja abierta', 409);
 }
+if (!caja_user_can_operar_turno($caja, $userId)) {
+  json_fail('Esta caja fue abierta por ' . caja_turno_owner_label($caja) . '. Cerrá ese turno o cambiá de terminal para vender.', 409, ['error_code' => 'CAJA_TURNO_AJENO']);
+}
 
 try {
   $pdo->beginTransaction();

@@ -470,6 +470,12 @@ try {
       cs.diferencia,
 
       cs.total_ventas,
+      (
+        SELECT COUNT(*)
+        FROM ventas vcnt
+        WHERE vcnt.caja_id = cs.id
+          AND (vcnt.estado IS NULL OR UPPER(vcnt.estado) NOT LIKE '%ANUL%')
+      ) AS ventas_count,
       cs.total_efectivo,
       cs.total_mp,
       cs.total_debito,
@@ -655,7 +661,7 @@ unset($_SESSION['flash_ok'], $_SESSION['flash_error']);
 /* --------------------------------------------------------
    Render
 -------------------------------------------------------- */
-$pageTitle = 'Historial de Caja';
+$pageTitle = 'Control de Turnos';
 $currentSection = 'caja_historial';
 $extraCss = ['assets/css/caja_historial.css'];
 $extraJs  = ['assets/js/caja_historial.js'];
@@ -701,7 +707,7 @@ function pill_class_for_amount(float $v): string {
           </span>
           <div class="module-header-copy">
             <span class="page-eyebrow module-eyebrow">Operacion de caja</span>
-            <h1 class="page-title">Historial de Caja</h1>
+            <h1 class="page-title">Control de Turnos</h1>
         <p class="page-sub">Revisá turnos, diferencias, conciliación de efectivo y anomalías detectadas.</p>
           </div>
         </div>
@@ -869,10 +875,16 @@ function pill_class_for_amount(float $v): string {
           <tr>
             <th class="t-left">#</th>
             <th class="t-left">Terminal</th>
-            <th class="t-left">Usuario</th>
+            <th class="t-left">Cajero</th>
             <th class="t-left">Turno</th>
             <th class="t-center">Duración</th>
+            <th class="t-center">Tickets</th>
             <th class="t-right">Ventas</th>
+            <th class="t-right medio-col">Efectivo</th>
+            <th class="t-right medio-col">MP</th>
+            <th class="t-right medio-col">Debito</th>
+            <th class="t-right medio-col">Credito</th>
+            <th class="t-right medio-col">Transf.</th>
             <th class="t-right">Dif.</th>
             <th class="t-left">Flags</th>
             <th class="t-center col-actions">Acciones</th>
@@ -882,7 +894,7 @@ function pill_class_for_amount(float $v): string {
 
         <?php if (!$filas): ?>
           <tr>
-            <td colspan="9" class="empty-cell">No hay sesiones para los filtros seleccionados.</td>
+            <td colspan="15" class="empty-cell">No hay sesiones para los filtros seleccionados.</td>
           </tr>
         <?php else: ?>
 
@@ -904,7 +916,13 @@ function pill_class_for_amount(float $v): string {
             $durTxt = dur_label($durMin);
 
             $ventas = (float)($r['total_ventas'] ?? 0);
+            $ventasCount = (int)($r['ventas_count'] ?? 0);
             $dif = (float)($r['diferencia'] ?? 0);
+            $medioEfectivo = (float)($r['total_efectivo'] ?? 0);
+            $medioMp = (float)($r['total_mp'] ?? 0);
+            $medioDebito = (float)($r['total_debito'] ?? 0);
+            $medioCredito = (float)($r['total_credito'] ?? 0);
+            $medioTransferencia = (float)($r['total_transferencia'] ?? 0);
 
             $ventasCc    = (float)($r['ventas_cc'] ?? 0);
             $cobrosCc    = (float)($r['cobros_cc'] ?? 0);
@@ -917,7 +935,7 @@ function pill_class_for_amount(float $v): string {
             $movNet = $movIng - $movEgr;
 
             $saldoInicial  = (float)($r['saldo_inicial'] ?? 0);
-            $efectivoTotal = (float)($r['total_efectivo'] ?? 0);
+            $efectivoTotal = $medioEfectivo;
             $efectivoEsperadoCalc = $saldoInicial + $efectivoTotal + $movIng - $movEgr;
 
             $saldoSistema = $r['saldo_sistema'];
@@ -947,7 +965,13 @@ function pill_class_for_amount(float $v): string {
               </div>
             </td>
             <td class="t-center"><span class="mono"><?= h($durTxt) ?></span></td>
+            <td class="t-center"><span class="mono"><?= number_format($ventasCount, 0, ',', '.') ?></span></td>
             <td class="t-right"><span class="mono"><?= money_ar($ventas) ?></span></td>
+            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioEfectivo) ?></span></td>
+            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioMp) ?></span></td>
+            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioDebito) ?></span></td>
+            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioCredito) ?></span></td>
+            <td class="t-right medio-col"><span class="mono"><?= money_ar($medioTransferencia) ?></span></td>
             <td class="t-right"><span class="<?= h(pill_class_for_amount($dif)) ?>"><?= money_ar($dif) ?></span></td>
             <td>
               <?php if (!$flags): ?>
@@ -968,7 +992,7 @@ function pill_class_for_amount(float $v): string {
           </tr>
 
           <tr class="row-details" data-details="<?= $id ?>" hidden>
-            <td colspan="9">
+            <td colspan="15">
               <div class="details-grid">
 
                 <div class="detail-block">
@@ -1008,6 +1032,7 @@ function pill_class_for_amount(float $v): string {
 
                 <div class="detail-block">
                   <div class="detail-title">Resumen del turno</div>
+                  <div class="detail-row"><span>Tickets</span><strong><?= number_format($ventasCount, 0, ',', '.') ?></strong></div>
                   <div class="detail-row"><span>Productos</span><strong><?= (int)($r['total_productos'] ?? 0) ?></strong></div>
                   <div class="detail-row"><span>Anulaciones</span><strong><?= (int)($r['total_anulaciones'] ?? 0) ?></strong></div>
                   <div class="detail-row"><span>Duración</span><strong><?= h($durTxt) ?></strong></div>

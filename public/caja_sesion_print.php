@@ -200,12 +200,12 @@ $difClass = $dif > 0.00001 ? 'positivo' : ($dif < -0.00001 ? 'negativo' : 'neutr
     </div>
 
     <div class="resumen-item">
-      <span class="resumen-label">Total Sistema</span>
+      <span class="resumen-label">Efectivo sistema</span>
       <span class="resumen-value"><?= money_ar($sesion['saldo_sistema'] ?? 0) ?></span>
     </div>
 
     <div class="resumen-item">
-      <span class="resumen-label">Total Declarado</span>
+      <span class="resumen-label">Efectivo declarado</span>
       <span class="resumen-value"><?= money_ar($sesion['saldo_declarado'] ?? 0) ?></span>
     </div>
   </div>

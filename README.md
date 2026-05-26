@@ -298,7 +298,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `030_tesoreria_obligaciones_compras.sql`.
+- Verificar que corran las migraciones pendientes hasta `034_caja_turno_control.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

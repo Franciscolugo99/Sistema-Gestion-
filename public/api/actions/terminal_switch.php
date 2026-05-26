@@ -24,7 +24,7 @@ if (!$terminal || (int)($terminal['activo'] ?? 0) !== 1) {
 
 if ($oldTid > 0 && $oldTid !== $newTid) {
   $open = caja_get_abierta($pdo, $oldTid);
-  if (is_array($open) && !empty($open['id'])) {
+  if (is_array($open) && !empty($open['id']) && caja_user_can_operar_turno($open, $uid)) {
     json_fail('CAJA_ABIERTA', 409, ['error_code' => 'CAJA_ABIERTA']);
   }
 }

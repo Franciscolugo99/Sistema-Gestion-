@@ -288,8 +288,8 @@ require __DIR__ . '/partials/header.php';
       <div class="resumen-grid">
         <div class="resumen-item">
           <span class="resumen-label">
-            Total Sistema
-            <span class="hint" title="Calculado automáticamente: saldo inicial + ventas efectivo + ingresos - egresos">
+            Efectivo sistema
+            <span class="hint" title="Calculado automáticamente: saldo inicial + ventas en efectivo + ingresos - egresos">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
           </span>
@@ -298,8 +298,8 @@ require __DIR__ . '/partials/header.php';
 
         <div class="resumen-item">
           <span class="resumen-label">
-            Total Declarado
-            <span class="hint" title="Monto contado físicamente por el cajero al cerrar">
+            Efectivo declarado
+            <span class="hint" title="Monto en efectivo contado físicamente por el cajero al cerrar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
           </span>
@@ -309,7 +309,7 @@ require __DIR__ . '/partials/header.php';
         <div class="resumen-item">
           <span class="resumen-label">
             Diferencia
-            <span class="hint" title="Declarado - Sistema. Positivo = sobrante, Negativo = faltante">
+            <span class="hint" title="Efectivo declarado - efectivo sistema. Positivo = sobrante, Negativo = faltante">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
           </span>

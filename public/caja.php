@@ -39,12 +39,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === '
       $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
       $tmp = caja_get_abierta($pdo, $terminalId);
 
-      if (!$tmp || !is_array($tmp) || empty($tmp['id'])) {
+      if ($tmp && is_array($tmp) && !empty($tmp['id'])) {
+        $aperturaError = 'Ya hay un turno abierto en esta terminal por ' . caja_turno_owner_label($tmp) . '.';
+      } else {
         caja_abrir($pdo, $terminalId, (int)($user['id'] ?? 0), $saldoIni);
+        header('Location: caja.php');
+        exit;
       }
-
-      header('Location: caja.php');
-      exit;
     }
   }
 }
@@ -91,7 +92,7 @@ $csrf = csrf_token(); // usa el helper central
 
 // Importante: el modal/API suele leer CSRF desde <meta>
 // e inyectamos permisos en window.FLUS_PERMS
-  $extraHead =
+$extraHead =
     '<meta name="csrf-token" content="' . h($csrf) . '">' .
     '<script>' .
       'window.getCsrfToken = function(){ return ' . json_encode($csrf) . '; };' .
@@ -103,6 +104,38 @@ $csrf = csrf_token(); // usa el helper central
         'terminal' => $terminalPrintDefaults,
       ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';' .
     '</script>';
+
+function caja_render_terminal_modal(): void {
+  static $rendered = false;
+  if ($rendered) return;
+  $rendered = true;
+  ?>
+  <!-- Modal: Cambiar Terminal -->
+  <div id="terminalModal" class="terminal-modal" aria-hidden="true">
+    <div class="terminal-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="terminalModalTitle">
+      <div class="terminal-modal__head">
+        <div>
+          <h2 id="terminalModalTitle" class="terminal-modal__title">Elegir caja / terminal</h2>
+          <p class="terminal-modal__sub">La seleccion queda guardada en esta PC.</p>
+        </div>
+
+        <button type="button" class="terminal-modal__close" data-close>Cerrar</button>
+      </div>
+
+      <form id="terminalModalForm">
+        <div id="terminalModalList" class="terminal-modal__list"></div>
+
+        <div id="terminalModalError" class="terminal-modal__error is-hidden" role="alert"></div>
+
+        <div class="terminal-modal__actions">
+          <button type="button" class="btn terminal-modal__btn-cancel" data-close>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar y continuar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <?php
+}
 
 
 require __DIR__ . '/partials/header.php';
@@ -118,6 +151,11 @@ $terminalName = $terminal ? (string)($terminal['nombre'] ?? ('Caja #' . $termina
 if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
   $cajaSesion = null;
 }
+
+$currentUserId = (int)($user['id'] ?? 0);
+$canCerrarCaja = function_exists('user_has_permission') && user_has_permission('cerrar_caja');
+$cajaSesionBloqueada = $cajaSesion !== null && !caja_user_can_operar_turno($cajaSesion, $currentUserId);
+$canCerrarTurnoActual = $cajaSesion !== null && $canCerrarCaja && caja_user_can_cerrar_turno($cajaSesion, $currentUserId);
 
 /* --------------------------------------------------------
    MOVIMIENTOS DE CAJA (efectivo)
@@ -173,6 +211,63 @@ if ($cajaSesion) {
   $ventasActivasCount = (int)$stVentasCount->fetchColumn();
 }
 
+if ($cajaSesionBloqueada) {
+  $ownerLabel = caja_turno_owner_label($cajaSesion);
+  ?>
+  <div class="panel caja-panel">
+    <section class="caja-open-shell" aria-labelledby="cajaBlockedTitle">
+      <div class="caja-open-card">
+        <div class="caja-open-header">
+          <div class="caja-open-copy">
+            <span class="caja-open-eyebrow">Turno protegido</span>
+            <h1 class="caja-title caja-title--open" id="cajaBlockedTitle">CAJA</h1>
+            <p class="caja-open-lead">Esta terminal tiene un turno abierto por <?= h($ownerLabel) ?>.</p>
+            <p class="caja-open-sub">
+              Para mantener el control por cajero, las ventas y movimientos quedan bloqueados para otros usuarios.
+              Cerra el turno actual o cambia de terminal para operar.
+            </p>
+          </div>
+
+          <div class="caja-open-terminal">
+            <span class="caja-open-terminal-label">Terminal activa</span>
+            <div class="caja-open-terminal-card">
+              <div class="caja-open-terminal-main">
+                <strong class="caja-open-terminal-name"><?= h($terminalName) ?></strong>
+                <span class="caja-open-terminal-hint">Apertura #<?= (int)$cajaSesion['id'] ?> - <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?></span>
+              </div>
+              <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal" data-terminal-modal-open>
+                Cambiar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="apertura-wrapper">
+          <div class="apertura-card">
+            <p class="apertura-help">
+              <?php if ($canCerrarTurnoActual): ?>
+                Tu usuario puede supervisar este turno. Cerra la caja o cambia de terminal para continuar.
+              <?php else: ?>
+                Solo <?= h($ownerLabel) ?> o un usuario supervisor puede cerrar este turno.
+              <?php endif; ?>
+            </p>
+            <div class="apertura-actions">
+              <?php if ($canCerrarTurnoActual): ?>
+                <a class="btn btn-primary apertura-action-btn" href="caja_cerrar.php?id=<?= (int)$cajaSesion['id'] ?>">Cerrar caja</a>
+              <?php endif; ?>
+              <button type="button" class="btn btn-secondary apertura-action-btn" data-terminal-modal-open>Cambiar terminal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <?php
+  caja_render_terminal_modal();
+  require __DIR__ . '/partials/footer.php';
+  return;
+}
+
 if ($cajaSesion !== null && !$canRealizarVentas) {
   ?>
   <div class="panel caja-panel">
@@ -204,15 +299,21 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
             <p class="apertura-help">
               Si este usuario tambien necesita cobrar ventas, dale el permiso <strong>realizar_ventas</strong>.
               <?php if (function_exists('user_has_permission') && user_has_permission('cerrar_caja')): ?>
-                Si solo debe cerrar el turno, puede continuar desde <a href="caja_cerrar.php">Cerrar caja</a>.
+                Si solo debe cerrar el turno, puede continuar con el boton de cierre.
               <?php endif; ?>
             </p>
+            <div class="apertura-actions">
+              <?php if (function_exists('user_has_permission') && user_has_permission('cerrar_caja')): ?>
+                <a class="btn btn-primary apertura-action-btn" href="caja_cerrar.php?id=<?= (int)$cajaSesion['id'] ?>">Cerrar caja</a>
+              <?php endif; ?>
+            </div>
           </div>
         </div>
       </div>
     </section>
   </div>
   <?php
+  caja_render_terminal_modal();
   require __DIR__ . '/partials/footer.php';
   return;
 }
@@ -248,7 +349,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
                 <strong class="caja-open-terminal-name"><?= h($terminalName) ?></strong>
                 <span class="caja-open-terminal-hint">La apertura queda asociada a esta caja.</span>
               </div>
-              <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal">
+              <button type="button" class="btn-line btn-line--sm" id="btnCambiarTerminal" data-terminal-modal-open>
                 Cambiar
               </button>
             </div>
@@ -325,6 +426,13 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <div class="caja-topbar__value mono">
           #<?= (int)$cajaSesion['id'] ?> &middot;
           <?= h(format_datetime_ar($cajaSesion['fecha_apertura'] ?? null)) ?>
+        </div>
+      </div>
+
+      <div class="caja-topbar__item">
+        <div class="caja-topbar__label">Cajero</div>
+        <div class="caja-topbar__value">
+          <span class="caja-topbar__strong"><?= h(caja_turno_owner_label($cajaSesion)) ?></span>
         </div>
       </div>
     </div>
@@ -800,35 +908,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 <!-- Contenedor para snack "Deshacer" -->
 <div id="undoSnackContainer" class="undo-snack-container" aria-live="polite"></div>
 
-<?php
-$autoShowTerminalModal = 0;
-if ((int)($_SESSION['terminal_id'] ?? 0) <= 0) $autoShowTerminalModal = 1;
-?>
-
-<!-- Modal: Cambiar Terminal -->
-<div id="terminalModal" class="terminal-modal" aria-hidden="true">
-  <div class="terminal-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="terminalModalTitle">
-    <div class="terminal-modal__head">
-      <div>
-        <h2 id="terminalModalTitle" class="terminal-modal__title">Elegir caja / terminal</h2>
-        <p class="terminal-modal__sub">La seleccion queda guardada en esta PC.</p>
-      </div>
-
-      <button type="button" class="terminal-modal__close" data-close>Cerrar</button>
-    </div>
-
-    <form id="terminalModalForm">
-      <div id="terminalModalList" class="terminal-modal__list"></div>
-
-      <div id="terminalModalError" class="terminal-modal__error is-hidden" role="alert"></div>
-
-      <div class="terminal-modal__actions">
-        <button type="button" class="btn terminal-modal__btn-cancel" data-close>Cancelar</button>
-        <button type="submit" class="btn btn-primary">Guardar y continuar</button>
-      </div>
-    </form>
-  </div>
-</div>
+<?php caja_render_terminal_modal(); ?>
 
 <!-- MODAL: COBRAR CUENTA CORRIENTE -->
 <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>

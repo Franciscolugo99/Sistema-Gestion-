@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/../includes/CuentaCorrienteController.php';
+require_once __DIR__ . '/../caja_lib.php';
 require_login_json();
 
 $pdo = getPDO();
@@ -73,21 +74,25 @@ if ($usuarioNombre === '' && $usuarioId > 0) {
 }
 
 // Resolver caja abierta por terminal (no dependemos de $_SESSION['caja_id'])
+$cajaAbiertaTurno = null;
 if ($terminalId) {
     try {
-        $stC = $pdo->prepare("
-            SELECT id FROM caja_sesiones
-            WHERE terminal_id = ?
-              AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')
-            ORDER BY id DESC
-            LIMIT 1
-        ");
-        $stC->execute([$terminalId]);
-        $tmpCaja = (int)($stC->fetchColumn() ?? 0);
-        if ($tmpCaja > 0) $cajaId = $tmpCaja;
+        $cajaAbiertaTurno = caja_get_abierta($pdo, (int)$terminalId);
+        $tmpCaja = (int)($cajaAbiertaTurno['id'] ?? 0);
+        if ($tmpCaja > 0) {
+            $cajaId = $tmpCaja;
+        }
     } catch (Throwable $e) {
         // no-op
     }
+}
+
+if (
+    in_array($action, ['registrar_pago', 'registrar_cargo'], true)
+    && is_array($cajaAbiertaTurno)
+    && !caja_user_can_operar_turno($cajaAbiertaTurno, (int)$usuarioId)
+) {
+    json_fail('Esta caja fue abierta por ' . caja_turno_owner_label($cajaAbiertaTurno) . '. Cerrá ese turno o cambiá de terminal para registrar movimientos.', 409, ['error_code' => 'CAJA_TURNO_AJENO']);
 }
 
 

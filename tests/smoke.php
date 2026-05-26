@@ -1569,7 +1569,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     }
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 031", $integrationPhp);
+    flus_assert_contains("latest migration is 034", $integrationPhp);
     flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
     flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
@@ -3210,6 +3210,9 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_contains("'terminal_select' => [", $apiIndexPhp);
     flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectActionPhp);
     flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectActionPhp);
+    flus_assert_contains("!empty(\$open['id']) && caja_user_can_operar_turno(\$open, \$uid)", $terminalSelectActionPhp);
+    flus_assert_contains('$canHistCaja;', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
+    flus_assert_contains("'label' => 'Control de turnos'", (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
     flus_assert_contains("setMsg(\"Elegí una terminal para seleccionarla y continuar.\");", $terminalSelectJs);
     flus_assert_contains('const isLocked = Boolean(t.locked) || String(t.status || "") === "locked";', $terminalSelectJs);
     flus_assert_contains('$duplicateBasePrefix = $base . \'/\' . $baseLeaf . \'/\';', $terminalSelectPhp);
@@ -3233,6 +3236,29 @@ $results[] = flus_run_test('caja cierre tolera instalaciones sin tablas de anula
     flus_assert_contains("flus_venta_cantidad_vigente_expr_sql('vi.cantidad', \$cantidadAnuladaItemsExpr)", $cajaCerrarPhp);
 });
 
+$results[] = flus_run_test('caja turno belongs to the opening cashier', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_lib.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
+    $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $cajaMovimientosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_movimientos.php');
+    $cajaCerrarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
+    $ccApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
+    $facturaCobranzaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'factura_cobranza_api.php');
+    $migration = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '034_caja_turno_control.sql');
+
+    flus_assert_contains('function caja_user_can_operar_turno(?array $caja, int $userId): bool', $cajaLib);
+    flus_assert_contains('function caja_user_can_cerrar_turno(?array $caja, int $userId): bool', $cajaLib);
+    flus_assert_contains('$cajaSesionBloqueada = $cajaSesion !== null && !caja_user_can_operar_turno($cajaSesion, $currentUserId);', $cajaPhp);
+    flus_assert_contains("'CAJA_TURNO_AJENO'", $registrarVentaPhp);
+    flus_assert_contains('!caja_user_can_operar_turno($caja, $userId)', $cajaMovimientosPhp);
+    flus_assert_contains('!caja_user_can_cerrar_turno($caja, $currentUserId)', $cajaCerrarPhp);
+    flus_assert_contains("'CAJA_TURNO_AJENO'", $ccApiPhp);
+    flus_assert_contains("'CAJA_TURNO_AJENO'", $facturaCobranzaPhp);
+    flus_assert_contains('cierre_motivo', $migration);
+    flus_assert_contains('cerrado_por_user_id', $migration);
+});
+
 $results[] = flus_run_test('terminal release from admin redirects caja users with an explicit notice', function (): void {
     $repoRoot = dirname(__DIR__);
     $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
@@ -3252,7 +3278,7 @@ $results[] = flus_run_test('terminal release from admin redirects caja users wit
 $results[] = flus_run_test('caja activa modo compacto con split o cuenta corriente sin reubicar ccWrap', function (): void {
     $repoRoot = dirname(__DIR__);
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
-    $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
+    $cajaNeoCss = str_replace("\r\n", "\n", (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css'));
 
     flus_assert_contains('function paymentNeedsCompactLayout()', $cajaJs);
     flus_assert_contains('const split = splitActivo();', $cajaJs);
@@ -3452,6 +3478,7 @@ $results[] = flus_run_test('terminal switch y tickets por mail endurecen validac
 
     flus_assert_contains('terminal_get($pdo, $newTid);', $terminalSwitchPhp);
     flus_assert_contains("json_fail('Terminal invalida', 400, ['error_code' => 'TERMINAL_INVALIDA']);", $terminalSwitchPhp);
+    flus_assert_contains("!empty(\$open['id']) && caja_user_can_operar_turno(\$open, \$uid)", $terminalSwitchPhp);
     flus_assert_contains("json_fail('CAJA_ABIERTA', 409, ['error_code' => 'CAJA_ABIERTA']);", $terminalSwitchPhp);
     flus_assert_contains("'error_code' => 'TERMINAL_LOCKED'", $terminalSwitchPhp);
     flus_assert_contains("'terminal_nombre' => (string)(\$terminal['nombre'] ?? ('Caja #' . \$newTid))", $terminalSwitchPhp);
@@ -3685,6 +3712,11 @@ $results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma 
 $results[] = flus_run_test('historial de caja contempla transferencias en medios y export', function (): void {
     $repoRoot = dirname(__DIR__);
     $cajaHistorialPhp = file_get_contents($repoRoot . '/public/caja_historial.php') ?: '';
+    $cajaDetallePhp = file_get_contents($repoRoot . '/public/caja_sesion_detalle.php') ?: '';
+    $cajaPrintPhp = file_get_contents($repoRoot . '/public/caja_sesion_print.php') ?: '';
+    $cajaExportPhp = file_get_contents($repoRoot . '/public/caja_sesion_export.php') ?: '';
+    $cajaHistorialCss = file_get_contents($repoRoot . '/public/assets/css/caja_historial.css') ?: '';
+    $cajaBaseCss = file_get_contents($repoRoot . '/public/assets/css/caja.base.css') ?: '';
 
     flus_assert_contains("flus_column_exists(\$pdo, 'caja_sesiones', 'total_transferencia')", $cajaHistorialPhp);
     flus_assert_contains("\$transferExpr = \$hasTransferCol ? 'COALESCE(cs.total_transferencia,0)' : '0';", $cajaHistorialPhp);
@@ -3695,6 +3727,15 @@ $results[] = flus_run_test('historial de caja contempla transferencias en medios
     flus_assert_contains("'ventas_cc','cobros_cc','medios_base','medios_diff'", $cajaHistorialPhp);
     flus_assert_contains('<span>Cobros CC</span>', $cajaHistorialPhp);
     flus_assert_contains('<span>Transferencia</span>', $cajaHistorialPhp);
+    flus_assert_contains('<th class="t-right medio-col">Efectivo</th>', $cajaHistorialPhp);
+    flus_assert_contains('<th class="t-right medio-col">MP</th>', $cajaHistorialPhp);
+    flus_assert_contains('<td class="t-right medio-col"><span class="mono"><?= money_ar($medioTransferencia) ?></span></td>', $cajaHistorialPhp);
+    flus_assert_contains('min-width: 1420px;', $cajaHistorialCss);
+    flus_assert_contains('Efectivo sistema', $cajaDetallePhp);
+    flus_assert_contains('Efectivo declarado', $cajaDetallePhp);
+    flus_assert_contains('Efectivo sistema', $cajaPrintPhp);
+    flus_assert_contains("['Efectivo declarado',", $cajaExportPhp);
+    flus_assert_contains('.caja-panel > .alert-success', $cajaBaseCss);
 });
 
 $results[] = flus_run_test('facturacion rechazada aparece en incidencias y expone salida operativa segura', function (): void {

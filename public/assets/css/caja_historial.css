@@ -155,7 +155,7 @@ body.caja-historial-page .hist-summary {
 
 /* Tabla */
 body.caja-historial-page .hist-table {
-  min-width: 980px;
+  min-width: 1420px;
 }
 
 /* Sticky header opcional: útil en tablas largas */
@@ -167,6 +167,16 @@ body.caja-historial-page .hist-table thead th {
 
 body.caja-historial-page .col-actions {
   width: 200px;
+}
+
+body.caja-historial-page .medio-col {
+  min-width: 92px;
+  white-space: nowrap;
+}
+
+body.caja-historial-page td.medio-col {
+  font-size: 0.86rem;
+  color: var(--text);
 }
 
 body.caja-historial-page .turno {

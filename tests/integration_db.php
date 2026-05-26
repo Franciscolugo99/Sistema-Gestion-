@@ -1653,13 +1653,14 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '031_movimientos_stock_tipo_compat.sql', 'latest migration is 031');
+    flus_it_assert($latest === '034_caja_turno_control.sql', 'latest migration is 034');
     $tipoColumn = $pdo
         ->query("SHOW COLUMNS FROM movimientos_stock LIKE 'tipo'")
         ->fetch(PDO::FETCH_ASSOC);
     $tipoDefinition = (string)($tipoColumn['Type'] ?? '');
     flus_it_assert(str_contains($tipoDefinition, 'ANULACION_VENTA'), 'movimientos_stock.tipo supports sale annulments');
     flus_it_assert(str_contains($tipoDefinition, 'ANULACION_COMPRA'), 'movimientos_stock.tipo supports purchase annulments');
+    flus_it_assert(flus_it_table_has_column($pdo, 'clientes', 'razon_social'), 'clientes.razon_social exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_sesiones', 'categoria_nombre'), 'inventario_sesiones.categoria_nombre exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_conteos', 'stock_sistema_snapshot'), 'inventario_conteos.stock_sistema_snapshot exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'facturas', 'estado_fiscal'), 'facturas.estado_fiscal exists');

@@ -761,6 +761,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
     $proveedorId = max(0, (int)($filters['proveedor_id'] ?? 0));
     $compraId = max(0, (int)($filters['compra_id'] ?? 0));
     $sucursal = trim((string)($filters['sucursal_nombre'] ?? ''));
+    $hasProveedorId = flus_column_exists($pdo, 'tesoreria_obligaciones', 'proveedor_id');
+    $hasCompraId = flus_column_exists($pdo, 'tesoreria_obligaciones', 'compra_id');
     $where = ['1=1'];
     $params = [];
     if (in_array($estado, ['PENDIENTE', 'PAGADO', 'VENCIDO', 'PARCIAL', 'CANCELADO'], true)) {
@@ -775,11 +777,11 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         $where[] = 'o.categoria_id = :categoria_id';
         $params[':categoria_id'] = $categoriaId;
     }
-    if ($proveedorId > 0 && flus_column_exists($pdo, 'tesoreria_obligaciones', 'proveedor_id')) {
+    if ($proveedorId > 0 && $hasProveedorId) {
         $where[] = 'o.proveedor_id = :proveedor_id';
         $params[':proveedor_id'] = $proveedorId;
     }
-    if ($compraId > 0 && flus_column_exists($pdo, 'tesoreria_obligaciones', 'compra_id')) {
+    if ($compraId > 0 && $hasCompraId) {
         $where[] = 'o.compra_id = :compra_id';
         $params[':compra_id'] = $compraId;
     }
@@ -792,8 +794,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         SELECT o.*,
                cat.nombre AS categoria_nombre,
                cs.nombre AS cuenta_sugerida_nombre,
-               p.nombre AS proveedor_nombre,
-               c.nro_comp AS compra_nro_comp,
+               " . ($hasProveedorId ? 'p.nombre' : 'NULL') . " AS proveedor_nombre,
+               " . ($hasCompraId ? 'c.nro_comp' : 'NULL') . " AS compra_nro_comp,
                CASE
                  WHEN o.estado IN ('PAGADO', 'CANCELADO') THEN o.estado
                  WHEN o.fecha_vencimiento < CURDATE() THEN 'VENCIDO'
@@ -802,8 +804,8 @@ function flus_tesoreria_obligaciones(PDO $pdo, array $filters = []): array
         FROM tesoreria_obligaciones o
         LEFT JOIN tesoreria_categorias cat ON cat.id = o.categoria_id
         LEFT JOIN tesoreria_cuentas cs ON cs.id = o.cuenta_sugerida_id
-        LEFT JOIN proveedores p ON p.id = o.proveedor_id
-        LEFT JOIN compras c ON c.id = o.compra_id
+        " . ($hasProveedorId ? 'LEFT JOIN proveedores p ON p.id = o.proveedor_id' : '') . "
+        " . ($hasCompraId ? 'LEFT JOIN compras c ON c.id = o.compra_id' : '') . "
         WHERE " . implode(' AND ', $where) . "
         ORDER BY o.fecha_vencimiento ASC, o.id ASC
     ";

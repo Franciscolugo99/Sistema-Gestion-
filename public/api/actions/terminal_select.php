@@ -66,7 +66,7 @@ if (!$terminal || (int)($terminal['activo'] ?? 0) !== 1) {
 
 if ($currentTid > 0 && $requestedTerminalId !== $currentTid) {
   $open = caja_get_abierta($pdo, $currentTid);
-  if (is_array($open) && !empty($open['id'])) {
+  if (is_array($open) && !empty($open['id']) && caja_user_can_operar_turno($open, $uid)) {
     json_fail('CAJA_ABIERTA', 409);
   }
 }

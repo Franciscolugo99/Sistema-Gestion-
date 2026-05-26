@@ -28,7 +28,13 @@ if ($cajaId <= 0) {
 }
 
 $u = current_user();
+$userId = (int)($u['id'] ?? 0);
 $username = (string)($u['username'] ?? ('user#' . (int)($u['id'] ?? 0)));
+
+if (!caja_user_can_operar_turno($caja, $userId)) {
+  header('Location: caja.php?err=' . urlencode('Esta caja fue abierta por ' . caja_turno_owner_label($caja) . '. No podés cargar movimientos en un turno ajeno.'));
+  exit;
+}
 
 $error = null;
 

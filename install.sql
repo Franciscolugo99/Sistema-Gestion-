@@ -96,10 +96,14 @@ CREATE TABLE `caja_sesiones` (
   `fecha_apertura` datetime NOT NULL,
   `saldo_inicial` decimal(10,2) NOT NULL DEFAULT 0.00,
   `fecha_cierre` datetime DEFAULT NULL,
+  `cerrado_por_user_id` int(11) DEFAULT NULL,
   `saldo_sistema` decimal(10,2) DEFAULT NULL,
   `saldo_declarado` decimal(10,2) DEFAULT NULL,
   `diferencia` decimal(10,2) DEFAULT NULL,
   `notas` varchar(255) DEFAULT NULL,
+  `cierre_motivo` varchar(40) DEFAULT NULL,
+  `cierre_fondo_siguiente` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `cierre_retiro_efectivo` decimal(10,2) NOT NULL DEFAULT 0.00,
   `total_ventas` decimal(10,2) DEFAULT 0.00,
   `total_efectivo` decimal(10,2) DEFAULT 0.00,
   `total_mp` decimal(10,2) DEFAULT 0.00,
@@ -113,6 +117,7 @@ CREATE TABLE `caja_sesiones` (
   `total_egresos` decimal(12,2) DEFAULT 0.00,
   PRIMARY KEY (`id`),
   KEY `fk_caja_user` (`user_id`),
+  KEY `idx_caja_cerrado_por` (`cerrado_por_user_id`),
   KEY `idx_caja_terminal_abierta` (`terminal_id`,`fecha_cierre`),
   CONSTRAINT `fk_caja_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=55 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -124,6 +129,7 @@ DROP TABLE IF EXISTS `clientes`;
 CREATE TABLE `clientes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre` varchar(150) NOT NULL,
+  `razon_social` varchar(255) DEFAULT NULL,
   `cuit` varchar(20) DEFAULT NULL,
   `cond_iva` varchar(30) DEFAULT NULL,
   `tipo_cliente` varchar(30) DEFAULT NULL,

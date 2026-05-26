@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_bootstrap.php';
 require_once FLUS_ROOT . '/src/cobranzas_lib.php';
+require_once __DIR__ . '/../caja_lib.php';
 
 require_login_json();
 
@@ -125,6 +126,12 @@ $terminalId = flus_factura_cobranza_current_terminal_id();
 $cajaId = $registrarCaja ? flus_factura_cobranza_current_caja_id($pdo, $terminalId) : null;
 if ($registrarCaja && ($cajaId === null || $cajaId <= 0)) {
     json_fail('No hay caja abierta para registrar el movimiento de caja.', 409, ['error_code' => 'CAJA_NO_ABIERTA']);
+}
+if ($registrarCaja && $terminalId !== null && $terminalId > 0) {
+    $cajaTurno = caja_get_abierta($pdo, $terminalId);
+    if (is_array($cajaTurno) && (int)($cajaTurno['id'] ?? 0) === (int)$cajaId && !caja_user_can_operar_turno($cajaTurno, $userId)) {
+        json_fail('Esta caja fue abierta por ' . caja_turno_owner_label($cajaTurno) . '. Cerrá ese turno o cambiá de terminal para registrar el cobro.', 409, ['error_code' => 'CAJA_TURNO_AJENO']);
+    }
 }
 
 $result = flus_cobranzas_register_invoice_payment($pdo, [

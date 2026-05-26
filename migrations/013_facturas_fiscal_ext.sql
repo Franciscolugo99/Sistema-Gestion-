@@ -16,7 +16,25 @@ SET @sql := (
         AND COLUMN_NAME = 'importe_exento'
     ),
     'SELECT 1',
-    'ALTER TABLE `facturas` ADD COLUMN `importe_exento` DECIMAL(12,2) DEFAULT 0.00 AFTER `importe_iva`'
+    (
+      SELECT CASE
+        WHEN EXISTS (
+          SELECT 1
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = @db
+            AND TABLE_NAME = 'facturas'
+            AND COLUMN_NAME = 'importe_iva'
+        ) THEN 'ALTER TABLE `facturas` ADD COLUMN `importe_exento` DECIMAL(12,2) DEFAULT 0.00 AFTER `importe_iva`'
+        WHEN EXISTS (
+          SELECT 1
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = @db
+            AND TABLE_NAME = 'facturas'
+            AND COLUMN_NAME = 'importe_neto'
+        ) THEN 'ALTER TABLE `facturas` ADD COLUMN `importe_exento` DECIMAL(12,2) DEFAULT 0.00 AFTER `importe_neto`'
+        ELSE 'ALTER TABLE `facturas` ADD COLUMN `importe_exento` DECIMAL(12,2) DEFAULT 0.00'
+      END
+    )
   )
 );
 PREPARE _stmt FROM @sql; EXECUTE _stmt; DEALLOCATE PREPARE _stmt;

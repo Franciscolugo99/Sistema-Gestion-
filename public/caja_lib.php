@@ -56,6 +56,38 @@ function caja_get_abierta(PDO $pdo, int $terminalId): ?array {
 /**
  * Abre una nueva sesión de caja.
  */
+function caja_turno_owner_id(?array $caja): int {
+  return is_array($caja) ? (int)($caja['user_id'] ?? 0) : 0;
+}
+
+function caja_turno_es_del_usuario(?array $caja, int $userId): bool {
+  return $userId > 0 && caja_turno_owner_id($caja) === $userId;
+}
+
+function caja_user_can_supervisar_turnos(): bool {
+  if (!function_exists('user_has_permission')) return false;
+
+  return user_has_permission('administrar_config')
+    || user_has_permission('ver_historial_caja')
+    || user_has_permission('ver_auditoria');
+}
+
+function caja_user_can_operar_turno(?array $caja, int $userId): bool {
+  return caja_turno_es_del_usuario($caja, $userId);
+}
+
+function caja_user_can_cerrar_turno(?array $caja, int $userId): bool {
+  return caja_turno_es_del_usuario($caja, $userId) || caja_user_can_supervisar_turnos();
+}
+
+function caja_turno_owner_label(?array $caja): string {
+  if (!is_array($caja)) return 'otro usuario';
+  $username = trim((string)($caja['username'] ?? ''));
+  if ($username !== '') return $username;
+  $uid = caja_turno_owner_id($caja);
+  return $uid > 0 ? ('usuario #' . $uid) : 'otro usuario';
+}
+
 function caja_abrir(PDO $pdo, int $terminalId, int $userId, $saldoInicial = 0.0): int {
   if ($terminalId <= 0) {
     throw new RuntimeException('Terminal inválida.');

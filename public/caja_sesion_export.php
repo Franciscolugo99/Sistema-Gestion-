@@ -168,8 +168,8 @@ if (isset($sesion['total_transferencia'])) {
   fputcsv($output, ['Transferencia', number_format((float)($sesion['total_transferencia'] ?? 0), 2, ',', '.')], ';');
 }
 fputcsv($output, [''], ';');
-fputcsv($output, ['Total Sistema', number_format((float)($sesion['saldo_sistema'] ?? 0), 2, ',', '.')], ';');
-fputcsv($output, ['Total Declarado', number_format((float)($sesion['saldo_declarado'] ?? 0), 2, ',', '.')], ';');
+fputcsv($output, ['Efectivo sistema', number_format((float)($sesion['saldo_sistema'] ?? 0), 2, ',', '.')], ';');
+fputcsv($output, ['Efectivo declarado', number_format((float)($sesion['saldo_declarado'] ?? 0), 2, ',', '.')], ';');
 fputcsv($output, ['Diferencia', number_format((float)($sesion['diferencia'] ?? 0), 2, ',', '.')], ';');
 fputcsv($output, [''], ';');
 fputcsv($output, ['Productos Vendidos', (int)($sesion['total_productos'] ?? 0)], ';');
