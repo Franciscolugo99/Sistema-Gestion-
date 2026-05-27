@@ -630,7 +630,9 @@ require __DIR__ . '/partials/header.php';
 
   function setDiffBox(kind, text) {
     diffBox.classList.remove('is-ok', 'is-short', 'is-over');
-    diffBox.classList.add(kind);
+    if (kind) {
+      diffBox.classList.add(kind);
+    }
     diffBox.textContent = text;
   }
 
