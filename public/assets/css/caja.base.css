@@ -889,6 +889,320 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   border-top: 1px solid var(--panel-border);
 }
 
+/* =========================
+   VENTAS RECIENTES
+========================= */
+.caja-panel .ventas-recientes-modal.hidden {
+  display: none;
+}
+
+.caja-panel .ventas-recientes-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10030;
+}
+
+.caja-panel .ventas-recientes-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.caja-panel .ventas-recientes-modal__dialog {
+  position: relative;
+  width: min(940px, calc(100vw - 32px));
+  max-height: min(88vh, 760px);
+  margin: 6vh auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.caja-panel .ventas-recientes-modal__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.caja-panel .ventas-recientes-modal__eyebrow {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.caja-panel .ventas-recientes-modal__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.caja-panel .ventas-recientes-modal__close,
+.caja-panel .ventas-recientes-items-panel__close {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.caja-panel .ventas-recientes-modal__status {
+  margin: 14px 22px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.caja-panel .ventas-recientes-modal__status.hidden {
+  display: none;
+}
+
+.caja-panel .ventas-recientes-modal__status[data-kind="error"] {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(239, 68, 68, 0.08);
+  color: #991b1b;
+}
+
+.caja-panel .ventas-recientes-modal__status[data-kind="warn"] {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.caja-panel .ventas-recientes-list {
+  display: grid;
+  gap: 10px;
+  padding: 14px 22px 22px;
+  overflow: auto;
+}
+
+.caja-panel .ventas-recientes-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 118px auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+}
+
+.caja-panel .ventas-recientes-row__main {
+  min-width: 0;
+}
+
+.caja-panel .ventas-recientes-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.caja-panel .ventas-recientes-row__top strong {
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.caja-panel .ventas-recientes-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.caja-panel .ventas-recientes-row__total {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.caja-panel .ventas-recientes-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.caja-panel .ventas-recientes-row__actions .btn {
+  white-space: nowrap;
+}
+
+.caja-panel .ventas-recientes-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.caja-panel .ventas-recientes-badge--ok {
+  border-color: rgba(34, 197, 94, 0.24);
+  background: rgba(34, 197, 94, 0.1);
+  color: #166534;
+}
+
+.caja-panel .ventas-recientes-badge--warn {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+.caja-panel .ventas-recientes-badge--danger {
+  border-color: rgba(239, 68, 68, 0.24);
+  background: rgba(239, 68, 68, 0.08);
+  color: #991b1b;
+}
+
+.caja-panel .ventas-recientes-badge--info {
+  border-color: rgba(14, 165, 233, 0.22);
+  background: rgba(14, 165, 233, 0.08);
+  color: #075985;
+}
+
+.caja-panel .ventas-recientes-empty {
+  display: grid;
+  gap: 4px;
+  padding: 24px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.caja-panel .ventas-recientes-empty strong {
+  color: var(--text);
+}
+
+.caja-panel .ventas-recientes-row--skeleton span,
+.caja-panel .ventas-recientes-row--skeleton strong,
+.caja-panel .ventas-recientes-row--skeleton em {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.caja-panel .ventas-recientes-row--skeleton strong {
+  width: 150px;
+  height: 18px;
+  margin: 6px 0;
+}
+
+.caja-panel .ventas-recientes-row--skeleton span {
+  width: 90px;
+}
+
+.caja-panel .ventas-recientes-row--skeleton em {
+  width: 260px;
+}
+
+.caja-panel .ventas-recientes-items-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  border-radius: 14px;
+  background: rgba(14, 165, 233, 0.05);
+}
+
+.caja-panel .ventas-recientes-items-panel__head,
+.caja-panel .ventas-recientes-items-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.caja-panel .ventas-recientes-items-panel__table {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.caja-panel .ventas-recientes-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 90px 100px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.caja-panel .ventas-recientes-item:first-child {
+  border-top: 0;
+}
+
+.caja-panel .ventas-recientes-item__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caja-panel .ventas-recientes-item__available {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.caja-panel .ventas-recientes-item input[type="number"],
+.caja-panel .ventas-recientes-items-panel__reason input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.caja-panel .ventas-recientes-item input[type="number"] {
+  padding: 6px 8px;
+  text-align: right;
+}
+
+.caja-panel .ventas-recientes-items-panel__reason {
+  display: grid;
+  gap: 6px;
+}
+
+.caja-panel .ventas-recientes-items-panel__reason label {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.caja-panel .ventas-recientes-items-panel__reason input {
+  padding: 8px 10px;
+}
+
 /* =====================
    RESPONSIVE
 ===================== */
@@ -945,6 +1259,49 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 
   .caja-panel .ticket-preview-modal__actions > * {
     flex: 1 1 100%;
+  }
+
+  .caja-panel .ventas-recientes-modal__dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    margin: 8px auto;
+    border-radius: 18px;
+  }
+
+  .caja-panel .ventas-recientes-modal__head,
+  .caja-panel .ventas-recientes-list {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .caja-panel .ventas-recientes-modal__status {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  .caja-panel .ventas-recientes-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .caja-panel .ventas-recientes-row__total {
+    text-align: left;
+  }
+
+  .caja-panel .ventas-recientes-row__actions {
+    justify-content: stretch;
+  }
+
+  .caja-panel .ventas-recientes-row__actions .btn {
+    flex: 1 1 calc(50% - 7px);
+  }
+
+  .caja-panel .ventas-recientes-item {
+    grid-template-columns: 20px minmax(0, 1fr) 76px;
+  }
+
+  .caja-panel .ventas-recientes-item input[type="number"] {
+    grid-column: 2 / -1;
   }
 }
 

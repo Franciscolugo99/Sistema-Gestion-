@@ -46,6 +46,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     $permIds = array_values(array_unique(array_filter(array_map('intval', $selected), static fn(int $v): bool => $v > 0)));
+    $selectedSlugs = [];
+
+    if ($permIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($permIds), '?'));
+        $stSelected = $pdo->prepare("SELECT slug FROM permissions WHERE id IN ($placeholders)");
+        $stSelected->execute($permIds);
+        $selectedSlugs = array_map('strval', $stSelected->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
+
+    $roleSlug = strtolower((string)($role['slug'] ?? ''));
+    $isOperationalCashierRole = in_array($roleSlug, ['cajero', 'operador'], true);
+    $touchesCaja = array_intersect($selectedSlugs, ['abrir_caja', 'cerrar_caja', 'registrar_cargo_cc']) !== [];
+
+    if ($isOperationalCashierRole && $touchesCaja && !in_array('realizar_ventas', $selectedSlugs, true)) {
+        $_SESSION['flash_error'] = 'Un rol operativo de caja necesita realizar_ventas si abre, cierra o vende a cuenta corriente.';
+        header('Location: rol_permisos.php?id=' . $roleId);
+        exit;
+    }
 
     try {
         $pdo->beginTransaction();

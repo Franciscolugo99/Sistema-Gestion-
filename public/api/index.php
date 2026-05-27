@@ -425,6 +425,10 @@ function flus_action_guard_policies(): array {
       'methods' => ['GET'],
       'any_permissions' => ['realizar_ventas', 'emitir_factura'],
     ],
+    'caja_ventas_recientes' => [
+      'methods' => ['GET'],
+      'permissions' => ['realizar_ventas'],
+    ],
     'calcular_carrito' => [
       'methods' => ['POST'],
       'permissions' => ['realizar_ventas'],

@@ -7,6 +7,13 @@ $user = current_user();
 $uid = (int)($user['id'] ?? 0);
 $sid = session_id();
 $ttl = 90;
+$context = strtolower(trim((string)($body['context'] ?? '')));
+$refererPath = strtolower((string)parse_url((string)($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH));
+$refererIsCaja = in_array(basename($refererPath), ['caja.php', 'caja_cerrar.php', 'caja_movimientos.php'], true);
+
+if ($context !== 'caja' && !$refererIsCaja) {
+  json_fail('INVALID_TERMINAL_HEARTBEAT_CONTEXT', 400);
+}
 
 $tid = (int)($_SESSION['terminal_id'] ?? 0);
 if ($tid <= 0) {

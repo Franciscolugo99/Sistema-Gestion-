@@ -1073,6 +1073,29 @@ $results[] = flus_run_test('anulacion total comparte trazabilidad con anulacione
     flus_assert_contains("\$payload['anulacion_id']", $action);
 });
 
+$results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion con permisos dedicados', function () use ($repoRoot): void {
+    $apiIndex = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $action = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'caja_ventas_recientes.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_ventas_recientes.js');
+    $ticketPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket.php');
+
+    flus_assert_contains("'caja_ventas_recientes' => [", $apiIndex);
+    flus_assert_contains("'permissions' => ['realizar_ventas'],", $apiIndex);
+    flus_assert_contains("caja_get_abierta(\$pdo, \$terminalId)", $action);
+    flus_assert_contains("v.caja_id = :caja_id", $action);
+    flus_assert_contains("user_has_permission('anular_venta')", $action);
+    flus_assert_contains("user_has_permission('anular_items_venta')", $action);
+    flus_assert_contains('id="btnVentasRecientes"', $cajaPhp);
+    flus_assert_contains('id="ventasRecientesModal"', $cajaPhp);
+    flus_assert_contains('caja_ventas_recientes.js', $cajaPhp);
+    flus_assert_contains('action=caja_ventas_recientes', $cajaJs);
+    flus_assert_contains('openTicketPreview(ventaId)', $cajaJs);
+    flus_assert_contains('action=anular_venta', $cajaJs);
+    flus_assert_contains('action=anular_items_venta', $cajaJs);
+    flus_assert_contains("require_any_permission(['realizar_ventas','ver_reportes']);", $ticketPhp);
+});
+
 $results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {
     flus_assert_same('inactivo', flus_calcular_estado_producto([
         'activo' => 0,
@@ -1840,6 +1863,9 @@ $results[] = flus_run_test('terminal actions salen del switch y usan action file
     flus_assert_contains("terminal_locks_gc(\$pdo, \$ttl);", $terminalSelectPhp);
     flus_assert_contains("flus_session_update_selected_terminal(\$pdo, \$sid, \$requestedTerminalId);", $terminalSelectPhp);
     flus_assert_contains("terminal_set_cookie(\$newTid);", $terminalSwitchPhp);
+    flus_assert_contains("\$context = strtolower(trim((string)(\$body['context'] ?? '')));", $terminalHeartbeatPhp);
+    flus_assert_contains("\$refererIsCaja = in_array(basename(\$refererPath), ['caja.php', 'caja_cerrar.php', 'caja_movimientos.php'], true);", $terminalHeartbeatPhp);
+    flus_assert_contains("if (\$context !== 'caja' && !\$refererIsCaja) {", $terminalHeartbeatPhp);
     flus_assert_contains("\$res = terminal_lock_heartbeat(\$pdo, \$tid, \$uid, \$sid, \$ttl);", $terminalHeartbeatPhp);
     flus_assert_contains("json_ok(['session_id' => \$sid]);", $sessionHeartbeatPhp);
 });
@@ -1951,6 +1977,19 @@ $results[] = flus_run_test('permissions stay aligned across code, install, migra
             . ' | code->admin: ' . flus_format_slug_diff($missingInAdmin)
         );
     }
+});
+
+$results[] = flus_run_test('rol cajero mantiene permisos operativos minimos por slug', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '035_cajero_role_operational_permissions.sql');
+    $rolPermisosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'rol_permisos.php');
+
+    flus_assert_contains("WHERE r.slug = 'cajero';", $migrationSql);
+    flus_assert_contains("'realizar_ventas'", $migrationSql);
+    flus_assert_contains("'ver_clientes'", $migrationSql);
+    flus_assert_contains("\$isOperationalCashierRole = in_array(\$roleSlug, ['cajero', 'operador'], true);", $rolPermisosPhp);
+    flus_assert_contains("!in_array('realizar_ventas', \$selectedSlugs, true)", $rolPermisosPhp);
+    flus_assert_contains('Un rol operativo de caja necesita realizar_ventas', $rolPermisosPhp);
 });
 
 $results[] = flus_run_test('fiscal scaffold bootstrap loads cleanly', function (): void {
@@ -3325,6 +3364,7 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     $bootstrapPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'bootstrap.php');
     $loginProcessPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login_process.php');
     $logoutPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'logout.php');
+    $authPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auth.php');
     $loginPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login.php');
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
     $sessionHeartbeatPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'session_heartbeat.php');
@@ -3337,17 +3377,26 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     flus_assert_contains('function flus_session_register(PDO $pdo, array $user, array $meta = []): void', $sessionRegistryPhp);
     flus_assert_contains('function flus_session_revoke(PDO $pdo, string $sessionId, int $revokedBy, string $reason = \'\'): void', $sessionRegistryPhp);
     flus_assert_contains('function flus_session_resolve_terminal_id(PDO $pdo, array $meta = []): ?int', $sessionRegistryPhp);
+    flus_assert_contains('function flus_session_registry_is_transient_path(string $path): bool', $sessionRegistryPhp);
+    flus_assert_contains("return in_array(\$base, ['ticket.php'], true);", $sessionRegistryPhp);
     flus_assert_contains("if (\$lastPath === trim(\$path) && \$rowTerminalId === \$resolvedTerminalId) {", $sessionRegistryPhp);
     flus_assert_contains('function terminal_lock_release_by_session(PDO $pdo, string $sessionId): int', $terminalPhp);
+    flus_assert_contains("INNER JOIN user_sessions us ON us.session_id = tl.`{\$s['session_id']}`", $terminalPhp);
+    flus_assert_contains("WHERE UPPER(us.status) <> 'ACTIVE'", $terminalPhp);
     flus_assert_contains("flus_session_register(\$pdo, \$_SESSION['user']);", $loginProcessPhp);
     flus_assert_contains("flus_session_mark_logged_out(\$pdo, \$currentSessionId, \$reason === 'revoked');", $logoutPhp);
     flus_assert_contains("define('FLUS_SESSION_ENFORCE_BYPASS', true);", $logoutPhp);
+    flus_assert_contains('function flus_enforce_active_session_json(): void', $authPhp);
+    flus_assert_contains("terminal_lock_release_by_session(\$pdo, \$sessionId);", $authPhp);
+    flus_assert_contains("echo json_encode(['ok' => false, 'error' => 'SESSION_REVOKED']", $authPhp);
     flus_assert_contains("'error' => 'SESSION_REVOKED'", $bootstrapPhp);
     flus_assert_contains("header('Location: logout.php?reason=revoked');", $bootstrapPhp);
     flus_assert_contains("'session_heartbeat' => [", $apiIndexPhp);
     flus_assert_not_contains("case 'session_heartbeat': {", $apiIndexPhp);
     flus_assert_contains("flus_session_touch(\$pdo, \$uid, \$sid, ['force' => true]);", $sessionHeartbeatPhp);
     flus_assert_contains('api/index.php?action=session_heartbeat', $appJs);
+    flus_assert_contains('if (!isCajaPage) return;', $appJs);
+    flus_assert_contains('body: JSON.stringify({ context: "caja" }),', $appJs);
     flus_assert_contains('const nextDelay = () => document.visibilityState === "visible" ? 15000 : 60000;', $appJs);
     flus_assert_contains('window.addEventListener("focus", requestFastSessionPing);', $appJs);
     flus_assert_contains('logout.php?reason=revoked', $appJs);

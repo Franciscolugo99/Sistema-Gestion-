@@ -17,6 +17,11 @@ if (is_file($sessionHelper)) {
   if (function_exists('flus_session_normalize_user')) flus_session_normalize_user();
 }
 
+$sessionRegistry = FLUS_ROOT . '/src/session_registry.php';
+if (is_file($sessionRegistry)) {
+  require_once $sessionRegistry;
+}
+
 /* ============================================================================
    AUTH/DB DIAGNOSTICS (bulletproof)
 ============================================================================ */
@@ -137,6 +142,47 @@ function is_logged_in(): bool {
   return current_user() !== null;
 }
 
+function flus_enforce_active_session_json(): void {
+  $u = current_user();
+  if (!is_array($u) || !function_exists('flus_user_sessions_table_exists') || !function_exists('flus_session_fetch')) {
+    return;
+  }
+
+  $userId = (int)($u['id'] ?? 0);
+  $sessionId = session_id();
+  if ($userId <= 0 || $sessionId === '') {
+    return;
+  }
+
+  $pdo = flus_get_pdo_diag();
+  if (!$pdo || !flus_user_sessions_table_exists($pdo)) {
+    return;
+  }
+
+  $sessionRow = flus_session_fetch($pdo, $sessionId);
+  if (!is_array($sessionRow)) {
+    return;
+  }
+
+  $status = strtoupper((string)($sessionRow['status'] ?? 'ACTIVE'));
+  if ($status === 'ACTIVE') {
+    return;
+  }
+
+  if (function_exists('terminal_lock_release_by_session')) {
+    terminal_lock_release_by_session($pdo, $sessionId);
+  }
+  unset($_SESSION['terminal_id']);
+  if (function_exists('terminal_clear_cookie')) {
+    terminal_clear_cookie();
+  }
+
+  http_response_code(401);
+  header('Content-Type: application/json; charset=utf-8');
+  echo json_encode(['ok' => false, 'error' => 'SESSION_REVOKED'], JSON_UNESCAPED_UNICODE);
+  exit;
+}
+
 /**
  * Login NORMAL (Backoffice): NO exige terminal.
  */
@@ -159,6 +205,8 @@ function require_login_json(): void {
     echo json_encode(['ok' => false, 'error' => 'No autenticado'], JSON_UNESCAPED_UNICODE);
     exit;
   }
+
+  flus_enforce_active_session_json();
 }
 
 /* ============================================================================

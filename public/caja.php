@@ -65,6 +65,7 @@ $extraCss = [
 
 $extraJs = [
   'assets/js/caja.js?v=' . filemtime(__DIR__ . '/assets/js/caja.js'),
+  'assets/js/caja_ventas_recientes.js?v=' . filemtime(__DIR__ . '/assets/js/caja_ventas_recientes.js'),
   'assets/js/caja_terminal_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_terminal_modal.js'),
   'assets/js/caja_cc_pago.js?v=' . filemtime(__DIR__ . '/assets/js/caja_cc_pago.js'),
 ];
@@ -75,6 +76,12 @@ $canModPrecio = (function_exists('user_has_permission') && user_has_permission('
   : 'false';
 
 $canCC = (function_exists('user_has_permission') && user_has_permission('registrar_cargo_cc'))
+  ? 'true'
+  : 'false';
+$canAnularVenta = (function_exists('user_has_permission') && user_has_permission('anular_venta'))
+  ? 'true'
+  : 'false';
+$canAnularItems = (function_exists('user_has_permission') && user_has_permission('anular_items_venta'))
   ? 'true'
   : 'false';
 $globalPrintDefaults = [
@@ -99,6 +106,8 @@ $extraHead =
       'window.FLUS_PERMS = window.FLUS_PERMS || {};' .
       'window.FLUS_PERMS.caja_modificar_precio = ' . $canModPrecio . ';' .
       'window.FLUS_PERMS.registrar_cargo_cc = ' . $canCC . ';' .
+      'window.FLUS_PERMS.anular_venta = ' . $canAnularVenta . ';' .
+      'window.FLUS_PERMS.anular_items_venta = ' . $canAnularItems . ';' .
       'window.FLUS_PRINT_DEFAULTS = ' . json_encode([
         'global' => $globalPrintDefaults,
         'terminal' => $terminalPrintDefaults,
@@ -453,6 +462,9 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </div>
 
     <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
+    <button type="button" id="btnVentasRecientes" class="btn btn-secondary btn-sm">
+      Ventas recientes
+    </button>
 
     <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
     <button
@@ -862,6 +874,22 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
             Imprimir
           </button>
         </div>
+      </div>
+    </div>
+
+    <div id="ventasRecientesModal" class="ventas-recientes-modal hidden" aria-hidden="true">
+      <div class="ventas-recientes-modal__backdrop" data-ventas-recientes-close></div>
+      <div class="ventas-recientes-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="ventasRecientesTitle">
+        <div class="ventas-recientes-modal__head">
+          <div>
+            <div class="ventas-recientes-modal__eyebrow">Caja actual</div>
+            <h3 id="ventasRecientesTitle" class="ventas-recientes-modal__title">Ventas recientes</h3>
+          </div>
+          <button type="button" class="ventas-recientes-modal__close" data-ventas-recientes-close>Cerrar</button>
+        </div>
+
+        <div id="ventasRecientesStatus" class="ventas-recientes-modal__status" aria-live="polite"></div>
+        <div id="ventasRecientesList" class="ventas-recientes-list"></div>
       </div>
     </div>
 

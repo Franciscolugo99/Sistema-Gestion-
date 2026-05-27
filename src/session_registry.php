@@ -62,6 +62,16 @@ if (!function_exists('flus_session_registry_truncate')) {
   }
 }
 
+if (!function_exists('flus_session_registry_is_transient_path')) {
+  function flus_session_registry_is_transient_path(string $path): bool
+  {
+    $urlPath = (string)parse_url($path, PHP_URL_PATH);
+    $base = strtolower(basename($urlPath));
+
+    return in_array($base, ['ticket.php'], true);
+  }
+}
+
 if (!function_exists('flus_session_fetch')) {
   function flus_session_fetch(PDO $pdo, string $sessionId): ?array
   {
@@ -203,9 +213,24 @@ if (!function_exists('flus_session_touch')) {
     $ip = (string)($meta['ip_address'] ?? flus_session_registry_ip());
     $userAgent = (string)($meta['user_agent'] ?? flus_session_registry_user_agent());
     $lastTouchTs = (int)($_SESSION['__user_session_touched_at'] ?? 0);
+    $sessionRow = null;
+
+    if (!$force && flus_session_registry_is_transient_path($path)) {
+      $sessionRow = flus_session_fetch($pdo, $sessionId);
+      if (is_array($sessionRow)) {
+        $existingPath = trim((string)($sessionRow['last_path'] ?? ''));
+        $existingTerminalId = (int)($sessionRow['selected_terminal_id'] ?? 0);
+        if ($existingPath !== '') {
+          $path = $existingPath;
+        }
+        if ($existingTerminalId > 0) {
+          $selectedTerminalId = $existingTerminalId;
+        }
+      }
+    }
 
     if (!$force && $lastTouchTs > 0 && ($nowTs - $lastTouchTs) < 20) {
-      $sessionRow = flus_session_fetch($pdo, $sessionId);
+      $sessionRow = $sessionRow ?? flus_session_fetch($pdo, $sessionId);
       $lastPath = trim((string)($sessionRow['last_path'] ?? ''));
       $rowTerminalId = (int)($sessionRow['selected_terminal_id'] ?? 0);
       $resolvedTerminalId = $selectedTerminalId ?? 0;

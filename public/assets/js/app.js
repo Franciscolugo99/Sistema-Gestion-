@@ -243,7 +243,7 @@
             "Content-Type": "application/json; charset=utf-8",
             Accept: "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ context: "caja" }),
           cache: "no-store",
           credentials: "same-origin",
         });
@@ -309,6 +309,7 @@
       p.endsWith("/caja_cerrar.php") ||
       p.endsWith("/caja_movimientos.php")
     );
+    if (!isCajaPage) return;
 
     let stopped = false;
 

@@ -5535,6 +5535,7 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-product-name {
 }
 
 body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal,
+body.caja-fullscreen-page .caja-panel--neo .ventas-recientes-modal,
 body.caja-fullscreen-page .caja-panel--neo .modal,
 body.caja-fullscreen-page .vuelto-overlay-flus {
   z-index: 3200 !important;
@@ -5542,7 +5543,56 @@ body.caja-fullscreen-page .vuelto-overlay-flus {
 
 body.caja-fullscreen-page .caja-panel--neo .modal-content,
 body.caja-fullscreen-page .ticket-preview-modal__dialog,
+body.caja-fullscreen-page .ventas-recientes-modal__dialog,
 body.caja-fullscreen-page .vuelto-overlay-flus__inner {
   position: relative;
   z-index: 3201;
+}
+
+/* Topbar actions: one visual language for operational buttons. */
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 13px !important;
+  border-radius: 10px !important;
+  font-family: inherit !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-secondary,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-info {
+  border-color: var(--neo-border) !important;
+  background: var(--neo-surface-2) !important;
+  color: var(--neo-text) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-secondary:hover,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-info:hover {
+  border-color: var(--neo-border-strong) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: var(--neo-text) !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-danger,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions #btnCerrarCaja {
+  border-color: rgba(239, 68, 68, 0.28) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions .btn-danger:hover,
+body.caja-fullscreen-page .caja-panel--neo .caja-topbar__actions #btnCerrarCaja:hover {
+  border-color: rgba(220, 38, 38, 0.42) !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #991b1b !important;
 }

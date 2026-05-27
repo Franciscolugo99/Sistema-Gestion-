@@ -244,6 +244,16 @@ if (!function_exists('terminal_locks_gc')) {
       $s = terminal__schema_locks($pdo);
       $sql = "DELETE FROM terminal_locks WHERE `{$s['expires_at']}` < NOW()";
       $pdo->exec($sql);
+
+      if (terminal__table_exists($pdo, 'user_sessions')) {
+        $sql = "
+          DELETE tl
+          FROM terminal_locks tl
+          INNER JOIN user_sessions us ON us.session_id = tl.`{$s['session_id']}`
+          WHERE UPPER(us.status) <> 'ACTIVE'
+        ";
+        $pdo->exec($sql);
+      }
     } catch (Throwable $e) {
       error_log('terminal_locks_gc: ' . $e->getMessage());
     }
