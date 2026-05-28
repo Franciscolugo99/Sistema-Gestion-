@@ -62,6 +62,11 @@ Permisos minimos esperados:
 La migracion `035_cajero_role_operational_permissions.sql` agrega esos permisos
 por `slug` sin quitar permisos personalizados existentes.
 
+La migracion `036_cajero_role_base_permissions.sql` deja el rol `cajero`
+exactamente con esa base operativa. Los permisos de stock editable,
+facturacion, reportes, anulaciones, cambios de precio y cuenta corriente
+completa deben asignarse a roles superiores o variantes especificas.
+
 ## Checklist manual
 
 1. Iniciar sesion como admin y seleccionar Caja 1.
@@ -90,4 +95,3 @@ php -l tests/smoke.php
 git diff --check
 php tests/smoke.php
 ```
-

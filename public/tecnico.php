@@ -142,10 +142,18 @@ function tecnico_detect_php_binary(): ?string
 {
     $phpBinary = defined('PHP_BINARY') ? (string) PHP_BINARY : '';
     $portableRoot = defined('FLUS_ROOT') ? dirname((string) FLUS_ROOT) : dirname(__DIR__, 2);
+    $xamppRoot = defined('FLUS_ROOT') ? dirname(dirname((string) FLUS_ROOT)) : dirname(__DIR__, 2);
+    $phpBindir = defined('PHP_BINDIR') ? (string) PHP_BINDIR : '';
 
     $candidates = [];
+    if ($phpBindir !== '') {
+        $candidates[] = $phpBindir . '/php.exe';
+        $candidates[] = $phpBindir . '/php-cli.exe';
+    }
+    $candidates[] = $xamppRoot . '/php/php.exe';
     $candidates[] = $portableRoot . '/stack/php/php.exe';
     $candidates[] = $portableRoot . '/stack/php/windowsXamppPhp/php.exe';
+    $candidates[] = 'C:/xampp82/php/php.exe';
     if ($phpBinary !== '') {
         $candidates[] = $phpBinary;
         $candidates[] = dirname($phpBinary) . '/php.exe';

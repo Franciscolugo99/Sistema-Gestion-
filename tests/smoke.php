@@ -891,6 +891,8 @@ $results[] = flus_run_test('mysql cli discovery prefers current PHP stack over f
     flus_assert_contains('defined(\'PHP_BINARY\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysqldump.exe\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysql.exe\')', $backupLib);
+    flus_assert_contains('defined(\'PHP_BINDIR\')', $tecnicoPhp);
+    flus_assert_contains('$candidates[] = $xamppRoot . \'/php/php.exe\';', $tecnicoPhp);
     flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
 
     $hasLocalStackFallback = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp82/php/php.exe\';') !== false;
@@ -1982,11 +1984,16 @@ $results[] = flus_run_test('permissions stay aligned across code, install, migra
 $results[] = flus_run_test('rol cajero mantiene permisos operativos minimos por slug', function (): void {
     $repoRoot = dirname(__DIR__);
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '035_cajero_role_operational_permissions.sql');
+    $baseMigrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '036_cajero_role_base_permissions.sql');
     $rolPermisosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'rol_permisos.php');
 
     flus_assert_contains("WHERE r.slug = 'cajero';", $migrationSql);
     flus_assert_contains("'realizar_ventas'", $migrationSql);
     flus_assert_contains("'ver_clientes'", $migrationSql);
+    flus_assert_contains("DELETE rp", $baseMigrationSql);
+    flus_assert_contains("WHERE r.slug = 'cajero'", $baseMigrationSql);
+    flus_assert_contains("AND p.slug NOT IN", $baseMigrationSql);
+    flus_assert_contains("'registrar_cargo_cc'", $baseMigrationSql);
     flus_assert_contains("\$isOperationalCashierRole = in_array(\$roleSlug, ['cajero', 'operador'], true);", $rolPermisosPhp);
     flus_assert_contains("!in_array('realizar_ventas', \$selectedSlugs, true)", $rolPermisosPhp);
     flus_assert_contains('Un rol operativo de caja necesita realizar_ventas', $rolPermisosPhp);
