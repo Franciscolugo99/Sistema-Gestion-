@@ -125,11 +125,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'inicio' => $_POST['recargo_inicio'] ?? '22:00',
                 'fin' => $_POST['recargo_fin'] ?? '06:00',
                 'dias' => $_POST['recargo_dias'] ?? [],
+                'redondeo' => $_POST['recargo_redondeo'] ?? 'NINGUNO',
             ]);
             $estado = flus_recargo_horario_estado_desde_config($config);
             $info = 'Precio horario guardado: ' . ($config['enabled'] ? 'activo' : 'apagado') .
                 ' +' . number_format((float)$config['porcentaje'], 2, ',', '.') . '% de ' .
                 $config['inicio'] . ' a ' . $config['fin'] .
+                ' - ' . flus_recargo_horario_redondeo_label((string)$config['redondeo']) .
                 ($estado['active'] ? ' (aplicando ahora).' : '.');
         }
 
@@ -886,6 +888,18 @@ require __DIR__ . '/partials/header.php';
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label>Redondeo en caja</label>
+                            <select name="recargo_redondeo" class="form-control">
+                                <?php foreach (flus_recargo_horario_redondeo_options() as $modo => $label): ?>
+                                    <option value="<?= htmlspecialchars($modo) ?>" <?= (string)$recargoHorarioConfig['redondeo'] === $modo ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($label) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="form-hint">Se aplica despues del porcentaje. Sirve para evitar importes dificiles al cobrar en caja.</p>
+                        </div>
+
                         <button type="submit" class="btn-apply primary" data-allow-empty="1">
                             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"/>
@@ -914,6 +928,7 @@ require __DIR__ . '/partials/header.php';
                     <p class="form-hint">Horario: <?= htmlspecialchars((string)$recargoHorarioConfig['inicio']) ?> a <?= htmlspecialchars((string)$recargoHorarioConfig['fin']) ?></p>
                     <p class="form-hint">Dias: <?= htmlspecialchars(flus_recargo_horario_dias_label($recargoHorarioConfig['dias'])) ?></p>
                     <p class="form-hint">Porcentaje: +<?= htmlspecialchars(number_format((float)$recargoHorarioConfig['porcentaje'], 2, ',', '.')) ?>%</p>
+                    <p class="form-hint">Redondeo: <?= htmlspecialchars(flus_recargo_horario_redondeo_label((string)$recargoHorarioConfig['redondeo'])) ?></p>
                     <p class="form-hint">Alcance: todos los productos activos, con o sin categoria.</p>
                     <form method="post" style="margin-top:1rem;">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">

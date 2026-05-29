@@ -4,6 +4,31 @@
 
 ---
 
+## [4.1.0] - 2026-05-29
+
+### Added
+
+- Trazabilidad generica de ajustes automaticos de precio en ventas y venta_items.
+- Migracion `037_venta_items_ajustes_precio.sql` para upgrades existentes.
+- Migracion `038_venta_items_ajustes_redondeo.sql` para separar recargo porcentual y redondeo.
+- Baseline `install.sql` actualizado para instalaciones limpias con las columnas de ajuste de precio.
+- Detalle de venta muestra una nota discreta cuando un item fue cobrado con ajuste automatico.
+- Documentacion `docs/REGLAS_PRECIO_4.1.0.md` y `docs/RELEASE_4_1_0.md`.
+
+### Changed
+
+- La regla horaria queda tratada como una regla comercial generica de precio, no como un caso exclusivo de negocios 24 hs.
+- La regla de precio puede redondear hacia arriba a importes operativos para agilizar cobros en caja.
+- `src/version.php` actualizado a `4.1.0` build `2026-05-29`.
+
+### Validation
+
+- `C:\xampp82\php\php.exe tests\smoke.php`: `134 OK / 0 fallidas / 0 skipped`.
+- `C:\xampp82\php\php.exe scripts\migrate.php`: migraciones 037 y 038 aplicadas localmente.
+- `$env:FLUS_TEST_DB='1'; C:\xampp82\php\php.exe tests\integration_db.php`: instalacion limpia + migraciones + flujos criticos OK.
+
+---
+
 ## [4.0.0] - 2026-05-19
 
 ### Release baseline

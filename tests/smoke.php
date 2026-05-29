@@ -1413,6 +1413,7 @@ $results[] = flus_run_test('precio horario aplica solo como precio vigente de ca
         'inicio' => '22:00',
         'fin' => '06:00',
         'dias' => [3],
+        'redondeo' => 'ARRIBA_10',
     ];
 
     $activeStart = flus_recargo_horario_estado_desde_config($cfg, new DateTimeImmutable('2026-05-20 23:30:00'));
@@ -1423,7 +1424,28 @@ $results[] = flus_run_test('precio horario aplica solo como precio vigente de ca
     flus_assert_true((bool)$activeEarly['active']);
     flus_assert_false((bool)$inactive['active']);
     flus_assert_same(1150.0, flus_recargo_horario_aplicar_precio(1000.0, $activeStart));
+    flus_assert_same(1420.0, flus_recargo_horario_aplicar_precio(1234.0, $activeStart));
     flus_assert_same(1000.0, flus_recargo_horario_aplicar_precio(1000.0, $inactive));
+    flus_assert_same(1390.0, flus_recargo_horario_redondear(1357.4, 'PSICO_90'));
+    flus_assert_same([
+        'precio_base' => 1234.0,
+        'precio_regla' => 1419.1,
+        'precio_final' => 1420.0,
+        'recargo_unit_monto' => 185.1,
+        'redondeo_modo' => 'ARRIBA_10',
+        'redondeo_unit_monto' => 0.9,
+    ], flus_recargo_horario_aplicar_precio_detalle(1234.0, $activeStart));
+    flus_assert_same([
+        'tipo' => 'recargo',
+        'origen' => 'horario',
+        'nombre' => 'Noche',
+        'porcentaje' => 15.0,
+        'unit_monto' => 150.0,
+        'regla_unit_monto' => 150.0,
+        'redondeo_modo' => 'ARRIBA_10',
+        'redondeo_unit_monto' => 0.0,
+    ], flus_recargo_horario_describir_ajuste(1000.0, 1150.0, $activeStart));
+    flus_assert_same(null, flus_recargo_horario_describir_ajuste(1000.0, 1000.0, $inactive));
 });
 
 $results[] = flus_run_test('precio horario permite activar y desactivar sin seleccionar productos', function (): void {
@@ -1432,6 +1454,8 @@ $results[] = flus_run_test('precio horario permite activar y desactivar sin sele
     $preciosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'precios.js');
 
     flus_assert_contains("name=\"accion\" value=\"toggle_recargo_horario\"", $preciosPhp);
+    flus_assert_contains("name=\"recargo_redondeo\"", $preciosPhp);
+    flus_assert_contains('flus_recargo_horario_redondeo_options()', $preciosPhp);
     flus_assert_contains('data-allow-empty="1"', $preciosPhp);
     flus_assert_contains('.btn-apply:not([data-allow-empty])', $preciosJs);
 });
@@ -1579,8 +1603,10 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     $repoRoot = dirname(__DIR__);
     $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
     $integrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'tests' . DIRECTORY_SEPARATOR . 'integration_db.php';
+    $ajustesMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '037_venta_items_ajustes_precio.sql';
+    $redondeoMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '038_venta_items_ajustes_redondeo.sql';
 
-    foreach ([$installPath, $integrationPath] as $requiredPath) {
+    foreach ([$installPath, $integrationPath, $ajustesMigrationPath, $redondeoMigrationPath] as $requiredPath) {
         if (!is_file($requiredPath)) {
             throw new RuntimeException('Missing file: ' . $requiredPath);
         }
@@ -1588,13 +1614,37 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
 
     $installSql = (string)file_get_contents($installPath);
     $integrationPhp = (string)file_get_contents($integrationPath);
+    $ajustesMigrationSql = (string)file_get_contents($ajustesMigrationPath);
+    $redondeoMigrationSql = (string)file_get_contents($redondeoMigrationPath);
 
     foreach (['ventas', 'venta_items', 'venta_pagos', 'venta_promos'] as $table) {
         flus_assert_contains('CREATE TABLE `' . $table . '`', $installSql);
     }
 
+    foreach ([
+        '`ajuste_precio_aplicado` tinyint(1) NOT NULL DEFAULT 0',
+        '`ajuste_precio_total` decimal(12,2) NOT NULL DEFAULT 0.00',
+        '`ajuste_precio_redondeo_total` decimal(12,2) NOT NULL DEFAULT 0.00',
+        '`precio_unit_base` decimal(12,2) DEFAULT NULL',
+        '`ajuste_precio_tipo` varchar(30) DEFAULT NULL',
+        '`ajuste_precio_origen` varchar(40) DEFAULT NULL',
+        '`ajuste_precio_nombre` varchar(100) DEFAULT NULL',
+        '`ajuste_precio_pct` decimal(8,3) DEFAULT NULL',
+        '`ajuste_precio_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00',
+        '`ajuste_precio_regla_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00',
+        '`ajuste_precio_redondeo_modo` varchar(30) DEFAULT NULL',
+        '`ajuste_precio_redondeo_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00',
+        '`ajuste_precio_redondeo_total` decimal(12,2) NOT NULL DEFAULT 0.00',
+    ] as $columnSql) {
+        flus_assert_contains($columnSql, $installSql);
+    }
+    flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'precio_unit_base'", $ajustesMigrationSql);
+    flus_assert_contains("TABLE_NAME = 'ventas' AND COLUMN_NAME = 'ajuste_precio_total'", $ajustesMigrationSql);
+    flus_assert_contains("TABLE_NAME = 'ventas' AND COLUMN_NAME = 'ajuste_precio_redondeo_total'", $redondeoMigrationSql);
+    flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
+
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 034", $integrationPhp);
+    flus_assert_contains("latest migration is 038", $integrationPhp);
     flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
     flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
@@ -1913,6 +1963,12 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains('final class FlusVentaDomainException extends RuntimeException', $ventaLibPhp);
     flus_assert_contains("require_once __DIR__ . '/recargo_horario.php';", $ventaLibPhp);
     flus_assert_contains('flus_recargo_horario_aplicar_precio', $ventaLibPhp);
+    flus_assert_contains('flus_recargo_horario_describir_ajuste', $ventaLibPhp);
+    flus_assert_contains('$precioManualAplicado = false;', $ventaLibPhp);
+    flus_assert_contains('$ajustePrecio = null;', $ventaLibPhp);
+    flus_assert_contains("'precio_unit_base' =>", $ventaLibPhp);
+    flus_assert_contains("'ajuste_precio_tipo' =>", $ventaLibPhp);
+    flus_assert_contains("'ajuste_precio_total' =>", $ventaLibPhp);
     flus_assert_contains('function flus_venta_fail(string $message, string $errorCode = \'VALIDATION_ERROR\', int $statusCode = 422): never', $ventaLibPhp);
     flus_assert_contains("function flus_venta_build_items_snapshot(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_register_cc_charge(", $ventaLibPhp);

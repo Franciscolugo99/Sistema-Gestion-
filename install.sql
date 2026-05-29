@@ -172,6 +172,9 @@ CREATE TABLE `ventas` (
   `total_bruto` decimal(12,2) NOT NULL DEFAULT 0.00,
   `descuento_total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `descuento_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_aplicado` tinyint(1) NOT NULL DEFAULT 0,
+  `ajuste_precio_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_redondeo_total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `medio_pago` varchar(30) NOT NULL DEFAULT 'EFECTIVO',
   `monto_pagado` decimal(12,2) NOT NULL DEFAULT 0.00,
   `monto_cc` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -193,7 +196,8 @@ CREATE TABLE `ventas` (
   KEY `idx_ventas_caja` (`caja_id`),
   KEY `idx_ventas_terminal` (`terminal_id`),
   KEY `idx_ventas_estado` (`estado`),
-  KEY `idx_ventas_facturada` (`facturada`)
+  KEY `idx_ventas_facturada` (`facturada`),
+  KEY `idx_ventas_ajuste_precio` (`ajuste_precio_aplicado`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -207,13 +211,25 @@ CREATE TABLE `venta_items` (
   `cantidad` decimal(12,3) NOT NULL DEFAULT 0.000,
   `precio` decimal(12,2) NOT NULL DEFAULT 0.00,
   `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `precio_unit_base` decimal(12,2) DEFAULT NULL,
   `precio_unit_original` decimal(12,2) DEFAULT NULL,
   `descuento_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
   `precio_unit_final` decimal(12,2) DEFAULT NULL,
+  `ajuste_precio_tipo` varchar(30) DEFAULT NULL,
+  `ajuste_precio_origen` varchar(40) DEFAULT NULL,
+  `ajuste_precio_nombre` varchar(100) DEFAULT NULL,
+  `ajuste_precio_pct` decimal(8,3) DEFAULT NULL,
+  `ajuste_precio_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_regla_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_redondeo_modo` varchar(30) DEFAULT NULL,
+  `ajuste_precio_redondeo_unit_monto` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `ajuste_precio_redondeo_total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_venta_items_venta` (`venta_id`),
-  KEY `idx_venta_items_producto` (`producto_id`)
+  KEY `idx_venta_items_producto` (`producto_id`),
+  KEY `idx_venta_items_ajuste_precio` (`ajuste_precio_tipo`,`ajuste_precio_origen`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

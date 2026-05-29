@@ -134,24 +134,35 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
             flus_venta_fail("Stock insuficiente para {$p['nombre']} (disponible: {$stock}, solicitado: {$cant})", 'STOCK_INSUFICIENTE', 409);
         }
 
-        $precioLista = flus_recargo_horario_aplicar_precio((float)$p['precio'], $recargoHorario);
+        $precioBase = round((float)$p['precio'], 2);
+        $precioDetalle = flus_recargo_horario_aplicar_precio_detalle($precioBase, $recargoHorario);
+        $precioLista = (float)$precioDetalle['precio_final'];
+        $ajustePrecio = flus_recargo_horario_describir_ajuste($precioBase, $precioLista, $recargoHorario, $precioDetalle);
         $precioActual = $precioLista;
+        $precioManualAplicado = false;
         if ($puedeCambiarPrecio) {
             $pr = (float)$it['precio_req'];
             if ($pr > 0) {
                 $precioActual = $pr;
+                $precioManualAplicado = abs($precioActual - $precioLista) > 0.00001;
             }
             if ($precioActual <= 0) {
                 flus_venta_fail("Precio inválido para {$p['nombre']}", 'PRECIO_INVALIDO', 422);
             }
         }
 
+        if ($precioManualAplicado) {
+            $ajustePrecio = null;
+        }
+
         $totalProductos += $cant;
         $srvItems[] = [
             'producto_id' => $pid,
             'cantidad' => $cant,
+            'precio_base' => $precioBase,
             'precio_lista' => $precioLista,
             'precio_actual' => $precioActual,
+            'ajuste_precio' => $ajustePrecio,
             'nombre' => (string)$p['nombre'],
             'es_pesable' => $esPesable ? 1 : 0,
         ];
@@ -159,6 +170,27 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
 
     $calc = calcular_totales_con_promos($srvItems, $promos);
     $srvItems = $calc['items'];
+
+    $ajustePrecioTotal = 0.0;
+    $ajustePrecioRedondeoTotal = 0.0;
+    foreach ($srvItems as &$srvItem) {
+        $ajuste = is_array($srvItem['ajuste_precio'] ?? null) ? $srvItem['ajuste_precio'] : null;
+        if ($ajuste === null) {
+            $srvItem['ajuste_precio_total'] = 0.0;
+            $srvItem['ajuste_precio_redondeo_total'] = 0.0;
+            continue;
+        }
+
+        $ajusteTotal = round(((float)($ajuste['unit_monto'] ?? 0) * (float)($srvItem['cantidad'] ?? 0)), 2);
+        $redondeoTotal = round(((float)($ajuste['redondeo_unit_monto'] ?? 0) * (float)($srvItem['cantidad'] ?? 0)), 2);
+        $srvItem['ajuste_precio_total'] = $ajusteTotal;
+        $srvItem['ajuste_precio_redondeo_total'] = $redondeoTotal;
+        $ajustePrecioTotal += $ajusteTotal;
+        $ajustePrecioRedondeoTotal += $redondeoTotal;
+    }
+    unset($srvItem);
+    $ajustePrecioTotal = round($ajustePrecioTotal, 2);
+    $ajustePrecioRedondeoTotal = round($ajustePrecioRedondeoTotal, 2);
 
     $totalBruto = (float)$calc['total_bruto'];
     $totalNetoSinGlobal = (float)$calc['total_neto'];
@@ -188,6 +220,8 @@ function flus_venta_build_items_snapshot(PDO $pdo, array $items, bool $puedeCamb
         'total_neto_final' => $totalNetoFinal,
         'descuento_total_final' => $descTotalFinal,
         'desc_global_monto' => $descGlobalMonto,
+        'ajuste_precio_total' => $ajustePrecioTotal,
+        'ajuste_precio_redondeo_total' => $ajustePrecioRedondeoTotal,
     ];
 }
 
@@ -341,7 +375,7 @@ function flus_venta_resolve_payment_totals(array $pagosValidos, array $pagosCaja
     ];
 }
 
-function flus_venta_insert_record(PDO $pdo, int $userId, int $cajaId, float $totalNetoFinal, float $totalBruto, float $descTotalFinal, string $medio, float $montoPagado, float $vuelto, int $ccClienteId, float $montoCC): int
+function flus_venta_insert_record(PDO $pdo, int $userId, int $cajaId, float $totalNetoFinal, float $totalBruto, float $descTotalFinal, string $medio, float $montoPagado, float $vuelto, int $ccClienteId, float $montoCC, float $ajustePrecioTotal = 0.0, float $ajustePrecioRedondeoTotal = 0.0): int
 {
     $ventaData = [
         'user_id' => ($userId > 0 ? $userId : null),
@@ -349,6 +383,9 @@ function flus_venta_insert_record(PDO $pdo, int $userId, int $cajaId, float $tot
         'total' => $totalNetoFinal,
         'total_bruto' => $totalBruto,
         'descuento_total' => $descTotalFinal,
+        'ajuste_precio_aplicado' => $ajustePrecioTotal > 0.00001 ? 1 : 0,
+        'ajuste_precio_total' => round(max(0.0, $ajustePrecioTotal), 2),
+        'ajuste_precio_redondeo_total' => round(max(0.0, $ajustePrecioRedondeoTotal), 2),
         'medio_pago' => $medio,
         'monto_pagado' => $montoPagado,
         'vuelto' => $vuelto,
@@ -467,9 +504,11 @@ function flus_venta_store_items_and_stock(PDO $pdo, int $ventaId, array $srvItem
         $pid = (int)$it['producto_id'];
         $cant = (float)$it['cantidad'];
         $neto = (float)$it['neto'];
+        $base = (float)($it['precio_base'] ?? 0);
         $lista = (float)$it['precio_lista'];
         $desc = (float)$it['descuento'];
         $precioUnitFinal = ($cant > 0) ? round($neto / $cant, 2) : 0.0;
+        $ajuste = is_array($it['ajuste_precio'] ?? null) ? $it['ajuste_precio'] : null;
 
         insert_dynamic($pdo, 'venta_items', [
             'venta_id' => $ventaId,
@@ -477,9 +516,20 @@ function flus_venta_store_items_and_stock(PDO $pdo, int $ventaId, array $srvItem
             'cantidad' => $cant,
             'precio' => $precioUnitFinal,
             'subtotal' => $neto,
+            'precio_unit_base' => $base > 0 ? $base : null,
             'precio_unit_original' => $lista,
             'descuento_monto' => $desc,
             'precio_unit_final' => $precioUnitFinal,
+            'ajuste_precio_tipo' => $ajuste['tipo'] ?? null,
+            'ajuste_precio_origen' => $ajuste['origen'] ?? null,
+            'ajuste_precio_nombre' => $ajuste['nombre'] ?? null,
+            'ajuste_precio_pct' => $ajuste['porcentaje'] ?? null,
+            'ajuste_precio_unit_monto' => $ajuste['unit_monto'] ?? 0.0,
+            'ajuste_precio_total' => $it['ajuste_precio_total'] ?? 0.0,
+            'ajuste_precio_regla_unit_monto' => $ajuste['regla_unit_monto'] ?? 0.0,
+            'ajuste_precio_redondeo_modo' => $ajuste['redondeo_modo'] ?? null,
+            'ajuste_precio_redondeo_unit_monto' => $ajuste['redondeo_unit_monto'] ?? 0.0,
+            'ajuste_precio_redondeo_total' => $it['ajuste_precio_redondeo_total'] ?? 0.0,
         ]);
 
         insert_dynamic($pdo, 'movimientos_stock', [

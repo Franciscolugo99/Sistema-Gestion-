@@ -48,6 +48,8 @@ try {
   $totalNetoFinal = $snapshot['total_neto_final'];
   $descTotalFinal = $snapshot['descuento_total_final'];
   $descGlobalMonto = $snapshot['desc_global_monto'];
+  $ajustePrecioTotal = (float)($snapshot['ajuste_precio_total'] ?? 0);
+  $ajustePrecioRedondeoTotal = (float)($snapshot['ajuste_precio_redondeo_total'] ?? 0);
 
   $paymentData = flus_venta_prepare_payment_data($body, $pagosIn, $totalNetoFinal);
   $pagosValidos = $paymentData['pagos_validos'];
@@ -77,7 +79,9 @@ try {
     $montoPagado,
     $vuelto,
     $ccClienteId,
-    $montoCC
+    $montoCC,
+    $ajustePrecioTotal,
+    $ajustePrecioRedondeoTotal
   );
 
   $ccCharge = flus_venta_register_cc_charge(

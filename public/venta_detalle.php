@@ -581,6 +581,35 @@ require __DIR__ . '/partials/header.php';
                   $estadoItemLabel = 'Devuelto parcial';
                   $estadoItemClass = 'item-status-partial';
                 }
+                $ajusteTipo = trim((string)($it['ajuste_precio_tipo'] ?? ''));
+                $ajusteOrigen = trim((string)($it['ajuste_precio_origen'] ?? ''));
+                $ajusteNombre = trim((string)($it['ajuste_precio_nombre'] ?? ''));
+                $ajustePct = ($it['ajuste_precio_pct'] ?? null) !== null ? (float)$it['ajuste_precio_pct'] : null;
+                $ajusteUnit = (float)($it['ajuste_precio_unit_monto'] ?? 0);
+                $ajusteReglaUnit = (float)($it['ajuste_precio_regla_unit_monto'] ?? 0);
+                $ajusteRedondeoUnit = (float)($it['ajuste_precio_redondeo_unit_monto'] ?? 0);
+                $ajusteRedondeoModo = trim((string)($it['ajuste_precio_redondeo_modo'] ?? ''));
+                $ajusteLabel = null;
+                if ($ajusteTipo !== '' && $ajusteUnit > 0.00001) {
+                  $ajustePartes = [];
+                  $ajustePartes[] = $ajusteNombre !== '' ? $ajusteNombre : ucfirst($ajusteTipo);
+                  if ($ajusteOrigen !== '') {
+                    $ajustePartes[] = '(' . $ajusteOrigen . ')';
+                  }
+                  if ($ajustePct !== null && abs($ajustePct) > 0.00001) {
+                    $ajustePartes[] = '+' . rtrim(rtrim(number_format($ajustePct, 3, ',', '.'), '0'), ',') . '%';
+                  }
+                  if ($ajusteReglaUnit > 0.00001 && $ajusteRedondeoUnit > 0.00001) {
+                    $ajustePartes[] = '+' . money($ajusteReglaUnit) . '/u';
+                    $ajustePartes[] = 'redondeo +' . money($ajusteRedondeoUnit) . '/u';
+                  } else {
+                    $ajustePartes[] = '+' . money($ajusteUnit) . '/u';
+                  }
+                  if ($ajusteRedondeoModo !== '' && $ajusteRedondeoModo !== 'NINGUNO' && $ajusteRedondeoUnit <= 0.00001) {
+                    $ajustePartes[] = 'redondeo ' . $ajusteRedondeoModo;
+                  }
+                  $ajusteLabel = implode(' ', $ajustePartes);
+                }
               ?>
               <tr
                 class="<?= $estadoItemClass !== '' ? h($estadoItemClass) : '' ?>"
@@ -594,6 +623,9 @@ require __DIR__ . '/partials/header.php';
                   <?= h($it['nombre'] ?? '') ?>
                   <?php if ($estadoItemLabel !== null): ?>
                     <span class="table-note <?= h($estadoItemClass) ?>"><?= h($estadoItemLabel) ?></span>
+                  <?php endif; ?>
+                  <?php if ($ajusteLabel !== null): ?>
+                    <span class="table-note"><?= h($ajusteLabel) ?></span>
                   <?php endif; ?>
                 </td>
                 <td class="right"><?= h(format_qty($it['cantidad'] ?? 0)) ?></td>

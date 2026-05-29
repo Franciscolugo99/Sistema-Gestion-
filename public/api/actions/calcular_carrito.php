@@ -85,7 +85,8 @@ foreach ($itemsMap as $pid => $itemData) {
   }
 
   $producto = $productsMap[$pid];
-  $precioLista = flus_recargo_horario_aplicar_precio((float)$producto['precio'], $recargoHorario);
+  $precioDetalle = flus_recargo_horario_aplicar_precio_detalle((float)$producto['precio'], $recargoHorario);
+  $precioLista = (float)$precioDetalle['precio_final'];
   $precioActual = $precioLista;
 
   if ($canModifyPrice && $itemData['precio_manual'] !== null && $itemData['precio_manual'] > 0) {
@@ -99,6 +100,15 @@ foreach ($itemsMap as $pid => $itemData) {
     'cantidad' => $itemData['cantidad'],
     'precio_lista' => $precioLista,
     'precio_actual' => $precioActual,
+    'precio_base' => $precioDetalle['precio_base'],
+    'precio_regla' => $precioDetalle['precio_regla'],
+    'recargo_horario' => [
+      'active' => !empty($recargoHorario['active']),
+      'nombre' => (string)($recargoHorario['nombre'] ?? ''),
+      'porcentaje' => (float)($recargoHorario['porcentaje'] ?? 0),
+      'redondeo' => $precioDetalle['redondeo_modo'],
+      'redondeo_monto' => $precioDetalle['redondeo_unit_monto'],
+    ],
     'es_pesable' => (int)$producto['es_pesable'],
     'unidad_venta' => $producto['unidad_venta'] ?: 'UNIDAD',
     'stock' => (float)$producto['stock'],

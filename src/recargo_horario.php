@@ -10,6 +10,7 @@ const FLUS_RECARGO_HORARIO_KEYS = [
     'inicio' => 'recargo_horario_inicio',
     'fin' => 'recargo_horario_fin',
     'dias' => 'recargo_horario_dias',
+    'redondeo' => 'recargo_horario_redondeo',
 ];
 
 function flus_recargo_horario_defaults(): array
@@ -21,6 +22,7 @@ function flus_recargo_horario_defaults(): array
         'inicio' => '22:00',
         'fin' => '06:00',
         'dias' => [1, 2, 3, 4, 5, 6, 7],
+        'redondeo' => 'NINGUNO',
     ];
 }
 
@@ -67,6 +69,7 @@ function flus_recargo_horario_normalizar_config(array $raw): array
     }
 
     $nombre = function_exists('mb_substr') ? mb_substr($nombre, 0, 80) : substr($nombre, 0, 80);
+    $redondeo = flus_recargo_horario_normalizar_redondeo($raw['redondeo'] ?? $defaults['redondeo']);
 
     return [
         'enabled' => filter_var($raw['enabled'] ?? $defaults['enabled'], FILTER_VALIDATE_BOOL),
@@ -75,7 +78,32 @@ function flus_recargo_horario_normalizar_config(array $raw): array
         'inicio' => flus_recargo_horario_normalizar_hora($raw['inicio'] ?? '', $defaults['inicio']),
         'fin' => flus_recargo_horario_normalizar_hora($raw['fin'] ?? '', $defaults['fin']),
         'dias' => flus_recargo_horario_normalizar_dias($raw['dias'] ?? $defaults['dias']),
+        'redondeo' => $redondeo,
     ];
+}
+
+function flus_recargo_horario_redondeo_options(): array
+{
+    return [
+        'NINGUNO' => 'Sin redondeo',
+        'ARRIBA_10' => 'Hacia arriba a $10',
+        'ARRIBA_50' => 'Hacia arriba a $50',
+        'ARRIBA_100' => 'Hacia arriba a $100',
+        'PSICO_90' => 'Psicologico: siguiente terminacion 90',
+    ];
+}
+
+function flus_recargo_horario_normalizar_redondeo(mixed $value): string
+{
+    $mode = strtoupper(trim((string)$value));
+    return array_key_exists($mode, flus_recargo_horario_redondeo_options()) ? $mode : 'NINGUNO';
+}
+
+function flus_recargo_horario_redondeo_label(string $mode): string
+{
+    $mode = flus_recargo_horario_normalizar_redondeo($mode);
+    $options = flus_recargo_horario_redondeo_options();
+    return $options[$mode] ?? $options['NINGUNO'];
 }
 
 function flus_recargo_horario_config(PDO $pdo): array
@@ -89,6 +117,7 @@ function flus_recargo_horario_config(PDO $pdo): array
         'inicio' => config_get($pdo, FLUS_RECARGO_HORARIO_KEYS['inicio'], $d['inicio']),
         'fin' => config_get($pdo, FLUS_RECARGO_HORARIO_KEYS['fin'], $d['fin']),
         'dias' => config_get($pdo, FLUS_RECARGO_HORARIO_KEYS['dias'], implode(',', $d['dias'])),
+        'redondeo' => config_get($pdo, FLUS_RECARGO_HORARIO_KEYS['redondeo'], $d['redondeo']),
     ]);
 }
 
@@ -101,6 +130,7 @@ function flus_recargo_horario_save(PDO $pdo, array $input): array
         'inicio' => $input['inicio'] ?? null,
         'fin' => $input['fin'] ?? null,
         'dias' => $input['dias'] ?? [],
+        'redondeo' => $input['redondeo'] ?? null,
     ]);
 
     config_set($pdo, FLUS_RECARGO_HORARIO_KEYS['enabled'], $config['enabled'] ? '1' : '0');
@@ -109,6 +139,7 @@ function flus_recargo_horario_save(PDO $pdo, array $input): array
     config_set($pdo, FLUS_RECARGO_HORARIO_KEYS['inicio'], $config['inicio']);
     config_set($pdo, FLUS_RECARGO_HORARIO_KEYS['fin'], $config['fin']);
     config_set($pdo, FLUS_RECARGO_HORARIO_KEYS['dias'], implode(',', $config['dias']));
+    config_set($pdo, FLUS_RECARGO_HORARIO_KEYS['redondeo'], $config['redondeo']);
 
     return $config;
 }
@@ -154,22 +185,103 @@ function flus_recargo_horario_estado(PDO $pdo, ?DateTimeInterface $now = null): 
 
 function flus_recargo_horario_aplicar_precio(float $precio, array $estado): float
 {
-    if (empty($estado['active']) || $precio <= 0) {
-        return round($precio, 2);
+    return flus_recargo_horario_aplicar_precio_detalle($precio, $estado)['precio_final'];
+}
+
+function flus_recargo_horario_redondear(float $precio, string $mode): float
+{
+    $precio = round($precio, 2);
+    $mode = flus_recargo_horario_normalizar_redondeo($mode);
+    if ($precio <= 0 || $mode === 'NINGUNO') {
+        return $precio;
+    }
+
+    $multiples = [
+        'ARRIBA_10' => 10,
+        'ARRIBA_50' => 50,
+        'ARRIBA_100' => 100,
+    ];
+
+    if (isset($multiples[$mode])) {
+        $m = (float)$multiples[$mode];
+        return round(ceil(($precio - 0.00001) / $m) * $m, 2);
+    }
+
+    if ($mode === 'PSICO_90') {
+        $candidate = floor($precio / 100) * 100 + 90;
+        if ($candidate + 0.00001 < $precio) {
+            $candidate += 100;
+        }
+        return round(max($precio, $candidate), 2);
+    }
+
+    return $precio;
+}
+
+function flus_recargo_horario_aplicar_precio_detalle(float $precio, array $estado): array
+{
+    $precioBase = round($precio, 2);
+    if (empty($estado['active']) || $precioBase <= 0) {
+        return [
+            'precio_base' => $precioBase,
+            'precio_regla' => $precioBase,
+            'precio_final' => $precioBase,
+            'recargo_unit_monto' => 0.0,
+            'redondeo_modo' => 'NINGUNO',
+            'redondeo_unit_monto' => 0.0,
+        ];
     }
 
     $factor = (float)($estado['factor'] ?? 1.0);
-    return round($precio * max(1.0, $factor), 2);
+    $precioRegla = round($precioBase * max(1.0, $factor), 2);
+    $redondeoModo = flus_recargo_horario_normalizar_redondeo($estado['redondeo'] ?? 'NINGUNO');
+    $precioFinal = flus_recargo_horario_redondear($precioRegla, $redondeoModo);
+
+    return [
+        'precio_base' => $precioBase,
+        'precio_regla' => $precioRegla,
+        'precio_final' => $precioFinal,
+        'recargo_unit_monto' => round($precioRegla - $precioBase, 2),
+        'redondeo_modo' => $redondeoModo,
+        'redondeo_unit_monto' => round($precioFinal - $precioRegla, 2),
+    ];
+}
+
+function flus_recargo_horario_describir_ajuste(float $precioBase, float $precioAplicado, array $estado, ?array $detalle = null): ?array
+{
+    $precioBase = round($precioBase, 2);
+    $precioAplicado = round($precioAplicado, 2);
+    $unitMonto = round($precioAplicado - $precioBase, 2);
+
+    if (empty($estado['active']) || $precioBase <= 0 || $unitMonto <= 0.00001) {
+        return null;
+    }
+
+    $detalle = $detalle ?? flus_recargo_horario_aplicar_precio_detalle($precioBase, $estado);
+
+    return [
+        'tipo' => 'recargo',
+        'origen' => 'horario',
+        'nombre' => (string)($estado['nombre'] ?? 'Regla por horario'),
+        'porcentaje' => round((float)($estado['porcentaje'] ?? 0), 3),
+        'unit_monto' => $unitMonto,
+        'regla_unit_monto' => round((float)($detalle['recargo_unit_monto'] ?? 0), 2),
+        'redondeo_modo' => flus_recargo_horario_normalizar_redondeo($detalle['redondeo_modo'] ?? 'NINGUNO'),
+        'redondeo_unit_monto' => round((float)($detalle['redondeo_unit_monto'] ?? 0), 2),
+    ];
 }
 
 function flus_recargo_horario_aplicar_producto(array $producto, array $estado): array
 {
-    $producto['precio'] = flus_recargo_horario_aplicar_precio((float)($producto['precio'] ?? 0), $estado);
+    $detalle = flus_recargo_horario_aplicar_precio_detalle((float)($producto['precio'] ?? 0), $estado);
+    $producto['precio'] = $detalle['precio_final'];
     if (!empty($estado['active'])) {
         $producto['recargo_horario'] = [
             'active' => true,
             'nombre' => (string)($estado['nombre'] ?? ''),
             'porcentaje' => (float)($estado['porcentaje'] ?? 0),
+            'redondeo' => $detalle['redondeo_modo'],
+            'redondeo_monto' => $detalle['redondeo_unit_monto'],
         ];
     }
 

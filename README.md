@@ -2,23 +2,24 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.0.0
-**Build:** 2026-05-19
-**Release objetivo:** 4.0.0
+**Version:** 4.1.0
+**Build:** 2026-05-29
+**Release objetivo:** 4.1.0
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.0.0 (2026-05-19)
+## Estado de release 4.1.0 (2026-05-29)
 
-- Smoke tecnico: `123 OK / 0 fallidas / 0 skipped`
+- Smoke tecnico: `134 OK / 0 fallidas / 0 skipped`
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
-- Caja: QA operativa y fixes de estado/accesibilidad cerrados en la base anterior
-- Migraciones y baseline: versionados; no se modifican en este corte
-- Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.0
-- Salida actual: `4.0.0`, pensada como nueva base estable para el siguiente ciclo de FLUS
+- Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
+- Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
+- Migraciones y baseline: versionados hasta `038_venta_items_ajustes_redondeo.sql`.
+- Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
+- Salida actual: `4.1.0`, pensada como corte operativo para instalador/actualizador.
 
 ### Nota sobre ARCA y entorno simulado
 
@@ -31,6 +32,8 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_1_0.md](docs/RELEASE_4_1_0.md)
+- [docs/REGLAS_PRECIO_4.1.0.md](docs/REGLAS_PRECIO_4.1.0.md)
 - [docs/RELEASE_4_0_0.md](docs/RELEASE_4_0_0.md)
 - [docs/RELEASE_3_9_0.md](docs/RELEASE_3_9_0.md)
 - [docs/QA_FACTURACION_PRODUCCION.md](docs/QA_FACTURACION_PRODUCCION.md)
@@ -298,7 +301,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `034_caja_turno_control.sql`.
+- Verificar que corran las migraciones pendientes hasta `038_venta_items_ajustes_redondeo.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

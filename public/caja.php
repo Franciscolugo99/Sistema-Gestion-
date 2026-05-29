@@ -12,8 +12,10 @@ require_any_permission(['abrir_caja', 'realizar_ventas']);
 require_pos();
 
 $recargoHorarioEstado = flus_recargo_horario_estado($pdo);
-
-
+$recargoHorarioRedondeoLabel = flus_recargo_horario_redondeo_label((string)($recargoHorarioEstado['redondeo'] ?? 'NINGUNO'));
+$recargoHorarioRedondeoSub = ((string)($recargoHorarioEstado['redondeo'] ?? 'NINGUNO') !== 'NINGUNO')
+  ? ' - ' . $recargoHorarioRedondeoLabel
+  : '';
 
 // Terminal actual (UX)
 $terminalId   = (int)($_SESSION['terminal_id'] ?? 0);
@@ -416,12 +418,12 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     <?php if (!empty($recargoHorarioEstado['active'])): ?>
       <div
         class="caja-topbar__mode24"
-        title="Precio horario activo: <?= h((string)$recargoHorarioEstado['nombre']) ?> +<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 2, ',', '.')) ?>% hasta <?= h((string)$recargoHorarioEstado['fin']) ?>"
-        aria-label="Modo 24 horas activo"
+        title="Precio activo: <?= h((string)$recargoHorarioEstado['nombre']) ?> +<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 2, ',', '.')) ?>% hasta <?= h((string)$recargoHorarioEstado['fin']) ?><?= h($recargoHorarioRedondeoSub) ?>"
+        aria-label="Precio automatico activo"
       >
         <span class="caja-topbar__mode24-led" aria-hidden="true"></span>
-        <span class="caja-topbar__mode24-main">24 hs</span>
-        <span class="caja-topbar__mode24-sub">+<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 0, ',', '.')) ?>% hasta <?= h((string)$recargoHorarioEstado['fin']) ?></span>
+        <span class="caja-topbar__mode24-main">Precio</span>
+        <span class="caja-topbar__mode24-sub">+<?= h(number_format((float)$recargoHorarioEstado['porcentaje'], 0, ',', '.')) ?>%<?= h($recargoHorarioRedondeoSub) ?></span>
       </div>
     <?php endif; ?>
 

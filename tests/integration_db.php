@@ -1653,7 +1653,7 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '034_caja_turno_control.sql', 'latest migration is 034');
+    flus_it_assert($latest === '038_venta_items_ajustes_redondeo.sql', 'latest migration is 038');
     $tipoColumn = $pdo
         ->query("SHOW COLUMNS FROM movimientos_stock LIKE 'tipo'")
         ->fetch(PDO::FETCH_ASSOC);
@@ -1664,6 +1664,14 @@ try {
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_sesiones', 'categoria_nombre'), 'inventario_sesiones.categoria_nombre exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'inventario_conteos', 'stock_sistema_snapshot'), 'inventario_conteos.stock_sistema_snapshot exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'facturas', 'estado_fiscal'), 'facturas.estado_fiscal exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'ajuste_precio_total'), 'ventas.ajuste_precio_total exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'ajuste_precio_redondeo_total'), 'ventas.ajuste_precio_redondeo_total exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'precio_unit_base'), 'venta_items.precio_unit_base exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_tipo'), 'venta_items.ajuste_precio_tipo exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_regla_unit_monto'), 'venta_items.ajuste_precio_regla_unit_monto exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_modo'), 'venta_items.ajuste_precio_redondeo_modo exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_unit_monto'), 'venta_items.ajuste_precio_redondeo_unit_monto exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_total'), 'venta_items.ajuste_precio_redondeo_total exists');
     $posSale = flus_it_run_pos_sale_case($pdo);
     $fiscalCase = flus_it_run_non_remote_fiscal_case($pdo, (int)$posSale['venta_id']);
     flus_it_run_non_remote_nc_total_case($pdo, $fiscalCase);
