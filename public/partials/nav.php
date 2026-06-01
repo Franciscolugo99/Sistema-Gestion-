@@ -91,6 +91,8 @@ if ($currentSection === '') {
         'factura_pdf.php'              => 'facturacion',
         'factura_emitir.php'           => 'facturacion',
         'configuracion.php'            => 'configuracion',
+        'mercadopago_config.php'       => 'configuracion',
+        'mp_qr_test.php'               => 'configuracion',
         'licencia.php'                 => 'configuracion',
         'usuarios.php'                 => 'usuarios',
         'usuario_nuevo.php'            => 'usuarios',
@@ -338,6 +340,7 @@ if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php',       
 if ($canRendCajeros)              $adminLinks[] = ['href' => 'cajeros_rendimiento.php','label' => 'Rendimiento cajeros'];
 if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Control de turnos'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'configuracion.php','label' => "Configuraci\u{00F3}n"];
+if ($can('administrar_config'))   $adminLinks[] = ['href' => 'mercadopago_config.php','label' => 'Mercado Pago'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'licencia.php',     'label' => 'Licencia'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'terminales.php',   'label' => 'Terminales'];
 if ($can('ver_auditoria'))        $adminLinks[] = ['href' => 'auditoria.php',    'label' => "Auditor\u{00ED}a"];

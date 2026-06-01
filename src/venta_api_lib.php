@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/recargo_horario.php';
+require_once __DIR__ . '/mercadopago_qr_lib.php';
 
 if (!class_exists('FlusVentaDomainException')) {
     final class FlusVentaDomainException extends RuntimeException
@@ -322,6 +323,124 @@ function flus_venta_validate_cc_payment(PDO $pdo, int $ccClienteId, float $monto
         'cc_ctrl' => $ccCtrl,
         'cc_check' => $ccCheck,
         'cc_info' => $ccInfo,
+    ];
+}
+
+function flus_venta_validate_mp_qr_payment(array $body, array $pagosCaja, float $totalNetoFinal): ?array
+{
+    $mpTotal = 0.0;
+    foreach ($pagosCaja as $pg) {
+        if ((string)($pg['medio'] ?? '') === 'MP') {
+            $mpTotal += (float)($pg['monto'] ?? 0);
+        }
+    }
+
+    if ($mpTotal <= 0.00001) {
+        return null;
+    }
+
+    $orderId = trim((string)($body['mp_order_id'] ?? ''));
+    if ($orderId === '') {
+        return null;
+    }
+
+    if (!function_exists('flus_mp_qr_get_order')) {
+        flus_venta_fail('No se pudo verificar el pago QR de Mercado Pago.', 'MP_QR_UNAVAILABLE', 500);
+    }
+
+    $result = flus_mp_qr_get_order($orderId);
+    if (!($result['ok'] ?? false)) {
+        flus_venta_fail('No se pudo consultar Mercado Pago antes de registrar la venta.', 'MP_QR_VERIFY_FAILED', 409);
+    }
+
+    $order = is_array($result['order'] ?? null) ? $result['order'] : [];
+    if (empty($order['approved'])) {
+        flus_venta_fail('El pago QR todavia no esta acreditado.', 'MP_QR_NOT_APPROVED', 409);
+    }
+
+    $raw = is_array($order['raw'] ?? null) ? $order['raw'] : [];
+    $expectedReference = trim((string)($body['mp_external_reference'] ?? ''));
+    if ($expectedReference !== '' && (string)($order['external_reference'] ?? '') !== $expectedReference) {
+        flus_venta_fail('La referencia del pago QR no coincide con esta venta.', 'MP_QR_REFERENCE_MISMATCH', 409);
+    }
+
+    $expectedPaymentId = trim((string)($body['mp_payment_id'] ?? ''));
+    if ($expectedPaymentId !== '' && (string)($order['payment_id'] ?? '') !== $expectedPaymentId) {
+        flus_venta_fail('El pago QR no coincide con la operacion aprobada.', 'MP_QR_PAYMENT_MISMATCH', 409);
+    }
+
+    $amountCandidates = [
+        $raw['total_amount'] ?? null,
+        $raw['transactions']['payments'][0]['amount'] ?? null,
+        $raw['transactions']['payments'][0]['total_paid_amount'] ?? null,
+    ];
+    $remoteAmount = null;
+    foreach ($amountCandidates as $candidate) {
+        if ($candidate !== null && is_numeric($candidate)) {
+            $remoteAmount = round((float)$candidate, 2);
+            break;
+        }
+    }
+
+    $expectedAmount = round($totalNetoFinal, 2);
+    if ($remoteAmount !== null && abs($remoteAmount - $expectedAmount) > 0.01) {
+        flus_venta_fail('El importe aprobado por Mercado Pago no coincide con el total de la venta.', 'MP_QR_AMOUNT_MISMATCH', 409);
+    }
+
+    return [
+        'order_id' => (string)($order['id'] ?? $orderId),
+        'payment_id' => (string)($order['payment_id'] ?? ''),
+        'external_reference' => (string)($order['external_reference'] ?? ''),
+        'status' => (string)($order['status'] ?? ''),
+        'status_detail' => (string)($order['status_detail'] ?? ''),
+        'amount' => $remoteAmount,
+    ];
+}
+
+function flus_venta_validate_mp_point_payment(array $body, array $pagosCaja, float $totalNetoFinal): ?array
+{
+    $pointTotal = 0.0;
+    foreach ($pagosCaja as $pg) {
+        if (in_array((string)($pg['medio'] ?? ''), ['DEBITO', 'CREDITO'], true)) {
+            $pointTotal += (float)($pg['monto'] ?? 0);
+        }
+    }
+
+    if ($pointTotal <= 0.00001) {
+        return null;
+    }
+
+    $orderId = trim((string)($body['mp_point_order_id'] ?? ''));
+    if ($orderId === '') {
+        return null;
+    }
+
+    $result = flus_mp_qr_get_order($orderId);
+    if (!($result['ok'] ?? false)) {
+        flus_venta_fail('No se pudo consultar Mercado Pago Point antes de registrar la venta.', 'MP_POINT_VERIFY_FAILED', 409);
+    }
+
+    $order = is_array($result['order'] ?? null) ? $result['order'] : [];
+    if (empty($order['approved'])) {
+        flus_venta_fail('El pago Point todavia no esta acreditado.', 'MP_POINT_NOT_APPROVED', 409);
+    }
+
+    $expectedReference = trim((string)($body['mp_point_external_reference'] ?? ''));
+    if ($expectedReference !== '' && (string)($order['external_reference'] ?? '') !== $expectedReference) {
+        flus_venta_fail('La referencia del pago Point no coincide con esta venta.', 'MP_POINT_REFERENCE_MISMATCH', 409);
+    }
+
+    $expectedPaymentId = trim((string)($body['mp_point_payment_id'] ?? ''));
+    if ($expectedPaymentId !== '' && (string)($order['payment_id'] ?? '') !== $expectedPaymentId) {
+        flus_venta_fail('El pago Point no coincide con la operacion aprobada.', 'MP_POINT_PAYMENT_MISMATCH', 409);
+    }
+
+    return [
+        'order_id' => (string)($order['id'] ?? $orderId),
+        'payment_id' => (string)($order['payment_id'] ?? ''),
+        'external_reference' => (string)($order['external_reference'] ?? ''),
+        'status' => (string)($order['status'] ?? ''),
+        'status_detail' => (string)($order['status_detail'] ?? ''),
     ];
 }
 

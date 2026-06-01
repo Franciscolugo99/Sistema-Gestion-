@@ -1096,6 +1096,8 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     flus_assert_contains('action=anular_venta', $cajaJs);
     flus_assert_contains('action=anular_items_venta', $cajaJs);
     flus_assert_contains("require_any_permission(['realizar_ventas','ver_reportes']);", $ticketPhp);
+    flus_assert_contains("\$selectNota  = has_column(\$pdo, 'ventas', 'nota');", $ticketPhp);
+    flus_assert_contains('($selectNota ? ", v.nota" : ", \'\' AS nota")', $ticketPhp);
 });
 
 $results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {
@@ -1973,6 +1975,33 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains("function flus_venta_build_items_snapshot(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_register_cc_charge(", $ventaLibPhp);
     flus_assert_contains("function flus_venta_build_response(", $ventaLibPhp);
+});
+
+$results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $ventaLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
+    $mpPanelPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'mercadopago_config.php');
+    $mpLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'mercadopago_qr_lib.php');
+    $gitignore = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . '.gitignore');
+
+    flus_assert_contains('/src/config_mp.php', $gitignore);
+    flus_assert_contains("'mp_qr_create' => [", $indexPhp);
+    flus_assert_contains("'mp_point_create' => [", $indexPhp);
+    flus_assert_contains("'any_permissions' => ['realizar_ventas', 'administrar_config']", $indexPhp);
+    flus_assert_contains('flus_venta_validate_mp_qr_payment($body, $pagosCaja, $totalNetoFinal)', $registrarVentaPhp);
+    flus_assert_contains('flus_venta_validate_mp_point_payment($body, $pagosCaja, $totalNetoFinal)', $registrarVentaPhp);
+    flus_assert_contains('flus_mp_qr_get_order($orderId)', $ventaLibPhp);
+    flus_assert_contains('MP_QR_AMOUNT_MISMATCH', $ventaLibPhp);
+    flus_assert_contains('window.FLUS_MP_QR_ENABLED', $cajaPhp);
+    flus_assert_contains('assets/js/caja_mp_qr.js', $cajaPhp);
+    flus_assert_contains('function mpcfg_mask_token(string $token): string', $mpPanelPhp);
+    flus_assert_contains('placeholder="<?= h(mpcfg_mask_token($values[\'access_token\'])) ?>"', $mpPanelPhp);
+    flus_assert_not_contains('value="<?= h($values[\'access_token\']) ?>"', $mpPanelPhp);
+    flus_assert_contains('function flus_mp_qr_get_configured_pos(): array', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_find_pos_by_external_id(string $externalPosId): array', $mpLibPhp);
 });
 
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
@@ -4010,9 +4039,12 @@ $results[] = flus_run_test('facturacion endurece fallback legacy y backfill de e
     flus_assert_contains('public function findFacturasOrigenByVentaId(int $ventaId): array', $repoImpl);
     flus_assert_contains('public function findFacturasOrigenByDocumentoId(int $documentoId): array', $repoImpl);
 
-    flus_assert_contains("SET estado_fiscal = 'AUTORIZADA'", $migrationSql);
-    flus_assert_contains("COALESCE(TRIM(cae), '') <> ''", $migrationSql);
-    flus_assert_contains("COALESCE(TRIM(estado_fiscal), 'NO_APLICA') IN ('', 'NO_APLICA')", $migrationSql);
+    flus_assert_contains("COLUMN_NAME = 'cae'", $migrationSql);
+    flus_assert_contains('ADD COLUMN `cae` VARCHAR(20) DEFAULT NULL', $migrationSql);
+    flus_assert_contains('ADD COLUMN `cae_vto` VARCHAR(10) DEFAULT NULL AFTER `cae`', $migrationSql);
+    flus_assert_contains("SET estado_fiscal = ''AUTORIZADA''", $migrationSql);
+    flus_assert_contains("COALESCE(TRIM(cae), '''') <> ''''", $migrationSql);
+    flus_assert_contains("COALESCE(TRIM(estado_fiscal), ''NO_APLICA'') IN ('''', ''NO_APLICA'')", $migrationSql);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

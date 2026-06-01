@@ -1180,6 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return (
       !isElementHidden(modal) ||
       !isElementHidden(ticketPreviewModal) ||
+      !isElementHidden(document.getElementById("mpQrModal")) ||
       !isElementHidden(ccModal) ||
       isTerminalModalOpen() ||
       !!overlay?.classList.contains("is-visible")
@@ -3229,6 +3230,10 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
+      const mpOrder = window.FLUS_MP_COBRO
+        ? await window.FLUS_MP_COBRO.confirmar(pagos, totalUI, { mostrarMensaje, limpiarMensaje })
+        : null;
+
       const itemsLimpios = carrito.map((i) => ({
         id: Number(i.id),
         cantidad: Number(i.cantidad),
@@ -3240,21 +3245,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Compat legacy: para no romper backend viejo, mandamos como medio_pago el del "Pago 1".
       const medioCompat = String(selMedio?.value || "EFECTIVO").toUpperCase();
-
-      const payload = {
-        csrf_token: token, // ✅ estándar
-        csrf: token, // ✅ compat si algún endpoint viejo lee "csrf"
-        caja_id: CAJA_ID,
-        items: itemsLimpios,
-        desc_global: DESCUENTO_GLOBAL_HABILITADO ? descGlobal || null : null,
-
-        // ✅ NUEVO: pagos múltiples
-        pagos,
-
-        // ✅ Compat para backend legacy / reportes
-        medio_pago: medioCompat,
-        monto_pagado: Number(totalPag.toFixed(2)),
-      };
 
       const fd = new FormData();
       fd.append("csrf_token", token);
@@ -3268,6 +3258,8 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("pagos", JSON.stringify(pagos));
       fd.append("medio_pago", medioCompat);
       fd.append("monto_pagado", String(Number(totalPag.toFixed(2))));
+
+      window.FLUS_MP_COBRO?.appendFormData?.(fd, mpOrder);
 
       // ✅ Cliente para Cuenta Corriente
       if (tieneCC()) {

@@ -59,6 +59,7 @@ logs/
 *.local.*
 /src/config.php
 /src/config_arca.php
+/src/config_mp.php
 public/_debug_dashboard_schema.php
 codigo_completo.txt
 d

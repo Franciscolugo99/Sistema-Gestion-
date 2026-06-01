@@ -985,6 +985,143 @@ body[data-theme="light"] .caja-panel .caja-open-card {
   color: #92400e;
 }
 
+.caja-panel .mpqr-modal.hidden {
+  display: none;
+}
+
+.caja-panel .mpqr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.caja-panel .mpqr-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.caja-panel .mpqr-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  max-height: min(92vh, 720px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 12px;
+  background: #f8fbff;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.28);
+}
+
+.caja-panel .mpqr-modal__head,
+.caja-panel .mpqr-modal__actions {
+  padding: 16px 18px;
+  background: #ffffff;
+}
+
+.caja-panel .mpqr-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #e5edf6;
+}
+
+.caja-panel .mpqr-modal__eyebrow {
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.caja-panel .mpqr-modal__title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.caja-panel .mpqr-modal__title[data-kind="ok"] {
+  color: #15803d;
+}
+
+.caja-panel .mpqr-modal__amount {
+  white-space: nowrap;
+  color: #0369a1;
+  font-size: 1.05rem;
+}
+
+.caja-panel .mpqr-modal__body {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.caja-panel .mpqr-modal__qrbox {
+  display: grid;
+  place-items: center;
+  min-height: 330px;
+  border: 1px dashed #b7c7dc;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.caja-panel .mpqr-modal__qrbox.is-empty::before {
+  content: attr(data-empty);
+  color: #64748b;
+}
+
+.caja-panel .mpqr-modal__qrbox img {
+  width: min(320px, 100%);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.caja-panel .mpqr-modal__hint {
+  margin-top: 12px;
+  color: #475569;
+  font-size: 0.92rem;
+}
+
+.caja-panel .mpqr-modal__details {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.caja-panel .mpqr-modal__details div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid #e5edf6;
+  padding-top: 8px;
+}
+
+.caja-panel .mpqr-modal__details dt {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.caja-panel .mpqr-modal__details dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.caja-panel .mpqr-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #e5edf6;
+}
+
 .caja-panel .ventas-recientes-list {
   display: grid;
   gap: 10px;

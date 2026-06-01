@@ -123,10 +123,12 @@ $footer  = config_get($pdo, 'ticket_footer', 'Gracias por su compra');
 $selectUser  = (has_column($pdo, 'ventas', 'user_id') && has_table($pdo, 'users'));
 $selectBruto = has_column($pdo, 'ventas', 'total_bruto');
 $selectDescT = has_column($pdo, 'ventas', 'descuento_total');
+$selectNota  = has_column($pdo, 'ventas', 'nota');
 
 $sqlVenta = "
   SELECT
-    v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.nota, v.caja_id, c.fecha_apertura
+    v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.caja_id, c.fecha_apertura
+    " . ($selectNota ? ", v.nota" : ", '' AS nota") . "
     " . ($selectBruto ? ", v.total_bruto" : "") . "
     " . ($selectDescT ? ", v.descuento_total" : "") . "
     " . ($selectUser ? ", u.username AS cajero" : "") . "

@@ -67,6 +67,8 @@ try {
   $medio = $paymentTotals['medio'];
   $montoPagado = $paymentTotals['monto_pagado'];
   $pagosCajaCobranza = $paymentTotals['pagos_caja_cobranza'];
+  $mpQr = flus_venta_validate_mp_qr_payment($body, $pagosCaja, $totalNetoFinal);
+  $mpPoint = flus_venta_validate_mp_point_payment($body, $pagosCaja, $totalNetoFinal);
 
   $ventaId = flus_venta_insert_record(
     $pdo,
@@ -115,7 +117,7 @@ try {
 
   $pdo->commit();
 
-  json_ok(flus_venta_build_response(
+  $response = flus_venta_build_response(
     $ventaId,
     $totalNetoFinal,
     $totalBruto,
@@ -127,7 +129,15 @@ try {
     $pagosValidos,
     $montoCC,
     $ccInfo
-  ));
+  );
+  if ($mpQr !== null) {
+    $response['mp_qr'] = $mpQr;
+  }
+  if ($mpPoint !== null) {
+    $response['mp_point'] = $mpPoint;
+  }
+
+  json_ok($response);
 } catch (FlusVentaDomainException $e) {
   if ($pdo->inTransaction()) {
     $pdo->rollBack();

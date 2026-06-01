@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 require_once FLUS_ROOT . '/src/recargo_horario.php';
+require_once FLUS_ROOT . '/src/mercadopago_qr_lib.php';
 
 $canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
 $canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
@@ -66,6 +67,7 @@ $extraCss = [
 ];
 
 $extraJs = [
+  'assets/js/caja_mp_qr.js?v=' . filemtime(__DIR__ . '/assets/js/caja_mp_qr.js'),
   'assets/js/caja.js?v=' . filemtime(__DIR__ . '/assets/js/caja.js'),
   'assets/js/caja_ventas_recientes.js?v=' . filemtime(__DIR__ . '/assets/js/caja_ventas_recientes.js'),
   'assets/js/caja_terminal_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_terminal_modal.js'),
@@ -84,6 +86,12 @@ $canAnularVenta = (function_exists('user_has_permission') && user_has_permission
   ? 'true'
   : 'false';
 $canAnularItems = (function_exists('user_has_permission') && user_has_permission('anular_items_venta'))
+  ? 'true'
+  : 'false';
+$mpQrEnabled = function_exists('flus_mp_qr_is_configured') && flus_mp_qr_is_configured()
+  ? 'true'
+  : 'false';
+$mpPointEnabled = function_exists('flus_mp_point_is_configured') && flus_mp_point_is_configured()
   ? 'true'
   : 'false';
 $globalPrintDefaults = [
@@ -110,6 +118,8 @@ $extraHead =
       'window.FLUS_PERMS.registrar_cargo_cc = ' . $canCC . ';' .
       'window.FLUS_PERMS.anular_venta = ' . $canAnularVenta . ';' .
       'window.FLUS_PERMS.anular_items_venta = ' . $canAnularItems . ';' .
+      'window.FLUS_MP_QR_ENABLED = ' . $mpQrEnabled . ';' .
+      'window.FLUS_MP_POINT_ENABLED = ' . $mpPointEnabled . ';' .
       'window.FLUS_PRINT_DEFAULTS = ' . json_encode([
         'global' => $globalPrintDefaults,
         'terminal' => $terminalPrintDefaults,
@@ -892,6 +902,33 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
         <div id="ventasRecientesStatus" class="ventas-recientes-modal__status" aria-live="polite"></div>
         <div id="ventasRecientesList" class="ventas-recientes-list"></div>
+      </div>
+    </div>
+
+    <div id="mpQrModal" class="mpqr-modal hidden" aria-hidden="true">
+      <div class="mpqr-modal__backdrop"></div>
+      <div class="mpqr-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="mpQrTitle">
+        <div class="mpqr-modal__head">
+          <div>
+            <div class="mpqr-modal__eyebrow">Mercado Pago QR</div>
+            <h3 id="mpQrTitle" class="mpqr-modal__title">Esperando pago</h3>
+          </div>
+          <strong id="mpQrAmount" class="mpqr-modal__amount">$0,00</strong>
+        </div>
+        <div class="mpqr-modal__body">
+          <div id="mpQrImageBox" class="mpqr-modal__qrbox">
+            <img id="mpQrImage" alt="QR de pago Mercado Pago">
+          </div>
+          <div id="mpQrHint" class="mpqr-modal__hint">Escanea el QR con la cuenta compradora. FLUS confirma automaticamente al acreditarse.</div>
+          <dl class="mpqr-modal__details">
+            <div><dt>Order</dt><dd id="mpQrOrderId">-</dd></div>
+            <div><dt>Pago</dt><dd id="mpQrPaymentId">-</dd></div>
+            <div><dt>Estado</dt><dd id="mpQrStatusText">Preparando...</dd></div>
+          </dl>
+        </div>
+        <div class="mpqr-modal__actions">
+          <button type="button" id="mpQrCancelBtn" class="btn btn-secondary btn-sm">Cancelar QR</button>
+        </div>
       </div>
     </div>
 

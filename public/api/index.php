@@ -483,6 +483,29 @@ function flus_action_guard_policies(): array {
       'permissions' => ['realizar_ventas'],
       'csrf' => true,
     ],
+    'mp_qr_create' => [
+      'methods' => ['POST'],
+      'any_permissions' => ['realizar_ventas', 'administrar_config'],
+      'csrf' => true,
+    ],
+    'mp_qr_status' => [
+      'methods' => ['GET'],
+      'any_permissions' => ['realizar_ventas', 'administrar_config'],
+    ],
+    'mp_qr_cancel' => [
+      'methods' => ['POST'],
+      'any_permissions' => ['realizar_ventas', 'administrar_config'],
+      'csrf' => true,
+    ],
+    'mp_point_terminals' => [
+      'methods' => ['GET'],
+      'permissions' => ['administrar_config'],
+    ],
+    'mp_point_create' => [
+      'methods' => ['POST'],
+      'any_permissions' => ['realizar_ventas', 'administrar_config'],
+      'csrf' => true,
+    ],
     'verificar_cc' => [
       'methods' => ['GET', 'POST'],
       'any_permissions' => ['registrar_cargo_cc', 'registrar_pago_cc', 'ver_cuenta_corriente'],
