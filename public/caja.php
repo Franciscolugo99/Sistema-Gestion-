@@ -88,12 +88,16 @@ $canAnularVenta = (function_exists('user_has_permission') && user_has_permission
 $canAnularItems = (function_exists('user_has_permission') && user_has_permission('anular_items_venta'))
   ? 'true'
   : 'false';
-$mpQrEnabled = function_exists('flus_mp_qr_is_configured') && flus_mp_qr_is_configured()
+$mpQrEnabled = function_exists('flus_mp_qr_cashier_enabled') && flus_mp_qr_cashier_enabled()
   ? 'true'
   : 'false';
-$mpPointEnabled = function_exists('flus_mp_point_is_configured') && flus_mp_point_is_configured()
+$mpPointEnabled = function_exists('flus_mp_point_cashier_enabled') && flus_mp_point_cashier_enabled()
   ? 'true'
   : 'false';
+$mpManualFallback = function_exists('flus_mp_manual_fallback_enabled') && flus_mp_manual_fallback_enabled()
+  ? 'true'
+  : 'false';
+$mpCashierMode = function_exists('flus_mp_cashier_mode') ? flus_mp_cashier_mode() : 'automatic';
 $globalPrintDefaults = [
   'ticket_mode' => (string)config_get($pdo, 'print_ticket_mode', 'autoprint'),
   'ticket_paper' => (string)config_get($pdo, 'print_ticket_paper', '80'),
@@ -120,6 +124,8 @@ $extraHead =
       'window.FLUS_PERMS.anular_items_venta = ' . $canAnularItems . ';' .
       'window.FLUS_MP_QR_ENABLED = ' . $mpQrEnabled . ';' .
       'window.FLUS_MP_POINT_ENABLED = ' . $mpPointEnabled . ';' .
+      'window.FLUS_MP_MANUAL_FALLBACK = ' . $mpManualFallback . ';' .
+      'window.FLUS_MP_CASHIER_MODE = ' . json_encode($mpCashierMode) . ';' .
       'window.FLUS_PRINT_DEFAULTS = ' . json_encode([
         'global' => $globalPrintDefaults,
         'terminal' => $terminalPrintDefaults,

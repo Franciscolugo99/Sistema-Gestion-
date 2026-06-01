@@ -33,6 +33,8 @@ function mpcfg_current_values(): array
     $assets = flus_mp_qr_static_assets();
     return [
         'access_token' => flus_mp_qr_access_token(),
+        'cashier_mode' => flus_mp_cashier_mode(),
+        'manual_fallback' => flus_mp_manual_fallback_enabled(),
         'qr_external_pos_id' => flus_mp_qr_external_pos_id(),
         'qr_mode' => flus_mp_qr_mode(),
         'qr_description' => flus_mp_qr_description(),
@@ -60,6 +62,8 @@ function mpcfg_write_config(array $values): void
 
     $constants = [
         'FLUS_MP_ACCESS_TOKEN' => (string)($values['access_token'] ?? ''),
+        'FLUS_MP_CASHIER_MODE' => (string)($values['cashier_mode'] ?? 'automatic'),
+        'FLUS_MP_MANUAL_FALLBACK' => !empty($values['manual_fallback']),
         'FLUS_MP_QR_EXTERNAL_POS_ID' => (string)($values['qr_external_pos_id'] ?? ''),
         'FLUS_MP_QR_MODE' => (string)($values['qr_mode'] ?? 'hybrid'),
         'FLUS_MP_QR_DESCRIPTION' => (string)($values['qr_description'] ?? 'Venta FLUS QR'),
@@ -120,8 +124,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!in_array($mode, ['dynamic', 'static', 'hybrid'], true)) {
                     $mode = 'hybrid';
                 }
+                $cashierMode = strtolower(trim((string)($_POST['cashier_mode'] ?? 'automatic')));
+                if (!in_array($cashierMode, ['automatic', 'manual'], true)) {
+                    $cashierMode = 'automatic';
+                }
                 $values = [
                     'access_token' => $newToken !== '' ? $newToken : $values['access_token'],
+                    'cashier_mode' => $cashierMode,
+                    'manual_fallback' => (string)($_POST['manual_fallback'] ?? '0') === '1',
                     'qr_external_pos_id' => preg_replace('/[^A-Za-z0-9_-]/', '', (string)($_POST['qr_external_pos_id'] ?? '')) ?: '',
                     'qr_mode' => $mode,
                     'qr_description' => mb_substr(trim((string)($_POST['qr_description'] ?? 'Venta FLUS QR')), 0, 150, 'UTF-8'),
@@ -163,6 +173,7 @@ $tokenPresent = $values['access_token'] !== '';
 $tokenKind = mpcfg_token_kind($values['access_token']);
 $curlOk = function_exists('curl_init');
 $qrConfigured = $values['access_token'] !== '' && $values['qr_external_pos_id'] !== '';
+$automaticMode = $values['cashier_mode'] === 'automatic';
 $staticReady = $values['qr_image_url'] !== '' && $values['qr_template_document_url'] !== '' && $values['qr_template_image_url'] !== '';
 $pointReady = $values['access_token'] !== '' && $values['point_terminal_id'] !== '';
 $posResult = null;
@@ -237,6 +248,15 @@ require __DIR__ . '/partials/header.php';
         <span>PHP cURL</span>
         <strong><?= $curlOk ? 'Habilitado' : 'No disponible' ?></strong>
       </div>
+      <div class="mpcfg-status <?= mpcfg_status_class($automaticMode, true) ?>">
+        <span>Modo caja</span>
+        <strong><?= $automaticMode ? 'Automatico' : 'Manual rapido' ?></strong>
+        <small><?= $automaticMode ? 'Intenta confirmar con API' : 'Registra MP sin API' ?></small>
+      </div>
+      <div class="mpcfg-status <?= mpcfg_status_class((bool)$values['manual_fallback'], true) ?>">
+        <span>Sin conexion</span>
+        <strong><?= !empty($values['manual_fallback']) ? 'Fallback manual' : 'Bloquea automatico' ?></strong>
+      </div>
       <div class="mpcfg-status <?= mpcfg_status_class($qrConfigured) ?>">
         <span>Caja QR</span>
         <strong><?= h($values['qr_external_pos_id'] !== '' ? $values['qr_external_pos_id'] : 'Sin POS externo') ?></strong>
@@ -273,6 +293,23 @@ require __DIR__ . '/partials/header.php';
           <span>Access Token</span>
           <input type="password" name="access_token" autocomplete="off" placeholder="<?= h(mpcfg_mask_token($values['access_token'])) ?>">
           <small>Dejalo vacio para conservar el token actual.</small>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Modo en caja</span>
+          <select name="cashier_mode">
+            <option value="manual" <?= $values['cashier_mode'] === 'manual' ? 'selected' : '' ?>>Manual rapido</option>
+            <option value="automatic" <?= $values['cashier_mode'] === 'automatic' ? 'selected' : '' ?>>Automatico QR/Point</option>
+          </select>
+          <small>Manual registra el cobro sin consultar Mercado Pago.</small>
+        </label>
+
+        <label class="mpcfg-check">
+          <input type="checkbox" name="manual_fallback" value="1" <?= !empty($values['manual_fallback']) ? 'checked' : '' ?>>
+          <span>
+            <strong>Permitir manual si falla la conexion</strong>
+            <small>Si la PC queda sin internet, el cajero puede registrar lo aprobado en app o posnet.</small>
+          </span>
         </label>
 
         <label class="mpcfg-field">
@@ -380,8 +417,9 @@ require __DIR__ . '/partials/header.php';
   <section class="mpcfg-section mpcfg-help">
     <h2>Uso operativo</h2>
     <ol>
+      <li>Usa <strong>Manual rapido</strong> si el negocio solo quiere registrar lo cobrado por Mercado Pago sin integrar credenciales.</li>
+      <li>Usa <strong>Automatico QR/Point</strong> cuando haya token, QR o terminal Point configurada y la PC tenga internet.</li>
       <li>Deja el QR en <strong>Hybrid</strong> para que el mismo cobro funcione con el QR impreso y con el QR en pantalla.</li>
-      <li>En Caja elegi <strong>Mercado Pago</strong>, toca Cobrar y espera la confirmacion antes de entregar.</li>
       <li>Para Point, completa la terminal y cobra con <strong>Debito</strong> o <strong>Credito</strong> como unico medio de pago.</li>
     </ol>
   </section>

@@ -16,9 +16,43 @@ function flus_mp_qr_config_value(string $constant, string $env, string $default 
     return is_string($value) ? trim($value) : $default;
 }
 
+function flus_mp_qr_config_bool(string $constant, string $env, bool $default = false): bool
+{
+    $raw = flus_mp_qr_config_value($constant, $env, $default ? '1' : '0');
+    if ($raw === '') {
+        return $default;
+    }
+
+    $normalized = strtolower($raw);
+    if (in_array($normalized, ['1', 'true', 'yes', 'si', 'on'], true)) {
+        return true;
+    }
+    if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+        return false;
+    }
+
+    return $default;
+}
+
 function flus_mp_qr_access_token(): string
 {
     return flus_mp_qr_config_value('FLUS_MP_ACCESS_TOKEN', 'FLUS_MP_ACCESS_TOKEN');
+}
+
+function flus_mp_cashier_mode(): string
+{
+    $mode = strtolower(flus_mp_qr_config_value('FLUS_MP_CASHIER_MODE', 'FLUS_MP_CASHIER_MODE', 'automatic'));
+    return in_array($mode, ['automatic', 'manual'], true) ? $mode : 'automatic';
+}
+
+function flus_mp_cashier_automatic_enabled(): bool
+{
+    return flus_mp_cashier_mode() === 'automatic';
+}
+
+function flus_mp_manual_fallback_enabled(): bool
+{
+    return flus_mp_qr_config_bool('FLUS_MP_MANUAL_FALLBACK', 'FLUS_MP_MANUAL_FALLBACK', true);
 }
 
 function flus_mp_qr_external_pos_id(): string
@@ -41,6 +75,11 @@ function flus_mp_qr_description(): string
 function flus_mp_qr_is_configured(): bool
 {
     return flus_mp_qr_access_token() !== '' && flus_mp_qr_external_pos_id() !== '';
+}
+
+function flus_mp_qr_cashier_enabled(): bool
+{
+    return flus_mp_cashier_automatic_enabled() && flus_mp_qr_is_configured();
 }
 
 function flus_mp_qr_static_assets(): array
@@ -70,6 +109,11 @@ function flus_mp_point_terminal_id(): string
 function flus_mp_point_is_configured(): bool
 {
     return flus_mp_qr_access_token() !== '' && flus_mp_point_terminal_id() !== '';
+}
+
+function flus_mp_point_cashier_enabled(): bool
+{
+    return flus_mp_cashier_automatic_enabled() && flus_mp_point_is_configured();
 }
 
 function flus_mp_qr_money_string(float $amount): string

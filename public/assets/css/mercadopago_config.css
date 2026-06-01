@@ -155,6 +155,40 @@
   gap: 6px;
 }
 
+.mpcfg-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.mpcfg-check input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent, #0ea5e9);
+}
+
+.mpcfg-check span,
+.mpcfg-check strong,
+.mpcfg-check small {
+  display: block;
+}
+
+.mpcfg-check strong {
+  color: var(--text, #0f172a);
+  font-size: 0.82rem;
+}
+
+.mpcfg-check small {
+  margin-top: 4px;
+  color: var(--muted, #64748b);
+  font-size: 0.76rem;
+}
+
 .mpcfg-field--wide,
 .mpcfg-actions {
   grid-column: 1 / -1;
@@ -280,6 +314,7 @@
 body[data-theme="dark"] .mpcfg-status,
 body[data-theme="dark"] .mpcfg-field input,
 body[data-theme="dark"] .mpcfg-field select,
+body[data-theme="dark"] .mpcfg-check,
 body[data-theme="dark"] .mpcfg-qr-preview,
 body[data-theme="dark"] .mpcfg-terminal {
   background: rgba(15, 23, 42, 0.42);

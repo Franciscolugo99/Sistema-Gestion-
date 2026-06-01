@@ -113,6 +113,23 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  async function askManualFallback(kind, error) {
+    if (window.FLUS_MP_MANUAL_FALLBACK !== true) return false;
+    if (!window.Notif || typeof window.Notif.confirmar !== "function") return false;
+
+    const detail = String(error?.message || "No se pudo confirmar con Mercado Pago.");
+    const label = kind === "point" ? "Point" : "QR";
+    return window.Notif.confirmar(
+      "Mercado Pago manual",
+      `<p>No se pudo confirmar el cobro ${label} desde esta PC.</p><p class="muted">Si el posnet, la app o el comprobante muestran el pago aprobado, podes registrar la venta como Mercado Pago manual.</p><p><strong>${detail}</strong></p>`,
+      {
+        icon: "warning",
+        confirmText: "Registrar manual",
+        cancelText: "No registrar",
+      },
+    );
+  }
+
   async function confirmar(total, options = {}) {
     const type = options.type || "qr";
     if (type === "point" && window.FLUS_MP_POINT_ENABLED !== true) return null;
@@ -227,16 +244,28 @@
 
       if (medio === "MP" && window.FLUS_MP_QR_ENABLED === true) {
         ui.mostrarMensaje?.("info", "Esperando pago con Mercado Pago QR...");
-        result.qr = await confirmar(total);
-        ui.limpiarMensaje?.();
+        try {
+          result.qr = await confirmar(total);
+          ui.limpiarMensaje?.();
+        } catch (error) {
+          ui.limpiarMensaje?.();
+          if (await askManualFallback("qr", error)) return result;
+          throw error;
+        }
       } else if (["DEBITO", "CREDITO"].includes(medio) && window.FLUS_MP_POINT_ENABLED === true) {
         ui.mostrarMensaje?.("info", "Esperando pago con Mercado Pago Point...");
-        result.point = await window.FLUS_MP_POINT.confirmar(
-          total,
-          medio === "DEBITO" ? "debit_card" : "credit_card",
-          "FLUS",
-        );
-        ui.limpiarMensaje?.();
+        try {
+          result.point = await window.FLUS_MP_POINT.confirmar(
+            total,
+            medio === "DEBITO" ? "debit_card" : "credit_card",
+            "FLUS",
+          );
+          ui.limpiarMensaje?.();
+        } catch (error) {
+          ui.limpiarMensaje?.();
+          if (await askManualFallback("point", error)) return result;
+          throw error;
+        }
       }
 
       return result;

@@ -7,6 +7,14 @@ declare(strict_types=1);
 // Ejemplo: TEST-... o APP_USR-...
 define('FLUS_MP_ACCESS_TOKEN', '');
 
+// Modo de caja:
+// automatic = FLUS intenta confirmar QR/Point con la API cuando esta configurado.
+// manual = FLUS solo registra el medio de pago, util para negocios sin integracion o sin internet en la PC.
+define('FLUS_MP_CASHIER_MODE', 'manual');
+
+// Si el modo automatic falla por conexion/API, permite que el cajero registre el cobro manualmente.
+define('FLUS_MP_MANUAL_FALLBACK', true);
+
 // External ID de la caja/POS creada en Mercado Pago.
 // Debe coincidir con config.qr.external_pos_id.
 define('FLUS_MP_QR_EXTERNAL_POS_ID', '');

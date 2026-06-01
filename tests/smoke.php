@@ -2002,6 +2002,12 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_not_contains('value="<?= h($values[\'access_token\']) ?>"', $mpPanelPhp);
     flus_assert_contains('function flus_mp_qr_get_configured_pos(): array', $mpLibPhp);
     flus_assert_contains('function flus_mp_qr_find_pos_by_external_id(string $externalPosId): array', $mpLibPhp);
+    flus_assert_contains('function flus_mp_cashier_mode(): string', $mpLibPhp);
+    flus_assert_contains('function flus_mp_manual_fallback_enabled(): bool', $mpLibPhp);
+    flus_assert_contains('window.FLUS_MP_MANUAL_FALLBACK', $cajaPhp);
+    flus_assert_contains('name="cashier_mode"', $mpPanelPhp);
+    flus_assert_contains('Manual rapido', $mpPanelPhp);
+    flus_assert_contains('Registrar manual', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js'));
 });
 
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
