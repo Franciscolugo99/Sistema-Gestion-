@@ -10,9 +10,25 @@ require_permission('administrar_config');
 
 $csrfToken = csrf_token();
 $configured = flus_mp_qr_is_configured();
+$tokenPresent = flus_mp_qr_access_token() !== '';
+$curlOk = function_exists('curl_init');
 $mode = flus_mp_qr_mode();
 $externalPosId = flus_mp_qr_external_pos_id();
 $description = flus_mp_qr_description();
+$minAmount = flus_mp_min_amount();
+$configIssues = [];
+if (!$tokenPresent) {
+    $configIssues[] = 'Falta el Access Token de Mercado Pago.';
+}
+if ($externalPosId === '') {
+    $configIssues[] = 'Falta el POS externo QR de esta caja.';
+}
+if (!$curlOk) {
+    $configIssues[] = 'PHP cURL no esta habilitado en esta instalacion.';
+}
+if ($configIssues === []) {
+    $configIssues[] = 'La configuracion base esta lista. Si una prueba falla, revisa la conexion o la respuesta de Mercado Pago.';
+}
 
 $currentSection = 'configuracion';
 $pageTitle = 'Prueba Mercado Pago QR';
@@ -35,8 +51,14 @@ require __DIR__ . '/partials/header.php';
 
     <?php if (!$configured): ?>
       <section class="mpqr-alert">
-        <strong>Falta configurar Mercado Pago</strong>
-        <span>Copia <code>src/config_mp.example.php</code> a <code>src/config_mp.php</code> y completa <code>FLUS_MP_ACCESS_TOKEN</code> y <code>FLUS_MP_QR_EXTERNAL_POS_ID</code>.</span>
+        <strong>Mercado Pago QR todavia no esta listo</strong>
+        <span>Completa estos puntos desde Configuracion &gt; Mercado Pago y volve a probar.</span>
+        <ul>
+          <?php foreach ($configIssues as $issue): ?>
+            <li><?= h($issue) ?></li>
+          <?php endforeach; ?>
+        </ul>
+        <a class="btn btn-secondary" href="mercadopago_config.php">Abrir configuracion Mercado Pago</a>
       </section>
     <?php endif; ?>
 
@@ -50,7 +72,8 @@ require __DIR__ . '/partials/header.php';
         <form id="mpQrForm" class="mpqr-form" data-csrf="<?= h($csrfToken) ?>" data-configured="<?= $configured ? '1' : '0' ?>">
           <label>
             <span>Importe</span>
-            <input id="mpQrAmount" type="number" inputmode="decimal" min="1" step="0.01" value="10.00" required>
+            <input id="mpQrAmount" type="number" inputmode="decimal" min="<?= h((string)$minAmount) ?>" step="0.01" value="<?= h(number_format($minAmount, 2, '.', '')) ?>" required>
+            <small>Mercado Pago exige minimo $<?= h(number_format($minAmount, 2, ',', '.')) ?> para esta prueba.</small>
           </label>
 
           <label>

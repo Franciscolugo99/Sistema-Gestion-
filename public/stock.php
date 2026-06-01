@@ -634,6 +634,7 @@ require __DIR__ . "/partials/header.php";
 
     <form id="formAjusteStock" onsubmit="StockManager.submitAdjust(event)">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="ajuste_request_id" id="ajuste_request_id" value="">
       <div class="modal-body">
         <input type="hidden" name="producto_id" id="ajuste_producto_id">
 
@@ -721,4 +722,3 @@ require __DIR__ . "/partials/header.php";
 </div>
 
 <?php require __DIR__ . "/partials/footer.php"; ?>
-

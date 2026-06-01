@@ -243,12 +243,20 @@ CREATE TABLE `venta_pagos` (
   `monto` decimal(12,2) NOT NULL DEFAULT 0.00,
   `cc_cliente_id` int(11) DEFAULT NULL,
   `cc_movimiento_id` int(11) DEFAULT NULL,
+  `mp_order_id` varchar(80) DEFAULT NULL,
+  `mp_payment_id` varchar(80) DEFAULT NULL,
+  `mp_external_reference` varchar(120) DEFAULT NULL,
+  `mp_origin` varchar(20) DEFAULT NULL,
+  `mp_verified` tinyint(1) NOT NULL DEFAULT 0,
+  `mp_manual_reason` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_venta_pagos_venta` (`venta_id`),
   KEY `idx_venta_pagos_medio` (`medio_pago`),
   KEY `idx_venta_pagos_cc_cliente` (`cc_cliente_id`),
-  KEY `idx_venta_pagos_cc_movimiento` (`cc_movimiento_id`)
+  KEY `idx_venta_pagos_cc_movimiento` (`cc_movimiento_id`),
+  KEY `idx_venta_pagos_mp_order` (`mp_order_id`),
+  KEY `idx_venta_pagos_mp_payment` (`mp_payment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

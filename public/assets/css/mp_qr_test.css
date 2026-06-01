@@ -27,6 +27,17 @@
   color: #3f2d07;
 }
 
+.mpqr-alert ul {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 6px;
+  padding-left: 18px;
+}
+
+.mpqr-alert .btn {
+  justify-self: start;
+}
+
 .mpqr-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(320px, 1.08fr);
@@ -84,6 +95,12 @@
   gap: 6px;
   font-weight: 700;
   color: #334155;
+}
+
+.mpqr-form small {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .mpqr-form input,

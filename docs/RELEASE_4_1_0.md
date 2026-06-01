@@ -12,7 +12,7 @@ Objetivo: dejar FLUS 4.1.0 como corte operativo posterior a 4.0.0, incorporando 
 - fuente activa: `C:\xampp82\htdocs\kiosco`
 - PHP de validacion: `C:\xampp82\php\php.exe`
 - smoke tecnico: `134 OK / 0 fallidas / 0 skipped`
-- migracion local aplicada: `038_venta_items_ajustes_redondeo.sql`
+- migracion local aplicada: `039_venta_pagos_mp_metadata.sql`
 - instalador servidor: `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\installer\output\FLUS_Server_Setup_4.1.0.exe`
 - instalador terminal: `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\installer\output\FLUS_Terminal_Setup_4.1.0.exe`
 
@@ -24,6 +24,7 @@ Objetivo: dejar FLUS 4.1.0 como corte operativo posterior a 4.0.0, incorporando 
 - Rendimiento de cajeros queda como modulo administrativo.
 - Reglas de precio queda preparada como base general, no solo para kioscos 24 hs.
 - Las ventas con ajuste automatico guardan precio base, precio cobrado, monto de ajuste y redondeo por item.
+- Mercado Pago queda con modo automatico, modo manual y contingencia manual explicita para operar si la PC no tiene internet.
 
 ## Reglas de precio
 
@@ -47,6 +48,13 @@ La diferencia de 4.1.0 es que tambien queda guardado el origen del ajuste:
 - `venta_items.ajuste_precio_redondeo_total`
 
 El redondeo opcional se aplica despues del porcentaje y siempre hacia arriba. Esta pensado para agilizar cobros de efectivo sin perder trazabilidad: FLUS conserva cuanto vino de la regla porcentual y cuanto vino solo del redondeo.
+
+## Mercado Pago
+
+- En modo automatico, FLUS crea/consulta la order QR o Point y solo registra la venta cuando Mercado Pago informa `processed/accredited`.
+- Si no hay internet o falla la API, la venta MP manual exige confirmacion explicita del cajero en la UI y queda marcada como no verificada.
+- `venta_pagos` conserva `mp_order_id`, `mp_payment_id`, `mp_external_reference`, `mp_origin`, `mp_verified` y `mp_manual_reason`.
+- Point valida que el importe aprobado coincida con el total local antes de cerrar la venta.
 
 Inventario base sigue usando `productos.precio` para valuar stock actual. El ajuste es condicion de venta, no cambio permanente de lista.
 

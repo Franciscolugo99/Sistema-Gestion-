@@ -1653,7 +1653,7 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '038_venta_items_ajustes_redondeo.sql', 'latest migration is 038');
+    flus_it_assert($latest === '039_venta_pagos_mp_metadata.sql', 'latest migration is 039');
     $tipoColumn = $pdo
         ->query("SHOW COLUMNS FROM movimientos_stock LIKE 'tipo'")
         ->fetch(PDO::FETCH_ASSOC);
@@ -1672,6 +1672,8 @@ try {
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_modo'), 'venta_items.ajuste_precio_redondeo_modo exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_unit_monto'), 'venta_items.ajuste_precio_redondeo_unit_monto exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_total'), 'venta_items.ajuste_precio_redondeo_total exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_pagos', 'mp_order_id'), 'venta_pagos.mp_order_id exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'venta_pagos', 'mp_verified'), 'venta_pagos.mp_verified exists');
     $posSale = flus_it_run_pos_sale_case($pdo);
     $fiscalCase = flus_it_run_non_remote_fiscal_case($pdo, (int)$posSale['venta_id']);
     flus_it_run_non_remote_nc_total_case($pdo, $fiscalCase);

@@ -17,7 +17,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
-- Migraciones y baseline: versionados hasta `038_venta_items_ajustes_redondeo.sql`.
+- Migraciones y baseline: versionados hasta `039_venta_pagos_mp_metadata.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
 - Salida actual: `4.1.0`, pensada como corte operativo para instalador/actualizador.
 
@@ -301,7 +301,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `038_venta_items_ajustes_redondeo.sql`.
+- Verificar que corran las migraciones pendientes hasta `039_venta_pagos_mp_metadata.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

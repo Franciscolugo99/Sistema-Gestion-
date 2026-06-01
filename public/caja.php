@@ -897,11 +897,12 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
     <div id="ventasRecientesModal" class="ventas-recientes-modal hidden" aria-hidden="true">
       <div class="ventas-recientes-modal__backdrop" data-ventas-recientes-close></div>
-      <div class="ventas-recientes-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="ventasRecientesTitle">
+      <div class="ventas-recientes-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="ventasRecientesTitle" aria-describedby="ventasRecientesSubtitle">
         <div class="ventas-recientes-modal__head">
           <div>
             <div class="ventas-recientes-modal__eyebrow">Caja actual</div>
             <h3 id="ventasRecientesTitle" class="ventas-recientes-modal__title">Ventas recientes</h3>
+            <p id="ventasRecientesSubtitle" class="ventas-recientes-modal__subtitle">Ver y reimprimir tickets de la apertura actual.</p>
           </div>
           <button type="button" class="ventas-recientes-modal__close" data-ventas-recientes-close>Cerrar</button>
         </div>

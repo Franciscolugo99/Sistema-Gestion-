@@ -112,8 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
     noQr.textContent = "Preparando QR...";
 
     try {
+      const rawAmount = Number(amount.value || 0);
+      const minAmount = Number(amount.min || 15);
+      if (rawAmount < minAmount) {
+        throw new Error(`Mercado Pago requiere un importe minimo de $${minAmount.toFixed(2).replace(".", ",")}.`);
+      }
       const data = await api("mp_qr_create", {
-        amount: Number(amount.value || 0),
+        amount: rawAmount,
         mode: mode.value,
         description: description.value,
       });

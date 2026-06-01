@@ -32,6 +32,56 @@ function stock_json_fail(string $msg, int $code = 400): void {
     exit;
 }
 
+function stock_adjust_request_id(): string {
+    $requestId = trim((string)($_POST['ajuste_request_id'] ?? ''));
+    if ($requestId === '') {
+        return '';
+    }
+    return preg_match('/^[A-Za-z0-9._:-]{8,80}$/', $requestId) ? $requestId : '';
+}
+
+function stock_adjust_idempotency_key(int $userId, string $requestId): string {
+    return $userId . ':' . $requestId;
+}
+
+function stock_adjust_cache_cleanup(): void {
+    if (!isset($_SESSION['stock_adjust_idempotency']) || !is_array($_SESSION['stock_adjust_idempotency'])) {
+        $_SESSION['stock_adjust_idempotency'] = [];
+        return;
+    }
+
+    $now = time();
+    foreach ($_SESSION['stock_adjust_idempotency'] as $key => $entry) {
+        $createdAt = (int)($entry['created_at'] ?? 0);
+        if ($createdAt <= 0 || ($now - $createdAt) > 3600) {
+            unset($_SESSION['stock_adjust_idempotency'][$key]);
+        }
+    }
+}
+
+function stock_adjust_cached_response(string $key): ?array {
+    stock_adjust_cache_cleanup();
+    $entry = $_SESSION['stock_adjust_idempotency'][$key] ?? null;
+    if (!is_array($entry) || !is_array($entry['response'] ?? null)) {
+        return null;
+    }
+
+    $response = $entry['response'];
+    $response['idempotent'] = true;
+    return $response;
+}
+
+function stock_adjust_remember_response(string $key, array $response): void {
+    if ($key === '') {
+        return;
+    }
+    stock_adjust_cache_cleanup();
+    $_SESSION['stock_adjust_idempotency'][$key] = [
+        'created_at' => time(),
+        'response' => $response,
+    ];
+}
+
 function stock_normalize_text(?string $value): string {
     $text = trim((string)$value);
     if ($text === '') {
@@ -126,6 +176,17 @@ try {
     $tipo        = trim((string)($_POST['tipo'] ?? ''));
     $cantidad    = (float)($_POST['cantidad'] ?? 0);
     $motivo      = trim((string)($_POST['motivo'] ?? ''));
+    $requestId   = stock_adjust_request_id();
+    $requestKey  = $requestId !== ''
+        ? stock_adjust_idempotency_key((int)($_SESSION['user_id'] ?? 0), $requestId)
+        : '';
+
+    if ($requestKey !== '') {
+        $cachedResponse = stock_adjust_cached_response($requestKey);
+        if ($cachedResponse !== null) {
+            stock_json_ok($cachedResponse);
+        }
+    }
 
     // Validaciones
     if ($producto_id <= 0) {
@@ -215,7 +276,7 @@ $tipoConfig = $tiposAjuste[$tipo];
     $stockPct = calcular_stock_pct($nuevoStock, $stockMinimo);
 
     // Respuesta enriquecida
-    stock_json_ok([
+    $responsePayload = [
         'message' => 'Stock actualizado correctamente',
         'data' => [
             'producto_id'     => $producto_id,
@@ -233,7 +294,9 @@ $tipoConfig = $tiposAjuste[$tipo];
             'unidad_venta'    => $unidadVenta,
             'unidad_label'    => $unidadLabel,
         ]
-    ]);
+    ];
+    stock_adjust_remember_response($requestKey, $responsePayload);
+    stock_json_ok($responsePayload);
 
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) {

@@ -11,6 +11,7 @@
 - Trazabilidad generica de ajustes automaticos de precio en ventas y venta_items.
 - Migracion `037_venta_items_ajustes_precio.sql` para upgrades existentes.
 - Migracion `038_venta_items_ajustes_redondeo.sql` para separar recargo porcentual y redondeo.
+- Migracion `039_venta_pagos_mp_metadata.sql` para auditar cobros Mercado Pago verificados o manuales.
 - Baseline `install.sql` actualizado para instalaciones limpias con las columnas de ajuste de precio.
 - Detalle de venta muestra una nota discreta cuando un item fue cobrado con ajuste automatico.
 - Documentacion `docs/REGLAS_PRECIO_4.1.0.md` y `docs/RELEASE_4_1_0.md`.
@@ -19,12 +20,13 @@
 
 - La regla horaria queda tratada como una regla comercial generica de precio, no como un caso exclusivo de negocios 24 hs.
 - La regla de precio puede redondear hacia arriba a importes operativos para agilizar cobros en caja.
+- Mercado Pago guarda metadatos de order/payment en `venta_pagos` y exige contingencia manual explicita cuando falla la verificacion automatica.
 - `src/version.php` actualizado a `4.1.0` build `2026-05-29`.
 
 ### Validation
 
 - `C:\xampp82\php\php.exe tests\smoke.php`: `134 OK / 0 fallidas / 0 skipped`.
-- `C:\xampp82\php\php.exe scripts\migrate.php`: migraciones 037 y 038 aplicadas localmente.
+- `C:\xampp82\php\php.exe scripts\migrate.php`: migraciones 037, 038 y 039 aplicadas localmente.
 - `$env:FLUS_TEST_DB='1'; C:\xampp82\php\php.exe tests\integration_db.php`: instalacion limpia + migraciones + flujos criticos OK.
 
 ---

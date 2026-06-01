@@ -101,7 +101,10 @@ try {
   $ccMovimientoId = $ccCharge['cc_movimiento_id'];
   $ccInfo = $ccCharge['cc_info'];
 
-  flus_venta_store_payment_rows($pdo, $ventaId, $pagosValidos, $ccClienteId, $ccMovimientoId);
+  flus_venta_store_payment_rows($pdo, $ventaId, $pagosValidos, $ccClienteId, $ccMovimientoId, [
+    'mp_qr' => $mpQr,
+    'mp_point' => $mpPoint,
+  ]);
   flus_venta_register_sale_cobranzas($pdo, $ventaId, $ccClienteId, $cajaId, $userId, $pagosCajaCobranza);
   flus_venta_store_items_and_stock($pdo, $ventaId, $srvItems);
   flus_venta_store_applied_promos($pdo, $ventaId, $calc['promos_aplicadas'] ?? []);

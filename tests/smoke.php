@@ -1090,9 +1090,17 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     flus_assert_contains("user_has_permission('anular_items_venta')", $action);
     flus_assert_contains('id="btnVentasRecientes"', $cajaPhp);
     flus_assert_contains('id="ventasRecientesModal"', $cajaPhp);
+    flus_assert_contains('aria-describedby="ventasRecientesSubtitle"', $cajaPhp);
+    flus_assert_contains('Ver y reimprimir tickets de la apertura actual.', $cajaPhp);
     flus_assert_contains('caja_ventas_recientes.js', $cajaPhp);
     flus_assert_contains('action=caja_ventas_recientes', $cajaJs);
     flus_assert_contains('openTicketPreview(ventaId)', $cajaJs);
+    flus_assert_contains('Reimprimir', $cajaJs);
+    flus_assert_contains('Ver, reimprimir y gestionar anulaciones permitidas.', $cajaJs);
+    flus_assert_contains('aria-label="Reimprimir ticket de venta #${id}"', $cajaJs);
+    flus_assert_contains('Tu usuario no tiene permiso para anular ventas.', $cajaJs);
+    flus_assert_contains('Tu usuario no tiene permiso para anular items de venta.', $cajaJs);
+    flus_assert_contains('Ventas de la apertura activa. Acceso rapido para ver o reimprimir tickets.', $cajaJs);
     flus_assert_contains('action=anular_venta', $cajaJs);
     flus_assert_contains('action=anular_items_venta', $cajaJs);
     flus_assert_contains("require_any_permission(['realizar_ventas','ver_reportes']);", $ticketPhp);
@@ -1337,6 +1345,8 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     $ventaApiLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
     $ventaAnulacionesLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
     $stockAjax = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock_ajax.php');
+    $stockPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock.php');
+    $stockJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'stock.js');
 
     flus_assert_contains('ANULACION_VENTA', $installSql);
     flus_assert_contains('ANULACION_COMPRA', $installSql);
@@ -1354,6 +1364,12 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_true($ventaMovimientoPos !== false && $ventaUpdatePos !== false && $ventaMovimientoPos < $ventaUpdatePos);
     flus_assert_true($anulacionMovimientoPos !== false && $anulacionUpdatePos !== false && $anulacionMovimientoPos < $anulacionUpdatePos);
     flus_assert_true($ajusteMovimientoPos !== false && $ajusteUpdatePos !== false && $ajusteMovimientoPos < $ajusteUpdatePos);
+    flus_assert_contains('name="ajuste_request_id"', $stockPhp);
+    flus_assert_contains('adjustSubmitting: false', $stockJs);
+    flus_assert_contains('if (this.state.adjustSubmitting) return;', $stockJs);
+    flus_assert_contains('requestInput.value = this.createRequestId();', $stockJs);
+    flus_assert_contains('function stock_adjust_cached_response(string $key): ?array', $stockAjax);
+    flus_assert_contains('stock_adjust_remember_response($requestKey, $responsePayload);', $stockAjax);
 });
 
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
@@ -1646,7 +1662,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 038", $integrationPhp);
+    flus_assert_contains("latest migration is 039", $integrationPhp);
     flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
     flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
@@ -1985,9 +2001,15 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $mpPanelPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'mercadopago_config.php');
     $mpLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'mercadopago_qr_lib.php');
+    $mpQrTestPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'mp_qr_test.php');
+    $mpQrTestJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'mp_qr_test.js');
+    $mpMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '039_venta_pagos_mp_metadata.sql';
     $gitignore = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . '.gitignore');
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $mpMigrationSql = (string)file_get_contents($mpMigrationPath);
 
     flus_assert_contains('/src/config_mp.php', $gitignore);
+    flus_assert_contains("require_once __DIR__ . '/../../src/mercadopago_qr_lib.php';", $indexPhp);
     flus_assert_contains("'mp_qr_create' => [", $indexPhp);
     flus_assert_contains("'mp_point_create' => [", $indexPhp);
     flus_assert_contains("'any_permissions' => ['realizar_ventas', 'administrar_config']", $indexPhp);
@@ -1995,6 +2017,10 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_contains('flus_venta_validate_mp_point_payment($body, $pagosCaja, $totalNetoFinal)', $registrarVentaPhp);
     flus_assert_contains('flus_mp_qr_get_order($orderId)', $ventaLibPhp);
     flus_assert_contains('MP_QR_AMOUNT_MISMATCH', $ventaLibPhp);
+    flus_assert_contains('MP_QR_CONFIRMATION_REQUIRED', $ventaLibPhp);
+    flus_assert_contains('MP_POINT_AMOUNT_MISMATCH', $ventaLibPhp);
+    flus_assert_contains('flus_venta_mp_manual_confirmed($body, \'qr\')', $ventaLibPhp);
+    flus_assert_contains("\$insertPago['mp_verified']", $ventaLibPhp);
     flus_assert_contains('window.FLUS_MP_QR_ENABLED', $cajaPhp);
     flus_assert_contains('assets/js/caja_mp_qr.js', $cajaPhp);
     flus_assert_contains('function mpcfg_mask_token(string $token): string', $mpPanelPhp);
@@ -2004,10 +2030,26 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_contains('function flus_mp_qr_find_pos_by_external_id(string $externalPosId): array', $mpLibPhp);
     flus_assert_contains('function flus_mp_cashier_mode(): string', $mpLibPhp);
     flus_assert_contains('function flus_mp_manual_fallback_enabled(): bool', $mpLibPhp);
+    flus_assert_contains('function flus_mp_min_amount(): float', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_response_error_message(array $body, string $fallback): string', $mpLibPhp);
+    flus_assert_contains('Mercado Pago requiere un importe minimo de $', $mpLibPhp);
+    flus_assert_contains('Mercado Pago QR todavia no esta listo', $mpQrTestPhp);
+    flus_assert_contains('Abrir configuracion Mercado Pago', $mpQrTestPhp);
+    flus_assert_contains('min="<?= h((string)$minAmount) ?>"', $mpQrTestPhp);
+    flus_assert_contains('const minAmount = Number(amount.min || 15);', $mpQrTestJs);
+    flus_assert_contains('rawAmount < minAmount', $mpQrTestJs);
+    flus_assert_contains('Estado operativo', $mpPanelPhp);
+    flus_assert_contains('Proximo paso', $mpPanelPhp);
+    flus_assert_contains('$mpReadinessTitle', $mpPanelPhp);
+    flus_assert_contains('$mpNextSteps[] = \'Cargar POS externo QR o Terminal Point para usar modo automatico.\';', $mpPanelPhp);
     flus_assert_contains('window.FLUS_MP_MANUAL_FALLBACK', $cajaPhp);
+    flus_assert_contains('mp_manual_fallback', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js'));
     flus_assert_contains('name="cashier_mode"', $mpPanelPhp);
     flus_assert_contains('Manual rapido', $mpPanelPhp);
     flus_assert_contains('Registrar manual', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js'));
+    flus_assert_contains('`mp_order_id` varchar(80) DEFAULT NULL', $installSql);
+    flus_assert_contains('`mp_verified` tinyint(1) NOT NULL DEFAULT 0', $installSql);
+    flus_assert_contains("TABLE_NAME = 'venta_pagos' AND COLUMN_NAME = 'mp_order_id'", $mpMigrationSql);
 });
 
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {

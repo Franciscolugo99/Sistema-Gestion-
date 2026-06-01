@@ -116,9 +116,41 @@ function flus_mp_point_cashier_enabled(): bool
     return flus_mp_cashier_automatic_enabled() && flus_mp_point_is_configured();
 }
 
+function flus_mp_min_amount(): float
+{
+    return 15.0;
+}
+
 function flus_mp_qr_money_string(float $amount): string
 {
     return number_format(round($amount, 2), 2, '.', '');
+}
+
+function flus_mp_qr_response_error_message(array $body, string $fallback): string
+{
+    $candidates = [];
+    foreach (['message', 'error'] as $key) {
+        if (isset($body[$key]) && is_scalar($body[$key])) {
+            $candidates[] = trim((string)$body[$key]);
+        }
+    }
+
+    foreach ((array)($body['errors'] ?? []) as $error) {
+        if (!is_array($error)) continue;
+        foreach (['message', 'code'] as $key) {
+            if (isset($error[$key]) && is_scalar($error[$key])) {
+                $candidates[] = trim((string)$error[$key]);
+            }
+        }
+        foreach ((array)($error['details'] ?? []) as $detail) {
+            if (is_scalar($detail)) {
+                $candidates[] = trim((string)$detail);
+            }
+        }
+    }
+
+    $candidates = array_values(array_filter(array_unique($candidates), static fn(string $value): bool => $value !== ''));
+    return $candidates !== [] ? implode(' - ', $candidates) : $fallback;
 }
 
 function flus_mp_qr_reference(string $prefix = 'FLUSMPTEST'): string
@@ -179,7 +211,7 @@ function flus_mp_qr_http(string $method, string $path, ?array $payload = null, ?
     $decoded = json_decode((string)$raw, true);
     $body = is_array($decoded) ? $decoded : ['raw' => (string)$raw];
     if ($status < 200 || $status >= 300) {
-        $message = (string)($body['message'] ?? $body['error'] ?? 'Mercado Pago rechazo la solicitud');
+        $message = flus_mp_qr_response_error_message($body, 'Mercado Pago rechazo la solicitud');
         return ['ok' => false, 'status' => $status, 'error' => $message, 'response' => $body];
     }
 
@@ -250,8 +282,9 @@ function flus_mp_qr_normalize_order(array $order): array
 function flus_mp_qr_create_order(float $amount, ?string $description = null, ?string $mode = null): array
 {
     $amount = round($amount, 2);
-    if ($amount <= 0) {
-        return ['ok' => false, 'status' => 0, 'error' => 'El importe debe ser mayor a cero'];
+    $minAmount = flus_mp_min_amount();
+    if ($amount < $minAmount) {
+        return ['ok' => false, 'status' => 422, 'error' => 'Mercado Pago requiere un importe minimo de $' . flus_mp_qr_money_string($minAmount)];
     }
 
     $externalPosId = flus_mp_qr_external_pos_id();
@@ -458,8 +491,9 @@ function flus_mp_point_list_terminals(?string $storeId = null, ?string $posId = 
 function flus_mp_point_create_order(float $amount, ?string $terminalId = null, string $paymentType = 'credit_card', ?string $ticketNumber = null): array
 {
     $amount = round($amount, 2);
-    if ($amount <= 0) {
-        return ['ok' => false, 'status' => 0, 'error' => 'El importe debe ser mayor a cero'];
+    $minAmount = flus_mp_min_amount();
+    if ($amount < $minAmount) {
+        return ['ok' => false, 'status' => 422, 'error' => 'Mercado Pago requiere un importe minimo de $' . flus_mp_qr_money_string($minAmount)];
     }
 
     $terminalId = trim((string)($terminalId ?: flus_mp_point_terminal_id()));

@@ -341,7 +341,13 @@ function flus_venta_validate_mp_qr_payment(array $body, array $pagosCaja, float 
 
     $orderId = trim((string)($body['mp_order_id'] ?? ''));
     if ($orderId === '') {
-        return null;
+        $automaticEnabled = function_exists('flus_mp_qr_cashier_enabled') && flus_mp_qr_cashier_enabled();
+        $manualAllowed = function_exists('flus_mp_manual_fallback_enabled') && flus_mp_manual_fallback_enabled();
+        $manualConfirmed = flus_venta_mp_manual_confirmed($body, 'qr');
+        if ($automaticEnabled && (!$manualAllowed || !$manualConfirmed)) {
+            flus_venta_fail('Mercado Pago requiere confirmacion online o contingencia manual explicita.', 'MP_QR_CONFIRMATION_REQUIRED', 409);
+        }
+        return flus_venta_mp_manual_meta($body, 'QR');
     }
 
     if (!function_exists('flus_mp_qr_get_order')) {
@@ -412,7 +418,14 @@ function flus_venta_validate_mp_point_payment(array $body, array $pagosCaja, flo
 
     $orderId = trim((string)($body['mp_point_order_id'] ?? ''));
     if ($orderId === '') {
+        if (flus_venta_mp_manual_confirmed($body, 'point')) {
+            return flus_venta_mp_manual_meta($body, 'POINT');
+        }
         return null;
+    }
+
+    if (!function_exists('flus_mp_qr_get_order')) {
+        flus_venta_fail('No se pudo verificar el pago Point de Mercado Pago.', 'MP_POINT_UNAVAILABLE', 500);
     }
 
     $result = flus_mp_qr_get_order($orderId);
@@ -435,12 +448,66 @@ function flus_venta_validate_mp_point_payment(array $body, array $pagosCaja, flo
         flus_venta_fail('El pago Point no coincide con la operacion aprobada.', 'MP_POINT_PAYMENT_MISMATCH', 409);
     }
 
+    $raw = is_array($order['raw'] ?? null) ? $order['raw'] : [];
+    $amountCandidates = [
+        $raw['total_amount'] ?? null,
+        $raw['transactions']['payments'][0]['amount'] ?? null,
+        $raw['transactions']['payments'][0]['total_paid_amount'] ?? null,
+    ];
+    $remoteAmount = null;
+    foreach ($amountCandidates as $candidate) {
+        if ($candidate !== null && is_numeric($candidate)) {
+            $remoteAmount = round((float)$candidate, 2);
+            break;
+        }
+    }
+
+    $expectedAmount = round($totalNetoFinal, 2);
+    if ($remoteAmount !== null && abs($remoteAmount - $expectedAmount) > 0.01) {
+        flus_venta_fail('El importe aprobado por Mercado Pago Point no coincide con el total de la venta.', 'MP_POINT_AMOUNT_MISMATCH', 409);
+    }
+
     return [
         'order_id' => (string)($order['id'] ?? $orderId),
         'payment_id' => (string)($order['payment_id'] ?? ''),
         'external_reference' => (string)($order['external_reference'] ?? ''),
         'status' => (string)($order['status'] ?? ''),
         'status_detail' => (string)($order['status_detail'] ?? ''),
+        'amount' => $remoteAmount,
+    ];
+}
+
+function flus_venta_mp_manual_confirmed(array $body, string $kind): bool
+{
+    $manual = filter_var($body['mp_manual_fallback'] ?? false, FILTER_VALIDATE_BOOL);
+    if (!$manual) {
+        return false;
+    }
+
+    $manualKind = strtolower(trim((string)($body['mp_manual_kind'] ?? '')));
+    if ($manualKind === '') {
+        return true;
+    }
+
+    $kind = strtolower($kind);
+    return $manualKind === $kind || ($kind === 'qr' && $manualKind === 'mp');
+}
+
+function flus_venta_mp_manual_meta(array $body, string $origin): array
+{
+    $reason = trim((string)($body['mp_manual_reason'] ?? ''));
+    $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 255) : substr($reason, 0, 255);
+
+    return [
+        'manual' => true,
+        'order_id' => '',
+        'payment_id' => '',
+        'external_reference' => '',
+        'status' => 'manual',
+        'status_detail' => 'manual_fallback',
+        'amount' => null,
+        'origin' => strtoupper($origin),
+        'manual_reason' => $reason,
     ];
 }
 
@@ -562,7 +629,7 @@ function flus_venta_register_cc_charge(PDO $pdo, ?CuentaCorrienteController $ccC
     ];
 }
 
-function flus_venta_store_payment_rows(PDO $pdo, int $ventaId, array $pagosValidos, int $ccClienteId, mixed $ccMovimientoId): void
+function flus_venta_store_payment_rows(PDO $pdo, int $ventaId, array $pagosValidos, int $ccClienteId, mixed $ccMovimientoId, array $paymentMeta = []): void
 {
     if (
         !has_col($pdo, 'venta_pagos', 'venta_id') ||
@@ -588,6 +655,36 @@ function flus_venta_store_payment_rows(PDO $pdo, int $ventaId, array $pagosValid
             }
             if ($tieneColCCMov) {
                 $insertPago['cc_movimiento_id'] = $ccMovimientoId;
+            }
+        }
+
+        $mpMeta = null;
+        if ($pg['medio'] === 'MP' && is_array($paymentMeta['mp_qr'] ?? null)) {
+            $mpMeta = $paymentMeta['mp_qr'];
+        } elseif (in_array($pg['medio'], ['DEBITO', 'CREDITO'], true) && is_array($paymentMeta['mp_point'] ?? null)) {
+            $mpMeta = $paymentMeta['mp_point'];
+        }
+
+        if ($mpMeta !== null) {
+            $origin = strtoupper((string)($mpMeta['origin'] ?? ($pg['medio'] === 'MP' ? 'QR' : 'POINT')));
+            if (has_col($pdo, 'venta_pagos', 'mp_order_id')) {
+                $insertPago['mp_order_id'] = trim((string)($mpMeta['order_id'] ?? '')) ?: null;
+            }
+            if (has_col($pdo, 'venta_pagos', 'mp_payment_id')) {
+                $insertPago['mp_payment_id'] = trim((string)($mpMeta['payment_id'] ?? '')) ?: null;
+            }
+            if (has_col($pdo, 'venta_pagos', 'mp_external_reference')) {
+                $insertPago['mp_external_reference'] = trim((string)($mpMeta['external_reference'] ?? '')) ?: null;
+            }
+            if (has_col($pdo, 'venta_pagos', 'mp_origin')) {
+                $insertPago['mp_origin'] = $origin;
+            }
+            if (has_col($pdo, 'venta_pagos', 'mp_verified')) {
+                $insertPago['mp_verified'] = empty($mpMeta['manual']) ? 1 : 0;
+            }
+            if (has_col($pdo, 'venta_pagos', 'mp_manual_reason')) {
+                $reason = trim((string)($mpMeta['manual_reason'] ?? ''));
+                $insertPago['mp_manual_reason'] = $reason !== '' ? $reason : null;
             }
         }
 

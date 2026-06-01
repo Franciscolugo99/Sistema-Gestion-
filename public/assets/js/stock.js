@@ -19,6 +19,7 @@ const StockManager = {
     currentUnidadVenta: 'UNIDAD',
     currentUnidadLabel: 'Unidad',
     pendingFormData: null,
+    adjustSubmitting: false,
     modalOpen: false, // Para beforeunload
   },
 
@@ -245,6 +246,9 @@ const StockManager = {
     const idInput = document.getElementById('ajuste_producto_id');
     if (idInput) idInput.value = String(productoId);
 
+    const requestInput = document.getElementById('ajuste_request_id');
+    if (requestInput) requestInput.value = this.createRequestId();
+
     // Render nombre (sin innerHTML para evitar XSS)
     const nameBox = document.getElementById('ajuste_producto_nombre');
     if (nameBox) {
@@ -361,6 +365,7 @@ const StockManager = {
     document.getElementById('modalAjusteStock')?.classList.remove('show');
     this.resetAdjustSubmitState(document.getElementById('formAjusteStock'));
     this.state.pendingFormData = null;
+    this.state.adjustSubmitting = false;
     this.state.modalOpen = false; // Para beforeunload
   },
 
@@ -375,6 +380,12 @@ const StockManager = {
     const defaultText = submitBtn.dataset.defaultText || 'Confirmar';
     submitBtn.disabled = false;
     submitBtn.textContent = defaultText;
+  },
+
+  createRequestId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    const random = Math.random().toString(36).slice(2);
+    return `${Date.now().toString(36)}-${random}`;
   },
 
   // ============================================
@@ -480,6 +491,8 @@ const StockManager = {
   async submitAdjust(event) {
     event.preventDefault();
 
+    if (this.state.adjustSubmitting) return;
+
     const form = event.target;
 
     // Validaciones front
@@ -539,6 +552,8 @@ const StockManager = {
   // CONFIRMAR AJUSTE GRANDE
   // ============================================
   async confirmarAjuste() {
+    if (this.state.adjustSubmitting) return;
+
     this.closeConfirmModal();
     
     if (!this.state.pendingFormData) return;
@@ -552,13 +567,23 @@ const StockManager = {
   // EJECUTAR AJUSTE
   // ============================================
   async executeAdjust(form, formData = null) {
+    if (this.state.adjustSubmitting) return;
+    this.state.adjustSubmitting = true;
+
     const submitBtn = form.querySelector('button[type="submit"]');
+    const confirmBtn = document.querySelector('#modalConfirmacion button[onclick*="confirmarAjuste"]');
     const originalText = submitBtn?.dataset.defaultText || submitBtn?.textContent || 'Confirmar';
+    const confirmText = confirmBtn?.dataset.defaultText || confirmBtn?.textContent || 'Si, confirmar';
 
     if (submitBtn) {
       submitBtn.dataset.defaultText = originalText;
       submitBtn.disabled = true;
       submitBtn.textContent = 'Procesando...';
+    }
+    if (confirmBtn) {
+      confirmBtn.dataset.defaultText = confirmText;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Procesando...';
     }
 
     try {
@@ -614,6 +639,11 @@ const StockManager = {
       console.error('Stock adjust error:', err);
       this.showToast(err?.message || 'Error al procesar la solicitud', 'error', 4500);
     } finally {
+      this.state.adjustSubmitting = false;
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = confirmBtn.dataset.defaultText || 'Si, confirmar';
+      }
       this.resetAdjustSubmitState(form);
     }
   },

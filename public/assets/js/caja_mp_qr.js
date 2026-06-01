@@ -249,9 +249,14 @@
           ui.limpiarMensaje?.();
         } catch (error) {
           ui.limpiarMensaje?.();
-          if (await askManualFallback("qr", error)) return result;
+          if (await askManualFallback("qr", error)) {
+            result.manual = { kind: "qr", reason: String(error?.message || "") };
+            return result;
+          }
           throw error;
         }
+      } else if (medio === "MP" && window.FLUS_MP_CASHIER_MODE === "manual") {
+        result.manual = { kind: "qr", reason: "Modo manual de caja" };
       } else if (["DEBITO", "CREDITO"].includes(medio) && window.FLUS_MP_POINT_ENABLED === true) {
         ui.mostrarMensaje?.("info", "Esperando pago con Mercado Pago Point...");
         try {
@@ -263,7 +268,10 @@
           ui.limpiarMensaje?.();
         } catch (error) {
           ui.limpiarMensaje?.();
-          if (await askManualFallback("point", error)) return result;
+          if (await askManualFallback("point", error)) {
+            result.manual = { kind: "point", reason: String(error?.message || "") };
+            return result;
+          }
           throw error;
         }
       }
@@ -280,6 +288,11 @@
         fd.append("mp_point_order_id", String(order.point.id || ""));
         fd.append("mp_point_payment_id", String(order.point.payment_id || ""));
         fd.append("mp_point_external_reference", String(order.point.external_reference || ""));
+      }
+      if (order?.manual) {
+        fd.append("mp_manual_fallback", "1");
+        fd.append("mp_manual_kind", String(order.manual.kind || "qr"));
+        fd.append("mp_manual_reason", String(order.manual.reason || "").slice(0, 240));
       }
     },
   };

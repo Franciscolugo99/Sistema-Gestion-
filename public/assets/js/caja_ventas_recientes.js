@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const modal = document.getElementById("ventasRecientesModal");
   const list = document.getElementById("ventasRecientesList");
   const status = document.getElementById("ventasRecientesStatus");
+  const subtitle = document.getElementById("ventasRecientesSubtitle");
   const ticketPreviewModal = document.getElementById("ticketPreviewModal");
   const ticketPreviewFrame = document.getElementById("ticketPreviewFrame");
   const ticketPreviewVentaId = document.getElementById("ticketPreviewVentaId");
@@ -101,6 +102,13 @@ document.addEventListener("DOMContentLoaded", () => {
     status.classList.toggle("hidden", !message);
   }
 
+  function setSubtitle(canAnularAlgo = false) {
+    if (!subtitle) return;
+    subtitle.textContent = canAnularAlgo
+      ? "Ver, reimprimir y gestionar anulaciones permitidas."
+      : "Ver y reimprimir tickets de la apertura actual.";
+  }
+
   function closeModal() {
     modal.classList.add("hidden");
     modal.setAttribute("aria-hidden", "true");
@@ -180,17 +188,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const perms = state.permissions || {};
 
     if (!ventas.length) {
+      setSubtitle(false);
       list.innerHTML = `
         <div class="ventas-recientes-empty">
           <strong>No hay ventas en esta caja.</strong>
-          <span>Cuando cobres un ticket, va a aparecer aca para reimprimir o revisar.</span>
+          <span>Cuando cobres un ticket, va a aparecer aca para verlo o reimprimirlo.</span>
         </div>
       `;
       setStatus("", "info");
       return;
     }
 
-    setStatus("Solo se muestran ventas de la apertura activa en esta terminal.", "info");
+    const canAnularAlgo = !!perms.can_anular_venta || !!perms.can_anular_items;
+    setSubtitle(canAnularAlgo);
+    setStatus(
+      canAnularAlgo
+        ? "Ventas de la apertura activa. Las anulaciones solo aparecen si tu usuario tiene permiso."
+        : "Ventas de la apertura activa. Acceso rapido para ver o reimprimir tickets.",
+      "info",
+    );
     list.innerHTML = ventas.map((venta) => {
       const id = Number(venta.id) || 0;
       const resumen = String(venta.productos_resumen || "").trim() || `${Number(venta.items_count || 0)} item(s)`;
@@ -213,10 +229,10 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <div class="ventas-recientes-row__total">${escapeHtml(money(venta.total || 0))}</div>
           <div class="ventas-recientes-row__actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-vr-action="preview" data-venta-id="${id}">Ver ticket</button>
-            <button type="button" class="btn btn-secondary btn-sm" data-vr-action="print" data-venta-id="${id}">Imprimir</button>
-            ${canAnularItems ? `<button type="button" class="btn btn-secondary btn-sm" data-vr-action="items" data-venta-id="${id}">Anular items</button>` : ""}
-            ${canAnularTotal ? `<button type="button" class="btn btn-danger btn-sm" data-vr-action="total" data-venta-id="${id}">${totalLabel}</button>` : ""}
+            <button type="button" class="btn btn-secondary btn-sm" data-vr-action="preview" data-venta-id="${id}" aria-label="Ver ticket de venta #${id}" title="Ver ticket">Ver</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-vr-action="print" data-venta-id="${id}" aria-label="Reimprimir ticket de venta #${id}" title="Reimprimir ticket">Reimprimir</button>
+            ${canAnularItems ? `<button type="button" class="btn btn-secondary btn-sm" data-vr-action="items" data-venta-id="${id}" aria-label="Anular items de venta #${id}" title="Anular items">Anular items</button>` : ""}
+            ${canAnularTotal ? `<button type="button" class="btn btn-danger btn-sm" data-vr-action="total" data-venta-id="${id}" aria-label="${totalLabel} de venta #${id}" title="${totalLabel}">${totalLabel}</button>` : ""}
           </div>
         </section>
       `;
@@ -278,6 +294,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function anularTotal(ventaId) {
+    if (!state.permissions?.can_anular_venta) {
+      Notif.error("Tu usuario no tiene permiso para anular ventas.");
+      return;
+    }
+
     const venta = findVenta(ventaId);
     if (!venta) return;
 
@@ -301,6 +322,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function confirmarItems(button) {
+    if (!state.permissions?.can_anular_items) {
+      Notif.error("Tu usuario no tiene permiso para anular items de venta.");
+      return;
+    }
+
     const ventaId = Number(button?.dataset?.ventaId || 0);
     const panel = button?.closest(".ventas-recientes-items-panel");
     if (!ventaId || !panel) return;
@@ -380,7 +406,13 @@ document.addEventListener("DOMContentLoaded", () => {
       printTicketSilently(ventaId);
       setStatus(`Enviando ticket de venta #${ventaId} a impresion.`, "info");
     }
-    if (action === "items") renderItemsPanel(findVenta(ventaId));
+    if (action === "items") {
+      if (!state.permissions?.can_anular_items) {
+        Notif.error("Tu usuario no tiene permiso para anular items de venta.");
+        return;
+      }
+      renderItemsPanel(findVenta(ventaId));
+    }
     if (action === "total") anularTotal(ventaId);
   });
 

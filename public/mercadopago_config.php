@@ -104,6 +104,14 @@ function mpcfg_apply_pos_to_values(array $values, array $pos): array
     return $values;
 }
 
+function mpcfg_badge(bool $ok, string $okLabel, string $badLabel, string $badClass = 'warning'): array
+{
+    return [
+        'class' => $ok ? 'ok' : $badClass,
+        'label' => $ok ? $okLabel : $badLabel,
+    ];
+}
+
 $csrfToken = csrf_token();
 $message = '';
 $error = '';
@@ -197,6 +205,48 @@ $posOk = (bool)($posResult['ok'] ?? false);
 $pos = is_array($posResult['pos'] ?? null) ? $posResult['pos'] : [];
 $terminals = is_array($terminalsResult['terminals'] ?? null) ? $terminalsResult['terminals'] : [];
 $selectedTerminal = $values['point_terminal_id'];
+$qrReady = $tokenPresent && $curlOk && $qrConfigured;
+$automaticReady = $automaticMode && $curlOk && $tokenPresent && ($qrConfigured || $pointReady);
+$manualAvailable = $values['cashier_mode'] === 'manual' || !empty($values['manual_fallback']);
+$mpOperational = $automaticReady || $manualAvailable;
+$mpReadinessClass = $automaticReady ? 'ok' : ($manualAvailable ? 'warning' : 'error');
+$mpReadinessTitle = $automaticReady ? 'Listo para caja' : ($manualAvailable ? 'Listo con control manual' : 'Requiere ajuste');
+$mpReadinessText = $automaticReady
+    ? 'La caja puede intentar confirmar Mercado Pago por API. Si falla la conexion, el fallback manual depende de la opcion configurada.'
+    : ($manualAvailable
+        ? 'La caja puede registrar Mercado Pago manualmente. No confirma impacto con la API hasta completar QR o Point.'
+        : 'La caja no deberia usar Mercado Pago todavia. Completa los puntos pendientes antes de operar.');
+$mpNextSteps = [];
+if (!$configExists) {
+    $mpNextSteps[] = 'Guardar la configuracion para crear src/config_mp.php.';
+}
+if (!$tokenPresent) {
+    $mpNextSteps[] = 'Pegar el Access Token de Mercado Pago.';
+}
+if (!$curlOk) {
+    $mpNextSteps[] = 'Habilitar PHP cURL en esta instalacion.';
+}
+if ($automaticMode && !$qrConfigured && !$pointReady) {
+    $mpNextSteps[] = 'Cargar POS externo QR o Terminal Point para usar modo automatico.';
+}
+if ($qrConfigured && $curlOk && !$posOk) {
+    $mpNextSteps[] = 'Probar conexion para confirmar que el POS externo existe en Mercado Pago.';
+}
+if ($qrConfigured && !$staticReady) {
+    $mpNextSteps[] = 'Generar el QR estatico para tener respaldo impreso.';
+}
+if (!$manualAvailable) {
+    $mpNextSteps[] = 'Habilitar fallback manual si el comercio necesita vender cuando se corta internet.';
+}
+if ($mpNextSteps === []) {
+    $mpNextSteps[] = 'Configuracion operativa. Conviene hacer una prueba QR de $' . number_format(flus_mp_min_amount(), 2, ',', '.') . ' antes de abrir caja.';
+}
+$mpBadges = [
+    'automatic' => mpcfg_badge($automaticReady, 'Automatico listo', 'Automatico pendiente'),
+    'manual' => mpcfg_badge($manualAvailable, 'Manual disponible', 'Manual bloqueado'),
+    'qr' => mpcfg_badge($qrReady, 'QR conectado', 'QR incompleto'),
+    'point' => mpcfg_badge($pointReady, 'Point configurado', 'Point opcional', 'neutral'),
+];
 
 $pageTitle = 'Mercado Pago';
 $currentSection = 'configuracion';
@@ -231,6 +281,27 @@ require __DIR__ . '/partials/header.php';
       <?php if ($errorDetail !== ''): ?><pre><?= h($errorDetail) ?></pre><?php endif; ?>
     </div>
   <?php endif; ?>
+
+  <section class="mpcfg-readiness <?= h($mpReadinessClass) ?>" aria-labelledby="mpcfgReadinessTitle">
+    <div class="mpcfg-readiness-main">
+      <span class="mpcfg-eyebrow">Estado operativo</span>
+      <h2 id="mpcfgReadinessTitle"><?= h($mpReadinessTitle) ?></h2>
+      <p><?= h($mpReadinessText) ?></p>
+      <div class="mpcfg-readiness-badges" aria-label="Resumen de Mercado Pago">
+        <?php foreach ($mpBadges as $badge): ?>
+          <span class="mpcfg-readiness-badge <?= h($badge['class']) ?>"><?= h($badge['label']) ?></span>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div class="mpcfg-next-steps">
+      <strong>Proximo paso</strong>
+      <ul>
+        <?php foreach ($mpNextSteps as $step): ?>
+          <li><?= h($step) ?></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  </section>
 
   <section class="mpcfg-section">
     <h2>Estado actual</h2>
