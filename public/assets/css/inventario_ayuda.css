@@ -152,7 +152,19 @@
 }
 
 .inv-help-header-icon {
-    font-size: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.12));
+    border-radius: 999px;
+    background: var(--inv-bg-alt, rgba(0,0,0,0.04));
+    color: var(--inv-muted, #64748b);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     line-height: 1;
 }
 
@@ -185,9 +197,9 @@
 
 .inv-help-example {
     background: var(--inv-bg-alt, rgba(0,0,0,0.03));
-    border-left: 3px solid var(--help-info);
+    border: 1px solid rgba(139, 92, 246, 0.18);
     padding: 12px 16px;
-    border-radius: 0 8px 8px 0;
+    border-radius: 10px;
     font-size: 0.9rem;
     color: var(--inv-text, #0f172a);
 }
@@ -201,7 +213,7 @@
 }
 
 .inv-help-action::before {
-    content: '💡 ';
+    content: '';
 }
 
 .inv-help-warning {
@@ -214,7 +226,7 @@
 }
 
 .inv-help-warning::before {
-    content: '⚠️ ';
+    content: '';
 }
 
 /* Detalle ABC */
@@ -273,12 +285,13 @@
 }
 
 .inv-acciones-ok {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02));
+    background: rgba(16, 185, 129, 0.06);
     border-color: rgba(16, 185, 129, 0.25);
 }
 
 .inv-acciones-ok .inv-acciones-icon {
-    font-size: 28px;
+    color: #059669;
+    border-color: rgba(16, 185, 129, 0.25);
 }
 
 .inv-acciones-ok h3 {
@@ -298,13 +311,25 @@
 }
 
 .inv-acciones-icon {
-    font-size: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 4px 9px;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.12));
+    border-radius: 999px;
+    background: var(--inv-bg-alt, rgba(0,0,0,0.04));
+    color: var(--inv-muted, #64748b);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .inv-acciones-header h3 {
     margin: 0;
     font-size: 1.05rem;
-    font-weight: 600;
+    font-weight: 800;
     color: var(--inv-text, #0f172a);
     flex: 1;
 }
@@ -331,7 +356,7 @@
     padding: 14px 16px;
     background: var(--inv-bg-alt, rgba(0,0,0,0.02));
     border-radius: 10px;
-    border-left: 4px solid transparent;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.08));
     transition: all 0.2s ease;
 }
 
@@ -340,22 +365,35 @@
 }
 
 .inv-accion-alta {
-    border-left-color: var(--help-danger);
+    border-color: rgba(239, 68, 68, 0.22);
     background: rgba(239, 68, 68, 0.04);
 }
 
 .inv-accion-media {
-    border-left-color: var(--help-warning);
+    border-color: rgba(245, 158, 11, 0.24);
     background: rgba(245, 158, 11, 0.04);
 }
 
 .inv-accion-baja {
-    border-left-color: var(--help-info);
+    border-color: rgba(139, 92, 246, 0.2);
     background: rgba(139, 92, 246, 0.04);
 }
 
 .inv-accion-icon {
-    font-size: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.12));
+    background: var(--inv-bg-card, #fff);
+    color: var(--inv-muted, #64748b);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     flex-shrink: 0;
 }
 
@@ -431,9 +469,39 @@
 }
 
 .inv-glosario-icon {
-    font-size: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 58px;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.12));
+    background: var(--inv-bg-alt, rgba(0,0,0,0.04));
+    color: var(--inv-muted, #64748b);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     flex-shrink: 0;
     line-height: 1;
+}
+
+.inv-help-metric-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 58px;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--inv-border, rgba(0,0,0,0.12));
+    background: var(--inv-bg-alt, rgba(0,0,0,0.04));
+    color: var(--inv-muted, #64748b);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .inv-glosario-content h4 {

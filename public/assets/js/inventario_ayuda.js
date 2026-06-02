@@ -120,7 +120,7 @@
             
             let html = `
                 <div class="inv-help-header">
-                    <span class="inv-help-header-icon">${ayuda.icono || '❓'}</span>
+                    <span class="inv-help-header-icon">${this.escapeHtml(ayuda.icono || 'Info')}</span>
                     <h3>${this.escapeHtml(ayuda.titulo)}</h3>
                 </div>
                 
@@ -151,7 +151,7 @@
             if (ayuda.ejemplo) {
                 html += `
                     <div class="inv-help-section">
-                        <h4>📝 Ejemplo práctico</h4>
+                        <h4>Ejemplo practico</h4>
                         <div class="inv-help-example">${this.escapeHtml(ayuda.ejemplo)}</div>
                     </div>
                 `;
@@ -185,8 +185,8 @@
         showGlosario() {
             let html = `
                 <div class="inv-help-header">
-                    <span class="inv-help-header-icon">📚</span>
-                    <h3>Glosario: Todas las métricas</h3>
+                    <span class="inv-help-header-icon">Guia</span>
+                    <h3>Glosario: todas las metricas</h3>
                 </div>
                 <p style="color: var(--inv-muted); margin-bottom: 20px;">
                     Tocá cualquier concepto para ver la explicación completa.
@@ -198,17 +198,17 @@
                     <div class="inv-glosario-item-inline" 
                          role="button" 
                          tabindex="0"
-                         data-help-key="${key}"
-                         style="cursor: pointer; margin-bottom: 12px;">
+                        data-help-key="${key}"
+                        style="cursor: pointer; margin-bottom: 12px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 24px;">${ayuda.icono || '❓'}</span>
+                            <span class="inv-help-metric-chip">${this.escapeHtml(ayuda.icono || 'Info')}</span>
                             <div>
                                 <strong style="color: var(--inv-text);">${this.escapeHtml(ayuda.titulo)}</strong>
                                 <p style="margin: 4px 0 0; font-size: 0.85rem; color: var(--inv-muted); line-height: 1.4;">
                                     ${this.truncate(ayuda.descripcion, 80)}
                                 </p>
                             </div>
-                            <span style="margin-left: auto; color: var(--inv-muted);">→</span>
+                            <span style="margin-left: auto; color: var(--inv-muted);">Ver</span>
                         </div>
                     </div>
                 `;

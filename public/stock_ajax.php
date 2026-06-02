@@ -148,7 +148,7 @@ try {
         }
 
         $stmtHist = $pdo->prepare("
-            SELECT fecha, tipo, cantidad, comentario
+            SELECT fecha, tipo, cantidad, comentario, stock_anterior, stock_nuevo
             FROM movimientos_stock
             WHERE producto_id = ?
             ORDER BY fecha DESC, id DESC
@@ -163,7 +163,9 @@ try {
                 'fecha' => (string)($row['fecha'] ?? ''),
                 'tipo' => (string)($row['tipo'] ?? ''),
                 'cantidad' => (string)($row['cantidad'] ?? ''),
-                'comentario' => stock_normalize_text((string)($row['comentario'] ?? '')), 
+                'stock_anterior' => $row['stock_anterior'] !== null ? (string)$row['stock_anterior'] : '',
+                'stock_nuevo' => $row['stock_nuevo'] !== null ? (string)$row['stock_nuevo'] : '',
+                'comentario' => stock_normalize_text((string)($row['comentario'] ?? '')),
             ];
         }
 

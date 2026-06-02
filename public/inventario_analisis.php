@@ -373,19 +373,19 @@ require __DIR__ . '/partials/header.php';
     <!-- Tabs de navegación -->
     <section class="inv-content-shell">
     <div class="inv-tabs">
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'resumen']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">📊 Resumen</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">💰 Inversión</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'rotacion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">🔄 Rotación</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">💲 Costos</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">😴 Parados</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">⚠️ Alertas</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">📈 Ventas</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'resumen']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">Resumen</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">Inversion</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'rotacion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">Rotacion</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">Costos</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">Parados</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">Alertas</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'ventas' ? 'active' : '' ?>">Ventas</a>
     </div>
 
     <!-- ========== TARJETAS DE RESUMEN (siempre visibles) ========== -->
     <div class="inv-cards-grid">
         <div class="inv-card inv-card-primary">
-            <div class="inv-card-icon">💰</div>
+            <div class="inv-card-icon">Costo</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['inversion_total']) ?></span>
                 <span class="inv-card-label">
@@ -395,13 +395,13 @@ require __DIR__ . '/partials/header.php';
             </div>
             <?php if ((int)$resumen['productos_sin_costo'] > 0): ?>
                 <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-card-footnote inv-card-footnote-link" title="Productos sin costo cargado">
-                    ⚠️ <?= $resumen['productos_sin_costo'] ?> sin costo
+                    <?= $resumen['productos_sin_costo'] ?> sin costo
                 </a>
             <?php endif; ?>
         </div>
 
         <div class="inv-card inv-card-success">
-            <div class="inv-card-icon">📈</div>
+            <div class="inv-card-icon">Venta</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['valor_venta_potencial']) ?></span>
                 <span class="inv-card-label">
@@ -413,7 +413,7 @@ require __DIR__ . '/partials/header.php';
         </div>
 
         <div class="inv-card inv-card-info">
-            <div class="inv-card-icon">📊</div>
+            <div class="inv-card-icon">Margen</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $fmtMoney($resumen['margen_teorico']) ?></span>
                 <span class="inv-card-label">
@@ -426,7 +426,7 @@ require __DIR__ . '/partials/header.php';
         </div>
 
         <div class="inv-card inv-card-neutral">
-            <div class="inv-card-icon">📦</div>
+            <div class="inv-card-icon">Stock</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= number_format((float)$resumen['total_unidades'], 0, ',', '.') ?></span>
                 <span class="inv-card-label">Unidades en Stock</span>
@@ -437,7 +437,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Tarjetas de alerta -->
         <?php if ($resumen['productos_stock_bajo'] > 0): ?>
         <div class="inv-card inv-card-warning">
-            <div class="inv-card-icon">⚠️</div>
+            <div class="inv-card-icon">Alerta</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $resumen['productos_stock_bajo'] ?></span>
                 <span class="inv-card-label">
@@ -445,13 +445,13 @@ require __DIR__ . '/partials/header.php';
                     <?= renderTooltipAyuda('stock_bajo') ?>
                 </span>
             </div>
-            <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-card-link">Ver detalle →</a>
+            <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-card-link">Ver detalle</a>
         </div>
         <?php endif; ?>
 
         <?php if ($resumen['productos_agotados'] > 0): ?>
         <div class="inv-card inv-card-danger">
-            <div class="inv-card-icon">🔴</div>
+            <div class="inv-card-icon">Corte</div>
             <div class="inv-card-content">
                 <span class="inv-card-value"><?= $resumen['productos_agotados'] ?></span>
                 <span class="inv-card-label">Agotados</span>
@@ -472,13 +472,13 @@ require __DIR__ . '/partials/header.php';
             <input type="hidden" name="tab" value="<?= htmlspecialchars($tabActivo) ?>">
             
             <div class="inv-filter-group">
-                <label>🔍 Buscar</label>
+                <label>Buscar</label>
                 <input type="text" name="q" value="<?= htmlspecialchars($filtros['busqueda']) ?>" 
                        placeholder="Nombre o código..." class="inv-filter-input">
             </div>
 
             <div class="inv-filter-group">
-                <label>📁 Categoría</label>
+                <label>Categoria</label>
                 <select name="categoria" class="inv-filter-select">
                     <option value="">Todas</option>
                     <?php foreach ($categorias as $cat): ?>
@@ -490,7 +490,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="inv-filter-group">
-                <label>🏭 Proveedor</label>
+                <label>Proveedor</label>
                 <select name="proveedor_id" class="inv-filter-select">
                     <option value="">Todos</option>
                     <?php foreach ($proveedores as $prov): ?>
@@ -502,7 +502,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="inv-filter-group">
-                <label>📊 Mostrar</label>
+                <label>Mostrar</label>
                 <?php
                     $limitField = 'limit_top';
                     $limitValue = $limitTop;
@@ -543,8 +543,8 @@ require __DIR__ . '/partials/header.php';
             <!-- Top 10 Inversión -->
             <div class="panel inv-table-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">💰 Top 10 Mayor Inversión <?= renderTooltipAyuda('capital_invertido') ?></h2>
-                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos →</a>
+                    <h2 class="panel-title">Top 10 mayor inversion <?= renderTooltipAyuda('capital_invertido') ?></h2>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos</a>
                 </div>
                 <div class="inv-table-wrap">
                     <table class="inv-table">
@@ -586,8 +586,8 @@ require __DIR__ . '/partials/header.php';
             <!-- Productos Parados -->
             <div class="panel inv-table-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">😴 Productos Parados (30+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
-                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos →</a>
+                    <h2 class="panel-title">Productos parados (30+ dias) <?= renderTooltipAyuda('productos_parados') ?></h2>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver todos</a>
                 </div>
                 <div class="inv-table-wrap">
                     <table class="inv-table">
@@ -613,7 +613,7 @@ require __DIR__ . '/partials/header.php';
                             </tr>
                             <?php endforeach; ?>
                             <?php if (empty($productosParados)): ?>
-                            <tr><td colspan="3" class="text-center text-success">✅ Todos los productos tienen ventas recientes</td></tr>
+                            <tr><td colspan="3" class="text-center inv-empty-state">Sin productos parados para este periodo.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -625,7 +625,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Gráfico Categorías -->
             <div class="panel inv-chart-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">📊 Inversión por Categoría <?= renderTooltipAyuda('inversion_categoria') ?></h2>
+                    <h2 class="panel-title">Inversion por categoria <?= renderTooltipAyuda('inversion_categoria') ?></h2>
                 </div>
                 <div class="inv-chart-container">
                     <canvas id="chartCategorias"></canvas>
@@ -637,8 +637,8 @@ require __DIR__ . '/partials/header.php';
             <?php $topVendidosResumen = $analisis->getTopVendidos(30, 5); ?>
             <div class="panel inv-table-panel">
                 <div class="panel-header">
-                    <h2 class="panel-title">🏆 Más Vendidos (30 días)</h2>
-                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver más →</a>
+                    <h2 class="panel-title">Mas vendidos (30 dias)</h2>
+                    <a href="<?= htmlspecialchars(inv_url(['tab' => 'ventas']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-link">Ver mas</a>
                 </div>
                 <div class="inv-table-wrap inv-table-compact">
                     <table class="inv-table">
@@ -668,7 +668,7 @@ require __DIR__ . '/partials/header.php';
             <!-- Stock Bajo -->
             <div class="panel inv-table-panel" id="stock-bajo">
                 <div class="panel-header">
-                    <h2 class="panel-title">🔴 Stock Bajo Mínimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
+                    <h2 class="panel-title">Stock bajo minimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
                     <span class="panel-badge panel-badge-danger"><?= count($stockBajo) ?></span>
                 </div>
                 <div class="inv-table-wrap inv-table-compact">
@@ -689,7 +689,7 @@ require __DIR__ . '/partials/header.php';
                             </tr>
                             <?php endforeach; ?>
                             <?php if (empty($stockBajo)): ?>
-                            <tr><td colspan="3" class="text-center text-success">✅ Stock OK</td></tr>
+                            <tr><td colspan="3" class="text-center inv-empty-state">Stock dentro del minimo.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -702,7 +702,7 @@ require __DIR__ . '/partials/header.php';
     <!-- ==================== TAB INVERSIÓN ==================== -->
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">💰 Capital Invertido por Producto <?= renderTooltipAyuda('capital_invertido') ?></h2>
+            <h2 class="panel-title">Capital invertido por producto <?= renderTooltipAyuda('capital_invertido') ?></h2>
             <div class="panel-info">
                 Mostrando <?= count($topInversion) ?> de <?= $totalConCosto ?> productos con costo
             </div>
@@ -771,7 +771,7 @@ require __DIR__ . '/partials/header.php';
     <div class="inv-grid-2col">
         <div class="panel inv-chart-panel">
             <div class="panel-header">
-                <h2 class="panel-title">📊 Inversión por Categoría <?= renderTooltipAyuda('inversion_categoria') ?></h2>
+                <h2 class="panel-title">Inversion por categoria <?= renderTooltipAyuda('inversion_categoria') ?></h2>
             </div>
             <div class="inv-chart-container-lg">
                 <canvas id="chartCategorias"></canvas>
@@ -779,7 +779,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         <div class="panel inv-chart-panel">
             <div class="panel-header">
-                <h2 class="panel-title">🏭 Inversión por Proveedor <?= renderTooltipAyuda('inversion_proveedor') ?></h2>
+                <h2 class="panel-title">Inversion por proveedor <?= renderTooltipAyuda('inversion_proveedor') ?></h2>
             </div>
             <div class="inv-chart-container-lg">
                 <canvas id="chartProveedores"></canvas>
@@ -793,7 +793,7 @@ require __DIR__ . '/partials/header.php';
     <!-- Leyenda ABC -->
     <div class="inv-abc-legend-panel">
         <div class="inv-abc-legend-title">
-            📊 Clasificación ABC <?= renderTooltipAyuda('clasificacion_abc') ?>
+            Clasificacion ABC <?= renderTooltipAyuda('clasificacion_abc') ?>
         </div>
         <div class="inv-abc-legend-items">
             <span class="inv-abc-legend-item">
@@ -813,7 +813,7 @@ require __DIR__ . '/partials/header.php';
     
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">🔄 Rotación de Productos (últimos 30 días) <?= renderTooltipAyuda('rotacion') ?></h2>
+            <h2 class="panel-title">Rotacion de productos (ultimos 30 dias) <?= renderTooltipAyuda('rotacion') ?></h2>
             <div class="panel-controls">
                 <select onchange="location.href='<?= htmlspecialchars(inv_url(['tab' => 'rotacion'], ['orden']), ENT_QUOTES, 'UTF-8') ?>&orden='+encodeURIComponent(this.value)" class="inv-filter-select">
                     <option value="vendidos" <?= ($_GET['orden'] ?? '') === 'vendidos' ? 'selected' : '' ?>>Más vendidos primero</option>
@@ -888,7 +888,7 @@ require __DIR__ . '/partials/header.php';
             <input type="hidden" name="categoria" value="<?= htmlspecialchars($filtros['categoria']) ?>">
             <input type="hidden" name="proveedor_id" value="<?= htmlspecialchars((string)($filtros['proveedor_id'] ?? '')) ?>">
             <div class="inv-filter-group">
-                <label>📅 Sin venta hace</label>
+                <label>Sin venta hace</label>
                 <select name="dias_parados" class="inv-filter-select" onchange="this.form.submit()">
                     <option value="15" <?= $diasParados == 15 ? 'selected' : '' ?>>15+ días</option>
                     <option value="30" <?= $diasParados == 30 ? 'selected' : '' ?>>30+ días</option>
@@ -898,7 +898,7 @@ require __DIR__ . '/partials/header.php';
                 </select>
             </div>
             <div class="inv-filter-group">
-                <label>📊 Mostrar</label>
+                <label>Mostrar</label>
                 <select name="limit_parados" class="inv-filter-select" onchange="this.form.submit()">
                     <option value="25" <?= $limitParados == 25 ? 'selected' : '' ?>>25 productos</option>
                     <option value="50" <?= $limitParados == 50 ? 'selected' : '' ?>>50 productos</option>
@@ -911,7 +911,7 @@ require __DIR__ . '/partials/header.php';
 
     <div class="panel inv-table-panel">
         <div class="panel-header">
-            <h2 class="panel-title">😴 Productos Sin Venta (<?= $diasParados ?>+ días) <?= renderTooltipAyuda('productos_parados') ?></h2>
+            <h2 class="panel-title">Productos sin venta (<?= $diasParados ?>+ dias) <?= renderTooltipAyuda('productos_parados') ?></h2>
             <div class="panel-info">
                 <?= count($productosParados) ?> de <?= (int)$totalParados ?> productos | Capital parado: 
                 <strong><?= $fmtMoney(array_sum(array_column($productosParados, 'capital_parado'))) ?></strong>
@@ -959,7 +959,7 @@ require __DIR__ . '/partials/header.php';
                     <?php endforeach; ?>
                     <?php if (empty($productosParados)): ?>
                     <tr>
-                        <td colspan="6" class="text-center text-success">✅ Todos los productos tienen ventas en los últimos <?= $diasParados ?> días</td>
+                        <td colspan="7" class="text-center inv-empty-state">Sin productos sin venta en los ultimos <?= $diasParados ?> dias.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -972,7 +972,7 @@ require __DIR__ . '/partials/header.php';
 <!-- ==================== TAB COSTOS ==================== -->
 <div class="panel inv-table-panel">
     <div class="panel-header">
-        <h2 class="panel-title">💲 Productos sin costo cargado</h2>
+        <h2 class="panel-title">Productos sin costo cargado</h2>
         <div class="panel-actions">
             <span class="inv-muted">Total: <?= (int)$totalSinCosto ?></span>
         </div>
@@ -1039,7 +1039,7 @@ require __DIR__ . '/partials/header.php';
 
                 <?php if (empty($productosSinCosto)): ?>
                 <tr>
-                    <td colspan="5" class="text-center text-success">✅ No hay productos sin costo (con stock) para estos filtros.</td>
+                    <td colspan="6" class="text-center inv-empty-state">Sin productos sin costo con stock para estos filtros.</td>
                 </tr>
                 <?php endif; ?>
             </tbody>
@@ -1059,7 +1059,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Stock Bajo -->
         <div class="panel inv-table-panel">
             <div class="panel-header">
-                <h2 class="panel-title">🔴 Stock Bajo Mínimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
+                <h2 class="panel-title">Stock bajo minimo <?= renderTooltipAyuda('stock_bajo') ?></h2>
                 <span class="panel-badge panel-badge-danger"><?= count($stockBajo) ?></span>
             </div>
             <div class="inv-table-wrap inv-table-scroll">
@@ -1089,7 +1089,7 @@ require __DIR__ . '/partials/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($stockBajo)): ?>
-                        <tr><td colspan="5" class="text-center text-success">✅ Todo el stock está sobre el mínimo</td></tr>
+                        <tr><td colspan="6" class="text-center inv-empty-state">Todo el stock esta sobre el minimo.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -1099,7 +1099,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Próximos a Agotarse -->
         <div class="panel inv-table-panel">
             <div class="panel-header">
-                <h2 class="panel-title">⏰ Se Agotan en 7 días <?= renderTooltipAyuda('proximos_agotarse') ?></h2>
+                <h2 class="panel-title">Se agotan en 7 dias <?= renderTooltipAyuda('proximos_agotarse') ?></h2>
                 <span class="panel-badge panel-badge-warning"><?= count($proximosAgotarse) ?></span>
             </div>
             <div class="inv-table-wrap inv-table-scroll">
@@ -1136,7 +1136,7 @@ require __DIR__ . '/partials/header.php';
                         </tr>
                         <?php endforeach; ?>
                         <?php if (empty($proximosAgotarse)): ?>
-                        <tr><td colspan="5" class="text-center text-success">✅ No hay productos críticos</td></tr>
+                        <tr><td colspan="6" class="text-center inv-empty-state">Sin productos criticos por ahora.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -1150,7 +1150,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Top Vendidos -->
         <div class="panel inv-table-panel">
             <div class="panel-header">
-                <h2 class="panel-title">🏆 Más Vendidos (30 días)</h2>
+                <h2 class="panel-title">Mas vendidos (30 dias)</h2>
             </div>
             <div class="inv-table-wrap inv-table-scroll">
                 <table class="inv-table">
@@ -1186,7 +1186,7 @@ require __DIR__ . '/partials/header.php';
         <!-- Gráfico tendencia -->
         <div class="panel inv-chart-panel">
             <div class="panel-header">
-                <h2 class="panel-title">📈 Tendencia de Ventas (30 días)</h2>
+                <h2 class="panel-title">Tendencia de ventas (30 dias)</h2>
             </div>
             <div class="inv-chart-container-lg">
                 <canvas id="chartTendencia"></canvas>

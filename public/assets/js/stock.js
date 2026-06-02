@@ -16,11 +16,13 @@ const StockManager = {
     currentIsPesable: false,
     currentProductoId: null,
     currentStockActual: 0,
+    currentStockMinimo: 0,
     currentUnidadVenta: 'UNIDAD',
     currentUnidadLabel: 'Unidad',
     pendingFormData: null,
     adjustSubmitting: false,
     modalOpen: false, // Para beforeunload
+    searchTimer: null,
   },
 
   // ============================================
@@ -30,6 +32,7 @@ const StockManager = {
     CONFIRM_THRESHOLD: 50,
     ALERTS_SHOWN_KEY: 'stock_alerts_shown_session',
     TOAST_DURATION: 3500,
+    DEBOUNCE_SEARCH_MS: 500,
   },
 
   // ============================================
@@ -52,17 +55,35 @@ const StockManager = {
   // EVENT LISTENERS
   // ============================================
   setupEventListeners() {
-    const limitSel = document.getElementById('limitSel');
+    const limitSel = document.getElementById('limitSelect') || document.getElementById('limitSel');
     const filtersForm = document.getElementById('stockFilters');
+    const searchInput = document.getElementById('searchInput');
+    const pageInput = document.getElementById('pageInput') || filtersForm?.querySelector('input[name="page"]');
 
-    // Cambio de límite: resetea página
-    limitSel?.addEventListener('change', () => {
+    searchInput?.addEventListener('input', () => {
       if (!filtersForm) return;
-      const pageInput = filtersForm.querySelector('input[name="page"]');
-      if (pageInput) pageInput.value = '1';
-      filtersForm.submit();
+      if (this.state.searchTimer) clearTimeout(this.state.searchTimer);
+      this.state.searchTimer = setTimeout(() => {
+        if (pageInput) pageInput.value = '1';
+        filtersForm.requestSubmit ? filtersForm.requestSubmit() : filtersForm.submit();
+      }, this.config.DEBOUNCE_SEARCH_MS);
     });
 
+    [
+      document.getElementById('estadoSelect'),
+      document.getElementById('pesableSelect'),
+      document.getElementById('categoriaSelect'),
+      document.getElementById('proveedorSelect'),
+      limitSel,
+    ].filter(Boolean).forEach(control => {
+      control.addEventListener('change', () => {
+        if (!filtersForm) return;
+        if (pageInput) pageInput.value = '1';
+        filtersForm.requestSubmit ? filtersForm.requestSubmit() : filtersForm.submit();
+      });
+    });
+
+    // Cambio de límite: resetea página
     // Click fuera del modal cierra
     const modal = document.getElementById('modalAjusteStock');
     modal?.addEventListener('click', (e) => {
@@ -79,6 +100,7 @@ const StockManager = {
     tipoSel?.addEventListener('change', () => {
       this.syncCantidadInput();
       this.updateCantidadHint();
+      this.updateAdjustPreview();
     });
 
     // Contador de caracteres en motivo
@@ -92,7 +114,10 @@ const StockManager = {
 
     // Actualizar hint cuando cambia cantidad
     const cantidadInput = document.getElementById('ajuste_cantidad');
-    cantidadInput?.addEventListener('input', () => this.updateCantidadHint());
+    cantidadInput?.addEventListener('input', () => {
+      this.updateCantidadHint();
+      this.updateAdjustPreview();
+    });
   },
 
   // ============================================
@@ -235,6 +260,10 @@ const StockManager = {
       ? stockActualRaw
       : parseFloat(String(stockActualRaw ?? '').replace(',', '.'));
     this.state.currentStockActual = Number.isFinite(stockRawNum) ? stockRawNum : 0;
+    const minRawNum = (typeof stockMinimoRaw === 'number')
+      ? stockMinimoRaw
+      : parseFloat(String(stockMinimoRaw ?? '').replace(',', '.'));
+    this.state.currentStockMinimo = Number.isFinite(minRawNum) ? minRawNum : 0;
     this.state.modalOpen = true; // Para beforeunload
 
     // Reset form
@@ -278,6 +307,7 @@ const StockManager = {
     // Sync step/min según pesable
     this.syncCantidadInput();
     this.updateCantidadHint();
+    this.updateAdjustPreview();
     this.loadHistory(productoId);
 
     // Show modal
@@ -285,7 +315,14 @@ const StockManager = {
 
     // Focus cantidad
     setTimeout(() => {
-      document.getElementById('ajuste_cantidad')?.focus();
+      const content = modal.querySelector('.modal-content');
+      content?.scrollTo({ top: 0 });
+      try {
+        document.getElementById('ajuste_cantidad')?.focus({ preventScroll: true });
+      } catch {
+        document.getElementById('ajuste_cantidad')?.focus();
+        content?.scrollTo({ top: 0 });
+      }
     }, 100);
   },
 
@@ -322,13 +359,18 @@ const StockManager = {
 
       box.innerHTML = items.map(item => {
         const comentario = item.comentario ? `<div class="stock-history-comment">${this.escapeHtml(item.comentario)}</div>` : '';
+        const stockFlow = this.renderStockFlow(item.stock_anterior, item.stock_nuevo);
+        const signClass = this.movimientoSignClass(item.tipo);
         return `
           <div class="stock-history-item">
             <div class="stock-history-top">
               <strong>${this.escapeHtml(this.tipoMovimientoLabel(item.tipo))}</strong>
               <span>${this.escapeHtml(item.fecha || '-')}</span>
             </div>
-            <div class="stock-history-meta">Cantidad: ${this.escapeHtml(String(item.cantidad || '0'))}</div>
+            <div class="stock-history-meta">
+              <span class="stock-history-delta ${signClass}">${this.escapeHtml(this.formatSignedCantidad(item.tipo, item.cantidad))}</span>
+              ${stockFlow}
+            </div>
             ${comentario}
           </div>`;
       }).join('');
@@ -347,6 +389,28 @@ const StockManager = {
       DEVOLUCION: 'Devolucion',
     };
     return map[tipo] || tipo || 'Movimiento';
+  },
+
+  movimientoSignClass(tipo) {
+    const value = String(tipo || '').toUpperCase();
+    if (['COMPRA', 'AJUSTE_POSITIVO', 'DEVOLUCION', 'ANULACION_VENTA'].includes(value)) return 'is-positive';
+    if (['VENTA', 'AJUSTE_NEGATIVO', 'PERDIDA', 'ANULACION_COMPRA'].includes(value)) return 'is-negative';
+    return '';
+  },
+
+  formatSignedCantidad(tipo, cantidadRaw) {
+    const signClass = this.movimientoSignClass(tipo);
+    const value = Number(cantidadRaw || 0);
+    const prefix = signClass === 'is-positive' ? '+' : (signClass === 'is-negative' ? '-' : '');
+    return `${prefix}${this.formatStockByUnidad(Math.abs(value))}`;
+  },
+
+  renderStockFlow(stockAnteriorRaw, stockNuevoRaw) {
+    if (stockAnteriorRaw === undefined || stockNuevoRaw === undefined || stockAnteriorRaw === '' || stockNuevoRaw === '') {
+      return '<span class="stock-history-flow">Stock anterior no disponible</span>';
+    }
+
+    return `<span class="stock-history-flow">${this.escapeHtml(this.formatStockByUnidad(stockAnteriorRaw))} -> ${this.escapeHtml(this.formatStockByUnidad(stockNuevoRaw))}</span>`;
   },
 
   escapeHtml(value) {
@@ -468,6 +532,7 @@ const StockManager = {
 
     if (!cantidadStr || isNaN(cantidad) || cantidad <= 0) {
       hintEl.textContent = '';
+      hintEl.className = 'form-hint';
       return;
     }
 
@@ -483,6 +548,95 @@ const StockManager = {
       hintEl.textContent = `Stock resultante: ${this.formatStockByUnidad(nuevoStock)}`;
       hintEl.className = 'form-hint text-muted';
     }
+  },
+
+  updateAdjustPreview() {
+    const lineEl = document.getElementById('ajuste_preview_line');
+    const helpEl = document.getElementById('ajuste_preview_help');
+    const tipoHintEl = document.getElementById('ajuste_tipo_hint');
+    const previewEl = document.getElementById('ajuste_preview');
+    if (!lineEl || !helpEl || !previewEl) return;
+
+    const tipo = document.getElementById('ajuste_tipo')?.value || 'entrada';
+    const cantidadStr = document.getElementById('ajuste_cantidad')?.value || '';
+    const cantidad = Number(cantidadStr);
+    const copy = this.tipoAjusteCopy(tipo);
+
+    if (tipoHintEl) tipoHintEl.textContent = copy.help;
+    previewEl.classList.remove('is-danger', 'is-warning', 'is-success');
+    if (copy.intent) previewEl.classList.add(copy.intent);
+
+    if (!cantidadStr || Number.isNaN(cantidad) || cantidad <= 0) {
+      lineEl.textContent = copy.empty;
+      helpEl.textContent = 'El movimiento queda guardado en el historial del producto.';
+      return;
+    }
+
+    const nuevoStock = this.state.currentStockActual + (copy.signo * cantidad);
+    const stockActual = this.formatStockByUnidad(this.state.currentStockActual);
+    const cantidadTxt = this.formatStockByUnidad(cantidad);
+
+    if (nuevoStock < 0) {
+      lineEl.textContent = `No se puede ${copy.verb} ${cantidadTxt}: quedaria ${this.formatStockByUnidad(nuevoStock)}.`;
+      helpEl.textContent = `Stock actual: ${stockActual}. FLUS no permite stock negativo.`;
+      previewEl.classList.add('is-danger');
+      return;
+    }
+
+    lineEl.textContent = `${copy.action}: ${stockActual} -> ${this.formatStockByUnidad(nuevoStock)}`;
+    helpEl.textContent = `${copy.summary} ${cantidadTxt}.`;
+  },
+
+  tipoAjusteCopy(tipo) {
+    const map = {
+      entrada: {
+        signo: 1,
+        action: 'Se suma stock',
+        summary: 'Entrada por',
+        verb: 'sumar',
+        intent: 'is-success',
+        empty: 'Entrada: suma mercaderia recibida al stock.',
+        help: 'Usa Entrada cuando recibiste mercaderia de proveedor.',
+      },
+      salida: {
+        signo: -1,
+        action: 'Se descuenta stock',
+        summary: 'Salida por',
+        verb: 'descontar',
+        intent: 'is-warning',
+        empty: 'Salida: descuenta mercaderia retirada manualmente.',
+        help: 'Usa Salida para retiros manuales no vinculados a una venta.',
+      },
+      ajuste_pos: {
+        signo: 1,
+        action: 'Correccion positiva',
+        summary: 'Correccion positiva por',
+        verb: 'sumar',
+        intent: 'is-success',
+        empty: 'Ajuste (+): corrige una diferencia a favor del stock.',
+        help: 'Usa Ajuste (+) si el conteo fisico dio mas que el sistema.',
+      },
+      ajuste_neg: {
+        signo: -1,
+        action: 'Correccion negativa',
+        summary: 'Correccion negativa por',
+        verb: 'descontar',
+        intent: 'is-warning',
+        empty: 'Ajuste (-): corrige una diferencia contra el stock.',
+        help: 'Usa Ajuste (-) si el conteo fisico dio menos que el sistema.',
+      },
+      perdida: {
+        signo: -1,
+        action: 'Se registra perdida',
+        summary: 'Perdida por',
+        verb: 'descontar',
+        intent: 'is-danger',
+        empty: 'Perdida: rotura, vencimiento o merma.',
+        help: 'Usa Perdida para rotura, vencimiento o merma identificada.',
+      },
+    };
+
+    return map[tipo] || map.entrada;
   },
 
   // ============================================
@@ -537,7 +691,8 @@ const StockManager = {
         
         const msgEl = document.getElementById('confirmacion_mensaje');
         if (msgEl) {
-          msgEl.textContent = `Estas por registrar una ${tipo === 'perdida' ? 'perdida' : 'salida'} de ${this.formatStockByUnidad(cantidad)}. Confirmar?`;
+          const nuevoStock = this.state.currentStockActual - cantidad;
+          msgEl.textContent = `Estas por registrar una ${tipo === 'perdida' ? 'perdida' : 'salida'} de ${this.formatStockByUnidad(cantidad)}. Stock: ${this.formatStockByUnidad(this.state.currentStockActual)} -> ${this.formatStockByUnidad(nuevoStock)}. Confirmar?`;
         }
         
         document.getElementById('modalConfirmacion')?.classList.add('show');
@@ -620,12 +775,12 @@ const StockManager = {
       const extra = data.data || null;
       if (extra && (extra.stock_anterior !== undefined && extra.stock_nuevo !== undefined)) {
         this.showToast(
-          `✓ Stock actualizado (${extra.stock_anterior} → ${extra.stock_nuevo})`,
+          `Stock actualizado: ${extra.stock_anterior} -> ${extra.stock_nuevo}`,
           'success',
           3500
         );
       } else {
-        this.showToast('✓ Stock actualizado correctamente', 'success', 3000);
+        this.showToast('Stock actualizado correctamente', 'success', 3000);
       }
 
       this.closeModal();

@@ -52,6 +52,22 @@
   cursor: not-allowed;
 }
 
+.stock-disabled-action {
+  gap: 8px;
+  opacity: 0.72;
+}
+
+.stock-disabled-action small {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 /* ============================================================
    KPIs
 ============================================================ */
@@ -194,18 +210,102 @@
 /* ============================================================
    Filtros
 ============================================================ */
-.filters { margin-bottom: 20px; }
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 140px auto;
-  gap: 12px;
-  align-items: center;
+.filters {
+  margin-bottom: 18px;
 }
 
-.filter-search { grid-column: span 2; }
+.filters-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.filters-left {
+  flex: 0 0 360px;
+  min-width: 280px;
+}
+
+.filters-right {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+}
+
+.search-wrapper::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--muted);
+  border-radius: 999px;
+  opacity: 0.62;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-wrapper::after {
+  content: "";
+  position: absolute;
+  left: 25px;
+  top: calc(50% + 6px);
+  width: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--muted);
+  opacity: 0.62;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.filter-search {
+  width: 100%;
+  height: 42px;
+  padding: 10px 14px 10px 38px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.92rem;
+  transition: var(--transition);
+}
+
+.filter-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.14);
+}
+
+.filter-select {
+  flex: 0 0 auto;
+  height: 42px;
+  padding: 10px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+#estadoSelect { width: 150px; }
+#pesableSelect { width: 150px; }
+#categoriaSelect { width: 178px; }
+#proveedorSelect { width: 188px; }
+#limitSelect { width: 136px; }
 
 .filter-actions {
+  flex: 0 0 auto;
   display: flex;
   gap: 8px;
 }
@@ -510,6 +610,30 @@
 
 .modal-sm { max-width: 400px; }
 
+.modal-content--stock-adjust {
+  max-width: 520px;
+}
+
+.modal-content--stock-adjust .modal-header {
+  padding: 14px 18px;
+}
+
+.modal-content--stock-adjust .modal-title {
+  font-size: 1.1rem;
+}
+
+.modal-content--stock-adjust .modal-body {
+  padding: 16px 18px;
+}
+
+.modal-content--stock-adjust .modal-footer {
+  padding: 12px 18px;
+}
+
+.modal-content--stock-adjust .form-group {
+  margin-bottom: 12px;
+}
+
 @keyframes modalSlideIn {
   from { transform: translateY(-20px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
@@ -593,6 +717,55 @@
   margin-top: 6px;
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.stock-adjust-preview {
+  display: grid;
+  gap: 5px;
+  margin: -2px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.modal-content--stock-adjust .stock-adjust-preview {
+  margin-bottom: 12px;
+}
+
+.stock-adjust-preview-label {
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stock-adjust-preview strong {
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.stock-adjust-preview small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.stock-adjust-preview.is-success {
+  background: rgba(60, 200, 120, 0.08);
+  border-color: rgba(60, 200, 120, 0.25);
+}
+
+.stock-adjust-preview.is-warning {
+  background: rgba(233, 184, 63, 0.08);
+  border-color: rgba(233, 184, 63, 0.25);
+}
+
+.stock-adjust-preview.is-danger {
+  background: rgba(224, 93, 93, 0.08);
+  border-color: rgba(224, 93, 93, 0.25);
 }
 
 .producto-info {
@@ -767,9 +940,23 @@
    Responsive
 ============================================================ */
 @media (max-width: 1200px) {
-  .filters-grid { grid-template-columns: 1fr 1fr; }
-  .filter-search { grid-column: span 2; }
-  .filter-actions { grid-column: span 2; }
+  .filters-grid {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filters-left,
+  .filters-right {
+    width: 100%;
+  }
+
+  .search-wrapper {
+    max-width: none;
+  }
+
+  .filters-right {
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 768px) {
@@ -782,8 +969,21 @@
   }
   .tab { white-space: nowrap; }
 
-  .filters-grid { grid-template-columns: 1fr; }
-  .filter-search, .filter-actions { grid-column: span 1; }
+  .filters-grid { gap: 10px; }
+  .filters-right { flex-direction: column; align-items: stretch; }
+  .filter-select,
+  .filter-actions,
+  .filter-actions .v-btn {
+    width: 100%;
+  }
+
+  #estadoSelect,
+  #pesableSelect,
+  #categoriaSelect,
+  #proveedorSelect,
+  #limitSelect {
+    width: 100%;
+  }
 
   .table-actions {
     flex-direction: column;
@@ -881,4 +1081,42 @@
   color: var(--muted);
   font-size: 0.82rem;
   margin-top: 4px;
+}
+
+.stock-history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.stock-history-delta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.stock-history-delta.is-positive {
+  background: rgba(60, 200, 120, 0.12);
+  color: var(--color-success);
+}
+
+.stock-history-delta.is-negative {
+  background: rgba(224, 93, 93, 0.12);
+  color: var(--color-danger);
+}
+
+.stock-history-flow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+  color: var(--text);
+  opacity: 0.82;
+}
+
+.modal-content--stock-adjust .stock-history {
+  max-height: 128px;
 }

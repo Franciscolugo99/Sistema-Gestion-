@@ -1368,6 +1368,14 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('adjustSubmitting: false', $stockJs);
     flus_assert_contains('if (this.state.adjustSubmitting) return;', $stockJs);
     flus_assert_contains('requestInput.value = this.createRequestId();', $stockJs);
+    flus_assert_contains('id="searchInput"', $stockPhp);
+    flus_assert_contains('id="limitSelect"', $stockPhp);
+    flus_assert_contains('DEBOUNCE_SEARCH_MS', $stockJs);
+    flus_assert_contains('stock-adjust-preview', $stockPhp);
+    flus_assert_contains('stock_anterior, stock_nuevo', $stockAjax);
+    flus_assert_contains('renderStockFlow(stockAnteriorRaw, stockNuevoRaw)', $stockJs);
+    flus_assert_contains('updateAdjustPreview()', $stockJs);
+    flus_assert_contains('stock-history-flow', $stockJs);
     flus_assert_contains('function stock_adjust_cached_response(string $key): ?array', $stockAjax);
     flus_assert_contains('stock_adjust_remember_response($requestKey, $responsePayload);', $stockAjax);
 });

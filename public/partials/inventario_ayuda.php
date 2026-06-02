@@ -22,7 +22,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Es la suma de dinero que tenés "parado" en mercadería. Se calcula multiplicando el costo de compra de cada producto por su stock actual.',
         'ejemplo' => 'Si tenés 10 unidades de un producto que te costó $500 cada uno, tenés $5.000 invertidos en ese producto.',
         'accion' => 'Un capital muy alto puede significar exceso de stock. Un capital bajo puede indicar que necesitás reponer.',
-        'icono' => '💰'
+        'icono' => 'Costo'
     ],
     
     'valor_venta' => [
@@ -30,7 +30,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Es lo que ganarías si vendieras TODO el stock actual a precio de venta. Es el valor teórico máximo de tu mercadería.',
         'ejemplo' => 'Si tenés 10 productos a $800 cada uno, tu valor de venta potencial es $8.000.',
         'accion' => 'Compará esto con tu capital invertido para ver tu ganancia potencial.',
-        'icono' => '📈'
+        'icono' => 'Venta'
     ],
     
     'margen_teorico' => [
@@ -39,7 +39,7 @@ $AYUDA_METRICAS = [
         'ejemplo' => 'Si invertiste $100.000 y el valor de venta es $150.000, tu margen teórico es $50.000 (50%).',
         'accion' => 'Un margen bajo puede indicar que necesitás revisar tus precios de venta.',
         'advertencia' => 'Se llama "teórico" porque asume que vendés todo sin descuentos ni pérdidas.',
-        'icono' => '📊'
+        'icono' => 'Margen'
     ],
     
     'productos_parados' => [
@@ -47,7 +47,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Son productos que tenés en stock pero que NO se vendieron en los últimos 30 días (o el período que elijas).',
         'ejemplo' => 'Si compraste 20 unidades de un producto hace 2 meses y no vendiste ninguno, es un producto "parado".',
         'accion' => '¡Atención! Este capital está "dormido". Considerá hacer ofertas, combos, o revisar si el precio está muy alto.',
-        'icono' => '😴'
+        'icono' => 'Parados'
     ],
     
     'clasificacion_abc' => [
@@ -59,7 +59,7 @@ $AYUDA_METRICAS = [
             'C' => 'Productos de BAJA ROTACIÓN: Pocas ventas, generan solo el 5% de ingresos. Evaluá si conviene seguir comprándolos.'
         ],
         'accion' => 'Enfocá tu atención y dinero en los productos "A". Los productos "C" pueden estar ocupando espacio y capital innecesariamente.',
-        'icono' => '🏆'
+        'icono' => 'ABC'
     ],
     
     'dias_stock_restante' => [
@@ -68,7 +68,7 @@ $AYUDA_METRICAS = [
         'ejemplo' => 'Si vendés 3 unidades por día y tenés 30 en stock, te quedan aproximadamente 10 días de stock.',
         'accion' => 'Si ves menos de 7 días, ¡es hora de hacer el pedido al proveedor!',
         'advertencia' => 'Es una estimación. Si las ventas cambian (fin de semana, promociones), el cálculo puede variar.',
-        'icono' => '⏰'
+        'icono' => 'Dias'
     ],
     
     'stock_bajo' => [
@@ -76,7 +76,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Productos donde el stock actual está por debajo del mínimo que vos definiste. ¡Necesitan reposición urgente!',
         'ejemplo' => 'Si definiste que siempre querés tener mínimo 10 unidades de Coca-Cola y tenés 3, aparece acá.',
         'accion' => 'Hacé el pedido al proveedor lo antes posible para no perder ventas.',
-        'icono' => '🔴'
+        'icono' => 'Stock'
     ],
     
     'proximos_agotarse' => [
@@ -84,7 +84,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Productos que según las ventas actuales, se van a acabar en los próximos 7 días.',
         'ejemplo' => 'Aunque tengas stock suficiente hoy, si vendés mucho, se puede acabar pronto.',
         'accion' => 'Anticipate y hacé el pedido antes de quedarte sin stock.',
-        'icono' => '⚠️'
+        'icono' => 'Alerta'
     ],
     
     'cantidad_reponer' => [
@@ -92,7 +92,7 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Sugerencia de cuántas unidades deberías comprar para cubrir la demanda de los próximos 7 días más el stock mínimo.',
         'ejemplo' => 'Si vendés 5 por día y tu mínimo es 10, te sugerimos comprar al menos 35 + 10 = 45 unidades.',
         'accion' => 'Es una guía, ajustala según tu criterio y relación con el proveedor.',
-        'icono' => '🛒'
+        'icono' => 'Reponer'
     ],
     
     'rotacion' => [
@@ -100,21 +100,21 @@ $AYUDA_METRICAS = [
         'descripcion' => 'Muestra qué tan rápido se vende cada producto. Alta rotación = vende mucho. Baja rotación = vende poco.',
         'ejemplo' => 'Las gaseosas suelen tener alta rotación. Productos de limpieza suelen tener menor rotación.',
         'accion' => 'Los productos de alta rotación necesitan más atención en el stock. Los de baja rotación ocupan espacio y capital.',
-        'icono' => '🔄'
+        'icono' => 'Rotacion'
     ],
     
     'inversion_categoria' => [
         'titulo' => 'Inversión por Categoría',
         'descripcion' => 'Te muestra cuánto dinero tenés invertido en cada rubro (bebidas, golosinas, limpieza, etc.).',
         'accion' => 'Te ayuda a ver si estás equilibrado o si tenés demasiado capital en una sola categoría.',
-        'icono' => '📁'
+        'icono' => 'Categoria'
     ],
     
     'inversion_proveedor' => [
         'titulo' => 'Inversión por Proveedor',
         'descripcion' => 'Te muestra cuánto dinero tenés invertido en mercadería de cada proveedor.',
         'accion' => 'Útil para negociar mejores condiciones con proveedores donde comprás más.',
-        'icono' => '🏭'
+        'icono' => 'Proveedor'
     ],
 ];
 
@@ -174,7 +174,7 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
     if (count($stockBajo) > 0) {
         $acciones[] = [
             'prioridad' => 'alta',
-            'icono' => '🔴',
+            'icono' => 'Alta',
             'titulo' => count($stockBajo) . ' productos bajo mínimo',
             'descripcion' => 'Necesitan reposición urgente para no perder ventas.',
             'link' => '?tab=alertas',
@@ -187,7 +187,7 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
     if ($capitalParado > 0) {
         $acciones[] = [
             'prioridad' => 'media',
-            'icono' => '😴',
+            'icono' => 'Media',
             'titulo' => '$' . number_format($capitalParado, 0, ',', '.') . ' en productos sin vender',
             'descripcion' => count($parados) . ' productos no se vendieron en 30+ días. Considerá hacer ofertas.',
             'link' => '?tab=parados',
@@ -199,7 +199,7 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
     if (($resumen['productos_sin_costo'] ?? 0) > 0) {
         $acciones[] = [
             'prioridad' => 'baja',
-            'icono' => '⚠️',
+            'icono' => 'Costo',
             'titulo' => $resumen['productos_sin_costo'] . ' productos sin costo cargado',
             'descripcion' => 'No podemos calcular el margen real sin conocer el costo.',
             'link' => '?tab=costos',
@@ -211,8 +211,8 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
     if (empty($acciones)) {
         return '<div class="inv-acciones-panel inv-acciones-ok">
             <div class="inv-acciones-header">
-                <span class="inv-acciones-icon">✅</span>
-                <h3>¡Todo en orden!</h3>
+                <span class="inv-acciones-icon">OK</span>
+                <h3>Todo en orden</h3>
             </div>
             <p>No hay alertas urgentes en este momento. Tu inventario está saludable.</p>
         </div>';
@@ -221,8 +221,8 @@ function renderAccionesRecomendadas(array $resumen, array $stockBajo, array $par
     // Renderizar acciones
     $html = '<div class="inv-acciones-panel">
         <div class="inv-acciones-header">
-            <span class="inv-acciones-icon">📋</span>
-            <h3>Acciones Recomendadas</h3>
+            <span class="inv-acciones-icon">Plan</span>
+            <h3>Acciones recomendadas</h3>
             <span class="inv-acciones-badge">' . count($acciones) . '</span>
         </div>
         <div class="inv-acciones-list">';
@@ -260,7 +260,7 @@ function renderGlosario(): string {
     
     $html = '<div class="inv-glosario">
         <div class="inv-glosario-header">
-            <h3>📚 Glosario: ¿Qué significa cada cosa?</h3>
+            <h3>Glosario: Que significa cada cosa</h3>
             <p class="inv-glosario-sub">Explicaciones simples de cada métrica para entender mejor tu negocio.</p>
         </div>
         <div class="inv-glosario-grid">';
@@ -278,7 +278,7 @@ function renderGlosario(): string {
             $ayuda['icono'],
             htmlspecialchars($ayuda['titulo']),
             htmlspecialchars($ayuda['descripcion']),
-            isset($ayuda['accion']) ? '<div class="inv-glosario-tip">💡 <em>' . htmlspecialchars($ayuda['accion']) . '</em></div>' : ''
+            isset($ayuda['accion']) ? '<div class="inv-glosario-tip"><em>' . htmlspecialchars($ayuda['accion']) . '</em></div>' : ''
         );
     }
     

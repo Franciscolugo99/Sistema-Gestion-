@@ -381,15 +381,17 @@ require __DIR__ . "/partials/header.php";
         <div class="module-header-copy">
           <span class="page-eyebrow module-eyebrow">Inventario operativo</span>
           <h1 class="page-title">Control de Stock</h1>
-          <p class="page-sub">Gestiona el inventario y realiza ajustes rapidos.</p>
+          <p class="page-sub">Controla existencias, alertas y ajustes con historial.</p>
         </div>
       </div>
     </div>
 
     <div class="header-actions module-header-actions">
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
-      <button class="v-btn v-btn--outline btn-disabled" type="button" disabled title="Proximamente">
-        Ajuste masivo
+      <button class="v-btn v-btn--outline btn-disabled stock-disabled-action" type="button" disabled
+              title="Proximamente: carga por planilla o seleccion multiple. Usa ajustes individuales por ahora.">
+        <span>Ajuste masivo</span>
+        <small>Proximamente</small>
       </button>
     </div>
   </header>
@@ -433,16 +435,24 @@ require __DIR__ . "/partials/header.php";
 
   <form method="get" class="filters" id="stockFilters">
     <input type="hidden" name="tab" value="<?= h($tab) ?>">
-    <input type="hidden" name="page" value="1">
+    <input type="hidden" name="page" id="pageInput" value="1">
 
     <div class="filters-grid">
-      <input type="text" name="q"
-             placeholder="Buscar por codigo, nombre, marca..."
-             value="<?= h($buscar) ?>"
-             class="filter-search">
+      <div class="filters-left">
+        <div class="search-wrapper">
+          <input type="text" name="q"
+                 id="searchInput"
+                 placeholder="Buscar (Ctrl+K)"
+                 value="<?= h($buscar) ?>"
+                 class="filter-search"
+                 autocomplete="off">
+        </div>
+      </div>
+
+      <div class="filters-right">
 
       <?php if ($tab !== 'alertas'): ?>
-      <select name="estado" class="filter-select">
+      <select name="estado" id="estadoSelect" class="filter-select">
         <option value="">Todos los estados</option>
         <option value="ok" <?= $estado==='ok'?'selected':'' ?>>OK</option>
         <option value="bajo" <?= $estado==='bajo'?'selected':'' ?>>Bajo</option>
@@ -451,27 +461,27 @@ require __DIR__ . "/partials/header.php";
       </select>
       <?php endif; ?>
 
-      <select name="pesable" class="filter-select">
+      <select name="pesable" id="pesableSelect" class="filter-select">
         <option value="">Todos</option>
         <option value="si" <?= $pesable==='si'?'selected':'' ?>>Solo pesables</option>
         <option value="no" <?= $pesable==='no'?'selected':'' ?>>Solo no pesables</option>
       </select>
 
-      <select name="categoria" class="filter-select">
+      <select name="categoria" id="categoriaSelect" class="filter-select">
         <option value="">Todas las categorias</option>
         <?php foreach ($categorias as $cat): ?>
           <option value="<?= h($cat) ?>" <?= $categoria===$cat?'selected':'' ?>><?= h($cat) ?></option>
         <?php endforeach; ?>
       </select>
 
-      <select name="proveedor" class="filter-select">
+      <select name="proveedor" id="proveedorSelect" class="filter-select">
         <option value="">Todos los proveedores</option>
         <?php foreach ($proveedores as $prov): ?>
           <option value="<?= h($prov) ?>" <?= $proveedor===$prov?'selected':'' ?>><?= h($prov) ?></option>
         <?php endforeach; ?>
       </select>
 
-      <select name="limit" id="limitSel" class="filter-select">
+      <select name="limit" id="limitSelect" class="filter-select">
         <?php foreach ($perPageOptions as $opt): ?>
           <option value="<?= (int)$opt ?>" <?= $opt===$perPage?'selected':'' ?>><?= (int)$opt ?> por pagina</option>
         <?php endforeach; ?>
@@ -482,6 +492,7 @@ require __DIR__ . "/partials/header.php";
         <?php if ($buscar || $estado || $categoria || $proveedor || $pesable): ?>
           <a href="stock.php?tab=<?= h($tab) ?>" class="v-btn v-btn--ghost">Limpiar</a>
         <?php endif; ?>
+      </div>
       </div>
     </div>
   </form>
@@ -624,9 +635,9 @@ require __DIR__ . "/partials/header.php";
 
 </div>
 
-<!-- MODAL: AJUSTE RÁPIDO -->
+<!-- MODAL: AJUSTE RAPIDO -->
 <div id="modalAjusteStock" class="modal">
-  <div class="modal-content modal-sm">
+  <div class="modal-content modal-sm modal-content--stock-adjust">
     <div class="modal-header">
       <h3 class="modal-title">Ajustar Stock</h3>
       <button type="button" class="modal-close" onclick="StockManager.closeModal()">&times;</button>
@@ -663,6 +674,7 @@ require __DIR__ . "/partials/header.php";
               <option value="<?= h($key) ?>"><?= h($tipo['label']) ?></option>
             <?php endforeach; ?>
           </select>
+          <small class="form-hint" id="ajuste_tipo_hint">Entrada suma mercaderia al stock.</small>
         </div>
 
         <div class="form-group">
@@ -671,8 +683,14 @@ require __DIR__ . "/partials/header.php";
           <small class="form-hint" id="ajuste_cantidad_hint"></small>
         </div>
 
+        <div class="stock-adjust-preview" id="ajuste_preview" aria-live="polite">
+          <span class="stock-adjust-preview-label">Vista previa</span>
+          <strong id="ajuste_preview_line">Elegi tipo y cantidad para ver el resultado.</strong>
+          <small id="ajuste_preview_help">El movimiento queda guardado en el historial del producto.</small>
+        </div>
+
         <div class="form-group">
-          <label>Ultimos movimientos</label>
+          <label>Historial reciente</label>
           <div id="ajuste_historial" class="stock-history">
             <div class="stock-history-empty">Cargando historial...</div>
           </div>
