@@ -1,0 +1,264 @@
+/*
+  FLUS KPI consistency layer.
+  Normaliza tarjetas de metricas entre modulos sin tocar calculos ni markup legacy.
+*/
+
+:root {
+  --flus-kpi-surface: var(--panel, oklch(99% 0.006 235));
+  --flus-kpi-soft: color-mix(in oklch, var(--flus-kpi-surface) 88%, oklch(94% 0.018 235));
+  --flus-kpi-border: var(--panel-border, oklch(88% 0.018 245));
+  --flus-kpi-text: var(--text, var(--text-main, oklch(22% 0.035 250)));
+  --flus-kpi-muted: var(--muted, oklch(52% 0.025 250));
+  --flus-kpi-info: var(--primary, var(--accent-cyan, oklch(66% 0.155 220)));
+  --flus-kpi-success: var(--success, oklch(68% 0.16 150));
+  --flus-kpi-warning: var(--warning, oklch(75% 0.15 80));
+  --flus-kpi-danger: var(--danger, oklch(63% 0.20 28));
+  --flus-kpi-radius: 14px;
+  --flus-kpi-shadow: 0 2px 8px color-mix(in oklch, var(--flus-kpi-text) 8%, transparent);
+}
+
+body[data-theme="dark"],
+html[data-theme="dark"] {
+  --flus-kpi-surface: var(--panel, oklch(22% 0.025 255));
+  --flus-kpi-soft: color-mix(in oklch, var(--flus-kpi-surface) 86%, oklch(28% 0.03 250));
+  --flus-kpi-border: var(--panel-border, oklch(42% 0.022 250));
+  --flus-kpi-text: var(--text, var(--text-main, oklch(94% 0.018 245)));
+  --flus-kpi-muted: var(--muted, oklch(74% 0.02 245));
+  --flus-kpi-shadow: 0 2px 10px oklch(5% 0.015 250 / 0.24);
+}
+
+:is(
+  .dash-kpi-row,
+  .stats-row,
+  .stat-cards,
+  .vkpi-grid,
+  .inv-cards-grid,
+  .fact-kpi-grid,
+  .repo-kpi-grid,
+  .compra-kpis,
+  .metric-row,
+  .anulacion-kpis,
+  .branch-kpis,
+  body.cuenta-corriente-page .cc-kpis,
+  body.cajeros-rendimiento-page .rend-kpis
+) {
+  gap: 12px;
+}
+
+.repo-kpi-grid {
+  align-items: start;
+}
+
+:is(
+  .stat-card,
+  .dashboard-card,
+  .vkpi-card,
+  .inv-card,
+  .fact-kpi-card,
+  .repo-kpi-card,
+  .terminales-stat-card,
+  .cc-stat-card,
+  .compra-kpi,
+  .metric-card,
+  .anulacion-kpi,
+  .branch-kpi,
+  .perm-summary-card,
+  body.cuenta-corriente-page .kpi-card,
+  body.cajeros-rendimiento-page .rend-kpi,
+  body.cliente-detalle-page .cliente-card--metric
+) {
+  background: var(--flus-kpi-surface);
+  border: 1px solid var(--flus-kpi-border);
+  border-radius: var(--flus-kpi-radius);
+  box-shadow: var(--flus-kpi-shadow);
+  color: var(--flus-kpi-text);
+  min-width: 0;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+:is(
+  .stat-card,
+  .dashboard-card,
+  .vkpi-card,
+  .inv-card,
+  .fact-kpi-card,
+  .repo-kpi-card,
+  .terminales-stat-card,
+  .cc-stat-card,
+  .compra-kpi,
+  .metric-card,
+  .anulacion-kpi,
+  .branch-kpi,
+  .perm-summary-card,
+  body.cuenta-corriente-page .kpi-card,
+  body.cajeros-rendimiento-page .rend-kpi,
+  body.cliente-detalle-page .cliente-card--metric
+):hover {
+  border-color: color-mix(in oklch, var(--flus-kpi-info) 38%, var(--flus-kpi-border));
+  box-shadow: 0 6px 16px color-mix(in oklch, var(--flus-kpi-text) 10%, transparent);
+}
+
+:is(.stat-clickable, .vkpi-clickable) {
+  cursor: pointer;
+}
+
+:is(.stat-clickable, .vkpi-clickable):focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--flus-kpi-info) 65%, transparent);
+  outline-offset: 2px;
+}
+
+:is(
+  .stat-label,
+  .dashboard-card h4,
+  .vkpi-label,
+  .vkpi-title,
+  .inv-card-icon,
+  .fact-kpi-card__label,
+  .repo-kpi-label,
+  .terminales-stat-card span,
+  .cc-stat-card span,
+  .cc-stat-label,
+  .compra-kpi__label,
+  .metric-label,
+  .anulacion-kpi-label,
+  .branch-kpi span,
+  .perm-summary-card span,
+  body.cuenta-corriente-page .kpi-label,
+  body.cajeros-rendimiento-page .rend-kpi span,
+  body.cliente-detalle-page .cliente-card--metric p
+) {
+  color: var(--flus-kpi-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.inv-card-icon {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: auto;
+  padding: 0;
+}
+
+:is(
+  .stat-value,
+  .dashboard-card-value,
+  .vkpi-value,
+  .inv-card-value,
+  .fact-kpi-card__value,
+  .repo-kpi-value,
+  .terminales-stat-value,
+  .cc-stat-value,
+  .compra-kpi__value,
+  .metric-value,
+  .anulacion-kpi-value,
+  .branch-kpi strong,
+  .perm-summary-card strong,
+  .role-stat-value,
+  body.cuenta-corriente-page .kpi-value,
+  body.cajeros-rendimiento-page .rend-kpi strong,
+  body.cliente-detalle-page .cliente-metric-main,
+  body.cliente-detalle-page .cliente-metric-money
+) {
+  color: var(--flus-kpi-text);
+  font-size: clamp(1.22rem, 1rem + 0.45vw, 1.55rem);
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+:is(
+  .vkpi-sub,
+  .inv-card-sub,
+  .inv-card-footnote,
+  .fact-kpi-card__help,
+  .repo-kpi-card small,
+  .compra-kpi__hint,
+  .anulacion-kpi-help,
+  body.cajeros-rendimiento-page .rend-kpi small,
+  body.cliente-detalle-page .cliente-card--metric small
+) {
+  color: var(--flus-kpi-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.repo-kpi-card {
+  min-height: 96px;
+  align-self: start;
+}
+
+.repo-kpi-card small {
+  max-width: 24ch;
+}
+
+.clientes-page .cc-stat-label {
+  margin-top: 6px;
+}
+
+:is(
+  .stat-ok,
+  .terminales-stat-card--success,
+  body.cuenta-corriente-page .kpi-card.kpi-primary
+) {
+  background: color-mix(in oklch, var(--flus-kpi-success) 7%, var(--flus-kpi-surface));
+  border-color: color-mix(in oklch, var(--flus-kpi-success) 32%, var(--flus-kpi-border));
+}
+
+:is(
+  .stat-bajo,
+  .terminales-stat-card--warning,
+  .cc-stat-card.cc-stat-warning,
+  body.cuenta-corriente-page .kpi-card.kpi-warning
+) {
+  background: color-mix(in oklch, var(--flus-kpi-warning) 8%, var(--flus-kpi-surface));
+  border-color: color-mix(in oklch, var(--flus-kpi-warning) 34%, var(--flus-kpi-border));
+}
+
+:is(
+  .stat-sin,
+  .vkpi-card:has(.vkpi-danger),
+  body.cuenta-corriente-page .kpi-card.kpi-danger
+) {
+  background: color-mix(in oklch, var(--flus-kpi-danger) 7%, var(--flus-kpi-surface));
+  border-color: color-mix(in oklch, var(--flus-kpi-danger) 32%, var(--flus-kpi-border));
+}
+
+:is(
+  .stat-inactivo,
+  .terminales-stat-card--info
+) {
+  background: var(--flus-kpi-soft);
+}
+
+body.cuenta-corriente-page .kpi-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--flus-kpi-soft);
+  color: var(--flus-kpi-info);
+}
+
+@media (max-width: 780px) {
+  :is(
+    .dash-kpi-row,
+    .stats-row,
+    .stat-cards,
+    .vkpi-grid,
+    .inv-cards-grid,
+    .fact-kpi-grid,
+    .repo-kpi-grid,
+    .compra-kpis,
+    body.cuenta-corriente-page .cc-kpis,
+    body.cajeros-rendimiento-page .rend-kpis
+  ) {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  :is(.stat-card, .vkpi-card, .inv-card, .fact-kpi-card, .repo-kpi-card) {
+    padding: 13px;
+  }
+}

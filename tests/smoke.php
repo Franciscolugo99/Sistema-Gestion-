@@ -4103,6 +4103,28 @@ $results[] = flus_run_test('facturacion endurece fallback legacy y backfill de e
     flus_assert_contains("COALESCE(TRIM(estado_fiscal), ''NO_APLICA'') IN ('''', ''NO_APLICA'')", $migrationSql);
 });
 
+$results[] = flus_run_test('kpis de modulos usan capa global de consistencia visual', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $headerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'header.php');
+    $kpiCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'kpis.css');
+
+    flus_assert_contains('assets/css/kpis.css', $headerPhp);
+    flus_assert_contains('CSS de consistencia transversal', $headerPhp);
+    flus_assert_contains('.stat-card', $kpiCss);
+    flus_assert_contains('.vkpi-card', $kpiCss);
+    flus_assert_contains('.inv-card', $kpiCss);
+    flus_assert_contains('.fact-kpi-card', $kpiCss);
+    flus_assert_contains('.repo-kpi-card', $kpiCss);
+    flus_assert_contains('.terminales-stat-card', $kpiCss);
+    flus_assert_contains('body.cuenta-corriente-page .kpi-card', $kpiCss);
+    flus_assert_contains('body.cajeros-rendimiento-page .rend-kpi', $kpiCss);
+    flus_assert_contains('color-mix(in oklch', $kpiCss);
+
+    $extraCssPos = strpos($headerPhp, '<?php foreach ($extraCss as $href): ?>');
+    $kpiCssPos = strpos($headerPhp, 'assets/css/kpis.css');
+    flus_assert_true($extraCssPos !== false && $kpiCssPos !== false && $kpiCssPos > $extraCssPos, 'kpis.css debe cargar despues del CSS especifico de pagina');
+});
+
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));
 $failed = array_values(array_filter($results, static fn(array $result): bool => !$result['ok']));
 

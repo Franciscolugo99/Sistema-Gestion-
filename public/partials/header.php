@@ -74,6 +74,9 @@ $verFor = function (string $rel) use ($defaultVer): string {
     <link rel="stylesheet" href="<?= htmlspecialchars($hrefStr, ENT_QUOTES, 'UTF-8') ?><?= $sep ?>v=<?= htmlspecialchars($v, ENT_QUOTES, 'UTF-8') ?>">
   <?php endforeach; ?>
 
+  <!-- CSS de consistencia transversal -->
+  <link rel="stylesheet" href="assets/css/kpis.css?v=<?= htmlspecialchars($verFor('assets/css/kpis.css'), ENT_QUOTES, 'UTF-8') ?>">
+
   <?php if ($inlineCss): ?>
     <style><?= $inlineCss ?></style>
   <?php endif; ?>
