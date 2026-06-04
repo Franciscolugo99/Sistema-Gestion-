@@ -30,6 +30,7 @@ html[data-theme="dark"] {
 :is(
   .dash-kpi-row,
   .stats-row,
+  .mov-stats-row,
   .stat-cards,
   .vkpi-grid,
   .inv-cards-grid,
@@ -246,6 +247,7 @@ body.cuenta-corriente-page .kpi-icon {
   :is(
     .dash-kpi-row,
     .stats-row,
+    .mov-stats-row,
     .stat-cards,
     .vkpi-grid,
     .inv-cards-grid,

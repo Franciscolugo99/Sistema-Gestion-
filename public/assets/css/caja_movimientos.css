@@ -26,23 +26,15 @@ body:has(.mov-header) .root.container-global {
   border-radius: 18px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 6px 18px color-mix(in oklch, var(--text, oklch(22% 0.035 250)) 8%, transparent);
 }
 
 body[data-theme="dark"] .mov-header {
-  background: radial-gradient(
-    circle at top left,
-    rgba(34, 211, 238, 0.08),
-    rgba(17, 24, 39, 0.92) 55%
-  );
+  background: var(--panel);
 }
 
 body[data-theme="light"] .mov-header {
-  background: radial-gradient(
-    circle at top left,
-    rgba(14, 165, 233, 0.07),
-    #ffffff 60%
-  );
+  background: var(--panel);
 }
 
 .mov-header__info {
@@ -53,9 +45,9 @@ body[data-theme="light"] .mov-header {
 
 .mov-header__title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.12rem, 1rem + 0.35vw, 1.28rem);
   font-weight: 900;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--text);
 }
 
@@ -72,23 +64,16 @@ body[data-theme="light"] .mov-header {
 .mov-form-card {
   padding: 18px 20px;
   border-radius: 18px;
-  border: 1px solid var(--panel-border);
-  background: var(--panel);
-  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  border: 1px solid color-mix(in oklch, var(--accent-cyan, oklch(70% 0.14 220)) 24%, var(--panel-border));
+  background: color-mix(in oklch, var(--panel) 94%, var(--accent-cyan, oklch(70% 0.14 220)));
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--text, oklch(22% 0.035 250)) 7%, transparent);
   margin-bottom: 18px;
   position: relative;
   overflow: hidden;
 }
 
 .mov-form-card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--accent-cyan, #06b6d4);
-  opacity: 0.9;
+  content: none;
 }
 
 .mov-form-title {

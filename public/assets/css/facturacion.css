@@ -284,7 +284,7 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.82));
+  background: var(--panel);
 }
 
 /* Que el título tenga mismo estilo que otros módulos grandes */
@@ -380,11 +380,9 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   margin-bottom: 16px;
   border-radius: 20px;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.07), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  background: var(--panel);
   color: var(--text);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--flus-kpi-shadow, 0 2px 8px rgba(15, 23, 42, 0.08));
 }
 
 .fact-overview__eyebrow {
@@ -426,7 +424,7 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--bg-alt);
 }
 
 .fact-overview__item span {
@@ -454,12 +452,13 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   padding: 13px 14px;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.88));
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  background: var(--panel);
+  box-shadow: var(--flus-kpi-shadow, 0 2px 8px rgba(15, 23, 42, 0.08));
 }
 
 .fact-kpi-card--accent {
-  background: linear-gradient(160deg, rgba(14, 116, 144, 0.12), rgba(59, 130, 246, 0.08) 45%, rgba(255, 255, 255, 0.96));
+  border-color: color-mix(in oklch, var(--warning, #eab308) 34%, var(--panel-border));
+  background: color-mix(in oklch, var(--warning, #eab308) 8%, var(--panel));
 }
 
 .fact-kpi-card__label {
@@ -500,6 +499,16 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background: rgba(148, 163, 184, 0.05);
+}
+
+.fact-summary-bar--incidents {
+  margin-bottom: 16px;
+  border-color: color-mix(in oklch, var(--warning, #eab308) 28%, var(--panel-border));
+  background: color-mix(in oklch, var(--warning, #eab308) 7%, var(--panel));
+}
+
+.fact-alert {
+  margin-bottom: 12px;
 }
 
 .fact-summary-bar__top {
@@ -666,6 +675,46 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   font-size: 0.8rem;
 }
 
+.fact-row-help {
+  max-width: 220px;
+  margin-top: 6px;
+}
+
+.fact-row-highlight {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: -2px;
+}
+
+.fact-error-cell {
+  max-width: 260px;
+  word-break: break-word;
+}
+
+.fact-recovery-warning {
+  margin-bottom: 16px;
+  color: var(--danger, #dc2626);
+}
+
+.fact-empty-state--compact {
+  padding: 32px 0;
+  text-align: center;
+}
+
+.fact-empty-state__success {
+  color: var(--success, #16a34a);
+  font-size: 1.1em;
+}
+
+.fact-close-incident-form {
+  margin-top: 8px;
+}
+
+.fact-close-incident-input {
+  width: 220px;
+  max-width: 100%;
+  margin-bottom: 6px;
+}
+
 .btn-mini--ghost {
   background: transparent;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -732,10 +781,8 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   padding: 16px 18px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(34, 211, 238, 0.08), transparent 35%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  background: var(--panel);
+  box-shadow: var(--flus-kpi-shadow, 0 2px 8px rgba(15, 23, 42, 0.08));
 }
 
 .fact-doc-guide__eyebrow {
@@ -847,9 +894,7 @@ body[data-theme="dark"] .facturacion-page .pg-btn {
 }
 
 body[data-theme="dark"] .fact-overview {
-  background:
-    radial-gradient(circle at top right, rgba(20, 184, 166, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(10, 18, 35, 0.96), rgba(8, 15, 28, 0.9));
+  background: var(--panel);
   border-color: rgba(148, 163, 184, 0.18);
   color: #e5e7eb;
 }

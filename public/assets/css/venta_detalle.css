@@ -469,6 +469,147 @@
   font-size: var(--text-xs, 12px);
 }
 
+.venta-anular-items-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: color-mix(in oklch, var(--text, #0f172a) 42%, transparent);
+}
+
+.venta-anular-items-modal__panel {
+  width: min(680px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 18px 42px color-mix(in oklch, var(--text, #0f172a) 18%, transparent);
+}
+
+.venta-anular-items-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.venta-anular-items-modal__title {
+  margin: 0 0 6px;
+  color: var(--text-strong);
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.venta-anular-items-modal__copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: .92rem;
+  line-height: 1.35;
+}
+
+.venta-anular-items-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.venta-anular-items-modal__table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md, 12px);
+}
+
+.venta-anular-items-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.venta-anular-items-modal__table thead tr {
+  background: var(--bg-alt);
+}
+
+.venta-anular-items-modal__table th,
+.venta-anular-items-modal__table td {
+  padding: 10px 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.venta-anular-items-modal__table thead th {
+  border-top: 0;
+  color: var(--muted);
+  font-size: .74rem;
+  letter-spacing: .06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.venta-anular-items-modal__table .right {
+  text-align: right;
+}
+
+.venta-anular-items-modal__table .muted {
+  color: var(--muted);
+}
+
+.venta-anular-items-modal__item-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.venta-anular-items-modal__qty,
+.venta-anular-items-modal__field input {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.venta-anular-items-modal__qty {
+  width: 92px;
+  padding: 7px 8px;
+  text-align: right;
+}
+
+.venta-anular-items-modal__field {
+  margin-top: 14px;
+}
+
+.venta-anular-items-modal__field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: .92rem;
+  font-weight: 700;
+}
+
+.venta-anular-items-modal__field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+}
+
+.venta-anular-items-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 @media (max-width: 960px) {
   .venta-header-main {
     grid-template-columns: 1fr;
@@ -506,5 +647,21 @@
   .venta-table tfoot td {
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  .venta-anular-items-modal {
+    padding: 12px;
+  }
+
+  .venta-anular-items-modal__panel {
+    padding: 16px;
+  }
+
+  .venta-anular-items-modal__actions {
+    flex-direction: column;
+  }
+
+  .venta-anular-items-modal__actions .btn {
+    width: 100%;
   }
 }

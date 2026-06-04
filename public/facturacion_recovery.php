@@ -100,6 +100,7 @@ $breadcrumb = [
     ['label' => 'Incidencias fiscales', 'url' => ''],
 ];
 $extraCss = ['assets/css/facturacion.css?v=10'];
+$extraJs = ['assets/js/facturacion_recovery.js?v=1'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -131,23 +132,23 @@ require __DIR__ . '/partials/header.php';
     </header>
 
     <?php if ($msg !== ''): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;"><?= frc_h($msg) ?></div>
+      <div class="alert alert-success fact-alert"><?= frc_h($msg) ?></div>
     <?php endif; ?>
     <?php if ($msgErr !== ''): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= frc_h($msgErr) ?></div>
+      <div class="alert alert-error fact-alert"><?= frc_h($msgErr) ?></div>
     <?php endif; ?>
     <?php if (!$hasFiscalCierre): ?>
-      <div class="alert alert-warning" style="margin-bottom:12px;">
+      <div class="alert alert-warning fact-alert">
         Para cerrar rechazos de prueba falta aplicar la migracion 029 de cierre de incidencias fiscales.
       </div>
     <?php endif; ?>
 
     <?php if ($casos === []): ?>
-      <div class="fact-empty-state" style="padding:32px 0;text-align:center;">
-        <p style="font-size:1.1em;color:var(--color-success,#16a34a);">OK - No hay incidencias fiscales abiertas.</p>
+      <div class="fact-empty-state fact-empty-state--compact">
+        <p class="fact-empty-state__success">OK - No hay incidencias fiscales abiertas.</p>
       </div>
     <?php else: ?>
-      <p style="margin-bottom:16px;color:var(--color-danger,#dc2626);">
+      <p class="fact-recovery-warning">
         <strong><?= count($casos) ?> caso<?= count($casos) === 1 ? '' : 's' ?></strong> requiere<?= count($casos) === 1 ? '' : 'n' ?> atencion.
         ERROR_POST_ARCA se intenta regularizar sin reenvio automatico; pendientes y transitorios si pueden reintentarse en forma segura; los rechazados se corrigen antes de volver a pedir CAE.
       </p>
@@ -175,7 +176,7 @@ require __DIR__ . '/partials/header.php';
                 $highlight = $focusFacturaId > 0 && $focusFacturaId === (int)$caso['id'];
                 $accionFiscal = flus_facturacion_factura_accion_operativa($caso);
               ?>
-              <tr<?= $highlight ? ' style="outline:2px solid var(--color-primary,#2563eb);outline-offset:-2px;"' : '' ?>>
+              <tr class="<?= $highlight ? 'fact-row-highlight' : '' ?>">
                 <td>
                   <strong><a href="factura_ver.php?id=<?= (int)$caso['id'] ?>">#<?= (int)$caso['id'] ?></a></strong>
                   <div class="fact-cell-sub"><?= frc_h(trim((string)($caso['tipo'] ?? 'Factura'))) ?><?= !empty($caso['numero']) ? ' #' . (int)$caso['numero'] : '' ?></div>
@@ -198,11 +199,10 @@ require __DIR__ . '/partials/header.php';
                     <span class="fact-cell-sub">Sin traza fiscal visible</span>
                   <?php endif; ?>
                 </td>
-                <td style="max-width:260px;word-break:break-word;"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '-'))) ?></small></td>
+                <td class="fact-error-cell"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '-'))) ?></small></td>
                 <td>
                   <?php if ($puedeOperarFiscal && ($accionFiscal['kind'] ?? '') === 'regularizar'): ?>
-                    <form method="post" action="facturacion_recovery.php" onsubmit="return confirm('Regularizar la factura #<?= (int)$caso['id'] ?>?
- FLUS intentara recuperar desde trazas/eventos y solo reenviara cuando el caso sea seguro.');">
+                    <form method="post" action="facturacion_recovery.php" class="js-fiscal-confirm" data-confirm-title="Regularizar factura #<?= (int)$caso['id'] ?>" data-confirm-body="FLUS intentara recuperar desde trazas/eventos y solo reenviara cuando el caso sea seguro.">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
                       <input type="hidden" name="action" value="regularizar">
@@ -214,16 +214,16 @@ require __DIR__ . '/partials/header.php';
                     <span class="fact-inline-badge">Solo lectura</span>
                   <?php endif; ?>
                   <?php if ($puedeOperarFiscal && $hasFiscalCierre && $estadoFiscal === 'RECHAZADA'): ?>
-                    <form method="post" action="facturacion_recovery.php" style="margin-top:8px;" onsubmit="return confirm('Cerrar la incidencia fiscal #<?= (int)$caso['id'] ?> sin reemitir? La factura rechazada queda en auditoria, pero sale de la bandeja activa.');">
+                    <form method="post" action="facturacion_recovery.php" class="fact-close-incident-form js-fiscal-confirm" data-confirm-title="Cerrar incidencia fiscal #<?= (int)$caso['id'] ?>" data-confirm-body="La factura rechazada queda en auditoria, pero sale de la bandeja activa sin reemitir.">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
                       <input type="hidden" name="action" value="cerrar_incidencia">
-                      <input type="text" name="motivo" value="Prueba de homologacion / no reemitir" maxlength="255" style="width:220px;max-width:100%;margin-bottom:6px;">
+                      <input type="text" name="motivo" value="Prueba de homologacion / no reemitir" maxlength="255" class="fact-close-incident-input">
                       <button type="submit" class="btn-mini btn-mini--ghost">Cerrar incidencia</button>
                     </form>
                   <?php endif; ?>
                   <?php if (trim((string)($accionFiscal['help'] ?? '')) !== ''): ?>
-                    <div class="fact-cell-sub" style="margin-top:6px;max-width:220px;"><?= frc_h((string)$accionFiscal['help']) ?></div>
+                    <div class="fact-cell-sub fact-row-help"><?= frc_h((string)$accionFiscal['help']) ?></div>
                   <?php endif; ?>
                 </td>
               </tr>

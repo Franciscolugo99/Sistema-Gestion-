@@ -445,9 +445,9 @@ require __DIR__ . '/partials/header.php';
         </li>
 
         <?php if ($totalVentasCC > 0): ?>
-        <li class="cierre-row" style="border-top: 1px dashed var(--border-color, #444); padding-top: 8px; margin-top: 8px;">
-          <span>📋 Ventas a Cuenta Corriente</span>
-          <span class="mono" style="color: var(--warning-color, #fbbf24);"><?= money_ar($totalVentasCC) ?></span>
+        <li class="cierre-row cierre-row--cc">
+          <span>Ventas a Cuenta Corriente</span>
+          <span class="mono"><?= money_ar($totalVentasCC) ?></span>
         </li>
         <?php endif; ?>
 

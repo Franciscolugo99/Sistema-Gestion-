@@ -456,6 +456,71 @@
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
+.caja-close-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in oklch, var(--text, oklch(22% 0.035 250)) 58%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.caja-close-confirm__dialog {
+  width: min(420px, 92vw);
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 22px 54px color-mix(in oklch, var(--text, oklch(22% 0.035 250)) 22%, transparent);
+}
+
+.caja-close-confirm__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.caja-close-confirm__icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--warning, oklch(75% 0.15 80)) 44%, var(--panel-border));
+  background: color-mix(in oklch, var(--warning, oklch(75% 0.15 80)) 12%, var(--panel));
+  color: color-mix(in oklch, var(--warning, oklch(75% 0.15 80)) 76%, var(--text));
+  font-weight: 900;
+}
+
+.caja-close-confirm__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.08rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.caja-close-confirm__text {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.caja-close-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .caja-panel .modal-buttons {
   display: flex;
   justify-content: flex-end;

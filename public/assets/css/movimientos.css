@@ -78,7 +78,7 @@
 .mov-flow-pill.is-active {
   background: var(--accent-cyan, #0ea5e9);
   border-color: var(--accent-cyan, #0ea5e9);
-  color: #fff;
+  color: var(--button-primary-text, oklch(98% 0.006 245));
 }
 
 #movFilters {
@@ -303,43 +303,62 @@
 }
 
 .mov-ref--venta {
-  background: color-mix(in srgb, #16a34a 12%, var(--panel));
-  border-color: color-mix(in srgb, #16a34a 35%, var(--panel-border));
-  color: #166534;
+  background: color-mix(in oklch, var(--accent-green, oklch(68% 0.16 150)) 12%, var(--panel));
+  border-color: color-mix(in oklch, var(--accent-green, oklch(68% 0.16 150)) 35%, var(--panel-border));
+  color: color-mix(in oklch, var(--accent-green, oklch(68% 0.16 150)) 68%, var(--text));
 }
 
 .mov-ref--compra {
-  background: color-mix(in srgb, #2563eb 12%, var(--panel));
-  border-color: color-mix(in srgb, #2563eb 35%, var(--panel-border));
-  color: #1d4ed8;
+  background: color-mix(in oklch, var(--accent-cyan, oklch(70% 0.14 220)) 12%, var(--panel));
+  border-color: color-mix(in oklch, var(--accent-cyan, oklch(70% 0.14 220)) 35%, var(--panel-border));
+  color: color-mix(in oklch, var(--accent-cyan, oklch(70% 0.14 220)) 72%, var(--text));
+}
+
+.row-venta,
+.row-compra,
+.row-ajuste-positivo,
+.row-ajuste-negativo,
+.row-devolucion,
+.row-anulacion-venta,
+.row-anulacion-compra {
+  --mov-row-tone: var(--accent-cyan, oklch(70% 0.14 220));
 }
 
 .row-venta {
-  border-left: 3px solid var(--accent-green);
+  --mov-row-tone: var(--accent-green, oklch(68% 0.16 150));
 }
 
 .row-compra {
-  border-left: 3px solid #38bdf8;
+  --mov-row-tone: var(--accent-cyan, oklch(70% 0.14 220));
 }
 
 .row-ajuste-positivo {
-  border-left: 3px solid #facc15;
+  --mov-row-tone: var(--warning, oklch(75% 0.15 80));
 }
 
 .row-ajuste-negativo {
-  border-left: 3px solid #ef4444;
+  --mov-row-tone: var(--danger, oklch(63% 0.2 28));
 }
 
 .row-devolucion {
-  border-left: 3px solid #6366f1;
+  --mov-row-tone: oklch(63% 0.16 275);
 }
 
 .row-anulacion-venta {
-  border-left: 3px solid #a78bfa;
+  --mov-row-tone: oklch(68% 0.15 305);
 }
 
 .row-anulacion-compra {
-  border-left: 3px solid #fb7185;
+  --mov-row-tone: oklch(66% 0.17 350);
+}
+
+.mov-table tbody tr[class*="row-"] td {
+  background: color-mix(in oklch, var(--mov-row-tone) 4%, transparent);
+}
+
+.mov-table tbody tr[class*="row-"] .mov-badge {
+  border-color: color-mix(in oklch, var(--mov-row-tone) 36%, var(--panel-border));
+  background: color-mix(in oklch, var(--mov-row-tone) 10%, var(--panel));
 }
 
 .qty {
@@ -401,7 +420,7 @@
 .pg-btn.active {
   background: var(--accent-cyan, #0ea5e9);
   border-color: var(--accent-cyan, #0ea5e9);
-  color: #fff;
+  color: var(--button-primary-text, oklch(98% 0.006 245));
 }
 
 .pg-btn.disabled {

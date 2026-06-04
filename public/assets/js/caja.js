@@ -358,42 +358,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function abrirModalConfirmarCierre(cajaId) {
     const overlay = document.createElement("div");
     overlay.id = "modalCerrarCajaConfirm";
+    overlay.className = "caja-close-confirm";
     Object.entries({ role: "dialog", "aria-modal": "true", "aria-labelledby": "cerrarCajaConfirmTitle", "aria-describedby": "cerrarCajaConfirmText" }).forEach(([k, v]) => overlay.setAttribute(k, v));
-    overlay.style.cssText = [
-      "position:fixed", "inset:0", "z-index:10100",
-      "display:flex", "align-items:center", "justify-content:center",
-      "background:rgba(15,23,42,0.6)", "backdrop-filter:blur(6px)"
-    ].join(";");
 
     overlay.innerHTML = `
-      <div style="
-        max-width:420px;width:92vw;border-radius:20px;padding:28px 24px 22px;
-        background:var(--panel);border:1px solid var(--panel-border);
-        box-shadow:0 24px 60px rgba(15,23,42,0.25);
-      ">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          <h3 id="cerrarCajaConfirmTitle" style="margin:0;font-size:1.1rem;font-weight:900;color:var(--text);">Cerrar caja con ticket activo</h3>
+      <div class="caja-close-confirm__dialog">
+        <div class="caja-close-confirm__head">
+          <span class="caja-close-confirm__icon" aria-hidden="true">!</span>
+          <h3 id="cerrarCajaConfirmTitle" class="caja-close-confirm__title">Cerrar caja con ticket activo</h3>
         </div>
-        <p id="cerrarCajaConfirmText" style="margin:0 0 20px;color:var(--muted);font-size:0.95rem;line-height:1.5;">
+        <p id="cerrarCajaConfirmText" class="caja-close-confirm__text">
           Hay productos cargados en el ticket actual. Al cerrar la caja se va a cancelar la venta en curso.
         </p>
-        <div style="display:flex;justify-content:flex-end;gap:10px;">
-          <button id="cerrarCajaNo" style="
-            padding:9px 18px;border-radius:10px;font-size:0.88rem;font-weight:700;
-            cursor:pointer;border:1.5px solid var(--panel-border);
-            background:transparent;color:var(--text);
-            transition:background 0.12s;
-          ">Volver</button>
-          <button id="cerrarCajaSi" style="
-            padding:9px 18px;border-radius:10px;font-size:0.88rem;font-weight:700;
-            cursor:pointer;border:none;
-            background:#dc2626;color:#fff;
-            transition:background 0.12s;
-          ">Cerrar caja igual</button>
+        <div class="caja-close-confirm__actions">
+          <button id="cerrarCajaNo" class="btn btn-secondary btn-sm" type="button">Volver</button>
+          <button id="cerrarCajaSi" class="btn btn-danger btn-sm" type="button">Cerrar caja igual</button>
         </div>
       </div>`;
 
@@ -3350,12 +3329,18 @@ document.addEventListener("DOMContentLoaded", () => {
     carrito = [];
     descGlobal = null;
     limpiarEstadoPersistido();
+
+    if (selMedio) selMedio.value = "EFECTIVO";
     if (inputPagado) inputPagado.value = "";
+    if (inputPagado) inputPagado.disabled = false;
+    setSplitActivo(false);
 
     // ✅ Limpiar cliente CC
     limpiarClienteCC();
     actualizarVisibilidadCC();
 
+    ajustarPagoSegunMedio();
+    recalcularVuelto();
     actualizarVistaInmediata();
     inputCodigo?.focus?.();
   }

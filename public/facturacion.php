@@ -339,7 +339,7 @@ require __DIR__ . '/partials/header.php';
     </section>
 
     <?php if ($incidenciasVisibles > 0): ?>
-      <section class="fact-summary-bar" aria-label="Incidencias fiscales" style="margin-bottom:16px;">
+      <section class="fact-summary-bar fact-summary-bar--incidents" aria-label="Incidencias fiscales">
         <div class="fact-summary-bar__top">
           <div class="fact-summary-bar__headline">
             <strong><?= number_format($incidenciasVisibles) ?></strong> incidencia<?= $incidenciasVisibles === 1 ? '' : 's' ?> fiscal<?= $incidenciasVisibles === 1 ? '' : 'es' ?> visible<?= $incidenciasVisibles === 1 ? '' : 's' ?>
@@ -353,7 +353,7 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <?php foreach ($avisos as $aviso): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= h($aviso) ?></div>
+      <div class="alert alert-error fact-alert"><?= h($aviso) ?></div>
     <?php endforeach; ?>
 
     <form method="get" class="filters fact-filters">
@@ -599,7 +599,7 @@ require __DIR__ . '/partials/header.php';
                   <?php endif; ?>
                 </div>
                 <?php if (trim((string)($accionFiscal['help'] ?? '')) !== ''): ?>
-                  <div class="fact-cell-sub" style="margin-top:6px;max-width:220px;"><?= h((string)$accionFiscal['help']) ?></div>
+                  <div class="fact-cell-sub fact-row-help"><?= h((string)$accionFiscal['help']) ?></div>
                 <?php endif; ?>
               </td>
             </tr>

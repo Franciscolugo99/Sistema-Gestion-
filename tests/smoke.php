@@ -1081,6 +1081,8 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_ventas_recientes.js');
     $ticketPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket.php');
+    $ventaAnularItemsJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'venta_anular_items.js');
+    $ventaDetalleCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'venta_detalle.css');
 
     flus_assert_contains("'caja_ventas_recientes' => [", $apiIndex);
     flus_assert_contains("'permissions' => ['realizar_ventas'],", $apiIndex);
@@ -1106,6 +1108,26 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     flus_assert_contains("require_any_permission(['realizar_ventas','ver_reportes']);", $ticketPhp);
     flus_assert_contains("\$selectNota  = has_column(\$pdo, 'ventas', 'nota');", $ticketPhp);
     flus_assert_contains('($selectNota ? ", v.nota" : ", \'\' AS nota")', $ticketPhp);
+    flus_assert_contains('modal.className = "venta-anular-items-modal";', $ventaAnularItemsJs);
+    flus_assert_contains('panel.className = "venta-anular-items-modal__panel";', $ventaAnularItemsJs);
+    flus_assert_contains('.venta-anular-items-modal__table', $ventaDetalleCss);
+    flus_assert_not_contains('style=', $ventaAnularItemsJs);
+    flus_assert_not_contains('style.cssText', $ventaAnularItemsJs);
+});
+
+$results[] = flus_run_test('caja cancelar venta limpia medios de pago activos', function () use ($repoRoot): void {
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+    $cajaBaseCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.base.css');
+
+    flus_assert_contains('async function cancelarVenta()', $cajaJs);
+    flus_assert_contains('if (selMedio) selMedio.value = "EFECTIVO";', $cajaJs);
+    flus_assert_contains('if (inputPagado) inputPagado.disabled = false;', $cajaJs);
+    flus_assert_contains('setSplitActivo(false);', $cajaJs);
+    flus_assert_contains('limpiarClienteCC();', $cajaJs);
+    flus_assert_contains('actualizarVisibilidadCC();', $cajaJs);
+    flus_assert_contains('overlay.className = "caja-close-confirm";', $cajaJs);
+    flus_assert_contains('.caja-close-confirm__dialog', $cajaBaseCss);
+    flus_assert_not_contains('overlay.style.cssText', $cajaJs);
 });
 
 $results[] = flus_run_test('flus_calcular_estado_producto keeps product status rules consistent', function (): void {
@@ -2875,6 +2897,7 @@ $results[] = flus_run_test('facturacion panel delega lectura y export a helper d
     $repoRoot = dirname(__DIR__);
     $panelHelper = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
     $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
 
     flus_assert_contains("function flus_facturacion_panel_read", $panelHelper);
     flus_assert_contains("function flus_facturacion_panel_export_rows", $panelHelper);
@@ -2888,6 +2911,10 @@ $results[] = flus_run_test('facturacion panel delega lectura y export a helper d
     flus_assert_not_contains('$sqlStats = "', $facturacionPhp);
     flus_assert_not_contains('$sqlList = "', $facturacionPhp);
     flus_assert_contains("['Fecha', 'Tipo', 'Punto de venta', 'Numero', 'Cliente', 'CUIT', 'Total', 'Estado', 'Estado fiscal', 'Venta', 'CAE', 'CAE vto', 'Modo']", $facturacionPhp);
+    flus_assert_not_contains('style=', $facturacionPhp);
+    flus_assert_contains('fact-summary-bar--incidents', $facturacionPhp);
+    flus_assert_contains('.fact-row-help', $facturacionCss);
+    flus_assert_not_contains('radial-gradient(', $facturacionCss);
 });
 
 $results[] = flus_run_test('factura_ver delega hidratacion a helper dedicado', function (): void {
@@ -3232,6 +3259,8 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
     $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
     $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+    $recoveryJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'facturacion_recovery.js');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
 
     flus_assert_contains('CONVERT(fe.request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(f.fiscal_request_uid USING utf8mb4) COLLATE utf8mb4_unicode_ci', $recoveryPhp);
     flus_assert_contains('$facturacionLinks[] = [\'href\' => \'facturacion.php\'', $navPhp);
@@ -3244,6 +3273,12 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     flus_assert_not_contains('facturacion_subnav', $ncPhp);
     flus_assert_not_contains('facturacion_subnav', $manualPhp);
     flus_assert_not_contains('facturacion_subnav', $facturaVerPhp);
+    flus_assert_contains('assets/js/facturacion_recovery.js', $recoveryPhp);
+    flus_assert_contains('class="js-fiscal-confirm"', $recoveryPhp);
+    flus_assert_contains('window.Notif.confirmar', $recoveryJs);
+    flus_assert_contains('.fact-close-incident-input', $facturacionCss);
+    flus_assert_not_contains('onsubmit="return confirm', $recoveryPhp);
+    flus_assert_not_contains('style=', $recoveryPhp);
 });
 
 $results[] = flus_run_test('factura_ver imprime desde vista limpia y documentos comerciales recupera acciones propias', function (): void {
@@ -3433,6 +3468,7 @@ $results[] = flus_run_test('caja turno belongs to the opening cashier', function
     $ccApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
     $facturaCobranzaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'factura_cobranza_api.php');
     $migration = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '034_caja_turno_control.sql');
+    $cajaCerrarCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja_cerrar.css');
 
     flus_assert_contains('function caja_user_can_operar_turno(?array $caja, int $userId): bool', $cajaLib);
     flus_assert_contains('function caja_user_can_cerrar_turno(?array $caja, int $userId): bool', $cajaLib);
@@ -3447,6 +3483,11 @@ $results[] = flus_run_test('caja turno belongs to the opening cashier', function
     flus_assert_contains('id="cierreDiffPreview"', $cajaCerrarPhp);
     flus_assert_contains('Faltan \' + money.format(Math.abs(diff)) + \'. Podes cerrar igual', $cajaCerrarPhp);
     flus_assert_contains('Hay una diferencia: \' . $sentidoDiferencia', $cajaCerrarPhp);
+    flus_assert_not_contains('style="border-top: 1px dashed', $cajaCerrarPhp);
+    flus_assert_not_contains('style="color: var(--warning-color', $cajaCerrarPhp);
+    flus_assert_contains('grid-template-columns: repeat(2, minmax(0, 1fr));', $cajaCerrarCss);
+    flus_assert_contains('.cierre-row--cc', $cajaCerrarCss);
+    flus_assert_not_contains('backdrop-filter: blur(10px)', $cajaCerrarCss);
     flus_assert_contains("'CAJA_TURNO_AJENO'", $ccApiPhp);
     flus_assert_contains("'CAJA_TURNO_AJENO'", $facturaCobranzaPhp);
     flus_assert_contains('cierre_motivo', $migration);
@@ -4107,10 +4148,14 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     $repoRoot = dirname(__DIR__);
     $headerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'header.php');
     $kpiCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'kpis.css');
+    $movimientosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'movimientos.css');
+    $cajaMovimientosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja_movimientos.css');
+    $ventasKpisCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'ventas_kpis.css');
 
     flus_assert_contains('assets/css/kpis.css', $headerPhp);
     flus_assert_contains('CSS de consistencia transversal', $headerPhp);
     flus_assert_contains('.stat-card', $kpiCss);
+    flus_assert_contains('.mov-stats-row', $kpiCss);
     flus_assert_contains('.vkpi-card', $kpiCss);
     flus_assert_contains('.inv-card', $kpiCss);
     flus_assert_contains('.fact-kpi-card', $kpiCss);
@@ -4123,6 +4168,15 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     $extraCssPos = strpos($headerPhp, '<?php foreach ($extraCss as $href): ?>');
     $kpiCssPos = strpos($headerPhp, 'assets/css/kpis.css');
     flus_assert_true($extraCssPos !== false && $kpiCssPos !== false && $kpiCssPos > $extraCssPos, 'kpis.css debe cargar despues del CSS especifico de pagina');
+    flus_assert_not_contains('border-left: 3px', $movimientosCss);
+    flus_assert_not_contains('radial-gradient(', $cajaMovimientosCss);
+    flus_assert_contains('.mov-form-card::before', $cajaMovimientosCss);
+    flus_assert_contains('content: none', $cajaMovimientosCss);
+    flus_assert_contains('La apariencia base de las tarjetas vive en kpis.css.', $ventasKpisCss);
+    flus_assert_contains('--vkpi-radius: var(--flus-kpi-radius', $ventasKpisCss);
+    flus_assert_not_contains('backdrop-filter: blur(10px)', $ventasKpisCss);
+    flus_assert_not_contains('@keyframes vkpiFadeUp', $ventasKpisCss);
+    flus_assert_not_contains('Pegarlo AL FINAL', $ventasKpisCss);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

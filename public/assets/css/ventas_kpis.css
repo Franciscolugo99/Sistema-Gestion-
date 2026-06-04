@@ -1,36 +1,21 @@
-/* public/assets/css/ventas_kpis.css - FLUS (2026) ✅
-   Estilo FLUS: cards clickeables + micro-animaciones + skeleton loading.
+/* public/assets/css/ventas_kpis.css - FLUS
+   Layout y estados propios de KPIs de ventas.
+   La apariencia base de las tarjetas vive en kpis.css.
    Compatible con markup:
    - .vkpi-title o .vkpi-label
    - .vkpi-sub
 */
 
 :root {
-  --vkpi-radius: 14px;
-  --vkpi-gap: 10px;
-
-  /* Fallbacks si no existen variables en tu tema */
-  --vkpi-surface: var(--panel, #ffffff);
-  --vkpi-surface-2: var(--panel, #ffffff);
-  --vkpi-border: var(--panel-border, rgba(15, 23, 42, 0.08));
-  --vkpi-border-2: var(--panel-border, rgba(15, 23, 42, 0.08));
-  --vkpi-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  --vkpi-text: var(--text, #0f172a);
-  --vkpi-muted: var(--muted, #64748b);
-  --vkpi-muted-2: var(--muted, #64748b);
-  --vkpi-accent: var(--accent, #22c55e);
-  --vkpi-primary: var(--primary, #06b6d4);
-}
-
-@keyframes vkpiFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  --vkpi-radius: var(--flus-kpi-radius, 14px);
+  --vkpi-gap: 12px;
+  --vkpi-surface: var(--flus-kpi-surface, var(--panel, #ffffff));
+  --vkpi-border: var(--flus-kpi-border, var(--panel-border, rgba(15, 23, 42, 0.08)));
+  --vkpi-text: var(--flus-kpi-text, var(--text, #0f172a));
+  --vkpi-muted: var(--flus-kpi-muted, var(--muted, #64748b));
+  --vkpi-info: var(--flus-kpi-info, var(--primary, #06b6d4));
+  --vkpi-success: var(--flus-kpi-success, #22c55e);
+  --vkpi-danger: var(--flus-kpi-danger, #ef4444);
 }
 
 @keyframes vkpiShimmer {
@@ -42,26 +27,12 @@
   }
 }
 
-@keyframes vkpiBump {
-  0% {
-    transform: translateY(0) scale(1);
-  }
-  40% {
-    transform: translateY(-1px) scale(1.02);
-  }
-  100% {
-    transform: translateY(0) scale(1);
-  }
-}
-
 .ventas-kpis {
   margin: 14px 0 18px;
-  padding: 14px;
-  border-radius: var(--vkpi-radius);
-  background: var(--vkpi-surface);
-  border: 1px solid var(--vkpi-border);
-  box-shadow: var(--vkpi-shadow);
-  animation: vkpiFadeUp 0.22s ease-out both;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .vkpi-grid {
@@ -73,21 +44,12 @@
 .vkpi-card {
   position: relative;
   padding: 14px;
-  border-radius: var(--vkpi-radius);
-  background: var(--vkpi-surface-2);
-  border: 1px solid var(--vkpi-border-2);
   min-height: 84px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   cursor: default;
   user-select: none;
-
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    filter 0.18s ease;
   overflow: hidden;
 }
 
@@ -101,9 +63,6 @@
 }
 
 .vkpi-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(14, 165, 233, 0.24);
-  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
   filter: none;
 }
 
@@ -112,14 +71,14 @@
 }
 
 .vkpi-card:focus-visible {
-  outline: 2px solid rgba(6, 182, 212, 0.55);
+  outline: 2px solid color-mix(in oklch, var(--vkpi-info) 62%, transparent);
   outline-offset: 2px;
 }
 
 /* Card emphasis (ej: Facturación) */
 .vkpi-card[data-accent="primary"] {
-  border-color: rgba(14, 165, 233, 0.26);
-  box-shadow: inset 0 3px 0 rgba(14, 165, 233, 0.7);
+  border-color: color-mix(in oklch, var(--vkpi-info) 32%, var(--vkpi-border));
+  box-shadow: inset 0 3px 0 color-mix(in oklch, var(--vkpi-info) 75%, transparent);
 }
 .vkpi-card[data-accent="danger"]::after {
   display: none;
@@ -129,8 +88,8 @@
 }
 
 .vkpi-card[data-accent="danger"] {
-  border-color: rgba(239, 68, 68, 0.2);
-  box-shadow: inset 0 3px 0 rgba(239, 68, 68, 0.68);
+  border-color: color-mix(in oklch, var(--vkpi-danger) 34%, var(--vkpi-border));
+  box-shadow: inset 0 3px 0 color-mix(in oklch, var(--vkpi-danger) 70%, transparent);
 }
 
 .vkpi-title,
@@ -153,7 +112,7 @@
 
 .vkpi-sub {
   font-size: 12px;
-  color: var(--vkpi-muted-2);
+  color: var(--vkpi-muted);
   margin-top: 6px;
 }
 
@@ -187,7 +146,7 @@
 
 /* Bump on update */
 .vkpi-bump {
-  animation: vkpiBump 0.28s ease-out;
+  transition: transform 0.16s ease;
 }
 
 /* Pagos chips */
@@ -211,8 +170,8 @@
 
 .vkpi-chip {
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--vkpi-border);
+  background: var(--vkpi-surface);
   color: var(--vkpi-text);
   border-radius: 999px;
   padding: 8px 10px;
@@ -230,13 +189,13 @@
 
 .vkpi-chip:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
-  background: rgba(0, 0, 0, 0.22);
+  border-color: color-mix(in oklch, var(--vkpi-info) 36%, var(--vkpi-border));
+  box-shadow: 0 6px 14px color-mix(in oklch, var(--vkpi-text) 9%, transparent);
+  background: color-mix(in oklch, var(--vkpi-surface) 92%, var(--vkpi-info));
 }
 
 .vkpi-chip:focus-visible {
-  outline: 2px solid rgba(6, 182, 212, 0.55);
+  outline: 2px solid color-mix(in oklch, var(--vkpi-info) 62%, transparent);
   outline-offset: 2px;
 }
 
@@ -267,194 +226,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* ============================================================
-   FLUS Ventas KPIs — Fix contraste en MODO OSCURO
-   Pegarlo AL FINAL del archivo ventas_kpis.css
-   Soporta: body.dark / .dark-mode / .theme-dark / [data-theme="dark"]
-============================================================ */
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis {
-  /* el panel contenedor */
-  background: linear-gradient(
-    180deg,
-    rgba(15, 23, 42, 0.78),
-    rgba(2, 6, 23, 0.7)
-  );
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(10px);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-card {
-  /* cards */
-  background: linear-gradient(
-    180deg,
-    rgba(30, 41, 59, 0.92),
-    rgba(15, 23, 42, 0.88)
-  );
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.92);
-}
-
-/* si tu CSS tiene “brillos”/overlays con ::before, los bajamos para que no apague el texto */
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-card::before {
-  opacity: 0.28 !important;
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-card:hover {
-  border-color: rgba(34, 211, 238, 0.35);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
-  transform: translateY(-1px);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-label {
-  color: rgba(226, 232, 240, 0.82);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-value {
-  color: rgba(255, 255, 255, 0.96);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-  font-weight: 800;
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-sub {
-  color: rgba(148, 163, 184, 0.92);
-}
-
-/* icono/badge dentro de la card (si existe en tu HTML/CSS del patch) */
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-ico,
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-icon {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-}
-
-/* Sección chips pagos */
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-pagos-title {
-  color: rgba(226, 232, 240, 0.82);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-chip {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-chip:hover {
-  background: rgba(34, 211, 238, 0.1);
-  border-color: rgba(34, 211, 238, 0.35);
-}
-
-:where(
-    html.dark,
-    body.dark,
-    body.dark-mode,
-    body.theme-dark,
-    [data-theme="dark"]
-  )
-  .ventas-kpis
-  .vkpi-chip.is-active {
-  background: rgba(34, 211, 238, 0.14);
-  border-color: rgba(34, 211, 238, 0.45);
-  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.12) inset;
-}
-
 /* ============================================================
    Estilos adicionales para valores especiales
 ============================================================ */

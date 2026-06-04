@@ -30,74 +30,53 @@ function abrirModalAnularItems(ventaId) {
 
   const modal = document.createElement("div");
   modal.id = "modal-anular-items";
-  modal.style.cssText = [
-    "position:fixed",
-    "inset:0",
-    "background:rgba(15,23,42,.55)",
-    "display:flex",
-    "align-items:center",
-    "justify-content:center",
-    "padding:20px",
-    "z-index:9999",
-  ].join(";");
+  modal.className = "venta-anular-items-modal";
 
   const panel = document.createElement("div");
-  panel.style.cssText = [
-    "width:min(680px,100%)",
-    "max-height:85vh",
-    "overflow:auto",
-    "background:var(--panel,#111827)",
-    "border:1px solid var(--border-color,rgba(148,163,184,.22))",
-    "border-radius:16px",
-    "box-shadow:0 24px 64px rgba(15,23,42,.35)",
-    "padding:20px",
-    "color:var(--text,#e5e7eb)",
-  ].join(";");
+  panel.className = "venta-anular-items-modal__panel";
 
   panel.innerHTML = `
-    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px;">
+    <div class="venta-anular-items-modal__head">
       <div>
-        <h3 style="margin:0 0 6px;font-size:1.1rem;">Anular items de la venta #${ventaId}</h3>
-        <p style="margin:0;color:var(--muted,#94a3b8);font-size:.92rem;">
+        <h3 class="venta-anular-items-modal__title">Anular items de la venta #${ventaId}</h3>
+        <p class="venta-anular-items-modal__copy">
           Selecciona las cantidades a devolver. Se repondra solo el stock afectado.
         </p>
       </div>
-      <button type="button" id="btnCerrarModalAnularItems"
-        style="border:none;background:transparent;color:inherit;font-size:1.2rem;cursor:pointer;line-height:1;">
-        ×
+      <button type="button" id="btnCerrarModalAnularItems" class="venta-anular-items-modal__close" aria-label="Cerrar">
+        &times;
       </button>
     </div>
 
-    <div style="border:1px solid var(--border-color,rgba(148,163,184,.22));border-radius:12px;overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;">
+    <div class="venta-anular-items-modal__table-wrap">
+      <table class="venta-anular-items-modal__table">
         <thead>
-          <tr style="background:rgba(148,163,184,.08);">
-            <th style="text-align:left;padding:10px 12px;">Item</th>
-            <th style="text-align:right;padding:10px 12px;">Disponible</th>
-            <th style="text-align:right;padding:10px 12px;">Cantidad</th>
+          <tr>
+            <th>Item</th>
+            <th class="right">Disponible</th>
+            <th class="right">Cantidad</th>
           </tr>
         </thead>
         <tbody>
           ${items.map((item) => `
-            <tr data-modal-item-id="${item.itemId}" style="border-top:1px solid var(--border-color,rgba(148,163,184,.14));">
-              <td style="padding:10px 12px;">
-                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <tr data-modal-item-id="${item.itemId}">
+              <td>
+                <label class="venta-anular-items-modal__item-label">
                   <input type="checkbox" class="js-anular-item-check" data-item-id="${item.itemId}">
                   <span>${escapeHtml(item.nombre || ("Item #" + item.itemId))}</span>
                 </label>
               </td>
-              <td style="padding:10px 12px;text-align:right;color:var(--muted,#94a3b8);">${formatQty(item.cantidadDisponible)}</td>
-              <td style="padding:10px 12px;text-align:right;">
+              <td class="right muted">${formatQty(item.cantidadDisponible)}</td>
+              <td class="right">
                 <input
                   type="number"
-                  class="js-anular-item-cantidad"
+                  class="js-anular-item-cantidad venta-anular-items-modal__qty"
                   data-item-id="${item.itemId}"
                   min="0.001"
                   max="${item.cantidadDisponible}"
                   step="${Number.isInteger(item.cantidadDisponible) ? "1" : "0.001"}"
                   value="${item.cantidadDisponible}"
                   disabled
-                  style="width:92px;padding:7px 8px;border-radius:8px;border:1px solid var(--border-color,rgba(148,163,184,.24));background:transparent;color:inherit;text-align:right;"
                 >
               </td>
             </tr>
@@ -106,18 +85,17 @@ function abrirModalAnularItems(ventaId) {
       </table>
     </div>
 
-    <div style="margin-top:14px;">
-      <label for="motivoAnularItems" style="display:block;font-size:.92rem;margin-bottom:6px;">Motivo</label>
+    <div class="venta-anular-items-modal__field">
+      <label for="motivoAnularItems">Motivo</label>
       <input
         id="motivoAnularItems"
         type="text"
         maxlength="255"
         placeholder="Opcional"
-        style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--border-color,rgba(148,163,184,.24));background:transparent;color:inherit;"
       >
     </div>
 
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+    <div class="venta-anular-items-modal__actions">
       <button type="button" id="btnCancelarAnularItems" class="btn btn-secondary">Cancelar</button>
       <button type="button" id="btnConfirmarAnularItems" class="btn btn-danger">Confirmar devolucion</button>
     </div>

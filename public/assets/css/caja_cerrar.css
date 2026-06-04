@@ -9,19 +9,19 @@
    Evita fallbacks blancos en dark mode
 ------------------------------ */
 :root{
-  --cierre-panel-bg:   var(--panel, rgba(255,255,255,.88));
-  --cierre-card-bg:    rgba(255,255,255,.82);
-  --cierre-row-bg:     rgba(0,0,0,.035);
-  --cierre-input-bg:   rgba(255,255,255,.90);
-  --cierre-note-bg:    rgba(0,0,0,.03);
+  --cierre-panel-bg:   var(--panel, oklch(99% 0.006 235));
+  --cierre-card-bg:    var(--panel, oklch(99% 0.006 235));
+  --cierre-row-bg:     color-mix(in oklch, var(--panel, oklch(99% 0.006 235)) 88%, var(--bg-soft, oklch(95% 0.012 235)));
+  --cierre-input-bg:   var(--input-bg, oklch(98% 0.006 235));
+  --cierre-note-bg:    color-mix(in oklch, var(--panel, oklch(99% 0.006 235)) 92%, var(--accent-cyan, oklch(70% 0.14 220)));
 
-  --cierre-border:     var(--border, rgba(0,0,0,.10));
-  --cierre-border-weak:rgba(0,0,0,.12);
+  --cierre-border:     var(--panel-border, oklch(88% 0.018 245));
+  --cierre-border-weak:color-mix(in oklch, var(--cierre-border) 82%, transparent);
 
-  --cierre-text:       var(--text, #111827);
-  --cierre-muted:      var(--muted, rgba(17,24,39,.72));
+  --cierre-text:       var(--text, oklch(22% 0.035 250));
+  --cierre-muted:      var(--muted, oklch(52% 0.025 250));
 
-  --cierre-shadow:     var(--shadow, 0 18px 45px rgba(0,0,0,.12));
+  --cierre-shadow:     var(--shadow, 0 6px 18px color-mix(in oklch, var(--cierre-text) 8%, transparent));
 }
 
 /* Soporta distintos “toggles” típicos:
@@ -31,32 +31,31 @@ body[data-theme="dark"],
 body.theme-dark,
 body.dark,
 :root.dark{
-  --cierre-panel-bg:   rgba(15, 23, 42, .72);   /* panel glass oscuro */
-  --cierre-card-bg:    rgba(2, 6, 23, .55);     /* cards oscuras */
-  --cierre-row-bg:     rgba(255,255,255,.06);   /* filas visibles */
-  --cierre-input-bg:   rgba(2, 6, 23, .50);     /* inputs oscuros */
-  --cierre-note-bg:    rgba(255,255,255,.05);
+  --cierre-panel-bg:   var(--panel, oklch(22% 0.025 255));
+  --cierre-card-bg:    var(--panel, oklch(22% 0.025 255));
+  --cierre-row-bg:     color-mix(in oklch, var(--panel, oklch(22% 0.025 255)) 84%, oklch(32% 0.03 250));
+  --cierre-input-bg:   var(--input-bg, oklch(18% 0.025 255));
+  --cierre-note-bg:    color-mix(in oklch, var(--panel, oklch(22% 0.025 255)) 88%, var(--accent-cyan, oklch(70% 0.14 220)));
 
-  --cierre-border:     rgba(255,255,255,.12);
-  --cierre-border-weak:rgba(255,255,255,.14);
+  --cierre-border:     var(--panel-border, oklch(42% 0.022 250));
+  --cierre-border-weak:color-mix(in oklch, var(--cierre-border) 78%, transparent);
 
-  --cierre-text:       rgba(226,232,240,1);
-  --cierre-muted:      rgba(226,232,240,.72);
+  --cierre-text:       var(--text, oklch(94% 0.018 245));
+  --cierre-muted:      var(--muted, oklch(74% 0.02 245));
 
-  --cierre-shadow:     0 18px 55px rgba(0,0,0,.55);
+  --cierre-shadow:     0 6px 18px oklch(5% 0.015 250 / 0.24);
 }
 
 /* Panel */
 .panel-cierre{
   max-width: 980px;
-  margin: 26px auto;
-  padding: 22px;
-  border-radius: 18px;
+  margin: 20px auto;
+  padding: 18px;
+  border-radius: 14px;
   background: var(--cierre-panel-bg);
   border: 1px solid var(--cierre-border);
   box-shadow: var(--cierre-shadow);
   color: var(--cierre-text);
-  backdrop-filter: blur(10px);
 }
 
 /* Header */
@@ -140,9 +139,9 @@ body.dark,
   list-style: none;
   padding: 0;
   margin: 0;
-  display:flex;
-  flex-direction:column;
-  gap: 10px;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .cierre-row{
@@ -150,10 +149,12 @@ body.dark,
   align-items:center;
   justify-content:space-between;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: var(--cierre-row-bg);
-  border: 1px solid rgba(0,0,0,0); /* para que no “salte” en focus/hover */
+  border: 1px solid transparent;
+  font-size: .93rem;
 }
 
 html[data-theme="dark"] .cierre-row,
@@ -167,6 +168,16 @@ body.dark .cierre-row,
 .cierre-row-simple{
   background: transparent;
   border: 1px dashed var(--cierre-border-weak);
+}
+
+.cierre-row--cc{
+  grid-column: 1 / -1;
+  background: color-mix(in oklch, var(--cierre-note-bg) 78%, var(--cierre-card-bg));
+  border-color: color-mix(in oklch, var(--cierre-border) 70%, var(--accent-cyan, oklch(70% 0.14 220)));
+}
+
+.cierre-row--cc .mono{
+  color: color-mix(in oklch, var(--warning-color, oklch(72% 0.16 82)) 82%, var(--cierre-text));
 }
 
 .mono{
@@ -346,6 +357,7 @@ body.dark .cierre-row,
 @media (max-width: 880px){
   .panel-cierre{ margin: 18px 10px; padding: 16px; }
   .cierre-grid{ grid-template-columns: 1fr; }
+  .cierre-list{ grid-template-columns: 1fr; }
   .cierre-input-row{ flex-direction: column; }
   .cierre-btn{ width: 100%; }
 }
