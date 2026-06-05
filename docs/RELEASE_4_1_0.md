@@ -11,7 +11,7 @@ Objetivo: dejar FLUS 4.1.0 como corte operativo posterior a 4.0.0, incorporando 
 - rama local: `Ver-4.0.0`
 - fuente activa: `C:\xampp82\htdocs\kiosco`
 - PHP de validacion: `C:\xampp82\php\php.exe`
-- smoke tecnico: `134 OK / 0 fallidas / 0 skipped`
+- smoke tecnico actual: `138 OK / 0 fallidas / 0 skipped`
 - migracion local aplicada: `039_venta_pagos_mp_metadata.sql`
 - instalador servidor: `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\installer\output\FLUS_Server_Setup_4.1.0.exe`
 - instalador terminal: `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\installer\output\FLUS_Terminal_Setup_4.1.0.exe`
@@ -25,6 +25,8 @@ Objetivo: dejar FLUS 4.1.0 como corte operativo posterior a 4.0.0, incorporando 
 - Reglas de precio queda preparada como base general, no solo para kioscos 24 hs.
 - Las ventas con ajuste automatico guardan precio base, precio cobrado, monto de ajuste y redondeo por item.
 - Mercado Pago queda con modo automatico, modo manual y contingencia manual explicita para operar si la PC no tiene internet.
+- Compras coordina estado, stock, costo, historial y deuda de Tesoreria dentro de operaciones atomicas.
+- Guia de regresion: `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md`.
 
 ## Reglas de precio
 
@@ -70,13 +72,14 @@ Inventario base sigue usando `productos.precio` para valuar stock actual. El aju
 - `C:\xampp82\php\php.exe scripts\migrate.php`
 - `C:\xampp82\php\php.exe tests\smoke.php`
 - `$env:FLUS_TEST_DB='1'; C:\xampp82\php\php.exe tests\integration_db.php`
+- Casos de compras: doble confirmacion, stock insuficiente, pesables, deuda parcial y reversion segura de costos.
 - `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\build_release.ps1 -SourceRoot C:\xampp82\htdocs\kiosco`
 - Browser QA en caja: producto base `$1.234`, regla `+10%`, redondeo a `$10`, venta #174 cobrada a `$1.360,00`.
 
 Resultado del smoke:
 
 ```text
-Total: 134, failed: 0, skipped: 0
+Total: 138, failed: 0, skipped: 0
 ```
 
 Resultado del smoke dentro del empaquetado portable:
@@ -85,9 +88,12 @@ Resultado del smoke dentro del empaquetado portable:
 Total: 134, failed: 0, skipped: 6
 ```
 
+El resultado portable corresponde al empaquetado anterior y debe repetirse al generar el proximo instalador.
+
 ## Pendientes antes de produccion
 
 - Crear tag `v4.1.0` si se usa versionado por tags.
+- Repetir `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md` con un usuario sin permisos y en viewport tablet/movil.
 
 ## Artefactos compilados
 

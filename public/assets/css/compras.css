@@ -525,6 +525,12 @@ html[data-theme="light"] .compras-page .badge-pesable {
   background: rgba(56, 189, 248, 0.06);
 }
 
+.compras-page .compras-list th:last-child,
+.compras-page .compras-list td:last-child {
+  width: 220px;
+  min-width: 220px;
+}
+
 .compras-page .compras-table tfoot {
   background: var(--c-surface-2);
   border-top: 2px solid rgba(56, 189, 248, 0.22);
@@ -869,7 +875,6 @@ html[data-theme="light"] .compras-page .badge-pesable {
   right: 0;
   bottom: 0;
   background: var(--c-overlay, rgba(0, 0, 0, 0.72));
-  backdrop-filter: blur(3px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -879,9 +884,12 @@ html[data-theme="light"] .compras-page .badge-pesable {
   overflow-y: auto;
 }
 
-.modal-overlay[style*="display: flex"],
 .modal-overlay.active {
   display: flex !important;
+}
+
+.modal-overlay[hidden] {
+  display: none !important;
 }
 
 .modal-box {
@@ -905,6 +913,10 @@ html[data-theme="light"] .compras-page .badge-pesable {
   display: flex;
   flex-direction: column;
   color: var(--c-text);
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 .modal-box.modal-detalle {
@@ -966,6 +978,61 @@ html[data-theme="light"] .compras-page .badge-pesable {
   color: var(--c-text);
 }
 
+.modal-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--c-danger);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.modal-anular {
+  max-width: 560px;
+}
+
+.stock-revert-option {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface-2);
+  cursor: pointer;
+}
+
+.stock-revert-option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.stock-revert-option strong,
+.stock-revert-option small {
+  display: block;
+}
+
+.stock-revert-option strong {
+  margin-bottom: 4px;
+  color: var(--c-text);
+  font-size: 0.92rem;
+}
+
+.stock-revert-option small,
+.modal-note {
+  color: var(--c-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.modal-note {
+  margin: 10px 0 0;
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;
@@ -996,6 +1063,29 @@ html[data-theme="light"] .compras-page .badge-pesable {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0.75;
+}
+
+.detalle-info-wide {
+  grid-column: 1 / -1;
+}
+
+.detalle-table-wrapper {
+  margin-top: 16px;
+}
+
+.detalle-producto-nombre {
+  font-weight: 700;
+}
+
+.detalle-producto-codigo,
+.compra-comprobante-numero {
+  color: var(--c-muted);
+  font-size: 0.78rem;
+}
+
+.detalle-retry {
+  display: flex;
+  margin-top: 12px;
 }
 
 .loading {
@@ -1479,7 +1569,7 @@ body.theme-light .compras-page .compras-table tfoot td {
   padding: 13px 18px;
   border-radius: 12px;
   border: 1.5px solid rgba(56, 189, 248, 0.28);
-  background: linear-gradient(135deg, rgba(56,189,248,0.06), rgba(168,85,247,0.04));
+  background: rgba(56, 189, 248, 0.06);
   cursor: pointer;
   user-select: none;
   transition: background 0.18s, border-color 0.18s;
@@ -1552,8 +1642,8 @@ body.theme-light .compras-page .compras-table tfoot td {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: linear-gradient(135deg, #f59e0b, #ea580c);
-  color: #fff;
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--c-warning);
   border-radius: 6px;
   font-size: 0.7rem;
   font-weight: 900;
@@ -1702,21 +1792,34 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 .compras-page .list-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
   align-items: center;
+}
+
+.compras-page .list-actions > * {
+  width: 100%;
+}
+
+.compras-page .list-actions > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.compras-page .list-actions .btn,
+.compras-page .list-actions .list-action-form .btn {
+  width: 100%;
 }
 
 .compras-page .btn-compact {
   min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0;
   font-weight: 800;
   box-shadow: none;
+  white-space: nowrap;
 }
 
 .compras-page .btn-success {
@@ -1940,7 +2043,7 @@ body.theme-light .compras-page .compras-table tfoot td {
    FILAS PESABLES — distinción visual ámbar
 ============================================================================ */
 .compras-page .is-pesable-row td:first-child {
-  border-left: 3px solid #f59e0b;
+  box-shadow: inset 3px 0 0 var(--c-warning);
 }
 
 .compras-page .unit-tag {
@@ -2538,6 +2641,42 @@ body.theme-light .compras-page .summary-card-total {
   padding: 22px 28px;
 }
 
+.compras-page .is-hidden {
+  display: none !important;
+}
+
+.compras-page .compras-list-panel {
+  margin-top: 22px;
+}
+
+.compras-page .compras-list-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.compras-page .compras-list-heading .sub-title-page {
+  margin: 3px 0 0;
+}
+
+.compras-page .compras-list-count {
+  flex: 0 0 auto;
+  color: var(--c-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.compras-page .list-action-form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.compras-page .pagination-ellipsis {
+  padding: 0 4px;
+  color: var(--c-muted);
+}
+
 .compras-page .compras-form {
   margin-top: 12px;
 }
@@ -2623,10 +2762,10 @@ body.theme-light .compras-page .summary-card-total {
 
 .compras-page .items-grid-row {
   grid-template-columns:
-    var(--compras-item-control-width)
-    var(--compras-item-control-width)
-    calc((var(--compras-item-control-width) * 2) + 6px)
-    minmax(420px, 1fr);
+    minmax(110px, 0.7fr)
+    minmax(130px, 0.8fr)
+    minmax(250px, 1.6fr)
+    minmax(280px, 1.8fr);
   justify-content: start;
   align-items: start;
   gap: var(--compras-form-gap);
@@ -2638,7 +2777,7 @@ body.theme-light .compras-page .summary-card-total {
 
 .compras-page .items-grid-row .field-btn-add {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) minmax(180px, 220px);
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
   grid-template-rows: 19px var(--compras-field-height) minmax(16px, auto);
   column-gap: var(--compras-form-gap);
   row-gap: 5px;
@@ -2819,13 +2958,34 @@ body.theme-light .compras-page .summary-card-total {
   white-space: nowrap;
 }
 
+@media (max-width: 520px) {
+  .compras-page .compras-list-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-box,
+  .compras-page .fade-in,
+  .compras-page .fade-out {
+    animation: none !important;
+  }
+
+  .btn-close:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .compras-page .items-grid-row {
     grid-template-columns:
-      var(--compras-item-control-width)
-      var(--compras-item-control-width)
-      calc((var(--compras-item-control-width) * 2) + 6px)
-      minmax(380px, 1fr);
+      minmax(110px, 0.7fr)
+      minmax(130px, 0.8fr)
+      minmax(240px, 1.5fr)
+      minmax(260px, 1.7fr);
   }
 
   .compras-page .filters {

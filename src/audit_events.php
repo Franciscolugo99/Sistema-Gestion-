@@ -113,9 +113,16 @@ class AuditEntities {
  * @param array $meta Metadata adicional
  * @param int|null $userId ID del usuario (null = sistema)
  */
-function audit_event(string $action, string $entity, ?int $entityId = null, array $meta = [], ?int $userId = null): void {
+function audit_event(
+    string $action,
+    string $entity,
+    ?int $entityId = null,
+    array $meta = [],
+    ?int $userId = null,
+    ?PDO $pdoOverride = null
+): void {
     try {
-        $pdo = getPDO();
+        $pdo = $pdoOverride ?? getPDO();
         
         // Obtener user_id de sesión si no se proporciona
         if ($userId === null) {
@@ -134,10 +141,12 @@ function audit_event(string $action, string $entity, ?int $entityId = null, arra
         $metaJson = json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         // Verificar estructura de la tabla
-        static $tableInfo = null;
-        if ($tableInfo === null) {
-            $tableInfo = audit_get_table_info($pdo);
+        static $tableInfoByConnection = [];
+        $connectionId = spl_object_id($pdo);
+        if (!isset($tableInfoByConnection[$connectionId])) {
+            $tableInfoByConnection[$connectionId] = audit_get_table_info($pdo);
         }
+        $tableInfo = $tableInfoByConnection[$connectionId];
 
         if (!$tableInfo['exists']) {
             flus_log_error('audit_event skipped: missing audit_log table', [
@@ -496,7 +505,13 @@ function audit_producto(string $action, int $productoId, array $extra = []): voi
 /**
  * Auditar cambio de precio
  */
-function audit_precio_change(int $productoId, float $precioAnterior, float $precioNuevo, ?string $motivo = null): void {
+function audit_precio_change(
+    int $productoId,
+    float $precioAnterior,
+    float $precioNuevo,
+    ?string $motivo = null,
+    ?PDO $pdoOverride = null
+): void {
     audit_event(
         AuditEvents::PRODUCTO_PRECIO_CHANGE,
         AuditEntities::PRODUCTO,
@@ -507,7 +522,9 @@ function audit_precio_change(int $productoId, float $precioAnterior, float $prec
             'diferencia' => round($precioNuevo - $precioAnterior, 2),
             'diferencia_pct' => $precioAnterior > 0 ? round((($precioNuevo - $precioAnterior) / $precioAnterior) * 100, 2) : null,
             'motivo' => $motivo,
-        ]
+        ],
+        null,
+        $pdoOverride
     );
 }
 

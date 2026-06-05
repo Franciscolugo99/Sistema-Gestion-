@@ -13,7 +13,7 @@ if ($tesObligacionId > 0):
     Deuda <?= h((string)($c['tes_obligacion_estado'] ?? '')) ?>
   </a>
 <?php else: ?>
-  <form method="post" style="display:inline;" class="js-compra-confirm-form" data-confirm-title="Crear deuda" data-confirm-message="Se creara una obligacion pendiente en Tesoreria para esta compra. Si ya existe, FLUS reutilizara la vinculacion.">
+  <form method="post" class="list-action-form js-compra-confirm-form" data-confirm-title="Crear deuda" data-confirm-message="Se creara una obligacion pendiente en Tesoreria para esta compra. Si ya existe, FLUS reutilizara la vinculacion.">
     <?= csrf_field() ?>
     <input type="hidden" name="accion" value="crear_obligacion_tesoreria">
     <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">

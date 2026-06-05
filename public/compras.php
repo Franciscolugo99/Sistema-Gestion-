@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
+require_once FLUS_ROOT . '/src/compras_helpers.php';
 require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';
 require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';
 require_login();
@@ -598,9 +599,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
           $compraTotalBruto     = (float)($rowCompra['total_bruto'] ?? ($rowCompra['total'] ?? 0.0));
           $compraDescuentoTotal = (float)($rowCompra['descuento_total'] ?? 0.0);
 
-          if ($estado !== 'BORRADOR') {
-            throw new RuntimeException("Solo se pueden confirmar compras en BORRADOR.");
-          }
+          flus_compras_assert_confirmable_state($estado);
 
           // 2) Traer ítems (compat: columnas opcionales)
           $colsItSel = ['id','producto_id','cantidad','costo_unitario','subtotal'];
@@ -807,6 +806,11 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             throw new RuntimeException('Solo se pueden anular compras CONFIRMADAS.');
           }
 
+          $tesoreriaResult = flus_compras_cancelar_obligacion_al_anular($pdo, $compraId);
+          if (($tesoreriaResult['success'] ?? false) !== true) {
+            throw new RuntimeException((string)($tesoreriaResult['error'] ?? 'No se pudo regularizar la deuda asociada.'));
+          }
+
           if ($revertirStock) {
             // Traer items
             $itSt = $pdo->prepare("
@@ -818,22 +822,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
             $items = $itSt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
             $stockByProduct = compras_lock_product_stocks($pdo, array_column($items, 'producto_id'));
-            foreach ($items as $it) {
-              $pid = (int)($it['producto_id'] ?? 0);
-              $qty = (float)($it['cantidad'] ?? 0.0);
-              if ($pid <= 0 || $qty <= 0) {
-                continue;
-              }
-
-              if (!array_key_exists($pid, $stockByProduct)) {
-                throw new RuntimeException("El producto ID {$pid} ya no existe para revertir stock.");
-              }
-
-              $stockActual = (float)$stockByProduct[$pid];
-              if ($stockActual < $qty) {
-                throw new RuntimeException("No hay stock suficiente para revertir la compra en el producto ID {$pid}. Stock actual: {$stockActual}, a revertir: {$qty}.");
-              }
-            }
+            flus_compras_assert_reversible_stock($items, $stockByProduct);
 
             // Revertir stock
             $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock - :qty WHERE id = :pid");
@@ -858,6 +847,8 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
               $stUpdStock->execute([':qty' => $qty, ':pid' => $pid]);
               compras_require_row_change($stUpdStock, "No se pudo revertir el stock del producto ID {$pid}.");
             }
+
+            flus_compras_revertir_costos_al_anular($pdo, array_column($items, 'producto_id'), $compraId);
           }
 
           // Marcar como ANULADA
@@ -1040,6 +1031,7 @@ $extraCss = ["assets/css/compras.css"];
 $extraJs  = [
   "assets/js/compras.js?v=" . filemtime(__DIR__ . "/assets/js/compras.js"),
   "assets/js/compras_quick_add.js?v=" . filemtime(__DIR__ . "/assets/js/compras_quick_add.js"),
+  "assets/js/compras_page.js?v=" . filemtime(__DIR__ . "/assets/js/compras_page.js"),
 ];
 require __DIR__ . "/partials/header.php";
 ?>
@@ -1081,7 +1073,7 @@ require __DIR__ . "/partials/header.php";
       <input type="hidden" name="accion" value="guardar_borrador">
       <input type="hidden" name="compra_id" value="<?= $editMode ? (int)$compraEdit['id'] : 0 ?>">
 
-      <select id="productosData" style="display:none;">
+      <select id="productosData" class="is-hidden" aria-hidden="true" tabindex="-1">
         <option value="">--</option>
         <?php foreach ($productos as $p): ?>
           <option
@@ -1245,7 +1237,7 @@ require __DIR__ . "/partials/header.php";
                       <circle cx="17" cy="20" r="1.5"/>
                     </svg>
                     <p class="empty-state-title">Sin productos todavia</p>
-                    <p class="empty-state-sub">Buscá un producto arriba o usá <strong>Ver lista de productos</strong> para agregar varios a la vez.</p>
+                    <p class="empty-state-sub">Busca un producto arriba o usa <strong>Ver lista de productos</strong> para agregar varios a la vez.</p>
                   </div>
                 </td>
               </tr>
@@ -1327,8 +1319,14 @@ require __DIR__ . "/partials/header.php";
     <?php require __DIR__ . '/partials/compras_margenes_confirmacion.php'; ?>
   </div>
 
-  <div class="panel" style="margin-top:22px;">
-    <h2 class="sub-title-page">Listado de compras</h2>
+  <div class="panel compras-list-panel">
+    <div class="compras-list-heading">
+      <div>
+        <span class="module-eyebrow">Historial y control</span>
+        <h2 class="sub-title-page">Compras registradas</h2>
+      </div>
+      <span class="compras-list-count"><?= number_format($totalRows, 0, ',', '.') ?> registro<?= $totalRows === 1 ? '' : 's' ?></span>
+    </div>
 
     <form method="get" class="filters">
       <div class="filters-left">
@@ -1380,7 +1378,7 @@ require __DIR__ . "/partials/header.php";
               <td><?= h((string)($c['proveedor_nombre'] ?? 'Sin nombre')) ?></td>
               <td>
                 <div><?= h((string)$c['tipo_comp']) ?></div>
-                <div style="font-size:.78rem;opacity:.65;"><?= h((string)$c['nro_comp']) ?></div>
+                <div class="compra-comprobante-numero"><?= h((string)$c['nro_comp']) ?></div>
               </td>
               <td>
                 <span class="estado-badge estado-<?= h((string)$c['estado']) ?>"><?= h((string)$c['estado']) ?></span>
@@ -1388,19 +1386,19 @@ require __DIR__ . "/partials/header.php";
               <td class="right"><strong><?= money_ar((float)$c['total']) ?></strong></td>
               <td class="center">
                 <div class="list-actions">
-                  <button type="button" class="btn btn-secondary btn-compact" onclick="verDetalle(<?= (int)$c['id'] ?>)" title="Ver detalle">Ver</button>
+                  <button type="button" class="btn btn-secondary btn-compact" data-compra-action="detalle" data-compra-id="<?= (int)$c['id'] ?>" title="Ver detalle">Ver</button>
 
                   <?php if ((string)$c['estado'] === 'BORRADOR'): ?>
                     <a href="compras.php?editar=<?= (int)$c['id'] ?>" class="btn btn-secondary btn-compact" title="Editar">Editar</a>
 
-                    <form method="post" style="display:inline;" class="js-compra-confirm-form" data-confirm-title="Confirmar compra" data-confirm-message="Se actualizara el stock y los costos de los productos de esta compra.">
+                    <form method="post" class="list-action-form js-compra-confirm-form" data-confirm-title="Confirmar compra" data-confirm-message="Se actualizara el stock y los costos de los productos de esta compra.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="accion" value="confirmar">
                       <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
                       <button class="btn btn-success btn-compact" type="submit" title="Confirmar">Confirmar</button>
                     </form>
 
-                    <form method="post" style="display:inline;" class="js-compra-confirm-form" data-confirm-title="Eliminar borrador" data-confirm-message="Esta accion no se puede deshacer.">
+                    <form method="post" class="list-action-form js-compra-confirm-form" data-confirm-title="Eliminar borrador" data-confirm-message="Esta accion no se puede deshacer.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="accion" value="eliminar_borrador">
                       <input type="hidden" name="compra_id" value="<?= (int)$c['id'] ?>">
@@ -1408,7 +1406,7 @@ require __DIR__ . "/partials/header.php";
                     </form>
                   <?php elseif ((string)$c['estado'] === 'CONFIRMADA'): ?>
                     <?php require __DIR__ . '/partials/compra_tesoreria_action.php'; ?>
-                    <button type="button" class="btn btn-warning btn-compact" onclick="anularCompra(<?= (int)$c['id'] ?>)" title="Anular">Anular</button>
+                    <button type="button" class="btn btn-warning btn-compact" data-compra-action="anular" data-compra-id="<?= (int)$c['id'] ?>" title="Anular">Anular</button>
                   <?php endif; ?>
                 </div>
               </td>
@@ -1435,7 +1433,7 @@ require __DIR__ . "/partials/header.php";
           if ($start > 1): ?>
             <a class="page-btn" href="<?= h(urlWith(['page'=>1])) ?>">1</a>
             <?php if ($start > 2): ?>
-              <span style="opacity:.5;padding:0 4px;">...</span>
+              <span class="pagination-ellipsis" aria-hidden="true">...</span>
             <?php endif; ?>
           <?php endif; ?>
 
@@ -1447,7 +1445,7 @@ require __DIR__ . "/partials/header.php";
 
           <?php if ($end < $totalPages): ?>
             <?php if ($end < $totalPages - 1): ?>
-              <span style="opacity:.5;padding:0 4px;">...</span>
+              <span class="pagination-ellipsis" aria-hidden="true">...</span>
             <?php endif; ?>
             <a class="page-btn" href="<?= h(urlWith(['page'=>$totalPages])) ?>"><?= $totalPages ?></a>
           <?php endif; ?>
@@ -1458,11 +1456,11 @@ require __DIR__ . "/partials/header.php";
 </div>
 
 <!-- Modal detalle -->
-<div id="modalDetalle" class="modal-overlay" style="display:none;">
-  <div class="modal-box modal-detalle">
+<div id="modalDetalle" class="modal-overlay" data-detalle-id="<?= (int)$detalleCompraId ?>" hidden>
+  <div class="modal-box modal-detalle" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-header">
       <h3 id="modalTitle">Detalle de Compra</h3>
-      <button class="btn-close" onclick="cerrarDetalle()">x</button>
+      <button type="button" class="btn-close" data-compra-action="cerrar-detalle" aria-label="Cerrar detalle">&times;</button>
     </div>
     <div class="modal-body" id="modalContent">
       <div class="loading">Cargando...</div>
@@ -1495,152 +1493,6 @@ require __DIR__ . "/partials/header.php";
 </script>
 <?php endif; ?>
 
-<script>
-function verDetalle(id) {
-  const modal = document.getElementById('modalDetalle');
-  const content = document.getElementById('modalContent');
-  const title = document.getElementById('modalTitle');
-  modal.style.display = 'flex';
-  content.innerHTML = '<div class="loading">Cargando...</div>';
-  fetch(`api/compra_detalle.php?id=${id}`)
-    .then((response) => {
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      return response.json();
-    })
-    .then((data) => {
-      if (data.error) {
-        content.innerHTML = `<div class="msg msg-error">${data.error}</div>`;
-        return;
-      }
-      title.textContent = `Compra #${data.id} - ${data.proveedor}`;
-      let html = `
-        <div class="detalle-info">
-          <div><strong>Fecha:</strong> ${data.fecha}</div>
-          <div><strong>Estado:</strong> <span class="estado-badge estado-${data.estado}">${data.estado}</span></div>
-          <div><strong>Comprobante:</strong> ${data.tipo_comp} ${data.nro_comp}</div>
-          ${data.obs ? `<div><strong>Observacion:</strong> ${data.obs}</div>` : ''}
-        </div>
-        <div class="table-wrapper" style="margin-top:16px;">
-          <table class="compras-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th class="right">Cantidad</th>
-                <th class="right">Costo unit.</th>
-                <th class="right">Desc. item</th>
-                <th class="right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-      `;
-      data.items.forEach((item) => {
-        html += `
-          <tr>
-            <td>
-              <div style="font-weight:700;">${item.nombre}</div>
-              <div style="font-size:.78rem;opacity:.65;">${item.codigo}</div>
-            </td>
-            <td class="right">${item.cantidad_fmt}</td>
-            <td class="right">${item.costo_fmt}</td>
-            <td class="right">${item.desc_item_fmt}</td>
-            <td class="right"><strong>${item.subtotal_fmt}</strong></td>
-          </tr>
-        `;
-      });
-      html += `
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="4" class="right"><strong>BRUTO</strong></td>
-                <td class="right"><strong>${data.total_bruto_fmt}</strong></td>
-              </tr>
-              <tr>
-                <td colspan="4" class="right"><strong>DESC. ITEMS</strong></td>
-                <td class="right"><strong>-${data.descuento_items_total_fmt}</strong></td>
-              </tr>
-              <tr>
-                <td colspan="4" class="right"><strong>DESCUENTO GLOBAL</strong></td>
-                <td class="right"><strong>-${data.descuento_total_fmt}</strong></td>
-              </tr>
-              <tr>
-                <td colspan="4" class="right"><strong>TOTAL</strong></td>
-                <td class="right"><strong>${data.total_fmt}</strong></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      `;
-      content.innerHTML = html;
-    })
-    .catch((error) => {
-      content.innerHTML = `
-        <div class="msg msg-error">
-          Error al cargar: ${error.message}
-          <br>
-          <button class="btn btn-secondary" onclick="verDetalle(${id})" style="margin-top:12px;">Reintentar</button>
-        </div>
-      `;
-    });
-}
-function cerrarDetalle() {
-  document.getElementById('modalDetalle').style.display = 'none';
-}
-function anularCompra(id) {
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay compras-modal-overlay';
-  modal.innerHTML = `
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 style="margin:0;">Anular compra #${id}</h3>
-        <button type="button" class="btn-close js-close" aria-label="Cerrar">X</button>
-      </div>
-      <p style="margin-bottom:16px;">Confirma si quieres anular esta compra.</p>
-      <form method="post" id="formAnular">
-        ${document.querySelector('input[name="csrf_token"]').outerHTML}
-        <input type="hidden" name="accion" value="anular_confirmada">
-        <input type="hidden" name="compra_id" value="${id}">
-        <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;">
-          <input type="checkbox" name="revertir_stock" value="1" style="width:auto;">
-          <span>Revertir stock (quitar productos del inventario)</span>
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary js-close">Cancelar</button>
-          <button type="submit" class="btn btn-primary" style="background:#ef4444;">Anular compra</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  setTimeout(() => modal.classList.add('active'), 10);
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) modal.remove();
-  });
-  modal.querySelectorAll('.js-close').forEach((button) => {
-    button.addEventListener('click', () => modal.remove());
-  });
-}
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    const detalle = document.getElementById('modalDetalle');
-    if (detalle && detalle.style.display !== 'none') {
-      cerrarDetalle();
-    }
-    const anularModal = document.querySelector('.compras-modal-overlay');
-    if (anularModal) anularModal.remove();
-  }
-});
-document.addEventListener('DOMContentLoaded', () => {
-  const detalleId = <?= json_encode($detalleCompraId) ?>;
-  if (Number(detalleId) > 0) {
-    verDetalle(Number(detalleId));
-    if (window.history && typeof window.history.replaceState === 'function') {
-      const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete('detalle');
-      nextUrl.searchParams.delete('origen');
-      window.history.replaceState({}, document.title, nextUrl.toString());
-    }
-  }
-});
-</script>
+
 
 <?php require __DIR__ . "/partials/footer.php"; ?>

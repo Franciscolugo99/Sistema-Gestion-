@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/precio_historial.php';
+require_once __DIR__ . '/db_schema.php';
 
 function flus_compras_actualizar_costo_con_historial(PDO $pdo, int $productoId, float $costoNuevo, int $compraId): void
 {
@@ -25,8 +26,71 @@ function flus_compras_actualizar_costo_con_historial(PDO $pdo, int $productoId, 
         $costoAnterior,
         $costoNuevo,
         'COSTO',
-        "Compra #{$compraId} confirmada"
+        "Compra #{$compraId} confirmada",
+        null,
+        $pdo
     );
+}
+
+/**
+ * Revierte el costo solo cuando el ultimo cambio sigue perteneciendo a la
+ * compra anulada. Si hubo otro cambio posterior, conserva el costo vigente.
+ *
+ * @param array<int,int|string> $productoIds
+ */
+function flus_compras_revertir_costos_al_anular(PDO $pdo, array $productoIds, int $compraId): void
+{
+    if ($compraId <= 0 || !function_exists('flus_table_exists') || !flus_table_exists($pdo, 'producto_precios_hist')) {
+        return;
+    }
+
+    $productoIds = array_values(array_unique(array_filter(
+        array_map('intval', $productoIds),
+        static fn(int $id): bool => $id > 0
+    )));
+    if ($productoIds === []) {
+        return;
+    }
+
+    $motivoEsperado = "Compra #{$compraId} confirmada";
+    $stHistorial = $pdo->prepare("
+        SELECT precio_anterior, precio_nuevo, motivo
+        FROM producto_precios_hist
+        WHERE producto_id = ?
+          AND tipo = 'COSTO'
+        ORDER BY id DESC
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $stCosto = $pdo->prepare('SELECT costo FROM productos WHERE id = ? FOR UPDATE');
+    $stUpdate = $pdo->prepare('UPDATE productos SET costo = ? WHERE id = ?');
+
+    foreach ($productoIds as $productoId) {
+        $stHistorial->execute([$productoId]);
+        $historial = $stHistorial->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($historial) || trim((string)($historial['motivo'] ?? '')) !== $motivoEsperado) {
+            continue;
+        }
+
+        $costoAnterior = round((float)($historial['precio_anterior'] ?? 0), 2);
+        $costoCompra = round((float)($historial['precio_nuevo'] ?? 0), 2);
+        $stCosto->execute([$productoId]);
+        $costoActual = round((float)($stCosto->fetchColumn() ?: 0), 2);
+        if (abs($costoActual - $costoCompra) >= 0.01) {
+            continue;
+        }
+
+        $stUpdate->execute([$costoAnterior, $productoId]);
+        precio_registrar_cambio(
+            $productoId,
+            $costoActual,
+            $costoAnterior,
+            'COSTO',
+            "Anulacion compra #{$compraId}",
+            null,
+            $pdo
+        );
+    }
 }
 
 function flus_compras_margenes_para_compra(PDO $pdo, int $compraId, float $umbralBajo = 20.0, float $margenSugerido = 30.0): array

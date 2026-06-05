@@ -15,6 +15,7 @@
 - Baseline `install.sql` actualizado para instalaciones limpias con las columnas de ajuste de precio.
 - Detalle de venta muestra una nota discreta cuando un item fue cobrado con ajuste automatico.
 - Documentacion `docs/REGLAS_PRECIO_4.1.0.md` y `docs/RELEASE_4_1_0.md`.
+- Checklist `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md` con areas afectadas y orden de regresion.
 
 ### Changed
 
@@ -22,10 +23,19 @@
 - La regla de precio puede redondear hacia arriba a importes operativos para agilizar cobros en caja.
 - Mercado Pago guarda metadatos de order/payment en `venta_pagos` y exige contingencia manual explicita cuando falla la verificacion automatica.
 - `src/version.php` actualizado a `4.1.0` build `2026-05-29`.
+- Compras actualiza el listado despues del autosave y unifica sus acciones y modales sin manejadores inline.
+- El historial y la auditoria de costos de compra usan la misma conexion transaccional que stock y estado.
+
+### Fixed
+
+- Anular una compra cancela su deuda pendiente, pero bloquea la operacion cuando existen pagos parciales o totales.
+- La reversion de una compra resta stock de forma atomica y se rechaza completa si algun producto no alcanza.
+- La anulacion restaura el costo anterior solo si no hubo un cambio de costo posterior.
+- La segunda confirmacion de una compra ya procesada se rechaza sin duplicar stock.
 
 ### Validation
 
-- `C:\xampp82\php\php.exe tests\smoke.php`: `134 OK / 0 fallidas / 0 skipped`.
+- `C:\xampp82\php\php.exe tests\smoke.php`: `138 OK / 0 fallidas / 0 skipped`.
 - `C:\xampp82\php\php.exe scripts\migrate.php`: migraciones 037, 038 y 039 aplicadas localmente.
 - `$env:FLUS_TEST_DB='1'; C:\xampp82\php\php.exe tests\integration_db.php`: instalacion limpia + migraciones + flujos criticos OK.
 

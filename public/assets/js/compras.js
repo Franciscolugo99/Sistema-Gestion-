@@ -765,6 +765,45 @@ document.addEventListener("DOMContentLoaded", () => {
     syncDraftUrl(compraId);
   }
 
+  async function refreshSavedPurchaseRow(compraId) {
+    const listBody = document.querySelector(".compras-list tbody");
+    if (!listBody || !compraId) return;
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("editar", String(compraId));
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "text/html" },
+      });
+      if (!response.ok) return;
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const savedRow = Array.from(doc.querySelectorAll(".compras-list tbody tr"))
+        .find((row) => row.querySelector("td")?.textContent?.trim() === `#${compraId}`);
+      if (!savedRow) return;
+
+      const currentRow = Array.from(listBody.querySelectorAll("tr"))
+        .find((row) => row.querySelector("td")?.textContent?.trim() === `#${compraId}`);
+      if (currentRow) {
+        currentRow.replaceWith(savedRow);
+      } else {
+        listBody.querySelector("tr .empty-cell")?.closest("tr")?.remove();
+        listBody.prepend(savedRow);
+      }
+
+      const count = doc.querySelector(".compras-list-count");
+      const currentCount = document.querySelector(".compras-list-count");
+      if (count && currentCount) {
+        currentCount.textContent = count.textContent;
+      }
+    } catch {
+      // El borrador ya quedo persistido; el listado se actualizara al recargar.
+    }
+  }
+
   function scheduleAutosave(delay = 1200) {
     if (!form || isManualSubmit) return;
     clearTimeout(autosaveTimer);
@@ -823,10 +862,12 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(payload?.message || "No se pudo guardar el borrador");
       }
 
-      updateCompraId(parseInt(payload.compra_id || "0", 10) || 0);
+      const savedCompraId = parseInt(payload.compra_id || "0", 10) || 0;
+      updateCompraId(savedCompraId);
       autosaveLastSignature = buildAutosaveSignature();
       hasUnsavedChanges = false;
       setAutosaveStatus("Borrador guardado automaticamente", "saved");
+      await refreshSavedPurchaseRow(savedCompraId);
     } catch (error) {
       const message =
         error instanceof Error && error.message
@@ -1050,13 +1091,16 @@ document.addEventListener("DOMContentLoaded", () => {
       updateProveedorState({ autocorrect: true });
     });
   }
-  document.querySelectorAll(".js-compra-confirm-form").forEach((confirmForm) => {
-    confirmForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const title = confirmForm.dataset.confirmTitle || "Confirmar accion";
-      const message = confirmForm.dataset.confirmMessage || "Revisa esta accion antes de continuar.";
-      showConfirm(`${title}. ${message}`, () => confirmForm.submit(), null, "Continuar");
-    });
+  document.addEventListener("submit", (event) => {
+    const confirmForm = event.target;
+    if (!(confirmForm instanceof HTMLFormElement) || !confirmForm.matches(".js-compra-confirm-form")) {
+      return;
+    }
+
+    event.preventDefault();
+    const title = confirmForm.dataset.confirmTitle || "Confirmar accion";
+    const message = confirmForm.dataset.confirmMessage || "Revisa esta accion antes de continuar.";
+    showConfirm(`${title}. ${message}`, () => confirmForm.submit(), null, "Continuar");
   });
 
   if (form) {
@@ -1342,15 +1386,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (hiddenInput) editInput.value = hiddenInput.value;
 
       const openEditor = () => {
-        valueSpan.style.display = "none";
+        valueSpan.hidden = true;
         editInput.disabled = false;
-        editInput.style.display = "block";
+        editInput.hidden = false;
       };
 
       const closeEditor = () => {
-        valueSpan.style.display = "inline";
+        valueSpan.hidden = false;
         editInput.disabled = true;
-        editInput.style.display = "none";
+        editInput.hidden = true;
       };
 
       openEditor();
@@ -1487,11 +1531,11 @@ document.addEventListener("DOMContentLoaded", () => {
       </td>
       <td class="right editable-cell" data-field="cantidad">
         <span class="cell-value">${fmtQty(qty, product)}</span>
-        <input type="number" class="cell-edit" value="${qty}" step="${qtyStep}" min="${qtyMin}" disabled style="display:none;">
+        <input type="number" class="cell-edit" value="${qty}" step="${qtyStep}" min="${qtyMin}" disabled hidden>
       </td>
       <td class="right editable-cell" data-field="costo">
         <span class="cell-value">${fmtMoney(cost)}</span>
-        <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
+        <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled hidden>
       </td>
       <td class="right desc-item-cell ${norm.monto > 0 ? "has-discount" : ""}">
         ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}
@@ -1853,11 +1897,11 @@ document.addEventListener("DOMContentLoaded", () => {
         </td>
         <td class="right editable-cell" data-field="cantidad">
           <span class="cell-value">${fmtQty(qty, productMock)}</span>
-          <input type="number" class="cell-edit" value="${qty}" step="${qtyStep2}" min="${qtyMin2}" disabled style="display:none;">
+          <input type="number" class="cell-edit" value="${qty}" step="${qtyStep2}" min="${qtyMin2}" disabled hidden>
         </td>
         <td class="right editable-cell" data-field="costo">
           <span class="cell-value">${fmtMoney(cost)}</span>
-          <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled style="display:none;">
+          <input type="number" class="cell-edit" value="${cost}" step="0.01" min="0" disabled hidden>
         </td>
         <td class="right desc-item-cell ${norm.monto > 0 ? "has-discount" : ""}">
           ${norm.monto > 0 ? "-" + fmtMoney(norm.monto) : fmtMoney(0)}

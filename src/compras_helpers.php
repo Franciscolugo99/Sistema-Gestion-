@@ -148,3 +148,35 @@ function flus_compra_totals(array $compra, array $itemsMetrics): array {
     'total_iva' => $totalIva,
   ];
 }
+
+function flus_compras_assert_confirmable_state(string $estado): void {
+  if (strtoupper(trim($estado)) !== 'BORRADOR') {
+    throw new RuntimeException('Solo se pueden confirmar compras en BORRADOR.');
+  }
+}
+
+/**
+ * @param array<int,array<string,mixed>> $items
+ * @param array<int,float|int|string> $stockByProduct
+ */
+function flus_compras_assert_reversible_stock(array $items, array $stockByProduct): void {
+  foreach ($items as $item) {
+    $productoId = (int)($item['producto_id'] ?? 0);
+    $cantidad = (float)($item['cantidad'] ?? 0.0);
+    if ($productoId <= 0 || $cantidad <= 0) {
+      continue;
+    }
+
+    if (!array_key_exists($productoId, $stockByProduct)) {
+      throw new RuntimeException("El producto ID {$productoId} ya no existe para revertir stock.");
+    }
+
+    $stockActual = (float)$stockByProduct[$productoId];
+    if ($stockActual < $cantidad) {
+      throw new RuntimeException(
+        "No hay stock suficiente para revertir la compra en el producto ID {$productoId}. "
+        . "Stock actual: {$stockActual}, a revertir: {$cantidad}."
+      );
+    }
+  }
+}

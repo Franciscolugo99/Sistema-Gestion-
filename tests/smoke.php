@@ -1300,6 +1300,34 @@ $results[] = flus_run_test('compras helpers keep item discount calculations cons
 
     flus_assert_same(50.0, $monto['descuento_monto']);
     flus_assert_same(0.0, $monto['neto']);
+
+    flus_compras_assert_confirmable_state('BORRADOR');
+    try {
+        flus_compras_assert_confirmable_state('CONFIRMADA');
+        throw new RuntimeException('Expected duplicate confirmation to be rejected');
+    } catch (RuntimeException $e) {
+        flus_assert_contains('BORRADOR', $e->getMessage());
+    }
+
+    flus_compras_assert_reversible_stock(
+        [
+            ['producto_id' => 10, 'cantidad' => 2.000],
+            ['producto_id' => 11, 'cantidad' => 1.250],
+        ],
+        [10 => 2.000, 11 => 1.250]
+    );
+    try {
+        flus_compras_assert_reversible_stock(
+            [
+                ['producto_id' => 10, 'cantidad' => 2.000],
+                ['producto_id' => 11, 'cantidad' => 1.250],
+            ],
+            [10 => 2.000, 11 => 1.000]
+        );
+        throw new RuntimeException('Expected insufficient stock reversal to be rejected');
+    } catch (RuntimeException $e) {
+        flus_assert_contains('No hay stock suficiente', $e->getMessage());
+    }
 });
 
 $results[] = flus_run_test('compras schema lives in migrations instead of runtime DDL', function (): void {
@@ -1336,13 +1364,19 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     $comprasMargenesPartial = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'compras_margenes_confirmacion.php');
 
     flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $comprasPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/compras_helpers.php';", $comprasPhp);
     flus_assert_contains("require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';", $comprasPhp);
     flus_assert_contains('function compras_require_row_change', $comprasPhp);
     flus_assert_contains('function compras_lock_product_stocks', $comprasPhp);
     flus_assert_contains('SELECT estado FROM compras WHERE id = ? FOR UPDATE', $comprasPhp);
     flus_assert_contains('flus_compras_actualizar_costo_con_historial($pdo, $pid, $cuAdj, $compraId);', $comprasPhp);
+    flus_assert_contains('function flus_compras_revertir_costos_al_anular(PDO $pdo, array $productoIds, int $compraId): void', $comprasPrecioHistLib);
+    flus_assert_contains('flus_compras_revertir_costos_al_anular($pdo, array_column($items, \'producto_id\'), $compraId);', $comprasPhp);
+    flus_assert_contains('"Anulacion compra #{$compraId}"', $comprasPrecioHistLib);
     flus_assert_contains('SELECT costo FROM productos WHERE id = ? FOR UPDATE', $comprasPrecioHistLib);
     flus_assert_contains('precio_registrar_cambio(', $comprasPrecioHistLib);
+    flus_assert_contains('null,', $comprasPrecioHistLib);
+    flus_assert_contains('$pdo', $comprasPrecioHistLib);
     flus_assert_contains("'COSTO'", $comprasPrecioHistLib);
     flus_assert_contains('"Compra #{$compraId} confirmada"', $comprasPrecioHistLib);
     flus_assert_contains('function flus_compras_margenes_para_compra', $comprasPrecioHistLib);
@@ -1353,7 +1387,8 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     flus_assert_not_contains('No se pudo actualizar el borrador. Recarga la lista e intenta de nuevo.', $comprasPhp);
     flus_assert_contains("DELETE FROM compras WHERE id = ? AND estado = 'BORRADOR'", $comprasPhp);
     flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
-    flus_assert_contains('No hay stock suficiente para revertir la compra', $comprasPhp);
+    flus_assert_contains('flus_compras_assert_confirmable_state($estado);', $comprasPhp);
+    flus_assert_contains('flus_compras_assert_reversible_stock($items, $stockByProduct);', $comprasPhp);
     flus_assert_contains("'ANULACION_COMPRA'", $comprasPhp);
     flus_assert_not_contains("':qty' => -\$qty", $comprasPhp);
     flus_assert_contains("flus_log_error('compras confirmar failed'", $comprasPhp);
@@ -3936,6 +3971,9 @@ $results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma 
     flus_assert_contains('flus_tesoreria_find_obligacion_by_external_key($pdo, $externalKey)', $tesoreriaLib);
     flus_assert_contains("require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';", $comprasPhp);
     flus_assert_contains('function flus_compras_crear_obligacion_tesoreria(PDO $pdo, int $compraId, bool $canManage): array', $comprasTesoreriaLib);
+    flus_assert_contains('function flus_compras_cancelar_obligacion_al_anular(PDO $pdo, int $compraId): array', $comprasTesoreriaLib);
+    flus_assert_contains('Regulariza o revierte esos pagos antes de anularla.', $comprasTesoreriaLib);
+    flus_assert_contains("SET estado = 'CANCELADO'", $comprasTesoreriaLib);
     flus_assert_contains("name=\"accion\" value=\"crear_obligacion_tesoreria\"", $comprasPhp);
     flus_assert_contains('tes_obligacion_estado', $comprasPhp);
     flus_assert_contains('deuda_pendiente', $proveedoresPhp);
@@ -3951,6 +3989,7 @@ $results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma 
     flus_assert_contains('o.proveedor_id = :proveedor_id', $tesoreriaLib);
     flus_assert_contains('o.compra_id = :compra_id', $tesoreriaLib);
     flus_assert_contains('obligation_created', $comprasPhp);
+    flus_assert_contains('flus_compras_cancelar_obligacion_al_anular($pdo, $compraId)', $comprasPhp);
     flus_assert_contains('Compra no es pago', $contractDoc);
 });
 
@@ -4177,6 +4216,40 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     flus_assert_not_contains('backdrop-filter: blur(10px)', $ventasKpisCss);
     flus_assert_not_contains('@keyframes vkpiFadeUp', $ventasKpisCss);
     flus_assert_not_contains('Pegarlo AL FINAL', $ventasKpisCss);
+});
+
+$results[] = flus_run_test('compras protege y presenta el detalle sin estilos inline sensibles', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $comprasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'compras.php');
+    $comprasTesoreriaPartial = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'compra_tesoreria_action.php');
+    $comprasCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'compras.css');
+    $comprasPageJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'compras_page.js');
+    $comprasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'compras.js');
+
+    flus_assert_contains('assets/js/compras_page.js', $comprasPhp);
+    flus_assert_contains('data-detalle-id=', $comprasPhp);
+    flus_assert_contains('function escapeHtml(value)', $comprasPageJs);
+    flus_assert_contains('escapeHtml(item.nombre)', $comprasPageJs);
+    flus_assert_contains('estadoClase(data.estado)', $comprasPageJs);
+    flus_assert_contains('Activalo solo si la mercaderia tambien se devolvio', $comprasPageJs);
+    flus_assert_contains('modal.hidden = false;', $comprasPageJs);
+    flus_assert_contains('modal.hidden = true;', $comprasPageJs);
+    flus_assert_not_contains('BuscÃ¡ un producto', $comprasPhp);
+    flus_assert_not_contains('<div style="font-weight:700;">${item.nombre}</div>', $comprasPageJs);
+    flus_assert_not_contains('onsubmit="return confirm(', $comprasPhp);
+    flus_assert_not_contains('onclick=', $comprasPhp);
+    flus_assert_not_contains('style="display:none;"', $comprasJs);
+    flus_assert_contains('data-compra-action="detalle"', $comprasPhp);
+    flus_assert_contains('data-compra-action="anular"', $comprasPhp);
+    flus_assert_contains('event.target.closest("[data-compra-action]")', $comprasPageJs);
+    flus_assert_not_contains('style="display:inline;"', $comprasTesoreriaPartial);
+    flus_assert_contains('.stock-revert-option', $comprasCss);
+    flus_assert_contains('@media (prefers-reduced-motion: reduce)', $comprasCss);
+    flus_assert_not_contains('backdrop-filter: blur(3px)', $comprasCss);
+    flus_assert_contains('async function refreshSavedPurchaseRow(compraId)', $comprasJs);
+    flus_assert_contains('await refreshSavedPurchaseRow(savedCompraId);', $comprasJs);
+    flus_assert_contains('document.addEventListener("submit", (event) => {', $comprasJs);
+    flus_assert_contains('confirmForm.matches(".js-compra-confirm-form")', $comprasJs);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

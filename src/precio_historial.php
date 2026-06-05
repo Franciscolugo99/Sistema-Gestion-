@@ -26,10 +26,11 @@ function precio_registrar_cambio(
     float $precioNuevo,
     string $tipo = 'VENTA', // VENTA, COSTO
     ?string $motivo = null,
-    ?int $userId = null
+    ?int $userId = null,
+    ?PDO $pdoOverride = null
 ): ?int {
     try {
-        $pdo = getPDO();
+        $pdo = $pdoOverride ?? getPDO();
         
         // Asegurar que existe la tabla
         precio_ensure_tables($pdo);
@@ -60,7 +61,7 @@ function precio_registrar_cambio(
         $histId = (int)$pdo->lastInsertId();
         
         // Auditoría
-        audit_precio_change($productoId, $precioAnterior, $precioNuevo, $motivo);
+        audit_precio_change($productoId, $precioAnterior, $precioNuevo, $motivo, $pdo);
         
         return $histId;
         

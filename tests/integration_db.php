@@ -37,6 +37,8 @@ require_once $root . '/src/venta_anulaciones_lib.php';
 require_once $root . '/src/Fiscal/bootstrap.php';
 require_once $root . '/src/cobranzas_lib.php';
 require_once $root . '/src/tesoreria_lib.php';
+require_once $root . '/src/compras_tesoreria_lib.php';
+require_once $root . '/src/compras_precio_historial_lib.php';
 require_once $root . '/public/includes/CuentaCorrienteController.php';
 
 function flus_it_env(string $name, string $default = ''): string
@@ -1608,6 +1610,103 @@ function flus_it_run_tesoreria_v1_case(PDO $pdo): void
     flus_it_assert(($badDate['success'] ?? false) === false, 'tesoreria rejects invalid obligation date');
 }
 
+function flus_it_run_purchase_integrity_case(PDO $pdo): void
+{
+    $suffix = date('His') . '-' . getmypid();
+    $stProduct = $pdo->prepare("
+        INSERT INTO productos
+            (codigo, nombre, categoria, precio, stock, costo, stock_minimo, es_pesable, unidad_venta, activo, iva_porcentaje)
+        VALUES (?, ?, 'Integracion', ?, ?, ?, 0.000, ?, ?, 1, 21.00)
+    ");
+    $stProduct->execute(['IT-COMPRA-U-' . $suffix, 'Compra integracion unidad', 180.00, 10.000, 100.00, 0, 'UNIDAD']);
+    $unidadId = (int)$pdo->lastInsertId();
+    $stProduct->execute(['IT-COMPRA-K-' . $suffix, 'Compra integracion pesable', 320.00, 5.500, 200.00, 1, 'KG']);
+    $pesableId = (int)$pdo->lastInsertId();
+
+    $stCompra = $pdo->prepare("
+        INSERT INTO compras
+            (fecha, tipo_comp, nro_comp, estado, total_neto, total_iva, total, total_bruto, created_by)
+        VALUES (NOW(), 'FC', ?, 'CONFIRMADA', ?, 0.00, ?, ?, 1)
+    ");
+    $stItem = $pdo->prepare("
+        INSERT INTO compra_items
+            (compra_id, producto_id, cantidad, costo_unitario, subtotal)
+        VALUES (?, ?, ?, ?, ?)
+    ");
+
+    $stCompra->execute(['IT-U-' . $suffix, 360.00, 360.00, 360.00]);
+    $compraUnidadId = (int)$pdo->lastInsertId();
+    $stItem->execute([$compraUnidadId, $unidadId, 3.000, 120.00, 360.00]);
+
+    $pdo->beginTransaction();
+    flus_compras_actualizar_costo_con_historial($pdo, $unidadId, 120.00, $compraUnidadId);
+    $pdo->commit();
+    flus_it_assert(
+        round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$unidadId}")->fetchColumn(), 2) === 120.00,
+        'purchase confirmation updates product cost'
+    );
+    $stHistory = $pdo->prepare("SELECT motivo FROM producto_precios_hist WHERE producto_id = ? ORDER BY id DESC LIMIT 1");
+    $stHistory->execute([$unidadId]);
+    flus_it_assert(
+        (string)$stHistory->fetchColumn() === "Compra #{$compraUnidadId} confirmada",
+        'purchase cost history is stored on the same database connection'
+    );
+
+    $obligation = flus_tesoreria_create_purchase_obligation($pdo, $compraUnidadId, ['created_by' => 1]);
+    flus_it_assert(($obligation['success'] ?? false) === true, 'confirmed purchase creates treasury obligation');
+    $pdo->beginTransaction();
+    $cancelObligation = flus_compras_cancelar_obligacion_al_anular($pdo, $compraUnidadId);
+    flus_it_assert(($cancelObligation['success'] ?? false) === true, 'unpaid purchase obligation can be cancelled');
+    flus_compras_revertir_costos_al_anular($pdo, [$unidadId], $compraUnidadId);
+    $pdo->commit();
+
+    $stObligation = $pdo->prepare("SELECT estado FROM tesoreria_obligaciones WHERE compra_id = ?");
+    $stObligation->execute([$compraUnidadId]);
+    flus_it_assert((string)$stObligation->fetchColumn() === 'CANCELADO', 'purchase annulment cancels unpaid obligation');
+    flus_it_assert(
+        round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$unidadId}")->fetchColumn(), 2) === 100.00,
+        'purchase annulment restores the previous cost'
+    );
+
+    $stCompra->execute(['IT-K-' . $suffix, 250.00, 250.00, 250.00]);
+    $compraPesableId = (int)$pdo->lastInsertId();
+    $stItem->execute([$compraPesableId, $pesableId, 1.250, 200.00, 250.00]);
+    $pesableObligation = flus_tesoreria_create_purchase_obligation($pdo, $compraPesableId, ['created_by' => 1]);
+    flus_it_assert(($pesableObligation['success'] ?? false) === true, 'weighable purchase creates treasury obligation');
+    $stPartial = $pdo->prepare("
+        UPDATE tesoreria_obligaciones
+        SET estado = 'PARCIAL', importe_pagado = 100.00
+        WHERE compra_id = ?
+    ");
+    $stPartial->execute([$compraPesableId]);
+
+    $pdo->beginTransaction();
+    $blocked = flus_compras_cancelar_obligacion_al_anular($pdo, $compraPesableId);
+    flus_it_assert(($blocked['success'] ?? true) === false, 'purchase annulment blocks partially paid obligation');
+    $pdo->rollBack();
+    $stObligation->execute([$compraPesableId]);
+    flus_it_assert((string)$stObligation->fetchColumn() === 'PARCIAL', 'blocked annulment leaves partial obligation unchanged');
+
+    $pdo->beginTransaction();
+    flus_compras_actualizar_costo_con_historial($pdo, $pesableId, 210.00, $compraPesableId);
+    precio_registrar_cambio($pesableId, 210.00, 225.00, 'COSTO', 'Ajuste manual posterior', 1, $pdo);
+    $pdo->prepare('UPDATE productos SET costo = 225.00 WHERE id = ?')->execute([$pesableId]);
+    flus_compras_revertir_costos_al_anular($pdo, [$pesableId], $compraPesableId);
+    $pdo->commit();
+    flus_it_assert(
+        round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$pesableId}")->fetchColumn(), 2) === 225.00,
+        'purchase annulment preserves a later manual cost change'
+    );
+
+    $stProductShape = $pdo->prepare('SELECT es_pesable, unidad_venta FROM productos WHERE id = ?');
+    $stProductShape->execute([$pesableId]);
+    $pesable = $stProductShape->fetch(PDO::FETCH_ASSOC) ?: [];
+    flus_it_assert(
+        (int)($pesable['es_pesable'] ?? 0) === 1 && (string)($pesable['unidad_venta'] ?? '') === 'KG',
+        'purchase flow preserves weighable product metadata'
+    );
+}
+
 $host = flus_it_env('FLUS_TEST_DB_HOST', '127.0.0.1');
 $port = flus_it_env('FLUS_TEST_DB_PORT', '3306');
 $user = flus_it_env('FLUS_TEST_DB_USER', 'root');
@@ -1700,6 +1799,7 @@ try {
     flus_it_run_cuenta_corriente_case($pdo, $ccFiscalCase);
 
     flus_it_run_tesoreria_v1_case($pdo);
+    flus_it_run_purchase_integrity_case($pdo);
 
     echo "[OK] DB integration check finished.\n";
 } catch (Throwable $e) {
