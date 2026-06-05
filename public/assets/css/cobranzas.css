@@ -6,6 +6,16 @@
   border-color: #c9d7e2;
 }
 
+.cobranzas-page .fact-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.cobranzas-page .fact-kpi-card__value {
+  max-width: 100%;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .cobranzas-table .btn-mini--primary {
   border-color: #0e7490;
   background: #0e7490;

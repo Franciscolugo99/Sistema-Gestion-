@@ -169,7 +169,7 @@ $breadcrumbs = [
     ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
     ['label' => 'Cobranzas', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/cobranzas.css?v=1'];
+$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/cobranzas.css?v=2'];
 $inlineJs = <<<'JS'
 (function () {
   function ready(fn) {

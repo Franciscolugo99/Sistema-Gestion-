@@ -3891,6 +3891,9 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     flus_assert_contains('no se envia a ARCA', $cobranzasPhp);
     flus_assert_contains('.cobranza-modal', $cobranzasCss);
     flus_assert_contains('.cobranzas-status--info', $cobranzasCss);
+    flus_assert_contains('minmax(210px, 1fr)', $cobranzasCss);
+    flus_assert_contains('font-variant-numeric: tabular-nums', $cobranzasCss);
+    flus_assert_contains('assets/css/cobranzas.css?v=2', $cobranzasPhp);
     flus_assert_contains("'cobranzas.php'                => 'cobranzas'", $navPhp);
     flus_assert_contains("'href' => 'cobranzas.php'", $navPhp);
     flus_assert_contains('flus_it_run_invoice_direct_payment_case', $integrationPhp);
