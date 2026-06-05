@@ -1707,6 +1707,30 @@ function flus_it_run_purchase_integrity_case(PDO $pdo): void
     );
 }
 
+function flus_it_run_purchase_permission_case(PDO $pdo): void
+{
+    $st = $pdo->prepare("
+        SELECT COUNT(DISTINCT p.slug)
+        FROM roles r
+        JOIN role_permission rp ON rp.role_id = r.id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE r.slug = ?
+          AND p.slug IN ('editar_stock', 'ver_costos')
+    ");
+
+    $st->execute(['admin']);
+    flus_it_assert((int)$st->fetchColumn() === 2, 'admin has both purchase permissions');
+
+    $st->execute(['encargado']);
+    flus_it_assert((int)$st->fetchColumn() === 2, 'manager has both purchase permissions');
+
+    $st->execute(['cajero']);
+    flus_it_assert((int)$st->fetchColumn() === 0, 'cashier has no purchase permissions');
+
+    $st->execute(['operador']);
+    flus_it_assert((int)$st->fetchColumn() === 1, 'operator cannot access purchase costs with stock permission alone');
+}
+
 $host = flus_it_env('FLUS_TEST_DB_HOST', '127.0.0.1');
 $port = flus_it_env('FLUS_TEST_DB_PORT', '3306');
 $user = flus_it_env('FLUS_TEST_DB_USER', 'root');
@@ -1800,6 +1824,7 @@ try {
 
     flus_it_run_tesoreria_v1_case($pdo);
     flus_it_run_purchase_integrity_case($pdo);
+    flus_it_run_purchase_permission_case($pdo);
 
     echo "[OK] DB integration check finished.\n";
 } catch (Throwable $e) {

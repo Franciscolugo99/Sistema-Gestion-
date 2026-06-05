@@ -26,6 +26,7 @@ Objetivo: dejar FLUS 4.1.0 como corte operativo posterior a 4.0.0, incorporando 
 - Las ventas con ajuste automatico guardan precio base, precio cobrado, monto de ajuste y redondeo por item.
 - Mercado Pago queda con modo automatico, modo manual y contingencia manual explicita para operar si la PC no tiene internet.
 - Compras coordina estado, stock, costo, historial y deuda de Tesoreria dentro de operaciones atomicas.
+- Compras exige en conjunto `editar_stock` y `ver_costos`, tanto en backend como en navegacion.
 - Guia de regresion: `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md`.
 
 ## Reglas de precio
@@ -73,6 +74,7 @@ Inventario base sigue usando `productos.precio` para valuar stock actual. El aju
 - `C:\xampp82\php\php.exe tests\smoke.php`
 - `$env:FLUS_TEST_DB='1'; C:\xampp82\php\php.exe tests\integration_db.php`
 - Casos de compras: doble confirmacion, stock insuficiente, pesables, deuda parcial y reversion segura de costos.
+- Matriz de Compras validada: admin/encargado habilitados; cajero/operador sin acceso completo.
 - `C:\Users\Martin\Documents\FLUS_installer_V4.0.0\build_release.ps1 -SourceRoot C:\xampp82\htdocs\kiosco`
 - Browser QA en caja: producto base `$1.234`, regla `+10%`, redondeo a `$10`, venta #174 cobrada a `$1.360,00`.
 
@@ -93,7 +95,7 @@ El resultado portable corresponde al empaquetado anterior y debe repetirse al ge
 ## Pendientes antes de produccion
 
 - Crear tag `v4.1.0` si se usa versionado por tags.
-- Repetir `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md` con un usuario sin permisos y en viewport tablet/movil.
+- Confirmar visualmente `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_0.md` en viewport tablet/movil y el mensaje 403 con un usuario limitado.
 
 ## Artefactos compilados
 

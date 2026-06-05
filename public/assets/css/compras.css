@@ -770,6 +770,7 @@ html[data-theme="light"] .compras-page .badge-pesable {
 }
 
 .compras-page .page-btn {
+  min-height: 40px;
   padding: 8px 14px;
   border-radius: 10px;
   border: 1.5px solid var(--c-border);
@@ -949,8 +950,8 @@ body.modal-open {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   border: none;
   background: rgba(148, 163, 184, 0.15);
@@ -1328,8 +1329,8 @@ body.theme-light .detalle-info {
   .btn-close {
     top: 16px;
     right: 16px;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     font-size: 1.1rem;
   }
 
@@ -1812,7 +1813,7 @@ body.theme-light .compras-page .compras-table tfoot td {
 }
 
 .compras-page .btn-compact {
-  min-height: 30px;
+  min-height: 36px;
   padding: 0 9px;
   border-radius: 8px;
   font-size: 0.74rem;
@@ -3067,6 +3068,11 @@ body.theme-light .compras-page .summary-card-total {
 @media (max-width: 560px) {
   .compras-page .panel {
     padding: 16px;
+  }
+
+  .compras-page .btn-compact,
+  .compras-page .page-btn {
+    min-height: 44px;
   }
 
   .compras-page .form-grid-identify,

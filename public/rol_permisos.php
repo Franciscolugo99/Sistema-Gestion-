@@ -148,7 +148,7 @@ $permissionMeta = [
     'ver_productos' => ['category' => 'catalogo', 'summary' => 'Consulta el catalogo sin editar.', 'impact' => 'Abre productos_consulta.php.', 'level' => 'consulta'],
     'editar_promos' => ['category' => 'catalogo', 'summary' => 'Edita promociones.', 'impact' => 'Abre promos y combos.', 'level' => 'sensible'],
     'ver_costos' => ['category' => 'catalogo', 'summary' => 'Ve costos y margenes.', 'impact' => 'Expone informacion sensible.', 'level' => 'sensible'],
-    'editar_stock' => ['category' => 'inventario', 'summary' => 'Opera stock, compras y conteo.', 'impact' => 'Abre stock, compras y conteo.', 'level' => 'sensible'],
+    'editar_stock' => ['category' => 'inventario', 'summary' => 'Opera stock y conteo.', 'impact' => 'Compras tambien exige ver_costos.', 'level' => 'sensible'],
     'ver_stock' => ['category' => 'inventario', 'summary' => 'Consulta stock sin editar.', 'impact' => 'Abre stock_consulta.php y ya no habilita Analisis.', 'level' => 'consulta'],
     'gestionar_stock' => ['category' => 'inventario', 'summary' => 'Acciones avanzadas de stock.', 'impact' => 'Mas amplio que operar stock diario.', 'level' => 'admin'],
     'ver_movimientos' => ['category' => 'inventario', 'summary' => 'Consulta kardex.', 'impact' => 'Abre movimientos.php.', 'level' => 'consulta'],
@@ -172,7 +172,7 @@ $moduleRules = [
     ['label' => 'Clientes', 'tone' => 'pink', 'any' => ['ver_clientes', 'editar_clientes']],
     ['label' => 'Cuenta corriente', 'tone' => 'pink', 'any' => ['ver_cuenta_corriente']],
     ['label' => 'Facturacion', 'tone' => 'blue', 'any' => ['ver_facturacion', 'emitir_factura']],
-    ['label' => 'Compras', 'tone' => 'orange', 'any' => ['editar_stock']],
+    ['label' => 'Compras', 'tone' => 'orange', 'all' => ['editar_stock', 'ver_costos']],
     ['label' => 'Stock', 'tone' => 'orange', 'any' => ['editar_stock', 'ver_stock']],
     ['label' => 'Conteo fisico', 'tone' => 'orange', 'any' => ['editar_stock']],
     ['label' => 'Reposicion', 'tone' => 'orange', 'any' => ['ver_reportes', 'editar_stock']],
@@ -231,11 +231,17 @@ $porcentaje = $totalPermisos > 0 ? (int)round(($permisosActivos / $totalPermisos
 
 $initialPreview = [];
 foreach ($moduleRules as $rule) {
-    foreach ($rule['any'] as $requiredSlug) {
-        if (in_array($requiredSlug, $enabledSlugs, true)) {
-            $initialPreview[] = $rule;
-            break;
-        }
+    $requiredAll = is_array($rule['all'] ?? null) ? $rule['all'] : [];
+    if ($requiredAll !== [] && count(array_intersect($requiredAll, $enabledSlugs)) === count($requiredAll)) {
+        $initialPreview[] = $rule;
+        continue;
+    }
+
+    $requiredAny = is_array($rule['any'] ?? null) ? $rule['any'] : [];
+    foreach ($requiredAny as $requiredSlug) {
+        if (!in_array($requiredSlug, $enabledSlugs, true)) continue;
+        $initialPreview[] = $rule;
+        break;
     }
 }
 

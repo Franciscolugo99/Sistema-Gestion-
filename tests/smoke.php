@@ -1365,6 +1365,8 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
 
     flus_assert_contains("require_once FLUS_ROOT . '/src/logger.php';", $comprasPhp);
     flus_assert_contains("require_once FLUS_ROOT . '/src/compras_helpers.php';", $comprasPhp);
+    flus_assert_contains("require_permission('editar_stock');", $comprasPhp);
+    flus_assert_contains("require_permission('ver_costos');", $comprasPhp);
     flus_assert_contains("require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';", $comprasPhp);
     flus_assert_contains('function compras_require_row_change', $comprasPhp);
     flus_assert_contains('function compras_lock_product_stocks', $comprasPhp);
@@ -4225,6 +4227,11 @@ $results[] = flus_run_test('compras protege y presenta el detalle sin estilos in
     $comprasCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'compras.css');
     $comprasPageJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'compras_page.js');
     $comprasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'compras.js');
+    $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
+    $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'rol_permisos.php');
+    $rolesJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'rol_permisos.js');
+    $compraDetallePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'compra_detalle.php');
+    $compraDetalleApi = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'compra_detalle.php');
 
     flus_assert_contains('assets/js/compras_page.js', $comprasPhp);
     flus_assert_contains('data-detalle-id=', $comprasPhp);
@@ -4250,6 +4257,22 @@ $results[] = flus_run_test('compras protege y presenta el detalle sin estilos in
     flus_assert_contains('await refreshSavedPurchaseRow(savedCompraId);', $comprasJs);
     flus_assert_contains('document.addEventListener("submit", (event) => {', $comprasJs);
     flus_assert_contains('confirmForm.matches(".js-compra-confirm-form")', $comprasJs);
+    flus_assert_contains("\$canCompras          = \$can('editar_stock') && \$can('ver_costos');", $navPhp);
+    flus_assert_contains("'all' => ['editar_stock', 'ver_costos']", $rolesPhp);
+    flus_assert_contains('requiredAll.every((slug) => selected.has(slug))', $rolesJs);
+    flus_assert_contains('Compras tambien exige ver_costos', $rolesJs);
+    flus_assert_contains("require_permission('editar_stock');", $compraDetallePhp);
+    flus_assert_contains("require_permission('ver_costos');", $compraDetallePhp);
+    flus_assert_contains("require_perm_json('editar_stock');", $compraDetalleApi);
+    flus_assert_contains("require_perm_json('ver_costos');", $compraDetalleApi);
+    flus_assert_contains('.compras-page .btn-compact,', $comprasCss);
+    flus_assert_contains('min-height: 44px;', $comprasCss);
+    flus_assert_contains('@media (max-width: 980px)', $comprasCss);
+    flus_assert_contains('@media (max-width: 768px)', $comprasCss);
+    flus_assert_contains('@media (max-width: 560px)', $comprasCss);
+    flus_assert_contains('overflow: auto;', $comprasCss);
+    flus_assert_contains('max-height: 92vh;', $comprasCss);
+    flus_assert_contains('html[data-theme="light"] .compras-page', $comprasCss);
 });
 
 $skipped = array_values(array_filter($results, static fn(array $result): bool => (bool)($result['skipped'] ?? false)));

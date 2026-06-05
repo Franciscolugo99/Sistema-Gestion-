@@ -66,7 +66,14 @@
         }
 
         const selected = new Set(getSelectedSlugs());
-        const visible = rules.filter((rule) => Array.isArray(rule.any) && rule.any.some((slug) => selected.has(slug)));
+        const visible = rules.filter((rule) => {
+            const requiredAll = Array.isArray(rule.all) ? rule.all : [];
+            if (requiredAll.length > 0) {
+                return requiredAll.every((slug) => selected.has(slug));
+            }
+
+            return Array.isArray(rule.any) && rule.any.some((slug) => selected.has(slug));
+        });
 
         if (visible.length === 0) {
             container.innerHTML = '<span class="preview-empty">Este rol no habilita ningun modulo visible todavia.</span>';
@@ -90,6 +97,9 @@
         }
         if (selected.has('cerrar_caja') && !selected.has('realizar_ventas')) {
             notes.push('cerrar_caja esta marcado, pero el usuario no podria usar Caja si no tiene realizar_ventas.');
+        }
+        if (selected.has('editar_stock') && !selected.has('ver_costos')) {
+            notes.push('editar_stock permite operar inventario, pero Compras tambien exige ver_costos porque muestra costos de proveedores.');
         }
 
         if (notes.length === 0) {

@@ -7,6 +7,7 @@ require_once FLUS_ROOT . '/src/compras_tesoreria_lib.php';
 require_once FLUS_ROOT . '/src/compras_precio_historial_lib.php';
 require_login();
 require_permission('editar_stock');
+require_permission('ver_costos');
 $canManageTesoreria = function_exists('user_has_permission') && user_has_permission('gestionar_tesoreria');
 $HAS_COMPRAS_TOTAL_NETO      = flus_column_exists($pdo, 'compras', 'total_neto');
 $HAS_COMPRAS_TOTAL_IVA       = flus_column_exists($pdo, 'compras', 'total_iva');

@@ -6,6 +6,7 @@ require_once FLUS_ROOT . '/src/compras_helpers.php';
 
 require_login_json();
 require_perm_json('editar_stock');
+require_perm_json('ver_costos');
 
 $id = (int)($_GET['id'] ?? 0);
 

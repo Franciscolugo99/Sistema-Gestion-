@@ -25,6 +25,7 @@
 - `src/version.php` actualizado a `4.1.0` build `2026-05-29`.
 - Compras actualiza el listado despues del autosave y unifica sus acciones y modales sin manejadores inline.
 - El historial y la auditoria de costos de compra usan la misma conexion transaccional que stock y estado.
+- Compras exige `editar_stock` y `ver_costos`; la navegacion y la vista de roles respetan la misma regla.
 
 ### Fixed
 
@@ -32,6 +33,7 @@
 - La reversion de una compra resta stock de forma atomica y se rechaza completa si algun producto no alcanza.
 - La anulacion restaura el costo anterior solo si no hubo un cambio de costo posterior.
 - La segunda confirmacion de una compra ya procesada se rechaza sin duplicar stock.
+- Los controles compactos de Compras alcanzan un area tactil de 44px en pantallas moviles.
 
 ### Validation
 

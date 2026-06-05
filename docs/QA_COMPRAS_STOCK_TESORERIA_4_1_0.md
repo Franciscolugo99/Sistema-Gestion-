@@ -52,7 +52,7 @@ No se modificaron `install.sql` ni `migrations/`. Los cambios son compatibles co
 
 ### Permisos
 
-- `public/compras.php` exige `editar_stock` en backend.
+- `public/compras.php` exige `editar_stock` y `ver_costos` en backend.
 - La gestion de deuda exige ademas `gestionar_tesoreria`.
 - Ocultar botones no reemplaza estas validaciones.
 
@@ -77,9 +77,9 @@ No se modificaron `install.sql` ni `migrations/`. Los cambios son compatibles co
 ### 2. Permisos
 
 1. Entrar como administrador y abrir Compras.
-2. Entrar como usuario sin `editar_stock` e intentar abrir `compras.php` por URL.
+2. Entrar como usuario sin `editar_stock` o sin `ver_costos` e intentar abrir `compras.php` por URL.
 3. Confirmar que el backend rechaza el acceso.
-4. Entrar como usuario con `editar_stock` pero sin `gestionar_tesoreria`.
+4. Entrar como usuario con `editar_stock` y `ver_costos`, pero sin `gestionar_tesoreria`.
 5. Confirmar que puede operar compras, pero no crear deuda.
 
 ### 3. Borrador y autosave
@@ -177,8 +177,11 @@ No se modificaron `install.sql` ni `migrations/`. Los cambios son compatibles co
   - restauracion del costo anterior;
   - conservacion de un costo manual posterior;
   - historial y auditoria dentro de la conexion transaccional.
+  - matriz de permisos: admin y encargado habilitados; cajero y operador sin acceso completo.
 - QA previo en navegador: flujo de compras y anulacion verificado en `1366x768`, tema claro y oscuro.
-- Pendiente manual antes de produccion: repetir permisos con un usuario limitado y revisar tablet/movil. El navegador automatizado de esta sesion no pudo abrir `localhost` por politica del entorno.
+- El backend y la navegacion ya exigen `editar_stock` + `ver_costos`; la matriz se valida contra una instalacion limpia.
+- Los controles compactos y cierres de modal alcanzan `44px` en movil.
+- Pendiente manual antes de produccion: confirmar visualmente el rechazo por URL con un usuario limitado y revisar tablet/movil. El navegador automatizado no pudo abrir `localhost` por politica del entorno.
 
 ## Criterio de salida
 

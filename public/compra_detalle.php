@@ -5,6 +5,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/compras_helpers.php';
 require_login();
 require_permission('editar_stock');
+require_permission('ver_costos');
 
 $id = max(0, (int)($_GET['id'] ?? 0));
 if ($id <= 0) {
