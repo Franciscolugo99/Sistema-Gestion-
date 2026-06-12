@@ -8,6 +8,8 @@ require_once __DIR__ . '/../src/facturacion_manual_lib.php';
 require_once __DIR__ . '/../src/facturacion_lib.php';
 require_once __DIR__ . '/../src/cobranzas_lib.php';
 require_once __DIR__ . '/../src/tesoreria_lib.php';
+require_once __DIR__ . '/../src/mercadopago_liquidaciones_lib.php';
+require_once __DIR__ . '/../src/ticket_config_lib.php';
 require_once __DIR__ . '/../src/recargo_horario.php';
 require_once __DIR__ . '/../public/includes/CuentaCorrienteController.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
@@ -884,16 +886,25 @@ $results[] = flus_run_test('sh_quote handles platform quoting', function (): voi
 });
 
 $results[] = flus_run_test('mysql cli discovery prefers current PHP stack over fixed XAMPP paths', function (): void {
-    $backupLib = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php');
-    $tecnicoPhp = (string)file_get_contents(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
+    $repoRoot = dirname(__DIR__);
+    $backupLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php');
+    $tecnicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
+    $isPortablePayload = !is_file($repoRoot . DIRECTORY_SEPARATOR . '.gitignore');
 
     flus_assert_contains('function flus_mysql_stack_bin_candidates', $backupLib);
     flus_assert_contains('defined(\'PHP_BINARY\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysqldump.exe\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysql.exe\')', $backupLib);
+    flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
+
+    if ($isPortablePayload) {
+        flus_assert_contains('$portableRoot . \'/stack/php/php.exe\'', $tecnicoPhp);
+        flus_assert_contains('$portableRoot . \'/stack/php/windowsXamppPhp/php.exe\'', $tecnicoPhp);
+        return;
+    }
+
     flus_assert_contains('defined(\'PHP_BINDIR\')', $tecnicoPhp);
     flus_assert_contains('$candidates[] = $xamppRoot . \'/php/php.exe\';', $tecnicoPhp);
-    flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
 
     $hasLocalStackFallback = strpos($tecnicoPhp, '$candidates[] = \'C:/xampp82/php/php.exe\';') !== false;
     $hasPortableStackFallback = strpos($tecnicoPhp, '$portableRoot . \'/stack/php/php.exe\'') !== false;
@@ -1381,6 +1392,8 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     flus_assert_contains('$pdo', $comprasPrecioHistLib);
     flus_assert_contains("'COSTO'", $comprasPrecioHistLib);
     flus_assert_contains('"Compra #{$compraId} confirmada"', $comprasPrecioHistLib);
+    flus_assert_contains('$cambiosCompra[] = $historial;', $comprasPrecioHistLib);
+    flus_assert_contains('$primerCambio = $cambiosCompra[count($cambiosCompra) - 1];', $comprasPrecioHistLib);
     flus_assert_contains('function flus_compras_margenes_para_compra', $comprasPrecioHistLib);
     flus_assert_contains('compras.php?saved=confirmed&compra_id=', $comprasPhp);
     flus_assert_contains("require __DIR__ . '/partials/compras_margenes_confirmacion.php';", $comprasPhp);
@@ -1401,6 +1414,7 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     $repoRoot = dirname(__DIR__);
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '031_movimientos_stock_tipo_compat.sql');
+    $snapshotMigrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '040_movimientos_stock_snapshots_compat.sql');
     $ventaApiLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
     $ventaAnulacionesLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
     $stockAjax = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock_ajax.php');
@@ -1412,6 +1426,9 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('MODIFY COLUMN `tipo` ENUM', $migrationSql);
     flus_assert_contains('ANULACION_COMPRA', $migrationSql);
     flus_assert_contains('DROP TRIGGER IF EXISTS `before_insert_movimiento_stock`', $migrationSql);
+    flus_assert_contains("COLUMN_NAME = 'stock_anterior'", $snapshotMigrationSql);
+    flus_assert_contains("COLUMN_NAME = 'stock_nuevo'", $snapshotMigrationSql);
+    flus_assert_contains('CREATE TRIGGER `before_insert_movimiento_stock`', $snapshotMigrationSql);
 
     $ventaMovimientoPos = strpos($ventaApiLib, "insert_dynamic(\$pdo, 'movimientos_stock'");
     $ventaUpdatePos = strpos($ventaApiLib, 'UPDATE productos SET stock = stock - :c');
@@ -1705,6 +1722,8 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     foreach (['ventas', 'venta_items', 'venta_pagos', 'venta_promos'] as $table) {
         flus_assert_contains('CREATE TABLE `' . $table . '`', $installSql);
     }
+    flus_assert_not_contains('ENGINE=InnoDB AUTO_INCREMENT=', $installSql);
+    flus_assert_not_contains('movimientos_stock_backup_7d', $installSql);
 
     foreach ([
         '`ajuste_precio_aplicado` tinyint(1) NOT NULL DEFAULT 0',
@@ -1729,7 +1748,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 039", $integrationPhp);
+    flus_assert_contains("latest migration is 042", $integrationPhp);
     flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
     flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
@@ -1890,6 +1909,91 @@ $results[] = flus_run_test('ticket humanizes CC and digital payment labels consi
     flus_assert_contains("function humanize_ticket_medio_pago(string \$medio): string {", $ticketPublicoPhp);
     flus_assert_contains("'CC' => 'Cuenta Corriente',", $ticketPublicoPhp);
     flus_assert_contains("return implode(' + ', array_map('humanize_ticket_medio_pago', \$parts));", $ticketPublicoPhp);
+});
+
+$results[] = flus_run_test('ticket termico respeta el ancho imprimible real de 58 mm', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ticketCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'ticket.css');
+    $ticketPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket.php');
+
+    flus_assert_contains('--printable-w-58: 46mm;', $ticketCss);
+    flus_assert_contains('--printable-w: var(--printable-w-58);', $ticketCss);
+    flus_assert_contains('grid-template-columns: minmax(0, 1fr) 8.5mm 13.5mm;', $ticketCss);
+    flus_assert_contains('width: var(--printable-w);', $ticketCss);
+    flus_assert_contains('margin-left: 6mm;', $ticketCss);
+    flus_assert_contains('overflow-wrap: anywhere;', $ticketCss);
+    flus_assert_contains('overflow: visible;', $ticketCss);
+    flus_assert_contains('font-weight: 700;', $ticketCss);
+    flus_assert_contains('ticket.css?v=<?= rawurlencode($ticketCssVersion) ?>', $ticketPhp);
+});
+
+$results[] = flus_run_test('tickets comparten una configuracion y una pantalla de prueba', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ticketConfigPhp = (string)file_get_contents($repoRoot . '/public/ticket_config.php');
+    $ticketConfigJs = (string)file_get_contents($repoRoot . '/public/assets/js/ticket_config.js');
+    $ticketPhp = (string)file_get_contents($repoRoot . '/public/ticket.php');
+    $generalConfigPhp = (string)file_get_contents($repoRoot . '/public/configuracion.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . '/public/caja.php');
+    $cajaJs = (string)file_get_contents($repoRoot . '/public/assets/js/caja.js');
+    $recientesJs = (string)file_get_contents($repoRoot . '/public/assets/js/caja_ventas_recientes.js');
+    $ventasPhp = (string)file_get_contents($repoRoot . '/public/ventas.php');
+    $ventasJs = (string)file_get_contents($repoRoot . '/public/assets/js/ventas.js');
+    $cajaSesionDetallePhp = (string)file_get_contents($repoRoot . '/public/caja_sesion_detalle.php');
+    $navPhp = (string)file_get_contents($repoRoot . '/public/partials/nav.php');
+
+    flus_assert_same('58', flus_ticket_normalize_paper('58'));
+    flus_assert_same('80', flus_ticket_normalize_paper('otro'));
+    flus_assert_same('preview', flus_ticket_normalize_mode('preview'));
+    flus_assert_same('autoprint', flus_ticket_normalize_mode('otro'));
+
+    flus_assert_contains("config_set(\$pdo, 'print_ticket_paper', \$paper)", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'print_ticket_mode', \$mode)", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'ticket_footer', \$footer)", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'ticket_logo_url', \$logoUrl)", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'ticket_show_logo'", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'ticket_show_register'", $ticketConfigPhp);
+    flus_assert_contains("config_set(\$pdo, 'ticket_show_cashier'", $ticketConfigPhp);
+    flus_assert_contains('name="logo_file"', $ticketConfigPhp);
+    flus_assert_contains('name="ticket_show_logo"', $ticketConfigPhp);
+    flus_assert_contains('name="ticket_show_register"', $ticketConfigPhp);
+    flus_assert_contains('name="ticket_show_cashier"', $ticketConfigPhp);
+    flus_assert_contains('id="ticketPreviewFrame"', $ticketConfigPhp);
+    flus_assert_contains('target.print();', $ticketConfigJs);
+    flus_assert_contains("config_get(\$pdo, 'print_ticket_paper', '80')", $ticketPhp);
+    flus_assert_contains('class="ticket-logo"', $ticketPhp);
+    flus_assert_contains('$showRegister &&', $ticketPhp);
+    flus_assert_contains('$showCashier &&', $ticketPhp);
+    flus_assert_contains('t.nombre AS caja_nombre', $ticketPhp);
+    flus_assert_not_contains('id="paperSelect"', $ticketPhp);
+
+    flus_assert_contains('href="ticket_config.php">Configurar tickets</a>', $generalConfigPhp);
+    flus_assert_not_contains("'print_ticket_mode' => [", $generalConfigPhp);
+    flus_assert_not_contains("'print_ticket_paper' => [", $generalConfigPhp);
+    flus_assert_not_contains('name="print_ticket_mode"', $generalConfigPhp);
+    flus_assert_not_contains('name="print_ticket_paper"', $generalConfigPhp);
+    flus_assert_not_contains('name="ticket_footer"', $generalConfigPhp);
+    flus_assert_not_contains('Probar ticket', $generalConfigPhp);
+
+    flus_assert_contains('flus_ticket_resolved_config($pdo, $terminalId)', $cajaPhp);
+    flus_assert_contains('window.FLUS_TICKET_CONFIG', $cajaPhp);
+    flus_assert_not_contains('window.FLUS_PRINT_DEFAULTS', $cajaPhp);
+    flus_assert_not_contains('id="ticketPrintMode"', $cajaPhp);
+    flus_assert_contains('const TICKET_CONFIG = window.FLUS_TICKET_CONFIG || {};', $cajaJs);
+    flus_assert_contains('String(TICKET_CONFIG.paper || "80")', $cajaJs);
+    flus_assert_contains('String(TICKET_CONFIG.mode || "autoprint")', $cajaJs);
+    flus_assert_not_contains('PRINT_TERMINAL_DEFAULTS', $cajaJs);
+    flus_assert_not_contains('kiosco-ticket-paper', $cajaJs);
+    flus_assert_not_contains('kiosco-ticket-print-mode', $cajaJs);
+    flus_assert_contains('const TICKET_CONFIG = window.FLUS_TICKET_CONFIG || {};', $recientesJs);
+    flus_assert_not_contains('PRINT_TERMINAL_DEFAULTS', $recientesJs);
+    flus_assert_not_contains('kiosco-ticket-paper', $recientesJs);
+
+    flus_assert_contains('window.FLUS_TICKET_PAPER', $ventasPhp);
+    flus_assert_not_contains('id="paperSel"', $ventasPhp);
+    flus_assert_not_contains("PAPER_KEY: 'flus-paper'", $ventasJs);
+    flus_assert_contains('flus_ticket_resolved_config($pdo, (int)($sesion[\'terminal_id\'] ?? 0))', $cajaSesionDetallePhp);
+    flus_assert_contains('&paper=<?= h($sessionTicketPaper) ?>', $cajaSesionDetallePhp);
+    flus_assert_contains("'ticket_config.php'", $navPhp);
 });
 
 $results[] = flus_run_test('promo actions rely on centralized API guards', function (): void {
@@ -2070,12 +2174,21 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     $mpLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'mercadopago_qr_lib.php');
     $mpQrTestPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'mp_qr_test.php');
     $mpQrTestJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'mp_qr_test.js');
+    $cajaMpJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js');
+    $mpSetupPs1 = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'mp_qr_setup.ps1');
+    $mpSetupCmd = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'Configurar Mercado Pago Prueba.cmd');
     $mpMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '039_venta_pagos_mp_metadata.sql';
-    $gitignore = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . '.gitignore');
+    $mpStateMigrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '041_mercadopago_integration_state.sql';
+    $gitignorePath = $repoRoot . DIRECTORY_SEPARATOR . '.gitignore';
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
     $mpMigrationSql = (string)file_get_contents($mpMigrationPath);
+    $mpStateMigrationSql = (string)file_get_contents($mpStateMigrationPath);
+    $mpIntegrationLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'mercadopago_integration_lib.php');
+    $mpWebhookPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'mercadopago_webhook.php');
 
-    flus_assert_contains('/src/config_mp.php', $gitignore);
+    if (is_file($gitignorePath)) {
+        flus_assert_contains('/src/config_mp.php', (string)file_get_contents($gitignorePath));
+    }
     flus_assert_contains("require_once __DIR__ . '/../../src/mercadopago_qr_lib.php';", $indexPhp);
     flus_assert_contains("'mp_qr_create' => [", $indexPhp);
     flus_assert_contains("'mp_point_create' => [", $indexPhp);
@@ -2087,6 +2200,10 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_contains('MP_QR_CONFIRMATION_REQUIRED', $ventaLibPhp);
     flus_assert_contains('MP_POINT_AMOUNT_MISMATCH', $ventaLibPhp);
     flus_assert_contains('flus_venta_mp_manual_confirmed($body, \'qr\')', $ventaLibPhp);
+    flus_assert_contains('$expectedAmount = round($mpTotal, 2);', $ventaLibPhp);
+    flus_assert_contains('$expectedAmount = round($pointTotal, 2);', $ventaLibPhp);
+    flus_assert_contains('mp_qr_manual_fallback', $ventaLibPhp);
+    flus_assert_contains('mp_point_manual_fallback', $ventaLibPhp);
     flus_assert_contains("\$insertPago['mp_verified']", $ventaLibPhp);
     flus_assert_contains('window.FLUS_MP_QR_ENABLED', $cajaPhp);
     flus_assert_contains('assets/js/caja_mp_qr.js', $cajaPhp);
@@ -2099,9 +2216,25 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_contains('function flus_mp_manual_fallback_enabled(): bool', $mpLibPhp);
     flus_assert_contains('function flus_mp_min_amount(): float', $mpLibPhp);
     flus_assert_contains('function flus_mp_qr_response_error_message(array $body, string $fallback): string', $mpLibPhp);
+    flus_assert_contains("(array)(\$body['causes'] ?? [])", $mpLibPhp);
+    flus_assert_contains('location.city_name was invalid', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_create_store_and_pos(string $accessToken, array $input): array', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_current_user(string $accessToken): array', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_environment(): string', $mpLibPhp);
+    flus_assert_contains("'FLUSMPPROD' : 'FLUSMPTEST'", $mpLibPhp);
+    flus_assert_contains("'Cobro FLUS QR' : 'Prueba FLUS QR'", $mpLibPhp);
+    flus_assert_contains("flus_mp_qr_http('GET', '/users/me'", $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_search_store(string $accessToken, string $userId, string $externalId): array', $mpLibPhp);
+    flus_assert_contains('function flus_mp_qr_search_pos(string $accessToken, string $externalId): array', $mpLibPhp);
+    flus_assert_contains("'/users/' . rawurlencode(\$userId) . '/stores'", $mpLibPhp);
+    flus_assert_contains("'POST', '/pos'", $mpLibPhp);
     flus_assert_contains('Mercado Pago requiere un importe minimo de $', $mpLibPhp);
+    flus_assert_contains("'canceled', 'failed']", $mpLibPhp);
     flus_assert_contains('Mercado Pago QR todavia no esta listo', $mpQrTestPhp);
     flus_assert_contains('Abrir configuracion Mercado Pago', $mpQrTestPhp);
+    flus_assert_contains('Escenarios antes de produccion', $mpQrTestPhp);
+    flus_assert_contains('Ambiente productivo: este QR cobra dinero real', $mpQrTestPhp);
+    flus_assert_contains('No registra una venta en FLUS.', $mpQrTestPhp);
     flus_assert_contains('min="<?= h((string)$minAmount) ?>"', $mpQrTestPhp);
     flus_assert_contains('const minAmount = Number(amount.min || 15);', $mpQrTestJs);
     flus_assert_contains('rawAmount < minAmount', $mpQrTestJs);
@@ -2112,11 +2245,87 @@ $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales
     flus_assert_contains('window.FLUS_MP_MANUAL_FALLBACK', $cajaPhp);
     flus_assert_contains('mp_manual_fallback', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js'));
     flus_assert_contains('name="cashier_mode"', $mpPanelPhp);
+    flus_assert_contains('name="accion" value="create_qr_setup"', $mpPanelPhp);
+    flus_assert_contains('name="setup_environment"', $mpPanelPhp);
+    flus_assert_contains("if (\$setupEnvironment === 'production')", $mpPanelPhp);
+    flus_assert_contains('flus_mp_qr_current_user($setupToken)', $mpPanelPhp);
+    flus_assert_contains('No uses el numero de aplicacion.', $mpPanelPhp);
+    flus_assert_contains('name="webhook_secret"', $mpPanelPhp);
+    flus_assert_contains('name="webhook_url"', $mpPanelPhp);
+    flus_assert_contains('Mercado Pago no puede acceder a localhost directamente.', $mpPanelPhp);
+    flus_assert_contains('Actividad Webhook', $mpPanelPhp);
+    flus_assert_contains('Crear sucursal y caja QR', $mpPanelPhp);
+    flus_assert_contains('Coordenadas de Google Maps', $mpPanelPhp);
     flus_assert_contains('Manual rapido', $mpPanelPhp);
     flus_assert_contains('Registrar manual', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_mp_qr.js'));
+    flus_assert_contains('const mpAmount = amountFor(["MP"]);', $cajaMpJs);
+    flus_assert_contains('result.qr = await confirmar(mpAmount);', $cajaMpJs);
+    flus_assert_contains('pointAmount,', $cajaMpJs);
+    flus_assert_contains('mp_qr_manual_fallback', $cajaMpJs);
+    flus_assert_contains('mp_point_manual_fallback', $cajaMpJs);
+    flus_assert_contains('https://api.mercadopago.com/users/me', $mpSetupPs1);
+    flus_assert_contains('https://api.mercadopago.com/pos', $mpSetupPs1);
+    flus_assert_contains('StartsWith("APP_USR-"', $mpSetupPs1);
+    flus_assert_contains('Credenciales > Prueba', $mpSetupPs1);
+    flus_assert_contains('[string]$CollectorUserId', $mpSetupPs1);
+    flus_assert_contains('User ID de prueba', $mpSetupPs1);
+    flus_assert_contains('users/$CollectorUserId/stores', $mpSetupPs1);
+    flus_assert_contains('business_hours = @{', $mpSetupPs1);
+    flus_assert_contains('mp_qr_ultimo_error.json', $mpSetupPs1);
+    flus_assert_contains("FLUS_MP_CASHIER_MODE', 'automatic'", $mpSetupPs1);
+    flus_assert_contains("FLUS_MP_MANUAL_FALLBACK', true", $mpSetupPs1);
+    flus_assert_contains('[switch]$DryRun', $mpSetupPs1);
+    flus_assert_contains('mp_qr_setup.ps1', $mpSetupCmd);
+    flus_assert_contains('-ExecutionPolicy Bypass', $mpSetupCmd);
     flus_assert_contains('`mp_order_id` varchar(80) DEFAULT NULL', $installSql);
     flus_assert_contains('`mp_verified` tinyint(1) NOT NULL DEFAULT 0', $installSql);
     flus_assert_contains("TABLE_NAME = 'venta_pagos' AND COLUMN_NAME = 'mp_order_id'", $mpMigrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `mercadopago_integraciones`', $mpStateMigrationSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `mercadopago_webhook_eventos`', $mpStateMigrationSql);
+    flus_assert_contains('function flus_mp_integration_prepare(PDO $pdo', $mpIntegrationLib);
+    flus_assert_contains('function flus_mp_webhook_signature_valid(', $mpIntegrationLib);
+    flus_assert_contains('function flus_mp_webhook_status(PDO $pdo', $mpIntegrationLib);
+    flus_assert_contains("hash_hmac('sha256', \$manifest, \$secret)", $mpIntegrationLib);
+    flus_assert_contains("mp_webhook_query_value('data.id')", $mpWebhookPhp);
+    flus_assert_contains('HTTP_X_SIGNATURE', $mpWebhookPhp);
+    flus_assert_contains('flus_mp_webhook_signature_valid(', $mpWebhookPhp);
+    flus_assert_not_contains('require_login', $mpWebhookPhp);
+    flus_assert_not_contains("require_once __DIR__ . '/bootstrap.php'", $mpWebhookPhp);
+});
+
+$results[] = flus_run_test('mercado pago liquida bruto comisiones impuestos y neto', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $migration = (string)file_get_contents($repoRoot . '/migrations/042_mercadopago_liquidaciones.sql');
+    $page = (string)file_get_contents($repoRoot . '/public/mercadopago_liquidaciones.php');
+    $nav = (string)file_get_contents($repoRoot . '/public/partials/nav.php');
+    $installSql = (string)file_get_contents($repoRoot . '/install.sql');
+
+    $normalized = flus_mp_liquidacion_normalize_payment([
+        'id' => '162941683554',
+        'status' => 'approved',
+        'status_detail' => 'accredited',
+        'transaction_amount' => 15,
+        'currency_id' => 'ARS',
+        'fee_details' => [
+            ['type' => 'mercadopago_fee', 'amount' => 0.15],
+        ],
+        'charges_details' => [
+            ['type' => 'tax_withholding', 'amounts' => ['original' => 0.45]],
+        ],
+        'transaction_details' => ['net_received_amount' => 14.40],
+        'date_approved' => '2026-06-07T01:14:12-03:00',
+    ]);
+
+    flus_assert_true(abs(15.0 - (float)$normalized['transaction_amount']) < 0.001);
+    flus_assert_true(abs(0.15 - (float)$normalized['fee_amount']) < 0.001);
+    flus_assert_true(abs(0.45 - (float)$normalized['taxes_amount']) < 0.001);
+    flus_assert_true(abs(14.4 - (float)$normalized['net_received_amount']) < 0.001);
+    flus_assert_true($normalized['transaction_type'] === 'SETTLEMENT');
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `mercadopago_liquidaciones`', $migration);
+    flus_assert_contains('CREATE TABLE `mercadopago_liquidaciones`', $installSql);
+    flus_assert_contains('flus_mp_liquidaciones_sync($pdo)', $page);
+    flus_assert_contains('Neto recibido', $page);
+    flus_assert_contains('mercadopago_liquidaciones.php', $nav);
 });
 
 $results[] = flus_run_test('user legacy api endpoints share centralized bootstrap and csrf extraction', function (): void {
@@ -3568,6 +3777,44 @@ $results[] = flus_run_test('caja activa modo compacto con split o cuenta corrien
     flus_assert_contains("@media (min-width: 1081px) {\n  body.caja-fullscreen-page .caja-panel--neo.has-cc-payment .pagos-row.pagos-row--split", $cajaNeoCss);
     flus_assert_not_contains('.cc-wrap.cc-wrap--compact', $cajaNeoCss);
     flus_assert_not_contains('.cc-wrap.cc-wrap--after-pago2', $cajaNeoCss);
+});
+
+$results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+
+    flus_assert_contains('id="lblTotal"', $cajaPhp);
+    flus_assert_contains('id="lblTotalPagado"', $cajaPhp);
+    flus_assert_contains('id="lblCobroFeedback"', $cajaPhp);
+    flus_assert_not_contains('id="sidebarTicketTotal"', $cajaPhp);
+    flus_assert_not_contains('id="sidebarTicketPaid"', $cajaPhp);
+    flus_assert_not_contains('id="sidebarPendingValue"', $cajaPhp);
+    flus_assert_not_contains('id="paymentSummaryMethod1"', $cajaPhp);
+    flus_assert_not_contains('id="paymentSummaryValue1"', $cajaPhp);
+    flus_assert_not_contains('id="paymentSummaryMethod2"', $cajaPhp);
+    flus_assert_not_contains('id="paymentSummaryValue2"', $cajaPhp);
+    flus_assert_not_contains('class="ticket-panel-head"', $cajaPhp);
+    flus_assert_not_contains('id="ticketStatusLabel"', $cajaPhp);
+    flus_assert_not_contains('id="ticketEmptyState"', $cajaPhp);
+    flus_assert_not_contains('class="shortcuts-box"', $cajaPhp);
+
+    $ticketPos = strpos($cajaPhp, 'class="caja-neo-ticket"');
+    $footerPos = strpos($cajaPhp, 'class="caja-neo-footer"');
+    $sidebarPos = strpos($cajaPhp, 'class="caja-neo-sidebar"');
+    flus_assert_true(
+        $ticketPos !== false
+        && $footerPos !== false
+        && $sidebarPos !== false
+        && $ticketPos < $footerPos
+        && $footerPos < $sidebarPos,
+        'ticket summary and actions should stay inside the ticket flow before the payment sidebar'
+    );
+
+    flus_assert_contains('inputPagado2.disabled = false;', $cajaJs);
+    flus_assert_contains('inputPagado2.dataset.auto !== "0";', $cajaJs);
+    flus_assert_not_contains('inputPagado2.disabled = slot2EsExacto;', $cajaJs);
+    flus_assert_not_contains('inputPagado2.dataset.auto !== "0" || medioEsExacto(medio2)', $cajaJs);
 });
 
 $results[] = flus_run_test('caja bloquea doble cobro en boton atajos y cancelacion mientras procesa', function (): void {

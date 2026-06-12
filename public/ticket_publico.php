@@ -63,11 +63,16 @@ if (!validateTicketToken($id, $ts, $token)) {
 $pdo = getPDO();
 
 $stmt = $pdo->prepare("
-  SELECT v.*, 
+  SELECT v.*,
          COALESCE(c.nombre, 'Consumidor Final') as cliente_nombre,
-         c.documento as cliente_documento
+         c.documento as cliente_documento,
+         t.nombre AS caja_nombre,
+         u.username AS cajero
   FROM ventas v
   LEFT JOIN clientes c ON c.id = v.cliente_id
+  LEFT JOIN caja_sesiones cs ON cs.id = v.caja_id
+  LEFT JOIN terminales t ON t.id = cs.terminal_id
+  LEFT JOIN users u ON u.id = v.user_id
   WHERE v.id = ?
   LIMIT 1
 ");
@@ -103,7 +108,12 @@ $config = [
   'business_address' => '',
   'business_phone' => '',
   'business_cuit' => '',
-  'ticket_footer' => 'Gracias por su compra'
+  'ticket_footer' => 'Gracias por su compra',
+  'business_logo_url' => '',
+  'ticket_logo_url' => '',
+  'ticket_show_logo' => '0',
+  'ticket_show_register' => '0',
+  'ticket_show_cashier' => '0'
 ];
 
 try {
@@ -200,6 +210,15 @@ $fontSize = $paper === '58' ? '10px' : '12px';
       border-bottom: 1px dashed #333;
       padding-bottom: 10px;
       margin-bottom: 10px;
+    }
+
+    .ticket-logo {
+      display: block;
+      width: auto;
+      max-width: 120px;
+      max-height: 72px;
+      margin: 0 auto 8px;
+      object-fit: contain;
     }
     
     .business-name {
@@ -310,6 +329,10 @@ $fontSize = $paper === '58' ? '10px' : '12px';
   <div class="ticket-container">
     <!-- Header -->
     <div class="header">
+      <?php $publicTicketLogo = trim((string)$config['ticket_logo_url']) ?: trim((string)$config['business_logo_url']); ?>
+      <?php if ($publicTicketLogo !== '' && $config['ticket_show_logo'] === '1'): ?>
+        <img class="ticket-logo" src="<?= h($publicTicketLogo) ?>" alt="">
+      <?php endif; ?>
       <div class="business-name"><?= h($config['business_name']) ?></div>
       <div class="business-info">
         <?php if ($config['business_address']): ?>
@@ -346,6 +369,18 @@ $fontSize = $paper === '58' ? '10px' : '12px';
         <span>Medio:</span>
         <span><?= h($medioPago) ?></span>
       </div>
+      <?php if ($config['ticket_show_register'] === '1' && (!empty($venta['caja_nombre']) || !empty($venta['caja_id']))): ?>
+        <div class="meta-row">
+          <span>Caja:</span>
+          <span><?= h(trim((string)($venta['caja_nombre'] ?? '')) ?: ('#' . (int)$venta['caja_id'])) ?></span>
+        </div>
+      <?php endif; ?>
+      <?php if ($config['ticket_show_cashier'] === '1' && !empty($venta['cajero'])): ?>
+        <div class="meta-row">
+          <span>Cajero:</span>
+          <span><?= h((string)$venta['cajero']) ?></span>
+        </div>
+      <?php endif; ?>
     </div>
     
     <!-- Items -->

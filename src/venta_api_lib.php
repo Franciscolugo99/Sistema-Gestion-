@@ -388,7 +388,7 @@ function flus_venta_validate_mp_qr_payment(array $body, array $pagosCaja, float 
         }
     }
 
-    $expectedAmount = round($totalNetoFinal, 2);
+    $expectedAmount = round($mpTotal, 2);
     if ($remoteAmount !== null && abs($remoteAmount - $expectedAmount) > 0.01) {
         flus_venta_fail('El importe aprobado por Mercado Pago no coincide con el total de la venta.', 'MP_QR_AMOUNT_MISMATCH', 409);
     }
@@ -462,7 +462,7 @@ function flus_venta_validate_mp_point_payment(array $body, array $pagosCaja, flo
         }
     }
 
-    $expectedAmount = round($totalNetoFinal, 2);
+    $expectedAmount = round($pointTotal, 2);
     if ($remoteAmount !== null && abs($remoteAmount - $expectedAmount) > 0.01) {
         flus_venta_fail('El importe aprobado por Mercado Pago Point no coincide con el total de la venta.', 'MP_POINT_AMOUNT_MISMATCH', 409);
     }
@@ -479,6 +479,12 @@ function flus_venta_validate_mp_point_payment(array $body, array $pagosCaja, flo
 
 function flus_venta_mp_manual_confirmed(array $body, string $kind): bool
 {
+    $kind = strtolower($kind);
+    $specificKey = $kind === 'point' ? 'mp_point_manual_fallback' : 'mp_qr_manual_fallback';
+    if (array_key_exists($specificKey, $body)) {
+        return filter_var($body[$specificKey], FILTER_VALIDATE_BOOL);
+    }
+
     $manual = filter_var($body['mp_manual_fallback'] ?? false, FILTER_VALIDATE_BOOL);
     if (!$manual) {
         return false;
@@ -489,13 +495,14 @@ function flus_venta_mp_manual_confirmed(array $body, string $kind): bool
         return true;
     }
 
-    $kind = strtolower($kind);
     return $manualKind === $kind || ($kind === 'qr' && $manualKind === 'mp');
 }
 
 function flus_venta_mp_manual_meta(array $body, string $origin): array
 {
-    $reason = trim((string)($body['mp_manual_reason'] ?? ''));
+    $kind = strtoupper($origin) === 'POINT' ? 'point' : 'qr';
+    $specificReasonKey = $kind === 'point' ? 'mp_point_manual_reason' : 'mp_qr_manual_reason';
+    $reason = trim((string)($body[$specificReasonKey] ?? $body['mp_manual_reason'] ?? ''));
     $reason = function_exists('mb_substr') ? mb_substr($reason, 0, 255) : substr($reason, 0, 255);
 
     return [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/csrf.php';
+require_once FLUS_ROOT . '/src/ticket_config_lib.php';
 require_login();
 require_permission('administrar_config');
 $csrfToken = csrf_token();
@@ -34,12 +35,6 @@ $fields = [
     'hint'  => 'Ej: 261-0000000',
     'max'   => 40,
   ],
-  'ticket_footer' => [
-    'label' => 'Pie del ticket',
-    'type'  => 'textarea',
-    'hint'  => 'Ej: Gracias por su compra',
-    'max'   => 200,
-  ],
   'qr_base_url' => [
     'label' => 'Base URL QR (futuro AFIP/ARCA)',
     'type'  => 'text',
@@ -59,25 +54,6 @@ $toggleFields = [
 ];
 
 $printFields = [
-  'print_ticket_mode' => [
-    'label' => 'Ticket de venta',
-    'default' => 'autoprint',
-    'hint' => 'Define como sale el ticket despues de cobrar en Caja.',
-    'options' => [
-      'autoprint' => 'Auto imprimir',
-      'preview' => 'Vista previa',
-      'none' => 'No abrir ticket',
-    ],
-  ],
-  'print_ticket_paper' => [
-    'label' => 'Papel ticket',
-    'default' => '80',
-    'hint' => 'Ancho esperado para ticket termico.',
-    'options' => [
-      '80' => '80 mm',
-      '58' => '58 mm',
-    ],
-  ],
   'print_comanda_mode' => [
     'label' => 'Comanda',
     'default' => 'none',
@@ -115,7 +91,6 @@ $values = [];
 foreach ($fields as $k => $meta) {
   $default = match ($k) {
     'business_name' => 'KIOSCO',
-    'ticket_footer' => 'Gracias por su compra',
     'qr_base_url'   => 'https://www.arca.gob.ar/fe/qr/',
     default         => '',
   };
@@ -134,6 +109,12 @@ foreach ($printFields as $k => $meta) {
   $default = (string)($meta['default'] ?? '');
   $printValues[$k] = (string)(config_get($pdo, $k, $default) ?? $default);
 }
+$ticketConfig = flus_ticket_global_config($pdo);
+$ticketModeLabel = match ($ticketConfig['mode']) {
+  'preview' => 'Vista previa en FLUS',
+  'none' => 'No abrir automaticamente',
+  default => 'Abrir dialogo de impresion',
+};
 
 // Guardar (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -386,48 +367,38 @@ require __DIR__ . '/partials/header.php';
           ><?= h($values['business_address'] ?? '') ?></textarea>
         </div>
 
-        <div class="config-field config-field--wide">
-          <label for="ticket_footer">Pie del ticket</label>
-          <textarea
-            id="ticket_footer"
-            name="ticket_footer"
-            rows="2"
-            placeholder="Ej: Gracias por su compra"
-          ><?= h($values['ticket_footer'] ?? '') ?></textarea>
-        </div>
       </div>
     </div>
 
     <div class="cfg-panel" id="cfg-impresion" role="tabpanel" aria-labelledby="tab-cfg-impresion">
       <div class="cfg-print-groups">
-        <div class="cfg-print-group">
-          <h4 class="cfg-print-group-title">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="2" y="7" width="20" height="15" rx="2"/>
-              <path d="M16 3H8v4h8V3z"/>
-            </svg>
-            Ticket de venta
-          </h4>
-          <div class="cfg-print-row">
-            <div class="config-field">
-              <label for="print_ticket_mode">Modo</label>
-              <select id="print_ticket_mode" name="print_ticket_mode">
-                <?php foreach ($printFields['print_ticket_mode']['options'] as $v => $l): ?>
-                  <option value="<?= h((string)$v) ?>" <?= ($printValues['print_ticket_mode'] === (string)$v) ? 'selected' : '' ?>><?= h((string)$l) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="config-field">
-              <label for="print_ticket_paper">Papel</label>
-              <select id="print_ticket_paper" name="print_ticket_paper">
-                <?php foreach ($printFields['print_ticket_paper']['options'] as $v => $l): ?>
-                  <option value="<?= h((string)$v) ?>" <?= ($printValues['print_ticket_paper'] === (string)$v) ? 'selected' : '' ?>><?= h((string)$l) ?></option>
-                <?php endforeach; ?>
-              </select>
+        <section class="cfg-ticket-handoff" aria-labelledby="cfg-ticket-handoff-title">
+          <div class="cfg-ticket-handoff__main">
+            <span class="cfg-ticket-handoff__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+            </span>
+            <div>
+              <span class="cfg-ticket-handoff__eyebrow">Perfil unificado</span>
+              <h3 id="cfg-ticket-handoff-title">Ticket de venta</h3>
+              <p>El papel, la salida, el logo y los datos visibles se administran en un solo lugar.</p>
             </div>
           </div>
-          <p class="cfg-print-hint"><?= h($printFields['print_ticket_mode']['hint']) ?></p>
-        </div>
+          <dl class="cfg-ticket-handoff__status">
+            <div>
+              <dt>Papel</dt>
+              <dd><?= h($ticketConfig['paper']) ?> mm</dd>
+            </div>
+            <div>
+              <dt>Al cobrar</dt>
+              <dd><?= h($ticketModeLabel) ?></dd>
+            </div>
+          </dl>
+          <a class="v-btn v-btn--outline" href="ticket_config.php">Configurar tickets</a>
+        </section>
 
         <div class="cfg-print-group">
           <h4 class="cfg-print-group-title">
@@ -516,14 +487,7 @@ require __DIR__ . '/partials/header.php';
     <div class="config-actions">
       <button class="v-btn v-btn--primary" type="submit">Guardar</button>
       <a class="v-btn v-btn--ghost" href="configuracion.php">Cancelar</a>
-      <a class="v-btn v-btn--outline" target="_blank" href="ticket.php?id=<?= (int)($_GET['ticket_test'] ?? 41) ?>&paper=80">
-        Probar ticket
-      </a>
     </div>
-
-    <p class="config-note">
-      "Probar ticket" abre un ticket de ejemplo. Cambia el id con <span class="mono">?ticket_test=40</span>.
-    </p>
   </form>
 </div>
 

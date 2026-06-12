@@ -46,7 +46,7 @@ CREATE TABLE `audit_log` (
   KEY `idx_audit_module_created` (`module`,`created_at`),
   KEY `idx_audit_request_id` (`request_id`),
   CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `caja_auditoria`;
@@ -84,7 +84,7 @@ CREATE TABLE `caja_movimientos` (
   KEY `idx_fecha` (`fecha`),
   KEY `idx_caja_mov_cc_mov` (`cc_movimiento_id`),
   CONSTRAINT `fk_caja_movimientos_sesion` FOREIGN KEY (`caja_id`) REFERENCES `caja_sesiones` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `caja_sesiones`;
@@ -120,7 +120,7 @@ CREATE TABLE `caja_sesiones` (
   KEY `idx_caja_cerrado_por` (`cerrado_por_user_id`),
   KEY `idx_caja_terminal_abierta` (`terminal_id`,`fecha_cierre`),
   CONSTRAINT `fk_caja_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=55 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `clientes`;
@@ -152,7 +152,7 @@ CREATE TABLE `clientes` (
   KEY `idx_clientes_activo` (`activo`),
   KEY `idx_clientes_activo_nombre` (`activo`,`nombre`),
   KEY `idx_clientes_tipo_zona` (`tipo_cliente`,`zona_reparto`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `ventas`;
@@ -260,6 +260,93 @@ CREATE TABLE `venta_pagos` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+DROP TABLE IF EXISTS `mercadopago_integraciones`;
+CREATE TABLE `mercadopago_integraciones` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `environment` varchar(20) NOT NULL,
+  `token_fingerprint` char(64) NOT NULL,
+  `user_id` varchar(40) NOT NULL,
+  `store_id` varchar(80) DEFAULT NULL,
+  `store_external_id` varchar(60) NOT NULL,
+  `store_name` varchar(80) NOT NULL,
+  `pos_id` varchar(80) DEFAULT NULL,
+  `pos_external_id` varchar(40) NOT NULL,
+  `pos_name` varchar(80) NOT NULL,
+  `status` varchar(30) NOT NULL DEFAULT 'pending_store',
+  `last_error` varchar(1000) DEFAULT NULL,
+  `setup_json` longtext DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_mp_integracion_environment` (`environment`),
+  KEY `idx_mp_integracion_store_external` (`store_external_id`),
+  KEY `idx_mp_integracion_pos_external` (`pos_external_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `mercadopago_webhook_eventos`;
+CREATE TABLE `mercadopago_webhook_eventos` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `event_key` char(64) NOT NULL,
+  `environment` varchar(20) NOT NULL,
+  `event_id` varchar(100) DEFAULT NULL,
+  `event_type` varchar(50) DEFAULT NULL,
+  `action_name` varchar(100) DEFAULT NULL,
+  `resource_id` varchar(100) DEFAULT NULL,
+  `request_id` varchar(100) DEFAULT NULL,
+  `signature_valid` tinyint(1) NOT NULL DEFAULT 0,
+  `live_mode` tinyint(1) DEFAULT NULL,
+  `status` varchar(30) NOT NULL DEFAULT 'received',
+  `order_status` varchar(40) DEFAULT NULL,
+  `external_reference` varchar(120) DEFAULT NULL,
+  `payload_json` longtext DEFAULT NULL,
+  `error_message` varchar(500) DEFAULT NULL,
+  `received_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `processed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_mp_webhook_event_key` (`event_key`),
+  KEY `idx_mp_webhook_resource` (`resource_id`),
+  KEY `idx_mp_webhook_received` (`received_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+DROP TABLE IF EXISTS `mercadopago_liquidaciones`;
+CREATE TABLE `mercadopago_liquidaciones` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `environment` varchar(20) NOT NULL,
+  `source` varchar(20) NOT NULL DEFAULT 'payment_api',
+  `venta_id` int(11) DEFAULT NULL,
+  `venta_pago_id` int(11) DEFAULT NULL,
+  `payment_id` varchar(100) NOT NULL,
+  `order_id` varchar(100) DEFAULT NULL,
+  `external_reference` varchar(255) DEFAULT NULL,
+  `status` varchar(40) DEFAULT NULL,
+  `status_detail` varchar(100) DEFAULT NULL,
+  `transaction_type` varchar(40) NOT NULL DEFAULT 'SETTLEMENT',
+  `currency_id` varchar(10) NOT NULL DEFAULT 'ARS',
+  `transaction_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `fee_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `taxes_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `refunded_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `net_received_amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `payment_method_id` varchar(50) DEFAULT NULL,
+  `payment_type_id` varchar(50) DEFAULT NULL,
+  `date_created` datetime DEFAULT NULL,
+  `date_approved` datetime DEFAULT NULL,
+  `money_release_date` datetime DEFAULT NULL,
+  `fee_json` longtext DEFAULT NULL,
+  `taxes_json` longtext DEFAULT NULL,
+  `raw_json` longtext DEFAULT NULL,
+  `sync_error` varchar(500) DEFAULT NULL,
+  `last_synced_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_mp_liquidacion_environment_payment` (`environment`,`payment_id`),
+  KEY `idx_mp_liquidacion_venta` (`venta_id`),
+  KEY `idx_mp_liquidacion_venta_pago` (`venta_pago_id`),
+  KEY `idx_mp_liquidacion_fecha` (`date_approved`),
+  KEY `idx_mp_liquidacion_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 DROP TABLE IF EXISTS `venta_promos`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -298,7 +385,7 @@ CREATE TABLE `compra_items` (
   KEY `idx_ci_producto` (`producto_id`),
   CONSTRAINT `fk_ci_compra` FOREIGN KEY (`compra_id`) REFERENCES `compras` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_ci_producto` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`) ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `compras`;
@@ -327,7 +414,7 @@ CREATE TABLE `compras` (
   KEY `idx_compras_estado` (`estado`),
   KEY `idx_compras_proveedor` (`proveedor_id`),
   CONSTRAINT `fk_compras_proveedor` FOREIGN KEY (`proveedor_id`) REFERENCES `proveedores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `config_facturacion`;
@@ -351,7 +438,7 @@ CREATE TABLE `config_facturacion` (
   `actualizado_en` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_punto_venta` (`punto_venta`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `cuenta_corriente_movimientos`;
@@ -387,7 +474,7 @@ CREATE TABLE `cuenta_corriente_movimientos` (
   KEY `idx_cc_mov_caja_mov` (`caja_movimiento_id`),
   CONSTRAINT `fk_ccm_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`),
   CONSTRAINT `fk_ccm_reversa` FOREIGN KEY (`reversa_de_id`) REFERENCES `cuenta_corriente_movimientos` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `facturas`;
@@ -417,7 +504,7 @@ CREATE TABLE `facturas` (
   KEY `idx_facturas_cae` (`cae`),
   CONSTRAINT `fk_facturas_cliente` FOREIGN KEY (`cliente_id`) REFERENCES `clientes` (`id`),
   CONSTRAINT `fk_facturas_venta` FOREIGN KEY (`venta_id`) REFERENCES `ventas` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `inventario_conteos`;
@@ -438,7 +525,7 @@ CREATE TABLE `inventario_conteos` (
   KEY `idx_producto` (`producto_id`),
   KEY `idx_created_at` (`created_at`),
   CONSTRAINT `fk_inv_conteos_sesion` FOREIGN KEY (`sesion_id`) REFERENCES `inventario_sesiones` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `inventario_sesiones`;
@@ -461,7 +548,7 @@ CREATE TABLE `inventario_sesiones` (
   PRIMARY KEY (`id`),
   KEY `idx_estado` (`estado`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `movimientos_stock`;
@@ -496,7 +583,7 @@ CREATE TABLE `movimientos_stock` (
   CONSTRAINT `fk_movimientos_stock_venta` FOREIGN KEY (`venta_id`) REFERENCES `ventas` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `movimientos_stock_ibfk_1` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`),
   CONSTRAINT `movimientos_stock_ibfk_2` FOREIGN KEY (`referencia_venta_id`) REFERENCES `ventas` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=189 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -575,23 +662,6 @@ DELIMITER ;
 /*!50003 SET character_set_client  = @saved_cs_client */ ;
 /*!50003 SET character_set_results = @saved_cs_results */ ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
-DROP TABLE IF EXISTS `movimientos_stock_backup_7d`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `movimientos_stock_backup_7d` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `fecha` datetime NOT NULL DEFAULT current_timestamp(),
-  `producto_id` int(11) NOT NULL,
-  `tipo` enum('VENTA','COMPRA','AJUSTE_POSITIVO','AJUSTE_NEGATIVO') NOT NULL,
-  `cantidad` decimal(10,3) NOT NULL,
-  `referencia_venta_id` int(11) DEFAULT NULL,
-  `comentario` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `producto_id` (`producto_id`),
-  KEY `referencia_venta_id` (`referencia_venta_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=41 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
 DROP TABLE IF EXISTS `permissions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -602,7 +672,7 @@ CREATE TABLE `permissions` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `producto_precios_hist`;
@@ -624,7 +694,7 @@ CREATE TABLE `producto_precios_hist` (
   KEY `idx_tipo` (`tipo`),
   KEY `idx_created` (`created_at`),
   KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `producto_reposicion`;
@@ -673,7 +743,7 @@ CREATE TABLE `productos` (
   KEY `idx_productos_proveedor_id` (`proveedor_id`),
   KEY `idx_prod_categoria` (`categoria`),
   CONSTRAINT `fk_productos_proveedor` FOREIGN KEY (`proveedor_id`) REFERENCES `proveedores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `promo_combo_items`;
@@ -689,7 +759,7 @@ CREATE TABLE `promo_combo_items` (
   KEY `producto_id` (`producto_id`),
   CONSTRAINT `promo_combo_items_ibfk_1` FOREIGN KEY (`promo_id`) REFERENCES `promos` (`id`) ON DELETE CASCADE,
   CONSTRAINT `promo_combo_items_ibfk_2` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=48 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `promo_productos`;
@@ -707,7 +777,7 @@ CREATE TABLE `promo_productos` (
   KEY `producto_id` (`producto_id`),
   CONSTRAINT `promo_productos_ibfk_1` FOREIGN KEY (`promo_id`) REFERENCES `promos` (`id`),
   CONSTRAINT `promo_productos_ibfk_2` FOREIGN KEY (`producto_id`) REFERENCES `productos` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `promos`;
@@ -723,7 +793,7 @@ CREATE TABLE `promos` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `precio_combo` decimal(10,2) DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `proveedores`;
@@ -749,7 +819,7 @@ CREATE TABLE `proveedores` (
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `idx_proveedores_nombre` (`nombre`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `role_permission`;
@@ -775,7 +845,7 @@ CREATE TABLE `roles` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `terminal_locks`;
@@ -804,7 +874,7 @@ CREATE TABLE `terminales` (
   `activo` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 DROP TABLE IF EXISTS `tesoreria_cuentas`;
@@ -968,7 +1038,7 @@ CREATE TABLE `users` (
   KEY `idx_users_role` (`role_id`,`activo`),
   KEY `idx_users_role_activo` (`role_id`,`activo`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;

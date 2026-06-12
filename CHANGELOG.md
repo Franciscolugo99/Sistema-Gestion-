@@ -4,6 +4,46 @@
 
 ---
 
+## [4.1.1] - 2026-06-11
+
+### Added
+
+- Migracion `040_movimientos_stock_snapshots_compat.sql` para reparar snapshots y trigger de stock en upgrades legacy.
+- Mercado Pago separa ambientes de prueba y produccion, retoma la creacion de caja sin duplicar sucursales y registra webhooks Orders firmados.
+- Migracion `041_mercadopago_integration_state.sql` para estado idempotente y trazabilidad de notificaciones.
+- Checklist `docs/QA_COMPRAS_STOCK_TESORERIA_4_1_1.md` para la regresion de compras, stock, tesoreria, Caja y pagos divididos.
+- Asistente guiado `Configurar Mercado Pago Prueba.cmd` para validar credenciales TEST, crear sucursal/POS QR y configurar FLUS sin copiar comandos `curl`.
+
+### Changed
+
+- Caja integra Total, Pagado, Vuelto/Resta y acciones en un unico pie del ticket.
+- El lateral queda dedicado a los medios de pago y elimina informacion duplicada.
+- El ticket aprovecha toda la altura disponible sin encabezados ni estados redundantes.
+- Bordes, radios, espaciado y contraste de Caja se unifican en temas claro y oscuro.
+- El pie del ticket se adapta a pantallas angostas sin superponer importes ni acciones.
+- Tickets de Caja, Ventas y reimpresiones comparten una sola configuracion global, con excepciones opcionales por terminal.
+- El ticket termico permite logo, texto final y visibilidad independiente de caja y cajero.
+- `src/version.php` actualizado a `4.1.1` build `2026-06-11`.
+
+### Fixed
+
+- Los pagos divididos mantienen editables ambos montos al alternar repetidamente los medios de pago.
+- QR y Point validan el importe parcial asignado a su medio, no el total completo de la venta.
+- La contingencia manual de Mercado Pago conserva claves independientes para QR y Point.
+- La anulacion de una compra con el mismo producto en varias lineas restaura el costo anterior a toda la compra.
+- Upgrades legacy recuperan `stock_anterior`, `stock_nuevo` y el trigger de snapshots mediante la migracion `040`.
+- El smoke instalado deja de reportar como filtracion el `config_mp.php` generado legitimamente en produccion.
+- Las instalaciones limpias ya no heredan contadores `AUTO_INCREMENT` de la base usada para generar `install.sql`; la primera apertura de caja comienza en `1`.
+
+### Validation
+
+- PHP lint y JavaScript syntax check sin errores.
+- Smoke fuente: `142 OK / 0 fallidas / 0 skipped`.
+- Integracion DB: instalacion limpia, 42 migraciones y flujos criticos en verde.
+- Los instaladores compilados antes del 11 de junio quedan como artefactos historicos y deben regenerarse para incluir este estado de la fuente.
+
+---
+
 ## [4.1.0] - 2026-05-29
 
 ### Added
@@ -34,7 +74,6 @@
 - La anulacion restaura el costo anterior solo si no hubo un cambio de costo posterior.
 - La segunda confirmacion de una compra ya procesada se rechaza sin duplicar stock.
 - Los controles compactos de Compras alcanzan un area tactil de 44px en pantallas moviles.
-
 ### Validation
 
 - `C:\xampp82\php\php.exe tests\smoke.php`: `138 OK / 0 fallidas / 0 skipped`.

@@ -1640,10 +1640,11 @@ function flus_it_run_purchase_integrity_case(PDO $pdo): void
 
     $pdo->beginTransaction();
     flus_compras_actualizar_costo_con_historial($pdo, $unidadId, 120.00, $compraUnidadId);
+    flus_compras_actualizar_costo_con_historial($pdo, $unidadId, 130.00, $compraUnidadId);
     $pdo->commit();
     flus_it_assert(
-        round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$unidadId}")->fetchColumn(), 2) === 120.00,
-        'purchase confirmation updates product cost'
+        round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$unidadId}")->fetchColumn(), 2) === 130.00,
+        'purchase confirmation applies the last cost when a product has multiple lines'
     );
     $stHistory = $pdo->prepare("SELECT motivo FROM producto_precios_hist WHERE producto_id = ? ORDER BY id DESC LIMIT 1");
     $stHistory->execute([$unidadId]);
@@ -1665,7 +1666,7 @@ function flus_it_run_purchase_integrity_case(PDO $pdo): void
     flus_it_assert((string)$stObligation->fetchColumn() === 'CANCELADO', 'purchase annulment cancels unpaid obligation');
     flus_it_assert(
         round((float)$pdo->query("SELECT costo FROM productos WHERE id = {$unidadId}")->fetchColumn(), 2) === 100.00,
-        'purchase annulment restores the previous cost'
+        'purchase annulment restores the cost before all lines from the same purchase'
     );
 
     $stCompra->execute(['IT-K-' . $suffix, 250.00, 250.00, 250.00]);
@@ -1776,7 +1777,12 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '039_venta_pagos_mp_metadata.sql', 'latest migration is 039');
+    flus_it_assert($latest === '042_mercadopago_liquidaciones.sql', 'latest migration is 042');
+    $pdo->exec('DROP TRIGGER IF EXISTS `before_insert_movimiento_stock`');
+    $pdo->exec('ALTER TABLE `movimientos_stock` DROP COLUMN `stock_anterior`, DROP COLUMN `stock_nuevo`');
+    flus_exec_sql_file($pdo, $root . '/migrations/040_movimientos_stock_snapshots_compat.sql');
+    flus_it_assert(flus_it_table_has_column($pdo, 'movimientos_stock', 'stock_anterior'), 'migration 040 restores movimientos_stock.stock_anterior');
+    flus_it_assert(flus_it_table_has_column($pdo, 'movimientos_stock', 'stock_nuevo'), 'migration 040 restores movimientos_stock.stock_nuevo');
     $tipoColumn = $pdo
         ->query("SHOW COLUMNS FROM movimientos_stock LIKE 'tipo'")
         ->fetch(PDO::FETCH_ASSOC);
@@ -1797,7 +1803,18 @@ try {
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_redondeo_total'), 'venta_items.ajuste_precio_redondeo_total exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_pagos', 'mp_order_id'), 'venta_pagos.mp_order_id exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_pagos', 'mp_verified'), 'venta_pagos.mp_verified exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'mercadopago_integraciones', 'store_external_id'), 'mercadopago integration state exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'mercadopago_webhook_eventos', 'event_key'), 'mercadopago webhook trace exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'mercadopago_liquidaciones', 'net_received_amount'), 'mercadopago settlements exist');
+    flus_it_assert(
+        (int)$pdo->query('SELECT COUNT(*) FROM caja_sesiones')->fetchColumn() === 0,
+        'clean install starts without historical cash sessions'
+    );
     $posSale = flus_it_run_pos_sale_case($pdo);
+    flus_it_assert(
+        (int)($posSale['caja_id'] ?? 0) === 1,
+        'first cash session from a clean install uses id 1'
+    );
     $fiscalCase = flus_it_run_non_remote_fiscal_case($pdo, (int)$posSale['venta_id']);
     flus_it_run_non_remote_nc_total_case($pdo, $fiscalCase);
 

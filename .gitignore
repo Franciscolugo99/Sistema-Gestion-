@@ -113,6 +113,7 @@ storage/login_throttle/
 .tmp_flus_review/
 .claude/
 .codex_worktrees/
+.codex-remote-attachments/
 AGENTS.local.md
 .claude-mem/
 .claude-memory/

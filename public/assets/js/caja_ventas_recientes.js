@@ -1,10 +1,7 @@
 // public/assets/js/caja_ventas_recientes.js
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE = "api/index.php";
-  const PAPER_KEY = "kiosco-ticket-paper";
-  const PRINT_DEFAULTS = window.FLUS_PRINT_DEFAULTS || {};
-  const PRINT_GLOBAL_DEFAULTS = PRINT_DEFAULTS.global || {};
-  const PRINT_TERMINAL_DEFAULTS = PRINT_DEFAULTS.terminal || {};
+  const TICKET_CONFIG = window.FLUS_TICKET_CONFIG || {};
 
   const btnVentasRecientes = document.getElementById("btnVentasRecientes");
   const modal = document.getElementById("ventasRecientesModal");
@@ -27,12 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function getPaper() {
-    const fallbackPaper =
-      (PRINT_TERMINAL_DEFAULTS.ticket_paper &&
-      PRINT_TERMINAL_DEFAULTS.ticket_paper !== "inherit"
-        ? PRINT_TERMINAL_DEFAULTS.ticket_paper
-        : PRINT_GLOBAL_DEFAULTS.ticket_paper) || "80";
-    const value = String(localStorage.getItem(PAPER_KEY) || fallbackPaper).trim();
+    const value = String(TICKET_CONFIG.paper || "80").trim();
     return value === "58" ? "58" : "80";
   }
 

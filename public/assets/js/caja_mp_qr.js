@@ -236,43 +236,58 @@
   };
   window.FLUS_MP_COBRO = {
     async confirmar(pagos, total, ui = {}) {
-      const pago = Array.isArray(pagos) && pagos.length === 1 ? pagos[0] : null;
-      const medio = String(pago?.medio || "").toUpperCase();
-      const exacto = pago && Math.abs((Number(pago.monto) || 0) - Number(total || 0)) <= 0.01;
-      const result = { qr: null, point: null };
-      if (!exacto) return result;
+      const paymentRows = Array.isArray(pagos) ? pagos : [];
+      const amountFor = (medios) => paymentRows.reduce((sum, pago) => {
+        const medio = String(pago?.medio || "").toUpperCase();
+        return medios.includes(medio) ? sum + (Number(pago?.monto) || 0) : sum;
+      }, 0);
+      const mpAmount = amountFor(["MP"]);
+      const pointRows = paymentRows.filter((pago) =>
+        ["DEBITO", "CREDITO"].includes(String(pago?.medio || "").toUpperCase()),
+      );
+      const pointAmount = amountFor(["DEBITO", "CREDITO"]);
+      const pointMethods = [...new Set(pointRows.map((pago) =>
+        String(pago?.medio || "").toUpperCase(),
+      ))];
+      const result = { qr: null, point: null, manualQr: null, manualPoint: null };
 
-      if (medio === "MP" && window.FLUS_MP_QR_ENABLED === true) {
+      if (mpAmount > 0.009 && window.FLUS_MP_QR_ENABLED === true) {
         ui.mostrarMensaje?.("info", "Esperando pago con Mercado Pago QR...");
         try {
-          result.qr = await confirmar(total);
+          result.qr = await confirmar(mpAmount);
           ui.limpiarMensaje?.();
         } catch (error) {
           ui.limpiarMensaje?.();
           if (await askManualFallback("qr", error)) {
-            result.manual = { kind: "qr", reason: String(error?.message || "") };
-            return result;
+            result.manualQr = { reason: String(error?.message || "") };
+          } else {
+            throw error;
           }
-          throw error;
         }
-      } else if (medio === "MP" && window.FLUS_MP_CASHIER_MODE === "manual") {
-        result.manual = { kind: "qr", reason: "Modo manual de caja" };
-      } else if (["DEBITO", "CREDITO"].includes(medio) && window.FLUS_MP_POINT_ENABLED === true) {
+      } else if (mpAmount > 0.009 && window.FLUS_MP_CASHIER_MODE === "manual") {
+        result.manualQr = { reason: "Modo manual de caja" };
+      }
+
+      if (pointAmount > 0.009 && window.FLUS_MP_POINT_ENABLED === true) {
+        if (pointMethods.length !== 1) {
+          throw new Error("Point requiere usar solo Debito o solo Credito dentro de la misma venta.");
+        }
+        const pointMethod = pointMethods[0];
         ui.mostrarMensaje?.("info", "Esperando pago con Mercado Pago Point...");
         try {
           result.point = await window.FLUS_MP_POINT.confirmar(
-            total,
-            medio === "DEBITO" ? "debit_card" : "credit_card",
+            pointAmount,
+            pointMethod === "DEBITO" ? "debit_card" : "credit_card",
             "FLUS",
           );
           ui.limpiarMensaje?.();
         } catch (error) {
           ui.limpiarMensaje?.();
           if (await askManualFallback("point", error)) {
-            result.manual = { kind: "point", reason: String(error?.message || "") };
-            return result;
+            result.manualPoint = { reason: String(error?.message || "") };
+          } else {
+            throw error;
           }
-          throw error;
         }
       }
 
@@ -288,6 +303,14 @@
         fd.append("mp_point_order_id", String(order.point.id || ""));
         fd.append("mp_point_payment_id", String(order.point.payment_id || ""));
         fd.append("mp_point_external_reference", String(order.point.external_reference || ""));
+      }
+      if (order?.manualQr) {
+        fd.append("mp_qr_manual_fallback", "1");
+        fd.append("mp_qr_manual_reason", String(order.manualQr.reason || "").slice(0, 240));
+      }
+      if (order?.manualPoint) {
+        fd.append("mp_point_manual_fallback", "1");
+        fd.append("mp_point_manual_reason", String(order.manualPoint.reason || "").slice(0, 240));
       }
       if (order?.manual) {
         fd.append("mp_manual_fallback", "1");

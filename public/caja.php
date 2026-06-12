@@ -6,6 +6,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 require_once FLUS_ROOT . '/src/recargo_horario.php';
 require_once FLUS_ROOT . '/src/mercadopago_qr_lib.php';
+require_once FLUS_ROOT . '/src/ticket_config_lib.php';
 
 $canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
 $canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
@@ -98,17 +99,7 @@ $mpManualFallback = function_exists('flus_mp_manual_fallback_enabled') && flus_m
   ? 'true'
   : 'false';
 $mpCashierMode = function_exists('flus_mp_cashier_mode') ? flus_mp_cashier_mode() : 'automatic';
-$globalPrintDefaults = [
-  'ticket_mode' => (string)config_get($pdo, 'print_ticket_mode', 'autoprint'),
-  'ticket_paper' => (string)config_get($pdo, 'print_ticket_paper', '80'),
-  'comanda_mode' => (string)config_get($pdo, 'print_comanda_mode', 'none'),
-  'comanda_paper' => (string)config_get($pdo, 'print_comanda_paper', '80'),
-  'factura_mode' => (string)config_get($pdo, 'print_factura_mode', 'preview'),
-];
-$terminalPrintDefaults = [
-  'ticket_mode' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_print_mode', 'inherit') : 'inherit',
-  'ticket_paper' => $terminalId > 0 ? (string)config_get($pdo, 'terminal_' . $terminalId . '_ticket_paper', 'inherit') : 'inherit',
-];
+$resolvedTicketConfig = flus_ticket_resolved_config($pdo, $terminalId);
 $csrf = csrf_token(); // usa el helper central
 
 // Importante: el modal/API suele leer CSRF desde <meta>
@@ -126,9 +117,9 @@ $extraHead =
       'window.FLUS_MP_POINT_ENABLED = ' . $mpPointEnabled . ';' .
       'window.FLUS_MP_MANUAL_FALLBACK = ' . $mpManualFallback . ';' .
       'window.FLUS_MP_CASHIER_MODE = ' . json_encode($mpCashierMode) . ';' .
-      'window.FLUS_PRINT_DEFAULTS = ' . json_encode([
-        'global' => $globalPrintDefaults,
-        'terminal' => $terminalPrintDefaults,
+      'window.FLUS_TICKET_CONFIG = ' . json_encode([
+        'mode' => (string)$resolvedTicketConfig['mode'],
+        'paper' => (string)$resolvedTicketConfig['paper'],
       ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';' .
     '</script>';
 
@@ -470,15 +461,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
   </div>
 
   <div class="caja-topbar__actions">
-    <div class="caja-topbar__print">
-      <label class="caja-topbar__print-label" for="ticketPrintMode">Ticket</label>
-      <select id="ticketPrintMode" class="caja-topbar__print-select" aria-label="Modo de salida del ticket">
-        <option value="autoprint">Auto imprimir</option>
-        <option value="preview">Vista previa</option>
-        <option value="none">No abrir</option>
-      </select>
-    </div>
-
     <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
     <button type="button" id="btnVentasRecientes" class="btn btn-secondary btn-sm">
       Ventas recientes
@@ -600,7 +582,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
       <div class="row caja-row-inputs">
         <div class="field field-product">
           <label for="codigo">Producto / codigo</label>
-          <input type="text" id="codigo" autocomplete="off" autofocus placeholder="Escanea o escribi nombre o codigo...">
+          <input type="text" id="codigo" autocomplete="off" autofocus placeholder="Escanea o busca un producto">
         </div>
 
         <div class="field field-narrow field-qty">
@@ -613,11 +595,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
             Agregar
           </button>
         </div>
-      </div>
-
-      <div class="caja-scan-meta" aria-live="polite">
-        <span class="caja-scan-mode" id="scanModeBadge">Producto activo</span>
-        <span class="caja-scan-copy" id="scanModeText">Escanea o escribi un producto. Enter agrega &middot; Tab pasa a cantidad &middot; F3 vuelve aca.</span>
       </div>
 
       <div class="caja-scan-hints">
@@ -641,27 +618,8 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </div>
 
     <div class="caja-neo-ticket">
-      <div class="ticket-panel-head">
-        <div class="ticket-panel-head__copy">
-          <span class="ticket-panel-head__eyebrow">Venta actual</span>
-          <strong class="ticket-panel-head__title">Ticket</strong>
-        </div>
-        <div class="ticket-panel-head__status" id="ticketStatusLabel">Sin productos cargados</div>
-      </div>
-
       <!-- Tabla del ticket -->
       <div class="ticket-wrapper">
-        <div class="ticket-empty-state" id="ticketEmptyState" aria-live="polite">
-          <div class="ticket-empty-state__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="9" cy="20" r="1.5"></circle>
-              <circle cx="18" cy="20" r="1.5"></circle>
-              <path d="M3 4h2.2l2 10.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.76L20 7H6.2"></path>
-            </svg>
-          </div>
-          <strong class="ticket-empty-state__title">Ticket vacio</strong>
-          <p class="ticket-empty-state__copy">Escanea o escribi un producto para empezar la venta.</p>
-        </div>
         <table id="tabla">
           <colgroup>
             <col class="col-rownum">
@@ -687,57 +645,40 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         </table>
       </div>
 
-    </div>
+      <div class="caja-neo-footer">
+        <div class="caja-neo-footer__bar">
+          <div class="caja-neo-summary" aria-label="Resumen del ticket">
+            <div class="total-panel">
+              <div class="total-row total-row-strong">
+                <span class="total-label">Total a cobrar</span>
+                <span class="total-value" id="lblTotal">$0,00</span>
+              </div>
 
-    <div class="caja-neo-footer">
-      <div class="caja-neo-footer__bar">
-        <div class="caja-neo-summary" aria-label="Resumen del ticket">
-          <div class="total-panel">
-            <div class="total-row">
-              <span class="total-label">Total bruto</span>
-              <span class="total-value" id="lblTotalBruto">$0,00</span>
-            </div>
+              <div class="total-row">
+                <span class="total-label">Pagado</span>
+                <span class="total-value" id="lblTotalPagado">$0,00</span>
+              </div>
 
-            <div class="total-row total-row-strong">
-              <span class="total-label">Total a cobrar</span>
-              <span class="total-value" id="lblTotal">$0,00</span>
-            </div>
-
-            <div class="total-feedback" aria-live="polite">
-              <span class="total-feedback__label" id="lblCobroFeedbackLabel">Vuelto</span>
-              <strong class="total-feedback__value" id="lblCobroFeedback">$0,00</strong>
+              <div class="total-feedback" aria-live="polite">
+                <span class="total-feedback__label" id="lblCobroFeedbackLabel">Vuelto</span>
+                <strong class="total-feedback__value" id="lblCobroFeedback">$0,00</strong>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="buttons-row">
-          <button id="btnCancelar" type="button" class="btn-cancelar">
-            <span class="action-button__label">Cancelar</span>
-            <span class="action-button__key">F4</span>
-          </button>
-          <button id="btnCobrar" type="button" class="btn-cobrar">
-            <span class="action-button__label">Cobrar</span>
-            <span class="action-button__key">F2</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="shortcuts-box">
-        <div class="shortcuts-card">
-          <div class="shortcuts-title">Atajos de teclado</div>
-          <div class="shortcuts-list">
-            <span><kbd>F2</kbd> Cobrar</span>
-            <span><kbd>F4</kbd> Cancelar venta</span>
-            <span><kbd>F5</kbd> Efectivo</span>
-            <span><kbd>F6</kbd> Mercado Pago</span>
-            <span><kbd>F7</kbd> Debito</span>
-            <span><kbd>Enter</kbd> Agregar producto</span>
-            <span><kbd>Tab</kbd> Completar y cantidad</span>
-            <span><kbd>F3</kbd> Ir a producto</span>
-            <span><kbd>Esc</kbd> Cerrar ventana / modal</span>
+          <div class="buttons-row">
+            <button id="btnCancelar" type="button" class="btn-cancelar">
+              <span class="action-button__label">Cancelar</span>
+              <span class="action-button__key">F4</span>
+            </button>
+            <button id="btnCobrar" type="button" class="btn-cobrar">
+              <span class="action-button__label">Cobrar</span>
+              <span class="action-button__key">F2</span>
+            </button>
           </div>
         </div>
       </div>
+
     </div>
 
       </section>
@@ -745,28 +686,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
     <!-- Pagos (1 o 2 medios) -->
     <div class="total-row total-row-bottom pagos-row">
-      <div class="pagos-row__head">
-        <div class="pagos-row__copy">
-          <div class="pagos-row__eyebrow">Medio de pago</div>
-          <div class="pagos-row__title">Elegi como cobra el cajero</div>
-        </div>
-      </div>
-
-      <div class="caja-payment-health" aria-live="polite">
-        <div class="caja-payment-health__row">
-          <span class="caja-payment-health__label">Ticket</span>
-          <strong class="caja-payment-health__value" id="sidebarTicketTotal">$0,00</strong>
-        </div>
-        <div class="caja-payment-health__row">
-          <span class="caja-payment-health__label">Pagado</span>
-          <strong class="caja-payment-health__value" id="sidebarTicketPaid">$0,00</strong>
-        </div>
-        <div class="caja-payment-health__row" id="sidebarPendingWrap">
-          <span class="caja-payment-health__label" id="sidebarPendingLabel">Vuelto</span>
-          <strong class="caja-payment-health__value caja-payment-health__value--accent" id="sidebarPendingValue">$0,00</strong>
-        </div>
-      </div>
-
       <!-- Cuenta Corriente (solo si se elige CC en algun pago) -->
       <div id="ccWrap" class="cc-wrap is-hidden">
         <div class="cc-wrap__head">
@@ -819,10 +738,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
         <div class="total-label-inline">Monto</div>
         <input type="number" id="montoPagado" data-payment-slot="1" min="0" step="0.01" placeholder="0,00">
-        <div class="payment-card__summary" aria-live="polite">
-          <span class="payment-card__summary-chip" id="paymentSummaryMethod1">Efectivo</span>
-          <strong class="payment-card__summary-value" id="paymentSummaryValue1">$0,00</strong>
-        </div>
 
         <!-- UX: chips de billete rapido (solo efectivo) -->
         <div id="denomChips" class="denom-chips" aria-label="Billetes rapidos" style="display:none">
@@ -854,10 +769,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <div class="pago2-monto-row">
           <input type="number" id="montoPagado2" data-payment-slot="2" min="0" step="0.01" placeholder="0,00">
           <button type="button" id="btnQuitarPago2" class="btn-mini btn-mini-danger" title="Quitar 2do pago" aria-label="Quitar 2do pago">&times;</button>
-        </div>
-        <div class="payment-card__summary" aria-live="polite">
-          <span class="payment-card__summary-chip" id="paymentSummaryMethod2">Efectivo</span>
-          <strong class="payment-card__summary-value" id="paymentSummaryValue2">$0,00</strong>
         </div>
       </div>
 

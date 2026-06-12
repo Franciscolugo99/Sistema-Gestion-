@@ -1,16 +1,20 @@
 :root {
-  --font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", monospace;
+  --font: Arial, Helvetica, sans-serif;
   --w-58: 58mm;
   --w-80: 80mm;
+  --printable-w-58: 46mm;
+  --printable-w-80: 72mm;
   --paper-w: var(--w-80);
+  --printable-w: var(--printable-w-80);
 }
 
 body[data-paper="58"] {
   --paper-w: var(--w-58);
+  --printable-w: var(--printable-w-58);
 }
 body[data-paper="80"] {
   --paper-w: var(--w-80);
+  --printable-w: var(--printable-w-80);
 }
 
 * {
@@ -51,6 +55,15 @@ body {
   font-size: 22px;
 }
 
+.ticket-logo {
+  display: block;
+  width: auto;
+  max-width: 38mm;
+  max-height: 20.5mm;
+  margin: 0 auto 2.5mm;
+  object-fit: contain;
+}
+
 .sub {
   margin-top: 6px;
   font-size: 13px;
@@ -75,7 +88,23 @@ body {
 
 body[data-paper="58"] .thead,
 body[data-paper="58"] .row {
-  grid-template-columns: 1fr 44px 66px;
+  grid-template-columns: minmax(0, 1fr) 8.5mm 13.5mm;
+  gap: 1mm;
+}
+
+body[data-paper="58"] .thead,
+body[data-paper="58"] .row {
+  font-size: 11px;
+}
+
+body[data-paper="58"] .prod,
+body[data-paper="58"] .prod .name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body[data-paper="58"] .prod .meta {
+  font-size: 10px;
 }
 
 .thead {
@@ -121,21 +150,6 @@ body[data-paper="58"] .row {
   flex-wrap: wrap;
 }
 
-.paper-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.paper-label select {
-  height: 30px;
-  border-radius: 10px;
-  padding: 0 10px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-}
-
 .btn-print {
   height: 32px;
   padding: 0 12px;
@@ -148,15 +162,89 @@ body[data-paper="58"] .row {
 
 /* Impresión */
 @media print {
-  body {
-    padding: 0;
+  @page {
+    margin: 0;
   }
+
+  html {
+    height: auto;
+  }
+
+  body {
+    width: var(--paper-w);
+    min-width: var(--paper-w);
+    height: auto;
+    padding: 0;
+    overflow: visible;
+    color: #000;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    display: block;
+  }
+
   .no-print {
     display: none !important;
   }
+
   .ticket {
-    width: var(--paper-w);
-    max-width: var(--paper-w);
-    padding: 0;
+    width: var(--printable-w);
+    max-width: var(--printable-w);
+    margin: 0;
+    padding: 1.5mm 0 3mm;
+    overflow: visible;
+  }
+
+  body[data-paper="58"] .ticket {
+    margin-left: 6mm;
+  }
+
+  body[data-paper="58"] .brand {
+    font-size: 19px;
+    letter-spacing: 0.1em;
+  }
+
+  body[data-paper="58"] .ticket-logo {
+    max-width: 29mm;
+    max-height: 15.5mm;
+    margin-bottom: 2mm;
+    filter: grayscale(1) contrast(1.35);
+  }
+
+  body[data-paper="58"] .sub,
+  body[data-paper="58"] .totals .line,
+  body[data-paper="58"] .foot {
+    font-size: 11px;
+  }
+
+  body[data-paper="58"] .sep {
+    border-top: 1px solid #000;
+    margin: 3mm 0;
+    opacity: 1;
+  }
+
+  body[data-paper="58"] .row {
+    padding: 1.5mm 0;
+  }
+
+  body[data-paper="58"] .t-right {
+    white-space: nowrap;
+  }
+
+  body[data-paper="58"] .prod .meta,
+  body[data-paper="58"] small,
+  body[data-paper="58"] .foot,
+  body[data-paper="58"] .sep.soft {
+    opacity: 1 !important;
+  }
+
+  .thead,
+  .row,
+  .totals,
+  .totals .line {
+    max-width: 100%;
   }
 }

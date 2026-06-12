@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/csrf.php';
 require_once FLUS_ROOT . '/src/mercadopago_qr_lib.php';
+require_once FLUS_ROOT . '/src/mercadopago_integration_lib.php';
 
 require_login();
 require_permission('administrar_config');
@@ -17,7 +18,7 @@ function mpcfg_token_kind(string $token): string
 {
     if ($token === '') return 'Sin token';
     if (str_starts_with($token, 'TEST-')) return 'Prueba';
-    if (str_starts_with($token, 'APP_USR-')) return 'Produccion';
+    if (str_starts_with($token, 'APP_USR-')) return 'Credencial APP_USR';
     return 'Token no reconocido';
 }
 
@@ -32,7 +33,10 @@ function mpcfg_current_values(): array
 {
     $assets = flus_mp_qr_static_assets();
     return [
+        'environment' => flus_mp_environment(flus_mp_qr_config_value('FLUS_MP_ENVIRONMENT', 'FLUS_MP_ENVIRONMENT', 'test')),
         'access_token' => flus_mp_qr_access_token(),
+        'webhook_secret' => flus_mp_qr_config_value('FLUS_MP_WEBHOOK_SECRET', 'FLUS_MP_WEBHOOK_SECRET'),
+        'webhook_url' => flus_mp_qr_config_value('FLUS_MP_WEBHOOK_URL', 'FLUS_MP_WEBHOOK_URL'),
         'cashier_mode' => flus_mp_cashier_mode(),
         'manual_fallback' => flus_mp_manual_fallback_enabled(),
         'qr_external_pos_id' => flus_mp_qr_external_pos_id(),
@@ -61,7 +65,10 @@ function mpcfg_write_config(array $values): void
     }
 
     $constants = [
+        'FLUS_MP_ENVIRONMENT' => flus_mp_environment((string)($values['environment'] ?? 'test')),
         'FLUS_MP_ACCESS_TOKEN' => (string)($values['access_token'] ?? ''),
+        'FLUS_MP_WEBHOOK_SECRET' => (string)($values['webhook_secret'] ?? ''),
+        'FLUS_MP_WEBHOOK_URL' => (string)($values['webhook_url'] ?? ''),
         'FLUS_MP_CASHIER_MODE' => (string)($values['cashier_mode'] ?? 'automatic'),
         'FLUS_MP_MANUAL_FALLBACK' => !empty($values['manual_fallback']),
         'FLUS_MP_QR_EXTERNAL_POS_ID' => (string)($values['qr_external_pos_id'] ?? ''),
@@ -118,6 +125,17 @@ $error = '';
 $errorDetail = '';
 $values = mpcfg_current_values();
 $configExists = is_file(mpcfg_path());
+$pdo = getPDO();
+$setupValues = [
+    'user_id' => '',
+    'store_name' => '',
+    'street_name' => '',
+    'street_number' => '',
+    'city_name' => '',
+    'state_name' => '',
+    'coordinates' => '',
+    'pos_name' => 'Caja 1',
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -128,6 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($action === 'guardar_config') {
                 $newToken = trim((string)($_POST['access_token'] ?? ''));
+                $newWebhookSecret = trim((string)($_POST['webhook_secret'] ?? ''));
+                $rawWebhookUrl = trim((string)($_POST['webhook_url'] ?? ''));
+                $newWebhookUrl = mpcfg_normalize_url($rawWebhookUrl);
+                if ($rawWebhookUrl !== '' && ($newWebhookUrl === '' || !str_starts_with(strtolower($newWebhookUrl), 'https://'))) {
+                    throw new RuntimeException('La URL publica del webhook debe ser valida y usar HTTPS.');
+                }
+                $environment = flus_mp_environment((string)($_POST['environment'] ?? 'test'));
                 $mode = strtolower(trim((string)($_POST['qr_mode'] ?? 'hybrid')));
                 if (!in_array($mode, ['dynamic', 'static', 'hybrid'], true)) {
                     $mode = 'hybrid';
@@ -137,7 +162,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $cashierMode = 'automatic';
                 }
                 $values = [
+                    'environment' => $environment,
                     'access_token' => $newToken !== '' ? $newToken : $values['access_token'],
+                    'webhook_secret' => $newWebhookSecret !== '' ? $newWebhookSecret : $values['webhook_secret'],
+                    'webhook_url' => $newWebhookUrl !== '' ? $newWebhookUrl : $values['webhook_url'],
                     'cashier_mode' => $cashierMode,
                     'manual_fallback' => (string)($_POST['manual_fallback'] ?? '0') === '1',
                     'qr_external_pos_id' => preg_replace('/[^A-Za-z0-9_-]/', '', (string)($_POST['qr_external_pos_id'] ?? '')) ?: '',
@@ -170,14 +198,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $values = mpcfg_apply_pos_to_values($values, (array)($result['pos'] ?? []));
                 $message = 'Mercado Pago respondio correctamente.';
             }
+
+            if ($action === 'create_qr_setup') {
+                foreach (array_keys($setupValues) as $key) {
+                    $setupValues[$key] = trim((string)($_POST[$key] ?? ''));
+                }
+                $setupToken = trim((string)($_POST['setup_access_token'] ?? ''));
+                $setupEnvironment = flus_mp_environment((string)($_POST['setup_environment'] ?? 'test'));
+                if ($setupEnvironment === 'production') {
+                    $identityResult = flus_mp_qr_current_user($setupToken);
+                    if (!($identityResult['ok'] ?? false)) {
+                        throw new RuntimeException(
+                            'No se pudo validar la cuenta productiva: '
+                            . (string)($identityResult['error'] ?? 'Credencial rechazada por Mercado Pago.')
+                        );
+                    }
+                    $setupValues['user_id'] = (string)$identityResult['user_id'];
+                } elseif ($setupValues['user_id'] === '') {
+                    throw new RuntimeException('Completa el User ID de las credenciales de prueba.');
+                }
+                $coordinateParts = preg_split('/\s*,\s*/', $setupValues['coordinates'], 2) ?: [];
+                $setupInput = [
+                    'user_id' => $setupValues['user_id'],
+                    'store_name' => $setupValues['store_name'],
+                    'street_name' => $setupValues['street_name'],
+                    'street_number' => $setupValues['street_number'],
+                    'city_name' => $setupValues['city_name'],
+                    'state_name' => $setupValues['state_name'],
+                    'latitude' => $coordinateParts[0] ?? null,
+                    'longitude' => $coordinateParts[1] ?? null,
+                    'pos_name' => $setupValues['pos_name'],
+                ];
+                $integrationState = flus_mp_integration_prepare($pdo, $setupEnvironment, $setupToken, $setupInput);
+                $setupInput['store_id'] = (string)($integrationState['store_id'] ?? '');
+                $setupInput['store_external_id'] = (string)($integrationState['store_external_id'] ?? '');
+                $setupInput['pos_external_id'] = (string)($integrationState['pos_external_id'] ?? '');
+                $result = flus_mp_qr_create_store_and_pos($setupToken, $setupInput);
+                flus_mp_integration_record_result($pdo, $setupEnvironment, $result);
+                if (!($result['ok'] ?? false)) {
+                    $detail = is_array($result['response'] ?? null)
+                        ? json_encode($result['response'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)
+                        : '';
+                    throw new RuntimeException(
+                        (string)($result['error'] ?? 'No se pudo crear la sucursal y caja.')
+                        . ($detail !== '' && $detail !== '[]' ? "\n" . $detail : '')
+                    );
+                }
+
+                $values['environment'] = $setupEnvironment;
+                $values['access_token'] = $setupToken;
+                $values['cashier_mode'] = 'automatic';
+                $values['manual_fallback'] = true;
+                $values['qr_mode'] = 'hybrid';
+                $values = mpcfg_apply_pos_to_values($values, (array)($result['pos'] ?? []));
+                mpcfg_write_config($values);
+                $setupValues = array_fill_keys(array_keys($setupValues), '');
+                $setupValues['pos_name'] = 'Caja 1';
+                $message = 'Sucursal y caja QR creadas. FLUS guardo el POS externo y los enlaces del QR.';
+            }
         } catch (Throwable $e) {
-            $error = $e->getMessage();
-            $errorDetail = $e instanceof RuntimeException ? '' : (string)$e;
+            $parts = explode("\n", $e->getMessage(), 2);
+            $error = $parts[0];
+            $errorDetail = $parts[1] ?? ($e instanceof RuntimeException ? '' : (string)$e);
         }
     }
 }
 
 $tokenPresent = $values['access_token'] !== '';
+$activeEnvironment = flus_mp_environment((string)$values['environment']);
+$setupSelectedEnvironment = flus_mp_environment((string)($_POST['setup_environment'] ?? $activeEnvironment));
+$webhookSecretConfigured = trim((string)$values['webhook_secret']) !== '';
+$integrationState = flus_mp_integration_state($pdo, $activeEnvironment);
+$webhookScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$webhookHost = (string)($_SERVER['HTTP_HOST'] ?? '');
+$webhookBase = str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? '/')));
+$localWebhookUrl = $webhookHost !== ''
+    ? $webhookScheme . '://' . $webhookHost . rtrim($webhookBase, '/') . '/mercadopago_webhook.php'
+    : '';
+$webhookUrl = trim((string)$values['webhook_url']);
+$webhookConfigured = $webhookSecretConfigured && str_starts_with(strtolower($webhookUrl), 'https://');
+$recentWebhookStmt = $pdo->prepare(
+    'SELECT event_type, action_name, resource_id, status, order_status, error_message, received_at
+     FROM mercadopago_webhook_eventos
+     WHERE environment = ?
+     ORDER BY id DESC
+     LIMIT 8'
+);
+$recentWebhookStmt->execute([$activeEnvironment]);
+$recentWebhookEvents = $recentWebhookStmt->fetchAll(PDO::FETCH_ASSOC);
 $tokenKind = mpcfg_token_kind($values['access_token']);
 $curlOk = function_exists('curl_init');
 $qrConfigured = $values['access_token'] !== '' && $values['qr_external_pos_id'] !== '';
@@ -238,6 +346,9 @@ if ($qrConfigured && !$staticReady) {
 if (!$manualAvailable) {
     $mpNextSteps[] = 'Habilitar fallback manual si el comercio necesita vender cuando se corta internet.';
 }
+if (!$webhookConfigured) {
+    $mpNextSteps[] = 'Configurar una URL publica HTTPS y la clave secreta para recibir Webhooks Order.';
+}
 if ($mpNextSteps === []) {
     $mpNextSteps[] = 'Configuracion operativa. Conviene hacer una prueba QR de $' . number_format(flus_mp_min_amount(), 2, ',', '.') . ' antes de abrir caja.';
 }
@@ -264,10 +375,11 @@ require __DIR__ . '/partials/header.php';
     <div>
       <span class="mpcfg-eyebrow">Integraciones</span>
       <h1>Mercado Pago</h1>
-      <p>Controla QR, Point y credenciales desde un solo lugar.</p>
+      <p>Cobros QR, dinero neto y configuracion de la cuenta.</p>
     </div>
     <div class="mpcfg-header-actions">
-      <a class="v-btn v-btn--outline" href="mp_qr_test.php">Probar QR</a>
+      <a class="v-btn v-btn--primary" href="mercadopago_liquidaciones.php">Ver liquidaciones</a>
+      <a class="v-btn v-btn--outline" href="mp_qr_test.php">Diagnosticar QR</a>
       <a class="v-btn v-btn--ghost" href="configuracion.php">Volver</a>
     </div>
   </header>
@@ -303,8 +415,18 @@ require __DIR__ . '/partials/header.php';
     </div>
   </section>
 
+  <nav class="mpcfg-workflow" aria-label="Acciones principales de Mercado Pago">
+    <a href="caja.php"><span>1</span><strong>Cobrar</strong><small>Usar Mercado Pago desde Caja</small></a>
+    <a href="mercadopago_liquidaciones.php"><span>2</span><strong>Conciliar</strong><small>Ver comisiones, impuestos y neto</small></a>
+    <a href="#mpcfgAdvanced"><span>3</span><strong>Configurar</strong><small>Ajustes tecnicos y contingencia</small></a>
+  </nav>
+
+  <details class="mpcfg-disclosure">
+    <summary>
+      <span><strong>Diagnostico tecnico</strong><small>Token, POS, webhook, QR y Point</small></span>
+      <b>Ver detalles</b>
+    </summary>
   <section class="mpcfg-section">
-    <h2>Estado actual</h2>
     <div class="mpcfg-status-grid">
       <div class="mpcfg-status <?= mpcfg_status_class($configExists, true) ?>">
         <span>Archivo config</span>
@@ -314,6 +436,20 @@ require __DIR__ . '/partials/header.php';
         <span>Access Token</span>
         <strong><?= h(mpcfg_mask_token($values['access_token'])) ?></strong>
         <small><?= h($tokenKind) ?></small>
+      </div>
+      <div class="mpcfg-status <?= mpcfg_status_class($activeEnvironment === 'production', true) ?>">
+        <span>Ambiente</span>
+        <strong><?= $activeEnvironment === 'production' ? 'Produccion' : 'Prueba' ?></strong>
+      </div>
+      <div class="mpcfg-status <?= mpcfg_status_class($webhookConfigured, true) ?>">
+          <span>Webhook Orders</span>
+        <strong><?= $webhookConfigured ? 'Listo' : 'Pendiente' ?></strong>
+        <small><?= $webhookSecretConfigured ? 'Firma cargada' : 'Falta firma' ?> · <?= $webhookUrl !== '' ? 'URL cargada' : 'Falta URL HTTPS' ?></small>
+      </div>
+      <div class="mpcfg-status <?= mpcfg_status_class((string)($integrationState['status'] ?? '') === 'ready', $integrationState !== null) ?>">
+        <span>Alta QR</span>
+        <strong><?= h((string)($integrationState['status'] ?? 'Sin iniciar')) ?></strong>
+        <?php if (!empty($integrationState['last_error'])): ?><small><?= h((string)$integrationState['last_error']) ?></small><?php endif; ?>
       </div>
       <div class="mpcfg-status <?= mpcfg_status_class($curlOk) ?>">
         <span>PHP cURL</span>
@@ -352,18 +488,127 @@ require __DIR__ . '/partials/header.php';
       </div>
     </div>
   </section>
+  </details>
 
   <div class="mpcfg-layout">
-    <section class="mpcfg-section">
-      <h2>Configuracion</h2>
+    <?php if ((string)($integrationState['status'] ?? '') !== 'ready'): ?>
+    <section class="mpcfg-section mpcfg-setup">
+      <div class="mpcfg-section-head">
+        <div>
+          <span class="mpcfg-eyebrow">Configuracion guiada</span>
+          <h2>Crear sucursal y caja QR</h2>
+          <p>FLUS genera los identificadores tecnicos y guarda el QR automaticamente.</p>
+        </div>
+        <span class="mpcfg-step-badge">Un solo paso</span>
+      </div>
+
+      <form method="post" class="mpcfg-form mpcfg-setup-form">
+        <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
+        <input type="hidden" name="accion" value="create_qr_setup">
+
+        <label class="mpcfg-field">
+          <span>Ambiente</span>
+          <select name="setup_environment">
+            <option value="test" <?= $setupSelectedEnvironment === 'test' ? 'selected' : '' ?>>Prueba</option>
+            <option value="production" <?= $setupSelectedEnvironment === 'production' ? 'selected' : '' ?>>Produccion</option>
+          </select>
+          <small>Las sucursales y cajas se mantienen separadas por ambiente.</small>
+        </label>
+
+        <label class="mpcfg-field mpcfg-field--wide">
+          <span>Access Token del ambiente elegido</span>
+          <input type="password" name="setup_access_token" autocomplete="off" placeholder="Pega el Access Token privado" required>
+          <small>FLUS no deduce el ambiente desde APP_USR. No uses la Public Key.</small>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>User ID del ambiente</span>
+          <input name="user_id" inputmode="numeric" pattern="[0-9]+" value="<?= h($setupValues['user_id']) ?>" placeholder="Automatico en produccion">
+          <small>En prueba, copia el User ID de las credenciales de test. En produccion FLUS lo obtiene del Access Token. No uses el numero de aplicacion.</small>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Nombre de la sucursal</span>
+          <input name="store_name" value="<?= h($setupValues['store_name']) ?>" placeholder="Ej. Canaan" required>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Calle</span>
+          <input name="street_name" value="<?= h($setupValues['street_name']) ?>" placeholder="Ej. Buenos Aires" required>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Numero</span>
+          <input name="street_number" value="<?= h($setupValues['street_number']) ?>" inputmode="numeric" placeholder="5893" required>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Localidad</span>
+          <input name="city_name" value="<?= h($setupValues['city_name']) ?>" placeholder="Ej. Guaymallén" required>
+          <small>Debe coincidir exactamente con la localidad aceptada por Mercado Pago, incluyendo tildes.</small>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Provincia</span>
+          <input name="state_name" value="<?= h($setupValues['state_name']) ?>" placeholder="Ej. Mendoza" required>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Coordenadas de Google Maps</span>
+          <input name="coordinates" value="<?= h($setupValues['coordinates']) ?>" placeholder="-32.849356, -68.714803" pattern="-?[0-9]+(?:\.[0-9]+)?\s*,\s*-?[0-9]+(?:\.[0-9]+)?" required>
+          <small>Pega latitud y longitud juntas, separadas por coma.</small>
+        </label>
+
+        <label class="mpcfg-field">
+          <span>Nombre de la caja</span>
+          <input name="pos_name" value="<?= h($setupValues['pos_name']) ?>" placeholder="Caja 1" required>
+        </label>
+
+        <div class="mpcfg-setup-note mpcfg-field--wide">
+          Mercado Pago valida localidad, provincia y coordenadas. Si la sucursal ya fue creada y fallo la caja, FLUS retomara ese mismo intento.
+        </div>
+
+        <div class="mpcfg-actions">
+          <button class="v-btn v-btn--primary" type="submit">Crear y configurar QR</button>
+        </div>
+      </form>
+    </section>
+    <?php endif; ?>
+
+    <section class="mpcfg-section" id="mpcfgAdvanced">
+      <details class="mpcfg-disclosure mpcfg-disclosure--inner">
+      <summary>
+        <span><strong>Ajustes avanzados</strong><small>Credencial, modo de cobro, webhook, POS y Point</small></span>
+        <b>Abrir</b>
+      </summary>
       <form method="post" class="mpcfg-form">
         <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
         <input type="hidden" name="accion" value="guardar_config">
+
+        <label class="mpcfg-field">
+          <span>Ambiente activo</span>
+          <select name="environment">
+            <option value="test" <?= $activeEnvironment === 'test' ? 'selected' : '' ?>>Prueba</option>
+            <option value="production" <?= $activeEnvironment === 'production' ? 'selected' : '' ?>>Produccion</option>
+          </select>
+        </label>
 
         <label class="mpcfg-field mpcfg-field--wide">
           <span>Access Token</span>
           <input type="password" name="access_token" autocomplete="off" placeholder="<?= h(mpcfg_mask_token($values['access_token'])) ?>">
           <small>Dejalo vacio para conservar el token actual.</small>
+        </label>
+
+        <label class="mpcfg-field mpcfg-field--wide">
+          <span>Clave secreta Webhook</span>
+          <input type="password" name="webhook_secret" autocomplete="off" placeholder="<?= $webhookSecretConfigured ? 'Configurada. Dejala vacia para conservarla.' : 'Pega la firma secreta de Webhooks' ?>">
+          <small>Mercado Pago genera esta clave al guardar la notificacion del evento Order.</small>
+        </label>
+
+        <label class="mpcfg-field mpcfg-field--wide">
+          <span>URL publica HTTPS del Webhook</span>
+          <input type="url" name="webhook_url" value="<?= h($webhookUrl) ?>" placeholder="https://tu-dominio.example/mercadopago_webhook.php">
+          <small>Debe dirigir a este endpoint local: <code><?= h($localWebhookUrl) ?></code>. Mercado Pago no puede acceder a localhost directamente.</small>
         </label>
 
         <label class="mpcfg-field">
@@ -423,6 +668,7 @@ require __DIR__ . '/partials/header.php';
           <button class="v-btn v-btn--primary" type="submit">Guardar configuracion</button>
         </div>
       </form>
+      </details>
     </section>
 
     <section class="mpcfg-section">
@@ -485,13 +731,51 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
   </section>
 
+  <section class="mpcfg-section">
+    <div class="mpcfg-section-head">
+      <div>
+        <h2>Actividad Webhook</h2>
+        <p>Ultimos eventos Order recibidos en el ambiente <?= $activeEnvironment === 'production' ? 'productivo' : 'de prueba' ?>.</p>
+      </div>
+      <span class="mpcfg-step-badge"><?= count($recentWebhookEvents) ?> recientes</span>
+    </div>
+    <?php if ($recentWebhookEvents === []): ?>
+      <p class="mpcfg-muted">Todavia no se recibieron notificaciones firmadas en este ambiente.</p>
+    <?php else: ?>
+      <div class="mpcfg-event-table-wrap">
+        <table class="mpcfg-event-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Accion</th>
+              <th>Order</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($recentWebhookEvents as $event): ?>
+              <tr>
+                <td><?= h((string)($event['received_at'] ?? '-')) ?></td>
+                <td><?= h((string)($event['action_name'] ?? $event['event_type'] ?? '-')) ?></td>
+                <td><code><?= h((string)($event['resource_id'] ?? '-')) ?></code></td>
+                <td>
+                  <strong><?= h((string)($event['order_status'] ?: $event['status'] ?? '-')) ?></strong>
+                  <?php if (!empty($event['error_message'])): ?><small><?= h((string)$event['error_message']) ?></small><?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php endif; ?>
+  </section>
+
   <section class="mpcfg-section mpcfg-help">
-    <h2>Uso operativo</h2>
+    <h2>Reglas de operacion</h2>
     <ol>
-      <li>Usa <strong>Manual rapido</strong> si el negocio solo quiere registrar lo cobrado por Mercado Pago sin integrar credenciales.</li>
-      <li>Usa <strong>Automatico QR/Point</strong> cuando haya token, QR o terminal Point configurada y la PC tenga internet.</li>
-      <li>Deja el QR en <strong>Hybrid</strong> para que el mismo cobro funcione con el QR impreso y con el QR en pantalla.</li>
-      <li>Para Point, completa la terminal y cobra con <strong>Debito</strong> o <strong>Credito</strong> como unico medio de pago.</li>
+      <li><strong>Automatico</strong> confirma el pago antes de registrar la venta.</li>
+      <li><strong>Contingencia manual</strong> se usa solo cuando la app confirma el cobro pero esta PC no puede conectarse.</li>
+      <li><strong>Liquidaciones</strong> muestra bruto, comision, retenciones, devoluciones y neto.</li>
     </ol>
   </section>
 </div>

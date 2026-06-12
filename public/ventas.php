@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
 require_once __DIR__ . '/../src/venta_anulaciones_lib.php';
+require_once __DIR__ . '/../src/ticket_config_lib.php';
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
@@ -619,6 +620,7 @@ if ($cliente_id) {
 ========================= */
 $pageTitle = 'Ventas';
 $currentSection = 'ventas';
+$ticketPaper = flus_ticket_global_config($pdo)['paper'];
 $breadcrumbs = [
     ['label' => 'Ventas', 'url' => null],
 ];
@@ -627,6 +629,7 @@ $extraJs = [
   'assets/js/ventas.js?v=5.1',
   'assets/js/ventas_kpis.js?v=2'
 ];
+$extraHead = ($extraHead ?? '') . '<script>window.FLUS_TICKET_PAPER=' . json_encode($ticketPaper) . ';</script>';
 
 require __DIR__ . '/partials/header.php';
 
@@ -666,13 +669,6 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
       </div>
     </div>
     <div class="ventas-header-right module-header-actions">
-      <label class="paper-control">
-        <span>Ticket</span>
-        <select id="paperSel" class="paper-select">
-          <option value="80">80mm</option>
-          <option value="58">58mm</option>
-        </select>
-      </label>
       <button id="btnCharts" class="btn btn-secondary btn-compact" type="button" title="Graficos (Ctrl+E)" aria-expanded="false">Ver graficos</button>
       <a href="?<?= http_build_query($queryParams + ['export' => 'csv']) ?>" class="btn btn-primary btn-compact" title="Exportar CSV">Exportar CSV</a>
     </div>

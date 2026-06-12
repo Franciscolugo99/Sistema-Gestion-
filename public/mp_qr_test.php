@@ -15,6 +15,8 @@ $curlOk = function_exists('curl_init');
 $mode = flus_mp_qr_mode();
 $externalPosId = flus_mp_qr_external_pos_id();
 $description = flus_mp_qr_description();
+$environment = flus_mp_qr_environment();
+$isProduction = $environment === 'production';
 $minAmount = flus_mp_min_amount();
 $configIssues = [];
 if (!$tokenPresent) {
@@ -44,10 +46,17 @@ require __DIR__ . '/partials/header.php';
       <div class="module-header-main">
         <span class="module-eyebrow">Integraciones</span>
         <h1>Mercado Pago QR</h1>
-        <p class="module-subtitle">Prueba local para crear una order, mostrar el QR y esperar confirmacion sin tocar ventas reales.</p>
+        <p class="module-subtitle">Herramienta de diagnostico para crear una order y verificar su confirmacion. No registra una venta en FLUS.</p>
       </div>
       <a class="btn btn-secondary" href="configuracion.php">Volver</a>
     </header>
+
+    <?php if ($isProduction): ?>
+      <section class="mpqr-live-warning" role="alert">
+        <strong>Ambiente productivo: este QR cobra dinero real</strong>
+        <span>Usalo sólo para una prueba controlada. La operación no crea una venta en FLUS y, si corresponde, debe devolverse desde Mercado Pago.</span>
+      </section>
+    <?php endif; ?>
 
     <?php if (!$configured): ?>
       <section class="mpqr-alert">
@@ -65,7 +74,7 @@ require __DIR__ . '/partials/header.php';
     <div class="mpqr-grid">
       <section class="mpqr-card">
         <div class="mpqr-card-head">
-          <span>Crear prueba</span>
+          <span><?= $isProduction ? 'Diagnostico productivo' : 'Crear prueba' ?></span>
           <strong>Order QR</strong>
         </div>
 
@@ -97,6 +106,10 @@ require __DIR__ . '/partials/header.php';
         </form>
 
         <dl class="mpqr-config">
+          <div>
+            <dt>Ambiente</dt>
+            <dd><?= $isProduction ? 'Produccion, dinero real' : 'Prueba' ?></dd>
+          </div>
           <div>
             <dt>POS externo</dt>
             <dd><?= h($externalPosId !== '' ? $externalPosId : 'Sin configurar') ?></dd>
@@ -130,6 +143,19 @@ require __DIR__ . '/partials/header.php';
         </dl>
       </section>
     </div>
+
+    <section class="mpqr-card mpqr-scenarios">
+      <div class="mpqr-card-head">
+        <span>Checklist</span>
+        <strong>Escenarios antes de produccion</strong>
+      </div>
+      <div class="mpqr-scenario-grid">
+        <div><strong>Aprobado</strong><span>Pagar desde la cuenta compradora y confirmar que FLUS muestra Pago aprobado.</span></div>
+        <div><strong>Rechazado</strong><span>Usar el escenario de rechazo de Mercado Pago y confirmar que la order termina sin registrar una venta.</span></div>
+        <div><strong>Cancelado</strong><span>Crear una order, cancelarla desde FLUS y comprobar que deja de consultar.</span></div>
+        <div><strong>Expirado</strong><span>Dejar vencer una order sin pagar y verificar que el estado terminal se informa correctamente.</span></div>
+      </div>
+    </section>
   </div>
 </div>
 

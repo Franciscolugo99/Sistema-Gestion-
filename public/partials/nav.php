@@ -91,6 +91,7 @@ if ($currentSection === '') {
         'factura_pdf.php'              => 'facturacion',
         'factura_emitir.php'           => 'facturacion',
         'configuracion.php'            => 'configuracion',
+        'ticket_config.php'            => 'configuracion',
         'mercadopago_config.php'       => 'configuracion',
         'mp_qr_test.php'               => 'configuracion',
         'licencia.php'                 => 'configuracion',
@@ -312,6 +313,7 @@ if ($canTesoreria) {
     $tesoreriaLinks[] = ['href' => 'tesoreria_movimientos.php',  'section' => 'tesoreria', 'label' => 'Movimientos',   'shortcut' => '', 'active_files' => ['tesoreria_movimientos.php']];
     $tesoreriaLinks[] = ['href' => 'tesoreria_obligaciones.php', 'section' => 'tesoreria', 'label' => 'Obligaciones',  'shortcut' => '', 'active_files' => ['tesoreria_obligaciones.php']];
     $tesoreriaLinks[] = ['href' => 'tesoreria_reportes.php',     'section' => 'tesoreria', 'label' => 'Reportes',      'shortcut' => '', 'active_files' => ['tesoreria_reportes.php']];
+    $tesoreriaLinks[] = ['href' => 'mercadopago_liquidaciones.php', 'section' => 'tesoreria', 'label' => 'Mercado Pago', 'shortcut' => '', 'active_files' => ['mercadopago_liquidaciones.php']];
     $tesoreriaLinks[] = ['href' => 'tesoreria_categorias.php',   'section' => 'tesoreria', 'label' => 'Categorias',    'shortcut' => '', 'active_files' => ['tesoreria_categorias.php']];
 }
 if ($canCobranzas) {
@@ -340,6 +342,7 @@ if ($can('administrar_usuarios')) $adminLinks[] = ['href' => 'roles.php',       
 if ($canRendCajeros)              $adminLinks[] = ['href' => 'cajeros_rendimiento.php','label' => 'Rendimiento cajeros'];
 if ($canHistCaja)                 $adminLinks[] = ['href' => 'caja_historial.php','label' => 'Control de turnos'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'configuracion.php','label' => "Configuraci\u{00F3}n"];
+if ($can('administrar_config'))   $adminLinks[] = ['href' => 'ticket_config.php','label' => "Tickets e impresi\u{00F3}n"];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'mercadopago_config.php','label' => 'Mercado Pago'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'licencia.php',     'label' => 'Licencia'];
 if ($can('administrar_config'))   $adminLinks[] = ['href' => 'terminales.php',   'label' => 'Terminales'];
@@ -770,6 +773,10 @@ $autoBreadcrumbsByFile = [
         ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
         ['label' => 'Reportes', 'url' => null],
     ],
+    'mercadopago_liquidaciones.php' => [
+        ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
+        ['label' => 'Mercado Pago', 'url' => null],
+    ],
     'factura_ver.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
         ['label' => 'Comprobante', 'url' => null],
@@ -790,6 +797,10 @@ $autoBreadcrumbsByFile = [
     'facturacion_config.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
         ['label' => 'Configuración', 'url' => null],
+    ],
+    'ticket_config.php' => [
+        ['label' => "Configuraci\u{00F3}n", 'url' => 'configuracion.php'],
+        ['label' => "Tickets e impresi\u{00F3}n", 'url' => null],
     ],
     'facturacion_nc.php' => [
         ['label' => 'Facturación', 'url' => 'facturacion.php'],

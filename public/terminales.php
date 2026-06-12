@@ -386,6 +386,9 @@ require __DIR__ . '/partials/header.php';
         </div>
       </div>
     </div>
+    <div class="module-header-actions">
+      <a class="btn btn-secondary" href="ticket_config.php">Perfil global de tickets</a>
+    </div>
   </header>
 
   <?php if ($msg): ?>

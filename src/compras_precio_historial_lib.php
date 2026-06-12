@@ -54,12 +54,11 @@ function flus_compras_revertir_costos_al_anular(PDO $pdo, array $productoIds, in
 
     $motivoEsperado = "Compra #{$compraId} confirmada";
     $stHistorial = $pdo->prepare("
-        SELECT precio_anterior, precio_nuevo, motivo
+        SELECT id, precio_anterior, precio_nuevo, motivo
         FROM producto_precios_hist
         WHERE producto_id = ?
           AND tipo = 'COSTO'
         ORDER BY id DESC
-        LIMIT 1
         FOR UPDATE
     ");
     $stCosto = $pdo->prepare('SELECT costo FROM productos WHERE id = ? FOR UPDATE');
@@ -67,13 +66,23 @@ function flus_compras_revertir_costos_al_anular(PDO $pdo, array $productoIds, in
 
     foreach ($productoIds as $productoId) {
         $stHistorial->execute([$productoId]);
-        $historial = $stHistorial->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($historial) || trim((string)($historial['motivo'] ?? '')) !== $motivoEsperado) {
+        $historialRows = $stHistorial->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $cambiosCompra = [];
+        foreach ($historialRows as $historial) {
+            if (trim((string)($historial['motivo'] ?? '')) !== $motivoEsperado) {
+                break;
+            }
+            $cambiosCompra[] = $historial;
+        }
+
+        if ($cambiosCompra === []) {
             continue;
         }
 
-        $costoAnterior = round((float)($historial['precio_anterior'] ?? 0), 2);
-        $costoCompra = round((float)($historial['precio_nuevo'] ?? 0), 2);
+        $ultimoCambio = $cambiosCompra[0];
+        $primerCambio = $cambiosCompra[count($cambiosCompra) - 1];
+        $costoAnterior = round((float)($primerCambio['precio_anterior'] ?? 0), 2);
+        $costoCompra = round((float)($ultimoCambio['precio_nuevo'] ?? 0), 2);
         $stCosto->execute([$productoId]);
         $costoActual = round((float)($stCosto->fetchColumn() ?: 0), 2);
         if (abs($costoActual - $costoCompra) >= 0.01) {

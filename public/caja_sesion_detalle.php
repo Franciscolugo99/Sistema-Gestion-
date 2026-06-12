@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../src/caja_session_summary.php';
+require_once __DIR__ . '/../src/ticket_config_lib.php';
 require_login();
 require_permission('ver_historial_caja');
 
@@ -18,6 +19,7 @@ $sesion = null;
 $ventas = [];
 $movimientos = [];
 $terminal_nombre = null;
+$sessionTicketPaper = '80';
 $mediosResumen = [
   'ventas_cc' => 0.0,
   'cobros_cc' => 0.0,
@@ -45,6 +47,9 @@ try {
   $stSesion = $pdo->prepare($sqlSesion);
   $stSesion->execute([':id' => $sesion_id]);
   $sesion = $stSesion->fetch(PDO::FETCH_ASSOC);
+  if ($sesion) {
+    $sessionTicketPaper = flus_ticket_resolved_config($pdo, (int)($sesion['terminal_id'] ?? 0))['paper'];
+  }
 
   if (!$sesion) {
     $error_msg = "Sesión no encontrada";
@@ -595,7 +600,7 @@ require __DIR__ . '/partials/header.php';
                       <a href="venta_detalle.php?id=<?= $vid ?>" class="btn-icon" title="Ver detalle">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </a>
-                      <a href="ticket.php?id=<?= $vid ?>" class="btn-icon" title="Ver ticket" target="_blank">
+                      <a href="ticket.php?id=<?= $vid ?>&paper=<?= h($sessionTicketPaper) ?>" class="btn-icon" title="Ver ticket" target="_blank">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                       </a>
                     </div>

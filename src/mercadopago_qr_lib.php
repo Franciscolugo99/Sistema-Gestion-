@@ -66,10 +66,20 @@ function flus_mp_qr_mode(): string
     return in_array($mode, ['dynamic', 'static', 'hybrid'], true) ? $mode : 'hybrid';
 }
 
+function flus_mp_qr_environment(): string
+{
+    $environment = strtolower(flus_mp_qr_config_value('FLUS_MP_ENVIRONMENT', 'FLUS_MP_ENVIRONMENT', 'test'));
+    return $environment === 'production' ? 'production' : 'test';
+}
+
 function flus_mp_qr_description(): string
 {
-    $description = flus_mp_qr_config_value('FLUS_MP_QR_DESCRIPTION', 'FLUS_MP_QR_DESCRIPTION', 'Prueba FLUS QR');
-    return $description !== '' ? mb_substr($description, 0, 150, 'UTF-8') : 'Prueba FLUS QR';
+    $fallback = flus_mp_qr_environment() === 'production' ? 'Cobro FLUS QR' : 'Prueba FLUS QR';
+    $description = flus_mp_qr_config_value('FLUS_MP_QR_DESCRIPTION', 'FLUS_MP_QR_DESCRIPTION', $fallback);
+    if (flus_mp_qr_environment() === 'production' && strcasecmp($description, 'Prueba FLUS QR') === 0) {
+        $description = $fallback;
+    }
+    return mb_substr($description !== '' ? $description : $fallback, 0, 150, 'UTF-8');
 }
 
 function flus_mp_qr_is_configured(): bool
@@ -149,12 +159,28 @@ function flus_mp_qr_response_error_message(array $body, string $fallback): strin
         }
     }
 
+    $causes = array_merge(
+        (array)($body['cause'] ?? []),
+        (array)($body['causes'] ?? [])
+    );
+    foreach ($causes as $cause) {
+        if (!is_array($cause)) continue;
+        foreach (['description', 'message', 'code'] as $key) {
+            if (isset($cause[$key]) && is_scalar($cause[$key])) {
+                $candidates[] = trim((string)$cause[$key]);
+            }
+        }
+    }
+
     $candidates = array_values(array_filter(array_unique($candidates), static fn(string $value): bool => $value !== ''));
     return $candidates !== [] ? implode(' - ', $candidates) : $fallback;
 }
 
-function flus_mp_qr_reference(string $prefix = 'FLUSMPTEST'): string
+function flus_mp_qr_reference(?string $prefix = null): string
 {
+    if ($prefix === null || trim($prefix) === '') {
+        $prefix = flus_mp_qr_environment() === 'production' ? 'FLUSMPPROD' : 'FLUSMPTEST';
+    }
     $seed = bin2hex(random_bytes(8));
     return $prefix . '-' . date('YmdHis') . '-' . $seed;
 }
@@ -165,9 +191,15 @@ function flus_mp_qr_idempotency_key(): string
     return substr($bytes, 0, 8) . '-' . substr($bytes, 8, 4) . '-' . substr($bytes, 12, 4) . '-' . substr($bytes, 16, 4) . '-' . substr($bytes, 20);
 }
 
-function flus_mp_qr_http(string $method, string $path, ?array $payload = null, ?string $idempotencyKey = null): array
+function flus_mp_qr_http(
+    string $method,
+    string $path,
+    ?array $payload = null,
+    ?string $idempotencyKey = null,
+    ?string $accessToken = null
+): array
 {
-    $token = flus_mp_qr_access_token();
+    $token = trim((string)($accessToken ?? flus_mp_qr_access_token()));
     if ($token === '') {
         return ['ok' => false, 'status' => 0, 'error' => 'Falta FLUS_MP_ACCESS_TOKEN en src/config_mp.php'];
     }
@@ -216,6 +248,226 @@ function flus_mp_qr_http(string $method, string $path, ?array $payload = null, ?
     }
 
     return ['ok' => true, 'status' => $status, 'response' => $body];
+}
+
+function flus_mp_qr_setup_external_id(string $prefix, int $maxLength): string
+{
+    return substr($prefix . date('YmdHis') . strtoupper(bin2hex(random_bytes(5))), 0, $maxLength);
+}
+
+function flus_mp_qr_current_user(string $accessToken): array
+{
+    $result = flus_mp_qr_http('GET', '/users/me', null, null, $accessToken);
+    if (!($result['ok'] ?? false)) {
+        return $result;
+    }
+
+    $user = (array)($result['response'] ?? []);
+    $userId = preg_replace('/\D+/', '', (string)($user['id'] ?? $user['collector_id'] ?? '')) ?: '';
+    if ($userId === '') {
+        return [
+            'ok' => false,
+            'status' => 502,
+            'error' => 'Mercado Pago valido el token, pero no devolvio el User ID de la cuenta.',
+            'response' => $user,
+        ];
+    }
+
+    return ['ok' => true, 'status' => (int)($result['status'] ?? 200), 'user_id' => $userId, 'user' => $user];
+}
+
+function flus_mp_qr_search_store(string $accessToken, string $userId, string $externalId): array
+{
+    $result = flus_mp_qr_http(
+        'GET',
+        '/users/' . rawurlencode($userId) . '/stores/search?' . http_build_query(['external_id' => $externalId]),
+        null,
+        null,
+        $accessToken
+    );
+    if (!($result['ok'] ?? false)) {
+        if ((int)($result['status'] ?? 0) === 404) {
+            return ['ok' => true, 'store' => null];
+        }
+        return $result;
+    }
+    $results = (array)(($result['response']['results'] ?? []));
+    return ['ok' => true, 'store' => is_array($results[0] ?? null) ? $results[0] : null];
+}
+
+function flus_mp_qr_search_pos(string $accessToken, string $externalId): array
+{
+    $result = flus_mp_qr_http('GET', '/pos?' . http_build_query(['external_id' => $externalId]), null, null, $accessToken);
+    if (!($result['ok'] ?? false)) {
+        return $result;
+    }
+    $results = (array)(($result['response']['results'] ?? []));
+    return [
+        'ok' => true,
+        'pos' => is_array($results[0] ?? null) ? flus_mp_qr_normalize_pos($results[0]) : null,
+    ];
+}
+
+function flus_mp_qr_create_store_and_pos(string $accessToken, array $input): array
+{
+    $accessToken = trim($accessToken);
+    $userId = preg_replace('/\D+/', '', (string)($input['user_id'] ?? '')) ?: '';
+    $storeName = mb_substr(trim((string)($input['store_name'] ?? '')), 0, 60, 'UTF-8');
+    $streetName = mb_substr(trim((string)($input['street_name'] ?? '')), 0, 100, 'UTF-8');
+    $streetNumber = mb_substr(trim((string)($input['street_number'] ?? '')), 0, 20, 'UTF-8');
+    $cityName = mb_substr(trim((string)($input['city_name'] ?? '')), 0, 80, 'UTF-8');
+    $stateName = mb_substr(trim((string)($input['state_name'] ?? '')), 0, 80, 'UTF-8');
+    $posName = mb_substr(trim((string)($input['pos_name'] ?? '')), 0, 60, 'UTF-8');
+    $latitude = filter_var($input['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
+    $longitude = filter_var($input['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
+
+    if ($accessToken === '') {
+        return ['ok' => false, 'status' => 422, 'error' => 'Pega el Access Token del ambiente elegido.'];
+    }
+    if ($userId === '') {
+        return ['ok' => false, 'status' => 422, 'error' => 'Completa el User ID de la cuenta que recibira los pagos.'];
+    }
+    foreach ([
+        'nombre de la sucursal' => $storeName,
+        'calle' => $streetName,
+        'numero' => $streetNumber,
+        'localidad' => $cityName,
+        'provincia' => $stateName,
+        'nombre de la caja' => $posName,
+    ] as $label => $value) {
+        if ($value === '') {
+            return ['ok' => false, 'status' => 422, 'error' => 'Completa ' . $label . '.'];
+        }
+    }
+    if ($latitude === false || $longitude === false || $latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+        return ['ok' => false, 'status' => 422, 'error' => 'Pega coordenadas validas en formato latitud, longitud.'];
+    }
+
+    $storeExternalId = preg_replace('/[^A-Za-z0-9]/', '', (string)($input['store_external_id'] ?? '')) ?: flus_mp_qr_setup_external_id('FLUSSUC', 60);
+    $posExternalId = preg_replace('/[^A-Za-z0-9]/', '', (string)($input['pos_external_id'] ?? '')) ?: flus_mp_qr_setup_external_id('FLUSCAJA', 40);
+    $store = [];
+    $knownStoreId = trim((string)($input['store_id'] ?? ''));
+    if ($knownStoreId !== '') {
+        $store = ['id' => $knownStoreId, 'external_id' => $storeExternalId, 'name' => $storeName];
+    } else {
+        $storeSearch = flus_mp_qr_search_store($accessToken, $userId, $storeExternalId);
+        if (!($storeSearch['ok'] ?? false)) {
+            $searchError = (string)($storeSearch['error'] ?? 'Error desconocido');
+            if ((int)($storeSearch['status'] ?? 0) === 403) {
+                $searchError = 'El User ID no corresponde al titular del Access Token. No uses el numero de aplicacion. ' . $searchError;
+            }
+            return [
+                'ok' => false,
+                'status' => (int)($storeSearch['status'] ?? 0),
+                'step' => 'store',
+                'error' => 'No se pudo comprobar si la sucursal ya existia: ' . $searchError,
+                'response' => $storeSearch['response'] ?? [],
+            ];
+        }
+        $store = is_array($storeSearch['store'] ?? null) ? $storeSearch['store'] : [];
+    }
+
+    $storeResult = ['ok' => true, 'status' => 200, 'response' => $store];
+    if ($store === []) {
+        $storeResult = flus_mp_qr_http(
+            'POST',
+            '/users/' . rawurlencode($userId) . '/stores',
+            [
+                'name' => $storeName,
+                'external_id' => $storeExternalId,
+                'location' => [
+                    'street_number' => $streetNumber,
+                    'street_name' => $streetName,
+                    'city_name' => $cityName,
+                    'state_name' => $stateName,
+                    'latitude' => (float)$latitude,
+                    'longitude' => (float)$longitude,
+                    'reference' => 'Configurada desde FLUS',
+                ],
+            ],
+            null,
+            $accessToken
+        );
+        $store = (array)($storeResult['response'] ?? []);
+    }
+    if (!($storeResult['ok'] ?? false)) {
+        $storeError = (string)($storeResult['error'] ?? 'Error desconocido');
+        if (str_contains($storeError, 'location.city_name was invalid')) {
+            $storeError = 'La localidad no coincide con las opciones admitidas por Mercado Pago. Usa exactamente uno de los valores indicados en el detalle. ' . $storeError;
+        } elseif (str_contains($storeError, 'location.state_name was invalid')) {
+            $storeError = 'La provincia no coincide con las opciones admitidas por Mercado Pago. ' . $storeError;
+        }
+        return [
+            'ok' => false,
+            'status' => (int)($storeResult['status'] ?? 0),
+            'step' => 'store',
+            'error' => 'Mercado Pago rechazo la sucursal: ' . $storeError,
+            'response' => $storeResult['response'] ?? [],
+        ];
+    }
+
+    $storeId = (string)($store['id'] ?? '');
+    if ($storeId === '') {
+        return ['ok' => false, 'status' => 502, 'step' => 'store', 'error' => 'Mercado Pago creo la sucursal sin devolver su identificador.'];
+    }
+
+    $posPayload = [
+        'name' => $posName,
+        'fixed_amount' => true,
+        'store_id' => ctype_digit($storeId) ? (int)$storeId : $storeId,
+        'external_store_id' => $storeExternalId,
+        'external_id' => $posExternalId,
+    ];
+    $existingPos = flus_mp_qr_search_pos($accessToken, $posExternalId);
+    if (!($existingPos['ok'] ?? false)) {
+        return [
+            'ok' => false,
+            'status' => (int)($existingPos['status'] ?? 0),
+            'step' => 'pos',
+            'error' => 'La sucursal esta lista, pero no se pudo comprobar si la caja ya existia: ' . (string)($existingPos['error'] ?? 'Error desconocido'),
+            'store' => $store,
+            'response' => $existingPos['response'] ?? [],
+        ];
+    }
+    if (is_array($existingPos['pos'] ?? null)) {
+        return [
+            'ok' => true,
+            'status' => 200,
+            'store' => $store,
+            'pos' => $existingPos['pos'],
+            'reused' => true,
+        ];
+    }
+
+    $posResult = [];
+    for ($attempt = 1; $attempt <= 4; $attempt++) {
+        $posResult = flus_mp_qr_http('POST', '/pos', $posPayload, null, $accessToken);
+        if ($posResult['ok'] ?? false) {
+            break;
+        }
+        $errorText = strtolower((string)($posResult['error'] ?? ''));
+        if ($attempt === 4 || (!str_contains($errorText, 'external_store') && !str_contains($errorText, 'inexistent'))) {
+            break;
+        }
+        usleep(750000);
+    }
+    if (!($posResult['ok'] ?? false)) {
+        return [
+            'ok' => false,
+            'status' => (int)($posResult['status'] ?? 0),
+            'step' => 'pos',
+            'error' => 'La sucursal fue creada, pero Mercado Pago rechazo la caja: ' . (string)($posResult['error'] ?? 'Error desconocido'),
+            'store' => $store,
+            'response' => $posResult['response'] ?? [],
+        ];
+    }
+
+    return [
+        'ok' => true,
+        'status' => (int)($posResult['status'] ?? 200),
+        'store' => $store,
+        'pos' => flus_mp_qr_normalize_pos((array)($posResult['response'] ?? [])),
+    ];
 }
 
 function flus_mp_qr_find_value(array $data, array $paths): ?string
@@ -272,7 +524,7 @@ function flus_mp_qr_normalize_order(array $order): array
         'payment_status' => $paymentStatus,
         'payment_status_detail' => $paymentDetail,
         'approved' => $approved,
-        'terminal' => in_array($status, ['processed', 'refunded', 'expired', 'canceled'], true),
+        'terminal' => in_array($status, ['processed', 'refunded', 'expired', 'canceled', 'failed'], true),
         'qr_data' => flus_mp_qr_extract_qr_data($order),
         'external_reference' => (string)($order['external_reference'] ?? ''),
         'raw' => $order,
@@ -301,8 +553,9 @@ function flus_mp_qr_create_order(float $amount, ?string $description = null, ?st
     $externalReference = flus_mp_qr_reference();
     $description = mb_substr(trim((string)($description ?: flus_mp_qr_description())), 0, 150, 'UTF-8');
     if ($description === '') {
-        $description = 'Prueba FLUS QR';
+        $description = flus_mp_qr_environment() === 'production' ? 'Cobro FLUS QR' : 'Prueba FLUS QR';
     }
+    $itemTitle = flus_mp_qr_environment() === 'production' ? 'Cobro FLUS' : 'Prueba FLUS';
 
     $payload = [
         'type' => 'qr',
@@ -323,7 +576,7 @@ function flus_mp_qr_create_order(float $amount, ?string $description = null, ?st
         ],
         'items' => [
             [
-                'title' => 'Prueba FLUS',
+                'title' => $itemTitle,
                 'unit_price' => $amountString,
                 'quantity' => 1,
                 'unit_measure' => 'unit',

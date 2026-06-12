@@ -278,46 +278,17 @@ document.addEventListener("DOMContentLoaded", () => {
   })();
 
   // Papel del ticket
-  const PAPER_KEY = "kiosco-ticket-paper";
-  const PRINT_MODE_KEY = "kiosco-ticket-print-mode";
-  const PRINT_DEFAULTS = window.FLUS_PRINT_DEFAULTS || {};
-  const PRINT_GLOBAL_DEFAULTS = PRINT_DEFAULTS.global || {};
-  const PRINT_TERMINAL_DEFAULTS = PRINT_DEFAULTS.terminal || {};
+  const TICKET_CONFIG = window.FLUS_TICKET_CONFIG || {};
   function getPaper() {
-    const fallbackPaper =
-      (PRINT_TERMINAL_DEFAULTS.ticket_paper &&
-      PRINT_TERMINAL_DEFAULTS.ticket_paper !== "inherit"
-        ? PRINT_TERMINAL_DEFAULTS.ticket_paper
-        : PRINT_GLOBAL_DEFAULTS.ticket_paper) || "80";
-    const v = (localStorage.getItem(PAPER_KEY) || fallbackPaper).trim();
+    const v = String(TICKET_CONFIG.paper || "80").trim();
     return v === "58" ? "58" : "80";
   }
 
-  function getPrintModeStorageKey() {
-    return `${PRINT_MODE_KEY}:${FLUS_TERMINAL_ID || 0}`;
-  }
-
   function getPrintMode() {
-    const fallbackMode =
-      (PRINT_TERMINAL_DEFAULTS.ticket_mode &&
-      PRINT_TERMINAL_DEFAULTS.ticket_mode !== "inherit"
-        ? PRINT_TERMINAL_DEFAULTS.ticket_mode
-        : PRINT_GLOBAL_DEFAULTS.ticket_mode) || "autoprint";
-    const scoped = (localStorage.getItem(getPrintModeStorageKey()) || "").trim();
-    const legacy = (localStorage.getItem(PRINT_MODE_KEY) || "").trim();
-    const value = scoped || legacy || fallbackMode;
+    const value = String(TICKET_CONFIG.mode || "autoprint").trim();
     return ["autoprint", "preview", "none"].includes(value)
       ? value
-      : "autoprint";
-  }
-
-  function setPrintMode(value) {
-    const next = ["autoprint", "preview", "none"].includes(value)
-      ? value
-      : "autoprint";
-    localStorage.setItem(getPrintModeStorageKey(), next);
-    localStorage.setItem(PRINT_MODE_KEY, next);
-    return next;
+      : "preview";
   }
 
   // =========================
@@ -483,12 +454,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const msgBox = document.getElementById("msg");
   const tbodyTicket = document.querySelector("#tabla tbody");
   const ticketWrapper = document.querySelector(".ticket-wrapper");
-  const ticketEmptyState = document.getElementById("ticketEmptyState");
   const inputCodigo = document.getElementById("codigo");
   const inputCant = document.getElementById("cantidad");
   const scanCard = document.querySelector(".caja-scan-card");
-  const scanModeBadge = document.getElementById("scanModeBadge");
-  const scanModeText = document.getElementById("scanModeText");
   const cajaMain = document.querySelector(".caja-neo-main");
   const inputPagado = document.getElementById("montoPagado");
   const lblTotal = document.getElementById("lblTotal");
@@ -500,10 +468,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const pago2Wrap = document.getElementById("pago2Wrap");
   const selMedio2 = document.getElementById("medioPago2");
   const inputPagado2 = document.getElementById("montoPagado2");
-  const paymentSummaryMethod1 = document.getElementById("paymentSummaryMethod1");
-  const paymentSummaryValue1 = document.getElementById("paymentSummaryValue1");
-  const paymentSummaryMethod2 = document.getElementById("paymentSummaryMethod2");
-  const paymentSummaryValue2 = document.getElementById("paymentSummaryValue2");
   const btnAgregarPago = document.getElementById("btnAgregarPago");
   const btnQuitarPago2 = document.getElementById("btnQuitarPago2");
   const lblTotalPagado = document.getElementById("lblTotalPagado");
@@ -512,7 +476,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const lblCobroFeedback = document.getElementById("lblCobroFeedback");
   const lblCobroFeedbackLabel = document.getElementById("lblCobroFeedbackLabel");
 
-  const lblTotalBruto = document.getElementById("lblTotalBruto");
   const lblDescGlobal = document.getElementById("lblDescGlobal");
   const btnDescGlobal = document.getElementById("btnDescGlobal");
   const cajaPanel = document.querySelector(".caja-panel--neo");
@@ -522,17 +485,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const kpiMpSesion = document.getElementById("kpiMpSesion");
   const kpiTicketActual = document.getElementById("kpiTicketActual");
   const kpiPagadoActual = document.getElementById("kpiPagadoActual");
-  const ticketStatusLabel = document.getElementById("ticketStatusLabel");
   const btnCobrarExacto = document.getElementById("btnCobrarExacto");
   const btnCobrarExactoAmount = document.getElementById("btnCobrarExactoAmount");
   const paymentMiniFeedbackLabel = document.getElementById(
     "paymentMiniFeedbackLabel",
   );
-  const sidebarTicketTotal = document.getElementById("sidebarTicketTotal");
-  const sidebarTicketPaid = document.getElementById("sidebarTicketPaid");
-  const sidebarPendingWrap = document.getElementById("sidebarPendingWrap");
-  const sidebarPendingLabel = document.getElementById("sidebarPendingLabel");
-  const sidebarPendingValue = document.getElementById("sidebarPendingValue");
   const paymentMethodButtons = Array.from(
     document.querySelectorAll(".payment-method"),
   );
@@ -575,24 +532,13 @@ document.addEventListener("DOMContentLoaded", () => {
       "is-payment-focus",
     );
 
-    let badge = "Producto activo";
-    let copy =
-      "Escanea o escribi un producto. Enter agrega y Tab pasa a cantidad.";
-
     if (mode === "cantidad") {
       scanCard.classList.add("is-qty-focus");
-      badge = "Cantidad activa";
-      copy = "Ajusta cantidad y Enter agrega. Esc vuelve a producto.";
     } else if (mode === "cobro") {
       scanCard.classList.add("is-payment-focus");
-      badge = "Cobro activo";
-      copy = "F2 cobra el ticket. F3 vuelve al producto.";
     } else {
       scanCard.classList.add("is-code-focus");
     }
-
-    if (scanModeBadge) scanModeBadge.textContent = badge;
-    if (scanModeText) scanModeText.textContent = copy;
   }
 
   // Modal
@@ -606,7 +552,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalStockAlert = document.getElementById("modal-stock-alert");
   const btnConfirm = document.getElementById("modal-confirm");
   const btnCancel = document.getElementById("modal-cancel");
-  const ticketPrintModeSelect = document.getElementById("ticketPrintMode");
   const ticketPreviewModal = document.getElementById("ticketPreviewModal");
   const ticketPreviewFrame = document.getElementById("ticketPreviewFrame");
   const ticketPreviewVentaId = document.getElementById("ticketPreviewVentaId");
@@ -675,31 +620,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function initTicketOutputControls() {
-    if (ticketPrintModeSelect) {
-      ticketPrintModeSelect.value = getPrintMode();
-      ticketPrintModeSelect.addEventListener("change", () => {
-        const next = setPrintMode(ticketPrintModeSelect.value);
-        ticketPrintModeSelect.value = next;
-
-        if (next === "autoprint") {
-          mostrarMensaje(
-            "info",
-            "Auto imprimir activado. El navegador puede seguir mostrando su dialogo de impresion.",
-          );
-        } else if (next === "preview") {
-          mostrarMensaje(
-            "info",
-            "Vista previa activada. El ticket se abrira dentro de FLUS despues de cobrar.",
-          );
-        } else {
-          mostrarMensaje(
-            "info",
-            "No abrir ticket activado. La venta no disparara impresion automatica.",
-          );
-        }
-      });
-    }
-
     if (ticketPreviewModal) {
       ticketPreviewModal
         .querySelectorAll("[data-ticket-preview-close]")
@@ -799,39 +719,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return String(slot) === "2" ? pago2Wrap : pago1Wrap;
   }
 
-  function getPaymentSummaryMethodEl(slot = "1") {
-    return String(slot) === "2" ? paymentSummaryMethod2 : paymentSummaryMethod1;
-  }
-
-  function getPaymentSummaryValueEl(slot = "1") {
-    return String(slot) === "2" ? paymentSummaryValue2 : paymentSummaryValue1;
-  }
-
-  function getPaymentMethodLabel(value) {
-    const medio = String(value || "EFECTIVO").toUpperCase();
-    if (medio === "MP") return "Mercado Pago";
-    if (medio === "DEBITO") return "Debito";
-    if (medio === "CREDITO") return "Credito";
-    if (medio === "CC") return "Cta. Corriente";
-    return "Efectivo";
-  }
-
   function updatePaymentSummary(slot = "1") {
     const wrap = getPaymentWrap(slot);
-    const select = getSelectPago(slot);
     const input = getInputPago(slot);
-    const methodEl = getPaymentSummaryMethodEl(slot);
-    const valueEl = getPaymentSummaryValueEl(slot);
-    if (!wrap || !select || !input || !methodEl || !valueEl) return;
+    if (!wrap || !input) return;
 
     const amount = parseMonto(input.value || "0");
     const visible = String(slot) !== "2" || splitActivo();
     wrap.classList.toggle("is-filled", visible && amount > 0.009);
     wrap.classList.toggle("is-zero", !(visible && amount > 0.009));
-
-    methodEl.textContent = getPaymentMethodLabel(select.value);
-    valueEl.textContent = formatearMoneda(amount);
-    valueEl.classList.toggle("is-zero", amount <= 0.009);
   }
 
   function updatePaymentSummaries() {
@@ -1252,10 +1148,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (splitActivo()) {
       inputPagado.disabled = false;
       if (inputPagado2) {
-        const medio2 = String(selMedio2?.value || "EFECTIVO").toUpperCase();
-        const slot2EsExacto = medioEsExacto(medio2);
-        inputPagado2.disabled = slot2EsExacto;
-        if (slot2EsExacto) {
+        inputPagado2.disabled = false;
+        if (typeof inputPagado2.dataset.auto === "undefined") {
           inputPagado2.dataset.auto = "1";
         }
       }
@@ -1284,7 +1178,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const slot2Auto =
         !!inputPagado2 &&
-        (inputPagado2.dataset.auto !== "0" || medioEsExacto(medio2));
+        inputPagado2.dataset.auto !== "0";
 
       if (medioEsExacto(medio1)) {
         const max1 = Math.max(total - a2, 0);
@@ -1320,9 +1214,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (lblTotalPagado)
       lblTotalPagado.textContent = formatearMoneda(pagadoTotal);
-    if (sidebarTicketPaid) {
-      sidebarTicketPaid.textContent = formatearMoneda(pagadoTotal);
-    }
     if (lblVuelto) lblVuelto.textContent = formatearMoneda(vuelto);
     if (lblCobroFeedback) {
       const tieneFalta = resta > 0.009;
@@ -1341,17 +1232,6 @@ document.addEventListener("DOMContentLoaded", () => {
           "payment-mini-summary__value--accent",
           !tieneFalta,
         );
-      }
-      if (sidebarPendingLabel) {
-        sidebarPendingLabel.textContent = tieneFalta ? "Resta pagar" : "Vuelto";
-      }
-      if (sidebarPendingValue) {
-        sidebarPendingValue.textContent = formatearMoneda(tieneFalta ? resta : vuelto);
-        sidebarPendingValue.classList.toggle("caja-payment-health__value--danger", tieneFalta);
-        sidebarPendingValue.classList.toggle("caja-payment-health__value--accent", !tieneFalta);
-      }
-      if (sidebarPendingWrap) {
-        sidebarPendingWrap.classList.toggle("is-pending", tieneFalta);
       }
     }
     actualizarKpisLive(pagadoTotal);
@@ -2164,10 +2044,6 @@ document.addEventListener("DOMContentLoaded", () => {
           // Actualizar labels sin recalcular
           if (lblTotal)
             lblTotal.textContent = formatearMoneda(result.total_neto);
-          if (lblTotalBruto)
-            lblTotalBruto.textContent = formatearMoneda(
-              result.total_bruto || 0,
-            );
           recalcularVuelto();
         }
       }
@@ -2350,32 +2226,11 @@ document.addEventListener("DOMContentLoaded", () => {
       totalNeto = Math.max(0, Number((totalNeto - descG).toFixed(2)));
     }
 
-    lblTotalBruto.textContent = formatearMoneda(totalBruto);
     lblTotal.textContent = formatearMoneda(totalNeto);
-    if (sidebarTicketTotal) {
-      sidebarTicketTotal.textContent = formatearMoneda(totalNeto);
-    }
     if (lblDescGlobal) {
       lblDescGlobal.textContent = formatearMoneda(
         Math.max(0, totalBruto - totalNeto),
       );
-    }
-
-    if (ticketStatusLabel) {
-      if (carrito.length === 0) {
-        ticketStatusLabel.textContent =
-          "Listo para escanear o escribir un producto";
-      } else {
-        const items = carrito.length;
-        ticketStatusLabel.textContent = `${items} item${items !== 1 ? "s" : ""} · ${formatearMoneda(totalNeto)}`;
-      }
-    }
-
-    if (ticketWrapper) {
-      ticketWrapper.classList.toggle("is-empty", carrito.length === 0);
-    }
-    if (ticketEmptyState) {
-      ticketEmptyState.classList.toggle("is-hidden", carrito.length > 0);
     }
 
     totalNetoActual = totalNeto;
@@ -3139,10 +2994,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Actualizar UI sin recalcular (solo mostrar)
         if (lblTotal) lblTotal.textContent = formatearMoneda(totalConfirmado);
-        if (lblTotalBruto)
-          lblTotalBruto.textContent = formatearMoneda(
-            Number(syncResult.total_bruto) || 0,
-          );
         if (lblDescGlobal)
           lblDescGlobal.textContent = formatearMoneda(
             Number(syncResult.descuento_total) || 0,
@@ -3464,6 +3315,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   selMedio2?.addEventListener("change", () => {
+    if (inputPagado2) inputPagado2.dataset.auto = "1";
     actualizarEstadoPagosUI("2");
     actualizarVisibilidadCC();
     ajustarPagoSegunMedio();

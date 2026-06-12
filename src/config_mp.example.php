@@ -3,9 +3,16 @@
 // Copiar a src/config_mp.php y completar con credenciales de Mercado Pago.
 declare(strict_types=1);
 
-// Access Token de prueba o produccion.
-// Ejemplo: TEST-... o APP_USR-...
+// Ambiente activo. APP_USR puede pertenecer tanto a prueba como a produccion,
+// por eso FLUS no intenta deducirlo desde el prefijo del token.
+define('FLUS_MP_ENVIRONMENT', 'test');
+
+// Access Token del ambiente activo.
 define('FLUS_MP_ACCESS_TOKEN', '');
+
+// Clave secreta generada en Mercado Pago > Webhooks para el ambiente activo.
+define('FLUS_MP_WEBHOOK_SECRET', '');
+define('FLUS_MP_WEBHOOK_URL', '');
 
 // Modo de caja:
 // automatic = FLUS intenta confirmar QR/Point con la API cuando esta configurado.
@@ -22,8 +29,8 @@ define('FLUS_MP_QR_EXTERNAL_POS_ID', '');
 // Hybrid permite usar el QR impreso/estatico y tambien mostrar QR dinamico en pantalla.
 define('FLUS_MP_QR_MODE', 'hybrid');
 
-// Sandbox visual: texto que se muestra en la order.
-define('FLUS_MP_QR_DESCRIPTION', 'Prueba FLUS QR');
+// Texto que se muestra en la order. Evitar referencias a prueba en produccion.
+define('FLUS_MP_QR_DESCRIPTION', 'Cobro FLUS QR');
 
 // URLs devueltas al crear la caja/POS QR. Sirven para imprimir el QR estatico.
 define('FLUS_MP_QR_IMAGE_URL', '');

@@ -20,14 +20,13 @@ const VentasManager = {
     mediosChartInstance: null,
     selectedClienteId: null,
     searchTimeout: null,
-    paperSize: '80',
+    paperSize: window.FLUS_TICKET_PAPER === '58' ? '58' : '80',
   },
 
   // ============================================
   // CONFIGURACIÓN
   // ============================================
   config: {
-    PAPER_KEY: 'flus-paper',
     DEBOUNCE_SEARCH_MS: 300,
     TOAST_DURATION: 3500,
     CHART_JS_URL: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
@@ -39,8 +38,6 @@ const VentasManager = {
   init() {
     console.log('[VentasManager] Inicializando...');
 
-    this.loadPaperSize();
-    this.bindPaperSelect();
     this.bindChartsToggle();
     this.bindAdvancedFilters();
     this.bindHoraAmpmSelects();
@@ -132,34 +129,6 @@ const VentasManager = {
     container.className = 'toast-container';
     document.body.appendChild(container);
     return container;
-  },
-
-  // ============================================
-  // PAPER SIZE
-  // ============================================
-  loadPaperSize() {
-    try {
-      this.state.paperSize = localStorage.getItem(this.config.PAPER_KEY) || '80';
-    } catch {
-      this.state.paperSize = '80';
-    }
-  },
-
-  savePaperSize(value) {
-    this.state.paperSize = value;
-    try {
-      localStorage.setItem(this.config.PAPER_KEY, value);
-    } catch {}
-  },
-
-  bindPaperSelect() {
-    const paperSel = document.getElementById('paperSel');
-    if (!paperSel) return;
-
-    paperSel.value = this.state.paperSize;
-    paperSel.addEventListener('change', () => {
-      this.savePaperSize(paperSel.value);
-    });
   },
 
   // ============================================

@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (order?.approved) {
       setStatus("Pago aprobado", "ok");
       stopPolling();
-    } else if (["expired", "canceled", "refunded"].includes(status)) {
+    } else if (["expired", "canceled", "refunded", "failed"].includes(status)) {
       setStatus(`Order ${status}`, "bad");
       stopPolling();
     } else {

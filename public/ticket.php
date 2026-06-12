@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db_helpers.php';
+require_once __DIR__ . '/../src/ticket_config_lib.php';
 
 require_once __DIR__ . '/bootstrap.php';
 require_login();
@@ -27,8 +28,9 @@ if ($ventaId <= 0) {
   flus_abort(400, 'ID de venta inválido.');
 }
 
-$paper = (string)($_GET['paper'] ?? '80');
-$paper = ($paper === '58') ? '58' : '80';
+$paper = flus_ticket_normalize_paper(
+  isset($_GET['paper']) ? (string)$_GET['paper'] : config_get($pdo, 'print_ticket_paper', '80')
+);
 
 $autoPrint = ((string)($_GET['autoprint'] ?? '') === '1');
 
@@ -116,6 +118,14 @@ $cuit    = config_get($pdo, 'business_cuit', '');
 $addr    = config_get($pdo, 'business_address', '');
 $phone   = config_get($pdo, 'business_phone', '');
 $footer  = config_get($pdo, 'ticket_footer', 'Gracias por su compra');
+$logoUrl = flus_ticket_logo_src(config_get(
+  $pdo,
+  'ticket_logo_url',
+  config_get($pdo, 'business_logo_url', '')
+));
+$showLogo = $logoUrl !== '' && config_get($pdo, 'ticket_show_logo', '0') === '1';
+$showRegister = config_get($pdo, 'ticket_show_register', '0') === '1';
+$showCashier = config_get($pdo, 'ticket_show_cashier', '0') === '1';
 
 /* =========================
    Query venta
@@ -127,13 +137,15 @@ $selectNota  = has_column($pdo, 'ventas', 'nota');
 
 $sqlVenta = "
   SELECT
-    v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.caja_id, c.fecha_apertura
+    v.id, v.fecha, v.total, v.medio_pago, v.monto_pagado, v.vuelto, v.caja_id, c.fecha_apertura,
+    t.nombre AS caja_nombre
     " . ($selectNota ? ", v.nota" : ", '' AS nota") . "
     " . ($selectBruto ? ", v.total_bruto" : "") . "
     " . ($selectDescT ? ", v.descuento_total" : "") . "
     " . ($selectUser ? ", u.username AS cajero" : "") . "
   FROM ventas v
   LEFT JOIN caja_sesiones c ON v.caja_id = c.id
+  LEFT JOIN terminales t ON t.id = c.terminal_id
   " . ($selectUser ? "LEFT JOIN users u ON u.id = v.user_id" : "") . "
   WHERE v.id = :id
   LIMIT 1
@@ -246,6 +258,8 @@ foreach ($pagos as $p) $pagadoTotal += (float)($p['monto'] ?? 0);
 $pagadoTotal = round($pagadoTotal, 2);
 
 $vuelto = round((float)($venta['vuelto'] ?? 0), 2);
+$ticketCssPath = __DIR__ . '/assets/css/ticket.css';
+$ticketCssVersion = is_file($ticketCssPath) ? (string)filemtime($ticketCssPath) : '1';
 
 ?>
 <!DOCTYPE html>
@@ -254,7 +268,7 @@ $vuelto = round((float)($venta['vuelto'] ?? 0), 2);
 <meta charset="UTF-8">
 <title>Ticket #<?= (int)$venta['id'] ?></title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="assets/css/ticket.css">
+<link rel="stylesheet" href="assets/css/ticket.css?v=<?= rawurlencode($ticketCssVersion) ?>">
 
 <?php if ($autoPrint): ?>
 <script>
@@ -274,6 +288,9 @@ window.addEventListener('load', () => {
 
   <!-- ENCABEZADO -->
   <div class="t-center">
+    <?php if ($showLogo): ?>
+      <img class="ticket-logo" src="<?= htmlspecialchars($logoUrl) ?>" alt="">
+    <?php endif; ?>
     <div class="brand"><?= htmlspecialchars($bizName) ?></div>
     <?php if ($cuit): ?>
       <div class="sub">CUIT <?= htmlspecialchars($cuit) ?></div>
@@ -292,13 +309,11 @@ window.addEventListener('load', () => {
   <div style="font-size:13px; margin-bottom:10px;">
     <div><strong>Ticket #<?= (int)$venta['id'] ?></strong></div>
     <div><?= date('d/m/Y H:i', strtotime((string)$venta['fecha'])) ?></div>
-    <?php if (!empty($venta['caja_id'])): ?>
-      <div>
-        Caja #<?= (int)$venta['caja_id'] ?>
-        <?php if (!empty($venta['cajero'])): ?>
-          - <?= htmlspecialchars($venta['cajero']) ?>
-        <?php endif; ?>
-      </div>
+    <?php if ($showRegister && (!empty($venta['caja_nombre']) || !empty($venta['caja_id']))): ?>
+      <div>Caja: <?= htmlspecialchars(trim((string)($venta['caja_nombre'] ?? '')) ?: ('#' . (int)$venta['caja_id'])) ?></div>
+    <?php endif; ?>
+    <?php if ($showCashier && !empty($venta['cajero'])): ?>
+      <div>Cajero: <?= htmlspecialchars((string)$venta['cajero']) ?></div>
     <?php endif; ?>
   </div>
 
@@ -481,26 +496,10 @@ window.addEventListener('load', () => {
 
 <!-- TOOLBAR (no se imprime) -->
 <div class="toolbar no-print">
-  <label class="paper-label">
-    <span>Papel:</span>
-    <select id="paperSelect">
-      <option value="58" <?= $paper === '58' ? 'selected' : '' ?>>58mm</option>
-      <option value="80" <?= $paper === '80' ? 'selected' : '' ?>>80mm</option>
-    </select>
-  </label>
   <button class="btn-print" id="btnPrint">🖨️ Imprimir</button>
 </div>
 
 <script>
-document.getElementById('paperSelect')?.addEventListener('change', (e) => {
-  const p = e.target.value;
-  document.body.dataset.paper = p;
-
-  const url = new URL(window.location.href);
-  url.searchParams.set('paper', p);
-  window.history.replaceState({}, '', url);
-});
-
 document.getElementById('btnPrint')?.addEventListener('click', () => {
   window.focus();
   window.print();
