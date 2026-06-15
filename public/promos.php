@@ -3,9 +3,51 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/promos_logic.php';
 
 require_login();
 require_permission('editar_promos');
+
+$promoConfigMessage = '';
+$promoConfigError = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!csrf_verify((string)($_POST['csrf_token'] ?? ''))) {
+        $promoConfigError = 'La sesion vencio. Recarga la pagina e intenta nuevamente.';
+    } else {
+        $action = trim((string)($_POST['accion'] ?? ''));
+
+        try {
+            $currentConfig = flus_promos_config($pdo);
+            if ($action === 'toggle_promos') {
+                $currentConfig['enabled'] = !$currentConfig['enabled'];
+                $savedConfig = flus_promos_save_config($pdo, $currentConfig);
+                $promoConfigMessage = $savedConfig['enabled']
+                    ? 'Promociones activadas.'
+                    : 'Todas las promociones quedaron desactivadas.';
+            } elseif ($action === 'save_promo_schedule') {
+                flus_promos_save_config($pdo, [
+                    'enabled' => (string)($_POST['promos_enabled'] ?? '0') === '1',
+                    'schedule_enabled' => (string)($_POST['schedule_enabled'] ?? '0') === '1',
+                    'block_start' => $_POST['block_start'] ?? '22:00',
+                    'block_end' => $_POST['block_end'] ?? '06:00',
+                ]);
+                $promoConfigMessage = 'Disponibilidad de promociones guardada.';
+            }
+        } catch (Throwable $e) {
+            error_log('No se pudo guardar la disponibilidad de promociones: ' . $e->getMessage());
+            $promoConfigError = 'No se pudo guardar la disponibilidad de promociones. Intenta nuevamente.';
+        }
+    }
+}
+
+$promoConfig = flus_promos_config($pdo);
+$promoStatus = flus_promos_status_from_config($promoConfig);
+$promoStatusLabel = match ($promoStatus['reason']) {
+  'disabled' => 'Desactivadas',
+  'blocked_schedule' => 'Pausadas por horario',
+  default => 'Funcionando',
+};
 
 /* --------------------------------------------------------
    1) Traer promos (1 fila por promo)
@@ -118,6 +160,69 @@ require __DIR__ . '/partials/header.php';
         <a href="promo_builder.php" class="v-btn v-btn--primary">+ Nueva promocion</a>
       </div>
     </div>
+
+    <?php if ($promoConfigMessage !== ''): ?>
+      <div class="alert alert-success promo-config-alert"><?= h($promoConfigMessage) ?></div>
+    <?php endif; ?>
+    <?php if ($promoConfigError !== ''): ?>
+      <div class="alert alert-error promo-config-alert"><?= h($promoConfigError) ?></div>
+    <?php endif; ?>
+
+    <section class="promo-availability promo-availability--<?= h((string)$promoStatus['reason']) ?>" aria-labelledby="promoAvailabilityTitle">
+      <div class="promo-availability__summary">
+        <div>
+          <span class="promo-availability__eyebrow">Disponibilidad en Caja</span>
+          <h2 id="promoAvailabilityTitle"><?= h($promoStatusLabel) ?></h2>
+          <p>
+            <?php if ($promoStatus['reason'] === 'disabled'): ?>
+              El interruptor general esta apagado. Ninguna promocion se aplica.
+            <?php elseif ($promoStatus['reason'] === 'blocked_schedule'): ?>
+              La pausa diaria esta activa hasta las <?= h((string)$promoConfig['block_end']) ?>.
+            <?php elseif ($promoConfig['schedule_enabled']): ?>
+              Se aplican ahora y se pausaran de <?= h((string)$promoConfig['block_start']) ?> a <?= h((string)$promoConfig['block_end']) ?>.
+            <?php else: ?>
+              Las promociones activas por fecha se aplican normalmente.
+            <?php endif; ?>
+          </p>
+          <span class="promo-availability__time">Hora del servidor: <?= h((string)$promoStatus['server_time']) ?></span>
+        </div>
+
+        <form method="post" class="promo-availability__toggle">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="accion" value="toggle_promos">
+          <button type="submit" class="v-btn <?= $promoConfig['enabled'] ? 'v-btn--danger' : 'v-btn--primary' ?>">
+            <?= $promoConfig['enabled'] ? 'Desactivar promociones' : 'Activar promociones' ?>
+          </button>
+        </form>
+      </div>
+
+      <form method="post" class="promo-schedule-form">
+        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="accion" value="save_promo_schedule">
+        <input type="hidden" name="promos_enabled" value="<?= $promoConfig['enabled'] ? '1' : '0' ?>">
+        <input type="hidden" name="schedule_enabled" value="0">
+
+        <label class="promo-schedule-switch">
+          <input type="checkbox" name="schedule_enabled" value="1" <?= $promoConfig['schedule_enabled'] ? 'checked' : '' ?>>
+          <span>
+            Pausar promociones todos los dias
+            <small>Durante esta franja Caja cobra sin aplicar promociones.</small>
+          </span>
+        </label>
+
+        <label class="promo-schedule-field">
+          <span>Desde</span>
+          <input type="time" name="block_start" value="<?= h((string)$promoConfig['block_start']) ?>" required>
+        </label>
+
+        <label class="promo-schedule-field">
+          <span>Hasta</span>
+          <input type="time" name="block_end" value="<?= h((string)$promoConfig['block_end']) ?>" required>
+        </label>
+
+        <button type="submit" class="v-btn v-btn--outline">Guardar horario</button>
+      </form>
+    </section>
 
     <!-- STATS (ARRIBA) -->
     <div class="promo-stats">

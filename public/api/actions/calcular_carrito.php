@@ -3,6 +3,7 @@ declare(strict_types=1);
 // public/api/actions/calcular_carrito.php
 
 $pdo = $pdo ?? getPDO();
+$promoStatus = flus_promos_status($pdo);
 
 $itemsRaw = $body['items'] ?? null;
 if (is_string($itemsRaw)) {
@@ -142,5 +143,6 @@ json_ok([
   'descuento_promos' => $descPromos,
   'descuento_global' => round($descGlobalMonto, 2),
   'recargo_horario' => $recargoHorario,
+  'promos_estado' => $promoStatus,
   'promos_aplicadas' => $calc['promos_aplicadas'] ?? [],
 ]);

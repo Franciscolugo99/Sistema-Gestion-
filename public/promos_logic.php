@@ -12,6 +12,7 @@ if (!defined('APP_BOOTSTRAPPED')) {
 }
 
 require_once __DIR__ . '/includes/PromoEngine.php';
+require_once FLUS_ROOT . '/src/promos_config_lib.php';
 
 /**
  * Wrapper para no romper código viejo.
@@ -39,6 +40,10 @@ function promo_engine_instance(): PromoEngine
 
 function obtenerPromosActivas(PDO $pdo, bool $forceRefresh = false): array
 {
+    if (!flus_promos_status($pdo)['available']) {
+        return ['simples' => [], 'combos' => []];
+    }
+
     // Si te llaman pasando $pdo, lo respetamos creando engine “temporal”.
     // (pero en el sistema normal, usás promo_engine_instance()).
     $engine = new PromoEngine($pdo);

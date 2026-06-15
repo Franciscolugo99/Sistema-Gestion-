@@ -443,6 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let promosPorProducto = {};
   let promosCombos = [];
+  let promosDisponibles = true;
   let carrito = [];
   let totalNetoActual = 0;
   let estadoRecuperado = false;
@@ -1798,6 +1799,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       promosPorProducto = {};
       promosCombos = [];
+      promosDisponibles = data.promos_estado?.available !== false;
 
       if (Array.isArray(data.simples)) {
         data.simples.forEach((p) => {
@@ -1989,6 +1991,19 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (response.ok && Array.isArray(response.items)) {
+        const nextPromosDisponibles =
+          response.promos_estado?.available !== false;
+        const promoAvailabilityChanged =
+          nextPromosDisponibles !== promosDisponibles;
+        promosDisponibles = nextPromosDisponibles;
+
+        if (!promosDisponibles) {
+          promosPorProducto = {};
+          promosCombos = [];
+        } else if (promoAvailabilityChanged) {
+          await cargarPromos();
+        }
+
         // Actualizar carrito con precios del servidor
         response.items.forEach((serverItem, idx) => {
           const localItem = carrito.find(
@@ -2006,11 +2021,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Actualizar total con lo que dice el servidor
         totalNetoActual = Number(response.total_neto) || 0;
+        if (promoAvailabilityChanged) {
+          _actualizarVista();
+        }
 
         return {
           total_neto: response.total_neto,
           total_bruto: response.total_bruto,
           descuento_total: response.descuento_total,
+          promos_estado: response.promos_estado,
           items: response.items,
         };
       }

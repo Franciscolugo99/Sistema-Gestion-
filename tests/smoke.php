@@ -11,6 +11,7 @@ require_once __DIR__ . '/../src/tesoreria_lib.php';
 require_once __DIR__ . '/../src/mercadopago_liquidaciones_lib.php';
 require_once __DIR__ . '/../src/ticket_config_lib.php';
 require_once __DIR__ . '/../src/recargo_horario.php';
+require_once __DIR__ . '/../src/promos_config_lib.php';
 require_once __DIR__ . '/../public/includes/CuentaCorrienteController.php';
 require_once __DIR__ . '/../src/Fiscal/bootstrap.php';
 
@@ -1562,6 +1563,32 @@ $results[] = flus_run_test('precio horario permite activar y desactivar sin sele
     flus_assert_contains('.btn-apply:not([data-allow-empty])', $preciosJs);
 });
 
+$results[] = flus_run_test('promociones permiten apagado global y pausa diaria cruzando medianoche', function (): void {
+    $config = [
+        'enabled' => true,
+        'schedule_enabled' => true,
+        'block_start' => '22:00',
+        'block_end' => '06:00',
+    ];
+
+    $before = flus_promos_status_from_config($config, new DateTimeImmutable('2026-06-15 21:59:00'));
+    $atStart = flus_promos_status_from_config($config, new DateTimeImmutable('2026-06-15 22:00:00'));
+    $overnight = flus_promos_status_from_config($config, new DateTimeImmutable('2026-06-16 05:59:00'));
+    $atEnd = flus_promos_status_from_config($config, new DateTimeImmutable('2026-06-16 06:00:00'));
+    $disabled = flus_promos_status_from_config(
+        array_replace($config, ['enabled' => false]),
+        new DateTimeImmutable('2026-06-16 12:00:00')
+    );
+
+    flus_assert_true((bool)$before['available']);
+    flus_assert_false((bool)$atStart['available']);
+    flus_assert_same('blocked_schedule', $atStart['reason']);
+    flus_assert_false((bool)$overnight['available']);
+    flus_assert_true((bool)$atEnd['available']);
+    flus_assert_false((bool)$disabled['available']);
+    flus_assert_same('disabled', $disabled['reason']);
+});
+
 $results[] = flus_run_test('schema checks are centralized outside public pages', function (): void {
     $repoRoot = dirname(__DIR__);
     $schemaPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_schema.php';
@@ -2015,6 +2042,25 @@ $results[] = flus_run_test('promo actions rely on centralized API guards', funct
         flus_assert_not_contains('require_perm_json(', $php);
         flus_assert_not_contains('require_csrf_json(', $php);
     }
+});
+
+$results[] = flus_run_test('disponibilidad de promociones se aplica en backend y se sincroniza con Caja', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $promosPagePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'promos.php');
+    $promosLogicPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'promos_logic.php');
+    $listarPromosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'listar_promos_activas.php');
+    $calcularCarritoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'calcular_carrito.php');
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+
+    flus_assert_contains('flus_promos_status($pdo)', $promosLogicPhp);
+    flus_assert_contains("name=\"accion\" value=\"toggle_promos\"", $promosPagePhp);
+    flus_assert_contains("name=\"accion\" value=\"save_promo_schedule\"", $promosPagePhp);
+    flus_assert_contains("name=\"block_start\"", $promosPagePhp);
+    flus_assert_contains("name=\"block_end\"", $promosPagePhp);
+    flus_assert_contains("'promos_estado' => \$promoStatus", $listarPromosPhp);
+    flus_assert_contains("'promos_estado' => \$promoStatus", $calcularCarritoPhp);
+    flus_assert_contains('response.promos_estado?.available !== false', $cajaJs);
+    flus_assert_contains('await cargarPromos();', $cajaJs);
 });
 
 $results[] = flus_run_test('cuenta corriente actions salen del switch y usan guard central', function (): void {
