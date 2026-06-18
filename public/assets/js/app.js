@@ -461,6 +461,10 @@ if (r.status === 503) {
   // PANEL LATERAL EDICIÓN + BLUR
   // ============================================
 
+  // ProductosManager (productos.js) es la implementacion vigente. Este bloque
+  // queda solo para vistas legacy que no cargan ese manager.
+  if (document.querySelector(".page-wrap.productos-page")) return;
+
   function fillEditForm(data) {
     const form = document.getElementById("editForm");
     if (!form || !data) return;

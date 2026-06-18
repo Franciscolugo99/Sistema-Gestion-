@@ -1340,6 +1340,26 @@ $results[] = flus_run_test('compras helpers keep item discount calculations cons
     } catch (RuntimeException $e) {
         flus_assert_contains('No hay stock suficiente', $e->getMessage());
     }
+
+    $grouped = flus_compras_group_quantities_by_product([
+        ['producto_id' => 10, 'cantidad' => 6],
+        ['producto_id' => 10, 'cantidad' => 6],
+        ['producto_id' => 11, 'cantidad' => 1.5],
+    ]);
+    flus_assert_same(12.0, $grouped[10]);
+    flus_assert_same(1.5, $grouped[11]);
+    try {
+        flus_compras_assert_reversible_stock(
+            [
+                ['producto_id' => 10, 'cantidad' => 6],
+                ['producto_id' => 10, 'cantidad' => 6],
+            ],
+            [10 => 10]
+        );
+        throw new RuntimeException('Expected aggregated stock reversal to be rejected');
+    } catch (RuntimeException $e) {
+        flus_assert_contains('a revertir: 12', $e->getMessage());
+    }
 });
 
 $results[] = flus_run_test('compras schema lives in migrations instead of runtime DDL', function (): void {
@@ -1405,6 +1425,8 @@ $results[] = flus_run_test('compras confirma y anula con bloqueos y guardas de c
     flus_assert_contains("UPDATE compras SET estado='ANULADA' WHERE id=? AND estado='CONFIRMADA'", $comprasPhp);
     flus_assert_contains('flus_compras_assert_confirmable_state($estado);', $comprasPhp);
     flus_assert_contains('flus_compras_assert_reversible_stock($items, $stockByProduct);', $comprasPhp);
+    flus_assert_contains('$quantitiesByProduct = flus_compras_group_quantities_by_product($items);', $comprasPhp);
+    flus_assert_contains('foreach ($quantitiesByProduct as $pid => $qty)', $comprasPhp);
     flus_assert_contains("'ANULACION_COMPRA'", $comprasPhp);
     flus_assert_not_contains("':qty' => -\$qty", $comprasPhp);
     flus_assert_contains("flus_log_error('compras confirmar failed'", $comprasPhp);
@@ -1443,6 +1465,8 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_true($ajusteMovimientoPos !== false && $ajusteUpdatePos !== false && $ajusteMovimientoPos < $ajusteUpdatePos);
     flus_assert_contains('name="ajuste_request_id"', $stockPhp);
     flus_assert_contains('adjustSubmitting: false', $stockJs);
+    flus_assert_contains("ANULACION_COMPRA: 'Anulacion de compra'", $stockJs);
+    flus_assert_contains("ANULACION_VENTA: 'Anulacion de venta'", $stockJs);
     flus_assert_contains('if (this.state.adjustSubmitting) return;', $stockJs);
     flus_assert_contains('requestInput.value = this.createRequestId();', $stockJs);
     flus_assert_contains('id="searchInput"', $stockPhp);
@@ -1635,6 +1659,15 @@ $results[] = flus_run_test('productos csrf refresh endpoint matches frontend con
     flus_assert_contains("fetch('_csrf_token.php", $productosJs);
     flus_assert_contains("'csrf_token' => \$token", $endpointPhp);
     flus_assert_contains("'csrf' => \$token", $endpointPhp);
+});
+
+$results[] = flus_run_test('productos usa un solo controlador en la vista moderna', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $appJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'app.js');
+    $productosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'productos.js');
+
+    flus_assert_contains('if (document.querySelector(".page-wrap.productos-page")) return;', $appJs);
+    flus_assert_contains('document.addEventListener(\'DOMContentLoaded\', () => ProductosManager.init());', $productosJs);
 });
 
 $results[] = flus_run_test('productos thumbnails fall back when image file is missing', function (): void {
@@ -2173,6 +2206,15 @@ $results[] = flus_run_test('ventas api tolera esquema sin tablas de anulaciones'
     flus_assert_contains("\$hasAnulacionesJoin = \$anulacionesJoin !== '';", $ventasKpisPhp);
     flus_assert_contains("\$hasAnulacionesJoinMetricas = \$anulacionesJoinMetricas !== '';", $ventasPhp);
     flus_assert_contains("\$anulacionesSelect = \$anulacionesJoin !== ''", $ventasPhp);
+});
+
+$results[] = flus_run_test('ventas kpis renderiza medios de pago como texto seguro', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $ventasKpisJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'ventas_kpis.js');
+
+    flus_assert_contains('name.textContent = medioRaw;', $ventasKpisJs);
+    flus_assert_contains('btn.append(name, value, percentage);', $ventasKpisJs);
+    flus_assert_not_contains('<span class="vkpi-chip-name">${medioRaw}</span>', $ventasKpisJs);
 });
 
 $results[] = flus_run_test('registrar venta delega logica interna a venta_api_lib', function (): void {

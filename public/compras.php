@@ -824,6 +824,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
 
             $stockByProduct = compras_lock_product_stocks($pdo, array_column($items, 'producto_id'));
             flus_compras_assert_reversible_stock($items, $stockByProduct);
+            $quantitiesByProduct = flus_compras_group_quantities_by_product($items);
 
             // Revertir stock
             $stUpdStock = $pdo->prepare("UPDATE productos SET stock = stock - :qty WHERE id = :pid");
@@ -834,11 +835,7 @@ $st = $pdo->prepare("SELECT " . implode(', ', array_unique($colsLock)) . " FROM 
                 (NOW(), :pid, 'ANULACION_COMPRA', :qty, NULL, :compra_id, :com)
             ");
 
-            foreach ($items as $it) {
-              $pid = (int)$it['producto_id'];
-              $qty = (float)$it['cantidad'];
-              if ($qty <= 0) continue;
-
+            foreach ($quantitiesByProduct as $pid => $qty) {
               $stMov->execute([
                 ':pid' => $pid,
                 ':qty' => $qty,

@@ -291,9 +291,16 @@
         btn.title = `${medioRaw}: ${fmtMoney(total)} (${pct}%)`;
         btn.dataset.medio = normalizeMedio(medioRaw);
 
-        btn.innerHTML = `<span class="vkpi-chip-name">${medioRaw}</span>
-                         <span class="vkpi-chip-val">${fmtMoney(total)}</span>
-                         <span class="vkpi-chip-pct">${pct}%</span>`;
+        const name = document.createElement('span');
+        name.className = 'vkpi-chip-name';
+        name.textContent = medioRaw;
+        const value = document.createElement('span');
+        value.className = 'vkpi-chip-val';
+        value.textContent = fmtMoney(total);
+        const percentage = document.createElement('span');
+        percentage.className = 'vkpi-chip-pct';
+        percentage.textContent = `${pct}%`;
+        btn.append(name, value, percentage);
 
         btn.addEventListener('click', () => {
           // Si el medio no existe en tu select, igual setea (no rompe).

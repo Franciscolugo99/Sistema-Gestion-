@@ -157,16 +157,27 @@ function flus_compras_assert_confirmable_state(string $estado): void {
 
 /**
  * @param array<int,array<string,mixed>> $items
- * @param array<int,float|int|string> $stockByProduct
+ * @return array<int,float>
  */
-function flus_compras_assert_reversible_stock(array $items, array $stockByProduct): void {
+function flus_compras_group_quantities_by_product(array $items): array {
+  $quantities = [];
   foreach ($items as $item) {
     $productoId = (int)($item['producto_id'] ?? 0);
     $cantidad = (float)($item['cantidad'] ?? 0.0);
     if ($productoId <= 0 || $cantidad <= 0) {
       continue;
     }
+    $quantities[$productoId] = ($quantities[$productoId] ?? 0.0) + $cantidad;
+  }
+  return $quantities;
+}
 
+/**
+ * @param array<int,array<string,mixed>> $items
+ * @param array<int,float|int|string> $stockByProduct
+ */
+function flus_compras_assert_reversible_stock(array $items, array $stockByProduct): void {
+  foreach (flus_compras_group_quantities_by_product($items) as $productoId => $cantidad) {
     if (!array_key_exists($productoId, $stockByProduct)) {
       throw new RuntimeException("El producto ID {$productoId} ya no existe para revertir stock.");
     }

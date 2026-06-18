@@ -386,6 +386,8 @@ const StockManager = {
       AJUSTE_POSITIVO: 'Ajuste (+)',
       AJUSTE_NEGATIVO: 'Ajuste (-)',
       ANULACION: 'Anulacion',
+      ANULACION_COMPRA: 'Anulacion de compra',
+      ANULACION_VENTA: 'Anulacion de venta',
       DEVOLUCION: 'Devolucion',
     };
     return map[tipo] || tipo || 'Movimiento';
