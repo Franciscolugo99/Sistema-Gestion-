@@ -13,23 +13,31 @@
         if (form.dataset.confirmed === "1") return;
         event.preventDefault();
 
-        if (!window.Notif || typeof window.Notif.confirmar !== "function") {
+        if (form.dataset.confirmPending === "1") return;
+        if (!window.Notif || typeof window.Notif.confirmar !== "function") return;
+
+        form.dataset.confirmPending = "1";
+        var submitter = event.submitter;
+        if (submitter) submitter.disabled = true;
+
+        try {
+          var title = form.dataset.confirmTitle || "Confirmar acción fiscal";
+          var body = form.dataset.confirmBody || "Esta acción modifica el estado fiscal local.";
+          var ok = await window.Notif.confirmar(title, body, {
+            icon: "warning",
+            confirmText: form.dataset.confirmText || "Continuar",
+            cancelText: "Cancelar",
+            useText: true,
+            danger: form.dataset.confirmDanger === "true",
+          });
+
+          if (!ok) return;
           form.dataset.confirmed = "1";
-          form.submit();
-          return;
+          HTMLFormElement.prototype.submit.call(form);
+        } finally {
+          form.dataset.confirmPending = "0";
+          if (submitter) submitter.disabled = false;
         }
-
-        var title = form.dataset.confirmTitle || "Confirmar accion fiscal";
-        var body = "<p>" + (form.dataset.confirmBody || "Esta accion modifica el estado fiscal local.") + "</p>";
-        var ok = await window.Notif.confirmar(title, body, {
-          icon: "warning",
-          confirmText: "Continuar",
-          cancelText: "Cancelar",
-        });
-
-        if (!ok) return;
-        form.dataset.confirmed = "1";
-        form.submit();
       });
     });
   });

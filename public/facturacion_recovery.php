@@ -202,7 +202,7 @@ require __DIR__ . '/partials/header.php';
                 <td class="fact-error-cell"><small><?= frc_h(trim((string)($caso['fiscal_error_message'] ?? $caso['arca_error_message'] ?? '-'))) ?></small></td>
                 <td>
                   <?php if ($puedeOperarFiscal && ($accionFiscal['kind'] ?? '') === 'regularizar'): ?>
-                    <form method="post" action="facturacion_recovery.php" class="js-fiscal-confirm" data-confirm-title="Regularizar factura #<?= (int)$caso['id'] ?>" data-confirm-body="FLUS intentara recuperar desde trazas/eventos y solo reenviara cuando el caso sea seguro.">
+                    <form method="post" action="facturacion_recovery.php" class="js-fiscal-confirm" data-confirm-title="Regularizar factura #<?= (int)$caso['id'] ?>" data-confirm-body="FLUS intentará recuperar desde trazas y eventos. Sólo reenviará cuando el caso sea seguro." data-confirm-text="Regularizar" data-confirm-danger="true">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
                       <input type="hidden" name="action" value="regularizar">
@@ -214,7 +214,7 @@ require __DIR__ . '/partials/header.php';
                     <span class="fact-inline-badge">Solo lectura</span>
                   <?php endif; ?>
                   <?php if ($puedeOperarFiscal && $hasFiscalCierre && $estadoFiscal === 'RECHAZADA'): ?>
-                    <form method="post" action="facturacion_recovery.php" class="fact-close-incident-form js-fiscal-confirm" data-confirm-title="Cerrar incidencia fiscal #<?= (int)$caso['id'] ?>" data-confirm-body="La factura rechazada queda en auditoria, pero sale de la bandeja activa sin reemitir.">
+                    <form method="post" action="facturacion_recovery.php" class="fact-close-incident-form js-fiscal-confirm" data-confirm-title="Cerrar incidencia fiscal #<?= (int)$caso['id'] ?>" data-confirm-body="La factura rechazada quedará en auditoría, pero saldrá de la bandeja activa sin reemitir." data-confirm-text="Cerrar incidencia">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? frc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="factura_id" value="<?= (int)$caso['id'] ?>">
                       <input type="hidden" name="action" value="cerrar_incidencia">

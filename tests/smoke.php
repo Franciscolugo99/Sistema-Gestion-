@@ -3685,6 +3685,7 @@ $results[] = flus_run_test('preflight de emision queda cableado en pantallas y c
 $results[] = flus_run_test('facturacion recovery tolera collations mixtas y navega desde el nav principal', function (): void {
     $repoRoot = dirname(__DIR__);
     $recoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_recovery.php');
+    $ncRecoveryPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc_recovery.php');
     $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
     $facturacionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion.php');
     $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
@@ -3708,6 +3709,14 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     flus_assert_contains('assets/js/facturacion_recovery.js', $recoveryPhp);
     flus_assert_contains('class="js-fiscal-confirm"', $recoveryPhp);
     flus_assert_contains('window.Notif.confirmar', $recoveryJs);
+    flus_assert_contains('danger: form.dataset.confirmDanger === "true"', $recoveryJs);
+    flus_assert_contains('HTMLFormElement.prototype.submit.call(form);', $recoveryJs);
+    flus_assert_not_contains('form.submit();', $recoveryJs);
+    flus_assert_contains('assets/js/facturacion_recovery.js?v=2', $ncRecoveryPhp);
+    flus_assert_contains('class="js-fiscal-confirm"', $ncRecoveryPhp);
+    flus_assert_contains('data-confirm-text="Reaplicar"', $ncRecoveryPhp);
+    flus_assert_contains('data-confirm-danger="true"', $ncRecoveryPhp);
+    flus_assert_not_contains('onsubmit="return confirm', $ncRecoveryPhp);
     flus_assert_contains('.fact-close-incident-input', $facturacionCss);
     flus_assert_not_contains('onsubmit="return confirm', $recoveryPhp);
     flus_assert_not_contains('style=', $recoveryPhp);

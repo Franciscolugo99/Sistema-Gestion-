@@ -94,6 +94,7 @@ $breadcrumb      = [
     ['label' => 'NC Recovery',     'url' => ''],
 ];
 $extraCss = ['assets/css/facturacion.css?v=10'];
+$extraJs = ['assets/js/facturacion_recovery.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -190,8 +191,13 @@ require __DIR__ . '/partials/header.php';
                 <td><small><?= rc_h((string)($caso['anulado_por_username'] ?? '—')) ?></small></td>
                 <td>
                   <?php if ($requestUid !== ''): ?>
-                    <form method="post" action="facturacion_nc_recovery.php"
-                          onsubmit="return confirm('¿Reaplicar comercialmente la anulación #<?= (int)$caso['id'] ?>?\nEsto repone stock, revierte CC y cierra el estado local.\nNo re-emite ante ARCA.')">
+                    <form method="post"
+                          action="facturacion_nc_recovery.php"
+                          class="js-fiscal-confirm"
+                          data-confirm-title="Reaplicar anulación #<?= (int)$caso['id'] ?>"
+                          data-confirm-body="Esto repone stock, revierte cuenta corriente y cierra el estado local. No vuelve a emitir ante ARCA."
+                          data-confirm-text="Reaplicar"
+                          data-confirm-danger="true">
                       <input type="hidden" name="csrf_token" value="<?= function_exists('csrf_token') ? rc_h((string)csrf_token()) : '' ?>">
                       <input type="hidden" name="request_uid" value="<?= rc_h($requestUid) ?>">
                       <button type="submit" class="btn-mini btn-mini--danger">Reaplicar</button>
