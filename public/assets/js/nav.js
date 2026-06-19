@@ -327,20 +327,16 @@
       const href = logoutBtn.getAttribute('href') || 'logout.php';
       const title = 'Caja abierta';
       const body =
-        '<p>Hay una caja abierta en esta terminal.</p><p>Si salís ahora, la sesión se va a cerrar igual y vas a tener que volver para cerrarla correctamente.</p>';
+        'Hay una caja abierta en esta terminal. Si salís ahora, la sesión se cerrará igual y tendrás que volver para cerrar la caja correctamente.';
 
-      let confirmed = false;
-      if (window.Notif && typeof window.Notif.confirmar === 'function') {
-        confirmed = await window.Notif.confirmar(title, body, {
-          icon: 'warning',
-          confirmText: 'Salir igual',
-          cancelText: 'Quedarme',
-        });
-      } else {
-        confirmed = window.confirm(
-          'Hay una caja abierta en esta terminal. Si salís ahora, vas a tener que volver para cerrarla.'
-        );
-      }
+      if (!window.Notif || typeof window.Notif.confirmar !== 'function') return;
+      const confirmed = await window.Notif.confirmar(title, body, {
+        icon: 'warning',
+        confirmText: 'Salir igual',
+        cancelText: 'Quedarme',
+        useText: true,
+        danger: true,
+      });
 
       if (confirmed) window.location.href = href;
     });

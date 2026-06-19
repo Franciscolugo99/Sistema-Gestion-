@@ -194,7 +194,6 @@ $inlineJs = <<<'JS'
       window.showToast(message, isError ? 'error' : 'success');
       return;
     }
-    if (isError) alert(message);
   }
   ready(function () {
     var modal = document.getElementById('cobranzaModal');

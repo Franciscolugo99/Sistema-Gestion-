@@ -293,6 +293,10 @@ body.dark .tesoreria-page,
   font-weight: 700;
 }
 
+.tesoreria-pay-hint.is-error {
+  color: var(--tes-danger-text);
+}
+
 .tesoreria-inline-form input.is-invalid {
   border-color: var(--tes-danger-border);
   box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.18);

@@ -228,7 +228,7 @@ require __DIR__ . '/partials/header.php';
                       <label>
                         <span>Pagar monto</span>
                         <input name="importe" class="js-tes-pay-amount" inputmode="decimal" value="<?= h(number_format($saldo, 2, ',', '.')) ?>" data-saldo="<?= h(number_format($saldo, 2, '.', '')) ?>">
-                        <small class="tesoreria-pay-hint">Saldo <?= h(money_ar($saldo)) ?></small>
+                        <small class="tesoreria-pay-hint" aria-live="polite">Saldo <?= h(money_ar($saldo)) ?></small>
                       </label>
                       <div class="tesoreria-pay-actions">
                         <button class="btn-mini" type="button" data-pay-total="<?= h(number_format($saldo, 2, ',', '.')) ?>">Total</button>
@@ -263,16 +263,38 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.js-tes-pay-form').forEach((form) => {
     const input = form.querySelector('.js-tes-pay-amount');
     const totalBtn = form.querySelector('[data-pay-total]');
+    const hint = form.querySelector('.tesoreria-pay-hint');
+    const defaultHint = hint?.textContent || '';
     const saldo = Number(form.dataset.saldo || input?.dataset.saldo || 0);
-    totalBtn?.addEventListener('click', () => { if (input) input.value = totalBtn.dataset.payTotal || ''; });
+
+    const clearAmountError = () => {
+      input?.classList.remove('is-invalid');
+      input?.removeAttribute('aria-invalid');
+      if (hint) {
+        hint.textContent = defaultHint;
+        hint.classList.remove('is-error');
+      }
+    };
+
+    input?.addEventListener('input', clearAmountError);
+    totalBtn?.addEventListener('click', () => {
+      if (input) input.value = totalBtn.dataset.payTotal || '';
+      clearAmountError();
+    });
     form.addEventListener('submit', (ev) => {
       const amount = parseAmount(input?.value);
       if (!Number.isFinite(amount) || amount <= 0 || amount > saldo + 0.009) {
         ev.preventDefault();
         input?.focus();
         input?.classList.add('is-invalid');
-        if (window.Notif?.error) window.Notif.error('El pago debe ser mayor a cero y no superar el saldo pendiente.');
-        else alert('El pago debe ser mayor a cero y no superar el saldo pendiente.');
+        input?.setAttribute('aria-invalid', 'true');
+        if (hint) {
+          hint.textContent = 'Ingresá un monto mayor a cero y no superior al saldo.';
+          hint.classList.add('is-error');
+        }
+        window.Notif?.error?.('El pago debe ser mayor a cero y no superar el saldo pendiente.');
+      } else {
+        clearAmountError();
       }
     });
   });

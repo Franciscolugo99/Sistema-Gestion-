@@ -1527,6 +1527,27 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     flus_assert_contains('aria-label="Cerrar confirmación"', $rolesPhp);
 });
 
+$results[] = flus_run_test('navegacion cobranzas y tesoreria evitan dialogos nativos y recuperan validacion', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $publicRoot = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR;
+    $navJs = (string)file_get_contents($publicRoot . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'nav.js');
+    $cobranzasPhp = (string)file_get_contents($publicRoot . 'cobranzas.php');
+    $facturaVerPhp = (string)file_get_contents($publicRoot . 'factura_ver.php');
+    $obligacionesPhp = (string)file_get_contents($publicRoot . 'tesoreria_obligaciones.php');
+    $tesoreriaCss = (string)file_get_contents($publicRoot . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'tesoreria.css');
+
+    flus_assert_not_contains('window.confirm(', $navJs);
+    flus_assert_contains('danger: true', $navJs);
+    flus_assert_contains('useText: true', $navJs);
+    flus_assert_not_contains('alert(message)', $cobranzasPhp);
+    flus_assert_not_contains('alert(message)', $facturaVerPhp);
+    flus_assert_not_contains("else alert('", $obligacionesPhp);
+    flus_assert_contains("input?.setAttribute('aria-invalid', 'true');", $obligacionesPhp);
+    flus_assert_contains("input?.addEventListener('input', clearAmountError);", $obligacionesPhp);
+    flus_assert_contains('aria-live="polite"', $obligacionesPhp);
+    flus_assert_contains('.tesoreria-pay-hint.is-error', $tesoreriaCss);
+});
+
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
     $repoRoot = dirname(__DIR__);
     $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
