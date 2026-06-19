@@ -37,9 +37,11 @@
   }
 
   function cssVar(name, fallbackDark, fallbackLight) {
-    const raw = getComputedStyle(document.documentElement)
-      .getPropertyValue(name).trim();
-    if (raw) return raw;
+    const sources = [document.body, document.documentElement].filter(Boolean);
+    for (const source of sources) {
+      const raw = getComputedStyle(source).getPropertyValue(name).trim();
+      if (raw) return raw;
+    }
     return isDark() ? fallbackDark : fallbackLight;
   }
 
@@ -48,7 +50,8 @@
       background: cssVar('--panel',       '#1e293b', '#ffffff'),
       color:      cssVar('--text',        '#f1f5f9', '#1e293b'),
       confirmBtn: cssVar('--accent-cyan', '#06b6d4', '#0891b2'),
-      cancelBtn:  '#e53935',
+      dangerBtn:  cssVar('--danger',      '#ef4444', '#dc2626'),
+      cancelBtn:  cssVar('--muted',       '#475569', '#64748b'),
     };
   }
 
@@ -93,7 +96,7 @@
      * Modal de confirmación — reemplaza window.confirm()
      * @param {string} titulo
      * @param {string} htmlMsg  — HTML (se sanitiza si opts.useText=true)
-     * @param {object} opts  icon | confirmText | cancelText | confirmColor | useText
+     * @param {object} opts  icon | confirmText | cancelText | confirmColor | useText | danger
      * @returns {Promise<boolean>}
      */
     async confirmar(titulo, htmlMsg, opts = {}) {
@@ -113,8 +116,9 @@
         showCancelButton: true,
         confirmButtonText: opts.confirmText || '✅ Confirmar',
         cancelButtonText:  opts.cancelText  || '❌ Cancelar',
-        confirmButtonColor: opts.confirmColor || c.confirmBtn,
+        confirmButtonColor: opts.confirmColor || (opts.danger ? c.dangerBtn : c.confirmBtn),
         cancelButtonColor:  c.cancelBtn,
+        focusCancel: opts.danger === true,
         reverseButtons: true,
         background: c.background, color: c.color,
         customClass: {

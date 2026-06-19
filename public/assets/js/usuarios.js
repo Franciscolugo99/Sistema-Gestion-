@@ -21,8 +21,20 @@
 
   async function toggleUserStatus(userId, currentlyActive, btnEl) {
     const newActive = !currentlyActive;
+    const actionLabel = newActive ? 'activar' : 'desactivar';
 
-    const ok = window.confirm(`¿${newActive ? 'Activar' : 'Desactivar'} este usuario?`);
+    if (!window.Notif || typeof window.Notif.confirmar !== 'function') return;
+    const ok = await window.Notif.confirmar(
+      `${newActive ? 'Activar' : 'Desactivar'} usuario`,
+      `¿Confirmás que querés ${actionLabel} este usuario?`,
+      {
+        icon: newActive ? 'question' : 'warning',
+        confirmText: newActive ? 'Activar usuario' : 'Desactivar usuario',
+        cancelText: 'Cancelar',
+        useText: true,
+        danger: !newActive,
+      }
+    );
     if (!ok) return;
 
     setBtnLoading(btnEl, true);
@@ -81,11 +93,11 @@
         btnEl.innerHTML = `${icon}<span>${newActive ? 'Desactivar' : 'Activar'}</span>`;
       }
 
-      showInlineFlash(newActive ? 'success' : 'warning',
-        `Usuario ${newActive ? 'activado' : 'desactivado'} correctamente`);
+      if (newActive) window.Notif.exito('Usuario activado correctamente.');
+      else window.Notif.advertencia('Usuario desactivado correctamente.');
     } catch (err) {
       console.error('toggleUserStatus error:', err);
-      alert('Error: ' + (err && err.message ? err.message : 'No se pudo cambiar el estado'));
+      window.Notif.error(err && err.message ? err.message : 'No se pudo cambiar el estado del usuario.');
     } finally {
       setBtnLoading(btnEl, false);
     }
@@ -93,23 +105,6 @@
 
   // Compat: si quedó algún inline onclick viejo, no rompe
   window.toggleUserStatus = toggleUserStatus;
-
-  function showInlineFlash(type, message) {
-    const existing = document.querySelector('.inline-flash');
-    if (existing) existing.remove();
-
-    const cls = type === 'success' ? 'alert-success' : 'alert-warning';
-    const icon = type === 'success'
-      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`
-      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-
-    const div = document.createElement('div');
-    div.className = `alert ${cls} inline-flash`;
-    div.style.cssText = 'position:fixed;top:72px;right:24px;z-index:9000;min-width:280px;max-width:400px;animation:slideInRight .25s ease;';
-    div.innerHTML = `${icon} ${message}`;
-    document.body.appendChild(div);
-    setTimeout(() => div.remove(), 3500);
-  }
 
   document.addEventListener('DOMContentLoaded', function () {
     // Toggle: event delegation (sin inline onclick)

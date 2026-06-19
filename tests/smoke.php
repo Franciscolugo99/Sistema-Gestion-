@@ -1481,6 +1481,29 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('stock_adjust_remember_response($requestKey, $responsePayload);', $stockAjax);
 });
 
+$results[] = flus_run_test('pulido operativo usa solo acciones disponibles y feedback FLUS en usuarios', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $stockPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock.php');
+    $usuariosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'usuarios.js');
+    $usuariosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'usuarios.css');
+    $notifJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'flus_notif.js');
+
+    flus_assert_not_contains('Ajuste masivo', $stockPhp);
+    flus_assert_not_contains('stock-disabled-action', $stockPhp);
+    flus_assert_contains('await window.Notif.confirmar(', $usuariosJs);
+    flus_assert_contains("window.Notif.exito('Usuario activado correctamente.');", $usuariosJs);
+    flus_assert_contains("window.Notif.advertencia('Usuario desactivado correctamente.');", $usuariosJs);
+    flus_assert_contains('window.Notif.error(err && err.message', $usuariosJs);
+    flus_assert_not_contains('window.confirm(', $usuariosJs);
+    flus_assert_not_contains('showInlineFlash(', $usuariosJs);
+    flus_assert_not_contains('@keyframes slideInRight', $usuariosCss);
+    flus_assert_contains('danger: !newActive', $usuariosJs);
+    flus_assert_contains("dangerBtn:  cssVar('--danger'", $notifJs);
+    flus_assert_contains("cancelBtn:  cssVar('--muted'", $notifJs);
+    flus_assert_contains('focusCancel: opts.danger === true', $notifJs);
+    flus_assert_contains('const sources = [document.body, document.documentElement].filter(Boolean);', $notifJs);
+});
+
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
     $repoRoot = dirname(__DIR__);
     $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');

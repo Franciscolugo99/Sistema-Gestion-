@@ -388,11 +388,6 @@ require __DIR__ . "/partials/header.php";
 
     <div class="header-actions module-header-actions">
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
-      <button class="v-btn v-btn--outline btn-disabled stock-disabled-action" type="button" disabled
-              title="Proximamente: carga por planilla o seleccion multiple. Usa ajustes individuales por ahora.">
-        <span>Ajuste masivo</span>
-        <small>Proximamente</small>
-      </button>
     </div>
   </header>
 
