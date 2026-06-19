@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../src/ticket_public_token_lib.php';
 
 /* =========================
    Validar parámetros
@@ -16,44 +17,7 @@ if ($id <= 0 || $token === '' || $ts <= 0 || !ctype_xdigit($token) || !in_array(
   flus_abort(400, 'Parámetros inválidos');
 }
 
-/* =========================
-   Validar token
-========================= */
-function getAppSecret(): string {
-  if (!defined('APP_SECRET')) {
-    throw new RuntimeException('APP_SECRET no está definido. Configurá un secreto fuerte para habilitar tickets públicos.');
-  }
-  $secret = (string)APP_SECRET;
-  if (strlen($secret) < 16 || $secret === 'flus-default-secret-change-me' || strpos($secret, 'change-me') !== false) {
-    throw new RuntimeException('APP_SECRET es débil o es un placeholder. Configurá un secreto fuerte (>= 16 chars) para habilitar tickets públicos.');
-  }
-  return $secret;
-}
-
-function ticketTokenTtlSeconds(): int {
-  if (defined('TICKET_TOKEN_TTL_SECONDS')) {
-    $v = (int)TICKET_TOKEN_TTL_SECONDS;
-    return $v > 0 ? $v : 7 * 24 * 60 * 60;
-  }
-  return 7 * 24 * 60 * 60;
-}
-
-function validateTicketToken(int $ventaId, int $ts, string $token): bool {
-  $now = time();
-  if ($ts > ($now + 300)) return false; // no futuro
-  if (($now - $ts) > ticketTokenTtlSeconds()) return false;
-
-  try {
-    $h = hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", getAppSecret());
-    $expected32 = substr($h, 0, 32);
-    $expected16 = substr($h, 0, 16);
-  } catch (Throwable $e) {
-    return false;
-  }
-  return hash_equals($expected32, $token) || hash_equals($expected16, $token);
-}
-
-if (!validateTicketToken($id, $ts, $token)) {
+if (!flus_ticket_token_validate($id, $ts, $token)) {
   flus_abort(403, 'Token inválido o expirado');
 }
 

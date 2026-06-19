@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/_bootstrap.php';
 require_once __DIR__ . '/secure_actions_guard.php';
 require_once __DIR__ . '/../../src/venta_anulaciones_lib.php';
+require_once __DIR__ . '/../../src/ticket_public_token_lib.php';
 
 /* =========================
    Helpers de consistencia
@@ -57,72 +58,6 @@ require_once __DIR__ . '/kpis_categoria_helper.php';
 $categoria  = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim((string)$_GET['categoria']) : null;
 $prodCatCol = flus_first_existing_column($pdo, 'productos', ['categoria','rubro','familia']);
 $catFilter  = kpis_categoria_condition($pdo, $categoria, $prodCatCol);
-
-/**
- * Generar token seguro para tickets públicos
- */
-/**
- * Obtener APP_SECRET de forma segura (obligatorio)
- */
-function getAppSecret(): string {
-  if (!defined('APP_SECRET')) {
-    throw new RuntimeException('APP_SECRET no está definido. Configurá un secreto fuerte para habilitar tickets públicos.');
-  }
-  $secret = (string)APP_SECRET;
-  // Bloquear secretos débiles o el placeholder conocido
-  if (strlen($secret) < 16 || $secret === 'flus-default-secret-change-me' || strpos($secret, 'change-me') !== false) {
-    throw new RuntimeException('APP_SECRET es débil o es un placeholder. Configurá un secreto fuerte (>= 16 chars) para habilitar tickets públicos.');
-  }
-  return $secret;
-}
-
-/**
- * TTL del token de ticket (segundos)
- * Default: 7 días
- */
-function ticketTokenTtlSeconds(): int {
-  if (defined('TICKET_TOKEN_TTL_SECONDS')) {
-    $v = (int)TICKET_TOKEN_TTL_SECONDS;
-    return $v > 0 ? $v : 7 * 24 * 60 * 60;
-  }
-  return 7 * 24 * 60 * 60;
-}
-
-/**
- * Generar token seguro para tickets públicos (con timestamp)
- */
-function generateTicketToken(int $ventaId, int $ts, string $secret = ''): string {
-  if ($ts <= 0) {
-    throw new InvalidArgumentException('Timestamp inválido para token.');
-  }
-  if (!$secret) {
-    $secret = getAppSecret();
-  }
-  return substr(hash_hmac('sha256', "ticket-{$ventaId}-{$ts}", $secret), 0, 32);
-}
-
-/**
- * Validar token de ticket (con timestamp + TTL)
- */
-function validateTicketToken(int $ventaId, int $ts, string $token): bool {
-  if ($ventaId <= 0 || $ts <= 0 || $token === '') return false;
-
-  $now = time();
-  // No permitir timestamps en el futuro (con tolerancia de 5 minutos)
-  if ($ts > ($now + 300)) return false;
-
-  $ttl = ticketTokenTtlSeconds();
-  if (($now - $ts) > $ttl) return false;
-
-  try {
-    // Compat: aceptar tokens viejos (16 hex) y nuevos (32 hex)
-    $expected32 = generateTicketToken($ventaId, $ts);
-    $expected16 = substr($expected32, 0, 16);
-  } catch (Throwable $e) {
-    return false;
-  }
-  return hash_equals($expected32, $token) || hash_equals($expected16, $token);
-}
 
 function flus_public_base_url(PDO $pdo): string {
   $candidates = [];
@@ -828,7 +763,7 @@ try {
 
       // Generar token seguro
       $ts = time();
-      $token = generateTicketToken($venta_id, $ts);
+      $token = flus_ticket_token_generate($venta_id, $ts);
       
       // Construir URL segura
       $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
@@ -878,7 +813,7 @@ try {
 
       // Generar link seguro con token
       $ts = time();
-      $token = generateTicketToken($venta_id, $ts);
+      $token = flus_ticket_token_generate($venta_id, $ts);
       $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
 
       // Obtener nombre del negocio
@@ -946,7 +881,7 @@ try {
 
       // Generar link seguro con token
       $ts = time();
-      $token = generateTicketToken($venta_id, $ts);
+      $token = flus_ticket_token_generate($venta_id, $ts);
       $ticket_url = flus_ticket_public_url($pdo, $venta_id, $ts, $token);
 
       // Config de email desde BD
@@ -1048,7 +983,7 @@ try {
         json_response(['success' => false, 'valid' => false]);
       }
 
-      $valid = validateTicketToken($venta_id, $ts, $token);
+      $valid = flus_ticket_token_validate($venta_id, $ts, $token);
 
       json_response([
         'success' => true,

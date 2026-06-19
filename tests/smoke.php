@@ -1971,6 +1971,33 @@ $results[] = flus_run_test('ticket humanizes CC and digital payment labels consi
     flus_assert_contains("return implode(' + ', array_map('humanize_ticket_medio_pago', \$parts));", $ticketPublicoPhp);
 });
 
+$results[] = flus_run_test('tickets publicos comparten generacion y validacion de tokens', function (): void {
+    $repoRoot = dirname(__DIR__);
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'ticket_public_token_lib.php';
+
+    $ventasApi = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'ventas_api.php');
+    $ticketPublico = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket_publico.php');
+    $secret = 'test-ticket-secret-strong-2026';
+    $now = 1_700_000_000;
+    $token = flus_ticket_token_generate(42, $now, $secret);
+
+    flus_assert_same(32, strlen($token));
+    flus_assert_true(flus_ticket_token_validate(42, $now, $token, $now, $secret));
+    flus_assert_true(flus_ticket_token_validate(42, $now, substr($token, 0, 16), $now, $secret));
+    flus_assert_true(!flus_ticket_token_validate(42, $now, str_repeat('z', 32), $now, $secret));
+    flus_assert_true(!flus_ticket_token_validate(42, $now + 301, $token, $now, $secret));
+    flus_assert_true(!flus_ticket_token_validate(42, $now, $token, $now + flus_ticket_token_ttl_seconds() + 1, $secret));
+    flus_assert_contains("require_once __DIR__ . '/../../src/ticket_public_token_lib.php';", $ventasApi);
+    flus_assert_contains("require_once __DIR__ . '/../src/ticket_public_token_lib.php';", $ticketPublico);
+    flus_assert_contains('flus_ticket_token_generate($venta_id, $ts)', $ventasApi);
+    flus_assert_contains('flus_ticket_token_validate($venta_id, $ts, $token)', $ventasApi);
+    flus_assert_contains('flus_ticket_token_validate($id, $ts, $token)', $ticketPublico);
+    foreach (['getAppSecret', 'ticketTokenTtlSeconds', 'generateTicketToken', 'validateTicketToken'] as $legacyHelper) {
+        flus_assert_not_contains("function {$legacyHelper}(", $ventasApi);
+        flus_assert_not_contains("function {$legacyHelper}(", $ticketPublico);
+    }
+});
+
 $results[] = flus_run_test('ticket termico respeta el ancho imprimible real de 58 mm', function (): void {
     $repoRoot = dirname(__DIR__);
     $ticketCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'ticket.css');
