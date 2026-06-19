@@ -1772,6 +1772,15 @@ try {
 
     $result = flus_apply_migrations($pdo, $root . '/migrations', true);
     echo "[OK] migrations applied: " . count($result['applied']) . " new, " . count($result['skipped']) . " skipped\n";
+    flus_it_assert(
+        ($result['sequence_collisions'] ?? []) === [
+            31 => [
+                '031_clientes_razon_social_compat.sql',
+                '031_movimientos_stock_tipo_compat.sql',
+            ],
+        ],
+        'migration runner reports known legacy sequence collision'
+    );
 
     $latest = (string)$pdo
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")

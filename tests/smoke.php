@@ -1852,6 +1852,31 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
 });
 
+$results[] = flus_run_test('migraciones bloquean nuevas secuencias duplicadas y conservan 031 legacy', function (): void {
+    $repoRoot = dirname(__DIR__);
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'migrations_runner.php';
+
+    $migrationFiles = glob($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '*.sql') ?: [];
+    $collisions = flus_migration_sequence_collisions($migrationFiles);
+    flus_assert_same([
+        31 => [
+            '031_clientes_razon_social_compat.sql',
+            '031_movimientos_stock_tipo_compat.sql',
+        ],
+    ], $collisions);
+    flus_assert_migration_sequence_policy($collisions);
+
+    try {
+        flus_assert_migration_sequence_policy([
+            43 => ['043_primera.sql', '043_segunda.sql'],
+        ]);
+        throw new RuntimeException('Expected duplicate migration sequence to be rejected');
+    } catch (RuntimeException $e) {
+        flus_assert_contains('Numeracion de migracion duplicada en 043', $e->getMessage());
+        flus_assert_contains('no renombres migraciones ya publicadas', $e->getMessage());
+    }
+});
+
 $results[] = flus_run_test('contrato fiscal comercial queda documentado', function (): void {
     $repoRoot = dirname(__DIR__);
     $contractPath = $repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'CONTRATO_FISCAL_COMERCIAL.md';

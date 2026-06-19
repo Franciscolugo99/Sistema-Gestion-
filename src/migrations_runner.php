@@ -59,6 +59,53 @@ function flus_mark_migration(PDO $pdo, string $filename, string $checksum, bool 
 }
 
 /**
+ * @param array<int,string> $files
+ * @return array<int,array<int,string>> Secuencia numerica => nombres repetidos.
+ */
+function flus_migration_sequence_collisions(array $files): array {
+  $bySequence = [];
+  foreach ($files as $file) {
+    $name = basename($file);
+    if (!preg_match('/^(\d+)_.*\.sql$/i', $name, $matches)) continue;
+    $bySequence[(int)$matches[1]][] = $name;
+  }
+
+  $collisions = [];
+  foreach ($bySequence as $sequence => $names) {
+    if (count($names) < 2) continue;
+    sort($names, SORT_NATURAL);
+    $collisions[$sequence] = $names;
+  }
+  ksort($collisions, SORT_NUMERIC);
+  return $collisions;
+}
+
+/**
+ * Mantiene compatible la colision 031 ya publicada, pero impide agregar otras.
+ *
+ * @param array<int,array<int,string>> $collisions
+ */
+function flus_assert_migration_sequence_policy(array $collisions): void {
+  $allowedLegacy = [
+    31 => [
+      '031_clientes_razon_social_compat.sql',
+      '031_movimientos_stock_tipo_compat.sql',
+    ],
+  ];
+
+  foreach ($collisions as $sequence => $names) {
+    $expected = $allowedLegacy[(int)$sequence] ?? null;
+    if ($expected === $names) continue;
+
+    throw new RuntimeException(
+      'Numeracion de migracion duplicada en ' . str_pad((string)$sequence, 3, '0', STR_PAD_LEFT)
+      . ': ' . implode(', ', $names)
+      . '. Usa el proximo numero libre; no renombres migraciones ya publicadas.'
+    );
+  }
+}
+
+/**
  * Ejecuta un statement, tolerando errores "ya aplicado" para evitar SQL con PREPARE/EXECUTE.
  * Devuelve true si ejecutó, false si lo ignoró (ya aplicado/no existe).
  */
@@ -175,8 +222,10 @@ function flus_apply_migrations(PDO $pdo, string $migrationsDir, bool $allowBasel
   flus_ensure_schema_migrations($pdo);
   $applied = flus_get_applied_migrations($pdo);
 
-  $files = glob(rtrim($migrationsDir, '/\\') . '/*.sql');
+  $files = glob(rtrim($migrationsDir, '/\\') . '/*.sql') ?: [];
   sort($files, SORT_NATURAL);
+  $sequenceCollisions = flus_migration_sequence_collisions($files);
+  flus_assert_migration_sequence_policy($sequenceCollisions);
 
   $dbHasTables = flus_db_has_tables($pdo);
 
@@ -185,6 +234,7 @@ function flus_apply_migrations(PDO $pdo, string $migrationsDir, bool $allowBasel
     'applied' => [],
     'skipped' => [],
     'baseline' => [],
+    'sequence_collisions' => $sequenceCollisions,
   ];
 
   // Guardrail: en releases actuales, la instalación limpia se hace importando install.sql.

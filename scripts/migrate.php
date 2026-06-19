@@ -122,6 +122,14 @@ try {
     echo "Baseline: " . implode(', ', $res['baseline']) . "\n";
   }
 
+  if (!empty($res['sequence_collisions'])) {
+    foreach ($res['sequence_collisions'] as $sequence => $files) {
+      echo 'AVISO - numeracion historica duplicada '
+        . str_pad((string)$sequence, 3, '0', STR_PAD_LEFT)
+        . ': ' . implode(', ', $files) . "\n";
+    }
+  }
+
   if (!empty($res['applied'])) {
     foreach ($res['applied'] as $a) {
       echo " - " . $a['file'] . " (" . $a['statements'] . " statements)\n";
