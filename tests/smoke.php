@@ -4083,6 +4083,14 @@ $results[] = flus_run_test('diagnostico live refresh keeps sessions and admin ac
     flus_assert_contains('id="diagSessionsConfig"', $diagnosticoPhp);
     flus_assert_contains('id="diagSessionsBody"', $diagnosticoPhp);
     flus_assert_contains('id="diagAdminActions"', $diagnosticoPhp);
+    flus_assert_contains('form.js-diag-confirm', $diagnosticoJs);
+    flus_assert_contains('await window.Notif.confirmar(', $diagnosticoJs);
+    flus_assert_contains('HTMLFormElement.prototype.submit.call(form);', $diagnosticoJs);
+    flus_assert_contains('danger: form.dataset.confirmDanger === "true"', $diagnosticoJs);
+    flus_assert_contains('class="inline-form js-diag-confirm"', $diagnosticoPhp);
+    flus_assert_contains('data-confirm-title="Borrar todos los paquetes"', $diagnosticoPhp);
+    flus_assert_not_contains('onclick="return confirm(', $diagnosticoPhp);
+    flus_assert_not_contains('onclick="return confirm(', $diagnosticoJs);
 });
 
 $results[] = flus_run_test('hotspot policy documents and enforces line budgets for giant files', function (): void {

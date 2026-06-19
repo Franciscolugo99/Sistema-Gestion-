@@ -1094,11 +1094,16 @@ function flusCopyText(elId) {
                                             <input type="hidden" name="session_id" value="<?= h($sid) ?>">
                                             <button type="submit" class="btn btn-sm btn-secondary">Liberar terminal</button>
                                         </form>
-                                        <form method="post" class="inline-form">
+                                        <form method="post"
+                                              class="inline-form js-diag-confirm"
+                                              data-confirm-title="Forzar salida"
+                                              data-confirm-message="<?= h('La sesión de ' . $displayName . ' se cerrará de inmediato. ¿Querés continuar?') ?>"
+                                              data-confirm-text="Forzar salida"
+                                              data-confirm-danger="true">
                                             <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                                             <input type="hidden" name="accion" value="revocar_sesion">
                                             <input type="hidden" name="session_id" value="<?= h($sid) ?>">
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Forzar cierre de sesion para este usuario?');">
+                                            <button type="submit" class="btn btn-sm btn-danger">
                                                 Forzar salida
                                             </button>
                                         </form>
@@ -1137,7 +1142,7 @@ function flusCopyText(elId) {
                             <div>
                                 <div><strong><?= h(flus_diag_admin_action_label($auditRow)) ?></strong></div>
                                 <div class="package-meta">
-                                    <?= h($actorName) ?> � <?= h(flus_diag_admin_action_target($auditRow)) ?> � <?= h((string)($auditRow['created_at'] ?? '')) ?>
+                                    <?= h($actorName) ?> · <?= h(flus_diag_admin_action_target($auditRow)) ?> · <?= h((string)($auditRow['created_at'] ?? '')) ?>
                                 </div>
                             </div>
                         </div>
@@ -1178,11 +1183,16 @@ function flusCopyText(elId) {
                     </div>
                     <div class="pkg-actions">
                         <a href="diagnostico_download.php?f=<?= urlencode($pkg['file']) ?>" class="btn btn-sm btn-ghost">Descargar</a>
-                        <form method="post" class="inline-form">
+                        <form method="post"
+                              class="inline-form js-diag-confirm"
+                              data-confirm-title="Eliminar paquete"
+                              data-confirm-message="<?= h('Se eliminará ' . $pkg['file'] . '. Esta acción no se puede deshacer.') ?>"
+                              data-confirm-text="Eliminar paquete"
+                              data-confirm-danger="true">
                             <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                             <input type="hidden" name="accion" value="eliminar_paquete">
                             <input type="hidden" name="file" value="<?= h($pkg['file']) ?>">
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar este paquete?');">Eliminar</button>
+                            <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
                         </form>
                     </div>
                 </div>
@@ -1190,18 +1200,28 @@ function flusCopyText(elId) {
         </div>
 
         <div class="pkg-clean-actions mt-1">
-            <form method="post" class="inline-form">
+            <form method="post"
+                  class="inline-form js-diag-confirm"
+                  data-confirm-title="Limpiar paquetes antiguos"
+                  data-confirm-message="Se eliminarán todos los paquetes de diagnóstico con más de 7 días."
+                  data-confirm-text="Eliminar antiguos"
+                  data-confirm-danger="true">
                 <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="limpiar_paquetes_7d">
-                <button class="btn btn-sm btn-secondary" type="submit" onclick="return confirm('¿Eliminar paquetes de diagnóstico con más de 7 días?');">
+                <button class="btn btn-sm btn-secondary" type="submit">
                     Limpiar &gt; 7 días
                 </button>
             </form>
 
-            <form method="post" class="inline-form">
+            <form method="post"
+                  class="inline-form js-diag-confirm"
+                  data-confirm-title="Borrar todos los paquetes"
+                  data-confirm-message="Se eliminarán todos los paquetes de diagnóstico. Esta acción no se puede deshacer."
+                  data-confirm-text="Borrar todo"
+                  data-confirm-danger="true">
                 <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="accion" value="borrar_todo_paquetes">
-                <button class="btn btn-sm btn-danger" type="submit" onclick="return confirm('⚠️ ¿Borrar TODOS los paquetes de diagnóstico?');">
+                <button class="btn btn-sm btn-danger" type="submit">
                     Borrar todo
                 </button>
             </form>

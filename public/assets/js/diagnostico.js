@@ -1,4 +1,36 @@
 (() => {
+  document.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form.js-diag-confirm");
+    if (!form) return;
+
+    event.preventDefault();
+    if (form.dataset.confirmPending === "1") return;
+    if (!window.Notif || typeof window.Notif.confirmar !== "function") return;
+
+    form.dataset.confirmPending = "1";
+    const submitter = event.submitter;
+    if (submitter) submitter.disabled = true;
+
+    try {
+      const confirmed = await window.Notif.confirmar(
+        form.dataset.confirmTitle || "Confirmar acción",
+        form.dataset.confirmMessage || "¿Querés continuar?",
+        {
+          icon: "warning",
+          confirmText: form.dataset.confirmText || "Confirmar",
+          cancelText: "Cancelar",
+          useText: true,
+          danger: form.dataset.confirmDanger === "true",
+        }
+      );
+
+      if (confirmed) HTMLFormElement.prototype.submit.call(form);
+    } finally {
+      form.dataset.confirmPending = "0";
+      if (submitter) submitter.disabled = false;
+    }
+  });
+
   const configEl = document.getElementById("diagSessionsConfig");
   if (!configEl) return;
 
@@ -113,11 +145,15 @@
                 <input type="hidden" name="session_id" value="${escapeHtml(sid)}">
                 <button type="submit" class="btn btn-sm btn-secondary">Liberar terminal</button>
               </form>
-              <form method="post" class="inline-form">
+              <form method="post" class="inline-form js-diag-confirm"
+                    data-confirm-title="Forzar salida"
+                    data-confirm-message="La sesión de ${escapeHtml(displayName)} se cerrará de inmediato. ¿Querés continuar?"
+                    data-confirm-text="Forzar salida"
+                    data-confirm-danger="true">
                 <input type="hidden" name="csrf_token" value="${escapeHtml(window.getCsrfToken ? window.getCsrfToken() : "")}">
                 <input type="hidden" name="accion" value="revocar_sesion">
                 <input type="hidden" name="session_id" value="${escapeHtml(sid)}">
-                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Forzar cierre de sesion para este usuario?');">Forzar salida</button>
+                <button type="submit" class="btn btn-sm btn-danger">Forzar salida</button>
               </form>
             </div>
           </td>
