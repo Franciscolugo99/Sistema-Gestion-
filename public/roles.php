@@ -382,12 +382,12 @@ require __DIR__ . '/partials/header.php';
 </aside>
 
 <!-- MODAL: CONFIRMAR ELIMINACIÓN -->
-<div class="modal" id="deleteModal" role="dialog" aria-hidden="true">
+<div class="modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalMessage deleteModalWarning" aria-hidden="true">
     <div class="modal-overlay" onclick="closeDeleteModal()"></div>
     <div class="modal-content">
         <header class="modal-header">
-            <h2 class="modal-title">Eliminar rol</h2>
-            <button type="button" class="modal-close" onclick="closeDeleteModal()">
+            <h2 class="modal-title" id="deleteModalTitle">Eliminar rol</h2>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()" aria-label="Cerrar confirmación">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>

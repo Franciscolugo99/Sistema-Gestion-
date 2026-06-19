@@ -255,17 +255,18 @@
       const valor = toggleForm.querySelector('input[name="valor"]')?.value;
       const action = valor === "0" ? "desactivar" : "activar";
 
-      if (!window.Notif || typeof window.Notif.confirmar !== "function") {
-        if (window.confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} cliente?`)) {
-          toggleForm.submit();
-        }
-        return;
-      }
+      if (!window.Notif || typeof window.Notif.confirmar !== "function") return;
 
       window.Notif.confirmar(
         `${action.charAt(0).toUpperCase() + action.slice(1)} cliente`,
-        `<p>¿Seguro que querés <strong>${action}</strong> este cliente?</p>`,
-        { icon: "warning", confirmText: `Sí, ${action}`, cancelText: "Cancelar" }
+        `¿Seguro que querés ${action} este cliente?`,
+        {
+          icon: "warning",
+          confirmText: `Sí, ${action}`,
+          cancelText: "Cancelar",
+          useText: true,
+          danger: action === "desactivar"
+        }
       ).then((ok) => {
         if (ok) toggleForm.submit();
       });

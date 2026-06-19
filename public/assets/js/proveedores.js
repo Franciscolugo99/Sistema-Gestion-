@@ -46,11 +46,11 @@
       if (formChanged && window.Notif && typeof window.Notif.confirmar === 'function') {
         const ok = await window.Notif.confirmar(
           'Cambios sin guardar',
-          '<p>Tenes cambios sin guardar. Queres salir igual?</p>',
-          { icon: 'warning', confirmText: 'Salir igual', cancelText: 'Quedarme' }
+          'Tenés cambios sin guardar. ¿Querés salir igual?',
+          { icon: 'warning', confirmText: 'Salir igual', cancelText: 'Quedarme', useText: true }
         );
         if (!ok) return;
-      } else if (formChanged && !window.confirm('Tenes cambios sin guardar. Queres salir igual?')) {
+      } else if (formChanged) {
         return;
       }
 
@@ -222,8 +222,14 @@
       const action = valor === '0' ? 'desactivar' : 'activar';
       Notif.confirmar(
         `${action.charAt(0).toUpperCase() + action.slice(1)} proveedor`,
-        `<p>Estas seguro de <strong>${action}</strong> este proveedor?</p>`,
-        { icon: 'warning', confirmText: `Si, ${action}`, cancelText: 'Cancelar' }
+        `¿Seguro que querés ${action} este proveedor?`,
+        {
+          icon: 'warning',
+          confirmText: `Sí, ${action}`,
+          cancelText: 'Cancelar',
+          useText: true,
+          danger: action === 'desactivar'
+        }
       ).then(ok => { if (ok) _form.submit(); });
     });
   });

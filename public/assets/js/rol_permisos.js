@@ -222,21 +222,45 @@
             event.returnValue = 'Hay cambios sin guardar.';
         });
 
-        qs('#permisosForm')?.addEventListener('submit', (event) => {
+        let permissionSubmitConfirmed = false;
+
+        qs('#permisosForm')?.addEventListener('submit', async (event) => {
+            if (permissionSubmitConfirmed) {
+                permissionSubmitConfirmed = false;
+                hasChanges = false;
+                return;
+            }
+
             const total = qsa('.permiso-check').length;
             const checked = qsa('.permiso-check:checked').length;
+            const isExtremeSelection = checked === 0 || checked === total;
 
-            if (checked === 0 && !window.confirm('Este rol quedara sin permisos. Queres guardar igual?')) {
-                event.preventDefault();
+            if (!isExtremeSelection) {
+                hasChanges = false;
                 return;
             }
 
-            if (checked === total && !window.confirm('Este rol quedara con acceso total. Queres guardar igual?')) {
-                event.preventDefault();
-                return;
-            }
+            event.preventDefault();
+            if (!window.Notif || typeof window.Notif.confirmar !== 'function') return;
 
-            hasChanges = false;
+            const noPermissions = checked === 0;
+            const confirmed = await window.Notif.confirmar(
+                noPermissions ? 'Guardar rol sin permisos' : 'Conceder acceso total',
+                noPermissions
+                    ? 'Este rol quedará sin permisos. ¿Querés guardar igualmente?'
+                    : 'Este rol tendrá acceso a todos los permisos. ¿Querés guardar igualmente?',
+                {
+                    icon: 'warning',
+                    confirmText: noPermissions ? 'Guardar sin permisos' : 'Conceder acceso total',
+                    cancelText: 'Revisar permisos',
+                    useText: true,
+                    danger: true
+                }
+            );
+
+            if (!confirmed) return;
+            permissionSubmitConfirmed = true;
+            qs('#permisosForm')?.requestSubmit();
         });
 
         document.addEventListener('keydown', (event) => {

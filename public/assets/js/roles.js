@@ -10,6 +10,7 @@
     var slugDirty = false;
     var isEditingCritical = false;
     var roleToDelete = null;
+    var deleteModalTrigger = null;
 
     function getCsrf() {
         if (typeof window.getCsrfToken === 'function') {
@@ -21,7 +22,6 @@
 
     function notify(type, message) {
         if (!window.Notif) {
-            window.alert(message);
             return;
         }
         if ((type === 'success' || type === 'ok') && typeof window.Notif.exito === 'function') {
@@ -34,9 +34,7 @@
         }
         if (typeof window.Notif.error === 'function') {
             window.Notif.error(message);
-            return;
         }
-        window.alert(message);
     }
 
     // =========================================================================
@@ -154,8 +152,9 @@
     // DELETE MODAL
     // =========================================================================
 
-    function confirmDelete(roleId, roleName, userCount) {
+    function confirmDelete(roleId, roleName, userCount, trigger) {
         roleToDelete = roleId;
+        deleteModalTrigger = trigger || document.activeElement;
         
         var modal = document.getElementById('deleteModal');
         var message = document.getElementById('deleteModalMessage');
@@ -172,14 +171,22 @@
         }
 
         modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('no-scroll');
+        modal.querySelector('.modal-footer .btn-ghost')?.focus();
     }
 
     window.closeDeleteModal = function() {
         var modal = document.getElementById('deleteModal');
+        if (!modal || !modal.classList.contains('is-open')) return;
         modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('no-scroll');
         roleToDelete = null;
+        if (deleteModalTrigger && document.contains(deleteModalTrigger)) {
+            deleteModalTrigger.focus();
+        }
+        deleteModalTrigger = null;
     };
 
     // =========================================================================
@@ -210,7 +217,7 @@
                     var id = parseInt(card.dataset.roleId, 10);
                     var nombre = card.dataset.roleName || '';
                     var users = parseInt(card.dataset.roleUsers, 10) || 0;
-                    confirmDelete(id, nombre, users);
+                    confirmDelete(id, nombre, users, deleteBtn);
                 }
                 return;
             }

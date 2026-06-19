@@ -1504,6 +1504,29 @@ $results[] = flus_run_test('pulido operativo usa solo acciones disponibles y fee
     flus_assert_contains('const sources = [document.body, document.documentElement].filter(Boolean);', $notifJs);
 });
 
+$results[] = flus_run_test('clientes proveedores y roles confirman acciones sensibles sin dialogos nativos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $jsRoot = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR;
+    $clientesJs = (string)file_get_contents($jsRoot . 'clientes.js');
+    $proveedoresJs = (string)file_get_contents($jsRoot . 'proveedores.js');
+    $rolesJs = (string)file_get_contents($jsRoot . 'roles.js');
+    $permisosJs = (string)file_get_contents($jsRoot . 'rol_permisos.js');
+    $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'roles.php');
+
+    flus_assert_contains('danger: action === "desactivar"', $clientesJs);
+    flus_assert_contains("danger: action === 'desactivar'", $proveedoresJs);
+    flus_assert_not_contains('window.confirm(', $clientesJs);
+    flus_assert_not_contains('window.confirm(', $proveedoresJs);
+    flus_assert_not_contains('window.confirm(', $permisosJs);
+    flus_assert_contains('await window.Notif.confirmar(', $permisosJs);
+    flus_assert_contains('permissionSubmitConfirmed = true;', $permisosJs);
+    flus_assert_not_contains('window.alert(', $rolesJs);
+    flus_assert_contains("modal.querySelector('.modal-footer .btn-ghost')?.focus();", $rolesJs);
+    flus_assert_contains('aria-modal="true"', $rolesPhp);
+    flus_assert_contains('aria-labelledby="deleteModalTitle"', $rolesPhp);
+    flus_assert_contains('aria-label="Cerrar confirmación"', $rolesPhp);
+});
+
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
     $repoRoot = dirname(__DIR__);
     $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
