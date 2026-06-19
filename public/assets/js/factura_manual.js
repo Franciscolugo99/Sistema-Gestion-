@@ -295,8 +295,21 @@
       return body.lastElementChild;
     };
 
-    const clearRow = (row) => {
+    const clearRowValidation = (row) => {
       row.classList.remove("is-invalid");
+      row.querySelectorAll('[aria-invalid="true"]').forEach((field) => {
+        field.removeAttribute("aria-invalid");
+      });
+    };
+
+    const markRowInvalid = (row, field) => {
+      row.classList.add("is-invalid");
+      if (field instanceof HTMLElement) field.setAttribute("aria-invalid", "true");
+      return field instanceof HTMLElement ? field : null;
+    };
+
+    const clearRow = (row) => {
+      clearRowValidation(row);
       row.querySelectorAll("input").forEach((input) => {
         if (input.matches("[data-fm-qty]")) {
           input.value = "1";
@@ -313,36 +326,44 @@
       const rows = getRows();
       let printableCount = 0;
       let firstError = "";
+      let firstInvalidField = null;
 
       rows.forEach((row) => {
-        row.classList.remove("is-invalid");
+        clearRowValidation(row);
 
-        const code = String(row.querySelector("[data-fm-code]")?.value || "").trim();
-        const description = String(row.querySelector("[data-fm-description]")?.value || "").trim();
-        const qtyRaw = String(row.querySelector("[data-fm-qty]")?.value || "").trim();
-        const priceRaw = String(row.querySelector("[data-fm-price]")?.value || "").trim();
+        const codeField = row.querySelector("[data-fm-code]");
+        const descriptionField = row.querySelector("[data-fm-description]");
+        const qtyField = row.querySelector("[data-fm-qty]");
+        const priceField = row.querySelector("[data-fm-price]");
+        const code = String(codeField?.value || "").trim();
+        const description = String(descriptionField?.value || "").trim();
+        const qtyRaw = String(qtyField?.value || "").trim();
+        const priceRaw = String(priceField?.value || "").trim();
         const hasAnyContent = code !== "" || description !== "" || qtyRaw !== "" || priceRaw !== "";
 
         if (!hasAnyContent) {
           return;
         }
         if (description === "") {
-          row.classList.add("is-invalid");
-          firstError ||= "Cada fila cargada debe tener descripcion.";
+          const invalidField = markRowInvalid(row, descriptionField);
+          firstInvalidField ||= invalidField;
+          firstError ||= "Cada fila cargada debe tener descripción.";
           return;
         }
 
         const qty = parseNumber(qtyRaw);
         if (!(qty > 0)) {
-          row.classList.add("is-invalid");
-          firstError ||= "Cada item debe tener una cantidad mayor a 0.";
+          const invalidField = markRowInvalid(row, qtyField);
+          firstInvalidField ||= invalidField;
+          firstError ||= "Cada ítem debe tener una cantidad mayor a 0.";
           return;
         }
 
         const price = parseNumber(priceRaw);
         if (priceRaw === "" || price < 0) {
-          row.classList.add("is-invalid");
-          firstError ||= "Cada item debe tener un precio valido.";
+          const invalidField = markRowInvalid(row, priceField);
+          firstInvalidField ||= invalidField;
+          firstError ||= "Cada ítem debe tener un precio válido.";
           return;
         }
 
@@ -350,11 +371,16 @@
       });
 
       if (printableCount === 0) {
-        firstError ||= "Debes cargar al menos un item para emitir la factura manual.";
+        const firstRow = rows[0];
+        firstInvalidField ||= firstRow
+          ? markRowInvalid(firstRow, firstRow.querySelector("[data-fm-description]"))
+          : null;
+        firstError ||= "Debés cargar al menos un ítem para emitir la factura manual.";
       }
 
       if (firstError !== "") {
         setStatus(firstError, "warning");
+        firstInvalidField?.focus();
         return false;
       }
 
@@ -622,7 +648,8 @@
       if (!(target instanceof HTMLElement)) return;
       const row = target.closest("[data-fm-row]");
       if (row instanceof HTMLElement) {
-        row.classList.remove("is-invalid");
+        target.removeAttribute("aria-invalid");
+        if (!row.querySelector('[aria-invalid="true"]')) row.classList.remove("is-invalid");
       }
       if (target.matches("[data-fm-qty], [data-fm-price], [data-fm-description], [data-fm-code]")) {
         syncSummary();
@@ -686,6 +713,22 @@
         event.preventDefault();
       }
     });
+
+    form.addEventListener("invalid", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("[data-fm-qty], [data-fm-price]")) return;
+      event.preventDefault();
+      const row = target.closest("[data-fm-row]");
+      if (!(row instanceof HTMLElement)) return;
+
+      clearRowValidation(row);
+      markRowInvalid(row, target);
+      const message = target.matches("[data-fm-qty]")
+        ? "La cantidad debe ser mayor a 0."
+        : "El precio debe ser 0 o mayor.";
+      setStatus(message, "warning");
+      target.focus();
+    }, true);
 
     form.addEventListener("flus:receptor-state-changed", (event) => {
       syncMirrorFromSource(event.detail || {});

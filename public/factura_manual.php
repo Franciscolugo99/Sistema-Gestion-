@@ -339,7 +339,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
               </div>
 
-              <div class="fact-manual-status muted" data-fm-status></div>
+              <div class="fact-manual-status muted" role="status" aria-live="polite" data-fm-status></div>
 
               <div class="table-wrapper fact-items-card">
                 <table class="mov-table fact-table fact-manual-table">

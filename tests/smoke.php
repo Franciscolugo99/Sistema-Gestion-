@@ -1548,6 +1548,19 @@ $results[] = flus_run_test('navegacion cobranzas y tesoreria evitan dialogos nat
     flus_assert_contains('.tesoreria-pay-hint.is-error', $tesoreriaCss);
 });
 
+$results[] = flus_run_test('factura manual identifica y enfoca el campo invalido', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
+    $manualJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'factura_manual.js');
+
+    flus_assert_contains('role="status" aria-live="polite" data-fm-status', $manualPhp);
+    flus_assert_contains('const markRowInvalid = (row, field) => {', $manualJs);
+    flus_assert_contains('field.setAttribute("aria-invalid", "true")', $manualJs);
+    flus_assert_contains('firstInvalidField?.focus();', $manualJs);
+    flus_assert_contains('form.addEventListener("invalid", (event) => {', $manualJs);
+    flus_assert_contains('target.removeAttribute("aria-invalid");', $manualJs);
+});
+
 $results[] = flus_run_test('precios herramientas acepta productos preseleccionados desde compras', function (): void {
     $repoRoot = dirname(__DIR__);
     $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
