@@ -3844,9 +3844,17 @@ $results[] = flus_run_test('usuario form muestra validacion explicita para passw
 
     flus_assert_contains("if (trimmedValue !== '' && value.length < 6) {", $usuarioFormJs);
     flus_assert_contains("setFieldError(field, 'Debe tener al menos 6 caracteres');", $usuarioFormJs);
-    flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioEditarPhp);
-    flus_assert_contains("assets/js/usuario_form.js?v=2", $usuarioNuevoPhp);
-    flus_assert_contains("data-error-for=\"password\"><?= h(\$passwordFieldError) ?></span>", $usuarioEditarPhp);
+    flus_assert_contains("assets/js/usuario_form.js?v=3", $usuarioEditarPhp);
+    flus_assert_contains("assets/js/usuario_form.js?v=3", $usuarioNuevoPhp);
+    flus_assert_contains("err.classList.toggle('visible', Boolean(message));", $usuarioFormJs);
+    flus_assert_contains("connectFieldError(field, err);", $usuarioFormJs);
+    flus_assert_contains("button.dataset.passwordToggle", $usuarioFormJs);
+    flus_assert_contains('data-password-toggle="password" aria-label="Mostrar contraseña"', $usuarioEditarPhp);
+    flus_assert_contains('data-password-toggle="password" aria-label="Mostrar contraseña"', $usuarioNuevoPhp);
+    flus_assert_not_contains('onclick="togglePassword', $usuarioEditarPhp);
+    flus_assert_not_contains('onclick="togglePassword', $usuarioNuevoPhp);
+    flus_assert_contains('id="password-error" data-error-for="password" aria-live="polite"', $usuarioEditarPhp);
+    flus_assert_contains("\$passwordFieldError !== '' ? ' visible' : ''", $usuarioEditarPhp);
     flus_assert_contains("require_once __DIR__ . '/../src/user_admin_lib.php';", $usuarioNuevoPhp);
     flus_assert_contains("require_once __DIR__ . '/../src/user_admin_lib.php';", $usuarioGuardarPhp);
     flus_assert_contains('flus_create_user_from_payload($pdo, $_POST);', $usuarioNuevoPhp);

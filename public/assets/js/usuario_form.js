@@ -4,7 +4,6 @@
   if (window.__flusUsuarioFormBound) return;
   window.__flusUsuarioFormBound = true;
 
-  // Expuesto porque el HTML usa onclick="togglePassword('password')"
   window.togglePassword = function togglePassword(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -20,25 +19,43 @@
       const label = btn.querySelector('[data-label]');
       if (label) label.textContent = (nextType === 'text') ? 'Ocultar' : 'Mostrar';
       btn.setAttribute('aria-pressed', String(nextType === 'text'));
+      btn.setAttribute('aria-label', (nextType === 'text') ? 'Ocultar contraseña' : 'Mostrar contraseña');
     }
   };
 
   const qs = (sel, root = document) => root.querySelector(sel);
   const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+  function connectFieldError(field, err) {
+    if (!field || !err) return;
+    if (!err.id) err.id = `${field.id || field.name}-error`;
+    err.setAttribute('aria-live', 'polite');
+
+    const describedBy = new Set(String(field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    describedBy.add(err.id);
+    field.setAttribute('aria-describedby', Array.from(describedBy).join(' '));
+  }
+
   function setFieldError(field, message) {
     const name = field?.name;
     if (!name) return;
 
     const err = qs(`[data-error-for="${CSS.escape(name)}"]`);
-    if (err) err.textContent = message || '';
+    if (err) {
+      connectFieldError(field, err);
+      err.textContent = message || '';
+      err.classList.toggle('visible', Boolean(message));
+    }
 
     field.classList.toggle('is-invalid', Boolean(message));
     field.setAttribute('aria-invalid', message ? 'true' : 'false');
   }
 
   function clearAllErrors(form) {
-    qsa('.form-error[data-error-for]', form).forEach(el => (el.textContent = ''));
+    qsa('.form-error[data-error-for]', form).forEach((el) => {
+      el.textContent = '';
+      el.classList.remove('visible');
+    });
     qsa('.is-invalid', form).forEach(el => el.classList.remove('is-invalid'));
     qsa('[aria-invalid="true"]', form).forEach(el => el.setAttribute('aria-invalid', 'false'));
   }
@@ -84,6 +101,21 @@
   document.addEventListener('DOMContentLoaded', () => {
     const form = qs('#usuarioForm');
     if (!form) return;
+
+    qsa('.form-error[data-error-for]', form).forEach((err) => {
+      const field = form.elements.namedItem(err.dataset.errorFor || '');
+      if (!(field instanceof HTMLElement)) return;
+      connectFieldError(field, err);
+      const hasMessage = String(err.textContent || '').trim() !== '';
+      err.classList.toggle('visible', hasMessage);
+      if (hasMessage) field.setAttribute('aria-invalid', 'true');
+    });
+
+    qsa('[data-password-toggle]', form).forEach((button) => {
+      button.addEventListener('click', () => {
+        window.togglePassword(button.dataset.passwordToggle || 'password');
+      });
+    });
 
     // Validación al submit
     form.addEventListener('submit', (e) => {

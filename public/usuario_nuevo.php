@@ -59,7 +59,7 @@ try {
 $pageTitle      = 'Nuevo Usuario';
 $currentSection = 'usuarios';
 $extraCss       = ['assets/css/usuarios.css?v=3'];
-$extraJs        = ['assets/js/usuario_form.js?v=2'];
+$extraJs        = ['assets/js/usuario_form.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -159,8 +159,8 @@ require __DIR__ . '/partials/header.php';
               <input type="password" id="password" name="password" class="form-input"
                 placeholder="••••••••"
                 required minlength="6" maxlength="255" autocomplete="new-password">
-              <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <button type="button" class="password-toggle" data-password-toggle="password" aria-label="Mostrar contraseña" aria-pressed="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>

@@ -150,7 +150,7 @@ try {
 $pageTitle      = 'Editar Usuario';
 $currentSection = 'usuarios';
 $extraCss       = ['assets/css/usuarios.css?v=3'];
-$extraJs        = ['assets/js/usuario_form.js?v=2'];
+$extraJs        = ['assets/js/usuario_form.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 
@@ -265,15 +265,16 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
                 placeholder="Dejar vacío para no cambiar"
                 minlength="6" maxlength="255" autocomplete="new-password"
                 aria-invalid="<?= $passwordFieldError !== '' ? 'true' : 'false' ?>"
+                aria-describedby="password-hint password-error"
                 <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
-              <button type="button" class="password-toggle" onclick="togglePassword('password')" aria-pressed="false" <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <button type="button" class="password-toggle" data-password-toggle="password" aria-label="Mostrar contraseña" aria-pressed="false" <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
               </button>
             </div>
-            <span class="form-hint"><?= $puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.' ?></span>
-            <span class="form-error" data-error-for="password"><?= h($passwordFieldError) ?></span>
+            <span class="form-hint" id="password-hint"><?= $puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.' ?></span>
+            <span class="form-error<?= $passwordFieldError !== '' ? ' visible' : '' ?>" id="password-error" data-error-for="password" aria-live="polite"><?= h($passwordFieldError) ?></span>
           </div>
         </div>
       </div>
