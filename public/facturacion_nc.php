@@ -553,9 +553,9 @@ $breadcrumbs    = [
 ];
 $extraCss = [
     'assets/css/facturacion.css?v=10',
-    'assets/css/facturacion_nc.css?v=2',
+    'assets/css/facturacion_nc.css?v=3',
 ];
-$extraJs = ['assets/js/facturacion_nc.js?v=3'];
+$extraJs = ['assets/js/facturacion_nc.js?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -736,7 +736,7 @@ require __DIR__ . '/partials/header.php';
               </div>
               <div class="nc-empty-hint">
                 <span class="hint-num">3</span>
-                Revisá el resumen y confirmá — ARCA recibirá la NC al instante
+                Revisá el resumen y confirmá. ARCA recibirá la NC al instante
               </div>
             </div>
           </div>

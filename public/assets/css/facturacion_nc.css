@@ -723,6 +723,8 @@
   transition: bottom .3s cubic-bezier(.34,1.56,.64,1);
 }
 
+#nc-live-bar[hidden] { display: none; }
+
 #nc-live-bar.is-visible { bottom: 0; }
 
 .nc-live-bar-info {
@@ -792,6 +794,111 @@
 [data-theme="dark"] .nc-alert--success { color: #6ee7b7; }
 [data-theme="dark"] .nc-alert--error   { color: #fca5a5; }
 [data-theme="dark"] .nc-alert--warn    { color: #fcd34d; }
+
+/* Confirmación fiscal: resumen legible antes de enviar a ARCA */
+.nc-confirm-dialog {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.nc-confirm-html {
+  margin: 0;
+}
+
+.nc-confirm-content {
+  color: var(--text, #0f172a);
+  text-align: left;
+}
+
+.nc-confirm-intro {
+  margin: 0 0 14px;
+  color: var(--muted, #64748b);
+  line-height: 1.5;
+}
+
+.nc-confirm-lines {
+  max-height: 240px;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  border-radius: 12px;
+}
+
+.nc-confirm-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 13px;
+}
+
+.nc-confirm-line + .nc-confirm-line {
+  border-top: 1px solid var(--panel-border, rgba(148, 163, 184, 0.18));
+}
+
+.nc-confirm-line-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nc-confirm-line-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.nc-confirm-line-copy small,
+.nc-confirm-motive span,
+.nc-confirm-total span {
+  color: var(--muted, #64748b);
+  font-size: 0.78rem;
+}
+
+.nc-confirm-line-total {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nc-confirm-motive {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 12px;
+}
+
+.nc-confirm-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.24));
+  border-radius: 12px;
+  background: var(--bg, #f8fafc);
+}
+
+.nc-confirm-total strong {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.nc-confirm-warning {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 28%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+  color: var(--danger, #dc2626);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+[data-theme="dark"] .nc-confirm-content {
+  color: var(--text, #e2e8f0);
+}
+
+[data-theme="dark"] .nc-confirm-total {
+  background: rgba(15, 23, 42, 0.62);
+}
 
 /* ── responsive ──────────────────────────────────────────── */
 @media (max-width: 1100px) {

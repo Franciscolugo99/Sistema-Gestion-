@@ -3777,6 +3777,7 @@ $results[] = flus_run_test('facturacion nc muestra flash visible y conserva hist
     $repoRoot = dirname(__DIR__);
     $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');
     $ncJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'facturacion_nc.js');
+    $ncCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion_nc.css');
     $panelLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'facturacion_panel_lib.php');
 
     flus_assert_contains('data-nc-ok="<?= nc_h($ncOk) ?>"', $ncPhp);
@@ -3785,6 +3786,22 @@ $results[] = flus_run_test('facturacion nc muestra flash visible y conserva hist
     flus_assert_contains('function initFlashNotifications()', $ncJs);
     flus_assert_contains("window.Notif.exito", $ncJs);
     flus_assert_contains("window.Notif.error", $ncJs);
+    flus_assert_contains('function lineCredit(row, rawQty)', $ncJs);
+    flus_assert_contains('const credit = lineCredit(row);', $ncJs);
+    flus_assert_contains("const descHtml = escapeHtml(row.dataset.desc", $ncJs);
+    flus_assert_not_contains('<b>${desc}</b>', $ncJs);
+    flus_assert_contains('focusCancel: true', $ncJs);
+    flus_assert_contains('setLiveBarVisible(partialSelected && total >= 0.009)', $ncJs);
+    flus_assert_contains("val === 'PARTIAL' && $$('.nc-line-row').some", $ncJs);
+    flus_assert_contains('HTMLFormElement.prototype.submit.call(formParcial);', $ncJs);
+    flus_assert_contains('partialConfirmationOpen', $ncJs);
+    flus_assert_contains("formTotal.closest('#nc-form-total')?.querySelector('.nc-total-amount-value')", $ncJs);
+    flus_assert_not_contains('style="', $ncJs);
+    flus_assert_contains('.nc-confirm-lines {', $ncCss);
+    flus_assert_contains('.nc-confirm-warning {', $ncCss);
+    flus_assert_contains('#nc-live-bar[hidden]', $ncCss);
+    flus_assert_contains('assets/css/facturacion_nc.css?v=3', $ncPhp);
+    flus_assert_contains('assets/js/facturacion_nc.js?v=4', $ncPhp);
     flus_assert_contains("FROM facturas f", $panelLib);
 });
 

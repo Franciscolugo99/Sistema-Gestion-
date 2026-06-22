@@ -16,6 +16,30 @@
     return Math.round((Number(n) || 0) * 100) / 100;
   }
 
+  function formatQuantity(n) {
+    return Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 3 });
+  }
+
+  function lineCredit(row, rawQty) {
+    const input      = $('.nc-qty-input', row);
+    const unitPrice  = parseFloat(row.dataset.unitPrice ?? 0) || 0;
+    const maxQty     = Math.max(0, parseFloat(row.dataset.maxQty ?? input?.max ?? 0) || 0);
+    const fullAmount = roundMoney(parseFloat(row.dataset.fullAmount ?? 0) || 0);
+    const qty        = Math.min(maxQty, Math.max(0, parseFloat(rawQty ?? input?.value ?? 0) || 0));
+    const isFullLine = maxQty > 0 && Math.abs(qty - maxQty) <= 0.0009;
+    const total      = qty > 0 ? (isFullLine ? fullAmount : roundMoney(qty * unitPrice)) : 0;
+
+    return { qty, total };
+  }
+
+  function setLiveBarVisible(visible) {
+    const bar = $('#nc-live-bar');
+    if (!bar) return;
+
+    bar.hidden = !visible;
+    bar.classList.toggle('is-visible', visible);
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
       '&': '&amp;',
@@ -86,6 +110,8 @@
       typeCards.forEach(card => card.classList.toggle('is-selected', card.dataset.value === val));
       if (formTotal)   formTotal.hidden   = val !== 'TOTAL';
       if (formParcial) formParcial.hidden = val !== 'PARTIAL';
+      const hasPartialTotal = val === 'PARTIAL' && $$('.nc-line-row').some(row => lineCredit(row).total >= 0.009);
+      setLiveBarVisible(hasPartialTotal);
       if (step3)       step3.hidden       = false;
       setActiveStep(3);
       // scroll step3 into view
@@ -118,19 +144,12 @@
       let count = 0;
 
       $$('.nc-line-row').forEach(row => {
-        const input      = $('.nc-qty-input', row);
-        const unitPrice  = parseFloat(row.dataset.unitPrice ?? 0);
-        const maxQty     = Math.max(0, parseFloat(row.dataset.maxQty ?? input?.max ?? 0) || 0);
-        const fullAmount = roundMoney(parseFloat(row.dataset.fullAmount ?? 0) || 0);
-        let qty          = Math.max(0, parseFloat(input?.value ?? 0) || 0);
-
-        if (qty > maxQty) qty = maxQty;
+        const input = $('.nc-qty-input', row);
+        const credit = lineCredit(row, input?.value);
+        const { qty, total: lineTotal } = credit;
         if (input && String(qty) !== String(parseFloat(input.value || '0') || 0)) {
           input.value = qty > 0 ? String(qty) : '0';
         }
-
-        const isFullLine = maxQty > 0 && Math.abs(qty - maxQty) <= 0.0009;
-        const lineTotal  = qty > 0 ? (isFullLine ? fullAmount : roundMoney(qty * unitPrice)) : 0;
 
         total = roundMoney(total + lineTotal);
         if (qty > 0) count++;
@@ -148,8 +167,8 @@
       if (liveCount) liveCount.textContent = count + (count === 1 ? ' línea' : ' líneas');
       if (submitBtn) submitBtn.disabled = total < 0.009;
 
-      const bar = $('#nc-live-bar');
-      if (bar) bar.classList.toggle('is-visible', total >= 0.009);
+      const partialSelected = $('[name="nc_type"][value="PARTIAL"]')?.checked ?? true;
+      setLiveBarVisible(partialSelected && total >= 0.009);
     }
 
     $$('.nc-qty-input').forEach(input => {
@@ -177,82 +196,113 @@
     const swal = window.Swal;
     if (!swal) return;
 
-    // --- PARCIAL confirm
     const formParcial = $('#nc-form-parcial form');
     const submitParcial = $('#nc-submit-parcial');
+    let partialConfirmationOpen = false;
 
     if (formParcial && submitParcial) {
       submitParcial.addEventListener('click', async (e) => {
         e.preventDefault();
+        if (partialConfirmationOpen) return;
+        partialConfirmationOpen = true;
+        submitParcial.disabled = true;
 
-        const lines = [];
-        $$('.nc-line-row').forEach(row => {
-          const input = $('.nc-qty-input', row);
-          const qty   = parseFloat(input?.value ?? 0) || 0;
-          if (qty > 0) {
-            const desc  = row.dataset.desc ?? '—';
-            const price = parseFloat(row.dataset.unitPrice ?? 0);
-            lines.push(`<li><b>${desc}</b> — ${qty} u. → ${formatMoney(qty * price)}</li>`);
+        try {
+          const lines = [];
+          $$('.nc-line-row').forEach(row => {
+            const credit = lineCredit(row);
+            if (credit.qty <= 0) return;
+
+            const descHtml = escapeHtml(row.dataset.desc || 'Sin descripción');
+            const qtyHtml = escapeHtml(formatQuantity(credit.qty));
+            lines.push(`
+              <li class="nc-confirm-line">
+                <span class="nc-confirm-line-copy"><strong>${descHtml}</strong><small>${qtyHtml} unidad${credit.qty === 1 ? '' : 'es'}</small></span>
+                <strong class="nc-confirm-line-total">${escapeHtml(formatMoney(credit.total))}</strong>
+              </li>`);
+          });
+
+          if (!lines.length) {
+            await swal.fire({ icon: 'warning', title: 'Sin ítems seleccionados', text: 'Indicá al menos una cantidad mayor a cero.', confirmButtonText: 'Entendido' });
+            return;
           }
-        });
 
-        if (!lines.length) {
-          swal.fire({ icon: 'warning', title: 'Sin ítems seleccionados', text: 'Indicá al menos una cantidad mayor a cero.', confirmButtonText: 'Entendido' });
-          return;
+          const motivo = formParcial.querySelector('[name="motivo"]')?.value.trim() || 'Sin motivo informado';
+          const total  = $('#nc-live-total')?.textContent ?? '';
+          const motivoHtml = escapeHtml(motivo);
+          const totalHtml  = escapeHtml(total);
+          const dangerColor = getComputedStyle(document.querySelector('.nc-page')).getPropertyValue('--nc-danger').trim() || '#ef4444';
+
+          const result = await swal.fire({
+            icon: 'warning',
+            title: 'Revisá la NC parcial',
+            html: `
+              <div class="nc-confirm-content">
+                <p class="nc-confirm-intro">ARCA recibirá una Nota de Crédito por estos ítems:</p>
+                <ul class="nc-confirm-lines">${lines.join('')}</ul>
+                <p class="nc-confirm-motive"><span>Motivo</span><strong>${motivoHtml}</strong></p>
+                <div class="nc-confirm-total"><span>Total a acreditar</span><strong>${totalHtml}</strong></div>
+                <p class="nc-confirm-warning">Una vez autorizada por ARCA, esta operación no se puede deshacer.</p>
+              </div>`,
+            customClass: { popup: 'nc-confirm-dialog', htmlContainer: 'nc-confirm-html' },
+            showCancelButton: true,
+            confirmButtonText: 'Emitir NC parcial',
+            cancelButtonText: 'Revisar',
+            confirmButtonColor: dangerColor,
+            focusCancel: true,
+            reverseButtons: true,
+          });
+
+          if (result.isConfirmed) HTMLFormElement.prototype.submit.call(formParcial);
+        } finally {
+          partialConfirmationOpen = false;
+          submitParcial.disabled = false;
         }
-
-        const motivo = formParcial.querySelector('[name="motivo"]')?.value.trim() || '(sin motivo)';
-        const total  = $('#nc-live-total')?.textContent ?? '';
-        const motivoHtml = escapeHtml(motivo);
-        const totalHtml  = escapeHtml(total);
-
-        const result = await swal.fire({
-          icon: 'question',
-          title: 'Confirmar NC parcial',
-          html: `
-            <p style="margin-bottom:12px;text-align:left;">Se emitirá una <strong>Nota de Crédito parcial</strong> ante ARCA por los siguientes ítems:</p>
-            <ul style="text-align:left;margin:0 0 12px;padding-left:18px;">${lines.join('')}</ul>
-            <p style="text-align:left;"><strong>Motivo:</strong> ${motivoHtml}</p>
-            <p style="font-size:1.1rem;margin-top:14px;font-weight:700;">Total a acreditar: ${totalHtml}</p>
-            <p style="color:#dc2626;font-size:.85rem;margin-top:8px;">Esta acción es irreversible una vez confirmada ante ARCA.</p>`,
-          showCancelButton: true,
-          confirmButtonText: 'Emitir NC parcial',
-          cancelButtonText: 'Revisar',
-          confirmButtonColor: '#0ea5e9',
-        });
-
-        if (result.isConfirmed) formParcial.submit();
       });
     }
 
-    // --- TOTAL confirm
     const formTotal   = $('#nc-form-total form');
     const submitTotal = $('#nc-submit-total');
+    let totalConfirmationOpen = false;
 
     if (formTotal && submitTotal) {
       submitTotal.addEventListener('click', async (e) => {
         e.preventDefault();
+        if (totalConfirmationOpen) return;
+        totalConfirmationOpen = true;
+        submitTotal.disabled = true;
 
-        const totalAmount = formTotal.querySelector('.nc-total-amount-value')?.textContent ?? '';
-        const motivo      = formTotal.querySelector('[name="motivo"]')?.value.trim() || '(sin motivo)';
-        const totalAmountHtml = escapeHtml(totalAmount);
-        const motivoHtml = escapeHtml(motivo || '(sin motivo)');
+        try {
+          const totalAmount = formTotal.closest('#nc-form-total')?.querySelector('.nc-total-amount-value')?.textContent ?? '';
+          const motivo      = formTotal.querySelector('[name="motivo"]')?.value.trim() || 'Sin motivo informado';
+          const totalAmountHtml = escapeHtml(totalAmount);
+          const motivoHtml = escapeHtml(motivo);
+          const dangerColor = getComputedStyle(document.querySelector('.nc-page')).getPropertyValue('--nc-danger').trim() || '#ef4444';
 
-        const result = await swal.fire({
-          icon: 'warning',
-          title: '¿Anular la factura completa?',
-          html: `
-            <p>Se emitirá una <strong>Nota de Crédito total</strong> ante ARCA anulando el saldo fiscal disponible.</p>
-            <p style="font-size:1.1rem;font-weight:700;margin:14px 0;">Monto a acreditar: ${totalAmountHtml}</p>
-            <p><strong>Motivo:</strong> ${motivoHtml}</p>
-            <p style="color:#dc2626;font-size:.85rem;margin-top:8px;">Esta acción es irreversible una vez confirmada ante ARCA.</p>`,
-          showCancelButton: true,
-          confirmButtonText: 'Sí, anular todo',
-          cancelButtonText: 'Cancelar',
-          confirmButtonColor: '#dc2626',
-        });
+          const result = await swal.fire({
+            icon: 'warning',
+            title: 'Revisá la anulación total',
+            html: `
+              <div class="nc-confirm-content">
+                <p class="nc-confirm-intro">ARCA recibirá una Nota de Crédito por todo el saldo fiscal disponible.</p>
+                <p class="nc-confirm-motive"><span>Motivo</span><strong>${motivoHtml}</strong></p>
+                <div class="nc-confirm-total"><span>Total a acreditar</span><strong>${totalAmountHtml}</strong></div>
+                <p class="nc-confirm-warning">Una vez autorizada por ARCA, esta operación no se puede deshacer.</p>
+              </div>`,
+            customClass: { popup: 'nc-confirm-dialog', htmlContainer: 'nc-confirm-html' },
+            showCancelButton: true,
+            confirmButtonText: 'Sí, anular todo',
+            cancelButtonText: 'Revisar',
+            confirmButtonColor: dangerColor,
+            focusCancel: true,
+            reverseButtons: true,
+          });
 
-        if (result.isConfirmed) formTotal.submit();
+          if (result.isConfirmed) HTMLFormElement.prototype.submit.call(formTotal);
+        } finally {
+          totalConfirmationOpen = false;
+          submitTotal.disabled = false;
+        }
       });
     }
   }
