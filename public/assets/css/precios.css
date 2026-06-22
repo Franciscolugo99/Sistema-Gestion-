@@ -987,7 +987,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
-  margin: 0 0 0.75rem;
+  margin: 0;
   padding: 0.1rem 0.15rem;
   color: var(--pm-muted);
   font-size: 0.875rem;
@@ -1004,12 +1004,33 @@
 }
 
 .historial-summary__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
   font-size: 0.82rem;
   color: var(--pm-muted);
 }
 
+.historial-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.historial-results-head .pagination { padding: 0; }
+
 .historial-context {
   margin-bottom: 1rem;
+}
+
+.historial-context__all {
+  margin-left: auto;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Paginación del historial */
@@ -1079,17 +1100,17 @@
 
 /* Lista de historial */
 .historial-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
+  display: grid;
+  overflow: hidden;
+  background: var(--pm-card-bg);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--radius-lg, 16px);
 }
 
 .historial-empty {
   text-align: center;
   padding: 3rem 2rem;
-  background: var(--pm-card-bg);
-  border: 1px dashed var(--pm-border);
-  border-radius: var(--radius-lg, 16px);
+  background: transparent;
   color: var(--pm-muted);
 }
 
@@ -1110,26 +1131,28 @@
   margin-bottom: 0.5rem;
 }
 
+.historial-empty__help { font-size: 0.8125rem; }
+
 /* Item del historial */
 .hist-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 1.1rem;
-  background: var(--pm-card-bg);
-  border: 1px solid var(--pm-border);
-  border-radius: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 0.8rem;
+  padding: 0.72rem 1rem;
+  background: transparent;
+  border-bottom: 1px solid var(--pm-border);
+  transition: background-color 0.18s ease-out;
 }
 
 .hist-item:hover {
-  border-color: var(--pm-info-border);
-  box-shadow: var(--pm-shadow-sm);
-  transform: translateY(-1px);
+  background: var(--pm-bg-subtle);
 }
 
+.hist-item:last-child { border-bottom: 0; }
+
 .hist-icon {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1138,8 +1161,8 @@
 }
 
 .hist-icon .icon {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
 }
 
 .hist-icon.up {
@@ -1152,8 +1175,16 @@
   color: var(--pm-success);
 }
 
+.hist-icon.same {
+  background: var(--pm-bg-subtle);
+  color: var(--pm-muted);
+}
+
 .hist-content {
-  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.1fr) minmax(250px, 1fr) minmax(270px, 1.25fr);
+  align-items: center;
+  gap: 0.75rem 1rem;
   min-width: 0;
 }
 
@@ -1161,7 +1192,7 @@
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--pm-text-strong);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0;
 }
 
 .hist-product .codigo {
@@ -1175,7 +1206,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0;
   font-size: 0.9375rem;
 }
 
@@ -1206,6 +1237,11 @@
   color: var(--pm-success);
 }
 
+.hist-change .diff.same {
+  background: var(--pm-bg-subtle);
+  color: var(--pm-muted);
+}
+
 .hist-meta {
   display: flex;
   flex-wrap: wrap;
@@ -1213,6 +1249,7 @@
   gap: 0.45rem;
   font-size: 0.76rem;
   color: var(--pm-muted);
+  justify-content: flex-end;
 }
 
 .hist-meta .motivo {
@@ -1477,6 +1514,17 @@
 /* ============================================
    RESPONSIVE
 ============================================ */
+@media (max-width: 1180px) {
+  .hist-content {
+    grid-template-columns: minmax(180px, 1fr) minmax(240px, 1fr);
+  }
+
+  .hist-meta {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 768px) {
   .precios-layout {
     grid-template-columns: 1fr;
@@ -1492,9 +1540,13 @@
   }
 
   .hist-item {
-    flex-direction: column;
+    grid-template-columns: 32px minmax(0, 1fr);
     gap: 0.75rem;
   }
+
+  .hist-content { grid-template-columns: 1fr; }
+
+  .hist-meta { grid-column: auto; }
 
   .hist-icon {
     width: 36px;
@@ -1514,6 +1566,11 @@
   .historial-summary {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .historial-results-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .precios-module .pagination {

@@ -1602,6 +1602,30 @@ $results[] = flus_run_test('precios herramientas acepta productos preseleccionad
     flus_assert_contains('preloadSelectedProductsFromServer();', $preciosJs);
 });
 
+$results[] = flus_run_test('historial de precios es compacto y aplica filtros sin recargas intermedias', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $preciosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'precios_historial.php');
+    $preciosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'precios.js');
+    $preciosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'precios.css');
+    $historyStart = strpos($preciosPhp, "if (\$vista === 'historial'):");
+    $historyEnd = strpos($preciosPhp, "elseif (\$vista === 'horarios'):", $historyStart !== false ? $historyStart : 0);
+    $historyMarkup = ($historyStart !== false && $historyEnd !== false)
+        ? substr($preciosPhp, $historyStart, $historyEnd - $historyStart)
+        : '';
+
+    flus_assert_contains('assets/css/precios.css?v=2', $preciosPhp);
+    flus_assert_contains('assets/js/precios.js?v=2', $preciosPhp);
+    flus_assert_contains('<article class="hist-item"', $historyMarkup);
+    flus_assert_contains("'same'", $historyMarkup);
+    flus_assert_contains('<time datetime=', $historyMarkup);
+    flus_assert_not_contains('style=', $historyMarkup);
+    flus_assert_not_contains('id="filtroTipo" name="tipo" data-autosubmit', $historyMarkup);
+    flus_assert_contains('id="historialPerPage" name="per_page" data-autosubmit="1"', $historyMarkup);
+    flus_assert_contains('form.querySelectorAll(\'[data-autosubmit="1"]\')', $preciosJs);
+    flus_assert_contains('.historial-results-head {', $preciosCss);
+    flus_assert_contains('grid-template-columns: 32px minmax(0, 1fr);', $preciosCss);
+});
+
 $results[] = flus_run_test('pagination helper is centralized in src helpers', function (): void {
     $repoRoot = dirname(__DIR__);
     $helpersPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'helpers.php';

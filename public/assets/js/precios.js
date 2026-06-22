@@ -852,27 +852,11 @@
   // ============================================
   function initHistorialFilters() {
     const form = document.getElementById("historialFiltersForm");
-    const tipoFilter = document.getElementById("filtroTipo");
-    const fechaDesde = document.getElementById("filtroFechaDesde");
-    const fechaHasta = document.getElementById("filtroFechaHasta");
-    const perPage = document.getElementById("historialPerPage");
-    const clearBtn = document.getElementById("clearFiltersBtn");
+    if (!form) return;
 
-    if (form && tipoFilter) {
-      tipoFilter.addEventListener("change", applyHistorialFilters);
-    }
-    if (form && fechaDesde) {
-      fechaDesde.addEventListener("change", applyHistorialFilters);
-    }
-    if (form && fechaHasta) {
-      fechaHasta.addEventListener("change", applyHistorialFilters);
-    }
-    if (form && perPage) {
-      perPage.addEventListener("change", applyHistorialFilters);
-    }
-    if (form && clearBtn && clearBtn.tagName === "BUTTON") {
-      clearBtn.addEventListener("click", clearHistorialFilters);
-    }
+    form.querySelectorAll('[data-autosubmit="1"]').forEach((control) => {
+      control.addEventListener("change", applyHistorialFilters);
+    });
   }
   
   function clearHistorialFilters() {

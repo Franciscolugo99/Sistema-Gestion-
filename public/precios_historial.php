@@ -45,8 +45,8 @@ csrf_token();
 $pageTitle = 'Gestión de Precios - FLUS';
 $currentSection = 'precios_historial';
 $bodyClass = 'precios-page';
-$extraCss = ['assets/css/precios.css'];
-$extraJs = ['assets/js/precios.js'];
+$extraCss = ['assets/css/precios.css?v=2'];
+$extraJs = ['assets/js/precios.js?v=2'];
 
 $info = null;
 
@@ -701,7 +701,7 @@ require __DIR__ . '/partials/header.php';
                     <line x1="12" y1="8" x2="12.01" y2="8"/>
                 </svg>
                 <span>Mostrando historial de: <strong><?= htmlspecialchars($productoFiltro['codigo'] . ' - ' . $productoFiltro['nombre']) ?></strong></span>
-                <a href="?v=historial" style="margin-left: auto; color: inherit; text-decoration: underline;">Ver todos</a>
+                <a href="?v=historial" class="historial-context__all">Ver todos</a>
             </div>
         <?php endif; ?>
 
@@ -713,7 +713,7 @@ require __DIR__ . '/partials/header.php';
 
             <div class="filter-group">
                 <label for="filtroTipo">Tipo</label>
-                <select id="filtroTipo" name="tipo" data-autosubmit="1">
+                <select id="filtroTipo" name="tipo">
                     <option value="" <?= $historialTipo === '' ? 'selected' : '' ?>>Todos</option>
                     <option value="VENTA" <?= $historialTipo === 'VENTA' ? 'selected' : '' ?>>Precio venta</option>
                     <option value="COSTO" <?= $historialTipo === 'COSTO' ? 'selected' : '' ?>>Costo</option>
@@ -722,12 +722,12 @@ require __DIR__ . '/partials/header.php';
 
             <div class="filter-group">
                 <label for="filtroFechaDesde">Desde</label>
-                <input type="date" id="filtroFechaDesde" name="desde" value="<?= htmlspecialchars($historialDesde) ?>" data-autosubmit="1">
+                <input type="date" id="filtroFechaDesde" name="desde" value="<?= htmlspecialchars($historialDesde) ?>">
             </div>
 
             <div class="filter-group">
                 <label for="filtroFechaHasta">Hasta</label>
-                <input type="date" id="filtroFechaHasta" name="hasta" value="<?= htmlspecialchars($historialHasta) ?>" data-autosubmit="1">
+                <input type="date" id="filtroFechaHasta" name="hasta" value="<?= htmlspecialchars($historialHasta) ?>">
             </div>
 
             <div class="filter-group filter-group--compact">
@@ -740,22 +740,24 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="historial-filters-actions">
-                <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
+                <button type="submit" class="btn btn-primary btn-sm">Aplicar filtros</button>
                 <a href="<?= htmlspecialchars($historialClearUrl) ?>" class="filter-clear" id="clearFiltersBtn">Limpiar</a>
             </div>
         </form>
 
         <?php if ($historialTotalRows > 0): ?>
-            <div class="historial-summary">
-                <div class="historial-summary__headline">
-                    <strong><?= $historialTotalRows ?></strong> cambio<?= $historialTotalRows === 1 ? '' : 's' ?>
+            <div class="historial-results-head">
+                <div class="historial-summary">
+                    <div class="historial-summary__headline">
+                        <strong><?= $historialTotalRows ?></strong> cambio<?= $historialTotalRows === 1 ? '' : 's' ?>
+                    </div>
+                    <div class="historial-summary__meta">
+                        <span><?= $historialFromRow ?> a <?= $historialToRow ?> visibles</span>
+                        <span>Página <?= $historialPage ?> de <?= $historialTotalPages ?></span>
+                    </div>
                 </div>
-                <div class="historial-summary__meta">
-                    <?= $historialFromRow ?>-<?= $historialToRow ?> de <?= $historialTotalRows ?> | página <?= $historialPage ?> de <?= $historialTotalPages ?> | <?= $historialPerPage ?> por página
-                </div>
+                <?= render_pagination($historialPage, $historialTotalPages, $historialQueryParams, false) ?>
             </div>
-
-            <?= render_pagination($historialPage, $historialTotalPages, $historialQueryParams, false) ?>
         <?php endif; ?>
 
         <div class="historial-list">
@@ -766,22 +768,24 @@ require __DIR__ . '/partials/header.php';
                         <polyline points="12 6 12 12 16 14"/>
                     </svg>
                     <p>No hay cambios de precios registrados.</p>
-                    <p style="font-size: 0.8125rem;">Los cambios aparecerán acá cuando modifiques precios desde las herramientas o el módulo de productos.</p>
+                    <p class="historial-empty__help">Los cambios aparecerán acá cuando modifiques precios desde las herramientas o el módulo de productos.</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($historial as $h):
                     $diferencia = (float)($h['diferencia'] ?? 0);
-                    $isUp = $diferencia > 0;
+                    $directionClass = $diferencia > 0 ? 'up' : ($diferencia < 0 ? 'down' : 'same');
                     $fecha = isset($h['created_at']) ? date('d/m/Y H:i', strtotime($h['created_at'])) : '';
                     $fechaISO = $h['created_at'] ?? '';
                 ?>
-                <div class="hist-item" data-tipo="<?= htmlspecialchars($h['tipo'] ?? 'VENTA') ?>" data-fecha="<?= htmlspecialchars(substr($fechaISO, 0, 10)) ?>">
-                    <div class="hist-icon <?= $isUp ? 'up' : 'down' ?>">
+                <article class="hist-item" data-tipo="<?= htmlspecialchars($h['tipo'] ?? 'VENTA') ?>" data-fecha="<?= htmlspecialchars(substr($fechaISO, 0, 10)) ?>">
+                    <div class="hist-icon <?= $directionClass ?>" aria-hidden="true">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <?php if ($isUp): ?>
+                            <?php if ($directionClass === 'up'): ?>
                                 <polyline points="18 15 12 9 6 15"/>
-                            <?php else: ?>
+                            <?php elseif ($directionClass === 'down'): ?>
                                 <polyline points="6 9 12 15 18 9"/>
+                            <?php else: ?>
+                                <line x1="6" y1="12" x2="18" y2="12"/>
                             <?php endif; ?>
                         </svg>
                     </div>
@@ -794,25 +798,25 @@ require __DIR__ . '/partials/header.php';
                             <span class="old-price">$<?= number_format((float)($h['precio_anterior'] ?? 0), 2, ',', '.') ?></span>
                             <span>&rarr;</span>
                             <span class="new-price">$<?= number_format((float)($h['precio_nuevo'] ?? 0), 2, ',', '.') ?></span>
-                            <span class="diff <?= $isUp ? 'up' : 'down' ?>">
-                                <?= $isUp ? '+' : '' ?><?= number_format($diferencia, 2, ',', '.') ?>
+                            <span class="diff <?= $directionClass ?>">
+                                <?= $diferencia > 0 ? '+' : '' ?><?= number_format($diferencia, 2, ',', '.') ?>
                                 <?php if (!empty($h['diferencia_pct'])): ?>
-                                    (<?= $isUp ? '+' : '' ?><?= number_format((float)$h['diferencia_pct'], 1) ?>%)
+                                    (<?= $diferencia > 0 ? '+' : '' ?><?= number_format((float)$h['diferencia_pct'], 1, ',', '.') ?>%)
                                 <?php endif; ?>
                             </span>
                         </div>
                         <div class="hist-meta">
                             <span class="hist-badge <?= strtolower($h['tipo'] ?? 'venta') ?>"><?= htmlspecialchars($h['tipo'] ?? 'VENTA') ?></span>
-                            <span><?= $fecha ?></span>
+                            <time datetime="<?= htmlspecialchars($fechaISO) ?>"><?= $fecha ?></time>
                             <?php if (!empty($h['usuario_nombre'] ?? $h['user_nombre'])): ?>
                                 <span>por <?= htmlspecialchars($h['usuario_nombre'] ?? $h['user_nombre']) ?></span>
                             <?php endif; ?>
                             <?php if (!empty($h['motivo'])): ?>
-                                <span class="motivo">"<?= htmlspecialchars($h['motivo']) ?>"</span>
+                                <span class="motivo"><?= htmlspecialchars($h['motivo']) ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
-                </div>
+                </article>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
