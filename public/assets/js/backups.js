@@ -56,8 +56,8 @@
   async function handleCreateBackup(e) {
     e.preventDefault();
 
-    // Deshabilitar botón y mostrar loading
-    btnCrearBackup.disabled = true;
+    let keepActionsDisabled = false;
+    setBackupActionsDisabled(true);
     showLoading(true, 'Creando backup...');
 
     const formData = new FormData(createBackupForm);
@@ -74,6 +74,7 @@
       }
 
       const data = await response.json();
+      keepActionsDisabled = operationBlocked(data);
 
       // Ocultar loading
       showLoading(false);
@@ -93,10 +94,9 @@
     } catch (error) {
       console.error('Error al crear backup:', error);
       showLoading(false);
-      showAlert('error', 'Error de conexión. Verificá tu conexión a internet e intentá de nuevo.');
+      showAlert('error', 'No se pudo completar la solicitud. Revisá que FLUS y MySQL sigan activos.');
     } finally {
-      // Re-habilitar botón
-      btnCrearBackup.disabled = false;
+      setBackupActionsDisabled(keepActionsDisabled);
     }
   }
 
@@ -109,7 +109,7 @@
     if (!fileSafe) return;
 
     const confirmWord = await Notif.prompt(
-      "⚠️ Restaurar backup",
+      "Restaurar backup",
       `Esto REEMPLAZA la base de datos con:\n${fileSafe}`,
       {
         placeholder: "Escribí RESTAURAR para continuar",
@@ -125,8 +125,8 @@
       return;
     }
 
-    // Deshabilitar acciones principales
-    if (btnCrearBackup) btnCrearBackup.disabled = true;
+    let keepActionsDisabled = false;
+    setBackupActionsDisabled(true);
 
     showLoading(true, 'Restaurando backup... No cierres esta ventana.');
 
@@ -147,6 +147,7 @@
       }
 
       const data = await response.json();
+      keepActionsDisabled = operationBlocked(data);
       showLoading(false);
 
       if (data.ok || data.success) {
@@ -155,6 +156,9 @@
         setTimeout(() => window.location.reload(), 800);
       } else {
         showAlert('error', data.message || 'Error al restaurar el backup');
+        if (data.maintenance_active) {
+          setTimeout(() => window.location.reload(), 1200);
+        }
       }
 
     } catch (error) {
@@ -162,7 +166,7 @@
       showLoading(false);
       showAlert('error', 'Error de conexión durante la restauración.');
     } finally {
-      if (btnCrearBackup) btnCrearBackup.disabled = false;
+      setBackupActionsDisabled(keepActionsDisabled);
     }
   }
 
@@ -190,6 +194,10 @@
       return;
     }
 
+    let keepActionsDisabled = false;
+    setBackupActionsDisabled(true);
+    showLoading(true, 'Eliminando backup...');
+
     const formData = new FormData();
     formData.append('csrf_token', csrf);
     formData.append('accion', 'borrar');
@@ -205,6 +213,8 @@
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
+      keepActionsDisabled = operationBlocked(data);
+      showLoading(false);
 
       if (data.ok || data.success) {
         showAlert('success', data.message || 'Backup eliminado');
@@ -230,7 +240,10 @@
       }
     } catch (error) {
       console.error('Error al eliminar backup:', error);
-      showAlert('error', 'Error de conexión al intentar eliminar el backup.');
+      showLoading(false);
+      showAlert('error', 'No se pudo eliminar el backup. Revisá que FLUS siga activo.');
+    } finally {
+      setBackupActionsDisabled(keepActionsDisabled);
     }
   }
 
@@ -239,8 +252,8 @@
    */
   async function handleMaintenanceOff() {
     const confirmWord = await Notif.prompt(
-      "🔧 Desactivar mantenimiento",
-      "",
+      "Desactivar mantenimiento",
+      "Hacelo únicamente después de revisar la causa del bloqueo.",
       {
         placeholder: "Escribí SALIR para confirmar",
         confirmText: "✅ Desactivar",
@@ -298,8 +311,18 @@
       loadingText.textContent = text;
     }
     if (loadingOverlay) {
-      loadingOverlay.style.display = show ? 'flex' : 'none';
+      loadingOverlay.hidden = !show;
     }
+  }
+
+  function operationBlocked(data) {
+    return Boolean(data && (data.maintenance_active || data.restore_in_progress));
+  }
+
+  function setBackupActionsDisabled(disabled) {
+    document.querySelectorAll('#btnCrearBackup, .btn-restore, .btn-delete').forEach(button => {
+      button.disabled = disabled;
+    });
   }
 
   /**
@@ -307,12 +330,14 @@
    */
   function showAlert(type, message) {
     // Remover alertas existentes
-    const existingAlerts = document.querySelectorAll('.alert');
+    const existingAlerts = document.querySelectorAll('.alert:not(.alert--persistent)');
     existingAlerts.forEach(alert => alert.remove());
 
     // Crear nueva alerta
     const alert = document.createElement('div');
     alert.className = type === 'success' ? 'alert alert-ok' : 'alert alert-err';
+    alert.setAttribute('role', 'status');
+    alert.setAttribute('aria-live', type === 'success' ? 'polite' : 'assertive');
     
     const icon = type === 'success' 
       ? '<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
@@ -328,7 +353,7 @@
 
     // Auto-hide después de 5 segundos
     setTimeout(() => {
-      alert.style.animation = 'bk-slide-out 0.3s ease';
+      alert.classList.add('is-hiding');
       setTimeout(() => alert.remove(), 300);
     }, 5000);
   }
@@ -444,10 +469,10 @@
    * Auto-hide para las alertas existentes
    */
   function autoHideAlerts() {
-    const alerts = document.querySelectorAll('.alert');
+    const alerts = document.querySelectorAll('.alert:not(.alert--persistent)');
     alerts.forEach(alert => {
       setTimeout(() => {
-        alert.style.animation = 'bk-slide-out 0.3s ease';
+        alert.classList.add('is-hiding');
         setTimeout(() => alert.remove(), 300);
       }, 5000);
     });

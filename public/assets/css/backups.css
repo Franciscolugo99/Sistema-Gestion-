@@ -275,6 +275,15 @@
   to   { opacity: 0; transform: translateY(-8px); }
 }
 
+.alert.is-hiding {
+  animation: bk-slide-out 0.3s ease-out forwards;
+}
+
+.alert--persistent {
+  position: relative;
+  animation: none;
+}
+
 .alert .icon { flex-shrink: 0; margin-top: 1px; }
 
 .alert-ok {
@@ -387,6 +396,8 @@
   z-index: var(--z-max, 9999);
   animation: bk-fade-in var(--duration-normal, 0.2s) ease;
 }
+
+.loading-overlay[hidden] { display: none; }
 
 @keyframes bk-fade-in {
   from { opacity: 0; }

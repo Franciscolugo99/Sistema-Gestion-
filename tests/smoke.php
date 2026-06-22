@@ -896,6 +896,7 @@ $results[] = flus_run_test('mysql cli discovery prefers current PHP stack over f
     flus_assert_contains('defined(\'PHP_BINARY\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysqldump.exe\')', $backupLib);
     flus_assert_contains('flus_mysql_stack_bin_candidates(\'mysql.exe\')', $backupLib);
+    flus_assert_contains('dirname($appRoot, 2)', $backupLib);
     flus_assert_contains('$candidates[] = $phpBinary;', $tecnicoPhp);
 
     if ($isPortablePayload) {
@@ -939,6 +940,32 @@ $results[] = flus_run_test('backup_restore_in_progress detects active lock', fun
     fclose($fp);
 
     flus_assert_false(backup_restore_in_progress(), 'released lock should not be detected as active');
+});
+
+$results[] = flus_run_test('backups unifica sql y zip con bloqueos y avisos persistentes', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $backupLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php');
+    $backupsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'backups.php');
+    $downloadPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'backup_download.php');
+    $systemApi = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'system_api.php');
+    $backupsJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'backups.js');
+    $backupsCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'backups.css');
+
+    flus_assert_true(backup_is_managed_file_name('flus_20260622.sql'));
+    flus_assert_true(backup_is_managed_file_name('flus_20260622.flus.zip'));
+    flus_assert_false(backup_is_managed_file_name('flus_20260622.zip'));
+    flus_assert_true(backup_is_downloadable_file_name('legacy.sql.gz'));
+    flus_assert_contains("glob(\$dir . DIRECTORY_SEPARATOR . '*.flus.zip')", $backupLib);
+    flus_assert_contains('while ($offset < $chunkLength)', $backupLib);
+    flus_assert_contains('flus_backup_restore_safe($file, $err)', $backupsPhp);
+    flus_assert_contains('No se pueden eliminar backups mientras hay una restauración o mantenimiento activo.', $backupsPhp);
+    flus_assert_contains('alert alert-err alert--persistent', $backupsPhp);
+    flus_assert_contains('backupOperationBlocked', $systemApi);
+    flus_assert_contains("header('Content-Type: application/zip')", $downloadPhp);
+    flus_assert_contains("header('Cache-Control: private, no-store, max-age=0')", $downloadPhp);
+    flus_assert_contains(".alert:not(.alert--persistent)", $backupsJs);
+    flus_assert_contains('loadingOverlay.hidden = !show', $backupsJs);
+    flus_assert_contains('.loading-overlay[hidden]', $backupsCss);
 });
 
 $results[] = flus_run_test('flus_make_shareable_path masks FLUS_ROOT', function (): void {

@@ -10,7 +10,7 @@ require_once __DIR__ . '/../src/backup_lib.php';
 
 $f = basename((string)($_GET['f'] ?? ''));
 
-if (!preg_match('/^[A-Za-z0-9._-]+\.sql(\.gz)?$/', $f)) {
+if (!backup_is_downloadable_file_name($f)) {
   http_response_code(400);
   echo 'Archivo inválido.';
   exit;
@@ -24,9 +24,12 @@ if (!is_file($path)) {
 }
 
 header('X-Content-Type-Options: nosniff');
+header('Cache-Control: private, no-store, max-age=0');
 header('Content-Length: ' . (string)filesize($path));
 
-if (str_ends_with($f, '.gz')) {
+if (str_ends_with(strtolower($f), '.flus.zip')) {
+  header('Content-Type: application/zip');
+} elseif (str_ends_with(strtolower($f), '.gz')) {
   header('Content-Type: application/gzip');
 } else {
   header('Content-Type: application/sql');

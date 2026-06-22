@@ -40,6 +40,10 @@ $canReposicionConfig = static function (): bool {
         && (user_has_permission('gestionar_stock') || user_has_permission('editar_stock'));
 };
 
+$backupOperationBlocked = static function (): bool {
+    return is_file(FLUS_ROOT . '/storage/maintenance.flag') || backup_restore_in_progress();
+};
+
 try {
     switch ($action) {
         
@@ -118,6 +122,9 @@ try {
             
             if ($method !== 'POST') json_fail('Método no permitido', 405);
             require_csrf_json();
+            if ($backupOperationBlocked()) {
+                json_fail('No se puede crear un backup mientras hay mantenimiento o una restauración en curso.', 409);
+            }
             
             $body = api_read_json();
             $includeStorage = !empty($body['include_storage']);
@@ -186,6 +193,9 @@ try {
             
             if ($method !== 'POST') json_fail('Método no permitido', 405);
             require_csrf_json();
+            if ($backupOperationBlocked()) {
+                json_fail('No se puede iniciar otra restauración mientras el sistema está en mantenimiento.', 409);
+            }
             
             $body = api_read_json();
             $file = $body['file'] ?? '';

@@ -25,6 +25,14 @@ function backups_ensure_dirs(): void {
     }
 }
 
+function backup_is_managed_file_name(string $file): bool {
+    return preg_match('/^[A-Za-z0-9._-]+(?:\.sql|\.flus\.zip)$/i', basename($file)) === 1;
+}
+
+function backup_is_downloadable_file_name(string $file): bool {
+    return preg_match('/^[A-Za-z0-9._-]+(?:\.sql(?:\.gz)?|\.flus\.zip)$/i', basename($file)) === 1;
+}
+
 /**
  * Quote compatible para comandos shell (Linux/Windows)
  */
@@ -58,18 +66,24 @@ function flus_stack_candidate(string $relativePath): string {
  */
 function flus_mysql_stack_bin_candidates(string $binaryName): array {
     $phpBinary = defined('PHP_BINARY') ? (string)PHP_BINARY : '';
-    if ($phpBinary === '') {
-        return [];
+    $candidates = [];
+
+    if ($phpBinary !== '') {
+        $stackRoot = dirname(dirname($phpBinary));
+        if ($stackRoot !== '.' && $stackRoot !== DIRECTORY_SEPARATOR) {
+            $candidates[] = $stackRoot . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName;
+            $candidates[] = $stackRoot . DIRECTORY_SEPARATOR . 'mariadb' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName;
+        }
     }
 
-    $stackRoot = dirname(dirname($phpBinary));
-    if ($stackRoot === '.' || $stackRoot === DIRECTORY_SEPARATOR) {
-        return [];
+    if (defined('FLUS_ROOT')) {
+        $appRoot = rtrim((string)FLUS_ROOT, '/\\');
+        $xamppRoot = dirname($appRoot, 2);
+        $candidates[] = $xamppRoot . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName;
+        $candidates[] = $xamppRoot . DIRECTORY_SEPARATOR . 'mariadb' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName;
     }
 
-    return [
-        $stackRoot . DIRECTORY_SEPARATOR . 'mysql' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . $binaryName,
-    ];
+    return array_values(array_unique($candidates));
 }
 
 
@@ -394,12 +408,15 @@ function backup_list(): array {
     $dir = backups_dir();
 
     $items = [];
-    $files = @glob($dir . DIRECTORY_SEPARATOR . '*.sql');
-    
-    if ($files === false) {
+    $sqlFiles = @glob($dir . DIRECTORY_SEPARATOR . '*.sql');
+    $zipFiles = @glob($dir . DIRECTORY_SEPARATOR . '*.flus.zip');
+
+    if ($sqlFiles === false || $zipFiles === false) {
         app_log('WARNING', 'No se pudo leer el directorio de backups', ['dir' => $dir]);
         return [];
     }
+
+    $files = array_values(array_unique(array_merge($sqlFiles, $zipFiles)));
     
     foreach ($files as $path) {
         if (!is_file($path)) continue;
@@ -425,7 +442,7 @@ function backup_delete(string $file, ?string &$err = null): bool {
     $file = basename($file);
     
     // Validar nombre de archivo
-    if (!preg_match('/^[A-Za-z0-9._-]+\.sql$/', $file)) {
+    if (!backup_is_managed_file_name($file)) {
         $err = 'Nombre de archivo inválido.';
         app_log('WARNING', 'backup_delete: nombre inválido', ['file' => $file]);
         return false;
@@ -445,6 +462,13 @@ function backup_delete(string $file, ?string &$err = null): bool {
         return false;
     }
 
+    if (str_ends_with(strtolower($file), '.sql')) {
+        $metaPath = backups_dir() . DIRECTORY_SEPARATOR . pathinfo($file, PATHINFO_FILENAME) . '.meta.json';
+        if (is_file($metaPath)) {
+            @unlink($metaPath);
+        }
+    }
+
     app_log('INFO', 'Backup eliminado', ['file' => $file]);
     return true;
 }
@@ -462,7 +486,8 @@ function backup_rotate(int $keep = 30): void {
     $deleted = 0;
     
     foreach ($toDelete as $it) {
-        if (@unlink($it['path'])) {
+        $rotateErr = null;
+        if (backup_delete((string)$it['file'], $rotateErr)) {
             $deleted++;
         }
     }
@@ -769,6 +794,7 @@ function backup_restore(string $file, ?string &$err = null): bool {
     $ok = false;
     $started = false;
     $bytesWritten = 0;
+    $streamFailed = false;
 
     // Asegurar que el proceso continúe aunque el usuario cierre el navegador
     @ignore_user_abort(true);
@@ -859,12 +885,25 @@ function backup_restore(string $file, ?string &$err = null): bool {
         // Escribir en stdin
         while (!feof($fh)) {
             $chunk = fread($fh, 1024 * 1024); // 1MB
-            if ($chunk === false) break;
+            if ($chunk === false) {
+                $streamFailed = true;
+                $err = 'No se pudo leer completamente el archivo de backup.';
+                break;
+            }
             if ($chunk === '') continue;
 
-            $w = fwrite($pipes[0], $chunk);
-            if ($w === false) break;
-            $bytesWritten += (int)$w;
+            $offset = 0;
+            $chunkLength = strlen($chunk);
+            while ($offset < $chunkLength) {
+                $w = fwrite($pipes[0], substr($chunk, $offset));
+                if ($w === false || $w === 0) {
+                    $streamFailed = true;
+                    $err = 'La restauración se interrumpió mientras se enviaba el backup a MySQL.';
+                    break 2;
+                }
+                $offset += (int)$w;
+                $bytesWritten += (int)$w;
+            }
         }
         @fclose($fh);
         $fh = null;
@@ -879,8 +918,10 @@ function backup_restore(string $file, ?string &$err = null): bool {
         $code = @proc_close($proc);
         $proc = null;
 
-        if ((int)$code !== 0) {
-            $err = 'mysql import falló (exit ' . (int)$code . '). ' . trim((string)$stderr);
+        if ($streamFailed || (int)$code !== 0) {
+            if (!$streamFailed) {
+                $err = 'mysql import falló (exit ' . (int)$code . '). ' . trim((string)$stderr);
+            }
 
             // Guardar error en maintenance.flag para debugging
             $meta['last_error']    = $err;

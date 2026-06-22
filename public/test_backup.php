@@ -355,8 +355,8 @@ if ($isWeb) {
     if ($allOk) {
         echo '<div class="alert alert-success">';
         echo '<h3>✅ Sistema Listo para Backups</h3>';
-        echo '<p><strong>Siguiente paso:</strong> Reemplazá <code>src/backup_lib.php</code> con <code>backup_lib_compatible.php</code></p>';
-        echo '<p>Luego probá crear un backup desde la interfaz.</p>';
+        echo '<p><strong>Siguiente paso:</strong> Volvé al panel de Backups y creá una copia de prueba.</p>';
+        echo '<p>Conservá al menos una copia descargada fuera del equipo.</p>';
         echo '</div>';
     } else {
         echo '<div class="alert alert-error">';

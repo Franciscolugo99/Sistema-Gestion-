@@ -26,7 +26,7 @@ if (!$hasPerm) {
   exit;
 }
 
-require_once __DIR__ . '/../src/backup_lib.php';
+require_once __DIR__ . '/../src/backup_enhanced.php';
 csrf_token();
 
 $pageTitle = 'Backups - FLUS';
@@ -45,8 +45,8 @@ if ($maintenanceActive) {
   }
 }
 $currentSection = 'configuracion';
-$extraCss = ['assets/css/backups.css'];
-$extraJs = ['assets/js/backups.js'];
+$extraCss = ['assets/css/backups.css?v=2'];
+$extraJs = ['assets/js/backups.js?v=2'];
 
 $info = null;
 $error = null;
@@ -73,12 +73,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
       }
     } elseif ($accion === 'borrar') {
-      $file = (string)($_POST['file'] ?? '');
-      $err = null;
-      if (backup_delete($file, $err)) {
-        $info = 'Backup eliminado: ' . basename($file);
+      if ($maintenanceActive || $restoreInProgress) {
+        $error = 'No se pueden eliminar backups mientras hay una restauración o mantenimiento activo.';
       } else {
-        $error = 'Error al eliminar backup: ' . ($err ?: 'No se pudo borrar el archivo.');
+        $file = (string)($_POST['file'] ?? '');
+        $err = null;
+        if (backup_delete($file, $err)) {
+          $info = 'Backup eliminado: ' . basename($file);
+        } else {
+          $error = 'Error al eliminar backup: ' . ($err ?: 'No se pudo borrar el archivo.');
+        }
       }
     } elseif ($accion === 'restaurar') {
       if ($maintenanceActive || $restoreInProgress) {
@@ -86,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       } else {
         $file = (string)($_POST['file'] ?? '');
         $err = null;
-        if (backup_restore($file, $err)) {
+        if (flus_backup_restore_safe($file, $err)) {
           $info = 'Restauración completada: ' . basename($file);
         } else {
           $error = 'Error al restaurar backup: ' . ($err ?: 'No se pudo restaurar.');
@@ -121,7 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     echo json_encode([
       'success' => !$error,
       'message' => $error ?: $info,
-      'items' => backup_list()
+      'items' => backup_list(),
+      'maintenance_active' => is_file($maintenanceFlag),
+      'restore_in_progress' => backup_restore_in_progress(),
     ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
   }
@@ -147,7 +153,7 @@ require __DIR__ . '/partials/header.php';
         <div class="module-header-copy">
           <span class="module-eyebrow">Resguardo operativo</span>
           <h1 class="page-title">Gestión de Backups</h1>
-          <p class="page-sub panel-subtitle">Administrá las copias de seguridad y restauración de la base de datos.</p>
+          <p class="page-sub panel-subtitle">Creá, descargá y restaurá copias verificadas de los datos de FLUS.</p>
         </div>
       </div>
     </div>
@@ -168,7 +174,7 @@ require __DIR__ . '/partials/header.php';
   </header>
 
   <?php if ($maintenanceActive): ?>
-    <div class="alert alert-err">
+    <div class="alert alert-err alert--persistent" role="status" aria-live="polite">
       <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
@@ -381,7 +387,7 @@ require __DIR__ . '/partials/header.php';
                   </svg>
                   Restaurar
                 </button>
-                <button class="btn btn-danger btn-sm btn-delete" type="button" data-file="<?= h($it['file']) ?>" title="Eliminar backup">
+                <button class="btn btn-danger btn-sm btn-delete" type="button" data-file="<?= h($it['file']) ?>" title="Eliminar backup" <?= ($maintenanceActive || $restoreInProgress) ? 'disabled' : '' ?>>
                   <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"/>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -399,7 +405,7 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <!-- Loading overlay -->
-<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+<div id="loadingOverlay" class="loading-overlay" hidden aria-live="assertive" aria-busy="true">
   <div class="spinner-container">
     <div class="spinner"></div>
     <p id="loadingText">Creando backup...</p>
