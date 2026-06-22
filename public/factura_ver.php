@@ -630,7 +630,7 @@ $breadcrumbs = $esNc
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
         ['label' => $comprobanteTitulo . ' ' . $tipo . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']), 'url' => null],
     ];
-$extraCss = ['assets/css/factura.css?v=7'];
+$extraCss = ['assets/css/factura.css?v=8'];
 $bodyClass = 'factura-view';
 $inlineJs = !$pdfMode ? <<<'JS'
 (function () {
@@ -828,12 +828,12 @@ if ($pdfMode) {
       <table class="tabla-detalle">
         <thead>
           <tr>
-            <th style="width: 15%;">Codigo</th>
-            <th style="width: 9%;" class="num">Cant.</th>
+            <th class="detail-col--code">Codigo</th>
+            <th class="num detail-col--qty">Cant.</th>
             <th>Descripcion</th>
-            <th style="width: 10%;" class="num">IVA</th>
-            <th style="width: 15%;" class="num">P. unitario</th>
-            <th style="width: 18%;" class="num">Importe</th>
+            <th class="num detail-col--tax">IVA</th>
+            <th class="num detail-col--price">P. unitario</th>
+            <th class="num detail-col--amount">Importe</th>
           </tr>
         </thead>
         <tbody>
@@ -938,8 +938,8 @@ if ($pdfMode) {
           <div class="box-title">Estado de cobro</div>
           <div class="payment-stack factura-cobro-status">
             <div class="factura-cobro-status__row">
-              <strong><?= h($cobroLabel) ?></strong>
-              <span class="badge <?= h($cobroEstado === 'COBRADA' ? 'badge-info' : ($cobroEstado === 'PARCIAL' ? 'badge-warning' : 'badge-secondary')) ?>"><?= h($cobroEstado) ?></span>
+              <span class="factura-cobro-status__label">Estado actual</span>
+              <span class="badge <?= h($cobroEstado === 'COBRADA' ? 'badge-info' : ($cobroEstado === 'PARCIAL' ? 'badge-warning' : 'badge-secondary')) ?>"><?= h($cobroLabel) ?></span>
             </div>
             <div class="factura-cobro-status__grid">
               <div><span>Total</span><strong><?= money($cobroTotalOriginal) ?></strong></div>
@@ -949,21 +949,21 @@ if ($pdfMode) {
               <div><span>Saldo</span><strong><?= money($cobroSaldo) ?></strong></div>
             </div>
             <?php if ($cobroNcCount > 0): ?>
-              <div class="text-muted" style="font-size:.85em"><?= number_format($cobroNcCount) ?> nota<?= $cobroNcCount === 1 ? '' : 's' ?> de credito aplicada<?= $cobroNcCount === 1 ? '' : 's' ?> al saldo.</div>
+              <div class="text-muted factura-cobro-note"><?= number_format($cobroNcCount) ?> nota<?= $cobroNcCount === 1 ? '' : 's' ?> de credito aplicada<?= $cobroNcCount === 1 ? '' : 's' ?> al saldo.</div>
             <?php endif; ?>
             <?php if ($puedeRegistrarCobro): ?>
               <button type="button" class="btn-mini" data-open-cobro>Registrar cobro</button>
             <?php elseif ($cobroEstado === 'SIN_TABLAS'): ?>
-              <span class="text-muted" style="font-size:.85em">Falta aplicar el esquema de cobranzas y recibos.</span>
+              <span class="text-muted factura-cobro-note">Falta aplicar el esquema de cobranzas y recibos.</span>
             <?php elseif (!($cobranzaResumen['cobrable'] ?? false)): ?>
-              <span class="text-muted" style="font-size:.85em">Este comprobante no requiere registro de cobro desde factura.</span>
+              <span class="text-muted factura-cobro-note">Este comprobante no requiere registro de cobro desde factura.</span>
             <?php endif; ?>
           </div>
         </section>
         <?php if ($recibosAsociados !== []): ?>
           <section class="factura-box factura-box--payment no-print">
             <div class="box-title">Cobros / recibos asociados</div>
-            <div class="payment-stack">
+            <div class="payment-stack factura-receipt-list">
               <?php
                 $_tipoLabels = [
                     'SALDO_CC'  => ['Saldo CC',  'badge-info'],
@@ -993,7 +993,8 @@ if ($pdfMode) {
                       $_fechaFmt = $_ts !== false ? date('d/m/Y H:i', $_ts) : $_createdAt;
                   }
                 ?>
-                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.25rem">
+                <article class="factura-receipt">
+                <div class="factura-receipt__summary">
                   <strong>
                     <?php if ($_reciboFactId > 0): ?>
                       <a href="factura_ver.php?id=<?= $_reciboFactId ?>" title="Ver factura asociada al recibo">Factura asociada #<?= $_reciboFactId ?></a>
@@ -1004,15 +1005,15 @@ if ($pdfMode) {
                     <?php endif; ?>
                   </strong>
                   <span class="badge <?= h($_tipoMeta[1]) ?>"><?= h($_tipoMeta[0]) ?></span>
-                  <span style="font-weight:600"><?= money($_montoApl) ?></span>
+                  <span class="factura-receipt__amount"><?= money($_montoApl) ?></span>
                   <?php if ($_medioPago !== ''): ?>
-                    <span class="text-muted" style="font-size:.85em"><?= h($_medioPago) ?></span>
+                    <span class="text-muted factura-receipt__method"><?= h($_medioPago) ?></span>
                   <?php endif; ?>
                   <?php if ($_fechaFmt !== ''): ?>
-                    <span class="text-muted" style="font-size:.82em"><?= h($_fechaFmt) ?></span>
+                    <span class="text-muted factura-receipt__date"><?= h($_fechaFmt) ?></span>
                   <?php endif; ?>
                 </div>
-                <div style="font-size:.82em;display:flex;gap:.75rem;flex-wrap:wrap">
+                <div class="factura-receipt__trace">
                   <?php if ($_cobranzaId > 0): ?>
                     <span class="text-muted">Cobranza #<?= $_cobranzaId ?></span>
                   <?php endif; ?>
@@ -1027,27 +1028,27 @@ if ($pdfMode) {
                   <?php endif; ?>
                 </div>
                 <?php if ($_referencia !== ''): ?>
-                  <div style="font-size:.85em"><span class="text-muted">Ref:</span> <?= h($_referencia) ?></div>
+                  <div class="factura-receipt__detail"><span class="text-muted">Ref:</span> <?= h($_referencia) ?></div>
                 <?php endif; ?>
                 <?php if ($_nota !== '' && $_nota !== 'Recibo de cobranza'): ?>
-                  <div style="font-size:.85em"><span class="text-muted">Nota:</span> <?= h($_nota) ?></div>
+                  <div class="factura-receipt__detail"><span class="text-muted">Nota:</span> <?= h($_nota) ?></div>
                 <?php endif; ?>
                 <?php if (!empty($factura['cliente_id'])): ?>
-                  <div style="font-size:.82em;margin-top:.15rem">
+                  <div class="factura-receipt__account">
                     <a href="cuenta_corriente_cliente.php?id=<?= (int)$factura['cliente_id'] ?>" class="text-muted">Ver cuenta corriente del cliente</a>
                   </div>
                 <?php endif; ?>
-                <hr style="margin:.4rem 0;opacity:.35">
+                </article>
               <?php endforeach; ?>
             </div>
           </section>
         <?php elseif (flus_cobranzas_receipts_ready($pdo)): ?>
-          <section class="factura-box factura-box--payment no-print" style="opacity:.7">
+          <section class="factura-box factura-box--payment factura-box--empty no-print">
             <div class="box-title">Cobros / recibos asociados</div>
             <div class="payment-stack">
-              <span class="text-muted" style="font-size:.88em">No hay recibos registrados para esta factura.</span>
+              <span class="text-muted factura-empty-copy">No hay recibos registrados para esta factura.</span>
               <?php if (!empty($factura['cliente_id'])): ?>
-                <div style="font-size:.82em;margin-top:.4rem">
+                <div class="factura-empty-action">
                   <a href="cuenta_corriente_cliente.php?id=<?= (int)$factura['cliente_id'] ?>">Ver cuenta corriente del cliente</a>
                 </div>
               <?php endif; ?>
@@ -1057,7 +1058,7 @@ if ($pdfMode) {
       <?php endif; ?>
 
       <?php if (!$pdfMode && flus_facturacion_estado_fiscal_requiere_intervencion($estadoFiscal) && $fiscalCerradaAt === ''): ?>
-        <section class="factura-box factura-box--payment no-print" style="border-color:var(--color-warning,#f59e0b);">
+        <section class="factura-box factura-box--payment factura-box--warning no-print">
           <div class="box-title">Incidencia fiscal</div>
           <div class="payment-stack">
             <div><strong><?= h($estadoFiscalLabel) ?>:</strong> <?= h($fiscalDetalleOperativo) ?></div>

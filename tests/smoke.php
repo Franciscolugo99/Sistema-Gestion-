@@ -3773,6 +3773,21 @@ $results[] = flus_run_test('factura_ver imprime desde vista limpia y documentos 
     flus_assert_contains('.nav-breadcrumb,', $facturaCss);
 });
 
+$results[] = flus_run_test('factura_ver presenta cobros y recibos sin estilos inline ni estados tecnicos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $facturaVerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_ver.php');
+    $facturaCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'factura.css');
+
+    flus_assert_not_contains('style="', $facturaVerPhp);
+    flus_assert_contains('assets/css/factura.css?v=8', $facturaVerPhp);
+    flus_assert_contains('factura-receipt__summary', $facturaVerPhp);
+    flus_assert_contains('factura-box--empty', $facturaVerPhp);
+    flus_assert_contains('><?= h($cobroLabel) ?></span>', $facturaVerPhp);
+    flus_assert_not_contains('><?= h($cobroEstado) ?></span>', $facturaVerPhp);
+    flus_assert_contains('align-items: start;', $facturaCss);
+    flus_assert_contains('.factura-receipt {', $facturaCss);
+});
+
 $results[] = flus_run_test('facturacion nc muestra flash visible y conserva historial especifico por factura', function (): void {
     $repoRoot = dirname(__DIR__);
     $ncPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_nc.php');

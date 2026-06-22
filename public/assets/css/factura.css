@@ -309,6 +309,11 @@
   text-align: right;
   white-space: nowrap;
 }
+.detail-col--code { width: 15%; }
+.detail-col--qty { width: 9%; }
+.detail-col--tax { width: 10%; }
+.detail-col--price { width: 15%; }
+.detail-col--amount { width: 18%; }
 .empty-cell {
   text-align: center;
   color: var(--fact-muted);
@@ -320,6 +325,7 @@
   grid-template-columns: minmax(0, 1.26fr) minmax(0, 0.74fr);
   gap: 10px;
   margin-bottom: 10px;
+  align-items: start;
 }
 
 .factura-bottom-grid--single {
@@ -377,6 +383,14 @@
   flex-wrap: wrap;
 }
 
+.factura-cobro-status__label {
+  color: var(--fact-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
 .factura-cobro-status__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -386,16 +400,64 @@
 .factura-cobro-status__grid div {
   display: grid;
   gap: 2px;
-  padding: 8px;
-  border: 1px solid #c7c7c7;
-  border-radius: 6px;
-  background: #f8fafc;
+  padding: 7px 2px;
+  border-top: 1px solid #c7c7c7;
 }
 
 .factura-cobro-status__grid span {
   font-size: 11px;
   color: var(--fact-muted);
   text-transform: uppercase;
+}
+
+.factura-cobro-note,
+.factura-receipt__method,
+.factura-receipt__detail {
+  font-size: .85em;
+}
+
+.factura-receipt-list { gap: 0; }
+
+.factura-receipt {
+  display: grid;
+  gap: 5px;
+  padding: 10px 0;
+  border-top: 1px solid #d6d6d6;
+}
+
+.factura-receipt:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.factura-receipt:last-child { padding-bottom: 0; }
+
+.factura-receipt__summary,
+.factura-receipt__trace {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.factura-receipt__summary { gap: 6px 8px; }
+.factura-receipt__trace { gap: 4px 12px; font-size: .82em; }
+.factura-receipt__amount { margin-left: auto; font-weight: 700; }
+.factura-receipt__date,
+.factura-receipt__account { font-size: .82em; }
+.factura-receipt__account { margin-top: 2px; }
+
+.factura-box--empty {
+  min-height: 0;
+  border-color: #c7c7c7;
+  background: #fafafa;
+}
+
+.factura-empty-copy { font-size: .88em; }
+.factura-empty-action { margin-top: 4px; font-size: .82em; }
+
+.factura-box--warning {
+  border-color: var(--color-warning, #f59e0b);
+  background: #fffaf0;
 }
 
 .factura-cobro-modal[hidden] {
@@ -712,6 +774,7 @@
     grid-template-columns: minmax(0, 1.34fr) minmax(0, 0.66fr) !important;
     gap: 4px;
     margin-bottom: 4px;
+    align-items: stretch;
   }
   .factura-bottom-grid--single {
     grid-template-columns: 1fr !important;
