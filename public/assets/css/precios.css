@@ -1101,7 +1101,11 @@
 /* Lista de historial */
 .historial-list {
   display: grid;
-  overflow: hidden;
+  max-height: clamp(24rem, calc(100vh - 20rem), 44rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   background: var(--pm-card-bg);
   border: 1px solid var(--pm-border);
   border-radius: var(--radius-lg, 16px);
@@ -1526,6 +1530,12 @@
 }
 
 @media (max-width: 768px) {
+  .historial-list {
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
   .precios-layout {
     grid-template-columns: 1fr;
   }

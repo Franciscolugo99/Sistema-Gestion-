@@ -45,8 +45,8 @@ csrf_token();
 $pageTitle = 'Gestión de Precios - FLUS';
 $currentSection = 'precios_historial';
 $bodyClass = 'precios-page';
-$extraCss = ['assets/css/precios.css?v=2'];
-$extraJs = ['assets/js/precios.js?v=2'];
+$extraCss = ['assets/css/precios.css?v=3'];
+$extraJs = ['assets/js/precios.js?v=3'];
 
 $info = null;
 
