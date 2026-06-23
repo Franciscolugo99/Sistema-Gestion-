@@ -15,6 +15,22 @@
 /* ============================================
    VARIABLES - Hereda del tema global
 ============================================ */
+body.precios-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.precios-page .root.container-global {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .precios-module {
   /* Colores semánticos - usan variables del tema */
   --pm-success: var(--success, #22c55e);
@@ -1101,11 +1117,7 @@
 /* Lista de historial */
 .historial-list {
   display: grid;
-  max-height: clamp(24rem, calc(100vh - 20rem), 44rem);
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  overflow: hidden;
   background: var(--pm-card-bg);
   border: 1px solid var(--pm-border);
   border-radius: var(--radius-lg, 16px);
@@ -1530,8 +1542,14 @@
 }
 
 @media (max-width: 768px) {
-  .historial-list {
-    max-height: none;
+  body.precios-page {
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  body.precios-page .root.container-global {
     overflow: visible;
     scrollbar-gutter: auto;
   }
