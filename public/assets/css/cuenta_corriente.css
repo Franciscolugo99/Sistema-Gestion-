@@ -473,7 +473,7 @@ body.cuenta-corriente-page .drawer {
   right: 0;
   width: 420px;
   max-width: 100%;
-  height: 100vh;
+  height: 100dvh;
   background: var(--panel);
   border-left: 1px solid var(--panel-border);
   z-index: 1001;

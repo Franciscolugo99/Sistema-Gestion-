@@ -1539,6 +1539,10 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     $rolesJs = (string)file_get_contents($jsRoot . 'roles.js');
     $permisosJs = (string)file_get_contents($jsRoot . 'rol_permisos.js');
     $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'roles.php');
+    $cssRoot = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR;
+    $clientesCss = (string)file_get_contents($cssRoot . 'clientes.css');
+    $cuentaCorrienteCss = (string)file_get_contents($cssRoot . 'cuenta_corriente.css');
+    $rolesCss = (string)file_get_contents($cssRoot . 'roles.css');
 
     flus_assert_contains('danger: action === "desactivar"', $clientesJs);
     flus_assert_contains("danger: action === 'desactivar'", $proveedoresJs);
@@ -1552,6 +1556,12 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     flus_assert_contains('aria-modal="true"', $rolesPhp);
     flus_assert_contains('aria-labelledby="deleteModalTitle"', $rolesPhp);
     flus_assert_contains('aria-label="Cerrar confirmación"', $rolesPhp);
+    flus_assert_contains('height: 100dvh;', $clientesCss);
+    flus_assert_contains('height: 100dvh;', $cuentaCorrienteCss);
+    flus_assert_contains('height: 100dvh;', $rolesCss);
+    flus_assert_not_contains('height: 100vh;', $clientesCss);
+    flus_assert_not_contains('height: 100vh;', $cuentaCorrienteCss);
+    flus_assert_not_contains('height: 100vh;', $rolesCss);
 });
 
 $results[] = flus_run_test('navegacion cobranzas y tesoreria evitan dialogos nativos y recuperan validacion', function (): void {

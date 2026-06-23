@@ -584,7 +584,7 @@
     position: fixed;
     top: 0;
     right: 0;
-    height: 100vh;
+    height: 100dvh;
     width: min(480px, 95vw);
     background: var(--card-bg);
     border-left: 1px solid var(--border-color);

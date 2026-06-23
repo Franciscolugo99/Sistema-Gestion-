@@ -470,7 +470,7 @@ body.dark .clientes-form input[type="date"]::-webkit-calendar-picker-indicator {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100vh;
+  height: 100dvh;
   width: min(480px, 96vw);
   background: var(--panel, rgba(15, 23, 42, 0.9));
   border-left: 1px solid var(--panel-border, rgba(148, 163, 184, 0.25));
