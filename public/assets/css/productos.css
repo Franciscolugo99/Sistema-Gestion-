@@ -94,6 +94,20 @@
   margin-top: 22px;
 }
 
+.productos-page .productos-hidden,
+#editOverlay .productos-hidden {
+  display: none;
+}
+
+.productos-page .product-form-message {
+  margin-top: 12px;
+}
+
+.productos-page .edit-help-spaced,
+#editOverlay .edit-help-spaced {
+  margin-top: 6px;
+}
+
 /* Header */
 .productos-header {
   display: flex;
@@ -1873,4 +1887,5 @@
   color: var(--p-muted);
   font-style: italic;
   min-height: 1.2em;
+  margin-top: 6px;
 }

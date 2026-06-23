@@ -1814,6 +1814,20 @@ $results[] = flus_run_test('productos usa un solo controlador en la vista modern
     flus_assert_contains('document.addEventListener(\'DOMContentLoaded\', () => ProductosManager.init());', $productosJs);
 });
 
+$results[] = flus_run_test('productos evita estilos inline en estados visuales del formulario', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $productosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'productos.php');
+    $productosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'productos.css');
+
+    flus_assert_not_contains('style=', $productosPhp);
+    flus_assert_contains('class="productos-hidden"', $productosPhp);
+    flus_assert_contains('class="field-help js-stock-unit-help"', $productosPhp);
+    flus_assert_contains('class="msg msg-visible msg-info product-form-message"', $productosPhp);
+    flus_assert_contains('.productos-page .productos-hidden,', $productosCss);
+    flus_assert_contains('.productos-page .product-form-message', $productosCss);
+    flus_assert_contains('.productos-page .edit-help-spaced,', $productosCss);
+});
+
 $results[] = flus_run_test('productos thumbnails fall back when image file is missing', function (): void {
     $repoRoot = dirname(__DIR__);
     $productosPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'productos.php';

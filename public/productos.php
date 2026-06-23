@@ -1204,7 +1204,7 @@ require_once __DIR__ . '/partials/header.php';
                         <input name="marca" list="marcas-list" autocomplete="off" value="<?= h($editProducto['marca'] ?? '') ?>">
                         <datalist id="marcas-list"></datalist>
                         <!-- Proveedores (datos precargados para autocomplete) -->
-                        <select id="proveedoresData" style="display:none;">
+                        <select id="proveedoresData" class="productos-hidden" aria-hidden="true" tabindex="-1">
                             <option value="">--</option>
                             <?php foreach ($proveedoresList as $pr): ?>
                                 <option value="<?= (int)$pr['id'] ?>"><?= h((string)$pr['nombre']) ?></option>
@@ -1267,7 +1267,7 @@ require_once __DIR__ . '/partials/header.php';
                                 <option value="ML">ML</option>
                             </select>
                         </div>
-                        <div class="field-help js-stock-unit-help" style="margin-top:6px;"></div>
+                        <div class="field-help js-stock-unit-help"></div>
                     </div>
 
                     <div class="pf-field">
@@ -1299,7 +1299,7 @@ require_once __DIR__ . '/partials/header.php';
                         </div>
                     </div>
 
-                    <div class="pf-field pf-field-wide pesable-units-container" id="pesableOptionsMain" <?= $esPesableForm ? '' : 'style="display:none;"' ?>>
+                    <div class="pf-field pf-field-wide pesable-units-container<?= $esPesableForm ? '' : ' productos-hidden' ?>" id="pesableOptionsMain">
                         <div class="units-compact-grid">
                             <label class="unit-compact-card">
                                 <input type="radio" name="unidad_venta_visual" value="KG" <?= ($esPesableForm && $unidadVentaForm === 'KG') ? 'checked' : '' ?>>
@@ -1365,7 +1365,7 @@ require_once __DIR__ . '/partials/header.php';
                 <div class="pf-actions">
                     <button class="btn btn-primary" type="submit" id="btnSubmitMain">
                         <span class="btn-text"><?= $esModoEdicion ? 'Actualizar' : 'Guardar' ?></span>
-                        <span class="btn-loading" style="display:none;">Guardando...</span>
+                        <span class="btn-loading productos-hidden">Guardando...</span>
                     </button>
                     <button class="btn btn-secondary" type="button" id="btnClearForm" data-clear-form="1" title="Limpiar formulario">
                         Limpiar
@@ -1377,7 +1377,7 @@ require_once __DIR__ . '/partials/header.php';
                 </div>
 
                 <?php if (!empty($msg)): ?>
-                    <div class="msg msg-visible msg-info" style="margin-top:12px;">
+                    <div class="msg msg-visible msg-info product-form-message">
                         <?= h($msg) ?>
                     </div>
                 <?php endif; ?>
@@ -1442,7 +1442,7 @@ require_once __DIR__ . '/partials/header.php';
         </form>
 
         <!-- Filtros activos (chips con ×) - se renderiza por JS -->
-        <div id="filtrosActivos" class="filtros-activos" style="display:none;"></div>
+        <div id="filtrosActivos" class="filtros-activos productos-hidden"></div>
 
         <div id="paginationContainerTop">
             <?php if ($totalFiltrados > 0 && $totalPages > 1): ?>
@@ -1537,7 +1537,7 @@ require_once __DIR__ . '/partials/header.php';
             <p>Cargando producto...</p>
         </div>
 
-        <form id="editForm" method="post" action="productos.php" class="edit-form" enctype="multipart/form-data" style="display:none;">
+        <form id="editForm" method="post" action="productos.php" class="edit-form productos-hidden" enctype="multipart/form-data">
             <?= csrf_field() ?>
             <input type="hidden" name="return_qs" value="<?= h($returnQs) ?>">
             <input type="hidden" name="id">
@@ -1610,7 +1610,7 @@ require_once __DIR__ . '/partials/header.php';
                             <option value="ML">ML</option>
                         </select>
                     </div>
-                    <div class="edit-help js-stock-unit-help" style="margin-top:6px;"></div>
+                    <div class="edit-help js-stock-unit-help"></div>
                 </div>
 
                 <div class="edit-field">
@@ -1641,7 +1641,7 @@ require_once __DIR__ . '/partials/header.php';
                     </div>
                 </div>
 
-                <div class="edit-field edit-field-full pesable-units-container" id="pesableOptionsEdit" style="display:none;">
+                <div class="edit-field edit-field-full pesable-units-container productos-hidden" id="pesableOptionsEdit">
                     <div class="units-compact-grid">
                         <label class="unit-compact-card">
                             <input type="radio" name="unidad_venta_visual_edit" value="KG">
@@ -1684,7 +1684,7 @@ require_once __DIR__ . '/partials/header.php';
                 <div class="edit-field edit-field-full">
                     <label>Imagen (opcional)</label>
                     <input type="file" name="imagen" accept="image/*">
-                    <div class="edit-help" style="margin-top:6px;">Si subís una nueva imagen, reemplaza la anterior.</div>
+                    <div class="edit-help edit-help-spaced">Si subís una nueva imagen, reemplaza la anterior.</div>
                 </div>
 
                 <div class="edit-status-row edit-field-full">
@@ -1703,7 +1703,7 @@ require_once __DIR__ . '/partials/header.php';
             <div class="edit-actions">
                 <button class="btn btn-primary" type="submit" id="btnSubmitEdit">
                     <span class="btn-text">Guardar cambios</span>
-                    <span class="btn-loading" style="display:none;">Guardando...</span>
+                    <span class="btn-loading productos-hidden">Guardando...</span>
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="ProductosManager.closeEdit()">Cancelar</button>
             </div>
