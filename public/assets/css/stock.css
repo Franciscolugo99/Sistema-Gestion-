@@ -599,7 +599,7 @@
 .modal-content {
   width: 100%;
   max-width: 500px;
-  max-height: 90vh;
+  max-height: 90dvh;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--panel-border);

@@ -1470,6 +1470,7 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     $stockAjax = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock_ajax.php');
     $stockPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock.php');
     $stockJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'stock.js');
+    $stockCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'stock.css');
 
     flus_assert_contains('ANULACION_VENTA', $installSql);
     flus_assert_contains('ANULACION_COMPRA', $installSql);
@@ -1504,6 +1505,8 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('renderStockFlow(stockAnteriorRaw, stockNuevoRaw)', $stockJs);
     flus_assert_contains('updateAdjustPreview()', $stockJs);
     flus_assert_contains('stock-history-flow', $stockJs);
+    flus_assert_contains('max-height: 90dvh;', $stockCss);
+    flus_assert_not_contains('max-height: 90vh;', $stockCss);
     flus_assert_contains('function stock_adjust_cached_response(string $key): ?array', $stockAjax);
     flus_assert_contains('stock_adjust_remember_response($requestKey, $responsePayload);', $stockAjax);
 });
