@@ -1830,6 +1830,10 @@ $results[] = flus_run_test('productos evita estilos inline en estados visuales d
     flus_assert_contains('.productos-page .productos-hidden,', $productosCss);
     flus_assert_contains('.productos-page .product-form-message', $productosCss);
     flus_assert_contains('.productos-page .edit-help-spaced,', $productosCss);
+    flus_assert_contains('max-height: 90dvh;', $productosCss);
+    flus_assert_contains('max-height: calc(100dvh - 20px);', $productosCss);
+    flus_assert_not_contains('90vh', $productosCss);
+    flus_assert_not_contains('100vh', $productosCss);
     flus_assert_contains('bindProductActions()', $productosJs);
     flus_assert_contains("event.target.closest('[data-product-action]')", $productosJs);
     flus_assert_contains('btnToggle.dataset.productToggle = action;', $productosJs);

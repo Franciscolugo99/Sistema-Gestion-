@@ -901,7 +901,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 720px;
-  max-height: 90vh;
+  max-height: 90dvh;
   background: var(--p-surface);
   border: 1px solid var(--p-border);
   border-radius: 18px;
@@ -992,7 +992,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  max-height: calc(90vh - 70px); /* 90vh del panel - header */
+  max-height: calc(90dvh - 70px); /* 90dvh del panel - header */
 }
 
 .edit-grid {
@@ -1002,7 +1002,7 @@
   padding: 20px;
   overflow-x: hidden;
   overflow-y: auto;
-  max-height: calc(90vh - 140px); /* Restamos header (70px) y actions (70px) */
+  max-height: calc(90dvh - 140px); /* Restamos header (70px) y actions (70px) */
 }
 
 /* Scrollbar personalizado para edit-grid */
@@ -1563,7 +1563,7 @@
   .edit-grid {
     grid-template-columns: 1fr;
     padding: 16px;
-    max-height: calc(100vh - 150px);
+    max-height: calc(100dvh - 150px);
   }
   .edit-field-full {
     grid-column: span 1;
@@ -1576,12 +1576,12 @@
   }
   
   .edit-panel {
-    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
     border-radius: 14px;
   }
   
   .edit-form {
-    max-height: calc(100vh - 90px);
+    max-height: calc(100dvh - 90px);
   }
   
   .edit-panel-head {
