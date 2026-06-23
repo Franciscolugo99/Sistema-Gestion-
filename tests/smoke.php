@@ -1613,8 +1613,8 @@ $results[] = flus_run_test('historial de precios conserva scroll de pagina y apl
         ? substr($preciosPhp, $historyStart, $historyEnd - $historyStart)
         : '';
 
-    flus_assert_contains('assets/css/precios.css?v=4', $preciosPhp);
-    flus_assert_contains('assets/js/precios.js?v=4', $preciosPhp);
+    flus_assert_contains('assets/css/precios.css?v=5', $preciosPhp);
+    flus_assert_contains('assets/js/precios.js?v=5', $preciosPhp);
     flus_assert_contains('<article class="hist-item"', $historyMarkup);
     flus_assert_contains("'same'", $historyMarkup);
     flus_assert_contains('<time datetime=', $historyMarkup);
@@ -1622,12 +1622,9 @@ $results[] = flus_run_test('historial de precios conserva scroll de pagina y apl
     flus_assert_not_contains('id="filtroTipo" name="tipo" data-autosubmit', $historyMarkup);
     flus_assert_contains('id="historialPerPage" name="per_page" data-autosubmit="1"', $historyMarkup);
     flus_assert_contains('form.querySelectorAll(\'[data-autosubmit="1"]\')', $preciosJs);
-    flus_assert_contains('body.precios-page {', $preciosCss);
-    flus_assert_contains('height: 100dvh;', $preciosCss);
-    flus_assert_contains('body.precios-page .root.container-global {', $preciosCss);
-    flus_assert_contains('overflow-y: auto;', $preciosCss);
-    flus_assert_contains('scrollbar-gutter: stable;', $preciosCss);
     flus_assert_contains('.historial-results-head {', $preciosCss);
+    flus_assert_not_contains('body.precios-page .root.container-global {', $preciosCss);
+    flus_assert_not_contains('body.precios-page {' . PHP_EOL . '  display: flex;', $preciosCss);
     flus_assert_not_contains('max-height: clamp(24rem, calc(100vh - 20rem), 44rem);', $preciosCss);
     flus_assert_contains('grid-template-columns: 32px minmax(0, 1fr);', $preciosCss);
 });

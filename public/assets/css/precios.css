@@ -12,25 +12,6 @@
  * - Filtros de historial con UI visible
  */
 
-/* ============================================
-   VARIABLES - Hereda del tema global
-============================================ */
-body.precios-page {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-
-body.precios-page .root.container-global {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-
 .precios-module {
   /* Colores semánticos - usan variables del tema */
   --pm-success: var(--success, #22c55e);
@@ -1542,18 +1523,6 @@ body.precios-page .root.container-global {
 }
 
 @media (max-width: 768px) {
-  body.precios-page {
-    display: block;
-    height: auto;
-    min-height: 100dvh;
-    overflow-y: auto;
-  }
-
-  body.precios-page .root.container-global {
-    overflow: visible;
-    scrollbar-gutter: auto;
-  }
-
   .precios-layout {
     grid-template-columns: 1fr;
   }
