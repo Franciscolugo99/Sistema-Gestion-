@@ -48,6 +48,7 @@ const ProductosManager = {
         this.renderActiveFilters();
         this.bindTableSort();
         this.bindPagination();
+        this.bindProductActions();
         this.bindHistory();
         this.bindKeyboardShortcuts();
         this.bindFileInputs();
@@ -591,6 +592,74 @@ const ProductosManager = {
             await this.closeEdit(e);
         }, true);
     },
+    bindProductActions() {
+        const page = document.querySelector('.page-wrap.productos-page');
+        if (!page || page.dataset.productActionsBound) return;
+        page.dataset.productActionsBound = '1';
+
+        document.addEventListener('click', async (event) => {
+            const trigger = event.target.closest('[data-product-action]');
+            if (!trigger) return;
+
+            const action = trigger.dataset.productAction || '';
+            const productId = parseInt(trigger.dataset.productId || '0', 10);
+
+            if (![
+                'edit',
+                'copy',
+                'toggle',
+                'detail',
+                'details-all',
+                'close-edit',
+                'close-confirm',
+                'accept-confirm',
+            ].includes(action)) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (action === 'edit' && productId > 0) {
+                await this.openEdit(productId);
+                return;
+            }
+
+            if (action === 'copy' && productId > 0) {
+                await this.copyProduct(productId);
+                return;
+            }
+
+            if (action === 'toggle' && productId > 0) {
+                this.confirmToggle(productId, trigger.dataset.productToggle || 'desactivar');
+                return;
+            }
+
+            if (action === 'detail' && productId > 0) {
+                this.toggleDetail(productId);
+                return;
+            }
+
+            if (action === 'details-all') {
+                this.toggleAllDetails();
+                return;
+            }
+
+            if (action === 'close-edit') {
+                await this.closeEdit(event);
+                return;
+            }
+
+            if (action === 'close-confirm') {
+                this.closeConfirm();
+                return;
+            }
+
+            if (action === 'accept-confirm') {
+                this.state.pendingConfirmCallback?.();
+                this.closeConfirm();
+            }
+        });
+    },
 
     async openEdit(id) {
         const overlay = document.getElementById('editOverlay');
@@ -846,7 +915,7 @@ const ProductosManager = {
                 const isActive = parseInt(data.activo) === 1;
                 const action = isActive ? 'desactivar' : 'activar';
                 btnToggle.textContent = isActive ? 'Desactivar' : 'Activar';
-                btnToggle.onclick = () => this.confirmToggle(data.id, action);
+                btnToggle.dataset.productToggle = action;
             }
         }
 
@@ -955,8 +1024,6 @@ const ProductosManager = {
         const modal = document.getElementById('confirmModal');
         const title = document.getElementById('confirmTitle');
         const text = document.getElementById('confirmText');
-        const acceptBtn = document.getElementById('confirmAccept');
-
         if (!modal) return;
 
         title.textContent = action === 'desactivar' ? 'Desactivar producto' : 'Activar producto';
@@ -965,11 +1032,6 @@ const ProductosManager = {
             : '¿Activar este producto?';
 
         this.state.pendingConfirmCallback = () => this.executeToggle(id, action);
-
-        acceptBtn.onclick = () => {
-            this.state.pendingConfirmCallback?.();
-            this.closeConfirm();
-        };
 
         modal.classList.add('open');
     },

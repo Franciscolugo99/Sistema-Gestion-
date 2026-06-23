@@ -214,19 +214,23 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
 <button
                     type="button"
                     class="btn-line btn-edit"
-                    onclick="ProductosManager.openEdit(<?= $id ?>)"
+                    data-product-action="edit"
+                    data-product-id="<?= $id ?>"
                 >Editar</button>
 
                 <button
                     type="button"
                     class="btn-line btn-copy"
-                    onclick="ProductosManager.copyProduct(<?= $id ?>)"
+                    data-product-action="copy"
+                    data-product-id="<?= $id ?>"
                 >Copiar</button>
 
                 <button
                     type="button"
                     class="btn-line btn-toggle"
-                    onclick="ProductosManager.confirmToggle(<?= $id ?>, '<?= ((int)($p['activo'] ?? 0) === 1) ? 'desactivar' : 'activar' ?>')"
+                    data-product-action="toggle"
+                    data-product-id="<?= $id ?>"
+                    data-product-toggle="<?= ((int)($p['activo'] ?? 0) === 1) ? 'desactivar' : 'activar' ?>"
                 >
                     <?= ((int)($p['activo'] ?? 0) === 1) ? 'Desactivar' : 'Activar' ?>
                 </button>
@@ -237,7 +241,8 @@ function productos_render_tbody(array $productos, string $uploadDirUrl, string $
                 <button
                     type="button"
                     class="btn-expand"
-                    onclick="ProductosManager.toggleDetail(<?= $id ?>)"
+                    data-product-action="detail"
+                    data-product-id="<?= $id ?>"
                     aria-label="Ver detalles"
                 >⊕</button>
             </td>
@@ -1483,7 +1488,7 @@ require_once __DIR__ . '/partials/header.php';
                         <th class="center">Estado</th>
                         <th class="center">Acciones</th>
                         <th class="center col-expand">
-                            <button type="button" class="btn-expand-all" onclick="ProductosManager.toggleAllDetails()" title="Expandir todos" aria-label="Expandir detalles de todos los productos">⊕</button>
+                            <button type="button" class="btn-expand-all" data-product-action="details-all" title="Expandir todos" aria-label="Expandir detalles de todos los productos">⊕</button>
                         </th>
                     </tr>
                 </thead>
@@ -1529,7 +1534,7 @@ require_once __DIR__ . '/partials/header.php';
     <div id="editPanel" class="edit-panel">
         <div class="edit-panel-head">
             <h2>Editar producto</h2>
-            <button class="close-edit" type="button" onclick="ProductosManager.closeEdit(event)">✕</button>
+            <button class="close-edit" type="button" data-product-action="close-edit">✕</button>
         </div>
 
         <div class="edit-loading" id="editLoading">
@@ -1705,7 +1710,7 @@ require_once __DIR__ . '/partials/header.php';
                     <span class="btn-text">Guardar cambios</span>
                     <span class="btn-loading productos-hidden">Guardando...</span>
                 </button>
-                <button type="button" class="btn btn-secondary" onclick="ProductosManager.closeEdit()">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-product-action="close-edit">Cancelar</button>
             </div>
         </form>
     </div>
@@ -1718,8 +1723,8 @@ require_once __DIR__ . '/partials/header.php';
         <p id="confirmText">¿Estás seguro?</p>
 
         <div class="confirm-actions">
-            <button type="button" class="btn btn-secondary" onclick="ProductosManager.closeConfirm()">Cancelar</button>
-            <button type="button" class="btn btn-danger" id="confirmAccept">Sí, continuar</button>
+            <button type="button" class="btn btn-secondary" data-product-action="close-confirm">Cancelar</button>
+            <button type="button" class="btn btn-danger" id="confirmAccept" data-product-action="accept-confirm">Sí, continuar</button>
         </div>
     </div>
 </div>

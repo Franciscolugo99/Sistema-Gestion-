@@ -1818,14 +1818,22 @@ $results[] = flus_run_test('productos evita estilos inline en estados visuales d
     $repoRoot = dirname(__DIR__);
     $productosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'productos.php');
     $productosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'productos.css');
+    $productosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'productos.js');
 
     flus_assert_not_contains('style=', $productosPhp);
+    flus_assert_not_contains('onclick=', $productosPhp);
     flus_assert_contains('class="productos-hidden"', $productosPhp);
+    flus_assert_contains('data-product-action="edit"', $productosPhp);
+    flus_assert_contains('data-product-action="accept-confirm"', $productosPhp);
     flus_assert_contains('class="field-help js-stock-unit-help"', $productosPhp);
     flus_assert_contains('class="msg msg-visible msg-info product-form-message"', $productosPhp);
     flus_assert_contains('.productos-page .productos-hidden,', $productosCss);
     flus_assert_contains('.productos-page .product-form-message', $productosCss);
     flus_assert_contains('.productos-page .edit-help-spaced,', $productosCss);
+    flus_assert_contains('bindProductActions()', $productosJs);
+    flus_assert_contains("event.target.closest('[data-product-action]')", $productosJs);
+    flus_assert_contains('btnToggle.dataset.productToggle = action;', $productosJs);
+    flus_assert_not_contains('btnToggle.onclick', $productosJs);
 });
 
 $results[] = flus_run_test('productos thumbnails fall back when image file is missing', function (): void {
