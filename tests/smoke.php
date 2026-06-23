@@ -4891,7 +4891,12 @@ $results[] = flus_run_test('compras protege y presenta el detalle sin estilos in
     flus_assert_contains('@media (max-width: 768px)', $comprasCss);
     flus_assert_contains('@media (max-width: 560px)', $comprasCss);
     flus_assert_contains('overflow: auto;', $comprasCss);
-    flus_assert_contains('max-height: 92vh;', $comprasCss);
+    flus_assert_contains('max-height: 90dvh;', $comprasCss);
+    flus_assert_contains('max-height: 85dvh;', $comprasCss);
+    flus_assert_contains('max-height: 92dvh;', $comprasCss);
+    flus_assert_not_contains('max-height: 90vh;', $comprasCss);
+    flus_assert_not_contains('max-height: 85vh;', $comprasCss);
+    flus_assert_not_contains('max-height: 92vh;', $comprasCss);
     flus_assert_contains('html[data-theme="light"] .compras-page', $comprasCss);
 });
 

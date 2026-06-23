@@ -910,7 +910,7 @@ html[data-theme="light"] .compras-page .badge-pesable {
   animation: scaleInModal 0.25s ease;
   position: relative;
   margin: auto;
-  max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   color: var(--c-text);
@@ -922,7 +922,7 @@ body.modal-open {
 
 .modal-box.modal-detalle {
   max-width: 1000px;
-  max-height: 85vh;
+  max-height: 85dvh;
 }
 
 .modal-header {
@@ -1311,7 +1311,7 @@ body.theme-light .detalle-info {
   .modal-box {
     padding: 20px;
     max-width: 95%;
-    max-height: 92vh;
+    max-height: 92dvh;
   }
 
   .modal-box.modal-detalle {
