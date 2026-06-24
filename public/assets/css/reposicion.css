@@ -92,6 +92,10 @@ body[data-theme="dark"] {
   display: inline-block;
 }
 
+.repo-hidden-form {
+  display: none;
+}
+
 /* Tabs */
 .repo-tabs {
   display: flex;
@@ -809,9 +813,7 @@ body[data-theme="dark"] {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   TABLA COMPACTA — Alertas
-   ───────────────────────────────────────────────────────────────────────────── */
+/* Tabla compacta: alertas */
 
 .repo-alert-filters {
   display: flex;
@@ -896,10 +898,22 @@ body[data-theme="dark"] .repo-filter-count {
 
 .repo-alert-row:hover { background: var(--bg-light); }
 
-/* Borde izquierdo por estado */
-.repo-alert-row[data-estado="SIN_STOCK"] td:first-child   { box-shadow: inset 3px 0 0 var(--repo-danger); }
-.repo-alert-row[data-estado="BAJO_MINIMO"] td:first-child { box-shadow: inset 3px 0 0 var(--repo-warning); }
-.repo-alert-row[data-estado="REORDEN"] td:first-child     { box-shadow: inset 3px 0 0 var(--repo-info); }
+/* Estado visible sin depender de un borde lateral */
+.repo-alert-row[data-estado="SIN_STOCK"] { background: var(--repo-danger-bg); }
+.repo-alert-row[data-estado="BAJO_MINIMO"] { background: var(--repo-warning-bg); }
+.repo-alert-row[data-estado="REORDEN"] { background: var(--repo-info-bg); }
+
+.repo-alert-row[data-estado="SIN_STOCK"]:hover {
+  background: color-mix(in srgb, var(--repo-danger) 18%, var(--card-bg));
+}
+
+.repo-alert-row[data-estado="BAJO_MINIMO"]:hover {
+  background: color-mix(in srgb, var(--repo-warning) 18%, var(--card-bg));
+}
+
+.repo-alert-row[data-estado="REORDEN"]:hover {
+  background: color-mix(in srgb, var(--repo-info) 18%, var(--card-bg));
+}
 
 /* Badges de estado */
 .repo-badge-sin-stock,
@@ -917,9 +931,7 @@ body[data-theme="dark"] .repo-filter-count {
 .repo-badge-bajo-minimo { background: var(--repo-warning-bg); color: var(--repo-warning); }
 .repo-badge-reorden    { background: var(--repo-info-bg);    color: var(--repo-info);    }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   TABLA COMPACTA — Config inline
-   ───────────────────────────────────────────────────────────────────────────── */
+/* Tabla compacta: configuración inline */
 
 .repo-config-table {
   margin: 0;
@@ -969,9 +981,7 @@ body[data-theme="dark"] .repo-filter-count {
   width: 100%;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   ACCORDION — Lista de compras
-   ───────────────────────────────────────────────────────────────────────────── */
+/* Acordeón: lista de compras */
 
 .repo-lista-top {
   display: flex;

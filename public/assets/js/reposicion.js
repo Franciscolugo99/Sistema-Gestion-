@@ -204,11 +204,11 @@
         event.preventDefault();
         syncBulkState();
         if (count === 0 && hasChanges) {
-          notify("warn", "Selecciona al menos un producto o usa 'Seleccionar pagina'.");
+          notify("warn", "Seleccioná al menos un producto o usá 'Seleccionar página'.");
         } else if (count > 0 && !hasChanges) {
-          notify("warn", "Completa al menos un valor para aplicar el cambio masivo.");
+          notify("warn", "Completá al menos un valor para aplicar el cambio masivo.");
         } else {
-          notify("warn", "Selecciona productos y completa al menos un cambio para continuar.");
+          notify("warn", "Seleccioná productos y completá al menos un cambio para continuar.");
         }
         bulkForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
         return;

@@ -1979,6 +1979,25 @@ $results[] = flus_run_test('support schema is versioned for clean installs and u
     flus_assert_contains('function _repo_join_aux(PDO $pdo): string', $reposicionPhp);
 });
 
+$results[] = flus_run_test('reposicion sugerida mantiene una UI operativa y consistente', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $reposicionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'reposicion.php');
+    $reposicionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'reposicion.css');
+    $reposicionJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'reposicion.js');
+
+    flus_assert_contains('Reposición Sugerida', $reposicionPhp);
+    flus_assert_contains('repo-hidden-form', $reposicionPhp);
+    flus_assert_contains('.repo-hidden-form', $reposicionCss);
+    flus_assert_contains('Seleccioná al menos un producto', $reposicionJs);
+    flus_assert_not_contains('style="display:none"', $reposicionPhp);
+    flus_assert_not_contains('onclick=', $reposicionPhp);
+    flus_assert_not_contains('onchange=', $reposicionPhp);
+    flus_assert_not_contains('inset 3px 0 0', $reposicionCss);
+    flus_assert_not_contains('—', $reposicionPhp);
+    flus_assert_not_contains('alert(', $reposicionJs);
+    flus_assert_not_contains('confirm(', $reposicionJs);
+});
+
 $results[] = flus_run_test('install baseline includes core POS sale tables', function (): void {
     $repoRoot = dirname(__DIR__);
     $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
