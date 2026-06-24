@@ -1098,6 +1098,7 @@ function flus_build_diagnostic_overview(array $health, ?array $schemaIntegrity =
     $overview = [
         'status' => 'ok',
         'message' => 'Todos los sistemas funcionan correctamente',
+        'actions' => [],
         'restore_in_progress' => !empty($health['locks']['restore_in_progress']),
         'maintenance_active' => !empty($health['maintenance']['active']),
     ];
@@ -1132,6 +1133,45 @@ function flus_build_diagnostic_overview(array $health, ?array $schemaIntegrity =
         $overview['status'] = 'warning';
         $overview['message'] = 'Se detectaron advertencias';
     }
+
+    if (!$dbConnected) {
+        $overview['actions'][] = 'Revisar que MySQL/MariaDB esté iniciado y que las credenciales de configuración sean correctas.';
+    }
+    if ($dbMismatch) {
+        $overview['actions'][] = 'Corregir la base seleccionada: la conexión no coincide con la base configurada.';
+    }
+    if ($tablesMissing > 0) {
+        $overview['actions'][] = 'Aplicar migraciones pendientes o restaurar una copia válida antes de operar.';
+    }
+    if ($schemaCritical) {
+        $overview['actions'][] = 'Revisar integridad de esquema confirmada por el chequeo técnico.';
+    }
+    if ($filesCritical) {
+        $overview['actions'][] = 'Verificar archivos críticos de FLUS antes de seguir usando el sistema.';
+    }
+    if ($diskUsed > 90) {
+        $overview['actions'][] = 'Liberar espacio en disco: revisar backups, exports, uploads y logs acumulados.';
+    }
+    if (($health['backup']['days_since'] ?? 0) > 7) {
+        $overview['actions'][] = 'Generar un backup nuevo desde el módulo Backups.';
+    }
+    if ($overview['restore_in_progress']) {
+        $overview['actions'][] = 'Esperar o auditar la restauración en curso antes de vender.';
+    }
+    if ($overview['maintenance_active']) {
+        $overview['actions'][] = 'Revisar el modo mantenimiento y desactivarlo cuando el soporte termine.';
+    }
+    if (!empty($terminalLocks)) {
+        $overview['actions'][] = 'Revisar sesiones activas si una caja quedó tomada por otra sesión.';
+    }
+    if ($securityWarn) {
+        $overview['actions'][] = 'Revisar advertencias de seguridad antes de publicar en producción.';
+    }
+    if ($recentCritical) {
+        $overview['actions'][] = 'Revisar errores recientes en logs y reproducir el flujo afectado.';
+    }
+
+    $overview['actions'] = array_values(array_unique(array_filter($overview['actions'])));
 
     return $overview;
 }
@@ -1734,14 +1774,16 @@ if (!function_exists('flus_check_schema_integrity')) {
             'notes' => 'Incluye heurísticas (puede variar según versión) + pistas reales desde logs.',
         ];
 
-        // 1) hints reales desde logs (si existe)
+        // 1) hints reales desde logs (si existe).
+        // Los logs pueden traer pruebas viejas, endpoints legacy o errores ya corregidos.
+        // Se muestran como pistas de revisión, no como crítico activo.
         if (function_exists('flus_extract_schema_hints_from_logs') && function_exists('flus_get_recent_text_logs')) {
             $logs = flus_get_recent_text_logs(800);
             $hints = flus_extract_schema_hints_from_logs($logs);
             if (is_array($hints) && !empty($hints)) {
                 foreach ($hints as $h) {
                     $msg = is_string($h) ? $h : json_encode($h);
-                    $out['issues'][] = ['severity' => 'critical', 'message' => $msg];
+                    $out['warnings'][] = ['source' => 'logs', 'message' => 'Pista en logs: ' . $msg];
                 }
             }
         }

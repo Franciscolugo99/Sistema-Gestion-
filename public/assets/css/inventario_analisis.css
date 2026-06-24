@@ -111,19 +111,20 @@
 /* ========== Tarjetas ========== */
 .inv-cards-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
-  gap:15px;
-  margin-bottom:20px;
+  grid-template-columns:repeat(auto-fit, minmax(210px,1fr));
+  gap:12px;
+  margin-bottom:16px;
 }
 
 .inv-card{
   background: var(--inv-bg-card);
-  border-radius:12px;
-  padding:18px;
+  border-radius:16px;
+  padding:16px;
   display:flex;
   flex-direction:column;
   position:relative;
-  box-shadow: 0 1px 3px rgba(0,0,0,.10);
+  min-height:132px;
+  box-shadow: 0 10px 26px rgba(15,23,42,.06);
   border:1px solid var(--inv-border);
   transition: transform .2s, box-shadow .2s, border-color .2s;
 }
@@ -141,7 +142,7 @@
 
 .inv-card:hover{
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  box-shadow: 0 14px 30px rgba(15,23,42,.10);
 }
 
 .inv-card-primary{ border-color: rgba(59,130,246,.28); }
@@ -175,10 +176,11 @@
 }
 
 .inv-card-value{
-  font-size:1.5rem;
-  font-weight:700;
+  font-size:1.45rem;
+  font-weight:850;
   color: var(--inv-text);
   line-height:1.2;
+  letter-spacing:-.02em;
 }
 
 .inv-card-label{
@@ -217,14 +219,133 @@
   text-decoration:none;
 }
 
+/* ========== Radar operativo ========== */
+.inv-radar{
+  display:grid;
+  grid-template-columns:minmax(0, 1.35fr) minmax(320px, .9fr);
+  gap:16px;
+  align-items:stretch;
+  margin:0 0 18px;
+  padding:18px;
+  border:1px solid var(--inv-border);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(14,165,233,.10), transparent 32%),
+    var(--inv-bg-card);
+  box-shadow: 0 12px 30px rgba(15,23,42,.07);
+}
+
+.inv-radar--danger{
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239,68,68,.12), transparent 32%),
+    var(--inv-bg-card);
+}
+
+.inv-radar--warning{
+  background:
+    radial-gradient(circle at 0% 0%, rgba(245,158,11,.13), transparent 32%),
+    var(--inv-bg-card);
+}
+
+.inv-radar--info{
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59,130,246,.12), transparent 32%),
+    var(--inv-bg-card);
+}
+
+.inv-radar-main{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-width:0;
+}
+
+.inv-radar-kicker{
+  display:inline-flex;
+  align-items:center;
+  width:max-content;
+  min-height:24px;
+  padding:4px 10px;
+  margin-bottom:10px;
+  border:1px solid var(--inv-border);
+  border-radius:999px;
+  background: var(--inv-bg-alt);
+  color: var(--inv-muted);
+  font-size:.68rem;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+.inv-radar h2{
+  margin:0;
+  color:var(--inv-text);
+  font-size:1.08rem;
+  font-weight:900;
+  letter-spacing:-.01em;
+}
+
+.inv-radar p{
+  max-width:70ch;
+  margin:6px 0 0;
+  color:var(--inv-muted);
+  font-size:.9rem;
+  line-height:1.45;
+}
+
+.inv-radar-metrics{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+
+.inv-radar-pill{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:54px;
+  padding:10px 12px;
+  border:1px solid var(--inv-border);
+  border-radius:14px;
+  background:rgba(255,255,255,.48);
+  color:var(--inv-text);
+  text-decoration:none;
+  transition:transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.inv-radar-pill:hover{
+  transform:translateY(-1px);
+  background:var(--inv-bg-alt);
+}
+
+.inv-radar-pill strong{
+  font-size:1.15rem;
+  line-height:1;
+  font-weight:900;
+}
+
+.inv-radar-pill span{
+  color:var(--inv-muted);
+  font-size:.72rem;
+  font-weight:850;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.inv-radar-pill--ok{ border-color:rgba(16,185,129,.25); }
+.inv-radar-pill--danger{ border-color:rgba(239,68,68,.34); background:rgba(239,68,68,.07); }
+.inv-radar-pill--warning{ border-color:rgba(245,158,11,.34); background:rgba(245,158,11,.08); }
+.inv-radar-pill--info{ border-color:rgba(59,130,246,.30); background:rgba(59,130,246,.07); }
+
 /* ========== Filtros ========== */
 .inv-filters-panel{
   background: var(--inv-bg-card);
-  border-radius:10px;
-  padding:15px 20px;
+  border-radius:16px;
+  padding:16px;
   margin-bottom:20px;
   border:1px solid var(--inv-border);
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  box-shadow: 0 10px 24px rgba(15,23,42,.05);
 }
 
 .inv-filters{
@@ -242,16 +363,17 @@
 
 .inv-filter-group label{
   font-size:.75rem;
-  font-weight:700;
+  font-weight:850;
   color: var(--inv-muted);
-  letter-spacing:.02em;
+  letter-spacing:.1em;
+  text-transform:uppercase;
 }
 
 .inv-filter-input,
 .inv-filter-select{
   padding:8px 12px;
   border:1px solid var(--inv-border);
-  border-radius:6px;
+  border-radius:12px;
   font-size:.85rem;
   background: var(--inv-bg-card);
   color: var(--inv-text);
@@ -290,10 +412,10 @@
 .inv-table-panel,
 .inv-chart-panel{
   background: var(--inv-bg-card);
-  border-radius:12px;
+  border-radius:16px;
   overflow:hidden;
   border:1px solid var(--inv-border);
-  box-shadow: 0 1px 3px rgba(0,0,0,.10);
+  box-shadow: 0 10px 24px rgba(15,23,42,.06);
 }
 
 .panel-header{
@@ -307,8 +429,8 @@
 }
 
 .panel-title{
-  font-size:.95rem;
-  font-weight:800;
+  font-size:.98rem;
+  font-weight:850;
   margin:0;
   color: var(--inv-text);
   letter-spacing:.01em;
@@ -563,7 +685,9 @@
 
 .inv-empty-state{
   color: var(--inv-muted) !important;
-  font-weight:700;
+  font-weight:800;
+  padding:22px 14px !important;
+  background:var(--inv-bg-alt) !important;
 }
 
 .btn-link{
@@ -594,12 +718,14 @@ code{
 @media (max-width:1200px){
   .inv-main-grid,
   .inv-grid-2col{ grid-template-columns:1fr; }
+  .inv-radar{ grid-template-columns:1fr; }
 }
 
 @media (max-width:768px){
   .inventario-page{ padding:10px; }
   .inv-content-shell{ padding:1rem; border-radius:20px; }
   .inv-cards-grid{ grid-template-columns:1fr 1fr; }
+  .inv-radar-metrics{ grid-template-columns:1fr; }
   .inv-card-value{ font-size:1.25rem; }
   .inv-tabs{ flex-wrap:nowrap; }
   .inv-tab{ padding:8px 12px; font-size:.8rem; }

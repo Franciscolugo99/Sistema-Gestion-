@@ -1013,11 +1013,13 @@ $results[] = flus_run_test('flus_build_diagnostic_overview escalates active prob
     $warnHealth['locks']['restore_in_progress'] = true;
     $warn = flus_build_diagnostic_overview($warnHealth, null, null, null, ['total_critical' => 0]);
     flus_assert_same('warning', $warn['status']);
+    flus_assert_true(!empty($warn['actions']));
 
     $errorHealth = $baseHealth;
     $errorHealth['critical_tables']['missing_count'] = 2;
     $error = flus_build_diagnostic_overview($errorHealth, null, null, null, ['total_critical' => 0]);
     flus_assert_same('error', $error['status']);
+    flus_assert_true(!empty($error['actions']));
 });
 
 $results[] = flus_run_test('flus_format_bytes keeps current UI format', function (): void {
@@ -1858,7 +1860,7 @@ $results[] = flus_run_test('productos thumbnails fall back when image file is mi
     flus_assert_contains('prod-thumb-placeholder', $productosPhp);
 });
 
-$results[] = flus_run_test('diagnostics access keeps dedicated permission compatibility', function (): void {
+$results[] = flus_run_test('diagnostics access is admin gated like technical panel', function (): void {
     $repoRoot = dirname(__DIR__);
     $installPath = $repoRoot . DIRECTORY_SEPARATOR . 'install.sql';
     $migrationPath = $repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '006_diagnostics_permission.sql';
@@ -1885,9 +1887,52 @@ $results[] = flus_run_test('diagnostics access keeps dedicated permission compat
     flus_assert_contains('gestionar_backups', $migrationSql);
     flus_assert_contains('function user_can_access_diagnostics', $authPhp);
     flus_assert_contains('function require_diagnostics_permission', $authPhp);
+    flus_assert_contains("user_has_any_permission(['administrar_config', 'gestionar_backups'])", $authPhp);
     flus_assert_contains('require_diagnostics_permission();', $diagPhp);
     flus_assert_contains('user_can_access_diagnostics()', $diagDownloadPhp);
-    flus_assert_contains("\$can('ver_diagnostico')", $navPhp);
+    flus_assert_contains("\$can('administrar_config') || \$can('gestionar_backups')", $navPhp);
+    flus_assert_not_contains("\$can('ver_diagnostico')", $navPhp);
+});
+
+$results[] = flus_run_test('auditoria is filterable exportable and schema tolerant', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $auditPagePath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'auditoria.php';
+    $auditCssPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'auditoria.css';
+    $auditEventsPath = $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'audit_events.php';
+
+    foreach ([$auditPagePath, $auditCssPath, $auditEventsPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $auditPagePhp = (string)file_get_contents($auditPagePath);
+    $auditCss = (string)file_get_contents($auditCssPath);
+    $auditEventsPhp = (string)file_get_contents($auditEventsPath);
+
+    flus_assert_contains('function audit_table_columns(PDO $pdo): array', $auditPagePhp);
+    flus_assert_contains('function audit_distinct_values(PDO $pdo, string $column, array $columns', $auditPagePhp);
+    flus_assert_contains('if ((string)($_GET[\'export\'] ?? \'\') === \'csv\')', $auditPagePhp);
+    flus_assert_contains('audit_url([\'export\' => \'csv\'', $auditPagePhp);
+    flus_assert_contains('class="audit-summary"', $auditPagePhp);
+    flus_assert_contains('class="audit-quick-filters"', $auditPagePhp);
+    flus_assert_contains('$selectModule = $hasModule ?', $auditPagePhp);
+    flus_assert_contains('$selectRequestId = $hasRequestId ?', $auditPagePhp);
+    flus_assert_contains('$selectBeforeJson = $hasBeforeJson ?', $auditPagePhp);
+    flus_assert_contains('$selectAfterJson = $hasAfterJson ?', $auditPagePhp);
+    flus_assert_contains('$addLike = static function (string $expr)', $auditPagePhp);
+    flus_assert_contains('$param = \':q\' . count($qParts);', $auditPagePhp);
+
+    flus_assert_contains('.audit-summary-card', $auditCss);
+    flus_assert_contains('.audit-chip.is-active', $auditCss);
+    flus_assert_contains('.audit-badge--danger', $auditCss);
+    flus_assert_contains('.audit-module:empty::before', $auditCss);
+
+    flus_assert_contains('function audit_infer_module(string $action, string $entity, array $meta = []): string', $auditEventsPhp);
+    flus_assert_contains('$tableInfo[\'has_module\']', $auditEventsPhp);
+    flus_assert_contains('$tableInfo[\'has_request_id\']', $auditEventsPhp);
+    flus_assert_contains('$tableInfo[\'has_before_json\']', $auditEventsPhp);
+    flus_assert_contains('$tableInfo[\'has_after_json\']', $auditEventsPhp);
 });
 
 $results[] = flus_run_test('support schema is versioned for clean installs and upgrades', function (): void {
@@ -4314,9 +4359,13 @@ $results[] = flus_run_test('diagnostico live refresh keeps sessions and admin ac
     flus_assert_contains('HTMLFormElement.prototype.submit.call(form);', $diagnosticoJs);
     flus_assert_contains('danger: form.dataset.confirmDanger === "true"', $diagnosticoJs);
     flus_assert_contains('class="inline-form js-diag-confirm"', $diagnosticoPhp);
+    flus_assert_contains('data-confirm-title="Liberar terminal"', $diagnosticoPhp);
     flus_assert_contains('data-confirm-title="Borrar todos los paquetes"', $diagnosticoPhp);
+    flus_assert_contains('data-copy-log="log_app"', $diagnosticoPhp);
+    flus_assert_contains('[data-copy-log]', $diagnosticoJs);
     flus_assert_not_contains('onclick="return confirm(', $diagnosticoPhp);
     flus_assert_not_contains('onclick="return confirm(', $diagnosticoJs);
+    flus_assert_not_contains('onclick="flusCopyText', $diagnosticoPhp);
 });
 
 $results[] = flus_run_test('hotspot policy documents and enforces line budgets for giant files', function (): void {
@@ -4459,6 +4508,41 @@ $results[] = flus_run_test('inventario fisico valida esquema versionado sin ddl 
     flus_assert_contains('ADD COLUMN IF NOT EXISTS stock_sistema_snapshot', $migrationSql);
     flus_assert_contains('`categoria_nombre` varchar(100) DEFAULT NULL', $installSql);
     flus_assert_contains('`stock_sistema_snapshot` decimal(10,3) DEFAULT NULL', $installSql);
+});
+
+$results[] = flus_run_test('inventario analisis orienta prioridades y evita handlers inline', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $inventarioAnalisisPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php';
+    $inventarioAnalisisCssPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'inventario_analisis.css';
+    $inventarioAnalisisJsPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'inventario_analisis.js';
+
+    foreach ([$inventarioAnalisisPath, $inventarioAnalisisCssPath, $inventarioAnalisisJsPath] as $requiredPath) {
+        if (!is_file($requiredPath)) {
+            throw new RuntimeException('Missing file: ' . $requiredPath);
+        }
+    }
+
+    $inventarioPhp = (string)file_get_contents($inventarioAnalisisPath);
+    $inventarioCss = (string)file_get_contents($inventarioAnalisisCssPath);
+    $inventarioJs = (string)file_get_contents($inventarioAnalisisJsPath);
+
+    flus_assert_contains('class="inv-radar inv-radar--', $inventarioPhp);
+    flus_assert_contains('Radar operativo', $inventarioPhp);
+    flus_assert_contains('data-inv-print', $inventarioPhp);
+    flus_assert_contains('data-inv-refresh', $inventarioPhp);
+    flus_assert_contains('data-inv-auto-submit', $inventarioPhp);
+    flus_assert_contains('data-inv-order-url', $inventarioPhp);
+    flus_assert_not_contains('onclick=', $inventarioPhp);
+    flus_assert_not_contains('onchange=', $inventarioPhp);
+
+    flus_assert_contains('.inv-radar{', $inventarioCss);
+    flus_assert_contains('.inv-radar-pill--danger', $inventarioCss);
+    flus_assert_contains('.inv-empty-state', $inventarioCss);
+
+    flus_assert_contains('function setupInventoryControls()', $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-print]')", $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-auto-submit]')", $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-order-url]')", $inventarioJs);
 });
 
 $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operativos', function (): void {

@@ -258,7 +258,7 @@ $canPreciosHistorial = $can('editar_productos');
 $canReposicion       = $can('ver_reportes') || $can('editar_stock');
 $canDiagnostico      = function_exists('user_can_access_diagnostics')
     ? user_can_access_diagnostics()
-    : ($can('ver_diagnostico') || $can('gestionar_backups'));
+    : ($can('administrar_config') || $can('gestionar_backups'));
 $canTecnico          = function_exists('user_can_access_technical_panel')
     ? user_can_access_technical_panel()
     : ($can('administrar_config') || $can('gestionar_backups'));

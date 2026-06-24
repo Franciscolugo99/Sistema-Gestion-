@@ -138,6 +138,10 @@ function audit_event(
         $meta['terminal_id'] = $_SESSION['terminal_id'] ?? null;
         $meta['request_uri'] = isset($_SERVER['REQUEST_URI']) ? substr($_SERVER['REQUEST_URI'], 0, 200) : null;
 
+        $module = audit_infer_module($action, $entity, $meta);
+        $requestId = audit_request_id($meta);
+        $beforeJson = audit_optional_json($meta['before'] ?? $meta['before_json'] ?? null);
+        $afterJson = audit_optional_json($meta['after'] ?? $meta['after_json'] ?? null);
         $metaJson = json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
         // Verificar estructura de la tabla
@@ -177,10 +181,34 @@ function audit_event(
             $params[':entity_id'] = $entityId;
         }
 
+        if ($tableInfo['has_module']) {
+            $cols[] = 'module';
+            $vals[] = ':module';
+            $params[':module'] = substr($module, 0, 40);
+        }
+
+        if ($tableInfo['has_request_id']) {
+            $cols[] = 'request_id';
+            $vals[] = ':request_id';
+            $params[':request_id'] = $requestId !== '' ? substr($requestId, 0, 64) : null;
+        }
+
         if ($tableInfo['meta_column']) {
             $cols[] = $tableInfo['meta_column'];
             $vals[] = ':meta';
             $params[':meta'] = $metaJson;
+        }
+
+        if ($tableInfo['has_before_json'] && $beforeJson !== null) {
+            $cols[] = 'before_json';
+            $vals[] = ':before_json';
+            $params[':before_json'] = $beforeJson;
+        }
+
+        if ($tableInfo['has_after_json'] && $afterJson !== null) {
+            $cols[] = 'after_json';
+            $vals[] = ':after_json';
+            $params[':after_json'] = $afterJson;
         }
 
         if ($tableInfo['has_ip']) {
@@ -211,12 +239,81 @@ function audit_event(
 /**
  * Obtener información de la tabla audit_log
  */
+function audit_infer_module(string $action, string $entity, array $meta = []): string {
+    $explicit = strtoupper(trim((string)($meta['module'] ?? '')));
+    if ($explicit !== '') {
+        return substr($explicit, 0, 40);
+    }
+
+    $haystack = strtoupper($action . ' ' . $entity . ' ' . (string)($meta['request_uri'] ?? ''));
+    $rules = [
+        'FACTURACION' => ['FACTURA', 'FISCAL', 'ARCA', 'COMPROBANTE', 'NC_', 'NOTA_CREDITO'],
+        'CAJA' => ['CAJA', 'VENTA', 'COBRO', 'TICKET'],
+        'PRECIOS' => ['PRECIO', 'PROMO'],
+        'STOCK' => ['STOCK', 'INVENTARIO'],
+        'COMPRAS' => ['COMPRA', 'PROVEEDOR'],
+        'CLIENTES' => ['CLIENTE', 'CUENTA_CORRIENTE', 'CC_'],
+        'SEGURIDAD' => ['USER', 'LOGIN', 'LOGOUT', 'SESSION', 'TERMINAL_FORCE'],
+        'BACKUPS' => ['BACKUP', 'RESTORE', 'DIAGNOSTIC'],
+        'SISTEMA' => ['SYSTEM', 'CONFIG', 'MAINTENANCE'],
+    ];
+
+    foreach ($rules as $module => $needles) {
+        foreach ($needles as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return $module;
+            }
+        }
+    }
+
+    $fallback = strtoupper(trim($entity));
+    return $fallback !== '' ? substr($fallback, 0, 40) : 'SISTEMA';
+}
+
+function audit_request_id(array $meta = []): string {
+    $candidates = [
+        $meta['request_id'] ?? null,
+        $_SERVER['HTTP_X_REQUEST_ID'] ?? null,
+        $_SERVER['HTTP_X_CORRELATION_ID'] ?? null,
+        $_SERVER['UNIQUE_ID'] ?? null,
+    ];
+
+    foreach ($candidates as $candidate) {
+        $value = trim((string)$candidate);
+        if ($value !== '') {
+            return $value;
+        }
+    }
+
+    return '';
+}
+
+function audit_optional_json(mixed $value): ?string {
+    if ($value === null || $value === '') {
+        return null;
+    }
+
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return (string)json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        }
+        return null;
+    }
+
+    return (string)json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+}
+
 function audit_get_table_info(PDO $pdo): array {
     $info = [
         'exists' => false,
         'has_user_id' => false,
         'has_entity_id' => false,
         'has_ip' => false,
+        'has_module' => false,
+        'has_request_id' => false,
+        'has_before_json' => false,
+        'has_after_json' => false,
         'meta_column' => null,
     ];
 
@@ -233,6 +330,10 @@ function audit_get_table_info(PDO $pdo): array {
         $info['has_user_id'] = in_array('user_id', $cols);
         $info['has_entity_id'] = in_array('entity_id', $cols);
         $info['has_ip'] = in_array('ip', $cols);
+        $info['has_module'] = in_array('module', $cols);
+        $info['has_request_id'] = in_array('request_id', $cols);
+        $info['has_before_json'] = in_array('before_json', $cols);
+        $info['has_after_json'] = in_array('after_json', $cols);
         
         if (in_array('meta', $cols)) {
             $info['meta_column'] = 'meta';

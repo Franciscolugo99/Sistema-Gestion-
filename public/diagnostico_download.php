@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Diagnóstico - Descarga de paquetes (seguro)
- * - Permisos: ver_diagnostico (compat con gestionar_backups)
+ * - Permisos: acceso tecnico/admin, igual que diagnostico.php
  * - Anti path traversal: realpath + containment
  * - Rate limit simple (sesión)
  * - Expiración de paquetes (>7 días)

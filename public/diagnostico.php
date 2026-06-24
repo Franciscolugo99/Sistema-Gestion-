@@ -346,6 +346,7 @@ require __DIR__ . '/partials/header.php';
     <?php
     $overallStatus = (string)($overview['status'] ?? 'ok');
     $statusMsg = (string)($overview['message'] ?? 'Todos los sistemas funcionan correctamente');
+    $overviewActions = is_array($overview['actions'] ?? null) ? $overview['actions'] : [];
     $restoreInProgress = !empty($overview['restore_in_progress']);
     $maintenanceActive = !empty($overview['maintenance_active']);
     ?>
@@ -371,12 +372,19 @@ require __DIR__ . '/partials/header.php';
             <?php endif; ?>
         </div>
         <div class="overall-text">
-            <h2>Estado del Sistema: 
+            <h2>Estado del Sistema:
                 <span class="status-badge <?= $overallStatus ?>">
                     <?= $overallStatus === 'ok' ? 'Saludable' : ($overallStatus === 'warning' ? 'Advertencia' : 'Error') ?>
                 </span>
             </h2>
             <p><?= h($statusMsg) ?></p>
+            <?php if (!empty($overviewActions)): ?>
+                <ul class="diag-action-list" aria-label="Acciones recomendadas">
+                    <?php foreach (array_slice($overviewActions, 0, 4) as $action): ?>
+                        <li><?= h((string)$action) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -919,7 +927,7 @@ require __DIR__ . '/partials/header.php';
                         • <?= h(flus_format_bytes((int)($app['size'] ?? 0))) ?>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-ghost" type="button" onclick="flusCopyText('log_app');">Copiar</button>
+                <button class="btn btn-sm btn-ghost" type="button" data-copy-log="log_app">Copiar</button>
             </div>
             <pre id="log_app" class="log-pre"><?php
                 $lines = is_array($app['tail'] ?? null) ? $app['tail'] : [];
@@ -936,7 +944,7 @@ require __DIR__ . '/partials/header.php';
                         • <?= h(flus_format_bytes((int)($phpErr['size'] ?? 0))) ?>
                     </div>
                 </div>
-                <button class="btn btn-sm btn-ghost" type="button" onclick="flusCopyText('log_php');">Copiar</button>
+                <button class="btn btn-sm btn-ghost" type="button" data-copy-log="log_php">Copiar</button>
             </div>
             <pre id="log_php" class="log-pre"><?php
                 $lines = is_array($phpErr['tail'] ?? null) ? $phpErr['tail'] : [];
@@ -945,27 +953,6 @@ require __DIR__ . '/partials/header.php';
         </div>
     </div>
 </div>
-
-<script>
-function flusCopyText(elId) {
-    try {
-        const el = document.getElementById(elId);
-        if (!el) return;
-        const txt = el.innerText || el.textContent || '';
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(txt);
-            return;
-        }
-        // Fallback
-        const ta = document.createElement('textarea');
-        ta.value = txt;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-    } catch (e) {}
-}
-</script>
 
     <!-- Resumen de Schema -->
     <!-- Resumen de Schema -->
@@ -1088,7 +1075,11 @@ function flusCopyText(elId) {
                                 <td><code><?= h((string)($sessionRow['last_path'] ?? '-')) ?></code></td>
                                 <td>
                                     <div class="pkg-actions">
-                                        <form method="post" class="inline-form">
+                                        <form method="post"
+                                              class="inline-form js-diag-confirm"
+                                              data-confirm-title="Liberar terminal"
+                                              data-confirm-message="<?= h('Se liberará la terminal asociada a la sesión de ' . $displayName . '. Usalo solo si la caja quedó tomada o trabada.') ?>"
+                                              data-confirm-text="Liberar terminal">
                                             <input type="hidden" name="csrf_token" value="<?= h($_SESSION['csrf_token']) ?>">
                                             <input type="hidden" name="accion" value="liberar_terminal_sesion">
                                             <input type="hidden" name="session_id" value="<?= h($sid) ?>">

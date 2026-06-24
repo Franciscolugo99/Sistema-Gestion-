@@ -369,10 +369,48 @@
     });
   }
 
+  function printInventoryReport() {
+    document.body.classList.add('printing');
+    setTimeout(() => {
+      window.print();
+      document.body.classList.remove('printing');
+    }, 100);
+  }
+
+  function buildUrlWithParam(baseUrl, key, value) {
+    const separator = baseUrl.includes('?') ? (baseUrl.endsWith('?') || baseUrl.endsWith('&') ? '' : '&') : '?';
+    return `${baseUrl}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+  }
+
+  function setupInventoryControls() {
+    document.querySelectorAll('[data-inv-print]').forEach((btn) => {
+      btn.addEventListener('click', printInventoryReport);
+    });
+
+    document.querySelectorAll('[data-inv-refresh]').forEach((btn) => {
+      btn.addEventListener('click', () => window.location.reload());
+    });
+
+    document.querySelectorAll('[data-inv-auto-submit]').forEach((select) => {
+      select.addEventListener('change', () => {
+        if (select.form) select.form.submit();
+      });
+    });
+
+    document.querySelectorAll('[data-inv-order-url]').forEach((select) => {
+      select.addEventListener('change', () => {
+        const baseUrl = select.getAttribute('data-inv-order-url') || '?';
+        window.location.href = buildUrlWithParam(baseUrl, 'orden', select.value);
+      });
+    });
+  }
+
   /* =========================
      INIT
   ========================= */
   document.addEventListener('DOMContentLoaded', () => {
+    setupInventoryControls();
+
     // Esperamos a Chart.js si se carga después del script.
     waitForChart().catch(() => {}).finally(() => {
       initCharts();
@@ -389,13 +427,7 @@
       }
     };
 
-    window.exportarPDF = function () {
-      document.body.classList.add('printing');
-      setTimeout(() => {
-        window.print();
-        document.body.classList.remove('printing');
-      }, 100);
-    };
+    window.exportarPDF = printInventoryReport;
 
     // Estilos dinámicos
     const style = document.createElement('style');

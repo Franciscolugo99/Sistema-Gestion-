@@ -1,4 +1,55 @@
 (() => {
+  const notify = (type, message) => {
+    if (!window.Notif) return;
+    if ((type === "success" || type === "ok") && typeof window.Notif.exito === "function") {
+      window.Notif.exito(message);
+      return;
+    }
+    if ((type === "warning" || type === "warn") && typeof window.Notif.advertencia === "function") {
+      window.Notif.advertencia(message);
+      return;
+    }
+    if (type === "error" && typeof window.Notif.error === "function") {
+      window.Notif.error(message);
+      return;
+    }
+    if (typeof window.Notif.info === "function") {
+      window.Notif.info(message);
+    }
+  };
+
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-log]");
+    if (!button) return;
+
+    const targetId = String(button.dataset.copyLog || "").trim();
+    const target = targetId ? document.getElementById(targetId) : null;
+    if (!target) {
+      notify("error", "No se encontró el log para copiar.");
+      return;
+    }
+
+    const text = target.innerText || target.textContent || "";
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.setAttribute("readonly", "readonly");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
+      notify("success", "Log copiado.");
+    } catch (_) {
+      notify("error", "No se pudo copiar el log.");
+    }
+  });
+
   document.addEventListener("submit", async (event) => {
     const form = event.target.closest("form.js-diag-confirm");
     if (!form) return;
@@ -139,7 +190,10 @@
           <td><code>${escapeHtml(String(sessionRow.last_path || "-"))}</code></td>
           <td>
             <div class="pkg-actions">
-              <form method="post" class="inline-form">
+              <form method="post" class="inline-form js-diag-confirm"
+                    data-confirm-title="Liberar terminal"
+                    data-confirm-message="Se liberará la terminal asociada a la sesión de ${escapeHtml(displayName)}. Usalo solo si la caja quedó tomada o trabada."
+                    data-confirm-text="Liberar terminal">
                 <input type="hidden" name="csrf_token" value="${escapeHtml(window.getCsrfToken ? window.getCsrfToken() : "")}">
                 <input type="hidden" name="accion" value="liberar_terminal_sesion">
                 <input type="hidden" name="session_id" value="${escapeHtml(sid)}">

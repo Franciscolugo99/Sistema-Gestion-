@@ -219,6 +219,28 @@ if ($tabActivo === 'ventas') {
 $totalConCosto = $analisis->contarProductosConCosto($filtros);
 $totalParados = $analisis->contarProductosParados($diasParados, $filtros);
 
+$radarAgotados = (int)($resumen['productos_agotados'] ?? 0);
+$radarStockBajo = (int)($resumen['productos_stock_bajo'] ?? 0);
+$radarSinCosto = (int)($resumen['productos_sin_costo'] ?? 0);
+$radarParados = (int)($totalParados ?? count($productosParados));
+$radarStatus = 'ok';
+$radarTitle = 'Inventario estable';
+$radarCopy = 'No hay señales críticas inmediatas. Mantené el control con revisión periódica de costos, mínimos y rotación.';
+
+if ($radarAgotados > 0 || $radarStockBajo > 0) {
+    $radarStatus = 'danger';
+    $radarTitle = 'Prioridad: reponer stock';
+    $radarCopy = 'Hay productos agotados o por debajo del mínimo. Revisá alertas antes de analizar rentabilidad.';
+} elseif ($radarSinCosto > 0) {
+    $radarStatus = 'warning';
+    $radarTitle = 'Prioridad: completar costos';
+    $radarCopy = 'Hay productos con stock sin costo cargado. Eso distorsiona inversión, margen y decisiones de compra.';
+} elseif ($radarParados > 0) {
+    $radarStatus = 'info';
+    $radarTitle = 'Revisar capital parado';
+    $radarCopy = 'Hay productos sin venta reciente. Conviene mirar parados antes de seguir comprando esas líneas.';
+}
+
 // Helper formato
 $fmtQty = static function($value, $esPesable = 0): string {
     return number_format((float)$value, ((int)$esPesable === 1) ? 2 : 0, ',', '.');
@@ -258,6 +280,33 @@ if (!function_exists('inv_export_url')) {
         return 'api/inventario_api.php?' . http_build_query($query);
     }
 }
+
+$radarItems = [
+    [
+        'label' => 'Agotados',
+        'value' => $radarAgotados,
+        'class' => $radarAgotados > 0 ? 'danger' : 'ok',
+        'href' => inv_url(['tab' => 'alertas']),
+    ],
+    [
+        'label' => 'Stock bajo',
+        'value' => $radarStockBajo,
+        'class' => $radarStockBajo > 0 ? 'danger' : 'ok',
+        'href' => inv_url(['tab' => 'alertas']),
+    ],
+    [
+        'label' => 'Sin costo',
+        'value' => $radarSinCosto,
+        'class' => $radarSinCosto > 0 ? 'warning' : 'ok',
+        'href' => inv_url(['tab' => 'costos']),
+    ],
+    [
+        'label' => 'Parados',
+        'value' => $radarParados,
+        'class' => $radarParados > 0 ? 'info' : 'ok',
+        'href' => inv_url(['tab' => 'parados']),
+    ],
+];
 
 if (!function_exists('inv_render_producto_nombre')) {
     function inv_render_producto_nombre(array $producto, bool $compact = false): string {
@@ -351,8 +400,8 @@ require __DIR__ . '/partials/header.php';
                     </span>
                     <div class="module-header-copy">
                         <span class="module-eyebrow">Inventario</span>
-                        <h1 class="page-title module-title">Analisis de inventario</h1>
-                        <p class="page-sub module-subtitle">Inversion, rotacion, alertas y metricas de tu stock.</p>
+                        <h1 class="page-title module-title">Análisis de inventario</h1>
+                        <p class="page-sub module-subtitle">Inversión, rotación, alertas y métricas de tu stock.</p>
                     </div>
                 </div>
             </div>
@@ -360,10 +409,10 @@ require __DIR__ . '/partials/header.php';
                 <a href="<?= htmlspecialchars(inv_export_url('exportar_excel'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-secondary" title="Exportar a Excel">
                     Excel
                 </a>
-                <button type="button" class="btn btn-secondary" onclick="exportarPDF()">
+                <button type="button" class="btn btn-secondary" data-inv-print>
                     PDF
                 </button>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                <button type="button" class="btn btn-primary" data-inv-refresh>
                     Actualizar
                 </button>
             </div>
@@ -374,8 +423,8 @@ require __DIR__ . '/partials/header.php';
     <section class="inv-content-shell">
     <div class="inv-tabs">
         <a href="<?= htmlspecialchars(inv_url(['tab' => 'resumen']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'resumen' ? 'active' : '' ?>">Resumen</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">Inversion</a>
-        <a href="<?= htmlspecialchars(inv_url(['tab' => 'rotacion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">Rotacion</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'inversion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'inversion' ? 'active' : '' ?>">Inversión</a>
+        <a href="<?= htmlspecialchars(inv_url(['tab' => 'rotacion']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'rotacion' ? 'active' : '' ?>">Rotación</a>
         <a href="<?= htmlspecialchars(inv_url(['tab' => 'costos']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'costos' ? 'active' : '' ?>">Costos</a>
         <a href="<?= htmlspecialchars(inv_url(['tab' => 'parados']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'parados' ? 'active' : '' ?>">Parados</a>
         <a href="<?= htmlspecialchars(inv_url(['tab' => 'alertas']), ENT_QUOTES, 'UTF-8') ?>" class="inv-tab <?= $tabActivo === 'alertas' ? 'active' : '' ?>">Alertas</a>
@@ -460,6 +509,22 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
     </div>
 
+    <section class="inv-radar inv-radar--<?= htmlspecialchars($radarStatus, ENT_QUOTES, 'UTF-8') ?>" aria-label="Radar operativo de inventario">
+        <div class="inv-radar-main">
+            <span class="inv-radar-kicker">Radar operativo</span>
+            <h2><?= htmlspecialchars($radarTitle, ENT_QUOTES, 'UTF-8') ?></h2>
+            <p><?= htmlspecialchars($radarCopy, ENT_QUOTES, 'UTF-8') ?></p>
+        </div>
+        <div class="inv-radar-metrics">
+            <?php foreach ($radarItems as $item): ?>
+                <a class="inv-radar-pill inv-radar-pill--<?= htmlspecialchars((string)$item['class'], ENT_QUOTES, 'UTF-8') ?>" href="<?= htmlspecialchars((string)$item['href'], ENT_QUOTES, 'UTF-8') ?>">
+                    <strong><?= number_format((int)$item['value'], 0, ',', '.') ?></strong>
+                    <span><?= htmlspecialchars((string)$item['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
     <!-- ========== PANEL DE ACCIONES RECOMENDADAS (solo en Resumen) ========== -->
     <?php if ($tabActivo === 'resumen' && function_exists('renderAccionesRecomendadas')): ?>
         <?= renderAccionesRecomendadas($resumen, $stockBajo, $productosParados) ?>
@@ -518,7 +583,7 @@ require __DIR__ . '/partials/header.php';
                         $limitValue = $limitCostos;
                     }
                 ?>
-                <select name="<?= $limitField ?>" class="inv-filter-select" onchange="this.form.submit()">
+                <select name="<?= $limitField ?>" class="inv-filter-select" data-inv-auto-submit>
                     <option value="25" <?= $limitValue == 25 ? 'selected' : '' ?>>25 productos</option>
                     <option value="50" <?= $limitValue == 50 ? 'selected' : '' ?>>50 productos</option>
                     <option value="100" <?= $limitValue == 100 ? 'selected' : '' ?>>100 productos</option>
@@ -815,7 +880,7 @@ require __DIR__ . '/partials/header.php';
         <div class="panel-header">
             <h2 class="panel-title">Rotacion de productos (ultimos 30 dias) <?= renderTooltipAyuda('rotacion') ?></h2>
             <div class="panel-controls">
-                <select onchange="location.href='<?= htmlspecialchars(inv_url(['tab' => 'rotacion'], ['orden']), ENT_QUOTES, 'UTF-8') ?>&orden='+encodeURIComponent(this.value)" class="inv-filter-select">
+                <select class="inv-filter-select" data-inv-order-url="<?= htmlspecialchars(inv_url(['tab' => 'rotacion'], ['orden']), ENT_QUOTES, 'UTF-8') ?>">
                     <option value="vendidos" <?= ($_GET['orden'] ?? '') === 'vendidos' ? 'selected' : '' ?>>Más vendidos primero</option>
                     <option value="dias_rest" <?= ($_GET['orden'] ?? '') === 'dias_rest' ? 'selected' : '' ?>>Menor stock restante</option>
                     <option value="stock" <?= ($_GET['orden'] ?? '') === 'stock' ? 'selected' : '' ?>>Mayor stock</option>
@@ -889,7 +954,7 @@ require __DIR__ . '/partials/header.php';
             <input type="hidden" name="proveedor_id" value="<?= htmlspecialchars((string)($filtros['proveedor_id'] ?? '')) ?>">
             <div class="inv-filter-group">
                 <label>Sin venta hace</label>
-                <select name="dias_parados" class="inv-filter-select" onchange="this.form.submit()">
+                <select name="dias_parados" class="inv-filter-select" data-inv-auto-submit>
                     <option value="15" <?= $diasParados == 15 ? 'selected' : '' ?>>15+ días</option>
                     <option value="30" <?= $diasParados == 30 ? 'selected' : '' ?>>30+ días</option>
                     <option value="60" <?= $diasParados == 60 ? 'selected' : '' ?>>60+ días</option>
@@ -899,7 +964,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <div class="inv-filter-group">
                 <label>Mostrar</label>
-                <select name="limit_parados" class="inv-filter-select" onchange="this.form.submit()">
+                <select name="limit_parados" class="inv-filter-select" data-inv-auto-submit>
                     <option value="25" <?= $limitParados == 25 ? 'selected' : '' ?>>25 productos</option>
                     <option value="50" <?= $limitParados == 50 ? 'selected' : '' ?>>50 productos</option>
                     <option value="100" <?= $limitParados == 100 ? 'selected' : '' ?>>100 productos</option>

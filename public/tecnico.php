@@ -198,7 +198,7 @@ function tecnico_translate_smoke_output(string $stdout): string
         'compras schema lives in migrations instead of runtime DDL' => 'compras usa migraciones y no DDL en runtime',
         'pagination helper is centralized in src helpers' => 'la paginacion sigue centralizada en src/helpers.php',
         'schema checks are centralized outside public pages' => 'los chequeos de esquema estan centralizados fuera de las paginas publicas',
-        'diagnostics access keeps dedicated permission compatibility' => 'diagnostico conserva compatibilidad con su permiso dedicado',
+        'diagnostics access is admin gated like technical panel' => 'diagnostico queda restringido como el panel tecnico',
         'technical panel access stays centralized and visible in nav' => 'el acceso al panel tecnico sigue centralizado y visible en la navegacion',
         'admin pages rely on bootstrap session startup' => 'las paginas admin usan bootstrap para iniciar sesion',
     ];

@@ -249,6 +249,34 @@
   font-size: 1rem;
 }
 
+.diag-action-list {
+  margin: 0.875rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.diag-action-list li {
+  position: relative;
+  padding: 0.625rem 0.75rem 0.625rem 2rem;
+  border: 1px solid var(--diag-border);
+  border-radius: var(--diag-radius-sm);
+  background: var(--diag-bg-light);
+  color: var(--diag-text);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.diag-action-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0.875rem;
+  top: 0.55rem;
+  color: var(--diag-warning);
+  font-weight: 900;
+}
+
 /* === CHIPS === */
 .chip {
   display: inline-flex;
@@ -434,7 +462,6 @@
 .critical-error-box {
   background: var(--diag-error-bg);
   border: 2px solid var(--diag-error);
-  border-left-width: 6px;
   border-radius: var(--diag-radius);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -465,7 +492,6 @@
 .recommendations-box {
   background: var(--diag-warning-bg);
   border: 2px solid var(--diag-warning-border);
-  border-left-width: 6px;
   border-radius: var(--diag-radius);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
