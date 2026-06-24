@@ -128,8 +128,8 @@ $inactivasCount = $totalPromos - $activasCount;
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=6'];
-$extraJs        = ['assets/js/promos.js?v=3'];
+$extraCss       = ['assets/css/promos.css?v=7'];
+$extraJs        = ['assets/js/promos.js?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>

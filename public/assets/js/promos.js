@@ -150,6 +150,7 @@
     let initialFormSnapshot = "";
     let isHydratingPanel = false;
     let closePanelDialogOpen = false;
+    let panelReturnFocusEl = null;
 
     function serializeFormState() {
       const tipo = selTipo?.value || "";
@@ -184,8 +185,29 @@
       panelDirty = serializeFormState() !== initialFormSnapshot;
     }
 
+    function focusPanelInitialField() {
+      if (!inpNombre) return;
+
+      const focusNombre = () => {
+        if (!overlay?.classList.contains("open")) return;
+        panelReturnFocusEl?.blur?.();
+        try {
+          inpNombre.focus({ preventScroll: true });
+        } catch (err) {
+          inpNombre.focus();
+        }
+        inpNombre.select?.();
+      };
+
+      window.requestAnimationFrame(() => window.requestAnimationFrame(focusNombre));
+      window.setTimeout(focusNombre, 180);
+      window.setTimeout(focusNombre, 320);
+    }
+
     function openPanel() {
       overlay?.classList.add("open");
+      document.body?.classList.add("promos-panel-open");
+      focusPanelInitialField();
     }
 
     function closeAllPickers(except = null) {
@@ -205,6 +227,12 @@
       initialFormSnapshot = "";
       isHydratingPanel = false;
       closeAllPickers();
+      document.body?.classList.remove("promos-panel-open");
+      const returnEl = panelReturnFocusEl;
+      panelReturnFocusEl = null;
+      if (returnEl && document.contains(returnEl)) {
+        window.setTimeout(() => returnEl.focus?.(), 0);
+      }
     }
 
     async function requestClosePanel(e) {
@@ -615,6 +643,7 @@
         if (!ok) return;
       }
 
+      panelReturnFocusEl = btn;
       cargarPromo(id);
     });
 

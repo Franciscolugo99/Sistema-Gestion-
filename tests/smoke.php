@@ -2313,6 +2313,8 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
     $cajaPromosSelectorJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_promos_selector.js');
     $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
+    $promosJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'promos.js');
+    $promosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'promos.css');
 
     flus_assert_contains('flus_promos_status($pdo)', $promosLogicPhp);
     flus_assert_contains("name=\"accion\" value=\"toggle_promos\"", $promosPagePhp);
@@ -2339,6 +2341,15 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     flus_assert_contains('.promo-selector-modal', $cajaNeoCss);
     flus_assert_contains('class="btn btn-secondary btn-sm"', $cajaPhp);
     flus_assert_not_contains('field-promo-btn', $cajaPhp);
+    flus_assert_contains('assets/css/promos.css?v=7', $promosPagePhp);
+    flus_assert_contains('assets/js/promos.js?v=4', $promosPagePhp);
+    flus_assert_contains('document.body?.classList.add("promos-panel-open");', $promosJs);
+    flus_assert_contains('document.body?.classList.remove("promos-panel-open");', $promosJs);
+    flus_assert_contains('function focusPanelInitialField()', $promosJs);
+    flus_assert_contains('panelReturnFocusEl?.blur?.();', $promosJs);
+    flus_assert_contains('inpNombre.focus({ preventScroll: true });', $promosJs);
+    flus_assert_contains('panelReturnFocusEl = btn;', $promosJs);
+    flus_assert_contains('body.promos-panel-open', $promosCss);
 });
 
 $results[] = flus_run_test('cuenta corriente actions salen del switch y usan guard central', function (): void {

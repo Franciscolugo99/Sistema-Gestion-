@@ -543,6 +543,10 @@ body[data-theme="dark"] {
 }
 
 /* === PANEL LATERAL === */
+body.promos-panel-open {
+  overflow: hidden;
+}
+
 .promo-overlay {
   position: fixed;
   inset: 0;
