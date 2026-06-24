@@ -2312,6 +2312,7 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     $promosPagePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'promos.php');
     $promosLogicPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'promos_logic.php');
     $listarPromosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'listar_promos_activas.php');
+    $buscarProductoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'buscar_producto.php');
     $calcularCarritoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'calcular_carrito.php');
     $promoEnginePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'PromoEngine.php');
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
@@ -2342,6 +2343,12 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     flus_assert_contains('async function addSelectedPromo(promoKey)', $cajaPromosSelectorJs);
     flus_assert_contains('window.addEventListener("flus:caja-promos-open", openSelector);', $cajaPromosSelectorJs);
     flus_assert_contains('data-promo-action="add"', $cajaPromosSelectorJs);
+    flus_assert_contains('async function fetchProductForPromo(item)', $cajaPromosSelectorJs);
+    flus_assert_contains('id=${encodeURIComponent(productoId)}', $cajaPromosSelectorJs);
+    flus_assert_contains('codigo=${encodeURIComponent(codigo)}', $cajaPromosSelectorJs);
+    flus_assert_contains('producto: await fetchProductForPromo(item)', $cajaPromosSelectorJs);
+    flus_assert_contains("\$productoId = (int)(\$_GET['id'] ?? 0);", $buscarProductoPhp);
+    flus_assert_contains('WHERE id = :id AND activo = 1', $buscarProductoPhp);
     flus_assert_contains('e.key === "F8"', $cajaJs);
     flus_assert_contains('.promo-selector-modal', $cajaNeoCss);
     flus_assert_contains('class="btn btn-secondary btn-sm"', $cajaPhp);
@@ -2414,6 +2421,7 @@ $results[] = flus_run_test('ventas y promos chicos salen del switch y usan actio
     }
 
     flus_assert_contains("WHERE codigo = :cod AND activo = 1", $buscarProductoPhp);
+    flus_assert_contains('WHERE id = :id AND activo = 1', $buscarProductoPhp);
     flus_assert_contains('flus_recargo_horario_aplicar_producto', $buscarProductoPhp);
     flus_assert_contains('flus_recargo_horario_aplicar_producto', $buscarProductosPhp);
     flus_assert_contains("\$limit = max(1, min(\$limit, 20));", $buscarProductosPhp);

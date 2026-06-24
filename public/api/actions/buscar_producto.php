@@ -2,23 +2,39 @@
 declare(strict_types=1);
 // public/api/actions/buscar_producto.php
 
+$productoId = (int)($_GET['id'] ?? 0);
 $codigo = trim((string)($_GET['codigo'] ?? ''));
-if ($codigo === '') {
+if ($productoId <= 0 && $codigo === '') {
   json_fail('Codigo vacio', 422);
 }
 
 $pdo = $pdo ?? getPDO();
 
-$stmt = $pdo->prepare("
-  SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
-  FROM productos
-  WHERE codigo = :cod AND activo = 1
-  LIMIT 1
-");
-$stmt->execute([':cod' => $codigo]);
-$producto = $stmt->fetch(PDO::FETCH_ASSOC);
+$producto = null;
 
-if (!$producto) {
+if ($productoId > 0) {
+  $stmt = $pdo->prepare("
+    SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+    FROM productos
+    WHERE id = :id AND activo = 1
+    LIMIT 1
+  ");
+  $stmt->execute([':id' => $productoId]);
+  $producto = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+if (!$producto && $codigo !== '') {
+  $stmt = $pdo->prepare("
+    SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
+    FROM productos
+    WHERE codigo = :cod AND activo = 1
+    LIMIT 1
+  ");
+  $stmt->execute([':cod' => $codigo]);
+  $producto = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+if (!$producto && $codigo !== '') {
   $stmt = $pdo->prepare("
     SELECT id, codigo, nombre, precio, stock, activo, es_pesable, unidad_venta
     FROM productos
@@ -29,7 +45,7 @@ if (!$producto) {
   $producto = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-if (!$producto) {
+if (!$producto && $codigo !== '') {
   $like = '%' . $codigo . '%';
   $start = $codigo . '%';
 

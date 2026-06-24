@@ -133,10 +133,17 @@
     setTimeout(() => api.focusProduct(), 20);
   }
 
-  async function fetchProductByCode(codigo) {
-    if (!codigo) throw new Error("La promo no tiene codigo de producto para cargar.");
+  async function fetchProductForPromo(item) {
+    const productoId = Number(item?.id || item?.producto_id || 0) || 0;
+    const codigo = String(item?.codigo || "").trim();
+    if (productoId <= 0 && !codigo) {
+      throw new Error("La promo no tiene producto valido para cargar.");
+    }
+    const qs = productoId > 0
+      ? `id=${encodeURIComponent(productoId)}`
+      : `codigo=${encodeURIComponent(codigo)}`;
     const data = await api.fetchJson(
-      `${api.apiBase}?action=buscar_producto&codigo=${encodeURIComponent(codigo)}`,
+      `${api.apiBase}?action=buscar_producto&${qs}`,
     );
     if (!data?.ok || !data.producto) {
       throw new Error(data?.error || "No se pudo cargar un producto de la promo.");
@@ -183,7 +190,7 @@
       const resolved = [];
       for (const item of promo.items || []) {
         resolved.push({
-          producto: await fetchProductByCode(item.codigo),
+          producto: await fetchProductForPromo(item),
           cantidad: Number(item.cantidad || promo.cantidadSugerida || 1),
         });
       }
