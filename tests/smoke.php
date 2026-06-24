@@ -2286,16 +2286,21 @@ $results[] = flus_run_test('promo actions rely on centralized API guards', funct
     $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
     $promoActualizarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_actualizar.php');
     $promoEliminarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_eliminar.php');
+    $promoToggleEstadoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_toggle_estado.php');
     $promoObtenerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_obtener.php');
     $promoProductosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'promo_productos.php');
 
     flus_assert_contains("'promo_actualizar' => [", $indexPhp);
     flus_assert_contains("'promo_eliminar' => [", $indexPhp);
+    flus_assert_contains("'promo_toggle_estado' => [", $indexPhp);
     flus_assert_contains("'promo_obtener' => [", $indexPhp);
     flus_assert_contains("'promo_productos' => [", $indexPhp);
+    flus_assert_contains("'permissions' => ['editar_promos'],", $indexPhp);
     flus_assert_contains("flus_enforce_action_guard(\$action, \$body);", $indexPhp);
+    flus_assert_contains('UPDATE promos SET activo = :activo WHERE id = :id', $promoToggleEstadoPhp);
+    flus_assert_contains('invalidate_promos_cache($pdo);', $promoToggleEstadoPhp);
 
-    foreach ([$promoActualizarPhp, $promoEliminarPhp, $promoObtenerPhp, $promoProductosPhp] as $php) {
+    foreach ([$promoActualizarPhp, $promoEliminarPhp, $promoToggleEstadoPhp, $promoObtenerPhp, $promoProductosPhp] as $php) {
         flus_assert_not_contains('require_login_json();', $php);
         flus_assert_not_contains('require_perm_json(', $php);
         flus_assert_not_contains('require_csrf_json(', $php);
@@ -2341,15 +2346,21 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     flus_assert_contains('.promo-selector-modal', $cajaNeoCss);
     flus_assert_contains('class="btn btn-secondary btn-sm"', $cajaPhp);
     flus_assert_not_contains('field-promo-btn', $cajaPhp);
-    flus_assert_contains('assets/css/promos.css?v=7', $promosPagePhp);
-    flus_assert_contains('assets/js/promos.js?v=4', $promosPagePhp);
+    flus_assert_contains('assets/css/promos.css?v=8', $promosPagePhp);
+    flus_assert_contains('assets/js/promos.js?v=5', $promosPagePhp);
+    flus_assert_contains('class="btn-mini <?= $activa ? \'btn-mini-warn\' : \'btn-mini-ok\' ?> js-toggle-promo"', $promosPagePhp);
+    flus_assert_contains('data-activo="<?= $activa ? \'1\' : \'0\' ?>"', $promosPagePhp);
     flus_assert_contains('document.body?.classList.add("promos-panel-open");', $promosJs);
     flus_assert_contains('document.body?.classList.remove("promos-panel-open");', $promosJs);
     flus_assert_contains('function focusPanelInitialField()', $promosJs);
     flus_assert_contains('panelReturnFocusEl?.blur?.();', $promosJs);
     flus_assert_contains('inpNombre.focus({ preventScroll: true });', $promosJs);
     flus_assert_contains('panelReturnFocusEl = btn;', $promosJs);
+    flus_assert_contains('function updatePromoRowEstado(row, activo)', $promosJs);
+    flus_assert_contains('promo_toggle_estado', $promosJs);
+    flus_assert_contains('syncPromoStats();', $promosJs);
     flus_assert_contains('body.promos-panel-open', $promosCss);
+    flus_assert_contains('.btn-mini-warn', $promosCss);
 });
 
 $results[] = flus_run_test('cuenta corriente actions salen del switch y usan guard central', function (): void {

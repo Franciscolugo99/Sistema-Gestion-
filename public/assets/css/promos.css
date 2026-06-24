@@ -528,6 +528,21 @@ body[data-theme="dark"] {
   filter: brightness(1.1);
 }
 
+.btn-mini-warn {
+  background: rgba(234, 179, 8, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(234, 179, 8, 0.28);
+}
+
+.btn-mini-warn:hover {
+  background: rgba(234, 179, 8, 0.2);
+}
+
+.btn-mini:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .btn-mini-ghost {
   background: transparent;
   color: var(--muted, #64748b);

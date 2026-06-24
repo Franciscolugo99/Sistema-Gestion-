@@ -128,8 +128,8 @@ $inactivasCount = $totalPromos - $activasCount;
 -------------------------------------------------------- */
 $pageTitle      = 'Promociones';
 $currentSection = 'promos';
-$extraCss       = ['assets/css/promos.css?v=7'];
-$extraJs        = ['assets/js/promos.js?v=4'];
+$extraCss       = ['assets/css/promos.css?v=8'];
+$extraJs        = ['assets/js/promos.js?v=5'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -405,10 +405,22 @@ require __DIR__ . '/partials/header.php';
 
                 <td class="t-right actions-cell">
                   <div class="actions-desktop">
+                    <button
+                      type="button"
+                      class="btn-mini <?= $activa ? 'btn-mini-warn' : 'btn-mini-ok' ?> js-toggle-promo"
+                      data-id="<?= (int)$id ?>"
+                      data-activo="<?= $activa ? '1' : '0' ?>"
+                    ><?= $activa ? 'Desactivar' : 'Activar' ?></button>
                     <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
                     <button type="button" class="btn-mini btn-mini-danger js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
                   </div>
                   <div class="actions-mobile">
+                    <button
+                      type="button"
+                      class="btn-mini <?= $activa ? 'btn-mini-warn' : 'btn-mini-ok' ?> js-toggle-promo"
+                      data-id="<?= (int)$id ?>"
+                      data-activo="<?= $activa ? '1' : '0' ?>"
+                    ><?= $activa ? 'Desactivar' : 'Activar' ?></button>
                     <button type="button" class="btn-mini btn-mini-ok btn-edit-promo" data-id="<?= (int)$id ?>">Editar</button>
                     <button type="button" class="btn-mini btn-mini-danger js-delete-promo" data-id="<?= (int)$id ?>">Eliminar</button>
                   </div>

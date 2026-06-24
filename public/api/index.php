@@ -471,6 +471,11 @@ function flus_action_guard_policies(): array {
       'permissions' => ['editar_promos'],
       'csrf' => true,
     ],
+    'promo_toggle_estado' => [
+      'methods' => ['POST'],
+      'permissions' => ['editar_promos'],
+      'csrf' => true,
+    ],
     'promo_obtener' => [
       'methods' => ['GET'],
       'permissions' => ['editar_promos'],

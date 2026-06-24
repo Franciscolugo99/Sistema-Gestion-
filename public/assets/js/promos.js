@@ -122,6 +122,45 @@
       });
     }
 
+    function setStatValue(labelText, value) {
+      document.querySelectorAll(".stat-card").forEach((card) => {
+        const label = card.querySelector(".stat-label")?.textContent?.trim().toLowerCase();
+        if (label !== labelText) return;
+        const stat = card.querySelector(".stat-value");
+        if (stat) stat.textContent = String(value);
+      });
+    }
+
+    function syncPromoStats() {
+      const rows = Array.from(document.querySelectorAll("tr.promo-row"));
+      const activas = rows.filter((row) => row.dataset.estado === "activa").length;
+      setStatValue("total", rows.length);
+      setStatValue("activas", activas);
+      setStatValue("inactivas", rows.length - activas);
+    }
+
+    function updatePromoRowEstado(row, activo) {
+      const isActive = activo === 1;
+      row.dataset.estado = isActive ? "activa" : "inactiva";
+
+      const badge = row.querySelector(".badge-activa, .badge-inactiva");
+      if (badge) {
+        badge.classList.toggle("badge-activa", isActive);
+        badge.classList.toggle("badge-inactiva", !isActive);
+        badge.textContent = isActive ? "Activa" : "Inactiva";
+      }
+
+      row.querySelectorAll(".js-toggle-promo").forEach((button) => {
+        button.dataset.activo = isActive ? "1" : "0";
+        button.textContent = isActive ? "Desactivar" : "Activar";
+        button.classList.toggle("btn-mini-warn", isActive);
+        button.classList.toggle("btn-mini-ok", !isActive);
+      });
+
+      syncPromoStats();
+      aplicarFiltros();
+    }
+
     filtroTexto?.addEventListener("input", debounce(aplicarFiltros, 200));
     filtroTipo?.addEventListener("change", aplicarFiltros);
     filtroEstado?.addEventListener("change", aplicarFiltros);
@@ -645,6 +684,40 @@
 
       panelReturnFocusEl = btn;
       cargarPromo(id);
+    });
+
+    document.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".js-toggle-promo");
+      if (!btn) return;
+
+      const id = btn.dataset.id;
+      const row = btn.closest("tr.promo-row");
+      if (!id || !row) return;
+
+      const nextActive = btn.dataset.activo === "1" ? 0 : 1;
+      if (!window.apiJson) return notify("Falta apiJson (app.js).", "error");
+
+      row.querySelectorAll(".js-toggle-promo").forEach((button) => {
+        button.disabled = true;
+      });
+
+      try {
+        const data = await window.apiJson(
+          `${API_BASE}?action=promo_toggle_estado`,
+          { id: Number(id), activo: nextActive },
+          { method: "POST" }
+        );
+        const activo = Number(data?.activo ?? nextActive) === 1 ? 1 : 0;
+        updatePromoRowEstado(row, activo);
+        notify(activo === 1 ? "Promocion activada." : "Promocion desactivada.", activo === 1 ? "success" : "warning");
+      } catch (err) {
+        console.error(err);
+        notify(err.message || "No se pudo cambiar el estado de la promocion.", "error");
+      } finally {
+        row.querySelectorAll(".js-toggle-promo").forEach((button) => {
+          button.disabled = false;
+        });
+      }
     });
 
     const modalEliminar = document.getElementById("modalEliminarPromo");
