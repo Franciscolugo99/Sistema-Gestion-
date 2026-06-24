@@ -70,6 +70,7 @@ $extraCss = [
 $extraJs = [
   'assets/js/caja_mp_qr.js?v=' . filemtime(__DIR__ . '/assets/js/caja_mp_qr.js'),
   'assets/js/caja.js?v=' . filemtime(__DIR__ . '/assets/js/caja.js'),
+  'assets/js/caja_promos_selector.js?v=' . filemtime(__DIR__ . '/assets/js/caja_promos_selector.js'),
   'assets/js/caja_ventas_recientes.js?v=' . filemtime(__DIR__ . '/assets/js/caja_ventas_recientes.js'),
   'assets/js/caja_terminal_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_terminal_modal.js'),
   'assets/js/caja_cc_pago.js?v=' . filemtime(__DIR__ . '/assets/js/caja_cc_pago.js'),
@@ -465,6 +466,9 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     <button type="button" id="btnVentasRecientes" class="btn btn-secondary btn-sm">
       Ventas recientes
     </button>
+    <button type="button" id="btnPromosCaja" class="btn btn-secondary btn-sm">
+      Promos
+    </button>
 
     <?php if (function_exists('user_has_permission') && user_has_permission('registrar_pago_cc')): ?>
     <button
@@ -601,6 +605,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <span><kbd>Enter</kbd> agrega el producto</span>
         <span><kbd>Tab</kbd> completa y pasa a cantidad</span>
         <span><kbd>F3</kbd> vuelve a producto</span>
+        <span><kbd>F8</kbd> busca promos</span>
         <span><kbd>F2</kbd> cobra el ticket</span>
         <span><kbd>F4</kbd> cancela la venta</span>
       </div>
@@ -610,6 +615,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
       <div class="caja-neo-utility__item"><kbd>Enter</kbd> Agregar producto</div>
       <div class="caja-neo-utility__item"><kbd>Tab</kbd> Completar y cantidad</div>
       <div class="caja-neo-utility__item"><kbd>F3</kbd> Volver a producto</div>
+      <div class="caja-neo-utility__item"><kbd>F8</kbd> Buscar promo</div>
       <div class="caja-neo-utility__item"><kbd>F2</kbd> Cobrar ticket</div>
       <div class="caja-neo-utility__item"><kbd>F4</kbd> Cancelar venta</div>
       <div class="caja-neo-utility__item"><kbd>F5</kbd> Efectivo</div>
@@ -777,6 +783,27 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </div>
 
     <div id="msg" class="msg"></div>
+
+    <div id="promoSelectorModal" class="promo-selector-modal hidden" aria-hidden="true">
+      <div class="promo-selector-modal__backdrop" data-promo-selector-close></div>
+      <div class="promo-selector-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="promoSelectorTitle" aria-describedby="promoSelectorSubtitle">
+        <div class="promo-selector-modal__head">
+          <div>
+            <div class="promo-selector-modal__eyebrow">Promociones activas</div>
+            <h3 id="promoSelectorTitle" class="promo-selector-modal__title">Buscar promo por nombre</h3>
+            <p id="promoSelectorSubtitle" class="promo-selector-modal__subtitle">Selecciona una promo para cargar sus productos al ticket actual.</p>
+          </div>
+          <button type="button" class="promo-selector-modal__close" data-promo-selector-close>Cerrar</button>
+        </div>
+
+        <div class="promo-selector-modal__search">
+          <label for="promoSelectorSearch">Nombre, producto o codigo</label>
+          <input type="search" id="promoSelectorSearch" autocomplete="off" placeholder="Ej: 2x1, combo desayuno, alfajor">
+        </div>
+
+        <div id="promoSelectorResults" class="promo-selector-modal__results" aria-live="polite"></div>
+      </div>
+    </div>
 
     <div id="ticketPreviewModal" class="ticket-preview-modal hidden" aria-hidden="true">
       <div class="ticket-preview-modal__backdrop" data-ticket-preview-close></div>

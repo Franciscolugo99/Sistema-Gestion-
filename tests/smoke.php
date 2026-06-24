@@ -2308,7 +2308,11 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     $promosLogicPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'promos_logic.php');
     $listarPromosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'listar_promos_activas.php');
     $calcularCarritoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'calcular_carrito.php');
+    $promoEnginePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'PromoEngine.php');
+    $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+    $cajaPromosSelectorJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_promos_selector.js');
+    $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
 
     flus_assert_contains('flus_promos_status($pdo)', $promosLogicPhp);
     flus_assert_contains("name=\"accion\" value=\"toggle_promos\"", $promosPagePhp);
@@ -2319,6 +2323,22 @@ $results[] = flus_run_test('disponibilidad de promociones se aplica en backend y
     flus_assert_contains("'promos_estado' => \$promoStatus", $calcularCarritoPhp);
     flus_assert_contains('response.promos_estado?.available !== false', $cajaJs);
     flus_assert_contains('await cargarPromos();', $cajaJs);
+    flus_assert_contains('pr.codigo AS producto_codigo', $promoEnginePhp);
+    flus_assert_contains('pr.nombre AS producto_nombre', $promoEnginePhp);
+    flus_assert_contains('assets/js/caja_promos_selector.js', $cajaPhp);
+    flus_assert_contains('id="btnPromosCaja"', $cajaPhp);
+    flus_assert_contains('id="promoSelectorModal"', $cajaPhp);
+    flus_assert_contains('let promosCatalogo = []', $cajaJs);
+    flus_assert_contains('window.FLUS_CAJA_PROMOS = {', $cajaJs);
+    flus_assert_contains('flus:caja-promos-open', $cajaJs);
+    flus_assert_contains('function openSelector()', $cajaPromosSelectorJs);
+    flus_assert_contains('async function addSelectedPromo(promoKey)', $cajaPromosSelectorJs);
+    flus_assert_contains('window.addEventListener("flus:caja-promos-open", openSelector);', $cajaPromosSelectorJs);
+    flus_assert_contains('data-promo-action="add"', $cajaPromosSelectorJs);
+    flus_assert_contains('e.key === "F8"', $cajaJs);
+    flus_assert_contains('.promo-selector-modal', $cajaNeoCss);
+    flus_assert_contains('class="btn btn-secondary btn-sm"', $cajaPhp);
+    flus_assert_not_contains('field-promo-btn', $cajaPhp);
 });
 
 $results[] = flus_run_test('cuenta corriente actions salen del switch y usan guard central', function (): void {

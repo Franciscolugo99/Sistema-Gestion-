@@ -443,6 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let promosPorProducto = {};
   let promosCombos = [];
+  let promosCatalogo = [];
   let promosDisponibles = true;
   let carrito = [];
   let totalNetoActual = 0;
@@ -457,6 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const ticketWrapper = document.querySelector(".ticket-wrapper");
   const inputCodigo = document.getElementById("codigo");
   const inputCant = document.getElementById("cantidad");
+  const promoSelectorModal = document.getElementById("promoSelectorModal");
   const scanCard = document.querySelector(".caja-scan-card");
   const cajaMain = document.querySelector(".caja-neo-main");
   const inputPagado = document.getElementById("montoPagado");
@@ -1056,6 +1058,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return (
       !isElementHidden(modal) ||
       !isElementHidden(ticketPreviewModal) ||
+      !isElementHidden(promoSelectorModal) ||
       !isElementHidden(document.getElementById("mpQrModal")) ||
       !isElementHidden(ccModal) ||
       isTerminalModalOpen() ||
@@ -1799,10 +1802,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
       promosPorProducto = {};
       promosCombos = [];
+      promosCatalogo = [];
       promosDisponibles = data.promos_estado?.available !== false;
 
       if (Array.isArray(data.simples)) {
         data.simples.forEach((p) => {
+          const producto = {
+            id: Number(p.producto_id),
+            codigo: String(p.producto_codigo || ""),
+            nombre: String(p.producto_nombre || "Producto"),
+            precio: Number(p.producto_precio) || 0,
+            stock: Number(p.producto_stock) || 0,
+            unidad_venta: String(p.unidad_venta || ""),
+            es_pesable: p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1",
+          };
+          const cantidadSugerida = Math.max(1, Number(p.n) || 1);
           promosPorProducto[String(p.producto_id)] = {
             promoId: p.promo_id,
             nombre: p.nombre,
@@ -1811,20 +1825,48 @@ document.addEventListener("DOMContentLoaded", () => {
             m: p.m !== null ? Number(p.m) : null,
             porcentaje: p.porcentaje !== null ? Number(p.porcentaje) : null,
           };
+          promosCatalogo.push({
+            key: `simple:${p.promo_id}:${p.producto_id}`,
+            promoId: Number(p.promo_id),
+            nombre: String(p.nombre || "Promo"),
+            tipo: String(p.tipo || "PROMO"),
+            cantidadSugerida,
+            producto,
+            items: [{ ...producto, cantidad: cantidadSugerida }],
+          });
         });
       }
 
       if (Array.isArray(data.combos)) {
         data.combos.forEach((c) => {
+          const items = (c.items || []).map((it) => ({
+            producto_id: Number(it.producto_id),
+            id: Number(it.producto_id),
+            codigo: String(it.codigo || ""),
+            nombre: String(it.nombre || "Producto"),
+            precio: Number(it.precio) || 0,
+            stock: Number(it.stock) || 0,
+            unidad_venta: String(it.unidad_venta || ""),
+            es_pesable: it.es_pesable === true || it.es_pesable === 1 || it.es_pesable === "1",
+            cantidad: Number(it.cantidad),
+          }));
           promosCombos.push({
             promoId: c.promo_id,
             nombre: c.nombre,
             tipo: "COMBO_FIJO",
             precio_combo: Number(c.precio_combo),
-            items: (c.items || []).map((it) => ({
+            items: items.map((it) => ({
               producto_id: Number(it.producto_id),
               cantidad: Number(it.cantidad),
             })),
+          });
+          promosCatalogo.push({
+            key: `combo:${c.promo_id}`,
+            promoId: Number(c.promo_id),
+            nombre: String(c.nombre || "Combo"),
+            tipo: "COMBO_FIJO",
+            precio_combo: Number(c.precio_combo) || 0,
+            items,
           });
         });
       }
@@ -2268,6 +2310,106 @@ document.addEventListener("DOMContentLoaded", () => {
     _actualizarVista();
   }
 
+  async function agregarProductoResueltoAlCarrito(p, cantidadDeseada, options = {}) {
+    if (!p) return false;
+
+    const precioLista = Number(p.precio) || 0;
+    const stock = Number(p.stock) || 0;
+    const esPesable =
+      p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
+    const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
+
+    if (options.actualizarHint !== false) {
+      aplicarHintCantidadInput(unidadVenta);
+    }
+
+    let cantidad = Number(cantidadDeseada);
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      if (esPesable && (unidadVenta === "G" || unidadVenta === "ML")) {
+        cantidad = 1;
+      } else if (esPesable) {
+        cantidad = 0.1;
+      } else {
+        cantidad = 1;
+      }
+    }
+
+    const existente = carrito.find((i) => Number(i.id) === Number(p.id));
+    const enCarrito = existente ? Number(existente.cantidad) : 0;
+    const tolStock = esPesable ? 0.01 : 0;
+
+    if (enCarrito + cantidad > stock + tolStock) {
+      const disponible = stock - enCarrito;
+      if (disponible > 0) {
+        const _stockMsg =
+          `<p style="margin:6px 0">Pediste <strong style="color:var(--danger,#ef4444)">${cantidad} ${unidadVenta}</strong>, ` +
+          `solo hay <strong style="color:#fbbf24">${disponible} ${unidadVenta}</strong>.</p>` +
+          `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:8px">¿Agregamos lo disponible?</p>`;
+        const agregar = await Notif.confirmar(
+          "⚠️ Stock insuficiente",
+          _stockMsg,
+          {
+            icon: "warning",
+            confirmText: `✅ Agregar ${disponible}`,
+            cancelText: "❌ Cancelar",
+          },
+        );
+        if (agregar) {
+          cantidad = disponible;
+        } else {
+          return false;
+        }
+      } else {
+        mostrarMensaje("error", `No hay stock disponible de "${p.nombre}"`);
+        return false;
+      }
+    }
+
+    if (existente) {
+      existente.cantidad = Number(existente.cantidad) + cantidad;
+      existente.stock = Number(stock);
+    } else {
+      carrito.push({
+        id: Number(p.id),
+        codigo: String(p.codigo),
+        nombre: String(p.nombre),
+        cantidad: Number(cantidad),
+        precio: Number(precioLista),
+        precioLista: Number(precioLista),
+        precioManual: false,
+        esPesable,
+        unidadVenta,
+        stock: Number(stock),
+      });
+    }
+
+    return true;
+  }
+
+  window.FLUS_CAJA_PROMOS = {
+    apiBase: API_BASE,
+    fetchJson,
+    escapeHtml,
+    formatearMoneda,
+    formatearCantidad,
+    fmtQty3,
+    getPromos: () => ({
+      promos: promosCatalogo,
+      disponibles: promosDisponibles,
+    }),
+    getCarrito: () => carrito,
+    reloadPromos: cargarPromos,
+    addResolvedProduct: agregarProductoResueltoAlCarrito,
+    refreshAfterPromoAdd: () => {
+      limpiarMensaje();
+      actualizarVistaInmediata();
+      scrollTicketToBottom();
+    },
+    showMessage: mostrarMensaje,
+    focusProduct: () => focusProductoInput({ selectIfFilled: true }),
+  };
+  window.dispatchEvent(new Event("flus:caja-promos-ready"));
+
   // =========================
   // AGREGAR ITEM
   // =========================
@@ -2325,15 +2467,9 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
       const p = data.producto;
-
-      const precioLista = Number(p.precio) || 0;
-      const stock = Number(p.stock) || 0;
       const esPesable =
         p.es_pesable === true || p.es_pesable === 1 || p.es_pesable === "1";
       const unidadVenta = p.unidad_venta || (esPesable ? "KG" : "UNID");
-
-      // ✅ Hint para el cajero (según unidad)
-      aplicarHintCantidadInput(unidadVenta);
 
       let cantidad = cantidadInternaDesdeInput(
         inputCant?.value || "1",
@@ -2350,62 +2486,8 @@ document.addEventListener("DOMContentLoaded", () => {
         else cantidad = 1;
       }
 
-      const existente = carrito.find((i) => Number(i.id) === Number(p.id));
-      const enCarrito = existente ? Number(existente.cantidad) : 0;
-
-      // ✅ FIX STOCK: ya no dependemos de "stock > 0"
-      // (si stock=0, no deja agregar)
-      const tolStock = esPesable ? 0.01 : 0;
-      if (enCarrito + cantidad > stock + tolStock) {
-        const disponible = stock - enCarrito;
-        if (disponible > 0) {
-          const _stockMsg =
-            `<p style="margin:6px 0">Pediste <strong style="color:var(--danger,#ef4444)">${cantidad} ${unidadVenta}</strong>, ` +
-            `solo hay <strong style="color:#fbbf24">${disponible} ${unidadVenta}</strong>.</p>` +
-            `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:8px">¿Agregamos lo disponible?</p>`;
-          const agregar = await Notif.confirmar(
-            "⚠️ Stock insuficiente",
-            _stockMsg,
-            {
-              icon: "warning",
-              confirmText: `✅ Agregar ${disponible}`,
-              cancelText: "❌ Cancelar",
-            },
-          );
-          if (agregar) {
-            cantidad = disponible;
-          } else {
-            return;
-          }
-        } else {
-          return mostrarMensaje(
-            "error",
-            `No hay stock disponible de "${p.nombre}"`,
-          );
-        }
-      }
-
-      if (existente) {
-        existente.cantidad = Number(existente.cantidad) + cantidad;
-
-        // ✅ refrescar stock por si cambió o por si antes no estaba
-        existente.stock = Number(stock);
-      } else {
-        carrito.push({
-          id: Number(p.id),
-          codigo: String(p.codigo),
-          nombre: String(p.nombre),
-          cantidad: Number(cantidad),
-          precio: Number(precioLista),
-          precioLista: Number(precioLista),
-          precioManual: false,
-          esPesable,
-          unidadVenta,
-
-          // ✅ CLAVE para validar al editar
-          stock: Number(stock),
-        });
-      }
+      const agregado = await agregarProductoResueltoAlCarrito(p, cantidad);
+      if (!agregado) return;
 
       inputCodigo.value = "";
 
@@ -3428,6 +3510,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "F7") {
       e.preventDefault();
       setPaymentMethod("1", "DEBITO", { focusAmount: true });
+      return;
+    }
+    if (e.key === "F8") {
+      e.preventDefault();
+      window.dispatchEvent(new Event("flus:caja-promos-open"));
       return;
     }
   });

@@ -123,6 +123,11 @@ final class PromoEngine
                 pp.n,
                 pp.m,
                 pp.porcentaje,
+                pr.codigo AS producto_codigo,
+                pr.nombre AS producto_nombre,
+                pr.precio AS producto_precio,
+                pr.stock AS producto_stock,
+                pr.unidad_venta,
                 pr.es_pesable
             FROM promos p
             INNER JOIN promo_productos pp ON pp.promo_id = p.id
@@ -150,6 +155,11 @@ final class PromoEngine
                 p.precio_combo,
                 pci.producto_id,
                 pci.cantidad_requerida AS cantidad_requerida,
+                pr.codigo AS producto_codigo,
+                pr.nombre AS producto_nombre,
+                pr.precio AS producto_precio,
+                pr.stock AS producto_stock,
+                pr.unidad_venta,
                 pr.es_pesable
             FROM promos p
             INNER JOIN promo_combo_items pci ON pci.promo_id = p.id
@@ -179,9 +189,14 @@ final class PromoEngine
                 ];
             }
             $combos[$id]['items'][] = [
-                'producto_id' => (int)($r['producto_id'] ?? 0),
-                'cantidad'    => (float)($r['cantidad_requerida'] ?? 0),
-                'es_pesable'  => (bool)($r['es_pesable'] ?? false),
+                'producto_id'  => (int)($r['producto_id'] ?? 0),
+                'codigo'       => (string)($r['producto_codigo'] ?? ''),
+                'nombre'       => (string)($r['producto_nombre'] ?? ''),
+                'precio'       => (float)($r['producto_precio'] ?? 0),
+                'stock'        => (float)($r['producto_stock'] ?? 0),
+                'unidad_venta' => (string)($r['unidad_venta'] ?? 'UNIDAD'),
+                'cantidad'     => (float)($r['cantidad_requerida'] ?? 0),
+                'es_pesable'   => (bool)($r['es_pesable'] ?? false),
             ];
         }
 
