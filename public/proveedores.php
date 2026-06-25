@@ -928,12 +928,12 @@ require __DIR__ . '/partials/header.php';
 
         <h2 class="sub-title-page">Listado</h2>
 
-        <form method="get" class="filters">
+        <form method="get" class="filters" data-proveedores-filters>
             <div class="filters-left">
                 <input type="search" name="q" placeholder="Buscar por nombre, CUIT, email, contacto..."
                        value="<?= h($q) ?>" class="search-input">
 
-                <select name="estado" onchange="this.form.submit()">
+                <select name="estado" data-proveedores-autosubmit>
                     <option value="">Todos</option>
                     <option value="activo" <?= $estado === 'activo' ? 'selected' : '' ?>>Activos</option>
                     <option value="inactivo" <?= $estado === 'inactivo' ? 'selected' : '' ?>>Inactivos</option>
@@ -1164,7 +1164,7 @@ require __DIR__ . '/partials/header.php';
                         <small class="prov-insight-help"><?php if (!empty($editStats['ultima_compra']['estado'])): ?>Estado: <?= h((string)$editStats['ultima_compra']['estado']) ?><?php else: ?>Sin historial cargado<?php endif; ?></small>
                     </article>
                 </div>
-                <form method="post" class="inline-form" style="margin:12px 0 18px 0;">
+                <form method="post" class="inline-form prov-relink-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="accion" value="relink_productos">
                     <input type="hidden" name="id" value="<?= (int)$editProveedor['id'] ?>">

@@ -1556,9 +1556,11 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     $rolesJs = (string)file_get_contents($jsRoot . 'roles.js');
     $permisosJs = (string)file_get_contents($jsRoot . 'rol_permisos.js');
     $clientesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'clientes.php');
+    $proveedoresPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'proveedores.php');
     $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'roles.php');
     $cssRoot = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR;
     $clientesCss = (string)file_get_contents($cssRoot . 'clientes.css');
+    $proveedoresCss = (string)file_get_contents($cssRoot . 'proveedores.css');
     $cuentaCorrienteCss = (string)file_get_contents($cssRoot . 'cuenta_corriente.css');
     $rolesCss = (string)file_get_contents($cssRoot . 'roles.css');
 
@@ -1576,6 +1578,21 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     flus_assert_not_contains('ccPanel.style.display', $clientesJs);
     flus_assert_not_contains("style='color:var(--muted,#94a3b8);font-size:.88rem'", $clientesJs);
     flus_assert_contains("danger: action === 'desactivar'", $proveedoresJs);
+    flus_assert_contains('data-proveedores-filters', $proveedoresPhp);
+    flus_assert_contains('data-proveedores-autosubmit', $proveedoresPhp);
+    flus_assert_contains('initProveedoresFilters', $proveedoresJs);
+    flus_assert_contains('setPageLocked', $proveedoresJs);
+    flus_assert_contains("stats.classList.add('is-hidden')", $proveedoresJs);
+    flus_assert_contains("row.classList.add('prov-row-clickable')", $proveedoresJs);
+    flus_assert_contains('.edit-stats.is-hidden', $proveedoresCss);
+    flus_assert_contains('.prov-relink-form', $proveedoresCss);
+    flus_assert_contains('body.no-scroll', $proveedoresCss);
+    flus_assert_not_contains('onchange="this.form.submit()"', $proveedoresPhp);
+    flus_assert_not_contains('style="margin:12px 0 18px 0;"', $proveedoresPhp);
+    flus_assert_not_contains('document.body.style.overflow', $proveedoresJs);
+    flus_assert_not_contains('stats.style.display', $proveedoresJs);
+    flus_assert_not_contains('row.style.cursor', $proveedoresJs);
+    flus_assert_not_contains('console.log(', $proveedoresJs);
     flus_assert_not_contains('window.confirm(', $clientesJs);
     flus_assert_not_contains('window.confirm(', $proveedoresJs);
     flus_assert_not_contains('window.confirm(', $permisosJs);

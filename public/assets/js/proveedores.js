@@ -6,6 +6,28 @@
 (function() {
   'use strict';
 
+  function initProveedoresFilters() {
+    const filtersForm = document.querySelector('[data-proveedores-filters]');
+    if (!filtersForm) return;
+
+    filtersForm.querySelectorAll('[data-proveedores-autosubmit]').forEach((control) => {
+      control.addEventListener('change', () => {
+        if (typeof filtersForm.requestSubmit === 'function') {
+          filtersForm.requestSubmit();
+          return;
+        }
+
+        filtersForm.submit();
+      });
+    });
+  }
+
+  function setPageLocked(locked) {
+    document.body.classList.toggle('no-scroll', locked);
+  }
+
+  initProveedoresFilters();
+
   // Elements
   const drawer = document.getElementById('provDrawer');
   const overlay = document.getElementById('provDrawerOverlay');
@@ -25,7 +47,7 @@
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
     overlay.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
+    setPageLocked(true);
 
     // Focus en primer input
     setTimeout(() => {
@@ -57,7 +79,7 @@
       drawer.classList.remove('is-open');
       drawer.setAttribute('aria-hidden', 'true');
       overlay.classList.remove('is-open');
-      document.body.style.overflow = '';
+      setPageLocked(false);
       formChanged = false;
 
       // Limpiar URL si tiene parametros de edicion
@@ -133,7 +155,7 @@
 
       // Ocultar stats
       const stats = drawer.querySelector('.edit-stats');
-      if (stats) stats.style.display = 'none';
+      if (stats) stats.classList.add('is-hidden');
 
       // Actualizar URL
       const url = new URL(window.location.href);
@@ -298,7 +320,7 @@
     comprasModal.hidden = false;
     comprasModalOverlay.hidden = false;
     comprasModal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    setPageLocked(true);
   }
 
   function closeComprasModal() {
@@ -306,7 +328,7 @@
     comprasModal.hidden = true;
     comprasModalOverlay.hidden = true;
     comprasModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    setPageLocked(drawer?.classList.contains('is-open') === true);
     if (lastComprasTrigger) {
       lastComprasTrigger.focus();
     }
@@ -324,7 +346,7 @@
     productsModal.hidden = false;
     productsModalOverlay.hidden = false;
     productsModal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    setPageLocked(true);
   }
 
   function closeProductsModal() {
@@ -332,7 +354,7 @@
     productsModal.hidden = true;
     productsModalOverlay.hidden = true;
     productsModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    setPageLocked(drawer?.classList.contains('is-open') === true);
     if (lastProductsTrigger) {
       lastProductsTrigger.focus();
     }
@@ -360,7 +382,7 @@
     purchasedProductsModal.hidden = false;
     purchasedProductsModalOverlay.hidden = false;
     purchasedProductsModal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    setPageLocked(true);
   }
 
   function closePurchasedProductsModal() {
@@ -368,7 +390,7 @@
     purchasedProductsModal.hidden = true;
     purchasedProductsModalOverlay.hidden = true;
     purchasedProductsModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = drawer?.classList.contains('is-open') ? 'hidden' : '';
+    setPageLocked(drawer?.classList.contains('is-open') === true);
     if (lastPurchasedProductsTrigger) {
       lastPurchasedProductsTrigger.focus();
     }
@@ -401,7 +423,7 @@
   // ========== Row Click to Edit ==========
 
   document.querySelectorAll('.prov-table tbody tr').forEach(row => {
-    row.style.cursor = 'pointer';
+    row.classList.add('prov-row-clickable');
 
     row.addEventListener('click', (e) => {
       // Ignorar si se hizo click en acciones
@@ -416,7 +438,5 @@
       }
     });
   });
-
-  console.log('✅ Proveedores module loaded');
 
 })();

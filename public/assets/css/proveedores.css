@@ -55,6 +55,10 @@ body[data-theme="dark"] .drawer{
   padding: 0 1rem;
 }
 
+body.no-scroll {
+  overflow: hidden;
+}
+
 .prov-panel {
   margin-bottom: 1rem;
 }
@@ -193,6 +197,10 @@ body[data-theme="dark"] .drawer{
 
 .prov-table tr:hover {
   background: var(--hover-bg, #f9fafb);
+}
+
+.prov-table tr.prov-row-clickable {
+  cursor: pointer;
 }
 
 .prov-table tr.row-inactive {
@@ -474,6 +482,14 @@ body[data-theme="dark"] .drawer{
   background: var(--info-bg, #eff6ff);
   border-radius: 10px;
   border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.edit-stats.is-hidden {
+  display: none;
+}
+
+.prov-relink-form {
+  margin: 12px 0 18px;
 }
 
 .stat-item {
