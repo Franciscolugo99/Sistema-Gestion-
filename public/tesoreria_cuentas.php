@@ -41,7 +41,7 @@ $breadcrumbs = [
     ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
     ['label' => 'Cuentas', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=3'];
+$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>

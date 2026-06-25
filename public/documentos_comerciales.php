@@ -60,7 +60,7 @@ $breadcrumbs = [
     ['label' => 'Facturación', 'url' => 'facturacion.php'],
     ['label' => 'Documentos comerciales', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=18'];
+$extraCss = ['assets/css/facturacion.css?v=21'];
 require __DIR__ . '/partials/header.php';
 
 $rows = [];
@@ -127,16 +127,51 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
     $st->execute($params);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
+
+$docStats = [
+    'total' => count($rows),
+    'presupuestos' => 0,
+    'remitos' => 0,
+    'borradores' => 0,
+    'listos' => 0,
+];
+foreach ($rows as $row) {
+    $tipoDocStat = strtoupper(trim((string)($row['tipo_documento'] ?? '')));
+    if ($tipoDocStat === 'PRESUPUESTO') {
+        $docStats['presupuestos']++;
+    } elseif ($tipoDocStat === 'REMITO') {
+        $docStats['remitos']++;
+    }
+
+    $operativoStat = documentos_comerciales_resumen_operativo($row, $ventaRequeridaParaFacturar);
+    $estadoStat = strtolower((string)($operativoStat['estado'] ?? ''));
+    if ($estadoStat === 'borrador') {
+        $docStats['borradores']++;
+    }
+    if (str_contains($estadoStat, 'listo')) {
+        $docStats['listos']++;
+    }
+}
 ?>
 
 <div class="page-wrap facturacion-page">
   <div class="panel fact-panel">
     <header class="page-header module-header">
       <div class="module-header-main">
-        <div class="module-header-copy">
-          <span class="module-eyebrow">Capa documental</span>
-          <h1 class="page-title module-title">Documentos comerciales</h1>
-          <p class="page-sub module-subtitle">Los documentos pueden quedar como borrador sin cliente, pero solo pasan a operación real cuando tienen cliente y una acción válida pendiente.</p>
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M6 4h9l3 3v13H6z"/>
+              <path d="M15 4v4h4"/>
+              <path d="M9 12h7"/>
+              <path d="M9 16h5"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow">Capa documental</span>
+            <h1 class="page-title module-title">Documentos comerciales</h1>
+            <p class="page-sub module-subtitle">Presupuestos, remitos y documentos vinculados antes del cierre fiscal o comercial.</p>
+          </div>
         </div>
       </div>
       <div class="promo-actions-top module-header-actions">
@@ -145,6 +180,47 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
         <a href="documento_comercial.php?tipo=REMITO" class="v-btn v-btn--primary">+ Remito</a>
       </div>
     </header>
+
+    <section class="fact-doc-command" aria-label="Resumen documental">
+      <article>
+        <span>Vista actual</span>
+        <strong><?= (int)$docStats['total'] ?></strong>
+        <small>documentos encontrados</small>
+      </article>
+      <article>
+        <span>Presupuestos</span>
+        <strong><?= (int)$docStats['presupuestos'] ?></strong>
+        <small>propuestas o pedidos armados</small>
+      </article>
+      <article>
+        <span>Remitos</span>
+        <strong><?= (int)$docStats['remitos'] ?></strong>
+        <small>entregas con trazabilidad</small>
+      </article>
+      <article>
+        <span>Listos para operar</span>
+        <strong><?= (int)$docStats['listos'] ?></strong>
+        <small><?= (int)$docStats['borradores'] ?> borradores requieren cliente</small>
+      </article>
+    </section>
+
+    <section class="fact-doc-flow" aria-label="Flujo documental">
+      <div class="fact-doc-flow__step">
+        <span>1</span>
+        <strong>Presupuesto</strong>
+        <small>Cotiza o deja armado el pedido.</small>
+      </div>
+      <div class="fact-doc-flow__step">
+        <span>2</span>
+        <strong>Remito</strong>
+        <small>Documenta entrega y trazabilidad comercial.</small>
+      </div>
+      <div class="fact-doc-flow__step">
+        <span>3</span>
+        <strong>Venta o factura</strong>
+        <small>Cierra la operacion segun configuracion.</small>
+      </div>
+    </section>
 
     <section class="fact-doc-guide" aria-label="Guia rapida de documentos comerciales">
       <article class="fact-doc-guide__card">
@@ -170,10 +246,10 @@ if (!flus_facturacion_documentos_table_ready($pdo)) {
     </section>
 
     <?php foreach ($errores as $error): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
+      <div class="alert alert-error fact-doc-alert"><?= h($error) ?></div>
     <?php endforeach; ?>
 
-    <form method="get" class="filters fact-filters" style="margin-bottom:16px;">
+    <form method="get" class="filters fact-filters fact-doc-filters">
       <div class="filters-left">
         <input type="text" name="q" value="<?= h($q) ?>" placeholder="Buscar por ID, cliente o nota">
         <input type="number" name="venta_id" min="1" step="1" value="<?= $ventaId > 0 ? (int)$ventaId : '' ?>" placeholder="Venta #">

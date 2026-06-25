@@ -64,6 +64,388 @@ body.dark .tesoreria-page,
   --tes-danger-text: #fecaca;
 }
 
+.tesoreria-alert {
+  margin-bottom: 12px;
+}
+
+.tesoreria-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.tesoreria-command__main,
+.tesoreria-priorities,
+.tesoreria-panel,
+.tesoreria-settings {
+  border: 1px solid var(--tes-border);
+  border-radius: 14px;
+  background: var(--tes-surface-soft);
+}
+
+.tesoreria-command__main {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.tesoreria-command__eyebrow,
+.tesoreria-section-head span,
+.tesoreria-action span,
+.tesoreria-settings span {
+  color: var(--tes-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tesoreria-command__balance {
+  color: var(--tes-text-strong);
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.tesoreria-command__main p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--tes-muted);
+  line-height: 1.45;
+}
+
+.tesoreria-command__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tesoreria-command__metrics div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--tes-border);
+  border-radius: 12px;
+  background: var(--tes-surface);
+}
+
+.tesoreria-command__metrics span {
+  color: var(--tes-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tesoreria-command__metrics strong {
+  color: var(--tes-text-strong);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tesoreria-command__metrics .is-positive strong {
+  color: var(--tes-ok-text);
+}
+
+.tesoreria-command__metrics .is-negative strong {
+  color: var(--tes-danger-text);
+}
+
+.tesoreria-priorities {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.tesoreria-section-head {
+  display: grid;
+  gap: 4px;
+}
+
+.tesoreria-section-head strong {
+  color: var(--tes-text-strong);
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.tesoreria-section-head--table {
+  margin: 18px 0 10px;
+}
+
+.tesoreria-priority-list,
+.tesoreria-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tesoreria-priority,
+.tesoreria-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--tes-border);
+  border-radius: 12px;
+  background: var(--tes-surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tesoreria-priority span {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.tesoreria-priority strong {
+  min-width: 0;
+  color: var(--tes-text-strong);
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.tesoreria-priority--ok span {
+  background: var(--tes-ok-bg);
+  color: var(--tes-ok-text);
+}
+
+.tesoreria-priority--warn span {
+  background: var(--tes-warn-bg);
+  color: var(--tes-warn-text);
+}
+
+.tesoreria-priority--danger span {
+  background: var(--tes-danger-bg);
+  color: var(--tes-danger-text);
+}
+
+.tesoreria-workbench {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0 0 14px;
+}
+
+.tesoreria-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.tesoreria-list-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tesoreria-list-row strong {
+  color: var(--tes-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tesoreria-list-row small {
+  color: var(--tes-muted);
+}
+
+.tesoreria-list-row b {
+  color: var(--tes-text-strong);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tesoreria-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--tes-border-strong);
+  border-radius: 12px;
+  color: var(--tes-muted);
+  line-height: 1.4;
+}
+
+.tesoreria-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(170px, 0.75fr);
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.tesoreria-actions .tesoreria-action {
+  min-height: 116px;
+  align-content: start;
+  border-radius: 14px;
+}
+
+.tesoreria-actions .tesoreria-action--primary {
+  border-color: var(--tes-pill-border);
+  background: var(--tes-pill-bg);
+}
+
+.tesoreria-actions .tesoreria-action strong {
+  color: var(--tes-text-strong);
+  font-size: 17px;
+}
+
+.tesoreria-actions .tesoreria-action small {
+  color: var(--tes-muted);
+  line-height: 1.35;
+}
+
+.tesoreria-settings {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 116px;
+  padding: 14px;
+}
+
+.tesoreria-settings a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--tes-text-strong);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.tesoreria-obligaciones-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.tesoreria-obligation-stat {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--tes-border);
+  border-radius: 14px;
+  background: var(--tes-surface-soft);
+}
+
+.tesoreria-obligation-stat span,
+.tesoreria-payment-panel__copy span,
+.tesoreria-create summary span {
+  color: var(--tes-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tesoreria-obligation-stat strong {
+  color: var(--tes-text-strong);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.tesoreria-obligation-stat small {
+  color: var(--tes-muted);
+  font-weight: 700;
+}
+
+.tesoreria-obligation-stat.is-danger strong {
+  color: var(--tes-danger-text);
+}
+
+.tesoreria-obligation-stat.is-warn strong {
+  color: var(--tes-warn-text);
+}
+
+.tesoreria-create {
+  margin: 0 0 14px;
+  border: 1px solid var(--tes-border);
+  border-radius: 14px;
+  background: var(--tes-surface-soft);
+}
+
+.tesoreria-create summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tesoreria-create summary::-webkit-details-marker {
+  display: none;
+}
+
+.tesoreria-create summary::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--tes-border);
+  border-radius: 999px;
+  color: var(--tes-text-strong);
+  font-weight: 900;
+}
+
+.tesoreria-create[open] summary::after {
+  content: "-";
+}
+
+.tesoreria-create summary strong {
+  margin-right: auto;
+  color: var(--tes-text-strong);
+  font-size: 16px;
+}
+
+.tesoreria-create .tesoreria-entry-form {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--tes-border);
+  border-radius: 0 0 14px 14px;
+}
+
+.tesoreria-payment-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  gap: 14px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 16px;
+  border: 1px solid var(--tes-pill-border);
+  border-radius: 14px;
+  background: var(--tes-pill-bg);
+}
+
+.tesoreria-payment-panel__copy {
+  display: grid;
+  gap: 5px;
+}
+
+.tesoreria-payment-panel__copy strong {
+  color: var(--tes-text-strong);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.tesoreria-payment-panel__copy small {
+  color: var(--tes-muted);
+  font-weight: 700;
+}
+
+.tesoreria-payment-form {
+  margin-top: 0;
+}
+
 .tesoreria-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -345,6 +727,32 @@ body.dark .tesoreria-page textarea,
 }
 
 @media (max-width: 760px) {
+  .tesoreria-command,
+  .tesoreria-workbench,
+  .tesoreria-actions,
+  .tesoreria-obligaciones-summary,
+  .tesoreria-payment-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .tesoreria-command__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .tesoreria-command__balance {
+    font-size: 32px;
+  }
+
+  .tesoreria-priority,
+  .tesoreria-list-row {
+    align-items: flex-start;
+    display: grid;
+  }
+
+  .tesoreria-priority strong {
+    text-align: left;
+  }
+
   .tesoreria-entry-form {
     padding: 14px;
   }

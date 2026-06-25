@@ -276,7 +276,7 @@ $breadcrumbs = [
     ['label' => 'Documentos comerciales', 'url' => 'documentos_comerciales.php'],
     ['label' => $documento ? ((string)($documento['tipo_documento'] ?? 'Documento') . ' #' . (int)$documento['id']) : ($tipoSolicitado === 'REMITO' ? 'Nuevo remito' : 'Nuevo presupuesto'), 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=18'];
+$extraCss = ['assets/css/facturacion.css?v=21'];
 $ok = trim((string)($_GET['ok'] ?? ''));
 $flashOk = match ($ok) {
     'venta' => !empty($_GET['venta_id'])
@@ -314,17 +314,33 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
 
 <div class="page-wrap facturacion-page" data-doc-flash-ok="<?= h($flashOk) ?>" data-doc-flash-error="<?= h($flashError) ?>">
   <div class="panel fact-panel fact-manual-screen">
-    <header class="page-header with-back">
-      <div class="page-header-left">
-        <a href="documentos_comerciales.php" class="link-back">&larr; Volver a documentos comerciales</a>
-        <h1 class="page-title"><?= h($documento ? ((string)($documento['tipo_documento'] ?? 'Documento') . ' #' . (int)$documento['id']) : ($tipoActual === 'REMITO' ? 'Nuevo remito' : 'Nuevo presupuesto')) ?></h1>
-        <p class="page-sub">
+    <header class="page-header module-header">
+      <div class="module-header-main">
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M6 4h9l3 3v13H6z"/>
+              <path d="M15 4v4h4"/>
+              <path d="M9 12h7"/>
+              <path d="M9 16h5"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow"><?= $tipoActual === 'REMITO' ? 'Documento de entrega' : 'Documento de propuesta' ?></span>
+            <h1 class="page-title module-title"><?= h($documento ? ((string)($documento['tipo_documento'] ?? 'Documento') . ' #' . (int)$documento['id']) : ($tipoActual === 'REMITO' ? 'Nuevo remito' : 'Nuevo presupuesto')) ?></h1>
+            <p class="page-sub module-subtitle">
           <?php if ($documento): ?>
             El documento sirve como trazabilidad comercial. La operación real solo ocurre al vincular una venta o emitir factura cuando corresponda.
           <?php else: ?>
             Puedes guardarlo sin cliente como borrador documental. Para generar remito, venta o factura después, primero deberá tener cliente válido.
           <?php endif; ?>
-        </p>
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="promo-actions-top module-header-actions">
+        <a href="documentos_comerciales.php" class="v-btn v-btn--outline">Volver a documentos</a>
+        <a href="facturacion.php" class="v-btn v-btn--outline">Facturacion</a>
       </div>
     </header>
 

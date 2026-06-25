@@ -50,7 +50,7 @@ $breadcrumbs = [
     ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
     ['label' => 'Movimientos', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=3'];
+$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -93,6 +93,11 @@ require __DIR__ . '/partials/header.php';
     </section>
 
     <?php if ($canManage): ?>
+      <details class="tesoreria-create">
+        <summary>
+          <span>Nuevo movimiento</span>
+          <strong>Registrar ingreso, egreso o transferencia</strong>
+        </summary>
       <form method="post" class="filters tesoreria-entry-form">
         <?= csrf_field() ?>
         <input type="hidden" name="request_uid" value="<?= h(bin2hex(random_bytes(16))) ?>">
@@ -174,7 +179,13 @@ require __DIR__ . '/partials/header.php';
           </div>
         </div>
       </form>
+      </details>
     <?php endif; ?>
+
+    <div class="tesoreria-section-head tesoreria-section-head--table">
+      <span>Detalle</span>
+      <strong>Historial de movimientos</strong>
+    </div>
 
     <form method="get" class="filters fact-filters">
       <div class="filters-left">

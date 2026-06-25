@@ -185,30 +185,64 @@ $breadcrumbs = [
     ['label' => 'Facturación', 'url' => 'facturacion.php'],
     ['label' => 'Factura manual', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=20'];
+$extraCss = ['assets/css/facturacion.css?v=21'];
 $extraJs = ['assets/js/facturacion_cliente_lookup.js?v=7', 'assets/js/factura_manual.js?v=5'];
 require __DIR__ . '/partials/header.php';
 ?>
 
-<div class="page-wrap">
+<div class="page-wrap facturacion-page">
   <div class="panel fact-panel fact-manual-screen">
-    <header class="page-header with-back">
-      <div class="page-header-left">
-        <a href="facturacion.php" class="link-back">&larr; Volver a facturacion</a>
-        <h1 class="page-title">Factura manual</h1>
-        <p class="page-sub">Genera una factura sin partir de una venta de caja. No impacta stock.</p>
+    <header class="page-header module-header">
+      <div class="module-header-main">
+        <div class="module-header-hero">
+          <span class="module-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+              <path d="M8 3h7l5 5v13H8z"/>
+              <path d="M15 3v5h5"/>
+              <path d="M11 12h6"/>
+              <path d="M11 16h4"/>
+            </svg>
+          </span>
+          <div class="module-header-copy">
+            <span class="module-eyebrow">Emision manual</span>
+            <h1 class="page-title module-title">Factura manual</h1>
+            <p class="page-sub module-subtitle">Genera una factura sin partir de una venta de caja. No impacta stock.</p>
+          </div>
+        </div>
+      </div>
+      <div class="promo-actions-top module-header-actions">
+        <a href="facturacion.php" class="v-btn v-btn--outline">Volver a facturacion</a>
+        <a href="documentos_comerciales.php" class="v-btn v-btn--outline">Documentos</a>
       </div>
     </header>
 
+    <section class="fact-manual-readiness" aria-label="Estado operativo de factura manual">
+      <article class="fact-manual-readiness__item <?= $emitReady ? 'is-ok' : 'is-danger' ?>">
+        <span>Preflight</span>
+        <strong><?= $emitReady ? 'Listo para emitir' : 'Requiere revision' ?></strong>
+        <small>Modo <?= h(strtolower($modoConfigLabel)) ?></small>
+      </article>
+      <article class="fact-manual-readiness__item <?= $itemCountExceeded ? 'is-danger' : 'is-ok' ?>">
+        <span>Detalle</span>
+        <strong><?= (int)$itemCountPreview ?> de <?= (int)$itemLimit ?> items</strong>
+        <small>Total estimado <?= money_ar($totalPreview) ?></small>
+      </article>
+      <article class="fact-manual-readiness__item is-info">
+        <span>Alcance</span>
+        <strong>Factura sin caja</strong>
+        <small>No mueve stock ni registra cobro</small>
+      </article>
+    </section>
+
     <?php if ($cfgError !== null): ?>
-      <div class="alert alert-error" style="margin-top:12px;"><?= h($cfgError) ?></div>
+      <div class="alert alert-error fact-manual-alert"><?= h($cfgError) ?></div>
     <?php endif; ?>
 
     <?php if (!$emitReady): ?>
-      <div class="alert alert-error" style="margin-top:12px;">
+      <div class="alert alert-error fact-manual-alert">
         <strong>Preflight de emision bloqueado:</strong>
         <?= h(flus_facturacion_preflight_emision_error($emitPreflight)) ?>
-        <ul style="margin:8px 0 0 18px;">
+        <ul class="fact-manual-alert-list">
           <?php foreach ((array)($emitPreflight['items'] ?? []) as $preflightItem): ?>
             <?php if (($preflightItem['status'] ?? '') !== 'error') { continue; } ?>
             <li>
@@ -224,7 +258,7 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <?php foreach ((array)($emitPreflight['warnings'] ?? []) as $emitWarning): ?>
-      <div class="alert alert-warning" style="margin-top:12px;"><?= h((string)$emitWarning) ?></div>
+      <div class="alert alert-warning fact-manual-alert"><?= h((string)$emitWarning) ?></div>
     <?php endforeach; ?>
 
     <form
@@ -504,7 +538,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <p class="muted fact-summary-help">Modo <?= strtolower($modoConfigLabel) ?>. Limite operativo de <?= (int)$itemLimit ?> items por hoja.</p>
             <?php if ($itemCountExceeded): ?>
-              <div class="alert alert-error" style="margin-top:10px;">
+              <div class="alert alert-error fact-manual-alert fact-manual-alert--compact">
                 <?= h(flus_facturacion_print_item_limit_message($itemCountPreview, $itemLimit)) ?>
               </div>
             <?php endif; ?>

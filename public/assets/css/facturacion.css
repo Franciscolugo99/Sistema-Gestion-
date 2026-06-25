@@ -3062,3 +3062,175 @@ body[data-theme="dark"] .fm-cab-select--iva {
     width: 130px;
   }
 }
+
+/* Pulida operativa de factura manual y documentos */
+.fact-manual-alert {
+  margin-top: 12px;
+}
+
+.fact-manual-alert--compact {
+  margin-top: 10px;
+}
+
+.fact-manual-alert-list {
+  margin: 8px 0 0 18px;
+}
+
+.fact-manual-readiness {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.fact-manual-readiness__item {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel, #f8fafc) 94%, rgba(14, 165, 233, 0.06));
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+}
+
+.fact-manual-readiness__item span,
+.fact-doc-command article span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.fact-manual-readiness__item strong,
+.fact-doc-command article strong,
+.fact-doc-flow__step strong {
+  display: block;
+  color: var(--text, #0f172a);
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.fact-manual-readiness__item small,
+.fact-doc-command article small,
+.fact-doc-flow__step small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.fact-manual-readiness__item.is-ok {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.fact-manual-readiness__item.is-danger {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.fact-manual-readiness__item.is-info {
+  border-color: rgba(14, 165, 233, 0.28);
+  background: rgba(14, 165, 233, 0.07);
+}
+
+.fact-doc-command {
+  display: grid;
+  grid-template-columns: 1.05fr repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.fact-doc-command article {
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel, #f8fafc) 95%, rgba(6, 182, 212, 0.05));
+}
+
+.fact-doc-command article strong {
+  font-size: 1.42rem;
+  font-weight: 900;
+}
+
+.fact-doc-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 10px;
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  border-radius: 16px;
+  background: rgba(14, 165, 233, 0.05);
+}
+
+.fact-doc-flow__step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel, #f8fafc) 92%, transparent);
+}
+
+.fact-doc-flow__step span {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  grid-row: span 2;
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  font-weight: 900;
+}
+
+.fact-doc-alert {
+  margin-bottom: 12px;
+}
+
+.fact-doc-filters {
+  margin-bottom: 16px;
+}
+
+body[data-theme="dark"] .fact-manual-readiness__item,
+body[data-theme="dark"] .fact-doc-command article,
+body[data-theme="dark"] .fact-doc-flow__step {
+  background: rgba(15, 23, 42, 0.62);
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
+body[data-theme="dark"] .fact-doc-flow {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(125, 211, 252, 0.14);
+}
+
+body[data-theme="dark"] .fact-doc-flow__step span {
+  background: rgba(14, 165, 233, 0.18);
+  color: #bae6fd;
+}
+
+@media (max-width: 1180px) {
+  .fact-doc-command {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px) {
+  .fact-manual-readiness,
+  .fact-doc-flow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .fact-doc-command {
+    grid-template-columns: 1fr;
+  }
+}

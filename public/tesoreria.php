@@ -16,9 +16,62 @@ $report = flus_tesoreria_reportes($pdo, [
 $tablesReady = flus_tesoreria_tables_ready($pdo);
 $saldos = $report['saldos'];
 $flujo = $report['flujo'];
+$proximosVencimientos = is_array($report['proximos_vencimientos'] ?? null) ? $report['proximos_vencimientos'] : [];
+$obligacionesVencidas = is_array($report['obligaciones_vencidas'] ?? null) ? $report['obligaciones_vencidas'] : [];
 $saldoTotal = 0.0;
+$cuentasActivas = 0;
+$cuentaMenor = null;
 foreach ($saldos as $cuenta) {
-    $saldoTotal += (float)($cuenta['saldo_actual'] ?? 0);
+    $saldoCuenta = (float)($cuenta['saldo_actual'] ?? 0);
+    $saldoTotal += $saldoCuenta;
+    if (strtoupper((string)($cuenta['estado'] ?? '')) === 'ACTIVA') {
+        $cuentasActivas++;
+    }
+    if ($cuentaMenor === null || $saldoCuenta < (float)($cuentaMenor['saldo_actual'] ?? 0)) {
+        $cuentaMenor = $cuenta;
+    }
+}
+$flujoNeto = (float)($flujo['neto'] ?? 0);
+$vencidasTotal = 0.0;
+foreach ($obligacionesVencidas as $ob) {
+    $vencidasTotal += max(0.0, (float)($ob['importe_estimado'] ?? 0) - (float)($ob['importe_pagado'] ?? 0));
+}
+$proximosTotal = 0.0;
+foreach ($proximosVencimientos as $ob) {
+    $proximosTotal += max(0.0, (float)($ob['importe_estimado'] ?? 0) - (float)($ob['importe_pagado'] ?? 0));
+}
+$prioridades = [];
+if (count($obligacionesVencidas) > 0) {
+    $prioridades[] = [
+        'class' => 'tesoreria-priority--danger',
+        'label' => 'Vencidas',
+        'text' => count($obligacionesVencidas) . ' obligaciones atrasadas por ' . money_ar($vencidasTotal),
+        'href' => 'tesoreria_obligaciones.php?estado=VENCIDO',
+    ];
+}
+if (count($proximosVencimientos) > 0) {
+    $prioridades[] = [
+        'class' => 'tesoreria-priority--warn',
+        'label' => 'Proximas',
+        'text' => count($proximosVencimientos) . ' vencimientos dentro de 30 dias por ' . money_ar($proximosTotal),
+        'href' => 'tesoreria_obligaciones.php?estado=PENDIENTE',
+    ];
+}
+if ($cuentaMenor !== null && (float)($cuentaMenor['saldo_actual'] ?? 0) < 0) {
+    $prioridades[] = [
+        'class' => 'tesoreria-priority--danger',
+        'label' => 'Cuenta negativa',
+        'text' => (string)($cuentaMenor['nombre'] ?? 'Cuenta') . ' figura con ' . money_ar((float)($cuentaMenor['saldo_actual'] ?? 0)),
+        'href' => 'tesoreria_cuentas.php',
+    ];
+}
+if ($prioridades === []) {
+    $prioridades[] = [
+        'class' => 'tesoreria-priority--ok',
+        'label' => 'Sin urgencias',
+        'text' => 'No hay vencidas ni cuentas negativas para atender ahora.',
+        'href' => 'tesoreria_reportes.php',
+    ];
 }
 
 $pageTitle = 'Tesoreria - FLUS';
@@ -26,7 +79,7 @@ $currentSection = 'tesoreria';
 $breadcrumbs = [
     ['label' => 'Tesoreria', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=3'];
+$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -61,71 +114,129 @@ require __DIR__ . '/partials/header.php';
     </header>
 
     <?php if (!$tablesReady): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;">
+      <div class="alert alert-error tesoreria-alert">
         Faltan aplicar las migraciones de tesoreria.
       </div>
     <?php endif; ?>
 
-    <section class="fact-kpi-grid" aria-label="Resumen de tesoreria">
-      <article class="fact-kpi-card fact-kpi-card--accent">
-        <span class="fact-kpi-card__label">Saldo visible</span>
-        <strong class="fact-kpi-card__value"><?= money_ar($saldoTotal) ?></strong>
-        <span class="fact-kpi-card__help">Saldos iniciales mas movimientos activos</span>
+    <section class="tesoreria-command" aria-label="Tablero de tesoreria">
+      <div class="tesoreria-command__main">
+        <span class="tesoreria-command__eyebrow">Situacion del mes</span>
+        <strong class="tesoreria-command__balance"><?= money_ar($saldoTotal) ?></strong>
+        <p>
+          Saldo visible en <?= number_format($cuentasActivas) ?> cuenta<?= $cuentasActivas === 1 ? '' : 's' ?> activa<?= $cuentasActivas === 1 ? '' : 's' ?>.
+          El flujo neto del mes es <?= money_ar($flujoNeto) ?>.
+        </p>
+        <div class="tesoreria-command__metrics" aria-label="Flujo mensual">
+          <div>
+            <span>Ingresos</span>
+            <strong><?= money_ar((float)($flujo['ingresos'] ?? 0)) ?></strong>
+          </div>
+          <div>
+            <span>Egresos</span>
+            <strong><?= money_ar((float)($flujo['egresos'] ?? 0)) ?></strong>
+          </div>
+          <div class="<?= $flujoNeto < 0 ? 'is-negative' : 'is-positive' ?>">
+            <span>Neto</span>
+            <strong><?= money_ar($flujoNeto) ?></strong>
+          </div>
+        </div>
+      </div>
+      <aside class="tesoreria-priorities" aria-label="Prioridad operativa">
+        <div class="tesoreria-section-head">
+          <span>Prioridad operativa</span>
+          <strong>Que mirar ahora</strong>
+        </div>
+        <div class="tesoreria-priority-list">
+          <?php foreach (array_slice($prioridades, 0, 3) as $item): ?>
+            <a class="tesoreria-priority <?= h((string)$item['class']) ?>" href="<?= h((string)$item['href']) ?>">
+              <span><?= h((string)$item['label']) ?></span>
+              <strong><?= h((string)$item['text']) ?></strong>
+            </a>
+          <?php endforeach; ?>
+        </div>
+      </aside>
+    </section>
+
+    <section class="tesoreria-workbench" aria-label="Panel operativo de tesoreria">
+      <article class="tesoreria-panel">
+        <div class="tesoreria-section-head">
+          <span>Agenda de pagos</span>
+          <strong>Proximos vencimientos</strong>
+        </div>
+        <div class="tesoreria-list">
+          <?php if ($proximosVencimientos === []): ?>
+            <p class="tesoreria-empty">No hay pagos pendientes dentro de los proximos 30 dias.</p>
+          <?php else: ?>
+            <?php foreach (array_slice($proximosVencimientos, 0, 4) as $ob): ?>
+              <?php $saldoOb = max(0.0, (float)($ob['importe_estimado'] ?? 0) - (float)($ob['importe_pagado'] ?? 0)); ?>
+              <a class="tesoreria-list-row" href="tesoreria_obligaciones.php?estado=PENDIENTE">
+                <span>
+                  <strong><?= h((string)($ob['descripcion'] ?? 'Obligacion')) ?></strong>
+                  <small>Vence <?= h(date('d/m/Y', strtotime((string)($ob['fecha_vencimiento'] ?? 'now')))) ?></small>
+                </span>
+                <b><?= money_ar($saldoOb) ?></b>
+              </a>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
       </article>
-      <article class="fact-kpi-card">
-        <span class="fact-kpi-card__label">Ingresos del mes</span>
-        <strong class="fact-kpi-card__value"><?= money_ar($flujo['ingresos']) ?></strong>
-        <span class="fact-kpi-card__help">Sin contar transferencias internas</span>
-      </article>
-      <article class="fact-kpi-card">
-        <span class="fact-kpi-card__label">Egresos del mes</span>
-        <strong class="fact-kpi-card__value"><?= money_ar($flujo['egresos']) ?></strong>
-        <span class="fact-kpi-card__help">Gastos y pagos operativos</span>
-      </article>
-      <article class="fact-kpi-card">
-        <span class="fact-kpi-card__label">Flujo neto</span>
-        <strong class="fact-kpi-card__value"><?= money_ar($flujo['neto']) ?></strong>
-        <span class="fact-kpi-card__help">Ingresos menos egresos del mes</span>
-      </article>
-      <article class="fact-kpi-card">
-        <span class="fact-kpi-card__label">Proximos vencimientos</span>
-        <strong class="fact-kpi-card__value"><?= number_format(count($report['proximos_vencimientos'])) ?></strong>
-        <span class="fact-kpi-card__help">Pendientes dentro de 30 dias</span>
-      </article>
-      <article class="fact-kpi-card">
-        <span class="fact-kpi-card__label">Vencidas</span>
-        <strong class="fact-kpi-card__value"><?= number_format(count($report['obligaciones_vencidas'])) ?></strong>
-        <span class="fact-kpi-card__help">Obligaciones atrasadas</span>
+
+      <article class="tesoreria-panel">
+        <div class="tesoreria-section-head">
+          <span>Fondos disponibles</span>
+          <strong>Cuentas principales</strong>
+        </div>
+        <div class="tesoreria-list">
+          <?php if ($saldos === []): ?>
+            <p class="tesoreria-empty">Todavia no hay cuentas financieras cargadas.</p>
+          <?php else: ?>
+            <?php foreach (array_slice($saldos, 0, 4) as $cuenta): ?>
+              <a class="tesoreria-list-row" href="tesoreria_cuentas.php">
+                <span>
+                  <strong><?= h((string)$cuenta['nombre']) ?></strong>
+                  <small><?= h((string)$cuenta['tipo']) ?>, <?= h((string)($cuenta['sucursal_nombre'] ?? 'General')) ?></small>
+                </span>
+                <b><?= money_ar((float)($cuenta['saldo_actual'] ?? 0)) ?></b>
+              </a>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
       </article>
     </section>
 
-    <section class="tesoreria-grid" aria-label="Accesos de tesoreria">
-      <a class="tesoreria-action" href="tesoreria_cuentas.php">
-        <strong>Cuentas</strong>
-        <span>Caja principal, banco, billeteras, fondos fijos y saldos visibles.</span>
-      </a>
-      <a class="tesoreria-action" href="tesoreria_movimientos.php">
-        <strong>Movimientos</strong>
-        <span>Ingresos, egresos y transferencias internas entre cuentas.</span>
+    <section class="tesoreria-actions" aria-label="Acciones de tesoreria">
+      <a class="tesoreria-action tesoreria-action--primary" href="tesoreria_movimientos.php">
+        <span>Operar</span>
+        <strong>Registrar movimiento</strong>
+        <small>Ingresos, egresos o transferencias entre cuentas.</small>
       </a>
       <a class="tesoreria-action" href="tesoreria_obligaciones.php">
+        <span>Controlar</span>
         <strong>Obligaciones</strong>
-        <span>Alquiler, impuestos, servicios, sueldos y pagos pendientes.</span>
+        <small>Pagos pendientes, vencidas y cancelaciones.</small>
       </a>
       <a class="tesoreria-action" href="tesoreria_reportes.php">
+        <span>Analizar</span>
         <strong>Reportes</strong>
-        <span>Saldos, gastos por categoria, vencimientos y flujo simple.</span>
-      </a>
-      <a class="tesoreria-action" href="tesoreria_categorias.php">
-        <strong>Categorias</strong>
-        <span>Clasificacion simple para ingresos y gastos operativos.</span>
+        <small>Flujo, gastos por categoria y vencimientos.</small>
       </a>
       <a class="tesoreria-action" href="cobranzas.php">
+        <span>Cobrar</span>
         <strong>Cobranzas</strong>
-        <span>Facturas por cobrar y recibos internos ya registrados en FLUS.</span>
+        <small>Facturas por cobrar y recibos internos.</small>
       </a>
+      <div class="tesoreria-settings">
+        <span>Configuracion</span>
+        <a href="tesoreria_cuentas.php">Cuentas</a>
+        <a href="tesoreria_categorias.php">Categorias</a>
+      </div>
     </section>
 
+    <div class="tesoreria-section-head tesoreria-section-head--table">
+      <span>Detalle</span>
+      <strong>Saldos por cuenta</strong>
+    </div>
     <div class="table-wrapper">
       <table class="mov-table fact-table">
         <thead>

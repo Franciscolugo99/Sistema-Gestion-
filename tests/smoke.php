@@ -1631,14 +1631,29 @@ $results[] = flus_run_test('navegacion cobranzas y tesoreria evitan dialogos nat
     flus_assert_contains("input?.addEventListener('input', clearAmountError);", $obligacionesPhp);
     flus_assert_contains('aria-live="polite"', $obligacionesPhp);
     flus_assert_contains('.tesoreria-pay-hint.is-error', $tesoreriaCss);
+    flus_assert_contains('tesoreria-obligaciones-summary', $obligacionesPhp);
+    flus_assert_contains('tesoreria-create', $obligacionesPhp);
+    flus_assert_contains('tesoreria-payment-panel', $obligacionesPhp);
+    flus_assert_contains('pay_id', $obligacionesPhp);
+    flus_assert_contains('.tesoreria-obligaciones-summary', $tesoreriaCss);
+    flus_assert_contains('.tesoreria-payment-panel', $tesoreriaCss);
 });
 
 $results[] = flus_run_test('factura manual identifica y enfoca el campo invalido', function (): void {
     $repoRoot = dirname(__DIR__);
     $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
     $manualJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'factura_manual.js');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
 
     flus_assert_contains('role="status" aria-live="polite" data-fm-status', $manualPhp);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $manualPhp);
+    flus_assert_contains('module-header-hero', $manualPhp);
+    flus_assert_contains('module-header-icon', $manualPhp);
+    flus_assert_contains('fact-manual-readiness', $manualPhp);
+    flus_assert_contains('fact-manual-alert-list', $manualPhp);
+    flus_assert_not_contains('<header class="page-header with-back">', $manualPhp);
+    flus_assert_not_contains('style="margin-top:12px;"', $manualPhp);
+    flus_assert_contains('.fact-manual-readiness {', $facturacionCss);
     flus_assert_contains('const markRowInvalid = (row, field) => {', $manualJs);
     flus_assert_contains('field.setAttribute("aria-invalid", "true")', $manualJs);
     flus_assert_contains('firstInvalidField?.focus();', $manualJs);
@@ -4503,11 +4518,25 @@ $results[] = flus_run_test('ux documental explica flujo y carga manual sin escon
 
     flus_assert_contains('Presupuestos y remitos viven aca', $documentosPhp);
     flus_assert_contains('Pueden ser manuales', $documentosPhp);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $documentosPhp);
+    flus_assert_contains('fact-doc-command', $documentosPhp);
+    flus_assert_contains('fact-doc-flow', $documentosPhp);
+    flus_assert_contains('fact-doc-filters', $documentosPhp);
+    flus_assert_contains('module-header-hero', $documentosPhp);
+    flus_assert_contains('module-header-icon', $documentosPhp);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $documentoPhp);
+    flus_assert_contains('module-header-hero', $documentoPhp);
+    flus_assert_contains('module-header-icon', $documentoPhp);
+    flus_assert_not_contains('<header class="page-header with-back">', $documentoPhp);
+    flus_assert_not_contains('style="margin-bottom:12px;"', $documentosPhp);
+    flus_assert_not_contains('style="margin-bottom:16px;"', $documentosPhp);
     flus_assert_contains('Qué hace este documento', $documentoPhp);
     flus_assert_contains('Cómo cargar ítems', $documentoPhp);
     flus_assert_contains('Emitir factura desde este documento', $documentoPhp);
     flus_assert_contains('Generar remito con estos ítems', $documentoPhp);
     flus_assert_contains('.fact-doc-guide {', $facturacionCss);
+    flus_assert_contains('.fact-doc-command {', $facturacionCss);
+    flus_assert_contains('.fact-doc-flow {', $facturacionCss);
     flus_assert_contains('.fact-doc-guide__inline-help {', $facturacionCss);
 });
 
@@ -4788,14 +4817,33 @@ $results[] = flus_run_test('tesoreria v1 agrega cuentas movimientos obligaciones
     flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $movimientosPhp);
     flus_assert_contains("require_any_permission(['ver_tesoreria', 'gestionar_tesoreria']);", $obligacionesPhp);
     flus_assert_contains("require_any_permission(['ver_tesoreria', 'ver_reportes_tesoreria', 'gestionar_tesoreria']);", $reportesPhp);
+    flus_assert_contains('$proximosVencimientos', $tesoreriaPhp);
+    flus_assert_contains('$obligacionesVencidas', $tesoreriaPhp);
+    flus_assert_contains('Prioridad operativa', $tesoreriaPhp);
+    flus_assert_contains('tesoreria-command', $tesoreriaPhp);
+    flus_assert_contains('tesoreria-workbench', $tesoreriaPhp);
+    flus_assert_contains('tesoreria-settings', $tesoreriaPhp);
+    flus_assert_contains('Configuracion', $tesoreriaPhp);
+    flus_assert_contains('assets/css/tesoreria.css?v=4', $tesoreriaPhp);
+    flus_assert_contains('assets/css/tesoreria.css?v=4', $cuentasPhp);
+    flus_assert_contains('assets/css/tesoreria.css?v=4', $categoriasPhp);
+    flus_assert_contains('assets/css/tesoreria.css?v=4', $reportesPhp);
+    flus_assert_not_contains('style="margin-bottom:12px;"', $tesoreriaPhp);
     flus_assert_contains('flus_tesoreria_save_cuenta($pdo', $cuentasPhp);
     flus_assert_contains('flus_tesoreria_save_categoria($pdo', $categoriasPhp);
     flus_assert_contains('flus_tesoreria_registrar_movimiento($pdo', $movimientosPhp);
     flus_assert_contains('flus_tesoreria_pagar_obligacion($pdo', $obligacionesPhp);
     flus_assert_contains('flus_tesoreria_reportes($pdo', $reportesPhp);
+    flus_assert_contains('tesoreria-create', $movimientosPhp);
+    flus_assert_contains('Historial de movimientos', $movimientosPhp);
+    flus_assert_contains('assets/css/tesoreria.css?v=4', $movimientosPhp);
     flus_assert_contains('tesoreriaLinks', $navPhp);
     flus_assert_contains('tesoreria_reportes.php', $navPhp);
     flus_assert_contains('.tesoreria-form-grid', $tesoreriaCss);
+    flus_assert_contains('.tesoreria-command', $tesoreriaCss);
+    flus_assert_contains('.tesoreria-priority', $tesoreriaCss);
+    flus_assert_contains('.tesoreria-workbench', $tesoreriaCss);
+    flus_assert_contains('.tesoreria-settings', $tesoreriaCss);
     flus_assert_contains('flus_it_run_tesoreria_v1_case', $integrationPhp);
     flus_assert_contains('tesoreria transfer does not inflate total balances', $integrationPhp);
     flus_assert_contains('tesoreria does not duplicate paid obligation', $integrationPhp);
@@ -4836,6 +4884,7 @@ $results[] = flus_run_test('tesoreria vincula obligaciones con compras de forma 
     flus_assert_contains('tesoreria_obligaciones.php?compra_id=', $comprasPhp);
     flus_assert_contains('js-tes-pay-form', $obligacionesPhp);
     flus_assert_contains('data-pay-total', $obligacionesPhp);
+    flus_assert_contains('Registrar pago', $obligacionesPhp);
     flus_assert_contains('El pago debe ser mayor a cero y no superar el saldo pendiente.', $obligacionesPhp);
     flus_assert_contains('o.proveedor_id = :proveedor_id', $tesoreriaLib);
     flus_assert_contains('o.compra_id = :compra_id', $tesoreriaLib);

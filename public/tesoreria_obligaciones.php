@@ -43,6 +43,39 @@ $obligaciones = flus_tesoreria_obligaciones($pdo, $_GET);
 $estadoFiltro = strtoupper(trim((string)($_GET['estado'] ?? '')));
 $proveedorFiltro = max(0, (int)($_GET['proveedor_id'] ?? 0));
 $compraFiltro = max(0, (int)($_GET['compra_id'] ?? 0));
+$payId = max(0, (int)($_GET['pay_id'] ?? 0));
+$obligacionPago = null;
+$obligacionesStats = [
+    'pendientes' => 0,
+    'vencidas' => 0,
+    'saldo_total' => 0.0,
+    'proximas' => 0,
+];
+$today = date('Y-m-d');
+$limitSoon = date('Y-m-d', strtotime('+30 days'));
+foreach ($obligaciones as $ob) {
+    $estado = (string)($ob['estado_efectivo'] ?? $ob['estado'] ?? 'PENDIENTE');
+    $saldo = max(0.0, (float)($ob['importe_estimado'] ?? 0) - (float)($ob['importe_pagado'] ?? 0));
+    if (!in_array($estado, ['PAGADO', 'CANCELADO'], true)) {
+        $obligacionesStats['pendientes']++;
+        $obligacionesStats['saldo_total'] += $saldo;
+    }
+    if ($estado === 'VENCIDO') {
+        $obligacionesStats['vencidas']++;
+    }
+    $vto = (string)($ob['fecha_vencimiento'] ?? '');
+    if ($vto >= $today && $vto <= $limitSoon && !in_array($estado, ['PAGADO', 'CANCELADO'], true)) {
+        $obligacionesStats['proximas']++;
+    }
+    if ($payId > 0 && (int)($ob['id'] ?? 0) === $payId && !in_array($estado, ['PAGADO', 'CANCELADO'], true)) {
+        $obligacionPago = $ob;
+        $obligacionPago['saldo_calculado'] = $saldo;
+        $obligacionPago['estado_efectivo'] = $estado;
+    }
+}
+$clearPayParams = $_GET;
+unset($clearPayParams['pay_id']);
+$clearPayUrl = 'tesoreria_obligaciones.php' . ($clearPayParams ? '?' . http_build_query($clearPayParams) : '');
 
 $pageTitle = 'Obligaciones de tesoreria - FLUS';
 $currentSection = 'tesoreria';
@@ -50,7 +83,7 @@ $breadcrumbs = [
     ['label' => 'Tesoreria', 'url' => 'tesoreria.php'],
     ['label' => 'Obligaciones', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=3'];
+$extraCss = ['assets/css/facturacion.css?v=10', 'assets/css/tesoreria.css?v=4'];
 
 require __DIR__ . '/partials/header.php';
 ?>
@@ -74,7 +107,30 @@ require __DIR__ . '/partials/header.php';
     <?php if ($error !== ''): ?><div class="alert alert-error"><?= h($error) ?></div><?php endif; ?>
     <?php if ($ok !== ''): ?><div class="alert alert-success"><?= h($ok) ?></div><?php endif; ?>
 
+    <section class="tesoreria-obligaciones-summary" aria-label="Resumen de obligaciones">
+      <article class="tesoreria-obligation-stat">
+        <span>Pendientes</span>
+        <strong><?= number_format($obligacionesStats['pendientes']) ?></strong>
+        <small><?= money_ar((float)$obligacionesStats['saldo_total']) ?> por pagar</small>
+      </article>
+      <article class="tesoreria-obligation-stat <?= $obligacionesStats['vencidas'] > 0 ? 'is-danger' : '' ?>">
+        <span>Vencidas</span>
+        <strong><?= number_format($obligacionesStats['vencidas']) ?></strong>
+        <small><?= $obligacionesStats['vencidas'] > 0 ? 'Requieren atencion' : 'Sin atrasos' ?></small>
+      </article>
+      <article class="tesoreria-obligation-stat <?= $obligacionesStats['proximas'] > 0 ? 'is-warn' : '' ?>">
+        <span>Proximas</span>
+        <strong><?= number_format($obligacionesStats['proximas']) ?></strong>
+        <small>Vencen dentro de 30 dias</small>
+      </article>
+    </section>
+
     <?php if ($canManage): ?>
+      <details class="tesoreria-create">
+        <summary>
+          <span>Nueva obligacion</span>
+          <strong>Cargar un vencimiento</strong>
+        </summary>
       <form method="post" class="filters tesoreria-entry-form">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="crear">
@@ -135,6 +191,46 @@ require __DIR__ . '/partials/header.php';
           </div>
         </div>
       </form>
+      </details>
+    <?php endif; ?>
+
+    <?php if ($canManage && $obligacionPago !== null): ?>
+      <?php $saldoPago = (float)($obligacionPago['saldo_calculado'] ?? 0); ?>
+      <section class="tesoreria-payment-panel" aria-label="Registrar pago de obligacion">
+        <div class="tesoreria-payment-panel__copy">
+          <span>Pago seleccionado</span>
+          <strong><?= h((string)($obligacionPago['descripcion'] ?? 'Obligacion')) ?></strong>
+          <small>
+            Vence <?= h(date('d/m/Y', strtotime((string)($obligacionPago['fecha_vencimiento'] ?? 'now')))) ?>,
+            saldo <?= h(money_ar($saldoPago)) ?>
+          </small>
+        </div>
+        <form method="post" class="tesoreria-inline-form tesoreria-payment-form js-tes-pay-form" data-saldo="<?= h(number_format($saldoPago, 2, '.', '')) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="pagar">
+          <input type="hidden" name="obligacion_id" value="<?= (int)$obligacionPago['id'] ?>">
+          <input type="hidden" name="request_uid" value="<?= h(bin2hex(random_bytes(16))) ?>">
+          <label>
+            <span>Cuenta</span>
+            <select name="cuenta_origen_id" required>
+              <option value="">Elegir</option>
+              <?php foreach ($cuentas as $cuenta): ?>
+                <option value="<?= (int)$cuenta['id'] ?>" <?= (int)($obligacionPago['cuenta_sugerida_id'] ?? 0) === (int)$cuenta['id'] ? 'selected' : '' ?>><?= h((string)$cuenta['nombre']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          <label>
+            <span>Pagar monto</span>
+            <input name="importe" class="js-tes-pay-amount" inputmode="decimal" value="<?= h(number_format($saldoPago, 2, ',', '.')) ?>" data-saldo="<?= h(number_format($saldoPago, 2, '.', '')) ?>">
+            <small class="tesoreria-pay-hint" aria-live="polite">Saldo <?= h(money_ar($saldoPago)) ?></small>
+          </label>
+          <div class="tesoreria-pay-actions">
+            <button class="btn-mini" type="button" data-pay-total="<?= h(number_format($saldoPago, 2, ',', '.')) ?>">Total</button>
+            <button class="btn-mini btn-mini--primary" type="submit">Registrar pago</button>
+            <a class="btn-mini" href="<?= h($clearPayUrl) ?>">Cancelar</a>
+          </div>
+        </form>
+      </section>
     <?php endif; ?>
 
     <form method="get" class="filters fact-filters">
@@ -186,6 +282,9 @@ require __DIR__ . '/partials/header.php';
                 $estado = (string)($ob['estado_efectivo'] ?? $ob['estado'] ?? 'PENDIENTE');
                 $estadoClass = $estado === 'PAGADO' ? 'tesoreria-status--ok' : ($estado === 'VENCIDO' ? 'tesoreria-status--danger' : ($estado === 'PARCIAL' ? 'tesoreria-status--warn' : ''));
                 $saldo = max(0.0, (float)$ob['importe_estimado'] - (float)$ob['importe_pagado']);
+                $payParams = $_GET;
+                $payParams['pay_id'] = (int)$ob['id'];
+                $payUrl = 'tesoreria_obligaciones.php?' . http_build_query($payParams);
               ?>
               <tr>
                 <td class="mono"><?= h(date('d/m/Y', strtotime((string)$ob['fecha_vencimiento']))) ?></td>
@@ -211,30 +310,7 @@ require __DIR__ . '/partials/header.php';
                 <td><span class="tesoreria-status <?= h($estadoClass) ?>"><?= h($estado) ?></span></td>
                 <td>
                   <?php if ($canManage && !in_array($estado, ['PAGADO', 'CANCELADO'], true)): ?>
-                    <form method="post" class="tesoreria-inline-form js-tes-pay-form" data-saldo="<?= h(number_format($saldo, 2, '.', '')) ?>">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="pagar">
-                      <input type="hidden" name="obligacion_id" value="<?= (int)$ob['id'] ?>">
-                      <input type="hidden" name="request_uid" value="<?= h(bin2hex(random_bytes(16))) ?>">
-                      <label>
-                        <span>Cuenta</span>
-                        <select name="cuenta_origen_id" required>
-                          <option value="">Elegir</option>
-                          <?php foreach ($cuentas as $cuenta): ?>
-                            <option value="<?= (int)$cuenta['id'] ?>" <?= (int)($ob['cuenta_sugerida_id'] ?? 0) === (int)$cuenta['id'] ? 'selected' : '' ?>><?= h((string)$cuenta['nombre']) ?></option>
-                          <?php endforeach; ?>
-                        </select>
-                      </label>
-                      <label>
-                        <span>Pagar monto</span>
-                        <input name="importe" class="js-tes-pay-amount" inputmode="decimal" value="<?= h(number_format($saldo, 2, ',', '.')) ?>" data-saldo="<?= h(number_format($saldo, 2, '.', '')) ?>">
-                        <small class="tesoreria-pay-hint" aria-live="polite">Saldo <?= h(money_ar($saldo)) ?></small>
-                      </label>
-                      <div class="tesoreria-pay-actions">
-                        <button class="btn-mini" type="button" data-pay-total="<?= h(number_format($saldo, 2, ',', '.')) ?>">Total</button>
-                        <button class="btn-mini btn-mini--primary" type="submit">Pagar</button>
-                      </div>
-                    </form>
+                    <a class="btn-mini btn-mini--primary" href="<?= h($payUrl) ?>">Pagar</a>
                   <?php elseif ($estado === 'PAGADO'): ?>
                     <span class="muted">Pagada</span>
                   <?php else: ?>
