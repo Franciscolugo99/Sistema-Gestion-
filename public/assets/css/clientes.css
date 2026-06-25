@@ -142,6 +142,23 @@
   margin-top: 6px;
 }
 
+.field-error.is-visible {
+  display: block;
+}
+
+.field-error.is-success {
+  color: #22c55e;
+}
+
+.field-error.is-error {
+  color: #ef4444;
+}
+
+.cli-dialog-muted {
+  color: var(--muted, #94a3b8);
+  font-size: 0.88rem;
+}
+
 /* Inputs/selects/textarea: legibles en dark/light */
 .clientes-form input,
 .clientes-form select,
@@ -693,6 +710,10 @@ body.no-scroll {
   border: 1px solid rgba(56, 189, 248, 0.15);
   border-radius: 12px;
   padding: 16px;
+}
+
+.cli-cc-config.is-hidden {
+  display: none;
 }
 
 .cli-cc-fields {

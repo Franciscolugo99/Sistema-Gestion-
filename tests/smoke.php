@@ -1555,6 +1555,7 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     $proveedoresJs = (string)file_get_contents($jsRoot . 'proveedores.js');
     $rolesJs = (string)file_get_contents($jsRoot . 'roles.js');
     $permisosJs = (string)file_get_contents($jsRoot . 'rol_permisos.js');
+    $clientesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'clientes.php');
     $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'roles.php');
     $cssRoot = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR;
     $clientesCss = (string)file_get_contents($cssRoot . 'clientes.css');
@@ -1562,6 +1563,18 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     $rolesCss = (string)file_get_contents($cssRoot . 'roles.css');
 
     flus_assert_contains('danger: action === "desactivar"', $clientesJs);
+    flus_assert_contains('data-clientes-filters', $clientesPhp);
+    flus_assert_contains('data-clientes-autosubmit', $clientesPhp);
+    flus_assert_contains('id="cuitError"', $clientesPhp);
+    flus_assert_contains('initClientesFilters', $clientesJs);
+    flus_assert_contains('setCuitFeedback', $clientesJs);
+    flus_assert_contains('ccPanel.classList.toggle("is-hidden"', $clientesJs);
+    flus_assert_contains('.field-error.is-visible', $clientesCss);
+    flus_assert_contains('.cli-cc-config.is-hidden', $clientesCss);
+    flus_assert_not_contains('onchange="this.form.submit()"', $clientesPhp);
+    flus_assert_not_contains('id="ccConfigPanel" class="cli-cc-config" style=', $clientesPhp);
+    flus_assert_not_contains('ccPanel.style.display', $clientesJs);
+    flus_assert_not_contains("style='color:var(--muted,#94a3b8);font-size:.88rem'", $clientesJs);
     flus_assert_contains("danger: action === 'desactivar'", $proveedoresJs);
     flus_assert_not_contains('window.confirm(', $clientesJs);
     flus_assert_not_contains('window.confirm(', $proveedoresJs);

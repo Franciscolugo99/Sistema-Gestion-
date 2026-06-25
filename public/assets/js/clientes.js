@@ -2,6 +2,24 @@
 (function () {
   "use strict";
 
+  function initClientesFilters() {
+    const filtersForm = document.querySelector("[data-clientes-filters]");
+    if (!filtersForm) return;
+
+    filtersForm.querySelectorAll("[data-clientes-autosubmit]").forEach((control) => {
+      control.addEventListener("change", () => {
+        if (typeof filtersForm.requestSubmit === "function") {
+          filtersForm.requestSubmit();
+          return;
+        }
+
+        filtersForm.submit();
+      });
+    });
+  }
+
+  initClientesFilters();
+
   const overlay = document.getElementById("cliDrawerOverlay");
   const drawer = document.getElementById("cliDrawer");
   const form = document.getElementById("cliForm");
@@ -137,6 +155,15 @@
   const cuitError = document.getElementById("cuitError");
   const condIvaSelect = document.getElementById("condIvaSelect");
 
+  function setCuitFeedback(message, state) {
+    if (!cuitError) return;
+
+    cuitError.textContent = message || "";
+    cuitError.classList.toggle("is-visible", Boolean(message));
+    cuitError.classList.toggle("is-success", state === "success");
+    cuitError.classList.toggle("is-error", state === "error");
+  }
+
   if (cuitInput && cuitError) {
     cuitInput.addEventListener("input", (e) => {
       let valor = e.target.value;
@@ -146,29 +173,23 @@
         e.target.value = formatearCuit(limpio);
       }
 
-      cuitError.textContent = "";
-      cuitError.style.display = "none";
+      setCuitFeedback("", "");
     });
 
     cuitInput.addEventListener("blur", (e) => {
       const valor = e.target.value.trim();
 
       if (valor === "") {
-        cuitError.textContent = "";
-        cuitError.style.display = "none";
+        setCuitFeedback("", "");
         return;
       }
 
       const resultado = validarCuit(valor);
 
       if (!resultado.valido) {
-        cuitError.textContent = resultado.error;
-        cuitError.style.display = "block";
-        cuitError.style.color = "#dc3545";
+        setCuitFeedback(resultado.error, "error");
       } else {
-        cuitError.textContent = "✓ CUIT válido";
-        cuitError.style.display = "block";
-        cuitError.style.color = "#28a745";
+        setCuitFeedback("✓ CUIT válido", "success");
 
         e.target.value = formatearCuit(valor);
       }
@@ -193,6 +214,24 @@
   }
 
   // ========== VALIDACIÓN FRONTEND ==========
+  const ccCheck = document.getElementById("ccHabilitadoCheck");
+  const ccPanel = document.getElementById("ccConfigPanel");
+  const ccLimite = document.getElementById("ccLimiteInput");
+
+  if (ccCheck && ccPanel) {
+    ccCheck.addEventListener("change", () => {
+      ccPanel.classList.toggle("is-hidden", !ccCheck.checked);
+
+      if (
+        ccCheck.checked &&
+        ccLimite &&
+        (ccLimite.value === "0.00" || ccLimite.value === "0")
+      ) {
+        ccLimite.focus();
+      }
+    });
+  }
+
   form.addEventListener("submit", (e) => {
     const nombreInput = form.querySelector('[name="nombre"]');
     const emailInput = form.querySelector('[name="email"]');
@@ -374,7 +413,7 @@
           if (nombreInput && nombreInput.value.trim() !== "") {
             const ok = await Notif.confirmar(
               "🔍 Datos de AFIP",
-              `<p>Se encontró: <strong>${nombreAfip}</strong></p><p style='color:var(--muted,#94a3b8);font-size:.88rem'>¿Autocompletar datos desde AFIP?</p>`,
+              `<p>Se encontró: <strong>${nombreAfip}</strong></p><p class="cli-dialog-muted">¿Autocompletar datos desde AFIP?</p>`,
               { icon: "info", confirmText: "✅ Autocompletar", cancelText: "❌ No, gracias" }
             );
             if (!ok) return;

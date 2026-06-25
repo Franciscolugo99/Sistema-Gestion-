@@ -228,13 +228,13 @@ require __DIR__ . '/partials/header.php';
     <div class="panel cli-list-panel">
         <h2 class="sub-title-page">Listado</h2>
 
-        <form method="get" class="filters">
+        <form method="get" class="filters" data-clientes-filters>
             <div class="filters-left">
                 <input type="search" name="q" placeholder="Buscar por nombre, CUIT, email..." 
                        value="<?= h($q) ?>" class="search-input">
                 
                 <?php if ($hasTipo): ?>
-                <select name="tipo" onchange="this.form.submit()">
+                <select name="tipo" data-clientes-autosubmit>
                     <option value="">Todos los tipos</option>
                     <?php foreach ($tipoOptions as $val => $label): ?>
                         <option value="<?= h($val) ?>" <?= $tipo === $val ? 'selected' : '' ?>>
@@ -244,14 +244,14 @@ require __DIR__ . '/partials/header.php';
                 </select>
                 <?php endif; ?>
                 
-                <select name="estado" onchange="this.form.submit()">
+                <select name="estado" data-clientes-autosubmit>
                     <option value="">Todos</option>
                     <option value="activos" <?= $estado === 'activos' ? 'selected' : '' ?>>Activos</option>
                     <option value="inactivos" <?= $estado === 'inactivos' ? 'selected' : '' ?>>Inactivos</option>
                 </select>
                 
                 <?php if ($hasCC): ?>
-                <select name="estado_cc" onchange="this.form.submit()">
+                <select name="estado_cc" data-clientes-autosubmit>
                     <option value="">Todas las CC</option>
                     <option value="cc_activa" <?= $estadoCC === 'cc_activa' ? 'selected' : '' ?>>Con CC activa</option>
                     <option value="cc_con_deuda" <?= $estadoCC === 'cc_con_deuda' ? 'selected' : '' ?>>Con deuda</option>
@@ -264,7 +264,7 @@ require __DIR__ . '/partials/header.php';
 
             <div class="filters-right">
                 <span class="results-count"><?= number_format($totalRows) ?> cliente<?= $totalRows !== 1 ? 's' : '' ?></span>
-                <select name="per_page" onchange="this.form.submit()">
+                <select name="per_page" data-clientes-autosubmit>
                     <option value="20" <?= $perPage === 20 ? 'selected' : '' ?>>20 por página</option>
                     <option value="50" <?= $perPage === 50 ? 'selected' : '' ?>>50 por página</option>
                     <option value="100" <?= $perPage === 100 ? 'selected' : '' ?>>100 por página</option>
@@ -446,6 +446,7 @@ require __DIR__ . '/partials/header.php';
                                maxlength="13"
                                data-cuit-input
                                value="<?= h($editCliente['cuit'] ?? ($_POST['cuit'] ?? '')) ?>">
+                        <small id="cuitError" class="field-error" role="status" aria-live="polite"></small>
                     </div>
 
                     <!-- CONDICIÓN IVA -->
@@ -570,7 +571,7 @@ require __DIR__ . '/partials/header.php';
                         </label>
                     </div>
                     
-                    <div id="ccConfigPanel" class="cli-cc-config" style="<?= ((int)$ccHabForm) ? '' : 'display:none' ?>">
+                    <div id="ccConfigPanel" class="cli-cc-config<?= ((int)$ccHabForm) ? '' : ' is-hidden' ?>">
                         <div class="cli-cc-fields">
                             <div class="cli-field">
                                 <label>Límite de crédito</label>
@@ -746,21 +747,3 @@ require __DIR__ . '/partials/header.php';
         })();
     </script>
 <?php endif; ?>
-
-<script>
-// Toggle del panel de cuenta corriente
-document.addEventListener('DOMContentLoaded', function() {
-    const ccCheck = document.getElementById('ccHabilitadoCheck');
-    const ccPanel = document.getElementById('ccConfigPanel');
-    const ccLimite = document.getElementById('ccLimiteInput');
-    
-    if (ccCheck && ccPanel) {
-        ccCheck.addEventListener('change', function() {
-            ccPanel.style.display = this.checked ? '' : 'none';
-            if (this.checked && ccLimite && (ccLimite.value === '0.00' || ccLimite.value === '0')) {
-                ccLimite.focus();
-            }
-        });
-    }
-});
-</script>
