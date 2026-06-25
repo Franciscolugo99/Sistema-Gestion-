@@ -312,10 +312,10 @@ require __DIR__ . '/partials/header.php';
       Movimientos
     </h3>
     
-    <form method="get" class="filtros-movimientos">
+    <form method="get" class="filtros-movimientos" data-cc-filters>
       <input type="hidden" name="id" value="<?= $clienteId ?>">
       
-      <select name="tipo" class="filter-select" onchange="this.form.submit()">
+      <select name="tipo" class="filter-select" data-cc-autosubmit>
         <option value="">Todos los tipos</option>
         <option value="CARGO" <?= $filtros['tipo'] === 'CARGO' ? 'selected' : '' ?>>Cargos</option>
         <option value="PAGO" <?= $filtros['tipo'] === 'PAGO' ? 'selected' : '' ?>>Pagos</option>
@@ -325,13 +325,13 @@ require __DIR__ . '/partials/header.php';
       </select>
       
       <input type="date" name="desde" value="<?= h($filtros['desde']) ?>" 
-             class="filter-input" placeholder="Desde" onchange="this.form.submit()">
+             class="filter-input" placeholder="Desde" data-cc-autosubmit>
       <input type="date" name="hasta" value="<?= h($filtros['hasta']) ?>" 
-             class="filter-input" placeholder="Hasta" onchange="this.form.submit()">
+             class="filter-input" placeholder="Hasta" data-cc-autosubmit>
       
       <label class="chk">
         <input type="checkbox" name="incluir_anulados" <?= $filtros['incluir_anulados'] ? 'checked' : '' ?>
-               onchange="this.form.submit()">
+               data-cc-autosubmit>
         <span>Incluir anulados</span>
       </label>
       

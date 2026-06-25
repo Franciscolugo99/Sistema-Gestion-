@@ -33,6 +33,39 @@
   let searchTimeout = null;
   let currentRequestUid = "";
 
+  function initCuentaCorrienteFilters() {
+    document.querySelectorAll("[data-cc-filters]").forEach((filtersForm) => {
+      filtersForm.querySelectorAll("[data-cc-autosubmit]").forEach((control) => {
+        control.addEventListener("change", () => {
+          if (typeof filtersForm.requestSubmit === "function") {
+            filtersForm.requestSubmit();
+            return;
+          }
+
+          filtersForm.submit();
+        });
+      });
+    });
+  }
+
+  function setPageLocked(locked) {
+    document.body.classList.toggle("no-scroll", locked);
+  }
+
+  function hasOpenDrawer() {
+    return Boolean(
+      drawer?.classList.contains("active") ||
+      drawerAjuste?.classList.contains("active"),
+    );
+  }
+
+  function setClienteSelectedVisible(visible) {
+    if (!clienteSelected) return;
+    clienteSelected.classList.toggle("is-hidden", !visible);
+  }
+
+  initCuentaCorrienteFilters();
+
   // ═══════════════════════════════════════════════════════════════════
   // UTILIDADES
   // ═══════════════════════════════════════════════════════════════════
@@ -107,7 +140,7 @@
       if (pagoClienteSaldo)
         pagoClienteSaldo.textContent = "Saldo: $" + formatMoney(currentSaldo);
 
-      if (clienteSelected) clienteSelected.style.display = "flex";
+      setClienteSelectedVisible(true);
       if (clienteSearch) clienteSearch.classList.remove("active");
     } else {
       if (pagoClienteId) pagoClienteId.value = "";
@@ -116,13 +149,13 @@
       if (pagoClienteSaldo) pagoClienteSaldo.textContent = "";
       currentSaldo = 0;
 
-      if (clienteSelected) clienteSelected.style.display = "none";
+      setClienteSelectedVisible(false);
       if (clienteSearch) clienteSearch.classList.add("active");
     }
 
     drawer.classList.add("active");
     if (overlay) overlay.classList.add("active");
-    document.body.style.overflow = "hidden";
+    setPageLocked(true);
 
     setTimeout(() => {
       if (clienteId && pagoMonto) {
@@ -137,7 +170,7 @@
     if (!drawer) return;
     drawer.classList.remove("active");
     if (overlay) overlay.classList.remove("active");
-    document.body.style.overflow = "";
+    setPageLocked(hasOpenDrawer());
     currentRequestUid = "";
   }
 
@@ -171,7 +204,7 @@
                   data-nombre="${escapeHtml(c.nombre)}"
                   data-saldo="${saldo}">
                 <strong>${escapeHtml(c.nombre)}</strong>
-                <span style="float:right;color:#ef4444;">$${formatMoney(saldo)}</span>
+                <span class="cliente-result-amount">$${formatMoney(saldo)}</span>
               </div>
             `;
           })
@@ -195,7 +228,7 @@
     if (pagoClienteSaldo)
       pagoClienteSaldo.textContent = "Saldo: $" + formatMoney(currentSaldo);
 
-    if (clienteSelected) clienteSelected.style.display = "flex";
+    setClienteSelectedVisible(true);
     if (clienteSearch) clienteSearch.classList.remove("active");
     if (clienteSearchResults) clienteSearchResults.classList.remove("active");
 
@@ -334,7 +367,7 @@
   async function recalcularSaldo(clienteId) {
     if (!await Notif.confirmar(
       "🔢 Recalcular saldo",
-      "<p>Recalculará el saldo desde los movimientos.</p><p style='color:var(--muted);font-size:.88rem'>Corrige inconsistencias si las hubiera.</p>",
+      "<p>Recalculará el saldo desde los movimientos.</p><p class='cc-dialog-muted'>Corrige inconsistencias si las hubiera.</p>",
       { icon: "info", confirmText: "✅ Recalcular", cancelText: "❌ Cancelar" }
     )) return;
 
@@ -390,7 +423,7 @@
 
     drawerAjuste.classList.add("active");
     if (overlayAjuste) overlayAjuste.classList.add("active");
-    document.body.style.overflow = "hidden";
+    setPageLocked(true);
 
     setTimeout(() => {
       if (ajusteMonto) ajusteMonto.focus();
@@ -401,7 +434,7 @@
     if (!drawerAjuste) return;
     drawerAjuste.classList.remove("active");
     if (overlayAjuste) overlayAjuste.classList.remove("active");
-    document.body.style.overflow = "";
+    setPageLocked(hasOpenDrawer());
   }
 
   async function enviarAjuste(event) {
@@ -605,24 +638,4 @@
     }
   });
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SPINNER STYLES
-  // ═══════════════════════════════════════════════════════════════════
-
-  const style = document.createElement("style");
-  style.textContent = `
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
-  document.head.appendChild(style);
 })();

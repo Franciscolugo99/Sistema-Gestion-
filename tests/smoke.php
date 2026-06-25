@@ -2482,6 +2482,10 @@ $results[] = flus_run_test('cuenta corriente actions salen del switch y usan gua
     $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
     $buscarClientesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'buscar_clientes_cc.php');
     $verificarCcPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'verificar_cc.php');
+    $ccPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'cuenta_corriente.php');
+    $ccClientePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'cuenta_corriente_cliente.php');
+    $ccJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'cuenta_corriente.js');
+    $ccCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'cuenta_corriente.css');
 
     flus_assert_contains("'buscar_clientes_cc' => [", $indexPhp);
     flus_assert_contains("'verificar_cc' => [", $indexPhp);
@@ -2500,6 +2504,25 @@ $results[] = flus_run_test('cuenta corriente actions salen del switch y usan gua
     flus_assert_contains("ORDER BY cc_saldo DESC, nombre ASC", $buscarClientesPhp);
     flus_assert_contains("\$ccCtrl = new CuentaCorrienteController(\$pdo);", $verificarCcPhp);
     flus_assert_contains("'puede_autorizar' => \$puedeAutorizar,", $verificarCcPhp);
+    flus_assert_contains('data-cc-filters', $ccPhp);
+    flus_assert_contains('data-cc-autosubmit', $ccPhp);
+    flus_assert_contains('data-cc-filters', $ccClientePhp);
+    flus_assert_contains('data-cc-autosubmit', $ccClientePhp);
+    flus_assert_contains('initCuentaCorrienteFilters', $ccJs);
+    flus_assert_contains('setPageLocked', $ccJs);
+    flus_assert_contains('setClienteSelectedVisible', $ccJs);
+    flus_assert_contains('cliente-result-amount', $ccJs);
+    flus_assert_contains('body.no-scroll', $ccCss);
+    flus_assert_contains('.cliente-selected.is-hidden', $ccCss);
+    flus_assert_contains('.cliente-result-amount', $ccCss);
+    flus_assert_contains('.cc-dialog-muted', $ccCss);
+    flus_assert_not_contains('onchange="this.form.submit()"', $ccPhp);
+    flus_assert_not_contains('onchange="this.form.submit()"', $ccClientePhp);
+    flus_assert_not_contains('document.body.style.overflow', $ccJs);
+    flus_assert_not_contains('clienteSelected.style.display', $ccJs);
+    flus_assert_not_contains('<span style="float:right;color:#ef4444;">', $ccJs);
+    flus_assert_not_contains("style='color:var(--muted);font-size:.88rem'", $ccJs);
+    flus_assert_not_contains('document.createElement("style")', $ccJs);
 });
 
 $results[] = flus_run_test('ventas y promos chicos salen del switch y usan action files', function (): void {

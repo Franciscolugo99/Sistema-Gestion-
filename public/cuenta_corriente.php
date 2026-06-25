@@ -149,7 +149,7 @@ require __DIR__ . '/partials/header.php';
   <!-- FILTROS -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <div class="cc-filters">
-    <form method="get" class="filters-form" id="formFiltros">
+    <form method="get" class="filters-form" id="formFiltros" data-cc-filters>
       <div class="filters-left">
         <div class="search-box">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -159,7 +159,7 @@ require __DIR__ . '/partials/header.php';
                  value="<?= h($filtros['q']) ?>" class="search-input">
         </div>
         
-        <select name="estado" class="filter-select" onchange="this.form.submit()">
+        <select name="estado" class="filter-select" data-cc-autosubmit>
           <option value="">Todos los estados</option>
           <option value="con_deuda" <?= $filtros['estado'] === 'con_deuda' ? 'selected' : '' ?>>Con deuda</option>
           <option value="al_dia" <?= $filtros['estado'] === 'al_dia' ? 'selected' : '' ?>>Al día</option>
@@ -167,7 +167,7 @@ require __DIR__ . '/partials/header.php';
           <option value="excedidos" <?= $filtros['estado'] === 'excedidos' ? 'selected' : '' ?>>Excedidos</option>
         </select>
         
-        <select name="orden" class="filter-select" onchange="this.form.submit()">
+        <select name="orden" class="filter-select" data-cc-autosubmit>
           <option value="saldo_desc" <?= $filtros['orden'] === 'saldo_desc' ? 'selected' : '' ?>>Mayor deuda primero</option>
           <option value="saldo_asc" <?= $filtros['orden'] === 'saldo_asc' ? 'selected' : '' ?>>Menor deuda primero</option>
           <option value="nombre" <?= $filtros['orden'] === 'nombre' ? 'selected' : '' ?>>Nombre A-Z</option>
