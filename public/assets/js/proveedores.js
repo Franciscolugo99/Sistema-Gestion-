@@ -286,6 +286,8 @@
     // El drawer ya viene abierto desde PHP, solo asegurar estado correcto
     if (!drawer.classList.contains('is-open')) {
       openDrawer();
+    } else {
+      setPageLocked(true);
     }
   }
 

@@ -1582,6 +1582,7 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     flus_assert_contains('data-proveedores-autosubmit', $proveedoresPhp);
     flus_assert_contains('initProveedoresFilters', $proveedoresJs);
     flus_assert_contains('setPageLocked', $proveedoresJs);
+    flus_assert_contains('setPageLocked(true);', $proveedoresJs);
     flus_assert_contains("stats.classList.add('is-hidden')", $proveedoresJs);
     flus_assert_contains("row.classList.add('prov-row-clickable')", $proveedoresJs);
     flus_assert_contains('.edit-stats.is-hidden', $proveedoresCss);
