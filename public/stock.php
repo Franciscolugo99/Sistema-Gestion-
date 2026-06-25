@@ -380,8 +380,8 @@ require __DIR__ . "/partials/header.php";
         </span>
         <div class="module-header-copy">
           <span class="page-eyebrow module-eyebrow">Inventario operativo</span>
-          <h1 class="page-title">Control de Stock</h1>
-          <p class="page-sub">Controla existencias, alertas y ajustes con historial.</p>
+          <h1 class="page-title">Control de stock</h1>
+          <p class="page-sub">Controlá existencias, alertas y ajustes con historial.</p>
         </div>
       </div>
     </div>
@@ -393,7 +393,7 @@ require __DIR__ . "/partials/header.php";
 
   <div class="stats-row">
     <div class="stat-card stat-clickable" data-filter-estado="">
-      <div class="stat-label">Total Productos</div>
+      <div class="stat-label">Total productos</div>
       <div class="stat-value"><?= (int)$totalProductos ?></div>
     </div>
     <div class="stat-card stat-ok stat-clickable" data-filter-estado="ok">
@@ -401,11 +401,11 @@ require __DIR__ . "/partials/header.php";
       <div class="stat-value"><?= (int)$ok ?></div>
     </div>
     <div class="stat-card stat-bajo stat-clickable" data-filter-estado="bajo">
-      <div class="stat-label">Bajo Stock</div>
+      <div class="stat-label">Bajo stock</div>
       <div class="stat-value badge-warning"><?= (int)$bajoStock ?></div>
     </div>
     <div class="stat-card stat-sin stat-clickable" data-filter-estado="sin">
-      <div class="stat-label">Sin Stock</div>
+      <div class="stat-label">Sin stock</div>
       <div class="stat-value badge-danger"><?= (int)$sinStock ?></div>
     </div>
     <div class="stat-card stat-inactivo stat-clickable" data-filter-estado="inactivo">
@@ -417,7 +417,7 @@ require __DIR__ . "/partials/header.php";
   <div class="tabs-container">
     <div class="tabs">
       <a href="<?= h(urlWith(['tab'=>'general','page'=>1], 'stock.php')) ?>" class="tab <?= $tab==='general'?'active':'' ?>">
-        Stock General
+        Stock general
       </a>
       <a href="<?= h(urlWith(['tab'=>'alertas','page'=>1], 'stock.php')) ?>" class="tab <?= $tab==='alertas'?'active':'' ?>">
         Alertas
@@ -463,7 +463,7 @@ require __DIR__ . "/partials/header.php";
       </select>
 
       <select name="categoria" id="categoriaSelect" class="filter-select">
-        <option value="">Todas las categorias</option>
+        <option value="">Todas las categorías</option>
         <?php foreach ($categorias as $cat): ?>
           <option value="<?= h($cat) ?>" <?= $categoria===$cat?'selected':'' ?>><?= h($cat) ?></option>
         <?php endforeach; ?>
@@ -478,7 +478,7 @@ require __DIR__ . "/partials/header.php";
 
       <select name="limit" id="limitSelect" class="filter-select">
         <?php foreach ($perPageOptions as $opt): ?>
-          <option value="<?= (int)$opt ?>" <?= $opt===$perPage?'selected':'' ?>><?= (int)$opt ?> por pagina</option>
+          <option value="<?= (int)$opt ?>" <?= $opt===$perPage?'selected':'' ?>><?= (int)$opt ?> por página</option>
         <?php endforeach; ?>
       </select>
 
@@ -495,11 +495,11 @@ require __DIR__ . "/partials/header.php";
   <!-- Filtros activos (NUEVO - consistente con ventas) -->
   <?php 
   $filtrosActivos = [];
-  if ($buscar) $filtrosActivos[] = ['key' => 'q', 'label' => "Busqueda: $buscar"];
+  if ($buscar) $filtrosActivos[] = ['key' => 'q', 'label' => "Búsqueda: $buscar"];
   if ($estado) $filtrosActivos[] = ['key' => 'estado', 'label' => "Estado: $estado"];
   if ($pesable === 'si') $filtrosActivos[] = ['key' => 'pesable', 'label' => 'Tipo: Solo pesables'];
   if ($pesable === 'no') $filtrosActivos[] = ['key' => 'pesable', 'label' => 'Tipo: Solo no pesables'];
-  if ($categoria) $filtrosActivos[] = ['key' => 'categoria', 'label' => "Categoria: $categoria"]; 
+  if ($categoria) $filtrosActivos[] = ['key' => 'categoria', 'label' => "Categoría: $categoria"];
   if ($proveedor) $filtrosActivos[] = ['key' => 'proveedor', 'label' => "Proveedor: $proveedor"];
   ?>
   <?php if ($filtrosActivos): ?>
@@ -518,7 +518,7 @@ require __DIR__ . "/partials/header.php";
       Mostrando <?= number_format($fromRow) ?>-<?= number_format($toRow) ?> de <?= number_format($totalFiltrados) ?> productos
     </div>
     <div class="action-buttons">
-      <button type="button" class="v-btn v-btn--ghost btn-icon" onclick="StockManager.refreshPage()" title="Actualizar datos">
+      <button type="button" class="v-btn v-btn--ghost btn-icon" data-stock-refresh title="Actualizar datos">
         Actualizar
       </button>
       <a href="<?= h(urlWith(['export' => $tab], 'stock.php')) ?>" class="v-btn v-btn--ghost btn-icon">
@@ -534,18 +534,18 @@ require __DIR__ . "/partials/header.php";
     <table class="stock-table">
       <thead>
         <tr>
-          <th style="width: 80px">Codigo</th>
+          <th class="stock-col-code">Código</th>
           <th>Producto</th>
-          <th style="width: 140px">Categoria</th>
-          <th style="width: 120px">Marca</th>
-          <th style="width: 140px">Proveedor</th>
-          <th style="width: 100px" class="t-right">Stock</th>
-          <th style="width: 80px" class="t-right">Min.</th>
+          <th class="stock-col-category">Categoría</th>
+          <th class="stock-col-brand">Marca</th>
+          <th class="stock-col-provider">Proveedor</th>
+          <th class="stock-col-stock t-right">Stock</th>
+          <th class="stock-col-min t-right">Mín.</th>
           <?php if ($tab === 'alertas'): ?>
-          <th style="width: 100px" class="t-right">Sugerido</th>
+          <th class="stock-col-suggested t-right">Sugerido</th>
           <?php endif; ?>
-          <th style="width: 120px" class="t-center">Estado</th>
-          <th style="width: 140px" class="t-center">Acciones</th>
+          <th class="stock-col-status t-center">Estado</th>
+          <th class="stock-col-actions t-center">Acciones</th>
         </tr>
       </thead>
       <tbody id="stockTableBody">
@@ -576,7 +576,7 @@ require __DIR__ . "/partials/header.php";
           <td class="t-right td-stock">
             <strong class="stock-value"><?= format_stock_con_unidad($p, 'stock') ?></strong>
             <div class="stock-bar">
-              <div class="stock-bar-fill stock-bar-<?= h($p['estado_stock']) ?>" style="width: <?= (float)$stockPct ?>%"></div>
+              <div class="stock-bar-fill stock-bar-<?= h($p['estado_stock']) ?>" data-stock-pct="<?= h((string)(float)$stockPct) ?>"></div>
             </div>
           </td>
           <td class="t-right muted td-stock-min"><?= format_stock_con_unidad($p, 'stock_minimo') ?></td>
@@ -599,17 +599,16 @@ require __DIR__ . "/partials/header.php";
                 type="button"
                 class="btn-icon btn-sm"
                 title="Ajustar stock"
-                onclick='StockManager.quickAdjust(
-                  <?= (int)$p["id"] ?>,
-                  <?= json_encode((string)($p["nombre"] ?? ""), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
-                  <?= $esPesable ? "true" : "false" ?>,
-                  <?= json_encode($stockNum, JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode($stockMinNum, JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode(format_stock_con_unidad($p, 'stock'), JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode(format_stock_con_unidad($p, 'stock_minimo'), JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode((string)($p['unidad_venta'] ?? 'UNIDAD'), JSON_UNESCAPED_UNICODE) ?>,
-                  <?= json_encode(function_exists('flus_producto_unidad_descripcion') ? flus_producto_unidad_descripcion((string)($p['unidad_venta'] ?? 'UNIDAD'), $esPesable) : ($esPesable ? 'Pesable' : 'Unidad'), JSON_UNESCAPED_UNICODE) ?>
-                )'
+                data-stock-adjust
+                data-producto-id="<?= (int)$p['id'] ?>"
+                data-producto-nombre="<?= h((string)($p['nombre'] ?? '')) ?>"
+                data-es-pesable="<?= $esPesable ? '1' : '0' ?>"
+                data-stock-actual-raw="<?= h((string)$stockNum) ?>"
+                data-stock-minimo-raw="<?= h((string)$stockMinNum) ?>"
+                data-stock-actual-display="<?= h(format_stock_con_unidad($p, 'stock')) ?>"
+                data-stock-minimo-display="<?= h(format_stock_con_unidad($p, 'stock_minimo')) ?>"
+                data-unidad-venta="<?= h((string)($p['unidad_venta'] ?? 'UNIDAD')) ?>"
+                data-unidad-label="<?= h(function_exists('flus_producto_unidad_descripcion') ? flus_producto_unidad_descripcion((string)($p['unidad_venta'] ?? 'UNIDAD'), $esPesable) : ($esPesable ? 'Pesable' : 'Unidad')) ?>"
               >Ajustar</button>
 
               <a
@@ -635,10 +634,10 @@ require __DIR__ . "/partials/header.php";
   <div class="modal-content modal-sm modal-content--stock-adjust">
     <div class="modal-header">
       <h3 class="modal-title">Ajustar Stock</h3>
-      <button type="button" class="modal-close" onclick="StockManager.closeModal()">&times;</button>
+      <button type="button" class="modal-close" data-stock-close-modal aria-label="Cerrar ajuste">&times;</button>
     </div>
 
-    <form id="formAjusteStock" onsubmit="StockManager.submitAdjust(event)">
+    <form id="formAjusteStock">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="ajuste_request_id" id="ajuste_request_id" value="">
       <div class="modal-body">
@@ -656,7 +655,7 @@ require __DIR__ . "/partials/header.php";
               <span class="stock-info-value" id="ajuste_stock_actual">-</span>
             </div>
             <div class="stock-info-item">
-              <span class="stock-info-label">Stock minimo</span>
+              <span class="stock-info-label">Stock mínimo</span>
               <span class="stock-info-value" id="ajuste_stock_minimo">-</span>
             </div>
           </div>
@@ -680,7 +679,7 @@ require __DIR__ . "/partials/header.php";
 
         <div class="stock-adjust-preview" id="ajuste_preview" aria-live="polite">
           <span class="stock-adjust-preview-label">Vista previa</span>
-          <strong id="ajuste_preview_line">Elegi tipo y cantidad para ver el resultado.</strong>
+          <strong id="ajuste_preview_line">Elegí tipo y cantidad para ver el resultado.</strong>
           <small id="ajuste_preview_help">El movimiento queda guardado en el historial del producto.</small>
         </div>
 
@@ -694,13 +693,13 @@ require __DIR__ . "/partials/header.php";
         <div class="form-group">
           <label>Motivo <span class="text-muted">(opcional)</span></label>
           <textarea name="motivo" id="ajuste_motivo" class="form-control" rows="2" maxlength="255"
-            placeholder="Ej: recepcion proveedor, correccion, rotura, etc."></textarea>
+            placeholder="Ej: recepción proveedor, corrección, rotura, etc."></textarea>
           <small class="form-hint"><span id="motivo_chars">0</span>/255 caracteres</small>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="v-btn v-btn--ghost" onclick="StockManager.closeModal()">Cancelar</button>
+        <button type="button" class="v-btn v-btn--ghost" data-stock-close-modal>Cancelar</button>
         <button type="submit" class="v-btn v-btn--primary">Confirmar</button>
       </div>
     </form>
@@ -712,14 +711,14 @@ require __DIR__ . "/partials/header.php";
   <div class="modal-content modal-sm">
     <div class="modal-header">
       <h3 class="modal-title">Confirmar ajuste</h3>
-      <button type="button" class="modal-close" onclick="StockManager.closeConfirmModal()">&times;</button>
+      <button type="button" class="modal-close" data-stock-close-confirm aria-label="Cerrar confirmación">&times;</button>
     </div>
     <div class="modal-body">
       <p id="confirmacion_mensaje"></p>
     </div>
     <div class="modal-footer">
-      <button type="button" class="v-btn v-btn--ghost" onclick="StockManager.closeConfirmModal()">Cancelar</button>
-      <button type="button" class="v-btn v-btn--danger" onclick="StockManager.confirmarAjuste()">Si, confirmar</button>
+      <button type="button" class="v-btn v-btn--ghost" data-stock-close-confirm>Cancelar</button>
+      <button type="button" class="v-btn v-btn--danger" data-stock-confirm-adjust data-default-text="Sí, confirmar">Sí, confirmar</button>
     </div>
   </div>
 </div>

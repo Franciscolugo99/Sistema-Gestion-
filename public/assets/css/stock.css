@@ -395,6 +395,16 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.stock-col-code { width: 80px; }
+.stock-col-category { width: 140px; }
+.stock-col-brand { width: 120px; }
+.stock-col-provider { width: 140px; }
+.stock-col-stock { width: 100px; }
+.stock-col-min { width: 80px; }
+.stock-col-suggested { width: 100px; }
+.stock-col-status { width: 120px; }
+.stock-col-actions { width: 140px; }
+
 .stock-table tbody tr {
   transition: background 0.15s ease;
 }
@@ -513,6 +523,7 @@
 }
 
 .stock-bar-fill {
+  width: 0%;
   height: 100%;
   border-radius: 2px;
   transition: width 0.3s ease, background-color 0.3s ease;

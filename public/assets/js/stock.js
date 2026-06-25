@@ -59,6 +59,33 @@ const StockManager = {
     const filtersForm = document.getElementById('stockFilters');
     const searchInput = document.getElementById('searchInput');
     const pageInput = document.getElementById('pageInput') || filtersForm?.querySelector('input[name="page"]');
+    const adjustForm = document.getElementById('formAjusteStock');
+
+    this.syncStockBars();
+
+    document.querySelector('[data-stock-refresh]')?.addEventListener('click', () => {
+      this.refreshPage();
+    });
+
+    document.querySelectorAll('[data-stock-adjust]').forEach(button => {
+      button.addEventListener('click', () => this.quickAdjustFromButton(button));
+    });
+
+    document.querySelectorAll('[data-stock-close-modal]').forEach(button => {
+      button.addEventListener('click', () => this.closeModal());
+    });
+
+    document.querySelectorAll('[data-stock-close-confirm]').forEach(button => {
+      button.addEventListener('click', () => this.closeConfirmModal());
+    });
+
+    document.querySelector('[data-stock-confirm-adjust]')?.addEventListener('click', () => {
+      this.confirmarAjuste();
+    });
+
+    adjustForm?.addEventListener('submit', (event) => {
+      this.submitAdjust(event);
+    });
 
     searchInput?.addEventListener('input', () => {
       if (!filtersForm) return;
@@ -118,6 +145,29 @@ const StockManager = {
       this.updateCantidadHint();
       this.updateAdjustPreview();
     });
+  },
+
+  syncStockBars() {
+    document.querySelectorAll('.stock-bar-fill[data-stock-pct]').forEach(bar => {
+      const pct = Number(bar.dataset.stockPct || 0);
+      const safePct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+      bar.style.width = `${safePct}%`;
+    });
+  },
+
+  quickAdjustFromButton(button) {
+    const data = button?.dataset || {};
+    this.quickAdjust(
+      Number(data.productoId || 0),
+      data.productoNombre || '',
+      data.esPesable === '1' || data.esPesable === 'true',
+      data.stockActualRaw || '0',
+      data.stockMinimoRaw || '0',
+      data.stockActualDisplay || '-',
+      data.stockMinimoDisplay || '-',
+      data.unidadVenta || 'UNIDAD',
+      data.unidadLabel || (data.esPesable === '1' ? 'Pesable' : 'Unidad')
+    );
   },
 
   // ============================================
@@ -385,10 +435,10 @@ const StockManager = {
       VENTA: 'Venta',
       AJUSTE_POSITIVO: 'Ajuste (+)',
       AJUSTE_NEGATIVO: 'Ajuste (-)',
-      ANULACION: 'Anulacion',
-      ANULACION_COMPRA: 'Anulacion de compra',
-      ANULACION_VENTA: 'Anulacion de venta',
-      DEVOLUCION: 'Devolucion',
+      ANULACION: 'Anulación',
+      ANULACION_COMPRA: 'Anulación de compra',
+      ANULACION_VENTA: 'Anulación de venta',
+      DEVOLUCION: 'Devolución',
     };
     return map[tipo] || tipo || 'Movimiento';
   },
@@ -597,8 +647,8 @@ const StockManager = {
         summary: 'Entrada por',
         verb: 'sumar',
         intent: 'is-success',
-        empty: 'Entrada: suma mercaderia recibida al stock.',
-        help: 'Usa Entrada cuando recibiste mercaderia de proveedor.',
+        empty: 'Entrada: suma mercadería recibida al stock.',
+        help: 'Usá Entrada cuando recibiste mercadería de proveedor.',
       },
       salida: {
         signo: -1,
@@ -606,35 +656,35 @@ const StockManager = {
         summary: 'Salida por',
         verb: 'descontar',
         intent: 'is-warning',
-        empty: 'Salida: descuenta mercaderia retirada manualmente.',
-        help: 'Usa Salida para retiros manuales no vinculados a una venta.',
+        empty: 'Salida: descuenta mercadería retirada manualmente.',
+        help: 'Usá Salida para retiros manuales no vinculados a una venta.',
       },
       ajuste_pos: {
         signo: 1,
-        action: 'Correccion positiva',
-        summary: 'Correccion positiva por',
+        action: 'Corrección positiva',
+        summary: 'Corrección positiva por',
         verb: 'sumar',
         intent: 'is-success',
         empty: 'Ajuste (+): corrige una diferencia a favor del stock.',
-        help: 'Usa Ajuste (+) si el conteo fisico dio mas que el sistema.',
+        help: 'Usá Ajuste (+) si el conteo físico dio más que el sistema.',
       },
       ajuste_neg: {
         signo: -1,
-        action: 'Correccion negativa',
-        summary: 'Correccion negativa por',
+        action: 'Corrección negativa',
+        summary: 'Corrección negativa por',
         verb: 'descontar',
         intent: 'is-warning',
         empty: 'Ajuste (-): corrige una diferencia contra el stock.',
-        help: 'Usa Ajuste (-) si el conteo fisico dio menos que el sistema.',
+        help: 'Usá Ajuste (-) si el conteo físico dio menos que el sistema.',
       },
       perdida: {
         signo: -1,
-        action: 'Se registra perdida',
-        summary: 'Perdida por',
+        action: 'Se registra pérdida',
+        summary: 'Pérdida por',
         verb: 'descontar',
         intent: 'is-danger',
-        empty: 'Perdida: rotura, vencimiento o merma.',
-        help: 'Usa Perdida para rotura, vencimiento o merma identificada.',
+        empty: 'Pérdida: rotura, vencimiento o merma.',
+        help: 'Usá Pérdida para rotura, vencimiento o merma identificada.',
       },
     };
 
@@ -694,7 +744,7 @@ const StockManager = {
         const msgEl = document.getElementById('confirmacion_mensaje');
         if (msgEl) {
           const nuevoStock = this.state.currentStockActual - cantidad;
-          msgEl.textContent = `Estas por registrar una ${tipo === 'perdida' ? 'perdida' : 'salida'} de ${this.formatStockByUnidad(cantidad)}. Stock: ${this.formatStockByUnidad(this.state.currentStockActual)} -> ${this.formatStockByUnidad(nuevoStock)}. Confirmar?`;
+          msgEl.textContent = `Estás por registrar una ${tipo === 'perdida' ? 'pérdida' : 'salida'} de ${this.formatStockByUnidad(cantidad)}. Stock: ${this.formatStockByUnidad(this.state.currentStockActual)} -> ${this.formatStockByUnidad(nuevoStock)}. ¿Confirmás?`;
         }
         
         document.getElementById('modalConfirmacion')?.classList.add('show');
@@ -728,9 +778,9 @@ const StockManager = {
     this.state.adjustSubmitting = true;
 
     const submitBtn = form.querySelector('button[type="submit"]');
-    const confirmBtn = document.querySelector('#modalConfirmacion button[onclick*="confirmarAjuste"]');
+    const confirmBtn = document.querySelector('[data-stock-confirm-adjust]');
     const originalText = submitBtn?.dataset.defaultText || submitBtn?.textContent || 'Confirmar';
-    const confirmText = confirmBtn?.dataset.defaultText || confirmBtn?.textContent || 'Si, confirmar';
+    const confirmText = confirmBtn?.dataset.defaultText || confirmBtn?.textContent || 'Sí, confirmar';
 
     if (submitBtn) {
       submitBtn.dataset.defaultText = originalText;
@@ -799,7 +849,7 @@ const StockManager = {
       this.state.adjustSubmitting = false;
       if (confirmBtn) {
         confirmBtn.disabled = false;
-        confirmBtn.textContent = confirmBtn.dataset.defaultText || 'Si, confirmar';
+        confirmBtn.textContent = confirmBtn.dataset.defaultText || 'Sí, confirmar';
       }
       this.resetAdjustSubmitState(form);
     }
@@ -834,6 +884,7 @@ const StockManager = {
     // 3. Actualizar barra de stock
     const barFill = row.querySelector('.stock-bar-fill');
     if (barFill) {
+      barFill.dataset.stockPct = String(data.stock_pct ?? 0);
       barFill.style.width = `${data.stock_pct}%`;
       barFill.className = `stock-bar-fill stock-bar-${estadoNuevo}`;
     }
@@ -848,14 +899,18 @@ const StockManager = {
     // 5. Actualizar clase de fila
     row.className = row.className.replace(/row-\w+/, `row-${estadoNuevo}`);
 
-    // 6. Actualizar parámetros del botón de ajuste
-    const adjustBtn = row.querySelector('button[onclick*="quickAdjust"]');
+    // 6. Actualizar datos del botón de ajuste
+    const adjustBtn = row.querySelector('[data-stock-adjust]');
     if (adjustBtn) {
-      const nombre = data.producto_nombre || '';
-      const esPesable = data.es_pesable ? 'true' : 'false';
-      adjustBtn.setAttribute('onclick', 
-        `StockManager.quickAdjust(${data.producto_id}, ${JSON.stringify(nombre)}, ${esPesable}, ${JSON.stringify(data.stock_nuevo_raw)}, ${JSON.stringify(String(row.dataset.stockMinimo ?? '0'))}, ${JSON.stringify(data.stock_nuevo)}, ${JSON.stringify(data.stock_minimo)}, ${JSON.stringify(data.unidad_venta || row.dataset.unidadVenta || 'UNIDAD')}, ${JSON.stringify(data.unidad_label || (data.es_pesable ? 'Pesable' : 'Unidad'))})`
-      );
+      adjustBtn.dataset.productoId = String(data.producto_id ?? adjustBtn.dataset.productoId ?? '');
+      adjustBtn.dataset.productoNombre = data.producto_nombre || adjustBtn.dataset.productoNombre || '';
+      adjustBtn.dataset.esPesable = data.es_pesable ? '1' : '0';
+      adjustBtn.dataset.stockActualRaw = String(data.stock_nuevo_raw ?? 0);
+      adjustBtn.dataset.stockMinimoRaw = String(row.dataset.stockMinimo ?? data.stock_minimo ?? 0);
+      adjustBtn.dataset.stockActualDisplay = String(data.stock_nuevo ?? '-');
+      adjustBtn.dataset.stockMinimoDisplay = String(data.stock_minimo ?? adjustBtn.dataset.stockMinimoDisplay ?? '-');
+      adjustBtn.dataset.unidadVenta = String(data.unidad_venta || row.dataset.unidadVenta || 'UNIDAD');
+      adjustBtn.dataset.unidadLabel = String(data.unidad_label || (data.es_pesable ? 'Pesable' : 'Unidad'));
     }
 
     // 7. Si el producto ya no corresponde a la vista/filtro actual, hacer fade-out
