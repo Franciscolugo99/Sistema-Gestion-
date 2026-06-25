@@ -4725,7 +4725,17 @@ $results[] = flus_run_test('factura fiscal permite registrar cobro interno sin p
     flus_assert_contains('data-cobrar-factura', $cobranzasPhp);
     flus_assert_contains('api/factura_cobranza_api.php', $cobranzasPhp);
     flus_assert_contains('no se envia a ARCA', $cobranzasPhp);
+    flus_assert_contains('var lastCobranzaTrigger = null;', $cobranzasPhp);
+    flus_assert_contains("document.body.classList.add('no-scroll');", $cobranzasPhp);
+    flus_assert_contains("document.body.classList.remove('no-scroll');", $cobranzasPhp);
+    flus_assert_contains("modal.setAttribute('aria-hidden', 'false');", $cobranzasPhp);
+    flus_assert_contains("modal.setAttribute('aria-hidden', 'true');", $cobranzasPhp);
+    flus_assert_contains('aria-hidden="true" hidden', $cobranzasPhp);
+    flus_assert_not_contains('style="margin-bottom:12px;"', $cobranzasPhp);
+    flus_assert_not_contains('document.body.style.overflow', $cobranzasPhp);
     flus_assert_contains('.cobranza-modal', $cobranzasCss);
+    flus_assert_contains('.cobranzas-alert', $cobranzasCss);
+    flus_assert_contains('body.no-scroll', $cobranzasCss);
     flus_assert_contains('.cobranzas-status--info', $cobranzasCss);
     flus_assert_contains('minmax(210px, 1fr)', $cobranzasCss);
     flus_assert_contains('font-variant-numeric: tabular-nums', $cobranzasCss);

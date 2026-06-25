@@ -16,6 +16,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.cobranzas-page .cobranzas-alert {
+  margin-bottom: 12px;
+}
+
 .cobranzas-table .btn-mini--primary {
   border-color: #0e7490;
   background: #0e7490;
@@ -61,6 +65,10 @@
 
 .cobranza-modal[hidden] {
   display: none;
+}
+
+body.no-scroll {
+  overflow: hidden;
 }
 
 .cobranza-modal {

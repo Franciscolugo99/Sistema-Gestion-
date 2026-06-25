@@ -200,9 +200,11 @@ $inlineJs = <<<'JS'
     var form = document.getElementById('cobranzaForm');
     var closeButtons = modal ? modal.querySelectorAll('[data-close-cobranza]') : [];
     var openButtons = document.querySelectorAll('[data-cobrar-factura]');
+    var lastCobranzaTrigger = null;
     if (!modal || !form || openButtons.length === 0) return;
 
     function openModal(btn) {
+      lastCobranzaTrigger = btn || null;
       var facturaId = btn.getAttribute('data-factura-id') || '';
       var saldo = btn.getAttribute('data-saldo') || '';
       var label = btn.getAttribute('data-label') || 'Factura';
@@ -219,10 +221,16 @@ $inlineJs = <<<'JS'
       if (title) title.textContent = 'Registrar cobro';
       if (summary) summary.textContent = label + ' - saldo pendiente $ ' + saldo;
       modal.hidden = false;
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('no-scroll');
       if (amount) amount.focus();
     }
     function closeModal() {
       modal.hidden = true;
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('no-scroll');
+      if (lastCobranzaTrigger) lastCobranzaTrigger.focus();
+      lastCobranzaTrigger = null;
     }
 
     openButtons.forEach(function (btn) {
@@ -375,7 +383,7 @@ require __DIR__ . '/partials/header.php';
     </section>
 
     <?php foreach ($avisos as $aviso): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= h((string)$aviso) ?></div>
+      <div class="alert alert-error cobranzas-alert"><?= h((string)$aviso) ?></div>
     <?php endforeach; ?>
 
     <form method="get" class="filters fact-filters">
@@ -598,7 +606,7 @@ require __DIR__ . '/partials/header.php';
   </div>
 </div>
 
-<div id="cobranzaModal" class="cobranza-modal" hidden>
+<div id="cobranzaModal" class="cobranza-modal" aria-hidden="true" hidden>
   <div class="cobranza-modal__backdrop" data-close-cobranza></div>
   <div class="cobranza-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="cobranzaModalTitle">
     <div class="cobranza-modal__head">
