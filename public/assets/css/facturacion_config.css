@@ -7,12 +7,69 @@
   /* sin max-width — hereda el ancho del contenedor como el resto de módulos */
 }
 
-.factura-config-panel .page-header {
+.factura-config-panel .module-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+}
+
+.factcfg-command {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.factcfg-command__item {
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel, #f8fafc) 94%, rgba(14, 165, 233, 0.06));
+}
+
+.factcfg-command__item span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.factcfg-command__item strong {
+  display: block;
+  color: var(--text, #0f172a);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.factcfg-command__item small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted, #64748b);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.factcfg-command__item.ok {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.factcfg-command__item.error,
+.factcfg-command__item.unavailable {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.factcfg-command__item.warning,
+.factcfg-command__item.unknown {
+  border-color: rgba(234, 179, 8, 0.3);
+  background: rgba(234, 179, 8, 0.07);
 }
 
 /* Alertas */
@@ -389,6 +446,11 @@ body[data-theme="light"] .status-item {
   background: rgba(255, 255, 255, 0.5);
 }
 
+body[data-theme="dark"] .factcfg-command__item {
+  background: rgba(15, 23, 42, 0.62);
+  border-color: rgba(148, 163, 184, 0.14);
+}
+
 body[data-theme="light"] .form-group input,
 body[data-theme="light"] .form-group select,
 body[data-theme="light"] .sync-form select {
@@ -422,12 +484,22 @@ body[data-theme="light"] .mode-badge.mode-demo { color: #a16207; }
   .form-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .status-grid {
     grid-template-columns: 1fr;
   }
-  
-  .factura-config-panel .page-header {
+
+  .factcfg-command {
+    grid-template-columns: 1fr;
+  }
+
+  .factura-config-panel .module-header {
     flex-direction: column;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1180px) {
+  .factcfg-command {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

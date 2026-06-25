@@ -22,6 +22,20 @@
   margin: 0 auto;
 }
 
+.nc-recovery-link {
+  color: var(--nc-danger) !important;
+  border-color: rgba(239, 68, 68, 0.28) !important;
+}
+
+.nc-recovery-link:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+}
+
+.nc-filter-clear {
+  text-align: center;
+  font-size: .8rem;
+}
+
 /* ── stepper ─────────────────────────────────────────────── */
 .nc-stepper {
   display: flex;
@@ -394,6 +408,11 @@
 
 .nc-block-body { padding: 20px; }
 
+.nc-empty-lines {
+  text-align: center;
+  color: var(--nc-muted);
+}
+
 /* ── type selector ───────────────────────────────────────── */
 .nc-type-selector {
   display: grid;
@@ -544,6 +563,15 @@
 
 .nc-line-row.is-editing td { background: rgba(14,165,233,.04); }
 
+.nc-line-index-col {
+  width: 40px;
+}
+
+.nc-line-index {
+  color: var(--nc-muted);
+  font-size: .82rem;
+}
+
 .nc-product-title { font-weight: 600; font-size: .88rem; }
 
 .nc-product-meta {
@@ -570,6 +598,46 @@
 }
 
 .nc-credit-bar-fill.is-full { background: var(--nc-danger); }
+.nc-credit-bar-fill--p0 { width: 0%; }
+.nc-credit-bar-fill--p1 { width: 5%; }
+.nc-credit-bar-fill--p2 { width: 10%; }
+.nc-credit-bar-fill--p3 { width: 15%; }
+.nc-credit-bar-fill--p4 { width: 20%; }
+.nc-credit-bar-fill--p5 { width: 25%; }
+.nc-credit-bar-fill--p6 { width: 30%; }
+.nc-credit-bar-fill--p7 { width: 35%; }
+.nc-credit-bar-fill--p8 { width: 40%; }
+.nc-credit-bar-fill--p9 { width: 45%; }
+.nc-credit-bar-fill--p10 { width: 50%; }
+.nc-credit-bar-fill--p11 { width: 55%; }
+.nc-credit-bar-fill--p12 { width: 60%; }
+.nc-credit-bar-fill--p13 { width: 65%; }
+.nc-credit-bar-fill--p14 { width: 70%; }
+.nc-credit-bar-fill--p15 { width: 75%; }
+.nc-credit-bar-fill--p16 { width: 80%; }
+.nc-credit-bar-fill--p17 { width: 85%; }
+.nc-credit-bar-fill--p18 { width: 90%; }
+.nc-credit-bar-fill--p19 { width: 95%; }
+.nc-credit-bar-fill--p20 { width: 100%; }
+
+.nc-accredited {
+  color: var(--nc-muted);
+}
+
+.nc-accredited.has-credit {
+  color: var(--nc-warn);
+  font-weight: 600;
+}
+
+.nc-available {
+  font-weight: 600;
+}
+
+.nc-available-sub {
+  font-size: .76rem;
+  font-weight: 400;
+  color: var(--nc-muted);
+}
 
 /* qty input */
 .nc-qty-input {
@@ -625,6 +693,11 @@
   color: var(--nc-muted);
   text-transform: uppercase;
   letter-spacing: .06em;
+}
+
+.nc-label-optional {
+  color: var(--nc-muted);
+  font-weight: 400;
 }
 
 .nc-motivo-row input {
@@ -687,6 +760,16 @@
 }
 
 .nc-total-warn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+.nc-total-submit-button {
+  background: var(--nc-danger) !important;
+  color: #f8fafc !important;
+  border: none !important;
+}
+
+.nc-total-submit-button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
 
 /* ── submit footer ───────────────────────────────────────── */
 .nc-submit-footer {

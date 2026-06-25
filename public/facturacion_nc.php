@@ -552,8 +552,8 @@ $breadcrumbs    = [
     ['label' => 'Notas de crédito', 'url' => null],
 ];
 $extraCss = [
-    'assets/css/facturacion.css?v=10',
-    'assets/css/facturacion_nc.css?v=3',
+    'assets/css/facturacion.css?v=21',
+    'assets/css/facturacion_nc.css?v=4',
 ];
 $extraJs = ['assets/js/facturacion_nc.js?v=4'];
 
@@ -591,7 +591,7 @@ require __DIR__ . '/partials/header.php';
 
       <div class="promo-actions-top module-header-actions">
         <?php if (function_exists('user_has_permission') && user_has_permission('administrar_config')): ?>
-          <a href="facturacion_nc_recovery.php" class="v-btn v-btn--outline" style="color:var(--nc-danger,#ef4444);">
+          <a href="facturacion_nc_recovery.php" class="v-btn v-btn--outline nc-recovery-link">
             Recovery ERROR_POST_ARCA
           </a>
         <?php endif; ?>
@@ -667,7 +667,7 @@ require __DIR__ . '/partials/header.php';
             <button type="submit" class="btn btn-filter">Buscar</button>
           </div>
           <?php if ($q !== '' || $ventaIdFiltro > 0): ?>
-            <a href="facturacion_nc.php" class="btn btn-secondary" style="text-align:center;font-size:.8rem;">Limpiar filtros</a>
+            <a href="facturacion_nc.php" class="btn btn-secondary nc-filter-clear">Limpiar filtros</a>
           <?php endif; ?>
         </form>
 
@@ -909,7 +909,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
 
                 <?php if ($lineas === []): ?>
-                  <div class="nc-block-body" style="text-align:center;color:var(--nc-muted);">
+                  <div class="nc-block-body nc-empty-lines">
                     No se encontraron líneas de factura para esta operación.
                   </div>
                 <?php else: ?>
@@ -924,7 +924,7 @@ require __DIR__ . '/partials/header.php';
                       <table class="mov-table nc-table">
                         <thead>
                           <tr>
-                            <th style="width:40px">#</th>
+                            <th class="nc-line-index-col">#</th>
                             <th>Producto / Servicio</th>
                             <th class="t-right" title="Cantidad total en la factura original">Cant. original</th>
                             <th class="t-right" title="Cantidad ya acreditada en NC anteriores">Ya acreditado</th>
@@ -940,6 +940,7 @@ require __DIR__ . '/partials/header.php';
                             $acreditada   = (float)$linea['cantidad_acreditada'];
                             $unitPrice    = $unitPrices[$idx] ?? 0.0;
                             $creditPct    = $original > 0 ? min(100, round($acreditada / $original * 100)) : 0;
+                            $creditPctStep = max(0, min(20, (int)round($creditPct / 5)));
                             $isFullCredit = $creditPct >= 100;
                             $numLinea     = (int)($linea['linea_orden'] ?: ($idx + 1));
                           ?>
@@ -950,7 +951,7 @@ require __DIR__ . '/partials/header.php';
                               data-max-qty="<?= nc_h(number_format($available, 3, '.', '')) ?>"
                               data-desc="<?= nc_h(strip_tags((string)$linea['descripcion'])) ?>"
                             >
-                              <td style="color:var(--nc-muted);font-size:.82rem;">#<?= $numLinea ?></td>
+                              <td class="nc-line-index">#<?= $numLinea ?></td>
                               <td>
                                 <div class="nc-product-title"><?= nc_h((string)$linea['descripcion']) ?></div>
                                 <div class="nc-product-meta">
@@ -967,19 +968,18 @@ require __DIR__ . '/partials/header.php';
                                 <?php if ($acreditada > 0.0009): ?>
                                   <div class="nc-credit-bar" title="<?= $creditPct ?>% ya acreditado">
                                     <div
-                                      class="nc-credit-bar-fill <?= $isFullCredit ? 'is-full' : '' ?>"
-                                      style="width:<?= $creditPct ?>%"
+                                      class="nc-credit-bar-fill <?= $isFullCredit ? 'is-full' : '' ?> nc-credit-bar-fill--p<?= $creditPctStep ?>"
                                     ></div>
                                   </div>
                                 <?php endif; ?>
                               </td>
                               <td class="t-right"><?= nc_qty($original) ?></td>
-                              <td class="t-right" style="<?= $acreditada > 0 ? 'color:var(--nc-warn);font-weight:600;' : 'color:var(--nc-muted);' ?>">
+                              <td class="t-right nc-accredited <?= $acreditada > 0 ? 'has-credit' : 'is-empty' ?>">
                                 <?= nc_qty($acreditada) ?>
                               </td>
-                              <td class="t-right" style="font-weight:600;">
+                              <td class="t-right nc-available">
                                 <?= nc_qty($available) ?>
-                                <div style="font-size:.76rem;font-weight:400;color:var(--nc-muted);"><?= nc_money((float)$linea['subtotal_disponible']) ?></div>
+                                <div class="nc-available-sub"><?= nc_money((float)$linea['subtotal_disponible']) ?></div>
                               </td>
                               <td class="t-right">
                                 <?php if ($available > 0.0009 && !empty($linea['has_venta_item_link'])): ?>
@@ -1010,7 +1010,7 @@ require __DIR__ . '/partials/header.php';
                     </div>
 
                     <div class="nc-motivo-row">
-                      <label for="nc-motivo-parcial">Motivo de la NC <span style="color:var(--nc-muted);font-weight:400;">(opcional)</span></label>
+                      <label for="nc-motivo-parcial">Motivo de la NC <span class="nc-label-optional">(opcional)</span></label>
                       <input
                         type="text"
                         id="nc-motivo-parcial"
@@ -1076,7 +1076,7 @@ require __DIR__ . '/partials/header.php';
                   <input type="hidden" name="venta_id"       value="<?= (int)($factura['venta_id'] ?? 0) ?>">
 
                   <div class="nc-motivo-row">
-                    <label for="nc-motivo-total">Motivo de la NC <span style="color:var(--nc-muted);font-weight:400;">(opcional)</span></label>
+                    <label for="nc-motivo-total">Motivo de la NC <span class="nc-label-optional">(opcional)</span></label>
                     <input
                       type="text"
                       id="nc-motivo-total"
@@ -1093,8 +1093,7 @@ require __DIR__ . '/partials/header.php';
                     <button
                       type="button"
                       id="nc-submit-total"
-                      class="v-btn"
-                      style="background:var(--nc-danger,#ef4444);color:#fff;border:none;"
+                      class="v-btn nc-total-submit-button"
                       <?= $canEmitir ? '' : 'disabled' ?>
                     >
                       Revisar y emitir NC total →

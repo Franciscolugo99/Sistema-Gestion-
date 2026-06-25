@@ -509,19 +509,56 @@ $breadcrumbs = [
     ['label' => 'Facturación', 'url' => 'facturacion.php'],
     ['label' => 'Configuración', 'url' => null],
 ];
-$extraCss = ['assets/css/facturacion_config.css?v=2'];
+$extraCss = ['assets/css/facturacion_config.css?v=3'];
 
 require __DIR__ . '/partials/header.php';
 ?>
 
+<div class="page-wrap facturacion-page">
 <div class="panel factura-config-panel">
-    <header class="page-header">
-        <div>
-            <h1 class="page-title">Configuracion de Facturacion</h1>
-            <p class="page-sub">Prepara la emision electronica y deja la base lista para crecer con menos fragilidad.</p>
+    <header class="page-header module-header">
+        <div class="module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M12 3l7 4v5c0 4.4-2.9 7.5-7 9-4.1-1.5-7-4.6-7-9V7z"/>
+                        <path d="M9 12l2 2 4-5"/>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="module-eyebrow">Preparacion fiscal</span>
+                    <h1 class="page-title module-title">Configuracion de Facturacion</h1>
+                    <p class="page-sub module-subtitle">Estado fiscal, datos del emisor, punto de venta y credenciales para emitir con control.</p>
+                </div>
+            </div>
         </div>
-        <a href="facturacion.php" class="v-btn v-btn--ghost">Volver</a>
+        <div class="promo-actions-top module-header-actions">
+            <a href="facturacion.php" class="v-btn v-btn--outline">Volver a facturacion</a>
+        </div>
     </header>
+
+    <section class="factcfg-command" aria-label="Resumen de configuracion fiscal">
+        <article class="factcfg-command__item <?= h($emitReadyClass) ?>">
+            <span>Preflight</span>
+            <strong><?= h($emitReadyLabel) ?></strong>
+            <small><?= h($configModoLabel) ?></small>
+        </article>
+        <article class="factcfg-command__item <?= $facturacionHabilitada ? 'ok' : 'warning' ?>">
+            <span>Modulo</span>
+            <strong><?= $facturacionHabilitada ? 'Habilitado' : 'Deshabilitado' ?></strong>
+            <small>Control general de facturacion</small>
+        </article>
+        <article class="factcfg-command__item <?= h($arcaStatusClass) ?>">
+            <span>ARCA</span>
+            <strong><?= h((string)($arcaEstado['label'] ?? 'Sin estado')) ?></strong>
+            <small><?= h($arcaCheckedAtLabel) ?></small>
+        </article>
+        <article class="factcfg-command__item">
+            <span>Punto de venta</span>
+            <strong><?= (int)$config['punto_venta'] ?></strong>
+            <small><?= h($config['cond_iva']) ?>, proximo <?= (int)$config['proximo_numero'] ?></small>
+        </article>
+    </section>
 
     <?php if ($mensaje !== ''): ?>
         <div class="alert alert-success"><?= h($mensaje) ?></div>
@@ -874,6 +911,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         </details>
     </section>
+</div>
 </div>
 
 <?php require __DIR__ . '/partials/footer.php'; ?>

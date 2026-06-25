@@ -3990,6 +3990,7 @@ $results[] = flus_run_test('preflight de emision queda cableado en pantallas y c
     $facturaManualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
     $facturaEmitirPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_emitir.php');
     $facturacionConfigPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'facturacion_config.php');
+    $facturacionConfigCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion_config.css');
 
     flus_assert_contains("require_once __DIR__ . '/facturacion_preflight_lib.php';", $facturacionLib);
     flus_assert_contains('function flus_facturacion_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $preflightLib);
@@ -4002,6 +4003,10 @@ $results[] = flus_run_test('preflight de emision queda cableado en pantallas y c
     flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaEmitirPhp);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $configRow ?? null, [\'modo\' => $configModo]);', $facturacionConfigPhp);
     flus_assert_contains('Preflight de emision', $facturacionConfigPhp);
+    flus_assert_contains('assets/css/facturacion_config.css?v=3', $facturacionConfigPhp);
+    flus_assert_contains('module-header-hero', $facturacionConfigPhp);
+    flus_assert_contains('factcfg-command', $facturacionConfigPhp);
+    flus_assert_contains('.factcfg-command {', $facturacionConfigCss);
 });
 
 $results[] = flus_run_test('facturacion recovery tolera collations mixtas y navega desde el nav principal', function (): void {
@@ -4103,8 +4108,14 @@ $results[] = flus_run_test('facturacion nc muestra flash visible y conserva hist
     flus_assert_contains('.nc-confirm-lines {', $ncCss);
     flus_assert_contains('.nc-confirm-warning {', $ncCss);
     flus_assert_contains('#nc-live-bar[hidden]', $ncCss);
-    flus_assert_contains('assets/css/facturacion_nc.css?v=3', $ncPhp);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $ncPhp);
+    flus_assert_contains('assets/css/facturacion_nc.css?v=4', $ncPhp);
     flus_assert_contains('assets/js/facturacion_nc.js?v=4', $ncPhp);
+    flus_assert_not_contains('style="', $ncPhp);
+    flus_assert_contains('nc-total-submit-button', $ncPhp);
+    flus_assert_contains('nc-credit-bar-fill--p<?= $creditPctStep ?>', $ncPhp);
+    flus_assert_contains('.nc-total-submit-button', $ncCss);
+    flus_assert_contains('.nc-credit-bar-fill--p20', $ncCss);
     flus_assert_contains("FROM facturas f", $panelLib);
 });
 
