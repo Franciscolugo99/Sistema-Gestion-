@@ -511,6 +511,14 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   margin-bottom: 12px;
 }
 
+.fact-doc-update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
 .fact-summary-bar__top {
   display: flex;
   flex-wrap: wrap;
@@ -727,6 +735,28 @@ body[data-theme="dark"] .fact-field-help.is-warning {
 .fact-link-inline {
   font-weight: 600;
   text-decoration: none;
+}
+
+.fact-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fact-action-form {
+  display: grid;
+  gap: 8px;
+}
+
+.fact-action-link,
+.fact-action-submit {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+.fact-action-submit--spaced {
+  margin-top: 8px;
 }
 
 .fact-empty-state {

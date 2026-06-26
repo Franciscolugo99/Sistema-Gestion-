@@ -345,15 +345,15 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
     </header>
 
     <?php if ($ok === 'venta' && !empty($_GET['venta_id'])): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;">Se generó la venta #<?= (int)$_GET['venta_id'] ?> y quedó vinculada al documento. El impacto operativo quedó en esa venta.</div>
+      <div class="alert alert-success fact-alert">Se generó la venta #<?= (int)$_GET['venta_id'] ?> y quedó vinculada al documento. El impacto operativo quedó en esa venta.</div>
     <?php elseif ($ok === 'vinculo'): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;">La venta quedó vinculada al documento.</div>
+      <div class="alert alert-success fact-alert">La venta quedó vinculada al documento.</div>
     <?php elseif ($ok === 'actualizado'): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;">La cabecera del documento se actualizó correctamente.</div>
+      <div class="alert alert-success fact-alert">La cabecera del documento se actualizó correctamente.</div>
     <?php endif; ?>
 
     <?php foreach ($errores as $error): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
+      <div class="alert alert-error fact-alert"><?= h($error) ?></div>
     <?php endforeach; ?>
 
     <section class="fact-doc-guide fact-doc-guide--detail" aria-label="Guía rápida del documento">
@@ -380,7 +380,7 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
     </section>
 
     <?php if ($documento && is_array($accionesDocumento)): ?>
-      <div class="alert <?= !empty($accionesDocumento['tiene_cliente']) ? 'alert-success' : 'alert-error' ?>" style="margin-bottom:12px;">
+      <div class="alert <?= !empty($accionesDocumento['tiene_cliente']) ? 'alert-success' : 'alert-error' ?> fact-alert">
         <strong><?= h($siguienteAccionLabel) ?>.</strong>
         <?= h($impactoOperativo) ?>
         <?php if (empty($accionesDocumento['tiene_cliente'])): ?>
@@ -537,7 +537,7 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
                   <div class="ff-field"><label>Creado</label><input type="text" readonly value="<?= h((string)($documento['created_at'] ?? '')) ?>"></div>
                   <div class="ff-field ff-field-wide"><label>Nota</label><input type="text" name="nota_edit" value="<?= h((string)($documento['nota'] ?? '')) ?>"></div>
                 </div>
-                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <div class="fact-doc-update-actions">
                   <button type="submit" class="btn btn-secondary">Guardar cabecera</button>
                   <span class="fact-cell-sub">Usa este bloque para sacar el documento de borrador sin rehacerlo.</span>
                 </div>
@@ -656,15 +656,15 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
             <p class="fact-sidebar-card__text"><?= h($impactoOperativo) ?></p>
           </article>
 
-          <div class="fact-actions fact-actions--sidebar" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="fact-actions fact-actions--sidebar fact-actions-stack">
             <?php if ($ventaRelacionada): ?>
-              <a href="venta_detalle.php?id=<?= (int)$ventaRelacionada['id'] ?>" class="btn btn-secondary" style="text-align:center;">Ver venta #<?= (int)$ventaRelacionada['id'] ?></a>
+              <a href="venta_detalle.php?id=<?= (int)$ventaRelacionada['id'] ?>" class="btn btn-secondary fact-action-link">Ver venta #<?= (int)$ventaRelacionada['id'] ?></a>
             <?php elseif (!empty($accionesDocumento['puede_generar_venta'])): ?>
-              <form method="post">
+              <form method="post" class="fact-action-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
                 <input type="hidden" name="action" value="crear_venta">
-                <button type="submit" class="btn btn-secondary" style="width:100%;"><?= $tipoActual === 'REMITO' ? 'Generar venta con este remito' : 'Generar venta vinculada' ?></button>
+                <button type="submit" class="btn btn-secondary fact-action-submit"><?= $tipoActual === 'REMITO' ? 'Generar venta con este remito' : 'Generar venta vinculada' ?></button>
               </form>
               <?php if ($tipoActual === 'REMITO' && empty($accionesDocumento['puede_emitir_factura'])): ?>
                 <div class="fact-cell-sub">Si generás la venta desde este remito, FLUS la deja vinculada y después ya podés emitir la factura.</div>
@@ -675,14 +675,14 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
 
             <?php if ($tipoActual === 'PRESUPUESTO'): ?>
               <?php if ($remitoRelacionado): ?>
-                <a href="documento_comercial.php?id=<?= (int)$remitoRelacionado['id'] ?>" class="btn btn-secondary" style="text-align:center;">Ver remito #<?= (int)$remitoRelacionado['id'] ?></a>
+                <a href="documento_comercial.php?id=<?= (int)$remitoRelacionado['id'] ?>" class="btn btn-secondary fact-action-link">Ver remito #<?= (int)$remitoRelacionado['id'] ?></a>
                 <div class="fact-cell-sub">El remito ya fue generado para este presupuesto.</div>
               <?php elseif (!empty($accionesDocumento['puede_generar_remito'])): ?>
-                <form method="post">
+                <form method="post" class="fact-action-form">
                   <?= csrf_field() ?>
                   <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
                   <input type="hidden" name="action" value="crear_remito">
-                  <button type="submit" class="btn btn-secondary" style="width:100%;">Generar remito con estos ítems</button>
+                  <button type="submit" class="btn btn-secondary fact-action-submit">Generar remito con estos ítems</button>
                 </form>
               <?php else: ?>
                 <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_generar_remito'] ?? '')) ?></div>
@@ -690,14 +690,14 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
             <?php endif; ?>
 
             <?php if ($facturaRelacionada): ?>
-              <a href="factura_ver.php?id=<?= (int)$facturaRelacionada['id'] ?>" class="btn btn-primary" style="text-align:center;">Ver factura #<?= (int)$facturaRelacionada['id'] ?></a>
+              <a href="factura_ver.php?id=<?= (int)$facturaRelacionada['id'] ?>" class="btn btn-primary fact-action-link">Ver factura #<?= (int)$facturaRelacionada['id'] ?></a>
               <div class="fact-cell-sub">Ya no corresponde volver a emitir otra factura desde este documento.</div>
             <?php else: ?>
-              <form method="post">
+              <form method="post" class="fact-action-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
                 <input type="hidden" name="action" value="emitir_factura">
-                <button type="submit" class="btn btn-primary" style="width:100%;" <?= empty($accionesDocumento['puede_emitir_factura']) ? 'disabled' : '' ?>>Emitir factura desde este documento</button>
+                <button type="submit" class="btn btn-primary fact-action-submit" <?= empty($accionesDocumento['puede_emitir_factura']) ? 'disabled' : '' ?>>Emitir factura desde este documento</button>
               </form>
               <?php if (empty($accionesDocumento['puede_emitir_factura'])): ?>
                 <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_emitir_factura'] ?? '')) ?></div>
@@ -705,13 +705,13 @@ $tipoSiguienteCopy = 'Ahora te conviene: ' . $siguienteAccionLabel . '. ' . $imp
             <?php endif; ?>
 
             <?php if (empty($ventaRelacionada)): ?>
-              <form method="post">
+              <form method="post" class="fact-action-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="id" value="<?= (int)$documento['id'] ?>">
                 <input type="hidden" name="action" value="vincular_venta">
                 <label for="venta_id_link" class="fact-cell-sub">Vincular una venta ya creada</label>
                 <input id="venta_id_link" type="number" name="venta_id_link" min="1" step="1" class="input-search" placeholder="Venta #" value="">
-                <button type="submit" class="btn btn-secondary" style="width:100%;margin-top:8px;" <?= empty($accionesDocumento['puede_vincular_venta']) ? 'disabled' : '' ?>>Vincular venta existente</button>
+                <button type="submit" class="btn btn-secondary fact-action-submit fact-action-submit--spaced" <?= empty($accionesDocumento['puede_vincular_venta']) ? 'disabled' : '' ?>>Vincular venta existente</button>
               </form>
               <?php if (empty($accionesDocumento['puede_vincular_venta'])): ?>
                 <div class="fact-cell-sub"><?= h((string)($accionesDocumento['motivo_vincular_venta'] ?? '')) ?></div>

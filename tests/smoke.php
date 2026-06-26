@@ -4166,6 +4166,7 @@ $results[] = flus_run_test('facturacion desde documento no fuerza venta_id inval
     $documentoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documento_comercial.php');
     $documentoJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'documento_comercial.js');
     $documentosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'documentos_comerciales.php');
+    $facturacionCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'facturacion.css');
 
     flus_assert_contains("'venta_id' => (int)(\$context['venta']['id'] ?? 0) > 0 ? (int)(\$context['venta']['id'] ?? 0) : null,", $contextLib);
     flus_assert_contains('El documento comercial apunta a una venta inexistente. Vincula una venta valida antes de facturar o genera una nueva desde el documento.', $facturacionLib);
@@ -4175,11 +4176,21 @@ $results[] = flus_run_test('facturacion desde documento no fuerza venta_id inval
     flus_assert_contains("\$errores[] = documento_comercial_humanizar_error(\$e);", $documentoPhp);
     flus_assert_contains('data-doc-flash-ok="<?= h($flashOk) ?>"', $documentoPhp);
     flus_assert_contains('data-doc-flash-error="<?= h($flashError) ?>"', $documentoPhp);
+    flus_assert_contains('class="alert alert-success fact-alert"', $documentoPhp);
+    flus_assert_contains('fact-actions fact-actions--sidebar fact-actions-stack', $documentoPhp);
+    flus_assert_contains('class="fact-doc-update-actions"', $documentoPhp);
+    flus_assert_contains('class="btn btn-primary fact-action-submit"', $documentoPhp);
+    flus_assert_contains('.fact-actions-stack {', $facturacionCss);
+    flus_assert_contains('.fact-action-form {', $facturacionCss);
+    flus_assert_contains('.fact-doc-update-actions {', $facturacionCss);
     flus_assert_contains('function initDocumentoComercialFlash()', $documentoJs);
     flus_assert_contains('window.Notif.exito', $documentoJs);
     flus_assert_contains('window.Notif.error', $documentoJs);
     flus_assert_contains('elseif (!empty($accionesDocumento[\'puede_generar_venta\']))', $documentoPhp);
     flus_assert_contains('Si generás la venta desde este remito, FLUS la deja vinculada y después ya podés emitir la factura.', $documentoPhp);
+    flus_assert_not_contains('style="display:flex;flex-direction:column;gap:10px;"', $documentoPhp);
+    flus_assert_not_contains('style="width:100%;"', $documentoPhp);
+    flus_assert_not_contains('style="text-align:center;"', $documentoPhp);
     flus_assert_contains("return ['estado' => 'Listo para cierre', 'siguiente' => 'Generar o vincular venta'];", $documentosPhp);
 });
 
