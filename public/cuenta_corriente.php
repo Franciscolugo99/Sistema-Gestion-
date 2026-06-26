@@ -432,39 +432,40 @@ require __DIR__ . '/partials/header.php';
             Débito
           </span>
         </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="CREDITO">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              <line x1="6" y1="16" x2="10" y2="16"/>
+            </svg>
+            Crédito
+          </span>
+        </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="MODO">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20"/><path d="M2 12h20"/>
+            </svg>
+            MODO
+          </span>
+        </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="QR">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              <path d="M14 14h3v3h-3z"/><path d="M20 14v7h-7"/>
+            </svg>
+            QR
+          </span>
+        </label>
       </div>
     </div>
-    <label class="medio-pago-option">
-    <input type="radio" name="medio_pago" value="CREDITO">
-    <span class="medio-pago-label">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-        <line x1="6" y1="16" x2="10" y2="16"/>
-      </svg>
-      Crédito
-    </span>
-  </label>
-
-  <label class="medio-pago-option">
-    <input type="radio" name="medio_pago" value="MODO">
-    <span class="medio-pago-label">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 2v20"/><path d="M2 12h20"/>
-      </svg>
-      MODO
-    </span>
-  </label>
-
-  <label class="medio-pago-option">
-    <input type="radio" name="medio_pago" value="QR">
-    <span class="medio-pago-label">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-        <path d="M14 14h3v3h-3z"/><path d="M20 14v7h-7"/>
-      </svg>
-      QR
-    </span>
-  </label>
 
     <div class="drawer-section">
       <label class="drawer-label" for="pagoReferencia">Referencia (opcional)</label>

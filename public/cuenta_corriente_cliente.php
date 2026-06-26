@@ -439,12 +439,12 @@ require __DIR__ . '/partials/header.php';
                   if ($_reciboDocId > 0) {
                       $concepto .= ' <span class="rel-link" title="Documento comercial RECIBO generado por la cobranza">Recibo doc #' . $_reciboDocId . '</span>';
                   } elseif ($_tipoApl === '') {
-                      $concepto .= ' <span class="text-muted" style="font-size:.82em">(sin recibo)</span>';
+                      $concepto .= ' <span class="text-muted cc-inline-note">(sin recibo)</span>';
                   }
                   if ((int)($_cob['factura_id'] ?? 0) > 0) {
                       $concepto .= ' <a class="rel-link" href="factura_ver.php?id=' . (int)$_cob['factura_id'] . '" title="Ver factura asociada">Factura #' . (int)$_cob['factura_id'] . '</a>';
                   } elseif ((int)($_cob['documento_id'] ?? 0) > 0) {
-                      $concepto .= ' <span class="text-muted" style="font-size:.82em">Doc #' . (int)$_cob['documento_id'] . '</span>';
+                      $concepto .= ' <span class="text-muted cc-inline-note">Doc #' . (int)$_cob['documento_id'] . '</span>';
                   }
               }
 
@@ -571,7 +571,7 @@ require __DIR__ . '/partials/header.php';
     
     <div class="drawer-section">
       <label class="drawer-label">Cliente</label>
-      <div class="cliente-selected" id="clienteSelected" style="display:flex">
+      <div class="cliente-selected" id="clienteSelected">
         <span class="cliente-nombre" id="pagoClienteNombre"><?= h($cliente['nombre']) ?></span>
         <span class="cliente-saldo" id="pagoClienteSaldo">Saldo: <?= money_ar($saldo) ?></span>
       </div>
@@ -628,6 +628,38 @@ require __DIR__ . '/partials/header.php';
             Débito
           </span>
         </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="CREDITO">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+              <line x1="6" y1="16" x2="10" y2="16"/>
+            </svg>
+            Crédito
+          </span>
+        </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="MODO">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20"/><path d="M2 12h20"/>
+            </svg>
+            MODO
+          </span>
+        </label>
+
+        <label class="medio-pago-option">
+          <input type="radio" name="medio_pago" value="QR">
+          <span class="medio-pago-label">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              <path d="M14 14h3v3h-3z"/><path d="M20 14v7h-7"/>
+            </svg>
+            QR
+          </span>
+        </label>
       </div>
     </div>
     
@@ -663,15 +695,20 @@ require __DIR__ . '/partials/header.php';
 <div id="drawerOverlayAjuste" class="drawer-overlay"></div>
 <div id="drawerAjuste" class="drawer drawer-right">
   <div class="drawer-header">
-    <h3>Registrar Ajuste</h3>
-    <button type="button" class="btn-close" id="btnCerrarDrawerAjuste" aria-label="Cerrar">
+    <h2>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14"/><path d="M5 12h14"/><path d="M19 5 5 19"/>
+      </svg>
+      Registrar Ajuste
+    </h2>
+    <button type="button" class="drawer-close" id="btnCerrarDrawerAjuste" aria-label="Cerrar">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>
   </div>
   
-  <form id="formAjuste" autocomplete="off">
+  <form id="formAjuste" class="drawer-body" autocomplete="off">
     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
     <input type="hidden" name="cliente_id" value="<?= $clienteId ?>">
     
