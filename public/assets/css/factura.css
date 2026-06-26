@@ -42,8 +42,40 @@
 .factura-topbar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
   margin-bottom: 14px;
+}
+
+.factura-topbar-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.factura-topbar-context {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: #1f2937;
+}
+
+.factura-topbar-context span,
+.factura-topbar-context small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.factura-topbar-context span {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.factura-topbar-context strong {
+  color: #111827;
+  font-size: 14px;
 }
 
 .factura-topbar-actions {
@@ -665,6 +697,11 @@
     gap: 10px;
   }
 
+  .factura-topbar-main {
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .brand-shell,
   .qr-area,
   .qr-area--empty,
@@ -716,6 +753,10 @@
   .factura-view .flus-version-badge,
   .flus-version-badge,
   .flus-modal {
+    display: none !important;
+  }
+  .fiscal-row--internal,
+  .fiscal-note--internal {
     display: none !important;
   }
   .factura-page {

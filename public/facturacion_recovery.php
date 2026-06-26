@@ -99,7 +99,7 @@ $breadcrumb = [
     ['label' => 'Facturacion', 'url' => 'facturacion.php'],
     ['label' => 'Incidencias fiscales', 'url' => ''],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10'];
+$extraCss = ['assets/css/facturacion.css?v=21'];
 $extraJs = ['assets/js/facturacion_recovery.js?v=1'];
 
 require __DIR__ . '/partials/header.php';

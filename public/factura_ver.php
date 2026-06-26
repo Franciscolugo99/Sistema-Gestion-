@@ -600,6 +600,10 @@ if ($itemsCount <= 8) {
 $esNc = strtoupper((string)($factura['naturaleza'] ?? '')) === 'NC'
     || str_starts_with(strtoupper($tipo), 'NC');
 $comprobanteTitulo = $esNc ? 'Nota de credito' : 'Factura';
+$comprobanteNumero = sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']);
+$topbarLabel = $esNc ? 'Nota de credito emitida' : 'Comprobante fiscal';
+$backHref = $esNc ? 'facturacion_nc.php' : 'facturacion.php';
+$backLabel = $esNc ? 'Volver a notas de credito' : 'Volver a facturacion';
 $cobroSaldo = round((float)($cobranzaResumen['saldo'] ?? 0), 2);
 $cobroTotal = round((float)($cobranzaResumen['total'] ?? $resumenFiscal['total'] ?? 0), 2);
 $cobroTotalOriginal = round((float)($cobranzaResumen['total_original'] ?? $resumenFiscal['total'] ?? $cobroTotal), 2);
@@ -630,7 +634,7 @@ $breadcrumbs = $esNc
         ['label' => 'Facturación', 'url' => 'facturacion.php'],
         ['label' => $comprobanteTitulo . ' ' . $tipo . ' ' . sprintf('%04d-%08d', (int)$factura['punto_venta'], (int)$factura['numero']), 'url' => null],
     ];
-$extraCss = ['assets/css/factura.css?v=8'];
+$extraCss = ['assets/css/factura.css?v=9'];
 $bodyClass = 'factura-view';
 $inlineJs = !$pdfMode ? <<<'JS'
 (function () {
@@ -721,7 +725,7 @@ if ($pdfMode) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= h($pageTitle) ?></title>
-  <link rel="stylesheet" href="assets/css/factura.css?v=7">
+  <link rel="stylesheet" href="assets/css/factura.css?v=9">
 </head>
 <body class="<?= h($bodyClass) ?>">
 <?php
@@ -729,19 +733,17 @@ if ($pdfMode) {
     require __DIR__ . '/partials/header.php';
 }
 ?>
-<style>
-  @media print {
-    .fiscal-row--internal,
-    .fiscal-note--internal {
-      display: none !important;
-    }
-  }
-</style>
-
 <div class="<?= h(implode(' ', $pageClasses)) ?>">
   <div class="factura-shell">
     <div class="factura-topbar no-print">
-      <a href="facturacion.php" class="link-back-print">Volver a facturacion</a>
+      <div class="factura-topbar-main">
+        <a href="<?= h($backHref) ?>" class="link-back-print"><?= h($backLabel) ?></a>
+        <div class="factura-topbar-context">
+          <span><?= h($topbarLabel) ?></span>
+          <strong><?= h($tipo) ?> <?= h($comprobanteNumero) ?></strong>
+          <small><?= h($estadoFiscalLabel) ?>, <?= h($modoFacturaLabel) ?></small>
+        </div>
+      </div>
       <div class="factura-topbar-actions">
         <?php if ($puedeRegistrarCobro): ?>
           <button type="button" class="btn btn-secondary" data-open-cobro>Registrar cobro</button>

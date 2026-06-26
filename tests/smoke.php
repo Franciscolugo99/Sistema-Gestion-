@@ -4034,17 +4034,23 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     flus_assert_not_contains('facturacion_subnav', $manualPhp);
     flus_assert_not_contains('facturacion_subnav', $facturaVerPhp);
     flus_assert_contains('assets/js/facturacion_recovery.js', $recoveryPhp);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $recoveryPhp);
     flus_assert_contains('class="js-fiscal-confirm"', $recoveryPhp);
     flus_assert_contains('window.Notif.confirmar', $recoveryJs);
     flus_assert_contains('danger: form.dataset.confirmDanger === "true"', $recoveryJs);
     flus_assert_contains('HTMLFormElement.prototype.submit.call(form);', $recoveryJs);
     flus_assert_not_contains('form.submit();', $recoveryJs);
+    flus_assert_contains('assets/css/facturacion.css?v=21', $ncRecoveryPhp);
     flus_assert_contains('assets/js/facturacion_recovery.js?v=2', $ncRecoveryPhp);
     flus_assert_contains('class="js-fiscal-confirm"', $ncRecoveryPhp);
     flus_assert_contains('data-confirm-text="Reaplicar"', $ncRecoveryPhp);
     flus_assert_contains('data-confirm-danger="true"', $ncRecoveryPhp);
+    flus_assert_contains('fact-empty-state--compact', $ncRecoveryPhp);
+    flus_assert_contains('fact-error-cell', $ncRecoveryPhp);
     flus_assert_not_contains('onsubmit="return confirm', $ncRecoveryPhp);
+    flus_assert_not_contains('style=', $ncRecoveryPhp);
     flus_assert_contains('.fact-close-incident-input', $facturacionCss);
+    flus_assert_contains('.fact-recovery-warning--danger', $facturacionCss);
     flus_assert_not_contains('onsubmit="return confirm', $recoveryPhp);
     flus_assert_not_contains('style=', $recoveryPhp);
 });
@@ -4072,12 +4078,17 @@ $results[] = flus_run_test('factura_ver presenta cobros y recibos sin estilos in
     $facturaCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'factura.css');
 
     flus_assert_not_contains('style="', $facturaVerPhp);
-    flus_assert_contains('assets/css/factura.css?v=8', $facturaVerPhp);
+    flus_assert_contains('assets/css/factura.css?v=9', $facturaVerPhp);
+    flus_assert_contains('factura-topbar-context', $facturaVerPhp);
+    flus_assert_contains('$backHref = $esNc ? \'facturacion_nc.php\' : \'facturacion.php\';', $facturaVerPhp);
+    flus_assert_not_contains('<style>', $facturaVerPhp);
     flus_assert_contains('factura-receipt__summary', $facturaVerPhp);
     flus_assert_contains('factura-box--empty', $facturaVerPhp);
     flus_assert_contains('><?= h($cobroLabel) ?></span>', $facturaVerPhp);
     flus_assert_not_contains('><?= h($cobroEstado) ?></span>', $facturaVerPhp);
     flus_assert_contains('align-items: start;', $facturaCss);
+    flus_assert_contains('.factura-topbar-context {', $facturaCss);
+    flus_assert_contains('.fiscal-row--internal,', $facturaCss);
     flus_assert_contains('.factura-receipt {', $facturaCss);
 });
 

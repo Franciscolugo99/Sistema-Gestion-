@@ -93,7 +93,7 @@ $breadcrumb      = [
     ['label' => 'Facturación',     'url' => 'facturacion.php'],
     ['label' => 'NC Recovery',     'url' => ''],
 ];
-$extraCss = ['assets/css/facturacion.css?v=10'];
+$extraCss = ['assets/css/facturacion.css?v=21'];
 $extraJs = ['assets/js/facturacion_recovery.js?v=2'];
 
 require __DIR__ . '/partials/header.php';
@@ -125,18 +125,18 @@ require __DIR__ . '/partials/header.php';
     </header>
 
     <?php if ($msg !== ''): ?>
-      <div class="alert alert-success" style="margin-bottom:12px;"><?= rc_h($msg) ?></div>
+      <div class="alert alert-success fact-alert"><?= rc_h($msg) ?></div>
     <?php endif; ?>
     <?php if ($msgErr !== ''): ?>
-      <div class="alert alert-error" style="margin-bottom:12px;"><?= rc_h($msgErr) ?></div>
+      <div class="alert alert-error fact-alert"><?= rc_h($msgErr) ?></div>
     <?php endif; ?>
 
     <?php if ($casos === []): ?>
-      <div class="fact-empty-state" style="padding:32px 0;text-align:center;">
-        <p style="font-size:1.1em;color:var(--color-success,#16a34a);">✓ No hay casos ERROR_POST_ARCA pendientes.</p>
+      <div class="fact-empty-state fact-empty-state--compact">
+        <p class="fact-empty-state__success">OK - No hay casos ERROR_POST_ARCA pendientes.</p>
       </div>
     <?php else: ?>
-      <p style="margin-bottom:16px;color:var(--color-danger,#dc2626);">
+      <p class="fact-recovery-warning fact-recovery-warning--danger">
         <strong><?= count($casos) ?> caso<?= count($casos) === 1 ? '' : 's' ?></strong> requiere<?= count($casos) === 1 ? '' : 'n' ?> atención.
         Cada fila tiene la NC ya emitida en ARCA — solo falta cerrar el lado local.
       </p>
@@ -180,11 +180,11 @@ require __DIR__ . '/partials/header.php';
                 <td>
                   <?= $ncLabel ?>
                   <?php if (!empty($caso['nc_cae'])): ?>
-                    <br><small style="color:var(--color-muted);">CAE <?= rc_h((string)$caso['nc_cae']) ?></small>
+                    <br><small class="fact-cell-sub">CAE <?= rc_h((string)$caso['nc_cae']) ?></small>
                   <?php endif; ?>
                 </td>
                 <td class="t-right"><?= rc_money((float)($caso['monto_total'] ?? 0)) ?></td>
-                <td style="max-width:260px;word-break:break-word;">
+                <td class="fact-error-cell">
                   <small><?= rc_h((string)($caso['fiscal_error_message'] ?? '—')) ?></small>
                 </td>
                 <td><small><?= rc_h((string)($caso['anulado_en'] ?? '')) ?></small></td>

@@ -695,6 +695,10 @@ body[data-theme="dark"] .fact-field-help.is-warning {
   color: var(--danger, #dc2626);
 }
 
+.fact-recovery-warning--danger {
+  color: var(--danger, #dc2626);
+}
+
 .fact-empty-state--compact {
   padding: 32px 0;
   text-align: center;
