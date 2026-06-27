@@ -283,6 +283,36 @@
   margin-top: 6px;
 }
 
+.denom-chips.is-hidden {
+  display: none !important;
+}
+
+.caja-flash {
+  margin-bottom: 12px;
+}
+
+.caja-notif-line {
+  margin: 6px 0;
+}
+
+.caja-notif-help {
+  margin-top: 8px;
+  color: var(--muted, #94a3b8);
+  font-size: 0.88rem;
+}
+
+.caja-notif-money--success {
+  color: var(--accent-green, #22c55e);
+}
+
+.caja-notif-money--danger {
+  color: var(--danger, #ef4444);
+}
+
+.caja-notif-money--warning {
+  color: #fbbf24;
+}
+
 .denom-chip {
   padding: 4px 10px;
   border-radius: 999px;
@@ -1024,4 +1054,3 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
     gap: 8px;
   }
 }
-

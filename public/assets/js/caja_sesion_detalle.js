@@ -46,14 +46,14 @@
       }
 
       // Aplicar visibilidad
-      fila.style.display = mostrar ? '' : 'none';
+      fila.classList.toggle('is-hidden', !mostrar);
       
       if (mostrar) visibles++;
     });
 
     // Mostrar mensaje si no hay resultados
     if (noResultsMsg) {
-      noResultsMsg.style.display = visibles === 0 ? 'flex' : 'none';
+      noResultsMsg.classList.toggle('is-hidden', visibles !== 0);
     }
 
     // Actualizar contador visual si existe
@@ -127,19 +127,6 @@
     const tooltip = document.createElement('div');
     tooltip.className = 'flus-tooltip';
     tooltip.textContent = text;
-    tooltip.style.cssText = `
-      position: absolute;
-      background: var(--panel, #1e293b);
-      color: var(--text, #e2e8f0);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      max-width: 250px;
-      z-index: 9999;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      border: 1px solid var(--panel-border, rgba(148,163,184,0.2));
-      animation: fadeIn 0.15s ease;
-    `;
 
     document.body.appendChild(tooltip);
 
@@ -186,15 +173,5 @@
   // ═══════════════════════════════════════════════════════════════════
   // Aplicar filtros iniciales (ocultar anuladas por defecto)
   aplicarFiltros();
-
-  // Añadir estilos para animación de tooltip
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `;
-  document.head.appendChild(style);
 
 })();

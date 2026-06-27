@@ -660,6 +660,30 @@ body.caja-sesion-detalle-page .empty-message svg {
   opacity: 0.6;
 }
 
+body.caja-sesion-detalle-page .empty-message.is-hidden,
+body.caja-sesion-detalle-page .venta-row.is-hidden {
+  display: none;
+}
+
+body.caja-sesion-detalle-page .flus-tooltip {
+  position: absolute;
+  max-width: 250px;
+  padding: 8px 12px;
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
+  border-radius: 8px;
+  background: var(--panel, #1e293b);
+  color: var(--text, #e2e8f0);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 0.82rem;
+  z-index: 9999;
+  animation: cajaTooltipFadeIn 0.15s ease;
+}
+
+@keyframes cajaTooltipFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    TABLAS
 ═══════════════════════════════════════════════════════════════════ */

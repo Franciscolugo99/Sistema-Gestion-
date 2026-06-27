@@ -404,9 +404,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const valor = parseSaldo(inputSaldo.value);
       const ok = await Notif.confirmar(
-        "🏦 Abrir caja",
-        `<p>Saldo inicial: <strong style="color:var(--accent-green,#22c55e)">$${valor.toFixed(2)}</strong></p>`,
-        { icon: "info", confirmText: "✅ Abrir caja", cancelText: "Cancelar" },
+        "Abrir caja",
+        `<p>Saldo inicial: <strong class="caja-notif-money caja-notif-money--success">$${valor.toFixed(2)}</strong></p>`,
+        { icon: "info", confirmText: "Abrir caja", cancelText: "Cancelar" },
       );
       if (ok) {
         _confirmandoApertura = true;
@@ -2342,16 +2342,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const disponible = stock - enCarrito;
       if (disponible > 0) {
         const _stockMsg =
-          `<p style="margin:6px 0">Pediste <strong style="color:var(--danger,#ef4444)">${cantidad} ${unidadVenta}</strong>, ` +
-          `solo hay <strong style="color:#fbbf24">${disponible} ${unidadVenta}</strong>.</p>` +
-          `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:8px">¿Agregamos lo disponible?</p>`;
+          `<p class="caja-notif-line">Pediste <strong class="caja-notif-money caja-notif-money--danger">${cantidad} ${unidadVenta}</strong>, ` +
+          `solo hay <strong class="caja-notif-money caja-notif-money--warning">${disponible} ${unidadVenta}</strong>.</p>` +
+          '<p class="caja-notif-help">Agregamos lo disponible?</p>';
         const agregar = await Notif.confirmar(
-          "⚠️ Stock insuficiente",
+          "Stock insuficiente",
           _stockMsg,
           {
             icon: "warning",
-            confirmText: `✅ Agregar ${disponible}`,
-            cancelText: "❌ Cancelar",
+            confirmText: `Agregar ${disponible}`,
+            cancelText: "Cancelar",
           },
         );
         if (agregar) {
@@ -3267,12 +3267,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (carrito.length > 0) {
       const _n = carrito.length;
       const ok = await Notif.confirmar(
-        "🗑️ Cancelar venta",
+        "Cancelar venta",
         `<p>Se eliminarán los <strong>${_n} producto${_n > 1 ? "s" : ""}</strong> del ticket.</p>` +
-          `<p style="color:var(--muted,#94a3b8);font-size:.88rem;margin-top:6px">Esta acción no se puede deshacer.</p>`,
+          '<p class="caja-notif-help">Esta accion no se puede deshacer.</p>',
         {
           icon: "warning",
-          confirmText: "🗑️ Sí, cancelar",
+          confirmText: "Si, cancelar",
           cancelText: "Volver",
         },
       );
@@ -3557,6 +3557,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Sin cambios a API, CSRF, lógica de negocio ni backend.
   // =========================================================================
   (function initMejorasUX() {
+    document.querySelectorAll("[data-caja-summary-action]").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+    });
 
     // ── 1. CHIPS DE DENOMINACIÓN ────────────────────────────────────────────
     // Muestra billetes rápidos ($500/$1000/etc.) cuando el medio es EFECTIVO.
@@ -3602,7 +3607,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       function syncVisibility() {
         const targets = cashTargets();
-        chips.style.display = targets.length ? "flex" : "none";
+        chips.classList.toggle("is-hidden", !targets.length);
         const target = resolveTarget();
         chips.dataset.targetSlot = target?.slot || "";
         if (target?.wrap && chips.parentElement !== target.wrap) {

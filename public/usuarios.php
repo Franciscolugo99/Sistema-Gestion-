@@ -185,8 +185,7 @@ function formatLastAccess(?string $datetime): string {
             placeholder="Buscar por nombre, usuario o email..."
             value="<?= h($search) ?>" class="filter-input">
           <?php if ($search): ?>
-            <button type="button" class="clear-search"
-              onclick="document.getElementById('search').value=''; this.closest('form').submit();">
+            <button type="button" class="clear-search" data-users-clear-search>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           <?php endif; ?>
@@ -194,7 +193,7 @@ function formatLastAccess(?string $datetime): string {
       </div>
 
       <div class="filter-group">
-        <select name="rol" id="rol" class="filter-select" onchange="this.form.submit()">
+        <select name="rol" id="rol" class="filter-select" data-users-autosubmit>
           <option value="">Todos los roles</option>
           <?php foreach ($roles as $r): ?>
             <option value="<?= (int)$r['id'] ?>" <?= $rolId === (int)$r['id'] ? 'selected' : '' ?>>
@@ -205,7 +204,7 @@ function formatLastAccess(?string $datetime): string {
       </div>
 
       <div class="filter-group">
-        <select name="estado" id="estado" class="filter-select" onchange="this.form.submit()">
+        <select name="estado" id="estado" class="filter-select" data-users-autosubmit>
           <option value="">Todos los estados</option>
           <option value="activo"   <?= $estado === 'activo'   ? 'selected' : '' ?>>Activos</option>
           <option value="inactivo" <?= $estado === 'inactivo' ? 'selected' : '' ?>>Inactivos</option>

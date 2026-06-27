@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Caja, movimientos de caja y detalle de sesion usan estados visuales por clases CSS en lugar de estilos inline para flashes, filtros, tooltips y mensajes vacios.
+- Roles y permisos migran filtros, apertura/cierre de categorias, drawer y modal de eliminacion a controles declarativos `data-*`, manteniendo compatibilidad JS existente.
+- Usuarios mueve limpiar busqueda y autosubmit de filtros a JavaScript centralizado, sin handlers inline en la vista.
+- Consultas de productos y stock reemplazan margen inline de tabla por clase dedicada.
+
+### Validation
+
+- `C:\xampp82\php\php.exe tests\smoke.php`: `159 OK / 0 fallidas / 0 skipped`.
+- PHP lint en vistas tocadas y syntax check de JavaScript en modulos modificados sin errores.
+- `git diff --check` sin problemas de whitespace.
+
 ---
 
 ## [4.1.1] - 2026-06-11

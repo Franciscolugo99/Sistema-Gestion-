@@ -612,7 +612,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         
         <!-- Mensaje cuando no hay resultados del filtro -->
-        <p class="empty-message filter-empty" id="noResultsMsg" style="display: none;">
+        <p class="empty-message filter-empty is-hidden" id="noResultsMsg">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           No se encontraron ventas con los filtros seleccionados.
         </p>

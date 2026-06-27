@@ -43,7 +43,7 @@
                 if (visible) visibleCount++;
             });
 
-            category.style.display = visibleCount > 0 ? '' : 'none';
+            category.classList.toggle('is-hidden', visibleCount === 0);
 
             if (term !== '' || activeLevelFilter !== 'all') {
                 category.classList.remove('is-collapsed');
@@ -183,15 +183,8 @@
     window.filterLevel = function filterLevel(level) {
         activeLevelFilter = level;
 
-        qsa('.toolbar-right .btn-sm').forEach((button) => {
-            const text = button.textContent.trim();
-            const matches =
-                (level === 'all' && text === 'Todos') ||
-                (level === 'operativo' && text === 'Operativos') ||
-                (level === 'consulta' && text === 'Consulta') ||
-                (level === 'sensible' && text === 'Sensibles') ||
-                (level === 'admin' && text === 'Admin');
-            button.classList.toggle('is-active', matches);
+        qsa('[data-role-filter]').forEach((button) => {
+            button.classList.toggle('is-active', (button.dataset.roleFilter || 'all') === level);
         });
 
         applyFilters();
@@ -215,6 +208,17 @@
         });
 
         qs('#permisosSearch')?.addEventListener('input', applyFilters);
+
+        qsa('[data-role-filter]').forEach((button) => {
+            button.addEventListener('click', () => filterLevel(button.dataset.roleFilter || 'all'));
+        });
+
+        qs('[data-role-expand-all]')?.addEventListener('click', expandAll);
+        qs('[data-role-collapse-all]')?.addEventListener('click', collapseAll);
+
+        qsa('[data-role-category-toggle]').forEach((header) => {
+            header.addEventListener('click', () => toggleCategory(header));
+        });
 
         window.addEventListener('beforeunload', (event) => {
             if (!hasChanges) return;

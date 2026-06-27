@@ -74,7 +74,7 @@ $queryParams = $_GET;
 
 $extraHead = <<<'HTML'
 <style>
-.consulta-shell{display:grid;gap:16px}.consulta-panel{padding:24px;border:1px solid var(--panel-border,rgba(148,163,184,.2));border-radius:24px;background:var(--panel,#fff);box-shadow:var(--panel-shadow,0 18px 40px rgba(15,23,42,.12))}.consulta-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.consulta-copy h1{margin:0 0 6px}.consulta-copy p{margin:0;color:var(--muted,#64748b)}.consulta-toolbar{display:grid;grid-template-columns:2fr 1fr auto auto;gap:12px;align-items:end}.consulta-toolbar .input,.consulta-toolbar select{width:100%}.status-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:.75rem;font-weight:700}.status-chip--ok{background:rgba(34,197,94,.12);color:#15803d}.status-chip--low{background:rgba(245,158,11,.13);color:#b45309}.status-chip--out{background:rgba(239,68,68,.12);color:#dc2626}.status-chip--off{background:rgba(148,163,184,.12);color:#475569}.consulta-empty{padding:32px 16px;text-align:center;color:var(--muted,#64748b)}@media (max-width:900px){.consulta-toolbar{grid-template-columns:1fr}.consulta-header{align-items:stretch}}
+.consulta-shell{display:grid;gap:16px}.consulta-panel{padding:24px;border:1px solid var(--panel-border,rgba(148,163,184,.2));border-radius:24px;background:var(--panel,#fff);box-shadow:var(--panel-shadow,0 18px 40px rgba(15,23,42,.12))}.consulta-header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.consulta-copy h1{margin:0 0 6px}.consulta-copy p{margin:0;color:var(--muted,#64748b)}.consulta-toolbar{display:grid;grid-template-columns:2fr 1fr auto auto;gap:12px;align-items:end}.consulta-toolbar .input,.consulta-toolbar select{width:100%}.consulta-table-wrapper{margin-top:16px}.status-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:.75rem;font-weight:700}.status-chip--ok{background:rgba(34,197,94,.12);color:#15803d}.status-chip--low{background:rgba(245,158,11,.13);color:#b45309}.status-chip--out{background:rgba(239,68,68,.12);color:#dc2626}.status-chip--off{background:rgba(148,163,184,.12);color:#475569}.consulta-empty{padding:32px 16px;text-align:center;color:var(--muted,#64748b)}@media (max-width:900px){.consulta-toolbar{grid-template-columns:1fr}.consulta-header{align-items:stretch}}
 </style>
 HTML;
 
@@ -138,7 +138,7 @@ require __DIR__ . '/partials/header.php';
             <button type="submit" class="btn btn-primary">Aplicar</button>
         </form>
 
-        <div class="table-wrapper" style="margin-top:16px;">
+        <div class="table-wrapper consulta-table-wrapper">
             <table class="table">
                 <thead>
                     <tr>

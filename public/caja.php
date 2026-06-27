@@ -341,10 +341,10 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 <div class="panel caja-panel<?= $cajaSesion !== null && $canRealizarVentas ? ' caja-panel--pos caja-panel--neo' : '' ?>">
 
   <?php if ($flashOk !== ''): ?>
-    <div class="alert alert-success" style="margin-bottom:12px;"><?= h($flashOk) ?></div>
+    <div class="alert alert-success caja-flash"><?= h($flashOk) ?></div>
   <?php endif; ?>
   <?php if ($flashErr !== ''): ?>
-    <div class="alert alert-error" style="margin-bottom:12px;"><?= h($flashErr) ?></div>
+    <div class="alert alert-error caja-flash"><?= h($flashErr) ?></div>
   <?php endif; ?>
 
   <?php if ($cajaSesion === null): ?>
@@ -535,7 +535,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
           <a class="btn btn-primary btn-sm"
              href="caja_movimientos.php"
-             onclick="event.preventDefault(); event.stopPropagation(); window.location='caja_movimientos.php';">
+             data-caja-summary-action>
             Registrar
           </a>
         </div>
@@ -746,7 +746,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
         <input type="number" id="montoPagado" data-payment-slot="1" min="0" step="0.01" placeholder="0,00">
 
         <!-- UX: chips de billete rapido (solo efectivo) -->
-        <div id="denomChips" class="denom-chips" aria-label="Billetes rapidos" style="display:none">
+        <div id="denomChips" class="denom-chips is-hidden" aria-label="Billetes rapidos">
           <button type="button" class="denom-chip" data-monto="500">$500</button>
           <button type="button" class="denom-chip" data-monto="1000">$1.000</button>
           <button type="button" class="denom-chip" data-monto="2000">$2.000</button>

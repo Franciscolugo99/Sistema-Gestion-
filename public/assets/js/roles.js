@@ -37,6 +37,53 @@
         }
     }
 
+    function setCriticalRoleAlertVisible(visible) {
+        var alert = document.getElementById('criticalRoleAlert');
+        if (alert) {
+            alert.classList.toggle('is-hidden', !visible);
+        }
+    }
+
+    function initRoleProgress() {
+        document.querySelectorAll('[data-role-progress]').forEach(function(progress) {
+            var percentage = Math.max(0, Math.min(100, parseInt(progress.dataset.roleProgress || '0', 10) || 0));
+            progress.style.width = percentage + '%';
+        });
+    }
+
+    function bindStaticControls() {
+        document.querySelectorAll('[data-role-drawer-open]').forEach(function(button) {
+            button.addEventListener('click', window.openNewRoleDrawer);
+        });
+
+        document.querySelectorAll('[data-role-drawer-close]').forEach(function(button) {
+            button.addEventListener('click', window.closeRoleDrawer);
+        });
+
+        document.querySelectorAll('[data-role-delete-close]').forEach(function(button) {
+            button.addEventListener('click', window.closeDeleteModal);
+        });
+
+        var search = document.querySelector('[data-role-search]');
+        if (search) {
+            search.addEventListener('input', function() {
+                window.filterRoles(search.value);
+            });
+        }
+
+        var roleNameInput = document.querySelector('[data-role-name-input]');
+        if (roleNameInput) {
+            roleNameInput.addEventListener('input', function() {
+                window.handleNameInput(roleNameInput.value);
+            });
+        }
+
+        var roleSlugInput = document.querySelector('[data-role-slug-input]');
+        if (roleSlugInput) {
+            roleSlugInput.addEventListener('input', window.markSlugDirty);
+        }
+    }
+
     // =========================================================================
     // DRAWER FUNCTIONS
     // =========================================================================
@@ -48,7 +95,7 @@
         document.getElementById('roleName').value = '';
         document.getElementById('roleSlug').value = '';
         document.getElementById('roleSlug').readOnly = false;
-        document.getElementById('criticalRoleAlert').style.display = 'none';
+        setCriticalRoleAlertVisible(false);
         document.getElementById('slugHelp').textContent = 'Identificador único (sin espacios ni acentos)';
         slugDirty = false;
         isEditingCritical = false;
@@ -68,11 +115,11 @@
         
         if (isCritical) {
             document.getElementById('roleSlug').readOnly = true;
-            document.getElementById('criticalRoleAlert').style.display = 'flex';
+            setCriticalRoleAlertVisible(true);
             document.getElementById('slugHelp').textContent = 'No modificable en roles del sistema';
         } else {
             document.getElementById('roleSlug').readOnly = false;
-            document.getElementById('criticalRoleAlert').style.display = 'none';
+            setCriticalRoleAlertVisible(false);
             document.getElementById('slugHelp').textContent = 'Identificador único (sin espacios ni acentos)';
         }
         
@@ -137,10 +184,10 @@
             var slug = (card.dataset.roleSlug || '').toLowerCase();
             
             if (name.indexOf(term) !== -1 || slug.indexOf(term) !== -1) {
-                card.style.display = '';
                 visibleCount++;
+                card.classList.remove('is-hidden');
             } else {
-                card.style.display = 'none';
+                card.classList.add('is-hidden');
             }
         });
 
@@ -194,6 +241,8 @@
     // =========================================================================
 
     document.addEventListener('DOMContentLoaded', function() {
+        initRoleProgress();
+        bindStaticControls();
         
         // Event delegation para botones de editar y eliminar
         document.addEventListener('click', function(e) {

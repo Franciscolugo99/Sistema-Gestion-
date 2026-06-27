@@ -322,13 +322,13 @@ require __DIR__ . '/partials/header.php';
                 </div>
             </div>
             <div class="toolbar-right">
-                <button type="button" class="btn btn-ghost btn-sm" onclick="filterLevel('all')">Todos</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="filterLevel('operativo')">Operativos</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="filterLevel('consulta')">Consulta</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="filterLevel('sensible')">Sensibles</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="filterLevel('admin')">Admin</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="expandAll()">Abrir</button>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="collapseAll()">Cerrar</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-filter="all">Todos</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-filter="operativo">Operativos</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-filter="consulta">Consulta</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-filter="sensible">Sensibles</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-filter="admin">Admin</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-expand-all>Abrir</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-role-collapse-all>Cerrar</button>
             </div>
         </section>
 
@@ -342,7 +342,7 @@ require __DIR__ . '/partials/header.php';
                     $catChecked = array_reduce($permisosCategoria, static fn(int $carry, array $perm): int => $carry + (int)$perm['enabled'], 0);
                     ?>
                     <section class="permisos-category permisos-category--<?= h((string)$catConfig['tone']) ?>" data-categoria="<?= h((string)$categoryKey) ?>">
-                        <header class="category-header" onclick="toggleCategory(this)">
+                        <header class="category-header" data-role-category-toggle>
                             <div class="category-info">
                                 <span class="category-icon category-icon--<?= h((string)$catConfig['tone']) ?>"><?= h((string)$catConfig['icon']) ?></span>
                                 <div class="category-text">

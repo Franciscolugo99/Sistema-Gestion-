@@ -258,6 +258,10 @@
     transform: translateY(-2px);
 }
 
+.role-card.is-hidden {
+    display: none;
+}
+
 .role-card--admin {
     border-color: rgba(251, 191, 36, 0.3);
     background: linear-gradient(135deg, var(--card-bg) 0%, rgba(251, 191, 36, 0.04) 100%);
@@ -363,6 +367,7 @@
 
 .progress-fill {
     height: 100%;
+    width: 0;
     border-radius: 999px;
     transition: width 0.4s ease;
 }
@@ -530,6 +535,14 @@
     background: rgba(251, 191, 36, 0.12);
     color: #f59e0b;
     border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.role-critical-alert {
+    margin-bottom: 1rem;
+}
+
+.role-critical-alert.is-hidden {
+    display: none;
 }
 
 /* ==========================================================================
@@ -969,6 +982,10 @@ html:not([data-theme="dark"]) body:not(.dark) .modal-footer {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
+}
+
+.permisos-category.is-hidden {
+    display: none;
 }
 
 .category-header {

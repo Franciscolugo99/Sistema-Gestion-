@@ -123,7 +123,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
             </div>
             <div class="page-actions module-header-actions">
-                <button type="button" class="btn btn-primary" onclick="openNewRoleDrawer()">
+                <button type="button" class="btn btn-primary" data-role-drawer-open>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
@@ -160,7 +160,7 @@ require __DIR__ . '/partials/header.php';
                     class="search-input"
                     placeholder="Buscar rol por nombre o slug..."
                     value="<?= h($search) ?>"
-                    onkeyup="filterRoles(this.value)"
+                    data-role-search
                 >
             </div>
             <div class="filters-right">
@@ -177,7 +177,7 @@ require __DIR__ . '/partials/header.php';
                     <div class="empty-icon">👥</div>
                     <h3>No hay roles configurados</h3>
                     <p>Crea tu primer rol para comenzar a gestionar permisos.</p>
-                    <button type="button" class="btn btn-primary" onclick="openNewRoleDrawer()">
+                    <button type="button" class="btn btn-primary" data-role-drawer-open>
                         Crear primer rol
                     </button>
                 </div>
@@ -248,8 +248,8 @@ require __DIR__ . '/partials/header.php';
 
                         <div class="role-progress">
                             <div class="progress-bar">
-                                <div class="progress-fill progress-fill--<?= $progressColor ?>" 
-                                     style="width: <?= $permisosPercentage ?>%"></div>
+                                <div class="progress-fill progress-fill--<?= $progressColor ?>"
+                                     data-role-progress="<?= $permisosPercentage ?>"></div>
                             </div>
                             <span class="progress-text"><?= $permisosPercentage ?>% de permisos asignados</span>
                         </div>
@@ -305,11 +305,11 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <!-- DRAWER: NUEVO/EDITAR ROL -->
-<div class="drawer-overlay" id="roleDrawerOverlay" onclick="closeRoleDrawer()"></div>
+<div class="drawer-overlay" id="roleDrawerOverlay" data-role-drawer-close></div>
 <aside class="drawer" id="roleDrawer">
     <header class="drawer-header">
         <h2 class="drawer-title" id="drawerTitle">Nuevo Rol</h2>
-        <button type="button" class="drawer-close" onclick="closeRoleDrawer()" title="Cerrar">
+        <button type="button" class="drawer-close" data-role-drawer-close title="Cerrar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -326,7 +326,7 @@ require __DIR__ . '/partials/header.php';
                 <h3 class="section-title">Información del rol</h3>
                 
                 <!-- Aviso para roles críticos -->
-                <div class="alert alert-warning" id="criticalRoleAlert" style="display: none; margin-bottom: 1rem;">
+                <div class="alert alert-warning role-critical-alert is-hidden" id="criticalRoleAlert">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                         <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -345,7 +345,7 @@ require __DIR__ . '/partials/header.php';
                                required 
                                placeholder="Ej: Supervisor"
                                maxlength="50"
-                               oninput="handleNameInput(this.value)">
+                               data-role-name-input>
                         <span class="field-help">Nombre descriptivo del rol</span>
                     </div>
                     
@@ -361,14 +361,14 @@ require __DIR__ . '/partials/header.php';
                                maxlength="50"
                                pattern="[a-z0-9_]+"
                                title="Solo letras minúsculas, números y guiones bajos"
-                               oninput="markSlugDirty()">
+                               data-role-slug-input>
                         <span class="field-help" id="slugHelp">Identificador único (sin espacios ni acentos)</span>
                     </div>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn btn-ghost" onclick="closeRoleDrawer()">Cancelar</button>
+                <button type="button" class="btn btn-ghost" data-role-drawer-close>Cancelar</button>
                 <button type="submit" class="btn btn-primary" id="saveRoleBtn">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -383,11 +383,11 @@ require __DIR__ . '/partials/header.php';
 
 <!-- MODAL: CONFIRMAR ELIMINACIÓN -->
 <div class="modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalMessage deleteModalWarning" aria-hidden="true">
-    <div class="modal-overlay" onclick="closeDeleteModal()"></div>
+    <div class="modal-overlay" data-role-delete-close></div>
     <div class="modal-content">
         <header class="modal-header">
             <h2 class="modal-title" id="deleteModalTitle">Eliminar rol</h2>
-            <button type="button" class="modal-close" onclick="closeDeleteModal()" aria-label="Cerrar confirmación">
+            <button type="button" class="modal-close" data-role-delete-close aria-label="Cerrar confirmación">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -404,7 +404,7 @@ require __DIR__ . '/partials/header.php';
             <p class="text-muted" id="deleteModalWarning"></p>
         </div>
         <footer class="modal-footer">
-            <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancelar</button>
+            <button type="button" class="btn btn-ghost" data-role-delete-close>Cancelar</button>
             <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <polyline points="3 6 5 6 21 6"/>

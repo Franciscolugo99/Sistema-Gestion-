@@ -154,7 +154,7 @@ require __DIR__ . '/partials/header.php';
   </div>
 
   <?php if ($error): ?>
-    <div class="alert alert-error" style="margin-bottom:12px;"><?= h($error) ?></div>
+    <div class="alert alert-error mov-error"><?= h($error) ?></div>
   <?php endif; ?>
 
   <div class="mov-form-card">

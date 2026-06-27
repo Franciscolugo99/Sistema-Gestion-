@@ -130,6 +130,22 @@
     }
 
     // Animación de aparición de filas
+    document.querySelectorAll('[data-users-autosubmit]').forEach(function (control) {
+      control.addEventListener('change', function () {
+        if (control.form) control.form.submit();
+      });
+    });
+
+    const clearSearchBtn = document.querySelector('[data-users-clear-search]');
+    if (clearSearchBtn) {
+      clearSearchBtn.addEventListener('click', function () {
+        const form = clearSearchBtn.closest('form');
+        const input = form ? form.querySelector('[name="search"]') : null;
+        if (input) input.value = '';
+        if (form) form.submit();
+      });
+    }
+
     const rows = document.querySelectorAll('.tabla-usuarios tbody tr');
     rows.forEach((row, i) => {
       row.style.animationDelay = `${i * 30}ms`;

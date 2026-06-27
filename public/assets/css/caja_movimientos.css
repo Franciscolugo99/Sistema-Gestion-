@@ -58,6 +58,10 @@ body[data-theme="light"] .mov-header {
   align-items: center;
 }
 
+.mov-error {
+  margin-bottom: 12px;
+}
+
 /* =====================
    CARD FORMULARIO
 ===================== */

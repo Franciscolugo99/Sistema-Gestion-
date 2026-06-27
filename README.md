@@ -10,13 +10,14 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ---
 
-## Estado de release 4.1.1 (2026-06-11)
+## Estado de release 4.1.1 (actualizado 2026-06-27)
 
-- Smoke tecnico: `142 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `159 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
+- UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
 - Migraciones y baseline: versionados hasta `041_mercadopago_integration_state.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
 - Salida actual: `4.1.1`, pensada como parche operativo para instalador/actualizador.
