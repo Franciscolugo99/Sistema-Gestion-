@@ -213,8 +213,72 @@
   align-items: start;
 }
 
+.precios-schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.precios-schedule-alert {
+  margin-bottom: 1rem;
+}
+
+.precios-toggle-row {
+  font-weight: 800;
+}
+
+.form-hint--flush,
+.precios-rule-name {
+  margin-top: 0;
+}
+
+.precios-time-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.precios-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.precios-day-option {
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.45rem;
+  border: 1px solid var(--pm-border);
+  border-radius: var(--radius-sm, 8px);
+  background: var(--pm-input-bg);
+}
+
+.precios-schedule-toggle-form {
+  margin-top: 1rem;
+}
+
+.precios-empty-note {
+  padding: 2rem;
+  text-align: center;
+  color: var(--pm-muted);
+}
+
+.precios-empty-note--large {
+  padding: 3rem;
+}
+
+.precios-empty-icon {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
 @media (max-width: 1100px) {
   .precios-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .precios-schedule-layout {
     grid-template-columns: 1fr;
   }
   
@@ -507,6 +571,10 @@
   color: var(--pm-text);
 }
 
+.selection-counter.is-hidden {
+  display: none;
+}
+
 .selection-counter #selectionCount {
   font-weight: 700;
   color: var(--pm-primary);
@@ -653,6 +721,13 @@
   padding: 0.5rem;
 }
 
+.precios-preview-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--pm-muted);
+  text-align: center;
+}
+
 .preview-item {
   display: flex;
   justify-content: space-between;
@@ -664,6 +739,24 @@
 
 .preview-item:hover {
   background: var(--pm-hover);
+}
+
+.preview-item--muted {
+  color: var(--pm-muted);
+  font-style: italic;
+}
+
+.precios-confirm-muted {
+  color: var(--pm-muted);
+  font-size: 0.88rem;
+}
+
+.precios-confirm-danger {
+  color: #f87171;
+}
+
+.precios-confirm-warning {
+  color: #fbbf24;
 }
 
 .preview-item .nombre {
@@ -731,8 +824,18 @@
 }
 
 .preview-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
   margin-right: 4px;
+  border-radius: 999px;
+  background: var(--pm-danger);
+  color: var(--pm-card-bg);
   font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 /* Alertas generales en preview */
@@ -791,6 +894,17 @@
 
 .btn-apply.primary:hover:not(:disabled) {
   filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-apply--danger {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.btn-apply--danger:hover:not(:disabled) {
+  background: #fecaca;
   transform: translateY(-1px);
 }
 
@@ -1314,6 +1428,23 @@
   color: var(--pm-warning);
 }
 
+.stat-value--sm {
+  font-size: 0.875rem;
+}
+
+.margenes-title-icon {
+  margin-right: 0.5rem;
+  vertical-align: -3px;
+}
+
+.margen-indicator-col {
+  width: 100px;
+}
+
+.margen-action-col {
+  width: 80px;
+}
+
 .stat-label {
   font-size: 0.75rem;
   color: var(--pm-muted);
@@ -1661,6 +1792,10 @@
   max-width: 420px;
   animation: slideIn 0.3s ease;
   box-shadow: var(--pm-shadow-md);
+}
+
+.alert-floating.is-hiding {
+  animation: slideOut 0.3s ease;
 }
 /* ============================================
    HERRAMIENTAS - MEJORAS 3000+ PRODUCTOS

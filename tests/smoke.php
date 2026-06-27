@@ -1686,8 +1686,8 @@ $results[] = flus_run_test('historial de precios conserva scroll de pagina y apl
         ? substr($preciosPhp, $historyStart, $historyEnd - $historyStart)
         : '';
 
-    flus_assert_contains('assets/css/precios.css?v=5', $preciosPhp);
-    flus_assert_contains('assets/js/precios.js?v=5', $preciosPhp);
+    flus_assert_contains('assets/css/precios.css?v=6', $preciosPhp);
+    flus_assert_contains('assets/js/precios.js?v=6', $preciosPhp);
     flus_assert_contains('<article class="hist-item"', $historyMarkup);
     flus_assert_contains("'same'", $historyMarkup);
     flus_assert_contains('<time datetime=', $historyMarkup);
@@ -1700,6 +1700,41 @@ $results[] = flus_run_test('historial de precios conserva scroll de pagina y apl
     flus_assert_not_contains('body.precios-page {' . PHP_EOL . '  display: flex;', $preciosCss);
     flus_assert_not_contains('max-height: clamp(24rem, calc(100vh - 20rem), 44rem);', $preciosCss);
     flus_assert_contains('grid-template-columns: 32px minmax(0, 1fr);', $preciosCss);
+    flus_assert_contains('precios-schedule-layout', $preciosPhp);
+    flus_assert_contains('selection-counter is-hidden', $preciosPhp);
+    flus_assert_contains('counterSection.classList.toggle("is-hidden", count === 0);', $preciosJs);
+    flus_assert_contains('.precios-schedule-layout {', $preciosCss);
+    flus_assert_contains('.selection-counter.is-hidden {', $preciosCss);
+    flus_assert_contains('class="precios-preview-empty"', $preciosPhp);
+    flus_assert_contains('preview-item preview-item--muted', $preciosJs);
+    flus_assert_contains('margenes-title-icon', $preciosPhp);
+    flus_assert_contains('precios-empty-note precios-empty-note--large', $preciosPhp);
+    flus_assert_contains('stat-value stat-value--sm', $preciosPhp);
+    flus_assert_contains('precios-confirm-muted', $preciosJs);
+    flus_assert_contains('precios-confirm-danger', $preciosJs);
+    flus_assert_contains('precios-confirm-warning', $preciosJs);
+    $decorativeIcons = array_map(
+        static fn(string $entity): string => html_entity_decode($entity, ENT_QUOTES, 'UTF-8'),
+        ['&#128230;', '&#9888;&#65039;', '&#9989;', '&#10060;', '&#128308;', '&#128178;']
+    );
+    foreach ($decorativeIcons as $decorativeIcon) {
+        flus_assert_not_contains($decorativeIcon, $preciosJs);
+    }
+    flus_assert_contains('.precios-preview-empty {', $preciosCss);
+    flus_assert_contains('.preview-item--muted {', $preciosCss);
+    flus_assert_contains('.margenes-title-icon {', $preciosCss);
+    flus_assert_contains('.alert-floating.is-hiding {', $preciosCss);
+    flus_assert_contains('.precios-confirm-warning {', $preciosCss);
+    flus_assert_contains('alert.classList.add("is-hiding");', $preciosJs);
+    flus_assert_not_contains('counterSection.style.display', $preciosJs);
+    flus_assert_not_contains('alert.style.cssText', $preciosJs);
+    flus_assert_not_contains('document.createElement("style")', $preciosJs);
+    flus_assert_not_contains('class="selection-counter" style="display: none;"', $preciosPhp);
+    flus_assert_not_contains('<p style="text-align: center; padding: 1rem; color: var(--pm-muted); margin: 0;">', $preciosPhp);
+    flus_assert_not_contains('style="text-align: center; padding: 1rem;"', $preciosJs);
+    flus_assert_not_contains("style='color:var(--muted,#94a3b8);font-size:.88rem'", $preciosJs);
+    flus_assert_not_contains("style='color:#f87171'", $preciosJs);
+    flus_assert_not_contains("style='color:#fbbf24'", $preciosJs);
 });
 
 $results[] = flus_run_test('pagination helper is centralized in src helpers', function (): void {

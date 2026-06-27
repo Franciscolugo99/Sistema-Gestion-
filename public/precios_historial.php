@@ -45,8 +45,8 @@ csrf_token();
 $pageTitle = 'Gestión de Precios - FLUS';
 $currentSection = 'precios_historial';
 $bodyClass = 'precios-page';
-$extraCss = ['assets/css/precios.css?v=5'];
-$extraJs = ['assets/js/precios.js?v=5'];
+$extraCss = ['assets/css/precios.css?v=6'];
+$extraJs = ['assets/js/precios.js?v=6'];
 
 $info = null;
 
@@ -830,7 +830,7 @@ require __DIR__ . '/partials/header.php';
     ============================================ -->
     <?php elseif ($vista === 'horarios'): ?>
 
-        <div style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(280px, 420px);gap:1rem;align-items:start;">
+        <div class="precios-schedule-layout">
             <div class="tool-card">
                 <div class="tool-card-header">
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -841,7 +841,7 @@ require __DIR__ . '/partials/header.php';
                     <span class="help-tooltip" data-tip="Esta pantalla edita una unica regla horaria; guardar no crea duplicados." tabindex="0" aria-label="Ayuda">?</span>
                 </div>
                 <div class="tool-card-body">
-                    <div class="alert alert-info" style="margin-bottom:1rem;">
+                    <div class="alert alert-info precios-schedule-alert">
                         Esta regla se aplica a todos los productos activos vendidos en Caja, incluidos los productos sin categoria.
                     </div>
 
@@ -850,11 +850,11 @@ require __DIR__ . '/partials/header.php';
                         <input type="hidden" name="accion" value="guardar_recargo_horario">
                         <input type="hidden" name="recargo_enabled" value="0">
 
-                        <label style="display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;font-weight:800;">
+                        <label class="precios-toggle-row">
                             <input type="checkbox" name="recargo_enabled" value="1" <?= !empty($recargoHorarioConfig['enabled']) ? 'checked' : '' ?>>
                             Regla activa
                         </label>
-                        <p class="form-hint" style="margin-top:0;">Para apagarla desde aca, desmarca Regla activa y toca Guardar regla. Tambien podes usar el boton Desactivar ahora del panel derecho.</p>
+                        <p class="form-hint form-hint--flush">Para apagarla desde aca, desmarca Regla activa y toca Guardar regla. Tambien podes usar el boton Desactivar ahora del panel derecho.</p>
 
                         <div class="form-group">
                             <label>Nombre de la regla</label>
@@ -869,7 +869,7 @@ require __DIR__ . '/partials/header.php';
                             </div>
                         </div>
 
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+                        <div class="precios-time-grid">
                             <div class="form-group">
                                 <label>Desde</label>
                                 <input type="time" name="recargo_inicio" class="form-control" value="<?= htmlspecialchars((string)$recargoHorarioConfig['inicio']) ?>" required>
@@ -882,9 +882,9 @@ require __DIR__ . '/partials/header.php';
 
                         <div class="form-group">
                             <label>Dias de vigencia</label>
-                            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:.35rem;">
+                            <div class="precios-day-grid">
                                 <?php foreach ([1 => 'L', 2 => 'M', 3 => 'X', 4 => 'J', 5 => 'V', 6 => 'S', 7 => 'D'] as $dia => $label): ?>
-                                    <label style="display:flex;align-items:center;justify-content:center;gap:.25rem;padding:.45rem;border:1px solid var(--border-color,#d1d5db);border-radius:8px;">
+                                    <label class="precios-day-option">
                                         <input type="checkbox" name="recargo_dias[]" value="<?= (int)$dia ?>" <?= in_array($dia, $recargoHorarioConfig['dias'], true) ? 'checked' : '' ?>>
                                         <?= htmlspecialchars($label) ?>
                                     </label>
@@ -924,7 +924,7 @@ require __DIR__ . '/partials/header.php';
                     <h3>Estado actual</h3>
                 </div>
                 <div class="tool-card-body">
-                    <p style="margin-top:0;"><strong><?= htmlspecialchars((string)$recargoHorarioConfig['nombre']) ?></strong></p>
+                    <p class="precios-rule-name"><strong><?= htmlspecialchars((string)$recargoHorarioConfig['nombre']) ?></strong></p>
                     <p class="form-hint">
                         <?= !empty($recargoHorarioConfig['enabled']) ? (!empty($recargoHorarioEstado['active']) ? 'Aplicando ahora en Caja.' : 'Activa, esperando su horario.') : 'Apagada.' ?>
                     </p>
@@ -934,11 +934,11 @@ require __DIR__ . '/partials/header.php';
                     <p class="form-hint">Porcentaje: +<?= htmlspecialchars(number_format((float)$recargoHorarioConfig['porcentaje'], 2, ',', '.')) ?>%</p>
                     <p class="form-hint">Redondeo: <?= htmlspecialchars(flus_recargo_horario_redondeo_label((string)$recargoHorarioConfig['redondeo'])) ?></p>
                     <p class="form-hint">Alcance: todos los productos activos, con o sin categoria.</p>
-                    <form method="post" style="margin-top:1rem;">
+                    <form method="post" class="precios-schedule-toggle-form">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                         <input type="hidden" name="accion" value="toggle_recargo_horario">
                         <input type="hidden" name="recargo_enabled" value="<?= !empty($recargoHorarioConfig['enabled']) ? '0' : '1' ?>">
-                        <button type="submit" class="btn-apply <?= !empty($recargoHorarioConfig['enabled']) ? '' : 'primary' ?>" data-allow-empty="1" style="<?= !empty($recargoHorarioConfig['enabled']) ? 'background:#fee2e2;color:#991b1b;border-color:#fecaca;' : '' ?>">
+                        <button type="submit" class="btn-apply <?= !empty($recargoHorarioConfig['enabled']) ? 'btn-apply--danger' : 'primary' ?>" data-allow-empty="1">
                             <?= !empty($recargoHorarioConfig['enabled']) ? 'Desactivar ahora' : 'Activar regla' ?>
                         </button>
                     </form>
@@ -998,7 +998,7 @@ require __DIR__ . '/partials/header.php';
                 
                 <div class="categorias-list">
                     <?php if (empty($categorias)): ?>
-                        <div style="padding: 2rem; text-align: center; color: var(--pm-muted);">
+                        <div class="precios-empty-note">
                             No hay productos activos.
                         </div>
                     <?php else: ?>
@@ -1029,7 +1029,7 @@ require __DIR__ . '/partials/header.php';
             <div class="herramientas-panel">
 
                 <!-- Contador de selección -->
-                <div class="selection-counter" style="display: none;">
+                <div class="selection-counter is-hidden">
                     <span><span id="selectionCount">0</span> producto(s) seleccionado(s)</span>
                     <button type="button" id="clearSelectionBtn" class="clear-btn">Limpiar</button>
                 </div>
@@ -1090,7 +1090,7 @@ require __DIR__ . '/partials/header.php';
                             <div class="preview-section">
                                 <h4>Vista previa</h4>
                                 <div class="preview-list" id="previewList">
-                                    <p style="text-align: center; padding: 1rem; color: var(--pm-muted); margin: 0;">Seleccioná productos y un porcentaje</p>
+                                    <p class="precios-preview-empty">Seleccioná productos y un porcentaje</p>
                                 </div>
                             </div>
                             
@@ -1216,7 +1216,7 @@ require __DIR__ . '/partials/header.php';
         <div class="margenes-table">
             <div class="table-header">
                 <h3>
-                    <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem; vertical-align: -3px;">
+                    <svg class="icon margenes-title-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                         <line x1="12" y1="9" x2="12" y2="13"/>
                         <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -1233,8 +1233,8 @@ require __DIR__ . '/partials/header.php';
             </div>
             
             <?php if (empty($margenBajo)): ?>
-                <div style="padding: 3rem; text-align: center; color: var(--pm-muted);">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 1rem; opacity: 0.5;">
+                <div class="precios-empty-note precios-empty-note--large">
+                    <svg class="precios-empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                         <polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
@@ -1249,8 +1249,8 @@ require __DIR__ . '/partials/header.php';
                                 <th class="t-right">Costo</th>
                                 <th class="t-right">Precio</th>
                                 <th class="t-right">Margen</th>
-                                <th style="width: 100px;">Indicador</th>
-                                <th style="width: 80px;"></th>
+                                <th class="margen-indicator-col">Indicador</th>
+                                <th class="margen-action-col"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1267,7 +1267,7 @@ require __DIR__ . '/partials/header.php';
                                 <td class="t-right">$<?= number_format((float)$p['costo'], 2, ',', '.') ?></td>
                                 <td class="t-right">$<?= number_format((float)$p['precio'], 2, ',', '.') ?></td>
                                 <td class="t-right">
-                                    <span class="stat-value <?= $clase ?>" style="font-size: 0.875rem;">
+                                    <span class="stat-value stat-value--sm <?= $clase ?>">
                                         <?= number_format((float)$margen, 1, ',', '.') ?>%
                                     </span>
                                 </td>

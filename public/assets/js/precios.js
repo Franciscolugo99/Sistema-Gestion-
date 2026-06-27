@@ -158,9 +158,9 @@
       const total = parseInt(catItem.dataset.count || "0", 10) || 0;
       if (total > 600) {
         const ok = await Notif.confirmar(
-          "📦 Selección grande",
-          `<p>Vas a seleccionar <strong>${total} productos</strong> de la categoría "<strong>${catName}</strong>".</p><p style='color:var(--muted,#94a3b8);font-size:.88rem'>Puede tardar unos segundos.</p>`,
-          { icon: "info", confirmText: "✅ Continuar", cancelText: "❌ Cancelar" }
+          "Seleccion grande",
+          `<p>Vas a seleccionar <strong>${total} productos</strong> de la categoria "<strong>${catName}</strong>".</p><p class="precios-confirm-muted">Puede tardar unos segundos.</p>`,
+          { icon: "info", confirmText: "Continuar", cancelText: "Cancelar" }
         );
         if (!ok) { checkbox.checked = false; return; }
       }
@@ -266,7 +266,7 @@
     // Actualizar sección completa
     const counterSection = document.querySelector(".selection-counter");
     if (counterSection) {
-      counterSection.style.display = count > 0 ? "flex" : "none";
+      counterSection.classList.toggle("is-hidden", count === 0);
     }
 
     // Actualizar input oculto
@@ -335,7 +335,7 @@
 
     if (state.selectedProducts.size === 0 || porcentaje === 0) {
       previewContainer.innerHTML =
-        '<p class="text-muted" style="text-align: center; padding: 1rem;">Seleccioná productos y un porcentaje para ver la vista previa</p>';
+        '<p class="precios-preview-empty">Seleccioná productos y un porcentaje para ver la vista previa</p>';
       // Ocultar alerta si existe
       hidePreviewAlert();
       return;
@@ -349,7 +349,7 @@
     for (const [id, product] of state.selectedProducts) {
       if (count >= CONFIG.previewLimit) {
         const remaining = state.selectedProducts.size - CONFIG.previewLimit;
-        html += `<div class="preview-item" style="color: var(--pm-muted); font-style: italic;">... y ${remaining} producto(s) más</div>`;
+        html += `<div class="preview-item preview-item--muted">... y ${remaining} producto(s) más</div>`;
         break;
       }
 
@@ -367,7 +367,7 @@
         if (precioNuevo < costo) {
           productosConPerdida++;
           alertClass = "preview-item--danger";
-          alertIcon = `<span class="preview-alert-icon" title="¡Quedará por debajo del costo!">⚠️</span>`;
+          alertIcon = '<span class="preview-alert-icon" title="Quedara por debajo del costo">!</span>';
         } else {
           const margenNuevo = ((precioNuevo - costo) / costo) * 100;
           if (margenNuevo < 10) {
@@ -746,34 +746,30 @@
     const count = state.selectedProducts.size;
     const action = porcentaje > 0 ? "aumentar" : "disminuir";
     
-    // Verificar si hay productos que quedarán con pérdida
-    let msg = `¿Estás seguro de ${action} el precio de ${count} producto(s) en ${Math.abs(porcentaje)}%?`;
-    
+    // Verificar si hay productos que quedaran con perdida
     if (state.productosConPerdida > 0) {
-      msg = `⚠️ ¡ATENCIÓN!\n\n${state.productosConPerdida} producto(s) quedarán VENDIENDO A PÉRDIDA (por debajo del costo).\n\n¿Estás SEGURO de que querés aplicar este ajuste?`;
-      
-      // Doble confirmación para pérdidas
+      // Doble confirmacion para perdidas
       if (!await Notif.confirmar(
-        "⚠️ Productos a pérdida",
-        `<p style='color:#f87171'><strong>${state.productosConPerdida} producto(s)</strong> quedarán <strong>vendiendo a pérdida</strong> (por debajo del costo).</p><p>¿Estás seguro de aplicar este ajuste?</p>`,
-        { icon: "error", confirmText: "⚠️ Sí, aplicar igual", cancelText: "❌ Cancelar" }
+        "Productos a perdida",
+        `<p class="precios-confirm-danger"><strong>${state.productosConPerdida} producto(s)</strong> quedaran <strong>vendiendo a perdida</strong> (por debajo del costo).</p><p>Estas seguro de aplicar este ajuste?</p>`,
+        { icon: "error", confirmText: "Si, aplicar igual", cancelText: "Cancelar" }
       )) return;
       if (!await Notif.confirmar(
-        "🔴 Confirmación final",
-        "<p>Esta acción <strong>generará pérdidas</strong>. ¿Confirmás que querés continuar?</p>",
-        { icon: "error", confirmText: "🔴 Confirmar pérdidas", cancelText: "❌ Cancelar", confirmColor: "#e53935" }
+        "Confirmacion final",
+        "<p>Esta accion <strong>generara perdidas</strong>. Confirmas que queres continuar?</p>",
+        { icon: "error", confirmText: "Confirmar perdidas", cancelText: "Cancelar", confirmColor: "#e53935" }
       )) return;
     } else if (state.productosConMargenBajo > 0) {
       if (!await Notif.confirmar(
-        "⚠️ Margen bajo",
-        `<p>${action.charAt(0).toUpperCase()+action.slice(1)} el precio de <strong>${count} producto(s)</strong> en <strong>${Math.abs(porcentaje)}%</strong>.</p><p style='color:#fbbf24'>⚠️ ${state.productosConMargenBajo} producto(s) tendrán margen menor al 10%.</p>`,
-        { icon: "warning", confirmText: "✅ Aplicar igual", cancelText: "❌ Cancelar" }
+        "Margen bajo",
+        `<p>${action.charAt(0).toUpperCase()+action.slice(1)} el precio de <strong>${count} producto(s)</strong> en <strong>${Math.abs(porcentaje)}%</strong>.</p><p class="precios-confirm-warning">${state.productosConMargenBajo} producto(s) tendran margen menor al 10%.</p>`,
+        { icon: "warning", confirmText: "Aplicar igual", cancelText: "Cancelar" }
       )) return;
     } else {
       if (!await Notif.confirmar(
-        "💲 Ajuste de precios",
+        "Ajuste de precios",
         `<p>${action.charAt(0).toUpperCase()+action.slice(1)} el precio de <strong>${count} producto(s)</strong> en <strong>${Math.abs(porcentaje)}%</strong>.</p>`,
-        { icon: "question", confirmText: "✅ Aplicar", cancelText: "❌ Cancelar" }
+        { icon: "question", confirmText: "Aplicar", cancelText: "Cancelar" }
       )) return;
     }
 
@@ -798,12 +794,11 @@
     }
 
     const count = state.selectedProducts.size;
-    const msg = `¿Aplicar un margen del ${margen}% sobre el costo a ${count} producto(s)?`;
 
     if (!await Notif.confirmar(
-      "💲 Ajuste por margen",
+      "Ajuste por margen",
       `<p>Aplicar un margen del <strong>${margen}%</strong> sobre el costo a <strong>${count} producto(s)</strong>.</p>`,
-      { icon: "question", confirmText: "✅ Aplicar", cancelText: "❌ Cancelar" }
+      { icon: "question", confirmText: "Aplicar", cancelText: "Cancelar" }
     )) return;
 
     // Submit del form
@@ -830,8 +825,6 @@
 
     const alert = document.createElement("div");
     alert.className = `alert alert-${type === "error" ? "err" : type === "success" ? "ok" : type} alert-floating`;
-    alert.style.cssText =
-      "position: fixed; top: 1rem; right: 1rem; z-index: 9999; min-width: 300px; animation: slideIn 0.3s ease;";
     alert.innerHTML = `
             <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 ${icons[type] || icons.info}
@@ -842,7 +835,7 @@
     document.body.appendChild(alert);
 
     setTimeout(() => {
-      alert.style.animation = "slideOut 0.3s ease";
+      alert.classList.add("is-hiding");
       setTimeout(() => alert.remove(), 300);
     }, 4000);
   }
@@ -1097,17 +1090,4 @@
     init();
   }
 
-  // Estilos para animaciones de alertas
-  const style = document.createElement("style");
-  style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-  document.head.appendChild(style);
 })();
