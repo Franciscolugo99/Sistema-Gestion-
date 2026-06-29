@@ -80,6 +80,24 @@ function flus_it_table_has_column(PDO $pdo, string $table, string $column): bool
     return (bool)$stmt->fetchColumn();
 }
 
+function flus_it_table_has_single_column_unique_index(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare("
+        SELECT INDEX_NAME
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+          AND NON_UNIQUE = 0
+        GROUP BY INDEX_NAME
+        HAVING COUNT(*) = 1
+           AND SUM(CASE WHEN COLUMN_NAME = ? THEN 1 ELSE 0 END) = 1
+        LIMIT 1
+    ");
+    $stmt->execute([$table, $column]);
+
+    return (bool)$stmt->fetchColumn();
+}
+
 function flus_it_run_pos_sale_case(PDO $pdo): array
 {
     static $saleNo = 0;
@@ -1786,7 +1804,7 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '042_mercadopago_liquidaciones.sql', 'latest migration is 042');
+    flus_it_assert($latest === '043_ventas_request_uid_idempotencia.sql', 'latest migration is 043');
     $pdo->exec('DROP TRIGGER IF EXISTS `before_insert_movimiento_stock`');
     $pdo->exec('ALTER TABLE `movimientos_stock` DROP COLUMN `stock_anterior`, DROP COLUMN `stock_nuevo`');
     flus_exec_sql_file($pdo, $root . '/migrations/040_movimientos_stock_snapshots_compat.sql');
@@ -1804,6 +1822,8 @@ try {
     flus_it_assert(flus_it_table_has_column($pdo, 'facturas', 'estado_fiscal'), 'facturas.estado_fiscal exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'ajuste_precio_total'), 'ventas.ajuste_precio_total exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'ajuste_precio_redondeo_total'), 'ventas.ajuste_precio_redondeo_total exists');
+    flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'request_uid'), 'ventas.request_uid exists');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'ventas', 'request_uid'), 'ventas.request_uid has unique idempotency index');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'precio_unit_base'), 'venta_items.precio_unit_base exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_tipo'), 'venta_items.ajuste_precio_tipo exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_regla_unit_monto'), 'venta_items.ajuste_precio_regla_unit_monto exists');

@@ -23,18 +23,23 @@ agregado despues del corte 4.1.1 y los pulidos operativos sincronizados desde
 - Version visible: `4.2.0`
 - Build: `2026-06-28`
 - Rama base: `Ver-4.0.0`
-- Fuente: `C:\xampp\htdocs\kiosco`
+- Fuente: `C:\xampp82\htdocs\kiosco`
 
 ## Migraciones
 
-Este corte no agrega migraciones ni modifica `install.sql`. La configuracion usa
-las claves existentes de configuracion mediante `config_get` y `config_set`.
+Este corte incluye migraciones y baseline alineados hasta:
+
+- `042_mercadopago_liquidaciones.sql`
+- `043_ventas_request_uid_idempotencia.sql`
+
+La migracion `043` agrega `ventas.request_uid` e indice unico para que Caja pueda
+reintentar un cobro sin duplicar venta, pagos ni stock.
 
 ## Validaciones
 
 - PHP lint: sin errores en 62 archivos PHP sincronizados para el corte.
 - JavaScript syntax check: sin errores en 25 archivos JS sincronizados para el corte.
-- Smoke fuente: `159 OK / 0 fallidas / 0 skipped`.
+- Smoke fuente: `160 OK / 0 fallidas / 0 skipped`.
 - Smoke de build portable: `159 total / 0 fallidas / 6 skipped` por drivers omitidos al correr PHP con `-n`.
 - Compilacion Inno Setup: servidor y terminal OK.
 

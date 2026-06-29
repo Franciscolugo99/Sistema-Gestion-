@@ -34,7 +34,7 @@
 
 - PHP lint sin errores en 62 archivos PHP sincronizados para el corte.
 - JavaScript syntax check sin errores en 25 archivos JS sincronizados para el corte.
-- Smoke fuente: `159 OK / 0 fallidas / 0 skipped`.
+- Smoke fuente: `160 OK / 0 fallidas / 0 skipped`.
 - Smoke de build portable: `159 total / 0 fallidas / 6 skipped` por drivers omitidos al correr PHP con `-n`.
 - Instaladores 4.2.0 de servidor y terminal compilados con Inno Setup.
 

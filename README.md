@@ -12,14 +12,14 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## Estado de release 4.2.0 (2026-06-28)
 
-- Smoke tecnico fuente: `159 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `160 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
-- Migraciones y baseline: versionados hasta `041_mercadopago_integration_state.sql`.
+- Migraciones y baseline: versionados hasta `043_ventas_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
 - Salida actual: `4.2.0`, pensada como corte operativo para instalador/actualizador.
 
@@ -306,7 +306,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `041_mercadopago_integration_state.sql`.
+- Verificar que corran las migraciones pendientes hasta `043_ventas_request_uid_idempotencia.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

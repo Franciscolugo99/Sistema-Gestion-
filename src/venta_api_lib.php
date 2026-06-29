@@ -76,8 +76,29 @@ function flus_venta_require_request_uid_storage(PDO $pdo, ?string $requestUid): 
         return;
     }
 
-    if (!has_col($pdo, 'ventas', 'request_uid')) {
+    if (!has_col($pdo, 'ventas', 'request_uid') || !flus_venta_has_request_uid_unique_index($pdo)) {
         flus_venta_fail('Falta aplicar la migracion de idempotencia de ventas.', 'VENTA_IDEMPOTENCIA_NO_DISPONIBLE', 409);
+    }
+}
+
+function flus_venta_has_request_uid_unique_index(PDO $pdo): bool
+{
+    try {
+        $sql = "
+            SELECT INDEX_NAME
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'ventas'
+              AND NON_UNIQUE = 0
+            GROUP BY INDEX_NAME
+            HAVING COUNT(*) = 1
+               AND SUM(CASE WHEN COLUMN_NAME = 'request_uid' THEN 1 ELSE 0 END) = 1
+            LIMIT 1
+        ";
+        $st = $pdo->query($sql);
+        return $st ? (bool)$st->fetchColumn() : false;
+    } catch (Throwable) {
+        return false;
     }
 }
 

@@ -340,6 +340,18 @@ function setup_api_error_handlers(): void {
             error_log($msg);
         } catch (Throwable $ignore) {}
         }
+        if (method_exists($e, 'statusCode') && method_exists($e, 'errorCode')) {
+            $code = max(400, min(599, (int)$e->statusCode()));
+            http_response_code($code);
+            echo json_encode([
+                'ok' => false,
+                'error' => (string)$e->errorCode(),
+                'error_code' => (string)$e->errorCode(),
+                'message' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        }
+
         $code = ($e instanceof PDOException) ? 503 : 500;
         http_response_code($code);
         echo json_encode([

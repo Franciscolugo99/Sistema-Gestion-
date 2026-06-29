@@ -2177,7 +2177,10 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 042", $integrationPhp);
+    flus_assert_contains("latest migration is 043", $integrationPhp);
+    flus_assert_contains('function flus_it_table_has_single_column_unique_index', $integrationPhp);
+    flus_assert_contains('ventas.request_uid exists', $integrationPhp);
+    flus_assert_contains('ventas.request_uid has unique idempotency index', $integrationPhp);
     flus_assert_contains('movimientos_stock.tipo supports purchase annulments', $integrationPhp);
     flus_assert_contains('POS sale stock movement keeps previous stock', $integrationPhp);
     flus_assert_contains('mixed POS payments match sale total', $integrationPhp);
@@ -2768,6 +2771,7 @@ $results[] = flus_run_test('registrar venta es idempotente ante doble envio de c
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '043_ventas_request_uid_idempotencia.sql');
     $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
     $ventaLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
+    $apiHelpersPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'api_helpers.php');
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
 
     flus_assert_contains('`request_uid` varchar(64) DEFAULT NULL', $installSql);
@@ -2784,15 +2788,24 @@ $results[] = flus_run_test('registrar venta es idempotente ante doble envio de c
     flus_assert_contains('flus_venta_duplicate_key_exception($e)', $registrarVentaPhp);
 
     flus_assert_contains('function flus_venta_request_uid_from_body(array $body): ?string', $ventaLibPhp);
+    flus_assert_contains('function flus_venta_has_request_uid_unique_index(PDO $pdo): bool', $ventaLibPhp);
+    flus_assert_contains('INFORMATION_SCHEMA.STATISTICS', $ventaLibPhp);
+    flus_assert_contains("AND TABLE_NAME = 'ventas'", $ventaLibPhp);
+    flus_assert_contains("COLUMN_NAME = 'request_uid'", $ventaLibPhp);
+    flus_assert_contains('!flus_venta_has_request_uid_unique_index($pdo)', $ventaLibPhp);
     flus_assert_contains('function flus_venta_find_by_request_uid(PDO $pdo, ?string $requestUid): ?array', $ventaLibPhp);
     flus_assert_contains('function flus_venta_build_idempotent_response(PDO $pdo, array $venta): array', $ventaLibPhp);
     flus_assert_contains('function flus_venta_assert_mp_payment_ids_available(PDO $pdo, array $paymentMetas): void', $ventaLibPhp);
     flus_assert_contains("'request_uid' => \$requestUid", $ventaLibPhp);
+    flus_assert_contains("method_exists(\$e, 'statusCode') && method_exists(\$e, 'errorCode')", $apiHelpersPhp);
+    flus_assert_contains("'error_code' => (string)\$e->errorCode()", $apiHelpersPhp);
 
     flus_assert_contains('let ventaRequestUid = null;', $cajaJs);
     flus_assert_contains('function requestUidParaVenta(fingerprint)', $cajaJs);
     flus_assert_contains('ventaRequestFingerprint', $cajaJs);
     flus_assert_contains('fd.append("request_uid", requestUid);', $cajaJs);
+    flus_assert_true(substr_count($cajaJs, 'ventaRequestUid = null;') >= 2);
+    flus_assert_true(substr_count($cajaJs, 'ventaRequestFingerprint = null;') >= 2);
 });
 
 $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales', function (): void {
