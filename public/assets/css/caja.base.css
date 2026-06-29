@@ -878,7 +878,7 @@ body[data-theme="light"] .caja-panel .caja-open-card {
 .caja-panel .ticket-preview-modal {
   position: fixed;
   inset: 0;
-  z-index: 10020;
+  z-index: 10060;
 }
 
 .caja-panel .ticket-preview-modal__backdrop {

@@ -214,22 +214,6 @@ if ($cajaSesion) {
   $movEgresos  = (float)($rowS['egresos']  ?? 0);
 }
 
-$ventasActivasCount = 0;
-$sessionTotalVentas = (float)($cajaSesion['total_ventas'] ?? 0);
-$sessionTotalEfectivo = (float)($cajaSesion['total_efectivo'] ?? 0);
-$sessionTotalMp = (float)($cajaSesion['total_mp'] ?? 0);
-
-if ($cajaSesion) {
-  $stVentasCount = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM ventas
-    WHERE caja_id = ?
-      AND (estado IS NULL OR UPPER(estado) NOT LIKE '%ANUL%')
-  ");
-  $stVentasCount->execute([(int)$cajaSesion['id']]);
-  $ventasActivasCount = (int)$stVentasCount->fetchColumn();
-}
-
 if ($cajaSesionBloqueada) {
   $ownerLabel = caja_turno_owner_label($cajaSesion);
   ?>
@@ -489,35 +473,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </button>
   </div>
 </div>
-
-    <div class="caja-kpis" aria-label="Resumen rapido del turno">
-      <div class="caja-kpi">
-        <span class="caja-kpi__label">Ventas</span>
-        <strong class="caja-kpi__value" id="kpiVentasSesion" data-value="<?= (int)$ventasActivasCount ?>"><?= number_format($ventasActivasCount, 0, ',', '.') ?></strong>
-      </div>
-      <div class="caja-kpi caja-kpi--green">
-        <span class="caja-kpi__label">Total</span>
-        <strong class="caja-kpi__value" id="kpiTotalSesion" data-value="<?= h(number_format($sessionTotalVentas, 2, '.', '')) ?>"><?= money_ar($sessionTotalVentas) ?></strong>
-      </div>
-      <div class="caja-kpi">
-        <span class="caja-kpi__label">Efectivo</span>
-        <strong class="caja-kpi__value" id="kpiEfectivoSesion" data-value="<?= h(number_format($sessionTotalEfectivo, 2, '.', '')) ?>"><?= money_ar($sessionTotalEfectivo) ?></strong>
-      </div>
-      <div class="caja-kpi">
-        <span class="caja-kpi__label">MP</span>
-        <strong class="caja-kpi__value" id="kpiMpSesion" data-value="<?= h(number_format($sessionTotalMp, 2, '.', '')) ?>"><?= money_ar($sessionTotalMp) ?></strong>
-      </div>
-      <div class="caja-kpi caja-kpi--live">
-        <span class="caja-kpi__label">Ticket</span>
-        <strong class="caja-kpi__value" id="kpiTicketActual">$0,00</strong>
-      </div>
-      <div class="caja-kpi caja-kpi--live">
-        <span class="caja-kpi__label">Pagado</span>
-        <strong class="caja-kpi__value" id="kpiPagadoActual">$0,00</strong>
-      </div>
-    </div>
-
-
 
     <!-- MOVIMIENTOS COLAPSABLES -->
     <details class="caja-mov" id="cajaMov">

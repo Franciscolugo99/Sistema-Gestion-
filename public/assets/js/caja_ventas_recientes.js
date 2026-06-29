@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!btnVentasRecientes || !modal || !list) return;
 
   let state = { ventas: [], permissions: {} };
+  let modalSuspendedForTicket = false;
 
   const moneyFmt = new Intl.NumberFormat("es-AR", {
     minimumFractionDigits: 2,
@@ -48,6 +49,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ticketPreviewFrame) ticketPreviewFrame.src = "about:blank";
     if (ticketPreviewOpen) ticketPreviewOpen.href = "#";
     if (ticketPreviewVentaId) ticketPreviewVentaId.textContent = "0";
+    if (modalSuspendedForTicket) {
+      modalSuspendedForTicket = false;
+      modal.classList.remove("hidden");
+      modal.setAttribute("aria-hidden", "false");
+      return;
+    }
     focusCajaInput();
   }
 
@@ -58,6 +65,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const url = buildTicketUrl(ventaId);
+    modalSuspendedForTicket = !modal.classList.contains("hidden");
+    if (modalSuspendedForTicket) {
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+    }
     ticketPreviewModal.classList.remove("hidden");
     ticketPreviewModal.setAttribute("aria-hidden", "false");
     if (ticketPreviewVentaId) ticketPreviewVentaId.textContent = String(ventaId);

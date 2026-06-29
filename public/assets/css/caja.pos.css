@@ -539,7 +539,6 @@ body[data-theme="light"] .denom-chip:hover {
   grid-template-columns: minmax(0, 1.5fr) minmax(340px, 420px);
   grid-template-areas:
     "topbar topbar"
-    "kpis kpis"
     "scan total"
     "tickethead exact"
     "ticket pay"
@@ -556,7 +555,6 @@ body[data-theme="light"] .denom-chip:hover {
 }
 
 .caja-panel--pos > .caja-topbar,
-.caja-panel--pos > .caja-kpis .caja-kpi,
 .caja-panel--pos > .caja-scan-card,
 .caja-panel--pos > .ticket-panel-head,
 .caja-panel--pos > .ticket-wrapper,
@@ -593,28 +591,6 @@ body[data-theme="dark"] .caja-panel--pos > .caja-topbar {
     radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 32%),
     radial-gradient(circle at top right, rgba(34, 197, 94, 0.09), transparent 26%),
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
-}
-
-.caja-panel--pos > .caja-kpis {
-  grid-area: kpis;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.caja-panel--pos .caja-kpi {
-  min-height: 78px;
-  padding: 14px 15px;
-}
-
-.caja-panel--pos .caja-kpi__label {
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-}
-
-.caja-panel--pos .caja-kpi__value {
-  font-size: 1.22rem;
-  font-weight: 900;
 }
 
 .caja-panel--pos > .caja-scan-card {
@@ -980,10 +956,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
 
-  .caja-panel--pos > .caja-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .caja-panel--pos > .pagos-row {
     grid-template-columns: 1fr;
   }
@@ -998,7 +970,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "topbar"
-      "kpis"
       "scan"
       "tickethead"
       "ticket"
@@ -1010,10 +981,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
       "mov"
       "shortcuts"
       "msg";
-  }
-
-  .caja-panel--pos > .caja-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .caja-panel--pos > .ticket-wrapper {
@@ -1033,10 +1000,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
 @media (max-width: 640px) {
   .caja-panel--pos {
     padding-inline: 14px;
-  }
-
-  .caja-panel--pos > .caja-kpis {
-    grid-template-columns: 1fr;
   }
 
   .caja-panel--pos .row.caja-row-inputs {

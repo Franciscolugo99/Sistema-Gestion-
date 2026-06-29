@@ -193,13 +193,9 @@ body[data-paper="58"] .prod .meta {
   .ticket {
     width: var(--printable-w);
     max-width: var(--printable-w);
-    margin: 0;
+    margin: 0 auto;
     padding: 1.5mm 0 3mm;
     overflow: visible;
-  }
-
-  body[data-paper="58"] .ticket {
-    margin-left: 6mm;
   }
 
   body[data-paper="58"] .brand {

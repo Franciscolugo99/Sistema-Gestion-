@@ -484,12 +484,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const lblDescGlobal = document.getElementById("lblDescGlobal");
   const btnDescGlobal = document.getElementById("btnDescGlobal");
   const cajaPanel = document.querySelector(".caja-panel--neo");
-  const kpiVentasSesion = document.getElementById("kpiVentasSesion");
-  const kpiTotalSesion = document.getElementById("kpiTotalSesion");
-  const kpiEfectivoSesion = document.getElementById("kpiEfectivoSesion");
-  const kpiMpSesion = document.getElementById("kpiMpSesion");
-  const kpiTicketActual = document.getElementById("kpiTicketActual");
-  const kpiPagadoActual = document.getElementById("kpiPagadoActual");
   const btnCobrarExacto = document.getElementById("btnCobrarExacto");
   const btnCobrarExactoAmount = document.getElementById("btnCobrarExactoAmount");
   const paymentMiniFeedbackLabel = document.getElementById(
@@ -668,28 +662,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
 
-  function getNumericDataValue(el) {
-    const raw = el?.dataset?.value ?? "0";
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
-  }
-
-  function setNumericDataValue(el, value) {
-    if (!el) return;
-    el.dataset.value = String(Number(value) || 0);
-  }
-
-  function actualizarKpisLive(pagadoTotal = null) {
-    if (kpiTicketActual) {
-      kpiTicketActual.textContent = formatearMoneda(totalNetoActual);
-    }
-
-    if (kpiPagadoActual) {
-      const montoPagado =
-        pagadoTotal === null ? totalPagado(pagosDesdeUI()) : pagadoTotal;
-      kpiPagadoActual.textContent = formatearMoneda(montoPagado);
-    }
-
+  function actualizarCobroExacto() {
     if (btnCobrarExacto) {
       btnCobrarExacto.disabled = cobrando || splitActivo() || totalNetoActual <= 0;
     }
@@ -842,39 +815,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updatePaymentSummaries();
   }
 
-  function sumarKpisSesion(pagos, totalVenta) {
-    if (kpiVentasSesion) {
-      const nextCount = getNumericDataValue(kpiVentasSesion) + 1;
-      setNumericDataValue(kpiVentasSesion, nextCount);
-      kpiVentasSesion.textContent = new Intl.NumberFormat("es-AR", {
-        maximumFractionDigits: 0,
-      }).format(nextCount);
-    }
-
-    if (kpiTotalSesion) {
-      const nextTotal = getNumericDataValue(kpiTotalSesion) + (Number(totalVenta) || 0);
-      setNumericDataValue(kpiTotalSesion, nextTotal);
-      kpiTotalSesion.textContent = formatearMoneda(nextTotal);
-    }
-
-    if (kpiEfectivoSesion) {
-      const nextEfectivo =
-        getNumericDataValue(kpiEfectivoSesion) + efectivoPagado(pagos);
-      setNumericDataValue(kpiEfectivoSesion, nextEfectivo);
-      kpiEfectivoSesion.textContent = formatearMoneda(nextEfectivo);
-    }
-
-    if (kpiMpSesion) {
-      const incrementoMp = (pagos || []).reduce((sum, pago) => {
-        const medio = String(pago?.medio || "").toUpperCase();
-        const monto = Number(pago?.monto) || 0;
-        return sum + (medio === "MP" ? monto : 0);
-      }, 0);
-      const nextMp = getNumericDataValue(kpiMpSesion) + incrementoMp;
-      setNumericDataValue(kpiMpSesion, nextMp);
-      kpiMpSesion.textContent = formatearMoneda(nextMp);
-    }
-  }
   // =========================
   // ✅ PESABLE UX (G/ML sin confusión)
   // - G  => unidad interna = 100 g
@@ -1240,7 +1180,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
     }
-    actualizarKpisLive(pagadoTotal);
+    actualizarCobroExacto();
     updatePaymentSummaries();
     actualizarResumenCC();
 
@@ -2322,7 +2262,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ajustarPagoSegunMedio();
     recalcularVuelto();
-    actualizarKpisLive();
+    actualizarCobroExacto();
     guardarEstado();
   }
 
@@ -3245,7 +3185,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return mostrarMensaje("error", data?.error || "Error en la API");
 
       const ventaId = data.venta_id || data.id || data.ventaId;
-      sumarKpisSesion(pagos, totalUI);
       document.dispatchEvent(
         new CustomEvent("flus:caja-venta-registrada", {
           detail: {

@@ -12,7 +12,6 @@
   --neo-border-strong: rgba(59, 130, 246, 0.22);
   --neo-text: #0f172a;
   --neo-muted: #64748b;
-  --neo-kpi-bg: #eef3fb;
   --neo-green: #22c55e;
   --neo-red: #ef4444;
   --neo-blue: #3b82f6;
@@ -22,7 +21,6 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "topbar"
-    "kpis"
     "shell"
     "mov"
     "msg";
@@ -44,12 +42,10 @@ body[data-theme="dark"] .caja-panel--neo {
   --neo-border-strong: rgba(59, 130, 246, 0.28);
   --neo-text: #e5edf9;
   --neo-muted: #8fa0bf;
-  --neo-kpi-bg: #1b2434;
   --neo-shadow: 0 18px 54px rgba(0, 0, 0, 0.34);
 }
 
 .caja-panel--neo > .caja-topbar,
-.caja-panel--neo > .caja-kpis,
 .caja-panel--neo > .caja-neo-shell,
 .caja-panel--neo > .caja-mov,
 .caja-panel--neo > #msg {
@@ -217,39 +213,7 @@ body[data-theme="dark"] .caja-panel--neo .caja-topbar__mode24-sub {
   background: rgba(239, 68, 68, 0.08);
 }
 
-.caja-panel--neo > .caja-kpis {
-  grid-area: kpis;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.caja-panel--neo .caja-kpi {
-  min-height: 72px;
-  padding: 11px 13px;
-  border: 1px solid var(--neo-border);
-  border-radius: 16px;
-  background: var(--neo-kpi-bg);
-  box-shadow: none;
-}
-
-.caja-panel--neo .caja-kpi__label {
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--neo-muted);
-}
-
-.caja-panel--neo .caja-kpi__value {
-  font-size: 1.16rem;
-  font-weight: 900;
-  color: var(--neo-text);
-}
-
-.caja-panel--neo .caja-kpi--green .caja-kpi__value,
-.caja-panel--neo #lblTotal,
-.caja-panel--neo #kpiTotalSesion {
+.caja-panel--neo #lblTotal {
   color: var(--neo-green);
 }
 
@@ -1257,10 +1221,6 @@ body[data-theme="dark"] .caja-panel--neo .denom-chip {
 }
 
 @media (max-width: 1240px) {
-  .caja-panel--neo > .caja-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .caja-panel--neo > .caja-neo-shell {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
@@ -1293,10 +1253,6 @@ body[data-theme="dark"] .caja-panel--neo .denom-chip {
 @media (max-width: 720px) {
   .caja-panel--neo {
     padding-inline: 10px;
-  }
-
-  .caja-panel--neo > .caja-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .caja-panel--neo .row.caja-row-inputs,
@@ -1374,10 +1330,6 @@ body.caja-fullscreen-page .caja-panel--neo {
   background:
     radial-gradient(circle at top left, rgba(96, 165, 250, 0.08), transparent 28%),
     linear-gradient(180deg, var(--neo-bg) 0%, color-mix(in srgb, var(--neo-bg) 88%, black) 100%);
-}
-
-body.caja-fullscreen-page .caja-panel--neo > .caja-kpis {
-  display: none !important;
 }
 
 body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
@@ -5759,11 +5711,14 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-product-name {
   font-size: 0.96rem !important;
 }
 
-body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal,
 body.caja-fullscreen-page .caja-panel--neo .ventas-recientes-modal,
 body.caja-fullscreen-page .caja-panel--neo .modal,
 body.caja-fullscreen-page .vuelto-overlay-flus {
   z-index: 3200 !important;
+}
+
+body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal {
+  z-index: 3220 !important;
 }
 
 body.caja-fullscreen-page .caja-panel--neo .modal-content,

@@ -1121,6 +1121,8 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     $action = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'caja_ventas_recientes.php');
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja_ventas_recientes.js');
+    $cajaBaseCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.base.css');
+    $cajaNeoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja.neo.css');
     $ticketPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ticket.php');
     $ventaAnularItemsJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'venta_anular_items.js');
     $ventaDetalleCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'venta_detalle.css');
@@ -1146,6 +1148,12 @@ $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion
     flus_assert_contains('Ventas de la apertura activa. Acceso rapido para ver o reimprimir tickets.', $cajaJs);
     flus_assert_contains('action=anular_venta', $cajaJs);
     flus_assert_contains('action=anular_items_venta', $cajaJs);
+    flus_assert_contains('let modalSuspendedForTicket = false;', $cajaJs);
+    flus_assert_contains('modalSuspendedForTicket = !modal.classList.contains("hidden");', $cajaJs);
+    flus_assert_contains('modal.classList.add("hidden");', $cajaJs);
+    flus_assert_contains('modalSuspendedForTicket = false;', $cajaJs);
+    flus_assert_contains('z-index: 10060;', $cajaBaseCss);
+    flus_assert_contains('z-index: 3220 !important;', $cajaNeoCss);
     flus_assert_contains("require_any_permission(['realizar_ventas','ver_reportes']);", $ticketPhp);
     flus_assert_contains("\$selectNota  = has_column(\$pdo, 'ventas', 'nota');", $ticketPhp);
     flus_assert_contains('($selectNota ? ", v.nota" : ", \'\' AS nota")', $ticketPhp);
@@ -2404,7 +2412,8 @@ $results[] = flus_run_test('ticket termico respeta el ancho imprimible real de 5
     flus_assert_contains('--printable-w: var(--printable-w-58);', $ticketCss);
     flus_assert_contains('grid-template-columns: minmax(0, 1fr) 8.5mm 13.5mm;', $ticketCss);
     flus_assert_contains('width: var(--printable-w);', $ticketCss);
-    flus_assert_contains('margin-left: 6mm;', $ticketCss);
+    flus_assert_contains('margin: 0 auto;', $ticketCss);
+    flus_assert_not_contains('margin-left: 6mm;', $ticketCss);
     flus_assert_contains('overflow-wrap: anywhere;', $ticketCss);
     flus_assert_contains('overflow: visible;', $ticketCss);
     flus_assert_contains('font-weight: 700;', $ticketCss);
@@ -4564,6 +4573,15 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_not_contains('id="ticketStatusLabel"', $cajaPhp);
     flus_assert_not_contains('id="ticketEmptyState"', $cajaPhp);
     flus_assert_not_contains('class="shortcuts-box"', $cajaPhp);
+    flus_assert_not_contains('class="caja-kpis"', $cajaPhp);
+    flus_assert_not_contains('id="kpiVentasSesion"', $cajaPhp);
+    flus_assert_not_contains('id="kpiTotalSesion"', $cajaPhp);
+    flus_assert_not_contains('id="kpiEfectivoSesion"', $cajaPhp);
+    flus_assert_not_contains('id="kpiMpSesion"', $cajaPhp);
+    flus_assert_not_contains('id="kpiTicketActual"', $cajaPhp);
+    flus_assert_not_contains('id="kpiPagadoActual"', $cajaPhp);
+    flus_assert_not_contains('actualizarKpisLive', $cajaJs);
+    flus_assert_not_contains('sumarKpisSesion', $cajaJs);
 
     $ticketPos = strpos($cajaPhp, 'class="caja-neo-ticket"');
     $footerPos = strpos($cajaPhp, 'class="caja-neo-footer"');
