@@ -12,6 +12,13 @@ $ventaRequest = flus_venta_parse_request_inputs($body);
 $itemsIn = $ventaRequest['items_in'];
 $descGlobalReq = $ventaRequest['desc_global_req'];
 $pagosIn = $ventaRequest['pagos_in'];
+$requestUid = flus_venta_request_uid_from_body($body);
+flus_venta_require_request_uid_storage($pdo, $requestUid);
+
+$ventaExistente = flus_venta_find_by_request_uid($pdo, $requestUid);
+if ($ventaExistente !== null) {
+  json_ok(flus_venta_build_idempotent_response($pdo, $ventaExistente));
+}
 
 if (!is_array($itemsIn) || !$itemsIn) {
   json_fail('Ticket vacío', 422);
@@ -69,6 +76,7 @@ try {
   $pagosCajaCobranza = $paymentTotals['pagos_caja_cobranza'];
   $mpQr = flus_venta_validate_mp_qr_payment($body, $pagosCaja, $totalNetoFinal);
   $mpPoint = flus_venta_validate_mp_point_payment($body, $pagosCaja, $totalNetoFinal);
+  flus_venta_assert_mp_payment_ids_available($pdo, [$mpQr, $mpPoint]);
 
   $ventaId = flus_venta_insert_record(
     $pdo,
@@ -83,7 +91,8 @@ try {
     $ccClienteId,
     $montoCC,
     $ajustePrecioTotal,
-    $ajustePrecioRedondeoTotal
+    $ajustePrecioRedondeoTotal,
+    $requestUid
   );
 
   $ccCharge = flus_venta_register_cc_charge(
@@ -139,6 +148,9 @@ try {
   if ($mpPoint !== null) {
     $response['mp_point'] = $mpPoint;
   }
+  if ($requestUid !== null) {
+    $response['request_uid'] = $requestUid;
+  }
 
   json_ok($response);
 } catch (FlusVentaDomainException $e) {
@@ -146,6 +158,18 @@ try {
     $pdo->rollBack();
   }
   json_fail($e->getMessage(), $e->statusCode(), ['error_code' => $e->errorCode()]);
+} catch (PDOException $e) {
+  if ($pdo->inTransaction()) {
+    $pdo->rollBack();
+  }
+  if (flus_venta_duplicate_key_exception($e) && $requestUid !== null) {
+    $ventaExistente = flus_venta_find_by_request_uid($pdo, $requestUid);
+    if ($ventaExistente !== null) {
+      json_ok(flus_venta_build_idempotent_response($pdo, $ventaExistente));
+    }
+  }
+  error_log("Error DB en registrar_venta: " . $e->getMessage() . " | User: {$userId} | Caja: {$cajaId}");
+  json_fail('No se pudo registrar la venta.', 500, ['error_code' => 'INTERNAL_ERROR']);
 } catch (Throwable $e) {
   if ($pdo->inTransaction()) {
     $pdo->rollBack();

@@ -2,18 +2,41 @@
 
 ## [Unreleased]
 
+---
+
+## [4.2.0] - 2026-06-28
+
+### Added
+
+- Control global de disponibilidad de promociones desde la pantalla de Promociones.
+- Pausa diaria configurable para cobrar en Caja sin aplicar promociones durante una franja horaria.
+- Selector de promociones en Caja para consultar y cargar productos de una promo desde el flujo operativo.
+- Toggle individual de activacion de promociones desde API y UI.
+- Estado `promos_estado` en las acciones de API que listan promociones activas y recalculan carrito.
+- Seguridad centralizada para tokens publicos de tickets.
+- Cobertura smoke ampliada para apagado global, pausa diaria cruzando medianoche, sincronizacion con Caja, selector de promos y hardening operativo.
+
 ### Changed
 
 - Caja, movimientos de caja y detalle de sesion usan estados visuales por clases CSS en lugar de estilos inline para flashes, filtros, tooltips y mensajes vacios.
 - Roles y permisos migran filtros, apertura/cierre de categorias, drawer y modal de eliminacion a controles declarativos `data-*`, manteniendo compatibilidad JS existente.
 - Usuarios mueve limpiar busqueda y autosubmit de filtros a JavaScript centralizado, sin handlers inline en la vista.
 - Consultas de productos y stock reemplazan margen inline de tabla por clase dedicada.
+- Caja recarga promociones al recalcular el carrito para reflejar cambios de disponibilidad sin depender solo del estado inicial.
+- `src/version.php` actualizado a `4.2.0` build `2026-06-28`.
+
+### Fixed
+
+- El motor de promociones queda bloqueado tambien en backend cuando la disponibilidad global u horaria no permite aplicar descuentos.
+- Se preservan pulidos operativos del remoto en precios, documentos comerciales, cobranzas, cuenta corriente, facturacion, tesoreria, stock, reposicion, proveedores, clientes, diagnostico e inventario.
 
 ### Validation
 
-- `C:\xampp82\php\php.exe tests\smoke.php`: `159 OK / 0 fallidas / 0 skipped`.
-- PHP lint en vistas tocadas y syntax check de JavaScript en modulos modificados sin errores.
-- `git diff --check` sin problemas de whitespace.
+- PHP lint sin errores en 62 archivos PHP sincronizados para el corte.
+- JavaScript syntax check sin errores en 25 archivos JS sincronizados para el corte.
+- Smoke fuente: `159 OK / 0 fallidas / 0 skipped`.
+- Smoke de build portable: `159 total / 0 fallidas / 6 skipped` por drivers omitidos al correr PHP con `-n`.
+- Instaladores 4.2.0 de servidor y terminal compilados con Inno Setup.
 
 ---
 

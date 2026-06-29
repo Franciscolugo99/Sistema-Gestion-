@@ -161,6 +161,7 @@ DROP TABLE IF EXISTS `ventas`;
 CREATE TABLE `ventas` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `uuid` varchar(36) DEFAULT NULL,
+  `request_uid` varchar(64) DEFAULT NULL,
   `fecha` datetime NOT NULL DEFAULT current_timestamp(),
   `cliente_id` int(11) DEFAULT NULL,
   `user_id` int(11) DEFAULT NULL,
@@ -189,6 +190,7 @@ CREATE TABLE `ventas` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_ventas_uuid` (`uuid`),
+  UNIQUE KEY `ux_ventas_request_uid` (`request_uid`),
   KEY `idx_ventas_fecha` (`fecha`),
   KEY `idx_ventas_cliente` (`cliente_id`),
   KEY `idx_ventas_user` (`user_id`),

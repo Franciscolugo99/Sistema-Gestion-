@@ -448,6 +448,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let carrito = [];
   let totalNetoActual = 0;
   let estadoRecuperado = false;
+  let ventaRequestUid = null;
+  let ventaRequestFingerprint = null;
 
   // Descuento global (aplica al total final)
   // { tipo: "porcentaje"|"monto", valor: number }
@@ -1594,6 +1596,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (LEGACY_STORAGE_KEY) localStorage.removeItem(LEGACY_STORAGE_KEY);
   }
 
+  function generarVentaRequestUid() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    const rnd = Math.random().toString(36).slice(2, 12);
+    return `${Date.now().toString(36)}-${rnd}`;
+  }
+
+  function requestUidParaVenta(fingerprint) {
+    if (!ventaRequestUid || ventaRequestFingerprint !== fingerprint) {
+      ventaRequestUid = generarVentaRequestUid();
+      ventaRequestFingerprint = fingerprint;
+    }
+    return ventaRequestUid;
+  }
+
   function migrarEstadoLegacy() {
     if (localStorage.getItem(STORAGE_KEY) || !LEGACY_STORAGE_KEY) return;
     const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -1624,6 +1640,8 @@ document.addEventListener("DOMContentLoaded", () => {
         pagos: pagosRaw,
         split: splitActivo(),
         descGlobal,
+        ventaRequestUid,
+        ventaRequestFingerprint,
         ccCliente: ccClienteSeleccionado
           ? {
               id: ccClienteSeleccionado.id,
@@ -1652,6 +1670,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const hasSavedCart = Array.isArray(carrito) && carrito.length > 0;
       descGlobal = DESCUENTO_GLOBAL_HABILITADO
         ? data.descGlobal || null
+        : null;
+      ventaRequestUid = hasSavedCart && typeof data.ventaRequestUid === "string"
+        ? data.ventaRequestUid
+        : null;
+      ventaRequestFingerprint = hasSavedCart && typeof data.ventaRequestFingerprint === "string"
+        ? data.ventaRequestFingerprint
         : null;
 
       const pagosRaw = hasSavedCart && Array.isArray(data.pagos) ? data.pagos : null;
@@ -3173,6 +3197,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }));
 
       const token = getCsrf();
+      const clienteCC = tieneCC() ? getClienteCC() : null;
+      const ventaFingerprint = JSON.stringify({
+        caja_id: CAJA_ID || 0,
+        terminal_id: FLUS_TERMINAL_ID || 0,
+        items: itemsLimpios,
+        desc_global: DESCUENTO_GLOBAL_HABILITADO ? descGlobal || null : null,
+        pagos,
+        cc_cliente_id: clienteCC?.id || 0,
+        mp: mpOrder || null,
+      });
+      const requestUid = requestUidParaVenta(ventaFingerprint);
+      guardarEstado();
 
       // Compat legacy: para no romper backend viejo, mandamos como medio_pago el del "Pago 1".
       const medioCompat = String(selMedio?.value || "EFECTIVO").toUpperCase();
@@ -3180,6 +3216,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const fd = new FormData();
       fd.append("csrf_token", token);
       fd.append("csrf", token); // compat
+      fd.append("request_uid", requestUid);
       fd.append("caja_id", String(CAJA_ID));
       fd.append("items", JSON.stringify(itemsLimpios));
       fd.append(
@@ -3194,7 +3231,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // ✅ Cliente para Cuenta Corriente
       if (tieneCC()) {
-        const clienteCC = getClienteCC();
         if (clienteCC && clienteCC.id) {
           fd.append("cc_cliente_id", String(clienteCC.id));
         }
@@ -3224,6 +3260,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Limpiar estado UI
       carrito = [];
       descGlobal = null;
+      ventaRequestUid = null;
+      ventaRequestFingerprint = null;
       limpiarEstadoPersistido();
 
       if (selMedio) selMedio.value = "EFECTIVO";
@@ -3280,6 +3318,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     carrito = [];
     descGlobal = null;
+    ventaRequestUid = null;
+    ventaRequestFingerprint = null;
     limpiarEstadoPersistido();
 
     if (selMedio) selMedio.value = "EFECTIVO";

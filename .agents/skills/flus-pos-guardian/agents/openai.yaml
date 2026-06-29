@@ -1,0 +1,4 @@
+interface:
+  display_name: "FLUS POS Guardian"
+  short_description: "Guardrails for FLUS POS changes"
+  default_prompt: "Use $flus-pos-guardian to review or implement a FLUS POS change safely."

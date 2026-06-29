@@ -2762,6 +2762,39 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains("function flus_venta_build_response(", $ventaLibPhp);
 });
 
+$results[] = flus_run_test('registrar venta es idempotente ante doble envio de caja', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '043_ventas_request_uid_idempotencia.sql');
+    $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $ventaLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
+    $cajaJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'caja.js');
+
+    flus_assert_contains('`request_uid` varchar(64) DEFAULT NULL', $installSql);
+    flus_assert_contains('UNIQUE KEY `ux_ventas_request_uid` (`request_uid`)', $installSql);
+    flus_assert_contains('ADD COLUMN `request_uid` VARCHAR(64) DEFAULT NULL AFTER `uuid`', $migrationSql);
+    flus_assert_contains('ADD UNIQUE KEY `ux_ventas_request_uid` (`request_uid`)', $migrationSql);
+
+    flus_assert_contains('$requestUid = flus_venta_request_uid_from_body($body);', $registrarVentaPhp);
+    flus_assert_contains('flus_venta_require_request_uid_storage($pdo, $requestUid);', $registrarVentaPhp);
+    flus_assert_contains('$ventaExistente = flus_venta_find_by_request_uid($pdo, $requestUid);', $registrarVentaPhp);
+    flus_assert_contains('json_ok(flus_venta_build_idempotent_response($pdo, $ventaExistente));', $registrarVentaPhp);
+    flus_assert_contains('flus_venta_assert_mp_payment_ids_available($pdo, [$mpQr, $mpPoint]);', $registrarVentaPhp);
+    flus_assert_contains('catch (PDOException $e)', $registrarVentaPhp);
+    flus_assert_contains('flus_venta_duplicate_key_exception($e)', $registrarVentaPhp);
+
+    flus_assert_contains('function flus_venta_request_uid_from_body(array $body): ?string', $ventaLibPhp);
+    flus_assert_contains('function flus_venta_find_by_request_uid(PDO $pdo, ?string $requestUid): ?array', $ventaLibPhp);
+    flus_assert_contains('function flus_venta_build_idempotent_response(PDO $pdo, array $venta): array', $ventaLibPhp);
+    flus_assert_contains('function flus_venta_assert_mp_payment_ids_available(PDO $pdo, array $paymentMetas): void', $ventaLibPhp);
+    flus_assert_contains("'request_uid' => \$requestUid", $ventaLibPhp);
+
+    flus_assert_contains('let ventaRequestUid = null;', $cajaJs);
+    flus_assert_contains('function requestUidParaVenta(fingerprint)', $cajaJs);
+    flus_assert_contains('ventaRequestFingerprint', $cajaJs);
+    flus_assert_contains('fd.append("request_uid", requestUid);', $cajaJs);
+});
+
 $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales', function (): void {
     $repoRoot = dirname(__DIR__);
     $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');

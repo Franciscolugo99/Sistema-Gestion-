@@ -56,6 +56,146 @@ function flus_venta_parse_request_inputs(array $body): array
     ];
 }
 
+function flus_venta_request_uid_from_body(array $body): ?string
+{
+    $uid = trim((string)($body['request_uid'] ?? $body['venta_request_uid'] ?? ''));
+    if ($uid === '') {
+        return null;
+    }
+
+    if (strlen($uid) > 64 || preg_match('/^[A-Za-z0-9._:-]+$/', $uid) !== 1) {
+        flus_venta_fail('Identificador de venta invalido. Recarga la caja e intenta nuevamente.', 'REQUEST_UID_INVALIDO', 422);
+    }
+
+    return $uid;
+}
+
+function flus_venta_require_request_uid_storage(PDO $pdo, ?string $requestUid): void
+{
+    if ($requestUid === null) {
+        return;
+    }
+
+    if (!has_col($pdo, 'ventas', 'request_uid')) {
+        flus_venta_fail('Falta aplicar la migracion de idempotencia de ventas.', 'VENTA_IDEMPOTENCIA_NO_DISPONIBLE', 409);
+    }
+}
+
+function flus_venta_find_by_request_uid(PDO $pdo, ?string $requestUid): ?array
+{
+    if ($requestUid === null || !has_col($pdo, 'ventas', 'request_uid')) {
+        return null;
+    }
+
+    $st = $pdo->prepare('SELECT * FROM ventas WHERE request_uid = ? LIMIT 1');
+    $st->execute([$requestUid]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+}
+
+function flus_venta_load_payment_rows(PDO $pdo, int $ventaId): array
+{
+    if (
+        !has_col($pdo, 'venta_pagos', 'venta_id') ||
+        !has_col($pdo, 'venta_pagos', 'medio_pago') ||
+        !has_col($pdo, 'venta_pagos', 'monto')
+    ) {
+        return [];
+    }
+
+    $st = $pdo->prepare('SELECT medio_pago, monto FROM venta_pagos WHERE venta_id = ? ORDER BY id ASC');
+    $st->execute([$ventaId]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $out = [];
+    foreach ($rows as $row) {
+        $out[] = [
+            'medio' => norm_medio_pago((string)($row['medio_pago'] ?? 'EFECTIVO')),
+            'monto' => round((float)($row['monto'] ?? 0), 2),
+        ];
+    }
+    return $out;
+}
+
+function flus_venta_build_idempotent_response(PDO $pdo, array $venta): array
+{
+    $ventaId = (int)($venta['id'] ?? 0);
+    $total = round((float)($venta['total'] ?? 0), 2);
+    $totalBruto = round((float)($venta['total_bruto'] ?? $total), 2);
+    $descuentoTotal = round((float)($venta['descuento_total'] ?? $venta['descuento_monto'] ?? 0), 2);
+    $medio = norm_medio_pago((string)($venta['medio_pago'] ?? 'EFECTIVO'));
+    $montoPagado = round((float)($venta['monto_pagado'] ?? $total), 2);
+    $vuelto = round((float)($venta['vuelto'] ?? 0), 2);
+    $montoCC = round((float)($venta['monto_cc'] ?? 0), 2);
+    $pagos = flus_venta_load_payment_rows($pdo, $ventaId);
+    if ($pagos === []) {
+        $pagos[] = ['medio' => $medio, 'monto' => $montoPagado];
+    }
+
+    $response = [
+        'venta_id' => $ventaId,
+        'total' => $total,
+        'total_bruto' => $totalBruto,
+        'descuento_total' => $descuentoTotal,
+        'medio_pago' => $medio,
+        'monto_pagado' => $montoPagado,
+        'vuelto' => $vuelto,
+        'desc_global_monto' => 0.0,
+        'pagos' => $pagos,
+        'total_pagado' => $montoPagado,
+        'idempotent' => true,
+        'request_uid' => (string)($venta['request_uid'] ?? ''),
+    ];
+
+    if ($montoCC > 0) {
+        $response['monto_cc'] = $montoCC;
+    }
+
+    return $response;
+}
+
+function flus_venta_duplicate_key_exception(Throwable $e): bool
+{
+    if (!$e instanceof PDOException) {
+        return false;
+    }
+
+    $sqlState = (string)$e->getCode();
+    $driverCode = isset($e->errorInfo[1]) ? (int)$e->errorInfo[1] : 0;
+    return $sqlState === '23000' || in_array($driverCode, [1062, 1586], true);
+}
+
+function flus_venta_assert_mp_payment_ids_available(PDO $pdo, array $paymentMetas): void
+{
+    if (!has_col($pdo, 'venta_pagos', 'mp_payment_id')) {
+        return;
+    }
+
+    $paymentIds = [];
+    foreach ($paymentMetas as $meta) {
+        if (!is_array($meta)) {
+            continue;
+        }
+        $paymentId = trim((string)($meta['payment_id'] ?? ''));
+        if ($paymentId !== '') {
+            $paymentIds[$paymentId] = true;
+        }
+    }
+
+    if ($paymentIds === []) {
+        return;
+    }
+
+    $st = $pdo->prepare('SELECT venta_id FROM venta_pagos WHERE mp_payment_id = ? LIMIT 1');
+    foreach (array_keys($paymentIds) as $paymentId) {
+        $st->execute([$paymentId]);
+        $ventaId = (int)($st->fetchColumn() ?: 0);
+        if ($ventaId > 0) {
+            flus_venta_fail('Ese pago de Mercado Pago ya fue asociado a una venta.', 'MP_PAYMENT_DUPLICADO', 409);
+        }
+    }
+}
+
 function flus_venta_aggregate_items(array $itemsIn): array
 {
     $agg = [];
@@ -568,9 +708,10 @@ function flus_venta_resolve_payment_totals(array $pagosValidos, array $pagosCaja
     ];
 }
 
-function flus_venta_insert_record(PDO $pdo, int $userId, int $cajaId, float $totalNetoFinal, float $totalBruto, float $descTotalFinal, string $medio, float $montoPagado, float $vuelto, int $ccClienteId, float $montoCC, float $ajustePrecioTotal = 0.0, float $ajustePrecioRedondeoTotal = 0.0): int
+function flus_venta_insert_record(PDO $pdo, int $userId, int $cajaId, float $totalNetoFinal, float $totalBruto, float $descTotalFinal, string $medio, float $montoPagado, float $vuelto, int $ccClienteId, float $montoCC, float $ajustePrecioTotal = 0.0, float $ajustePrecioRedondeoTotal = 0.0, ?string $requestUid = null): int
 {
     $ventaData = [
+        'request_uid' => $requestUid,
         'user_id' => ($userId > 0 ? $userId : null),
         'caja_id' => $cajaId,
         'total' => $totalNetoFinal,
