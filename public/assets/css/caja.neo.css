@@ -22,7 +22,6 @@
   grid-template-areas:
     "topbar"
     "shell"
-    "mov"
     "msg";
   gap: 14px;
   padding: 14px 16px 22px;
@@ -47,7 +46,6 @@ body[data-theme="dark"] .caja-panel--neo {
 
 .caja-panel--neo > .caja-topbar,
 .caja-panel--neo > .caja-neo-shell,
-.caja-panel--neo > .caja-mov,
 .caja-panel--neo > #msg {
   min-width: 0;
 }
@@ -1188,34 +1186,6 @@ body[data-theme="dark"] .caja-panel--neo .denom-chip {
   font-size: 0.8rem;
 }
 
-.caja-panel--neo > .caja-mov {
-  grid-area: mov;
-  margin: 0;
-  border: 1px solid var(--neo-border);
-  border-radius: 18px;
-  background: var(--neo-surface);
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.caja-panel--neo .caja-mov__sum {
-  padding: 13px 16px;
-}
-
-.caja-panel--neo .caja-mov__title {
-  color: var(--neo-text);
-}
-
-.caja-panel--neo .caja-mov__sub {
-  color: var(--neo-muted);
-}
-
-.caja-panel--neo .caja-mov__body {
-  border-top-color: var(--neo-border);
-  max-height: 240px;
-  overflow: auto;
-}
-
 .caja-panel--neo > #msg {
   grid-area: msg;
 }
@@ -1330,10 +1300,6 @@ body.caja-fullscreen-page .caja-panel--neo {
   background:
     radial-gradient(circle at top left, rgba(96, 165, 250, 0.08), transparent 28%),
     linear-gradient(180deg, var(--neo-bg) 0%, color-mix(in srgb, var(--neo-bg) 88%, black) 100%);
-}
-
-body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
-  display: none !important;
 }
 
 body.caja-fullscreen-page .caja-panel--neo > .caja-neo-shell {
@@ -1793,22 +1759,6 @@ body.caja-fullscreen-page .caja-panel--neo .shortcuts-list span {
   min-height: 26px;
   padding-inline: 7px;
   font-size: 0.72rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo > .caja-mov {
-  margin-top: 0;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .caja-mov__sum {
-  padding: 10px 12px;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .caja-mov__title {
-  font-size: 0.82rem;
-}
-
-body.caja-fullscreen-page .caja-panel--neo .caja-mov__sub {
-  font-size: 0.74rem;
 }
 
 @media (min-width: 1400px) {
@@ -5712,6 +5662,7 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-product-name {
 }
 
 body.caja-fullscreen-page .caja-panel--neo .ventas-recientes-modal,
+body.caja-fullscreen-page .caja-panel--neo .caja-movimiento-modal,
 body.caja-fullscreen-page .caja-panel--neo .modal,
 body.caja-fullscreen-page .vuelto-overlay-flus {
   z-index: 3200 !important;
@@ -5724,6 +5675,7 @@ body.caja-fullscreen-page .caja-panel--neo .ticket-preview-modal {
 body.caja-fullscreen-page .caja-panel--neo .modal-content,
 body.caja-fullscreen-page .ticket-preview-modal__dialog,
 body.caja-fullscreen-page .ventas-recientes-modal__dialog,
+body.caja-fullscreen-page .caja-movimiento-modal__dialog,
 body.caja-fullscreen-page .vuelto-overlay-flus__inner {
   position: relative;
   z-index: 3201;

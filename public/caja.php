@@ -70,6 +70,7 @@ $extraCss = [
 $extraJs = [
   'assets/js/caja_mp_qr.js?v=' . filemtime(__DIR__ . '/assets/js/caja_mp_qr.js'),
   'assets/js/caja.js?v=' . filemtime(__DIR__ . '/assets/js/caja.js'),
+  'assets/js/caja_movimientos_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_movimientos_modal.js'),
   'assets/js/caja_promos_selector.js?v=' . filemtime(__DIR__ . '/assets/js/caja_promos_selector.js'),
   'assets/js/caja_ventas_recientes.js?v=' . filemtime(__DIR__ . '/assets/js/caja_ventas_recientes.js'),
   'assets/js/caja_terminal_modal.js?v=' . filemtime(__DIR__ . '/assets/js/caja_terminal_modal.js'),
@@ -173,46 +174,12 @@ if (!$cajaSesion || !is_array($cajaSesion) || empty($cajaSesion['id'])) {
 
 $currentUserId = (int)($user['id'] ?? 0);
 $canCerrarCaja = function_exists('user_has_permission') && user_has_permission('cerrar_caja');
+$canVerControlMovimientos = function_exists('caja_user_can_supervisar_turnos') && caja_user_can_supervisar_turnos();
 $cajaSesionBloqueada = $cajaSesion !== null && !caja_user_can_operar_turno($cajaSesion, $currentUserId);
 $canCerrarTurnoActual = $cajaSesion !== null && $canCerrarCaja && caja_user_can_cerrar_turno($cajaSesion, $currentUserId);
 
-/* --------------------------------------------------------
-   MOVIMIENTOS DE CAJA (efectivo)
--------------------------------------------------------- */
-$movCaja = [];
-$movIngresos = 0.0;
-$movEgresos  = 0.0;
-
 $flashOk  = trim((string)($_GET['ok']  ?? ''));
 $flashErr = trim((string)($_GET['err'] ?? ''));
-
-if ($cajaSesion) {
-  $cajaIdTmp = (int)$cajaSesion['id'];
-
-  // Ultimos movimientos
-  $stM = $pdo->prepare("
-    SELECT id, tipo, concepto, monto, fecha, usuario_registro
-    FROM caja_movimientos
-    WHERE caja_id = ?
-    ORDER BY fecha DESC, id DESC
-    LIMIT 15
-  ");
-  $stM->execute([$cajaIdTmp]);
-  $movCaja = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-  // totales (case-insensitive)
-  $stS = $pdo->prepare("
-    SELECT
-      COALESCE(SUM(CASE WHEN UPPER(tipo)='INGRESO' THEN monto ELSE 0 END),0) AS ingresos,
-      COALESCE(SUM(CASE WHEN UPPER(tipo)='EGRESO'  THEN monto ELSE 0 END),0) AS egresos
-    FROM caja_movimientos
-    WHERE caja_id = ?
-  ");
-  $stS->execute([$cajaIdTmp]);
-  $rowS = $stS->fetch(PDO::FETCH_ASSOC) ?: [];
-  $movIngresos = (float)($rowS['ingresos'] ?? 0);
-  $movEgresos  = (float)($rowS['egresos']  ?? 0);
-}
 
 if ($cajaSesionBloqueada) {
   $ownerLabel = caja_turno_owner_label($cajaSesion);
@@ -446,7 +413,7 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
   </div>
 
   <div class="caja-topbar__actions">
-    <a class="btn btn-secondary btn-sm" href="caja_movimientos.php">Movimientos</a>
+    <a class="btn btn-secondary btn-sm" id="btnMovimientosCaja" href="caja_movimientos.php">Movimientos</a>
     <button type="button" id="btnVentasRecientes" class="btn btn-secondary btn-sm">
       Ventas recientes
     </button>
@@ -473,65 +440,6 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
     </button>
   </div>
 </div>
-
-    <!-- MOVIMIENTOS COLAPSABLES -->
-    <details class="caja-mov" id="cajaMov">
-      <summary class="caja-mov__sum">
-        <span class="caja-mov__toggle" aria-hidden="true"></span>
-
-        <div class="caja-mov__left">
-          <div class="caja-mov__title">Movimientos de caja</div>
-          <div class="caja-mov__sub">Ingresos y egresos de efectivo en esta apertura</div>
-        </div>
-
-        <div class="caja-mov__right">
-          <span class="pill pill-success">+ <?= money_ar($movIngresos) ?></span>
-          <span class="pill pill-danger">- <?= money_ar($movEgresos) ?></span>
-
-          <a class="btn btn-primary btn-sm"
-             href="caja_movimientos.php"
-             data-caja-summary-action>
-            Registrar
-          </a>
-        </div>
-      </summary>
-
-      <div class="caja-mov__body">
-        <?php if (!$movCaja): ?>
-          <div class="muted">Todavia no hay movimientos en esta apertura.</div>
-        <?php else: ?>
-          <div class="table-wrapper">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Tipo</th>
-                  <th>Concepto</th>
-                  <th class="t-right">Monto</th>
-                  <th>Usuario</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($movCaja as $m): ?>
-                  <?php
-                    $t = strtoupper((string)($m['tipo'] ?? 'INGRESO'));
-                    $pill = ($t === 'EGRESO') ? 'pill-danger' : 'pill-success';
-                    $lbl  = ($t === 'EGRESO') ? '- Egreso' : '+ Ingreso';
-                  ?>
-                  <tr>
-                    <td class="mono"><?= h(format_datetime_ar($m['fecha'] ?? null)) ?></td>
-                    <td><span class="pill <?= $pill ?>"><?= h($lbl) ?></span></td>
-                    <td><?= h((string)($m['concepto'] ?? '-')) ?></td>
-                    <td class="t-right"><?= money_ar($m['monto'] ?? 0) ?></td>
-                    <td><?= h((string)($m['usuario_registro'] ?? '-')) ?></td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        <?php endif; ?>
-      </div>
-    </details>
 
     <div class="caja-neo-shell">
       <section class="caja-neo-main" aria-label="Venta actual">
@@ -802,6 +710,69 @@ if ($cajaSesion !== null && !$canRealizarVentas) {
 
         <div id="ventasRecientesStatus" class="ventas-recientes-modal__status" aria-live="polite"></div>
         <div id="ventasRecientesList" class="ventas-recientes-list"></div>
+      </div>
+    </div>
+
+    <div id="cajaMovimientoModal" class="caja-movimiento-modal hidden" aria-hidden="true">
+      <div class="caja-movimiento-modal__backdrop" data-caja-movimiento-close></div>
+      <div class="caja-movimiento-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="cajaMovimientoTitle" aria-describedby="cajaMovimientoSubtitle">
+        <div class="caja-movimiento-modal__head">
+          <div>
+            <div class="caja-movimiento-modal__eyebrow">Caja actual</div>
+            <h3 id="cajaMovimientoTitle" class="caja-movimiento-modal__title">Registrar movimiento</h3>
+            <p id="cajaMovimientoSubtitle" class="caja-movimiento-modal__subtitle">Carga un ingreso o egreso autorizado sin salir de la venta.</p>
+          </div>
+          <button type="button" class="caja-movimiento-modal__close" data-caja-movimiento-close>Cerrar</button>
+        </div>
+
+        <form id="cajaMovimientoForm" class="caja-movimiento-form" method="post" action="caja_movimientos.php">
+          <?= csrf_field() ?>
+          <input type="hidden" name="response" value="json">
+          <input type="hidden" name="request_uid" id="cajaMovimientoRequestUid" value="<?= h(bin2hex(random_bytes(16))) ?>">
+
+          <div id="cajaMovimientoStatus" class="caja-movimiento-modal__status hidden" aria-live="polite"></div>
+
+          <?php if ($canVerControlMovimientos): ?>
+          <div class="caja-movimiento-history">
+            <div class="caja-movimiento-history__head">
+              <div>
+                <div class="caja-movimiento-history__title">Ultimos movimientos</div>
+                <div class="caja-movimiento-history__sub">Vista de control de esta apertura.</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" id="cajaMovimientoHistoryToggle">Mostrar</button>
+            </div>
+            <div id="cajaMovimientoHistoryStatus" class="caja-movimiento-history__status hidden" aria-live="polite"></div>
+            <div id="cajaMovimientoHistoryList" class="caja-movimiento-history__list hidden"></div>
+          </div>
+          <?php endif; ?>
+
+          <div class="caja-movimiento-type" role="radiogroup" aria-label="Tipo de movimiento">
+            <label>
+              <input type="radio" name="tipo" value="ingreso" checked>
+              <span>Ingreso</span>
+            </label>
+            <label>
+              <input type="radio" name="tipo" value="egreso">
+              <span>Egreso</span>
+            </label>
+          </div>
+
+          <div class="caja-movimiento-grid">
+            <div class="field">
+              <label for="cajaMovimientoConcepto">Concepto</label>
+              <input id="cajaMovimientoConcepto" name="concepto" maxlength="255" placeholder="Ej: cambio, retiro, pago proveedor" required>
+            </div>
+            <div class="field">
+              <label for="cajaMovimientoMonto">Monto</label>
+              <input id="cajaMovimientoMonto" name="monto" inputmode="decimal" placeholder="Ej: 1.200,00" required>
+            </div>
+          </div>
+
+          <div class="caja-movimiento-modal__actions">
+            <button type="button" class="btn btn-secondary btn-sm" data-caja-movimiento-close>Cancelar</button>
+            <button type="submit" class="btn btn-primary btn-sm" id="cajaMovimientoSubmit">Guardar movimiento</button>
+          </div>
+        </form>
       </div>
     </div>
 

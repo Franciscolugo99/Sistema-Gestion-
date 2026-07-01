@@ -556,7 +556,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const ticketPreviewVentaId = document.getElementById("ticketPreviewVentaId");
   const ticketPreviewOpen = document.getElementById("ticketPreviewOpen");
   const ticketPreviewPrint = document.getElementById("ticketPreviewPrint");
-
   let modalResolver = null;
   let modalIsInput = false;
   let modalCurrentItem = null; // Item actual para validación de stock
@@ -1001,6 +1000,7 @@ document.addEventListener("DOMContentLoaded", () => {
       !isElementHidden(modal) ||
       !isElementHidden(ticketPreviewModal) ||
       !isElementHidden(promoSelectorModal) ||
+      !isElementHidden(document.getElementById("cajaMovimientoModal")) ||
       !isElementHidden(document.getElementById("mpQrModal")) ||
       !isElementHidden(ccModal) ||
       isTerminalModalOpen() ||
@@ -3536,12 +3536,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Sin cambios a API, CSRF, lógica de negocio ni backend.
   // =========================================================================
   (function initMejorasUX() {
-    document.querySelectorAll("[data-caja-summary-action]").forEach((link) => {
-      link.addEventListener("click", (event) => {
-        event.stopPropagation();
-      });
-    });
-
     // ── 1. CHIPS DE DENOMINACIÓN ────────────────────────────────────────────
     // Muestra billetes rápidos ($500/$1000/etc.) cuando el medio es EFECTIVO.
     // Al clickear, escribe en el pago efectivo activo y recalcula.

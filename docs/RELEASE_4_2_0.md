@@ -43,6 +43,14 @@ reintentar un cobro sin duplicar venta, pagos ni stock.
 - Smoke de build portable: `159 total / 0 fallidas / 6 skipped` por drivers omitidos al correr PHP con `-n`.
 - Compilacion Inno Setup: servidor y terminal OK.
 
+## Post-corte: movimientos de caja
+
+El bloque posterior al corte 4.2.0 mueve los movimientos operativos de Caja a un
+modal, mantiene fallback en `caja_movimientos.php`, evita KPIs sensibles en la
+pantalla del cajero y limita el historial a usuarios con supervision de caja.
+
+Checklist operativo: `docs/QA_CAJA_MOVIMIENTOS_4_2_0.md`.
+
 ## Artefactos
 
 - `FLUS_Server_Setup_4.2.0.exe`

@@ -51,6 +51,13 @@ body[data-theme="light"] .mov-header {
   color: var(--text);
 }
 
+.mov-header__meta {
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
 .mov-header__pills {
   display: flex;
   gap: 8px;
@@ -170,4 +177,13 @@ body[data-theme="light"] .mov-header {
   font-size: 0.95rem;
   border-radius: 14px;
   border: 1px dashed var(--panel-border);
+}
+
+.mov-control-note {
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  border-radius: 14px;
+  border: 1px dashed var(--panel-border);
+  background: color-mix(in oklch, var(--panel) 92%, var(--surface, transparent));
 }

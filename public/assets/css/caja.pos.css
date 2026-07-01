@@ -544,7 +544,7 @@ body[data-theme="light"] .denom-chip:hover {
     "ticket pay"
     "ticket cc"
     "ticket actions"
-    "mov shortcuts"
+    "shortcuts shortcuts"
     "msg msg";
   gap: 18px 20px;
   padding: 18px 22px 28px;
@@ -563,8 +563,7 @@ body[data-theme="light"] .denom-chip:hover {
 .caja-panel--pos > .pagos-row,
 .caja-panel--pos > .cc-wrap,
 .caja-panel--pos > .buttons-row,
-.caja-panel--pos > .shortcuts-box,
-.caja-panel--pos > .caja-mov {
+.caja-panel--pos > .shortcuts-box {
   border-radius: 24px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -925,28 +924,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
   background: transparent;
 }
 
-.caja-panel--pos > .caja-mov {
-  grid-area: mov;
-  margin: 0;
-  align-self: start;
-}
-
-.caja-panel--pos > .caja-mov:not([open]) {
-  box-shadow: none;
-  background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.04), transparent),
-    var(--panel);
-}
-
-.caja-panel--pos .caja-mov__sum {
-  padding: 14px 16px;
-}
-
-.caja-panel--pos .caja-mov__body {
-  max-height: 240px;
-  overflow: auto;
-}
-
 .caja-panel--pos > #msg {
   grid-area: msg;
 }
@@ -978,7 +955,6 @@ body[data-theme="dark"] .caja-panel--pos .payment-card {
       "pay"
       "cc"
       "actions"
-      "mov"
       "shortcuts"
       "msg";
   }

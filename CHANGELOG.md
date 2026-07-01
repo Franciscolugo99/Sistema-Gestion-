@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Caja mueve el alta de movimientos operativos a un modal, sin salir del flujo de venta y sin mostrar KPIs sensibles al cajero.
+- Movimientos de caja suma respuestas JSON, proteccion contra doble envio por `request_uid` y control de historial solo para usuarios con permiso de supervision.
+
+### Validation
+
+- PHP lint, JavaScript syntax check, smoke `160/160 OK` y `git diff --check` para el bloque de movimientos de caja.
+
 ---
 
 ## [4.2.0] - 2026-06-28
