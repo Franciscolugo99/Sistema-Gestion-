@@ -204,6 +204,11 @@ require __DIR__ . '/partials/header.php';
         <div><dt>Cliente</dt><dd><?= h((string)($licenseMeta['customer'] !== '' ? $licenseMeta['customer'] : 'N/D')) ?></dd></div>
         <div><dt>Clave</dt><dd class="mono"><?= h((string)($licenseMeta['license_key'] !== '' ? $licenseMeta['license_key'] : 'N/D')) ?></dd></div>
         <div><dt>Emitida</dt><dd><?= h($formatDate((string)($licenseMeta['issued_at'] ?? ''), true)) ?></dd></div>
+        <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
+          <div><dt>Nube</dt><dd><?= h((string)($licenseMeta['cloud_status_label'] !== '' ? $licenseMeta['cloud_status_label'] : 'pendiente')) ?></dd></div>
+          <div><dt>Ultima validacion</dt><dd><?= h($formatDate((string)($licenseMeta['cloud_last_success_at'] ?: $licenseMeta['cloud_checked_at'] ?: ''), true)) ?></dd></div>
+          <div><dt>Proxima validacion</dt><dd><?= h($formatDate((string)($licenseMeta['cloud_next_check_at'] ?? ''), true)) ?></dd></div>
+        <?php endif; ?>
         <div><dt>Modo limitado</dt><dd><?= !empty($licenseMeta['limited']) ? 'Sí' : 'No' ?></dd></div>
       </dl>
 
@@ -211,6 +216,13 @@ require __DIR__ . '/partials/header.php';
         <div class="licencia-note licencia-note--warning">
           <strong>Motivo actual:</strong>
           <span><?= h((string)($licenseMeta['reason_label'] ?? $licenseMeta['reason'])) ?></span>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($licenseMeta['cloud_enabled']) && (!empty($licenseMeta['cloud_message']) || !empty($licenseMeta['cloud_last_error']))): ?>
+        <div class="licencia-note">
+          <strong>Nube:</strong>
+          <span><?= h((string)($licenseMeta['cloud_message'] !== '' ? $licenseMeta['cloud_message'] : $licenseMeta['cloud_last_error'])) ?></span>
         </div>
       <?php endif; ?>
     </section>
@@ -256,7 +268,12 @@ require __DIR__ . '/partials/header.php';
           <h2>Cargar o reemplazar licencia</h2>
           <p>La licencia nueva se valida antes de guardarse y se intenta respaldar el archivo anterior antes del reemplazo.</p>
         </div>
-        <a class="btn btn-secondary" href="configuracion.php">Volver</a>
+        <div class="licencia-upload-actions">
+          <?php if (defined('FLUS_LICENSE_CLOUD_MOCK_ENABLED') && FLUS_LICENSE_CLOUD_MOCK_ENABLED): ?>
+            <a class="btn btn-secondary" href="license_cloud_mock.php">Mock nube</a>
+          <?php endif; ?>
+          <a class="btn btn-secondary" href="configuracion.php">Volver</a>
+        </div>
       </div>
 
       <form method="post" enctype="multipart/form-data" class="licencia-upload-form">

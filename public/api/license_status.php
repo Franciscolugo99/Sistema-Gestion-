@@ -15,4 +15,8 @@ api_json([
   'plan' => defined('FLUS_PLAN') ? (string)FLUS_PLAN : null,
   'status' => is_array($lic) ? (string)($lic['status'] ?? '') : '',
   'days_left' => is_array($lic) ? ($lic['days_left'] ?? null) : null,
+  'cloud_enabled' => is_array($lic) ? (bool)($lic['cloud_enabled'] ?? false) : false,
+  'cloud_status' => is_array($lic) ? (string)($lic['cloud_status'] ?? '') : '',
+  'cloud_last_success_at' => is_array($lic) ? (string)($lic['cloud_last_success_at'] ?? '') : '',
+  'cloud_next_check_at' => is_array($lic) ? (string)($lic['cloud_next_check_at'] ?? '') : '',
 ], 200);

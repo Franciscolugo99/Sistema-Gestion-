@@ -4848,6 +4848,124 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_not_contains("require_once __DIR__ . '/../bootstrap.php';", $preciosApiPhp);
 });
 
+$results[] = flus_run_test('licencia nube valida cache firmado y aplica suspension sin depender del frontend', function (): void {
+    $repoRoot = dirname(__DIR__);
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_cloud.php';
+
+    $cloudConfig = flus_license_cloud_config();
+    flus_assert_true(array_key_exists('enabled', $cloudConfig), 'La configuracion cloud debe exponer enabled.');
+
+    if (defined('FLUS_LICENSE_CLOUD_PUBKEY_PEM')) {
+        require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_cloud_mock.php';
+        flus_license_cloud_mock_save_state([
+            'status' => 'suspended',
+            'plan' => 'Mensual',
+            'expires_at' => '2099-12-31',
+            'message' => 'Pago pendiente',
+        ]);
+        $document = flus_license_cloud_mock_signed_document([
+            'license_key' => 'FLUS-TEST-0001',
+            'installation_id' => 'SMOKE',
+        ]);
+    } else {
+        define('FLUS_LICENSE_CLOUD_PUBKEY_PEM', <<<'PEM'
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj0vMdEGSdvgDi2kPL3nV
+Myv0RdXnhmHw9w0Z7pskwrZSw1H07rLi01oPfL0TcTgbbs9Goz7s3yuliLSsshh1
+jPy3ySEFontI0UXG/q6W4SgAtsP/ZEraiXsclpdCDxEv4yDk9HYBqk70YoUL781k
+wGq0e7qmM9ufLE+FDuk2u9gHE6ZJww+2gtaVZX4b0xw2cKQ+VG/Cb4Nl60eK4wqr
+NkTgX+c3/RK3v/W3uxZK86mLYDo4P6Vn1Zbz4B/NPD9jQbde0ITg4ViCtwOFjwZe
+2gmsZZT3WiVeaFDFop43viV5xgQwf2RZv5xR+tpiYOZS+aXvaO3FdO84NXpkr6g6
+MwIDAQAB
+-----END PUBLIC KEY-----
+PEM);
+
+        $document = [
+            'format' => 'FLUS-CLOUD-LICENSE-1',
+            'alg' => 'RSA-SHA256',
+            'payload_b64' => 'eyJsaWNlbnNlX2tleSI6IkZMVVMtVEVTVC0wMDAxIiwic3RhdHVzIjoic3VzcGVuZGVkIiwicGxhbiI6Ik1lbnN1YWwiLCJleHBpcmVzX2F0IjoiMjA5OS0xMi0zMSIsImNoZWNrZWRfYXQiOiIyMDI2LTA3LTA0VDEyOjAwOjAwKzAwOjAwIiwibmV4dF9jaGVja19hdCI6IjIwMjYtMDctMDRUMTg6MDA6MDArMDA6MDAiLCJtZXNzYWdlIjoiUGFnbyBwZW5kaWVudGUifQ==',
+            'sig_b64' => 'DiLzkeMTcNSsGaZmZ5RIC0wPRHHek4WJeN+KKJgaOUVf1JPsMj4FkNv7GtXdQGwupqmXrkkpdfpeGCBvczMOopyTXdOwtaGPTZwxtVgYb9M8wAWpWGRcdOD2yQWjjPKr6RNty/9/TYIWL3jOaLrbNjUu6jDKNuVl4m8JypBQ1cVL83gSQivyi/zV+R+tHfOu7802UlaH93mGUIctZWRb4FaYAWp+ylAzSJFODt5lMRohkBXBGXsDBiZxMUd6/3ck2TsiJYeTRA4ozwcLPmzu62Us1mJqWSu8BLdnlHyeIfSUWhk41X6iJeZZ2eMQsdgEeYky76ehSM3CYWVvd31pDA==',
+        ];
+    }
+
+    $validation = flus_license_cloud_validate_document($document, 'FLUS-TEST-0001');
+    flus_assert_true((bool)($validation['ok'] ?? false), 'La respuesta cloud firmada debe validar.');
+
+    $mismatch = flus_license_cloud_validate_document($document, 'FLUS-OTRA');
+    flus_assert_false((bool)($mismatch['ok'] ?? false), 'No debe aceptar una respuesta para otra licencia.');
+    flus_assert_same('LICENSE_KEY_MISMATCH', (string)($mismatch['error'] ?? ''));
+
+    $applied = flus_license_cloud_apply_payload([
+        'status' => 'active',
+        'status_label' => 'activa',
+        'plan' => 'Mensual',
+        'plan_label' => 'Mensual',
+        'valid_until' => date('Y-m-d', strtotime('+30 days')),
+        'days_left' => 30,
+        'limited' => false,
+        'reason' => null,
+    ], $validation['payload']);
+
+    flus_assert_same('suspended', (string)$applied['status']);
+    flus_assert_same('CLOUD_SUSPENDED', (string)$applied['reason']);
+    flus_assert_true((bool)$applied['limited'], 'La suspension cloud debe limitar FLUS.');
+
+    $shouldRetryBlocked = flus_license_cloud_should_attempt([
+        'enabled' => true,
+        'check_in_cli' => true,
+    ], [
+        'next_check_ts' => time() + 21600,
+        'payload' => ['status' => 'suspended'],
+    ]);
+    flus_assert_true($shouldRetryBlocked, 'Un cache cloud bloqueante debe reconsultar para permitir reactivacion rapida.');
+
+    $shouldCheckEveryRequest = flus_license_cloud_should_attempt([
+        'enabled' => true,
+        'check_in_cli' => true,
+        'check_every_request' => true,
+        'interval_sec' => 300,
+    ], [
+        'last_success_ts' => time(),
+        'next_check_ts' => time() + 120,
+        'payload' => ['status' => 'active'],
+    ]);
+    flus_assert_true($shouldCheckEveryRequest, 'El modo estricto debe reconsultar aunque el cache activo no haya vencido.');
+
+    $shouldRespectCooldownAfterError = flus_license_cloud_should_attempt([
+        'enabled' => true,
+        'check_in_cli' => true,
+        'check_every_request' => true,
+        'interval_sec' => 300,
+    ], [
+        'last_error' => 'HTTP_TRANSPORT_ERROR',
+        'next_check_ts' => time() + 120,
+        'payload' => ['status' => 'active'],
+    ]);
+    flus_assert_false($shouldRespectCooldownAfterError, 'El modo estricto debe respetar cooldown si la nube fallo.');
+
+    $shouldKeepActiveCache = flus_license_cloud_should_attempt([
+        'enabled' => true,
+        'interval_sec' => 300,
+        'check_in_cli' => true,
+    ], [
+        'last_success_ts' => time(),
+        'next_check_ts' => time() + 120,
+        'payload' => ['status' => 'active'],
+    ]);
+    flus_assert_false($shouldKeepActiveCache, 'Un cache cloud activo puede respetar la ventana local normal.');
+
+    $shouldRetryTooLongActiveCache = flus_license_cloud_should_attempt([
+        'enabled' => true,
+        'interval_sec' => 300,
+        'check_in_cli' => true,
+    ], [
+        'last_success_ts' => time(),
+        'next_check_ts' => time() + 21600,
+        'payload' => ['status' => 'active'],
+    ]);
+    flus_assert_true($shouldRetryTooLongActiveCache, 'Un cache cloud activo no debe esperar mas que el intervalo local.');
+});
+
 $results[] = flus_run_test('terminal switch y tickets por mail endurecen validaciones sensibles', function (): void {
     $repoRoot = dirname(__DIR__);
     $terminalSwitchPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'terminal_switch.php');

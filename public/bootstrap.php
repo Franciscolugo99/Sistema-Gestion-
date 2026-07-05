@@ -160,6 +160,10 @@ if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE) && function_exists('flus_i
       'logout.php',
     ], true);
 
+    if (!$allowed && defined('FLUS_LICENSE_CLOUD_MOCK_ENABLED') && FLUS_LICENSE_CLOUD_MOCK_ENABLED) {
+      $allowed = ($base === 'license_cloud_mock.php');
+    }
+
     if (!$allowed) {
       // API: JSON 402
       if (flus_is_api_context()) {

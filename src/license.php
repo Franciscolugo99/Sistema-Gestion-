@@ -49,6 +49,11 @@ if (is_file($flusLicensePublicKeyFile)) {
   require_once $flusLicensePublicKeyFile;
 }
 
+$flusLicenseCloudFile = __DIR__ . '/license_cloud.php';
+if (is_file($flusLicenseCloudFile)) {
+  require_once $flusLicenseCloudFile;
+}
+
 if (!function_exists('flus_license_state_file_path')) {
   function flus_license_state_file_path(): string {
     return FLUS_ROOT . '/storage/license_state.json';
@@ -169,6 +174,10 @@ if (!function_exists('flus_license_reason_label')) {
       'GRACE_EXCEEDED' => 'Se superó el período de gracia posterior al vencimiento.',
       'CLOCK_ROLLBACK' => 'Se detectó que el reloj del sistema fue atrasado.',
       'CLOCK_FORWARD_JUMP' => 'Se detectó un salto grande hacia adelante en el reloj del sistema.',
+      'CLOUD_SUSPENDED' => 'La licencia fue suspendida desde la nube.',
+      'CLOUD_REVOKED' => 'La licencia fue revocada desde la nube.',
+      'CLOUD_EXPIRED' => 'La nube informa que la licencia esta vencida.',
+      'CLOUD_GRACE_EXCEEDED' => 'No se pudo validar la licencia en la nube dentro del periodo de gracia.',
       'BYPASS' => 'Modo bypass activo.',
       'ACTIVE' => 'Licencia operativa.',
       'MISSING' => 'No hay una licencia cargada.',
@@ -234,7 +243,7 @@ if (!function_exists('flus_license_meta')) {
     $tone = match ($statusKey) {
       'active', 'bypass' => 'success',
       'expired' => 'warning',
-      'missing', 'invalid' => 'danger',
+      'missing', 'invalid', 'suspended', 'revoked', 'cloud_grace_exceeded' => 'danger',
       default => 'muted',
     };
 
@@ -255,7 +264,24 @@ if (!function_exists('flus_license_meta')) {
       'issued_at' => trim((string)($license['issued_at'] ?? '')),
       'is_signed' => $isSigned,
       'algorithm' => $algorithm !== '' ? $algorithm : 'Simple',
+      'cloud_enabled' => (bool)($license['cloud_enabled'] ?? false),
+      'cloud_status' => trim((string)($license['cloud_status'] ?? '')),
+      'cloud_status_label' => trim((string)($license['cloud_status_label'] ?? '')),
+      'cloud_message' => trim((string)($license['cloud_message'] ?? '')),
+      'cloud_checked_at' => trim((string)($license['cloud_checked_at'] ?? '')),
+      'cloud_last_success_at' => trim((string)($license['cloud_last_success_at'] ?? '')),
+      'cloud_next_check_at' => trim((string)($license['cloud_next_check_at'] ?? '')),
+      'cloud_last_error' => trim((string)($license['cloud_last_error'] ?? '')),
     ];
+  }
+}
+
+if (!function_exists('flus_license_apply_cloud')) {
+  function flus_license_apply_cloud(array $status, ?array $license = null): array {
+    if (function_exists('flus_license_cloud_apply_status')) {
+      return flus_license_cloud_apply_status($status, $license);
+    }
+    return $status;
   }
 }
 
@@ -581,7 +607,7 @@ if (!function_exists('flus_license_status')) {
     // --- Licencia ---
     $licRaw = flus_license_load();
     if (!$licRaw) {
-      return [
+      return flus_license_apply_cloud([
         'status' => 'missing',
         'status_label' => 'sin licencia',
         'plan' => 'NONE',
@@ -591,14 +617,14 @@ if (!function_exists('flus_license_status')) {
         'limited' => true,
         'reason' => 'LICENSE_MISSING',
         'clock_warning' => $clockWarning,
-      ];
+      ]);
     }
 
     $val = flus_license_validate_payload($licRaw);
     $lic = $val['license'];
 
     if (!$val['ok']) {
-      return [
+      return flus_license_apply_cloud([
         'status' => 'invalid',
         'status_label' => 'inválida',
         'plan' => (string)($lic['plan'] ?? 'NONE'),
@@ -608,7 +634,7 @@ if (!function_exists('flus_license_status')) {
         'limited' => true,
         'reason' => ('INVALID_' . (string)$val['error']),
         'clock_warning' => $clockWarning,
-      ];
+      ]);
     }
 
     $plan  = (string)($lic['plan'] ?? 'BASIC');
@@ -626,7 +652,7 @@ if (!function_exists('flus_license_status')) {
     ];
 
     if ($expTs > 0 && $effectiveNowTs > $expTs) {
-      return array_merge([
+      return flus_license_apply_cloud(array_merge([
         'status' => 'expired',
         'status_label' => 'vencida',
         'plan' => $plan,
@@ -636,10 +662,10 @@ if (!function_exists('flus_license_status')) {
         'limited' => true,
         'reason' => 'LICENSE_EXPIRED',
         'clock_warning' => $clockWarning,
-      ], $licenseMeta);
+      ], $licenseMeta), $lic);
     }
 
-    return array_merge([
+    return flus_license_apply_cloud(array_merge([
       'status' => 'active',
       'status_label' => 'activa',
       'plan' => $plan,
@@ -649,6 +675,6 @@ if (!function_exists('flus_license_status')) {
       'limited' => false,
       'reason' => null,
       'clock_warning' => $clockWarning,
-    ], $licenseMeta);
+    ], $licenseMeta), $lic);
   }
 }
