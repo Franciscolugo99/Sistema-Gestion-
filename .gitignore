@@ -104,6 +104,8 @@ storage/license_state.json
 
 # local runtime state
 storage/license_state.json
+storage/license_cloud_state.json
+storage/license_installation_id
 license.json
 flus_fixes.patch
 *.patch

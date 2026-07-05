@@ -4855,6 +4855,10 @@ $results[] = flus_run_test('licencia nube valida cache firmado y aplica suspensi
     $cloudConfig = flus_license_cloud_config();
     flus_assert_true(array_key_exists('enabled', $cloudConfig), 'La configuracion cloud debe exponer enabled.');
 
+    if (!function_exists('openssl_verify')) {
+        flus_skip('licencia nube valida cache firmado y aplica suspension sin depender del frontend: falta openssl');
+    }
+
     if (defined('FLUS_LICENSE_CLOUD_PUBKEY_PEM')) {
         require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_cloud_mock.php';
         flus_license_cloud_mock_save_state([
