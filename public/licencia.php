@@ -137,6 +137,31 @@ $lockReason = (string)($_GET['reason'] ?? ($licenseMeta['reason'] ?? ''));
 $lockMessage = (isset($_GET['locked']) && $_GET['locked'] === '1' && $lockReason !== '' && function_exists('flus_license_reason_label'))
     ? flus_license_reason_label($lockReason)
     : '';
+$licenseLimited = !empty($licenseMeta['limited']);
+$licenseStatus = (string)($licenseMeta['status'] ?? 'N/D');
+$licensePlan = (string)($licenseMeta['plan'] ?? 'N/D');
+$licenseCustomerRaw = trim((string)($licenseMeta['customer'] ?? ''));
+$licenseCustomer = $licenseCustomerRaw !== '' ? $licenseCustomerRaw : 'Cliente no informado';
+$licenseReasonLabel = (string)($licenseMeta['reason_label'] ?? 'Sin observaciones');
+$daysRaw = $licenseMeta['days_left'] ?? null;
+$daysLabel = 'N/D';
+$daysHelp = $licenseLimited ? 'El sistema está limitado.' : 'Sistema operativo.';
+if (is_numeric($daysRaw)) {
+    $daysInt = (int)$daysRaw;
+    if ($daysInt < 0) {
+        $daysLabel = 'Vencida hace ' . abs($daysInt) . ' día' . (abs($daysInt) === 1 ? '' : 's');
+        $daysHelp = 'Renová la licencia para recuperar la operación completa.';
+    } elseif ($daysInt === 0) {
+        $daysLabel = 'Vence hoy';
+        $daysHelp = 'Conviene renovarla durante el día.';
+    } else {
+        $daysLabel = (string)$daysInt . ' día' . ($daysInt === 1 ? '' : 's');
+        $daysHelp = $daysInt <= 7 ? 'La renovación está cerca.' : 'Licencia dentro del plazo.';
+    }
+}
+$primaryActionCopy = $licenseLimited
+    ? 'Renová la licencia o volvé a validar si ya fue regularizada.'
+    : 'La licencia está disponible para operar. Si recibiste una renovación, podés cargarla acá.';
 
 $pageTitle = 'Licencia';
 $currentSection = 'configuracion';
@@ -147,27 +172,23 @@ require __DIR__ . '/partials/header.php';
 ?>
 
 <div class="panel licencia-shell">
-  <header class="page-header module-header licencia-header">
-    <div class="page-header-main module-header-main">
-      <div class="module-header-hero">
-        <span class="module-header-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
-            <path d="M15 7V4a3 3 0 0 0-6 0v3"></path>
-            <rect x="4" y="7" width="16" height="13" rx="2"></rect>
-            <path d="M9 12h6"></path>
-            <path d="M12 15v.01"></path>
-          </svg>
-        </span>
-        <div class="module-header-copy">
-          <span class="module-eyebrow">Control de licencia</span>
-          <h1 class="page-title">Licencia</h1>
-          <p class="page-sub">Administrá la licencia activa, revisá el estado actual del sistema y cargá renovaciones desde el panel.</p>
-        </div>
-      </div>
+  <header class="licencia-titlebar">
+    <span class="module-header-icon licencia-title-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+        <path d="M15 7V4a3 3 0 0 0-6 0v3"></path>
+        <rect x="4" y="7" width="16" height="13" rx="2"></rect>
+        <path d="M9 12h6"></path>
+        <path d="M12 15v.01"></path>
+      </svg>
+    </span>
+    <div>
+      <span class="licencia-card-kicker">Cuenta del comercio</span>
+      <h1>Licencia FLUS</h1>
+      <p>Estado de uso, vencimiento y renovación de esta instalación.</p>
     </div>
   </header>
 
-  <?php if ($lockMessage !== ''): ?>
+  <?php if ($lockMessage !== '' && !$licenseLimited): ?>
     <div class="alert alert-error licencia-alert"><?= h($lockMessage) ?></div>
   <?php endif; ?>
 
@@ -179,136 +200,89 @@ require __DIR__ . '/partials/header.php';
     <div class="alert alert-error licencia-alert"><?= h(implode(' ', $errors)) ?></div>
   <?php endif; ?>
 
-  <?php if (!empty($licenseMeta['clock_warning_label'])): ?>
-    <div class="alert alert-warning licencia-alert"><?= h((string)$licenseMeta['clock_warning_label']) ?></div>
-  <?php endif; ?>
+  <section class="licencia-account licencia-account--<?= $licenseLimited ? 'limited' : 'ok' ?>" aria-label="Estado de licencia">
+    <div class="licencia-account-main">
+      <span class="licencia-state-chip"><?= $licenseLimited ? 'Requiere atención' : 'Operativa' ?></span>
+      <h2><?= h($licenseCustomer) ?></h2>
+      <p><?= h($licenseLimited ? $licenseReasonLabel : 'La instalación está habilitada para operar.') ?></p>
 
-  <?php if (!empty($licenseMeta['limited'])): ?>
-    <section class="licencia-lock-panel" aria-label="Sistema limitado por licencia">
-      <div>
-        <span class="licencia-card-kicker">Sistema limitado</span>
-        <h2><?= h((string)($licenseMeta['reason_label'] ?? 'La licencia requiere revision.')) ?></h2>
-        <p>FLUS mantiene disponible esta pantalla para revisar el estado, cargar una renovacion o volver a consultar la nube.</p>
+      <dl class="licencia-account-facts">
+        <div>
+          <dt>Plan</dt>
+          <dd><?= h($licensePlan) ?></dd>
+        </div>
+        <div>
+          <dt>Clave</dt>
+          <dd class="mono"><?= h((string)(((string)($licenseMeta['license_key'] ?? '')) !== '' ? $licenseMeta['license_key'] : 'N/D')) ?></dd>
+        </div>
+        <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
+          <div>
+            <dt>Online</dt>
+            <dd><?= h((string)(((string)($licenseMeta['cloud_status_label'] ?? '')) !== '' ? $licenseMeta['cloud_status_label'] : 'pendiente')) ?></dd>
+          </div>
+        <?php endif; ?>
+      </dl>
+    </div>
+
+    <aside class="licencia-expiry" aria-label="Vencimiento">
+      <span>Vencimiento</span>
+      <strong><?= h($formatDate((string)($licenseMeta['valid_until'] ?? 'N/D'))) ?></strong>
+      <em><?= h($daysLabel) ?></em>
+      <p><?= h($daysHelp) ?></p>
+      <div class="licencia-status-actions">
+        <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
+          <form method="post" class="licencia-inline-form">
+            <?= csrf_field('csrf_token') ?>
+            <input type="hidden" name="action" value="revalidate_cloud">
+            <button type="submit" class="btn <?= $licenseLimited ? 'btn-primary' : 'btn-secondary' ?>">Revalidar ahora</button>
+          </form>
+        <?php endif; ?>
+        <a class="btn btn-secondary" href="configuracion.php">Volver</a>
       </div>
-      <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
-        <form method="post" class="licencia-inline-form">
-          <?= csrf_field('csrf_token') ?>
-          <input type="hidden" name="action" value="revalidate_cloud">
-          <button type="submit" class="btn btn-primary">Revalidar ahora</button>
-        </form>
-      <?php endif; ?>
-    </section>
-  <?php endif; ?>
-
-  <section class="licencia-kpis" aria-label="Resumen de licencia">
-    <article class="licencia-kpi licencia-kpi--<?= h((string)($licenseMeta['status_tone'] ?? 'muted')) ?>">
-      <span class="licencia-kpi-label">Estado</span>
-      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['status'] ?? 'N/D')) ?></strong>
-      <span class="licencia-kpi-help"><?= h((string)($licenseMeta['reason_label'] ?? 'Sin observaciones')) ?></span>
-    </article>
-    <article class="licencia-kpi">
-      <span class="licencia-kpi-label">Plan</span>
-      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['plan'] ?? 'N/D')) ?></strong>
-      <span class="licencia-kpi-help">Tipo de licencia cargada</span>
-    </article>
-    <article class="licencia-kpi">
-      <span class="licencia-kpi-label">Vence</span>
-      <strong class="licencia-kpi-value"><?= h($formatDate((string)($licenseMeta['valid_until'] ?? 'N/D'))) ?></strong>
-      <span class="licencia-kpi-help">Fecha efectiva de expiración</span>
-    </article>
-    <article class="licencia-kpi licencia-kpi--<?= ((int)($licenseMeta['days_left'] ?? 0) <= 7 && (string)($licenseMeta['days_left'] ?? 'N/D') !== 'N/D') ? 'warning' : 'info' ?>">
-      <span class="licencia-kpi-label">Días restantes</span>
-      <strong class="licencia-kpi-value"><?= h((string)($licenseMeta['days_left'] ?? 'N/D')) ?></strong>
-      <span class="licencia-kpi-help"><?= !empty($licenseMeta['limited']) ? 'El sistema está en modo limitado.' : 'Sistema operativo sin limitación.' ?></span>
-    </article>
+    </aside>
   </section>
 
-  <div class="licencia-grid">
-    <section class="panel licencia-card">
-      <div class="licencia-card-head">
-        <div>
-          <span class="licencia-card-kicker">Diagnóstico actual</span>
-          <h2>Estado efectivo</h2>
-          <p>Esto refleja lo que realmente está usando FLUS hoy, no solo lo que hay escrito en el JSON.</p>
-        </div>
+  <div class="licencia-main-grid">
+    <section class="licencia-section">
+      <div class="licencia-section-head">
+        <span class="licencia-card-kicker">Información</span>
+        <h2>Datos de la licencia</h2>
       </div>
 
       <dl class="licencia-detail-list">
-        <div><dt>Estado</dt><dd><?= h((string)($licenseMeta['status'] ?? 'N/D')) ?></dd></div>
-        <div><dt>Plan</dt><dd><?= h((string)($licenseMeta['plan'] ?? 'N/D')) ?></dd></div>
-        <div><dt>Cliente</dt><dd><?= h((string)($licenseMeta['customer'] !== '' ? $licenseMeta['customer'] : 'N/D')) ?></dd></div>
-        <div><dt>Clave</dt><dd class="mono"><?= h((string)($licenseMeta['license_key'] !== '' ? $licenseMeta['license_key'] : 'N/D')) ?></dd></div>
+        <div><dt>Estado</dt><dd><?= h($licenseStatus) ?></dd></div>
+        <div><dt>Cliente</dt><dd><?= h($licenseCustomer) ?></dd></div>
+        <div><dt>Plan</dt><dd><?= h($licensePlan) ?></dd></div>
+        <div><dt>Clave</dt><dd class="mono"><?= h((string)(((string)($licenseMeta['license_key'] ?? '')) !== '' ? $licenseMeta['license_key'] : 'N/D')) ?></dd></div>
         <div><dt>Emitida</dt><dd><?= h($formatDate((string)($licenseMeta['issued_at'] ?? ''), true)) ?></dd></div>
         <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
-          <div><dt>Nube</dt><dd><?= h((string)($licenseMeta['cloud_status_label'] !== '' ? $licenseMeta['cloud_status_label'] : 'pendiente')) ?></dd></div>
-          <div><dt>Ultima validacion</dt><dd><?= h($formatDate((string)($licenseMeta['cloud_last_success_at'] ?: $licenseMeta['cloud_checked_at'] ?: ''), true)) ?></dd></div>
-          <div><dt>Proxima validacion</dt><dd><?= h($formatDate((string)($licenseMeta['cloud_next_check_at'] ?? ''), true)) ?></dd></div>
+          <div><dt>Última consulta online</dt><dd><?= h($formatDate((string)(($licenseMeta['cloud_last_success_at'] ?? '') ?: ($licenseMeta['cloud_checked_at'] ?? '') ?: ''), true)) ?></dd></div>
+          <div><dt>Próxima consulta</dt><dd><?= h($formatDate((string)($licenseMeta['cloud_next_check_at'] ?? ''), true)) ?></dd></div>
         <?php endif; ?>
-        <div><dt>Modo limitado</dt><dd><?= !empty($licenseMeta['limited']) ? 'Sí' : 'No' ?></dd></div>
       </dl>
 
-      <?php if (!empty($licenseMeta['reason'])): ?>
-        <div class="licencia-note licencia-note--warning">
-          <strong>Motivo actual:</strong>
-          <span><?= h((string)($licenseMeta['reason_label'] ?? $licenseMeta['reason'])) ?></span>
-        </div>
-      <?php endif; ?>
-
-      <?php if (!empty($licenseMeta['cloud_enabled']) && (!empty($licenseMeta['cloud_message']) || !empty($licenseMeta['cloud_last_error']))): ?>
-        <div class="licencia-note">
-          <strong>Nube:</strong>
-          <span><?= h((string)($licenseMeta['cloud_message'] !== '' ? $licenseMeta['cloud_message'] : $licenseMeta['cloud_last_error'])) ?></span>
-        </div>
-      <?php endif; ?>
-    </section>
-
-    <section class="panel licencia-card">
-      <div class="licencia-card-head">
-        <div>
-          <span class="licencia-card-kicker">Resumen administrativo</span>
-          <h2>Qué revisar acá</h2>
-          <p>Usá esta pantalla para confirmar estado, vencimiento y datos visibles de la licencia activa antes de renovarla.</p>
-        </div>
-      </div>
-
-      <div class="licencia-policy-grid">
-        <article class="licencia-policy">
-          <strong>Estado actual</strong>
-          <span>Confirmá si la licencia está operativa, vencida o con observaciones.</span>
-        </article>
-        <article class="licencia-policy">
-          <strong>Vencimiento</strong>
-          <span>Revisá la fecha vigente y los días restantes antes de una renovación.</span>
-        </article>
-        <article class="licencia-policy">
-          <strong>Datos visibles</strong>
-          <span>Cliente, plan y clave ayudan a validar que estás cargando la licencia correcta.</span>
-        </article>
-        <article class="licencia-policy">
-          <strong>Renovación</strong>
-          <span>Subí el archivo provisto para este cliente y el sistema hará la validación antes de aplicarlo.</span>
-        </article>
-      </div>
-
-      <div class="licencia-note">
-        <strong>Sugerencia</strong>
-        <span>Si una renovación no se aplica, verificá que el archivo corresponda a este cliente y que no esté vencido antes de volver a intentar.</span>
-      </div>
-    </section>
-
-    <section class="panel licencia-card licencia-card--full">
-      <div class="licencia-card-head licencia-card-head--split">
-        <div>
-          <span class="licencia-card-kicker">Renovación</span>
-          <h2>Cargar o reemplazar licencia</h2>
-          <p>La licencia nueva se valida antes de guardarse y se intenta respaldar el archivo anterior antes del reemplazo.</p>
-        </div>
-        <div class="licencia-upload-actions">
-          <?php if (defined('FLUS_LICENSE_CLOUD_MOCK_ENABLED') && FLUS_LICENSE_CLOUD_MOCK_ENABLED): ?>
-            <a class="btn btn-secondary" href="license_cloud_mock.php">Mock nube</a>
+      <details class="licencia-technical">
+        <summary>Detalle técnico</summary>
+        <dl class="licencia-detail-list licencia-detail-list--compact">
+          <div><dt>Modo limitado</dt><dd><?= $licenseLimited ? 'Sí' : 'No' ?></dd></div>
+          <?php if (!empty($licenseMeta['reason'])): ?>
+            <div><dt>Motivo</dt><dd><?= h($licenseReasonLabel) ?></dd></div>
           <?php endif; ?>
-          <a class="btn btn-secondary" href="configuracion.php">Volver</a>
-        </div>
+          <?php if (!empty($licenseMeta['clock_warning_label'])): ?>
+            <div><dt>Reloj del sistema</dt><dd><?= h((string)$licenseMeta['clock_warning_label']) ?></dd></div>
+          <?php endif; ?>
+          <?php if (!empty($licenseMeta['cloud_enabled']) && (!empty($licenseMeta['cloud_message']) || !empty($licenseMeta['cloud_last_error']))): ?>
+            <div><dt>Respuesta online</dt><dd><?= h((string)(((string)($licenseMeta['cloud_message'] ?? '')) !== '' ? $licenseMeta['cloud_message'] : ($licenseMeta['cloud_last_error'] ?? ''))) ?></dd></div>
+          <?php endif; ?>
+        </dl>
+      </details>
+    </section>
+
+    <section class="licencia-section licencia-renew">
+      <div class="licencia-section-head">
+        <span class="licencia-card-kicker">Renovación</span>
+        <h2>Cargar licencia</h2>
+        <p>Usá el archivo que recibiste para esta instalación.</p>
       </div>
 
       <form method="post" enctype="multipart/form-data" class="licencia-upload-form">
@@ -316,14 +290,17 @@ require __DIR__ . '/partials/header.php';
         <input type="hidden" name="action" value="upload">
 
         <label class="licencia-upload-drop">
-          <span class="licencia-upload-title">Seleccionar archivo JSON</span>
+          <span class="licencia-upload-title">Seleccionar archivo de licencia</span>
           <span class="licencia-upload-copy">Subí el archivo de licencia provisto para este cliente.</span>
           <input type="file" name="license_file" accept="application/json,.json" required>
         </label>
 
         <div class="licencia-upload-actions">
           <button class="btn btn-primary" type="submit">Subir licencia</button>
-          <span class="licencia-upload-hint">Usá un archivo válido en formato JSON entregado para esta instalación.</span>
+          <span class="licencia-upload-hint">Usá el archivo entregado para esta instalación.</span>
+          <?php if (defined('FLUS_LICENSE_CLOUD_MOCK_ENABLED') && FLUS_LICENSE_CLOUD_MOCK_ENABLED): ?>
+            <a class="btn btn-secondary" href="license_cloud_mock.php">Mock nube</a>
+          <?php endif; ?>
         </div>
       </form>
     </section>

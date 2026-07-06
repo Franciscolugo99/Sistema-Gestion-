@@ -4849,11 +4849,18 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("flus_license_cloud_validate_document(\$response['document'], \$licenseKey, \$installationId)", $licenseCloudPhp);
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
-    flus_assert_contains('Cliente</dt><dd><?= h((string)($licenseMeta[\'customer\']', $licenciaPhp);
-    flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)($licenseMeta[\'license_key\']', $licenciaPhp);
+    flus_assert_contains('$licenseCustomerRaw = trim((string)($licenseMeta[\'customer\'] ?? \'\'));', $licenciaPhp);
+    flus_assert_contains('Cliente</dt><dd><?= h($licenseCustomer) ?></dd>', $licenciaPhp);
+    flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)(((string)($licenseMeta[\'license_key\'] ?? \'\'))', $licenciaPhp);
     flus_assert_contains('Emitida</dt><dd><?= h($formatDate((string)($licenseMeta[\'issued_at\']', $licenciaPhp);
     flus_assert_contains('name="action" value="revalidate_cloud"', $licenciaPhp);
     flus_assert_contains('Revalidar ahora', $licenciaPhp);
+    flus_assert_contains('licencia-account', $licenciaPhp);
+    flus_assert_contains('licencia-expiry', $licenciaPhp);
+    flus_assert_contains('Detalle técnico', $licenciaPhp);
+    flus_assert_not_contains('Diagnóstico actual', $licenciaPhp);
+    flus_assert_not_contains('Resumen administrativo', $licenciaPhp);
+    flus_assert_not_contains('Qué podés hacer', $licenciaPhp);
     flus_assert_contains('$licenseLocked = defined(\'FLUS_LICENSE_LOCKED\')', $navPhp);
     flus_assert_contains('nav-license-lock', $navPhp);
 
