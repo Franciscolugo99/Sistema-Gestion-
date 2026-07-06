@@ -945,6 +945,7 @@ $results[] = flus_run_test('backup_restore_in_progress detects active lock', fun
 $results[] = flus_run_test('backups unifica sql y zip con bloqueos y avisos persistentes', function (): void {
     $repoRoot = dirname(__DIR__);
     $backupLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_lib.php');
+    $backupEnhancedPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'backup_enhanced.php');
     $backupsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'backups.php');
     $downloadPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'backup_download.php');
     $systemApi = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'system_api.php');
@@ -958,6 +959,12 @@ $results[] = flus_run_test('backups unifica sql y zip con bloqueos y avisos pers
     flus_assert_contains("glob(\$dir . DIRECTORY_SEPARATOR . '*.flus.zip')", $backupLib);
     flus_assert_contains('while ($offset < $chunkLength)', $backupLib);
     flus_assert_contains('flus_backup_restore_safe($file, $err)', $backupsPhp);
+    flus_assert_contains('flus_backup_create_full(false, $err)', $backupsPhp);
+    flus_assert_contains('function flus_backup_schema_status(): array', $backupEnhancedPhp);
+    flus_assert_contains('function flus_backup_scan_sql_schema(string $path): array', $backupEnhancedPhp);
+    flus_assert_contains('$metadata[\'schema_status\'] = flus_backup_schema_status();', $backupEnhancedPhp);
+    flus_assert_contains('flus_backup_schema_warnings($schemaStatus)', $backupEnhancedPhp);
+    flus_assert_contains('El backup no esta alineado con las migraciones actuales', $backupEnhancedPhp);
     flus_assert_contains('No se pueden eliminar backups mientras hay una restauración o mantenimiento activo.', $backupsPhp);
     flus_assert_contains('alert alert-err alert--persistent', $backupsPhp);
     flus_assert_contains('backupOperationBlocked', $systemApi);
@@ -2799,6 +2806,7 @@ $results[] = flus_run_test('registrar venta es idempotente ante doble envio de c
     flus_assert_contains('function flus_venta_request_uid_from_body(array $body): ?string', $ventaLibPhp);
     flus_assert_contains('function flus_venta_has_request_uid_unique_index(PDO $pdo): bool', $ventaLibPhp);
     flus_assert_contains('INFORMATION_SCHEMA.STATISTICS', $ventaLibPhp);
+    flus_assert_contains("SHOW INDEX FROM `ventas` WHERE Column_name = 'request_uid'", $ventaLibPhp);
     flus_assert_contains("AND TABLE_NAME = 'ventas'", $ventaLibPhp);
     flus_assert_contains("COLUMN_NAME = 'request_uid'", $ventaLibPhp);
     flus_assert_contains('!flus_venta_has_request_uid_unique_index($pdo)', $ventaLibPhp);

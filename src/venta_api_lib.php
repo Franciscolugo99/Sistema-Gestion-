@@ -96,10 +96,36 @@ function flus_venta_has_request_uid_unique_index(PDO $pdo): bool
             LIMIT 1
         ";
         $st = $pdo->query($sql);
-        return $st ? (bool)$st->fetchColumn() : false;
+        if ($st && (bool)$st->fetchColumn()) {
+            return true;
+        }
+    } catch (Throwable) {
+        // Some hosted/portable installs can read SHOW INDEX but not information_schema reliably.
+    }
+
+    try {
+        $st = $pdo->query("SHOW INDEX FROM `ventas` WHERE Column_name = 'request_uid'");
+        if (!$st) {
+            return false;
+        }
+
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            if ((string)($row['Column_name'] ?? '') !== 'request_uid') {
+                continue;
+            }
+            if ((int)($row['Non_unique'] ?? 1) !== 0) {
+                continue;
+            }
+            $keyName = (string)($row['Key_name'] ?? '');
+            if ($keyName === 'ux_ventas_request_uid' || $keyName !== '') {
+                return true;
+            }
+        }
     } catch (Throwable) {
         return false;
     }
+
+    return false;
 }
 
 function flus_venta_find_by_request_uid(PDO $pdo, ?string $requestUid): ?array

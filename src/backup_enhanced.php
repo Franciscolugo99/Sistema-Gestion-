@@ -174,6 +174,189 @@ function flus_backup_get_mysql_version(): string {
     }
 }
 
+function flus_backup_expected_migrations(): array {
+    $dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'migrations';
+    $files = is_dir($dir) ? (glob($dir . DIRECTORY_SEPARATOR . '[0-9][0-9][0-9]_*.sql') ?: []) : [];
+    $names = array_map('basename', $files);
+    sort($names, SORT_NATURAL);
+    return array_values($names);
+}
+
+function flus_backup_schema_critical_checks(): array {
+    return [
+        ['type' => 'column', 'table' => 'ventas', 'column' => 'request_uid', 'label' => 'ventas.request_uid'],
+        ['type' => 'table', 'table' => 'tesoreria_cuentas', 'label' => 'tesoreria_cuentas'],
+        ['type' => 'table', 'table' => 'tesoreria_movimientos', 'label' => 'tesoreria_movimientos'],
+        ['type' => 'table', 'table' => 'tesoreria_obligaciones', 'label' => 'tesoreria_obligaciones'],
+        ['type' => 'table', 'table' => 'mercadopago_integraciones', 'label' => 'mercadopago_integraciones'],
+        ['type' => 'table', 'table' => 'mercadopago_liquidaciones', 'label' => 'mercadopago_liquidaciones'],
+        ['type' => 'table', 'table' => 'mercadopago_webhook_eventos', 'label' => 'mercadopago_webhook_eventos'],
+    ];
+}
+
+function flus_backup_table_exists(PDO $pdo, string $table): bool {
+    try {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
+        $st->execute([$table]);
+        return (int)$st->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function flus_backup_column_exists(PDO $pdo, string $table, string $column): bool {
+    try {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?');
+        $st->execute([$table, $column]);
+        return (int)$st->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function flus_backup_applied_migrations(PDO $pdo): array {
+    if (!flus_backup_table_exists($pdo, 'schema_migrations')) {
+        return [];
+    }
+
+    try {
+        $rows = $pdo->query('SELECT filename FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        $rows = array_map('strval', $rows);
+        sort($rows, SORT_NATURAL);
+        return array_values($rows);
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function flus_backup_schema_status(): array {
+    $expected = flus_backup_expected_migrations();
+    $status = [
+        'ok' => false,
+        'db_name' => defined('DB_NAME') ? (string)DB_NAME : 'unknown',
+        'expected_latest_migration' => $expected ? end($expected) : null,
+        'applied_latest_migration' => null,
+        'missing_migrations' => [],
+        'critical_missing' => [],
+        'checked_at' => date('c'),
+    ];
+
+    try {
+        $pdo = getPDO();
+        $applied = flus_backup_applied_migrations($pdo);
+        $status['applied_latest_migration'] = $applied ? end($applied) : null;
+        $status['missing_migrations'] = array_values(array_diff($expected, $applied));
+
+        foreach (flus_backup_schema_critical_checks() as $check) {
+            if (($check['type'] ?? '') === 'table' && !flus_backup_table_exists($pdo, (string)$check['table'])) {
+                $status['critical_missing'][] = (string)$check['label'];
+            }
+            if (($check['type'] ?? '') === 'column' && !flus_backup_column_exists($pdo, (string)$check['table'], (string)$check['column'])) {
+                $status['critical_missing'][] = (string)$check['label'];
+            }
+        }
+
+        $status['ok'] = empty($status['missing_migrations']) && empty($status['critical_missing']);
+    } catch (Throwable $e) {
+        $status['error'] = 'No se pudo verificar el esquema actual.';
+    }
+
+    return $status;
+}
+
+function flus_backup_schema_warnings(array $schemaStatus): array {
+    $warnings = [];
+    $missingMigrations = $schemaStatus['missing_migrations'] ?? [];
+    $criticalMissing = $schemaStatus['critical_missing'] ?? [];
+
+    if (is_array($missingMigrations) && count($missingMigrations) > 0) {
+        $latest = (string)($schemaStatus['expected_latest_migration'] ?? '');
+        $warnings[] = 'El backup no esta alineado con las migraciones actuales. Faltan ' . count($missingMigrations)
+            . ($latest !== '' ? ' migraciones hasta ' . $latest . '.' : ' migraciones.');
+    }
+
+    if (is_array($criticalMissing) && count($criticalMissing) > 0) {
+        $warnings[] = 'El backup no contiene estructura critica actual: ' . implode(', ', array_slice($criticalMissing, 0, 8)) . '.';
+    }
+
+    if (!empty($schemaStatus['error'])) {
+        $warnings[] = (string)$schemaStatus['error'];
+    }
+
+    return $warnings;
+}
+
+function flus_backup_scan_sql_schema(string $path): array {
+    $expected = flus_backup_expected_migrations();
+    $scan = [
+        'ok' => false,
+        'expected_latest_migration' => $expected ? end($expected) : null,
+        'applied_latest_migration' => null,
+        'missing_migrations' => [],
+        'critical_missing' => [],
+        'tables_count' => 0,
+    ];
+
+    $fh = @fopen($path, 'rb');
+    if (!$fh) {
+        $scan['error'] = 'No se pudo leer el SQL para verificar esquema.';
+        return $scan;
+    }
+
+    $tables = [];
+    $columns = [];
+    $migrations = [];
+    $currentTable = null;
+
+    while (($line = fgets($fh)) !== false) {
+        if (preg_match('/^CREATE TABLE `([^`]+)`/i', $line, $m)) {
+            $currentTable = $m[1];
+            $tables[$currentTable] = true;
+            $columns[$currentTable] = $columns[$currentTable] ?? [];
+            continue;
+        }
+
+        if ($currentTable !== null) {
+            if (preg_match('/^\s*`([^`]+)`/', $line, $m)) {
+                $columns[$currentTable][$m[1]] = true;
+            } elseif (preg_match('/^\)\s+ENGINE=/i', $line)) {
+                $currentTable = null;
+            }
+        }
+
+        if (strpos($line, '.sql') !== false && preg_match_all("/'([^']+\.sql)'/", $line, $matches)) {
+            foreach ($matches[1] as $filename) {
+                $migrations[(string)$filename] = true;
+            }
+        }
+    }
+
+    @fclose($fh);
+
+    $applied = array_keys($migrations);
+    sort($applied, SORT_NATURAL);
+
+    $scan['tables_count'] = count($tables);
+    $scan['applied_latest_migration'] = $applied ? end($applied) : null;
+    $scan['missing_migrations'] = array_values(array_diff($expected, $applied));
+
+    foreach (flus_backup_schema_critical_checks() as $check) {
+        $table = (string)$check['table'];
+        if (($check['type'] ?? '') === 'table' && empty($tables[$table])) {
+            $scan['critical_missing'][] = (string)$check['label'];
+        }
+        if (($check['type'] ?? '') === 'column') {
+            $column = (string)$check['column'];
+            if (empty($tables[$table]) || empty($columns[$table][$column])) {
+                $scan['critical_missing'][] = (string)$check['label'];
+            }
+        }
+    }
+
+    $scan['ok'] = empty($scan['missing_migrations']) && empty($scan['critical_missing']);
+    return $scan;
+}
+
 /**
  * Crear backup completo (DB + metadata)
  * Opcionalmente incluye archivos de storage
@@ -198,6 +381,8 @@ function flus_backup_create_full(bool $includeStorage = false, ?string &$err = n
     $metadata['sql_file'] = $sqlFile;
     $metadata['sql_checksum'] = $sqlChecksum;
     $metadata['sql_size'] = filesize($sqlPath);
+    $metadata['schema_status'] = flus_backup_schema_status();
+    $metadata['warnings'] = flus_backup_schema_warnings($metadata['schema_status']);
     
     // 3. Crear archivo de metadata
     $baseName = pathinfo($sqlFile, PATHINFO_FILENAME);
@@ -228,6 +413,13 @@ function flus_backup_create_full(bool $includeStorage = false, ?string &$err = n
         'meta_file' => $metaFile,
         'include_storage' => $includeStorage,
     ]);
+
+    if (!empty($metadata['warnings'])) {
+        flus_log_warn('Full backup created with schema warnings', [
+            'sql_file' => $sqlFile,
+            'warnings' => $metadata['warnings'],
+        ]);
+    }
 
     return $sqlFile;
 }
@@ -354,6 +546,19 @@ function flus_backup_validate(string $file, ?string &$err = null): array {
                             $currentVersion
                         );
                     }
+
+                    if (isset($meta['schema_status']) && is_array($meta['schema_status'])) {
+                        $result['warnings'] = array_merge($result['warnings'], flus_backup_schema_warnings($meta['schema_status']));
+                    }
+
+                    if (isset($meta['warnings']) && is_array($meta['warnings'])) {
+                        foreach ($meta['warnings'] as $warning) {
+                            $warning = trim((string)$warning);
+                            if ($warning !== '' && !in_array($warning, $result['warnings'], true)) {
+                                $result['warnings'][] = $warning;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -368,6 +573,10 @@ function flus_backup_validate(string $file, ?string &$err = null): array {
         $result['sql_file'] = $file;
         $result['valid'] = true;
         $result['sql_info'] = $validateResult;
+        $result['warnings'] = array_values(array_unique(array_merge(
+            $result['warnings'],
+            $validateResult['warnings'] ?? []
+        )));
         
         return $result;
     }
@@ -388,6 +597,8 @@ function flus_backup_validate_sql_content(string $path): array {
         'has_create_table' => false,
         'has_insert' => false,
         'tables_count' => 0,
+        'schema_status' => null,
+        'warnings' => [],
     ];
 
     if (!is_file($path)) {
@@ -426,6 +637,11 @@ function flus_backup_validate_sql_content(string $path): array {
     // Contar tablas (aproximado)
     preg_match_all('/CREATE TABLE.*?`([^`]+)`/i', $sample, $matches);
     $result['tables_count'] = count($matches[1] ?? []);
+
+    $schemaStatus = flus_backup_scan_sql_schema($path);
+    $result['schema_status'] = $schemaStatus;
+    $result['tables_count'] = max((int)$result['tables_count'], (int)($schemaStatus['tables_count'] ?? 0));
+    $result['warnings'] = flus_backup_schema_warnings($schemaStatus);
 
     $result['valid'] = true;
     return $result;

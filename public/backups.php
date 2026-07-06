@@ -65,9 +65,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'No se pueden crear backups mientras hay una restauración o mantenimiento activo.';
       } else {
         $err = null;
-        $file = backup_create($err);
+        $file = flus_backup_create_full(false, $err);
         if ($file) {
           $info = 'Backup creado exitosamente: ' . basename($file);
+          $validationErr = null;
+          $validation = flus_backup_validate($file, $validationErr);
+          $warnings = $validation['warnings'] ?? [];
+          if (is_array($warnings) && $warnings) {
+            $info .= ' Advertencia: ' . implode(' ', array_slice(array_map('strval', $warnings), 0, 2));
+          }
         } else {
           $error = 'Error al crear backup: ' . ($err ?: 'Error desconocido. Verificá los permisos y la configuración de la base de datos.');
         }
