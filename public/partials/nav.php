@@ -13,6 +13,11 @@ require_once __DIR__ . '/../caja_lib.php';
 $user = $user ?? (function_exists('current_user') ? current_user() : []);
 $pdo  = $pdo  ?? (function_exists('getPDO') ? getPDO() : null);
 $esc  = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+$licenseLocked = defined('FLUS_LICENSE_LOCKED') && FLUS_LICENSE_LOCKED;
+$licenseLockReason = defined('FLUS_LICENSE_LOCK_REASON') ? (string)FLUS_LICENSE_LOCK_REASON : '';
+$licenseLockLabel = $licenseLockReason !== '' && function_exists('flus_license_reason_label')
+    ? flus_license_reason_label($licenseLockReason)
+    : 'Sistema limitado por licencia';
 
 $groupCurrentLabel = static function (string $fallback, array $links, string $section): string {
     foreach ($links as $link) {
@@ -831,6 +836,15 @@ $alertsNavHtml  = $navAlertTotal > 0 ? $renderAlertsMenu() : '';
 $adminNavHtml   = $showAdminMenu ? $renderAdminMenu() : '';
 $userBlockHtml  = $renderUserBlock();
 $breadcrumbHtml = !empty($breadcrumb) ? $renderBreadcrumb($breadcrumb) : '';
+
+if ($licenseLocked) {
+    $shortcutsJson = '{}';
+    $primaryNavHtml = [];
+    $groupNavHtml = [];
+    $cajaNavHtml = '';
+    $alertsNavHtml = '';
+    $adminNavHtml = '';
+}
 ?>
 
 <nav class="nav-container"
@@ -855,22 +869,30 @@ $breadcrumbHtml = !empty($breadcrumb) ? $renderBreadcrumb($breadcrumb) : '';
 
     <div class="nav-menu-wrapper" id="navMenu">
         <div class="nav-left">
-            <?= implode("\n", $primaryNavHtml) ?>
-            <?= $cajaNavHtml ?>
-            <?= implode("\n", $groupNavHtml) ?>
+            <?php if ($licenseLocked): ?>
+                <span class="nav-license-lock" title="<?= $esc($licenseLockLabel) ?>">
+                    <?= $esc($licenseLockLabel) ?>
+                </span>
+            <?php else: ?>
+                <?= implode("\n", $primaryNavHtml) ?>
+                <?= $cajaNavHtml ?>
+                <?= implode("\n", $groupNavHtml) ?>
+            <?php endif; ?>
 
         </div><!-- /.nav-left -->
 
         <div class="nav-right">
-            <?= $alertsNavHtml ?>
+            <?php if (!$licenseLocked): ?>
+                <?= $alertsNavHtml ?>
 
-            <button type="button"
-                    class="nav-icon nav-shortcuts-btn"
-                    id="navShortcutHelpBtn"
-                    aria-label="Ver atajos del teclado"
-                    title="Atajos del teclado (?)">
-                <span aria-hidden="true">?</span>
-            </button>
+                <button type="button"
+                        class="nav-icon nav-shortcuts-btn"
+                        id="navShortcutHelpBtn"
+                        aria-label="Ver atajos del teclado"
+                        title="Atajos del teclado (?)">
+                    <span aria-hidden="true">?</span>
+                </button>
+            <?php endif; ?>
 
             <div class="theme-switch">
                 <input type="checkbox" id="toggleTheme" aria-label="Alternar tema oscuro o claro">

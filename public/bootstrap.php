@@ -139,7 +139,8 @@ if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE) && function_exists('flus_i
   // Inválida / reloj modificado / etc: bloqueo inmediato
   if (!$locked && $licStatus !== 'active' && $licStatus !== 'bypass' && $licStatus !== 'expired' && $licStatus !== 'missing') {
     $locked = true;
-    $lockReason = strtoupper($licStatus !== '' ? $licStatus : 'LOCKED');
+    $licReason = trim((string)(FLUS_LICENSE['reason'] ?? ''));
+    $lockReason = $licReason !== '' ? $licReason : strtoupper($licStatus !== '' ? $licStatus : 'LOCKED');
   }
 
   // Si está locked, solo permitimos: login, login_process, licencia, logout y assets estáticos

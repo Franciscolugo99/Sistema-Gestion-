@@ -136,6 +136,25 @@
     color: var(--nav-pill-text);
 }
 
+.nav-license-lock {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    border-radius: 999px;
+    background: color-mix(in srgb, rgba(239, 68, 68, 0.12) 70%, var(--nav-bg, #ffffff));
+    color: #991b1b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0 14px;
+    white-space: nowrap;
+}
+
+body[data-theme="dark"] .nav-license-lock {
+    color: #fecaca;
+    background: color-mix(in srgb, rgba(239, 68, 68, 0.18) 62%, var(--nav-bg, #020617));
+}
+
 .nav-user-block {
     display: flex;
     align-items: center;

@@ -44,12 +44,24 @@ $uploadErrorMessage = static function (int $code): string {
 };
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $action = (string)($_POST['action'] ?? 'upload');
     $tok = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_verify($tok)) {
         $errors[] = 'Token CSRF inválido. Recargá la página e intentá de nuevo.';
     }
 
-    if ($errors === []) {
+    if ($errors === [] && $action === 'revalidate_cloud') {
+        if (function_exists('flus_license_cloud_save_state')) {
+            flus_license_cloud_save_state([]);
+            header('Location: licencia.php?revalidated=1');
+            exit;
+        }
+        $errors[] = 'La validacion en la nube no esta disponible en esta instalacion.';
+    } elseif ($errors === [] && $action !== 'upload') {
+        $errors[] = 'Accion de licencia no valida.';
+    }
+
+    if ($errors === [] && $action === 'upload') {
         $file = $_FILES['license_file'] ?? null;
         if (!$file || !is_array($file)) {
             $errors[] = 'No se recibió el archivo de licencia.';
@@ -87,6 +99,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                         ? flus_license_human_error((string)($saved['error'] ?? 'WRITE_FAILED'))
                                         : 'No se pudo guardar la licencia.';
                                 } else {
+                                    if (function_exists('flus_license_cloud_save_state')) {
+                                        flus_license_cloud_save_state([]);
+                                    }
                                     header('Location: licencia.php?saved=1');
                                     exit;
                                 }
@@ -112,6 +127,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
 if (isset($_GET['saved']) && $_GET['saved'] === '1') {
     $successMessage = 'Licencia guardada correctamente.';
+}
+if (isset($_GET['revalidated']) && $_GET['revalidated'] === '1') {
+    $successMessage = 'Validacion en la nube actualizada.';
 }
 
 $licenseMeta = function_exists('flus_license_meta') ? flus_license_meta() : $licenseMeta;
@@ -163,6 +181,23 @@ require __DIR__ . '/partials/header.php';
 
   <?php if (!empty($licenseMeta['clock_warning_label'])): ?>
     <div class="alert alert-warning licencia-alert"><?= h((string)$licenseMeta['clock_warning_label']) ?></div>
+  <?php endif; ?>
+
+  <?php if (!empty($licenseMeta['limited'])): ?>
+    <section class="licencia-lock-panel" aria-label="Sistema limitado por licencia">
+      <div>
+        <span class="licencia-card-kicker">Sistema limitado</span>
+        <h2><?= h((string)($licenseMeta['reason_label'] ?? 'La licencia requiere revision.')) ?></h2>
+        <p>FLUS mantiene disponible esta pantalla para revisar el estado, cargar una renovacion o volver a consultar la nube.</p>
+      </div>
+      <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
+        <form method="post" class="licencia-inline-form">
+          <?= csrf_field('csrf_token') ?>
+          <input type="hidden" name="action" value="revalidate_cloud">
+          <button type="submit" class="btn btn-primary">Revalidar ahora</button>
+        </form>
+      <?php endif; ?>
+    </section>
   <?php endif; ?>
 
   <section class="licencia-kpis" aria-label="Resumen de licencia">
@@ -278,6 +313,7 @@ require __DIR__ . '/partials/header.php';
 
       <form method="post" enctype="multipart/form-data" class="licencia-upload-form">
         <?= csrf_field('csrf_token') ?>
+        <input type="hidden" name="action" value="upload">
 
         <label class="licencia-upload-drop">
           <span class="licencia-upload-title">Seleccionar archivo JSON</span>

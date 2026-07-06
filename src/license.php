@@ -178,6 +178,7 @@ if (!function_exists('flus_license_reason_label')) {
       'CLOUD_REVOKED' => 'La licencia fue revocada desde la nube.',
       'CLOUD_EXPIRED' => 'La nube informa que la licencia esta vencida.',
       'CLOUD_GRACE_EXCEEDED' => 'No se pudo validar la licencia en la nube dentro del periodo de gracia.',
+      'CLOUD_REQUIRED_MISSING' => 'La validacion en la nube es obligatoria y no esta configurada.',
       'BYPASS' => 'Modo bypass activo.',
       'ACTIVE' => 'Licencia operativa.',
       'MISSING' => 'No hay una licencia cargada.',
@@ -521,7 +522,10 @@ if (!function_exists('flus_is_api_context')) {
 if (!function_exists('flus_license_status')) {
   function flus_license_status(): array {
     // Bypass opcional (para dev/soporte)
-    if (defined('FLUS_LICENSE_BYPASS') && FLUS_LICENSE_BYPASS) {
+    $bypassAllowed = defined('FLUS_LICENSE_BYPASS')
+      && FLUS_LICENSE_BYPASS
+      && (!defined('APP_ENV') || APP_ENV !== 'production');
+    if ($bypassAllowed) {
       return [
         'status' => 'bypass',
         'status_label' => 'bypass',

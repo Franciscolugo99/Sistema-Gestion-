@@ -30,6 +30,9 @@ if (!function_exists('flus_license_cloud_config')) {
     return [
       'enabled' => trim($url) !== '',
       'url' => trim($url),
+      'required' => defined('FLUS_LICENSE_CLOUD_REQUIRED')
+        ? (bool)FLUS_LICENSE_CLOUD_REQUIRED
+        : false,
       'interval_sec' => defined('FLUS_LICENSE_CLOUD_INTERVAL_SEC')
         ? max(30, (int)FLUS_LICENSE_CLOUD_INTERVAL_SEC)
         : 21600,
@@ -137,7 +140,7 @@ if (!function_exists('flus_license_cloud_parse_time')) {
 }
 
 if (!function_exists('flus_license_cloud_validate_document')) {
-  function flus_license_cloud_validate_document(array $document, string $expectedLicenseKey = ''): array {
+  function flus_license_cloud_validate_document(array $document, string $expectedLicenseKey = '', string $expectedInstallationId = ''): array {
     $payloadB64 = (string)($document['payload_b64'] ?? '');
     $sigB64 = (string)($document['sig_b64'] ?? '');
     if ($payloadB64 === '' || $sigB64 === '') {
@@ -184,6 +187,11 @@ if (!function_exists('flus_license_cloud_validate_document')) {
     $licenseKey = trim((string)($payload['license_key'] ?? ''));
     if ($expectedLicenseKey !== '' && !hash_equals($expectedLicenseKey, $licenseKey)) {
       return ['ok' => false, 'error' => 'LICENSE_KEY_MISMATCH'];
+    }
+
+    $installationId = trim((string)($payload['installation_id'] ?? ''));
+    if ($expectedInstallationId !== '' && !hash_equals($expectedInstallationId, $installationId)) {
+      return ['ok' => false, 'error' => 'INSTALLATION_ID_MISMATCH'];
     }
 
     return ['ok' => true, 'error' => null, 'payload' => $payload, 'document' => $document];
@@ -371,6 +379,13 @@ if (!function_exists('flus_license_cloud_apply_status')) {
     $config = flus_license_cloud_config();
     $baseStatus['cloud_enabled'] = (bool)$config['enabled'];
     if (!$config['enabled']) {
+      if (!empty($config['required'])) {
+        $baseStatus['status'] = 'cloud_required_missing';
+        $baseStatus['status_label'] = 'validacion pendiente';
+        $baseStatus['limited'] = true;
+        $baseStatus['reason'] = 'CLOUD_REQUIRED_MISSING';
+        $baseStatus['cloud_last_error'] = 'CLOUD_URL_MISSING';
+      }
       return $baseStatus;
     }
 
@@ -380,6 +395,7 @@ if (!function_exists('flus_license_cloud_apply_status')) {
       return $baseStatus;
     }
 
+    $installationId = flus_license_cloud_installation_id();
     $state = flus_license_cloud_load_state();
     if (flus_license_cloud_should_attempt($config, $state)) {
       $attemptAt = time();
@@ -394,7 +410,7 @@ if (!function_exists('flus_license_cloud_apply_status')) {
         (string)($config['token'] ?? '')
       );
       if (!empty($response['ok']) && is_array($response['document'] ?? null)) {
-        $validation = flus_license_cloud_validate_document($response['document'], $licenseKey);
+        $validation = flus_license_cloud_validate_document($response['document'], $licenseKey, $installationId);
         if (!empty($validation['ok'])) {
           $payload = $validation['payload'];
           $nextTs = flus_license_cloud_parse_time((string)($payload['next_check_at'] ?? ''));
@@ -434,7 +450,7 @@ if (!function_exists('flus_license_cloud_apply_status')) {
 
     $cachedPayload = null;
     if (is_array($state['document'] ?? null)) {
-      $cached = flus_license_cloud_validate_document($state['document'], $licenseKey);
+      $cached = flus_license_cloud_validate_document($state['document'], $licenseKey, $installationId);
       if (!empty($cached['ok']) && is_array($cached['payload'] ?? null)) {
         $cachedPayload = $cached['payload'];
       } else {

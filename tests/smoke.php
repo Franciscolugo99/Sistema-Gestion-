@@ -4818,8 +4818,10 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     $cuentaCorrienteApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'cuenta_corriente_api.php');
     $licenseStatusPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'license_status.php');
     $licensePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license.php');
+    $licenseCloudPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_cloud.php');
     $licensePublicKeyPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_public_key.php');
     $licenciaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'licencia.php');
+    $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
     $preciosApiPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'precios_api.php');
 
     flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $cuentaCorrienteApiPhp);
@@ -4841,11 +4843,19 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("function_exists('flus_license_public_key_pem')", $licensePhp);
     flus_assert_contains("!empty(\$lic['payload_b64'])", $licensePhp);
     flus_assert_contains("'SIGNATURE_INVALID'", $licensePhp);
+    flus_assert_contains("APP_ENV !== 'production'", $licensePhp);
+    flus_assert_contains('INSTALLATION_ID_MISMATCH', $licenseCloudPhp);
+    flus_assert_contains("'required' => defined('FLUS_LICENSE_CLOUD_REQUIRED')", $licenseCloudPhp);
+    flus_assert_contains("flus_license_cloud_validate_document(\$response['document'], \$licenseKey, \$installationId)", $licenseCloudPhp);
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     flus_assert_contains('Cliente</dt><dd><?= h((string)($licenseMeta[\'customer\']', $licenciaPhp);
     flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)($licenseMeta[\'license_key\']', $licenciaPhp);
     flus_assert_contains('Emitida</dt><dd><?= h($formatDate((string)($licenseMeta[\'issued_at\']', $licenciaPhp);
+    flus_assert_contains('name="action" value="revalidate_cloud"', $licenciaPhp);
+    flus_assert_contains('Revalidar ahora', $licenciaPhp);
+    flus_assert_contains('$licenseLocked = defined(\'FLUS_LICENSE_LOCKED\')', $navPhp);
+    flus_assert_contains('nav-license-lock', $navPhp);
 
     flus_assert_contains("require_once __DIR__ . '/_bootstrap.php';", $preciosApiPhp);
     flus_assert_contains('require_login_json();', $preciosApiPhp);
@@ -4862,13 +4872,29 @@ $results[] = flus_run_test('licencia nube valida cache firmado y aplica suspensi
 
     $cloudConfig = flus_license_cloud_config();
     flus_assert_true(array_key_exists('enabled', $cloudConfig), 'La configuracion cloud debe exponer enabled.');
+    flus_assert_true(array_key_exists('required', $cloudConfig), 'La configuracion cloud debe exponer required.');
 
     if (!function_exists('openssl_verify')) {
         flus_skip('licencia nube valida cache firmado y aplica suspension sin depender del frontend: falta openssl');
     }
 
     if (defined('FLUS_LICENSE_CLOUD_PUBKEY_PEM')) {
+        $validation = [
+            'ok' => true,
+            'payload' => [
+                'license_key' => 'FLUS-TEST-0001',
+                'installation_id' => 'SMOKE',
+                'status' => 'suspended',
+                'plan' => 'Mensual',
+                'expires_at' => '2099-12-31',
+                'checked_at' => '2026-07-04T12:00:00+00:00',
+                'next_check_at' => '2026-07-04T18:00:00+00:00',
+                'message' => 'Pago pendiente',
+            ],
+        ];
+    } else {
         require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_cloud_mock.php';
+        define('FLUS_LICENSE_CLOUD_PUBKEY_PEM', flus_license_cloud_mock_public_key_pem());
         flus_license_cloud_mock_save_state([
             'status' => 'suspended',
             'plan' => 'Mensual',
@@ -4877,35 +4903,20 @@ $results[] = flus_run_test('licencia nube valida cache firmado y aplica suspensi
         ]);
         $document = flus_license_cloud_mock_signed_document([
             'license_key' => 'FLUS-TEST-0001',
-            'installation_id' => 'SMOKE',
+            'installation_id' => 'SMOKE-INSTALLATION',
         ]);
-    } else {
-        define('FLUS_LICENSE_CLOUD_PUBKEY_PEM', <<<'PEM'
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj0vMdEGSdvgDi2kPL3nV
-Myv0RdXnhmHw9w0Z7pskwrZSw1H07rLi01oPfL0TcTgbbs9Goz7s3yuliLSsshh1
-jPy3ySEFontI0UXG/q6W4SgAtsP/ZEraiXsclpdCDxEv4yDk9HYBqk70YoUL781k
-wGq0e7qmM9ufLE+FDuk2u9gHE6ZJww+2gtaVZX4b0xw2cKQ+VG/Cb4Nl60eK4wqr
-NkTgX+c3/RK3v/W3uxZK86mLYDo4P6Vn1Zbz4B/NPD9jQbde0ITg4ViCtwOFjwZe
-2gmsZZT3WiVeaFDFop43viV5xgQwf2RZv5xR+tpiYOZS+aXvaO3FdO84NXpkr6g6
-MwIDAQAB
------END PUBLIC KEY-----
-PEM);
 
-        $document = [
-            'format' => 'FLUS-CLOUD-LICENSE-1',
-            'alg' => 'RSA-SHA256',
-            'payload_b64' => 'eyJsaWNlbnNlX2tleSI6IkZMVVMtVEVTVC0wMDAxIiwic3RhdHVzIjoic3VzcGVuZGVkIiwicGxhbiI6Ik1lbnN1YWwiLCJleHBpcmVzX2F0IjoiMjA5OS0xMi0zMSIsImNoZWNrZWRfYXQiOiIyMDI2LTA3LTA0VDEyOjAwOjAwKzAwOjAwIiwibmV4dF9jaGVja19hdCI6IjIwMjYtMDctMDRUMTg6MDA6MDArMDA6MDAiLCJtZXNzYWdlIjoiUGFnbyBwZW5kaWVudGUifQ==',
-            'sig_b64' => 'DiLzkeMTcNSsGaZmZ5RIC0wPRHHek4WJeN+KKJgaOUVf1JPsMj4FkNv7GtXdQGwupqmXrkkpdfpeGCBvczMOopyTXdOwtaGPTZwxtVgYb9M8wAWpWGRcdOD2yQWjjPKr6RNty/9/TYIWL3jOaLrbNjUu6jDKNuVl4m8JypBQ1cVL83gSQivyi/zV+R+tHfOu7802UlaH93mGUIctZWRb4FaYAWp+ylAzSJFODt5lMRohkBXBGXsDBiZxMUd6/3ck2TsiJYeTRA4ozwcLPmzu62Us1mJqWSu8BLdnlHyeIfSUWhk41X6iJeZZ2eMQsdgEeYky76ehSM3CYWVvd31pDA==',
-        ];
+        $validation = flus_license_cloud_validate_document($document, 'FLUS-TEST-0001', 'SMOKE-INSTALLATION');
+        flus_assert_true((bool)($validation['ok'] ?? false), 'La respuesta cloud firmada debe validar.');
+
+        $mismatch = flus_license_cloud_validate_document($document, 'FLUS-OTRA');
+        flus_assert_false((bool)($mismatch['ok'] ?? false), 'No debe aceptar una respuesta para otra licencia.');
+        flus_assert_same('LICENSE_KEY_MISMATCH', (string)($mismatch['error'] ?? ''));
+
+        $installationMismatch = flus_license_cloud_validate_document($document, 'FLUS-TEST-0001', 'OTHER-INSTALLATION');
+        flus_assert_false((bool)($installationMismatch['ok'] ?? false), 'No debe aceptar una respuesta para otra instalacion.');
+        flus_assert_same('INSTALLATION_ID_MISMATCH', (string)($installationMismatch['error'] ?? ''));
     }
-
-    $validation = flus_license_cloud_validate_document($document, 'FLUS-TEST-0001');
-    flus_assert_true((bool)($validation['ok'] ?? false), 'La respuesta cloud firmada debe validar.');
-
-    $mismatch = flus_license_cloud_validate_document($document, 'FLUS-OTRA');
-    flus_assert_false((bool)($mismatch['ok'] ?? false), 'No debe aceptar una respuesta para otra licencia.');
-    flus_assert_same('LICENSE_KEY_MISMATCH', (string)($mismatch['error'] ?? ''));
 
     $applied = flus_license_cloud_apply_payload([
         'status' => 'active',

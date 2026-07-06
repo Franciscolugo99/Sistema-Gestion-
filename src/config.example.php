@@ -60,10 +60,12 @@ define('APP_SECRET', 'flus-default-secret-change-me'); // reemplazar por un secr
 // LICENCIA CLOUD
 // ============================================
 define('FLUS_LICENSE_CLOUD_URL', flus_env('FLUS_LICENSE_CLOUD_URL', ''));
+define('FLUS_LICENSE_CLOUD_REQUIRED', flus_env_bool('FLUS_LICENSE_CLOUD_REQUIRED', false));
 define('FLUS_LICENSE_CLOUD_INTERVAL_SEC', (int)flus_env('FLUS_LICENSE_CLOUD_INTERVAL_SEC', '300'));
 define('FLUS_LICENSE_CLOUD_OFFLINE_GRACE_DAYS', (int)flus_env('FLUS_LICENSE_CLOUD_OFFLINE_GRACE_DAYS', '7'));
 define('FLUS_LICENSE_CLOUD_TIMEOUT_SEC', (int)flus_env('FLUS_LICENSE_CLOUD_TIMEOUT_SEC', '4'));
 define('FLUS_LICENSE_CLOUD_TOKEN', flus_env('FLUS_LICENSE_CLOUD_TOKEN', ''));
+define('FLUS_LICENSE_CLOUD_PUBKEY_PEM', flus_env('FLUS_LICENSE_CLOUD_PUBKEY_PEM', ''));
 define('FLUS_LICENSE_CLOUD_CHECK_EVERY_REQUEST', flus_env_bool('FLUS_LICENSE_CLOUD_CHECK_EVERY_REQUEST', false));
 
 // ============================================
