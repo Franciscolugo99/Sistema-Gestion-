@@ -4,7 +4,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 
 require_login();
-require_permission('administrar_config');
+
+$licenseLockedForPage = defined('FLUS_LICENSE_LOCKED') && FLUS_LICENSE_LOCKED;
+$canManageLicense = function_exists('user_has_permission') && user_has_permission('administrar_config');
+if (!$canManageLicense && !$licenseLockedForPage) {
+    require_permission('administrar_config');
+}
 
 csrf_init();
 
@@ -44,6 +49,10 @@ $uploadErrorMessage = static function (int $code): string {
 };
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!$canManageLicense) {
+        require_permission('administrar_config');
+    }
+
     $action = (string)($_POST['action'] ?? 'upload');
     $tok = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_verify($tok)) {
@@ -230,14 +239,18 @@ require __DIR__ . '/partials/header.php';
       <em><?= h($daysLabel) ?></em>
       <p><?= h($daysHelp) ?></p>
       <div class="licencia-status-actions">
-        <?php if (!empty($licenseMeta['cloud_enabled'])): ?>
+        <?php if ($canManageLicense && !empty($licenseMeta['cloud_enabled'])): ?>
           <form method="post" class="licencia-inline-form">
             <?= csrf_field('csrf_token') ?>
             <input type="hidden" name="action" value="revalidate_cloud">
             <button type="submit" class="btn <?= $licenseLimited ? 'btn-primary' : 'btn-secondary' ?>">Revalidar ahora</button>
           </form>
         <?php endif; ?>
-        <a class="btn btn-secondary" href="configuracion.php">Volver</a>
+        <?php if ($canManageLicense): ?>
+          <a class="btn btn-secondary" href="configuracion.php">Volver</a>
+        <?php else: ?>
+          <a class="btn btn-secondary" href="logout.php">Salir</a>
+        <?php endif; ?>
       </div>
     </aside>
   </section>
@@ -285,6 +298,7 @@ require __DIR__ . '/partials/header.php';
         <p>Usá el archivo que recibiste para esta instalación.</p>
       </div>
 
+      <?php if ($canManageLicense): ?>
       <form method="post" enctype="multipart/form-data" class="licencia-upload-form">
         <?= csrf_field('csrf_token') ?>
         <input type="hidden" name="action" value="upload">
@@ -303,6 +317,12 @@ require __DIR__ . '/partials/header.php';
           <?php endif; ?>
         </div>
       </form>
+      <?php else: ?>
+        <div class="licencia-readonly-note">
+          <strong>Accion administrativa requerida</strong>
+          <span>Pedile a un administrador que cargue la renovacion o valide la licencia desde esta instalacion.</span>
+        </div>
+      <?php endif; ?>
     </section>
   </div>
 </div>

@@ -312,6 +312,23 @@
   flex-wrap: wrap;
 }
 
+.licencia-readonly-note {
+  border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel, #ffffff) 90%, var(--bg-alt, #f8fafc));
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.licencia-readonly-note strong {
+  color: var(--text-strong, var(--text, #0f172a));
+}
+
+.licencia-readonly-note span {
+  color: var(--muted, #64748b);
+}
+
 .mono {
   font-family: var(--font-mono, "Fira Code", "Courier New", monospace);
 }
@@ -341,6 +358,10 @@ body[data-theme="dark"] .licencia-account--ok .licencia-state-chip {
 }
 
 body[data-theme="dark"] .licencia-upload-drop {
+  background: color-mix(in srgb, var(--panel, #111827) 92%, var(--bg-alt, #0b1020));
+}
+
+body[data-theme="dark"] .licencia-readonly-note {
   background: color-mix(in srgb, var(--panel, #111827) 92%, var(--bg-alt, #0b1020));
 }
 

@@ -4850,6 +4850,12 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     flus_assert_contains('$licenseCustomerRaw = trim((string)($licenseMeta[\'customer\'] ?? \'\'));', $licenciaPhp);
+    flus_assert_contains('$licenseLockedForPage = defined(\'FLUS_LICENSE_LOCKED\') && FLUS_LICENSE_LOCKED;', $licenciaPhp);
+    flus_assert_contains('$canManageLicense = function_exists(\'user_has_permission\') && user_has_permission(\'administrar_config\');', $licenciaPhp);
+    flus_assert_contains('if (!$canManageLicense && !$licenseLockedForPage) {', $licenciaPhp);
+    flus_assert_contains('if (!$canManageLicense) {', $licenciaPhp);
+    flus_assert_contains('<?php if ($canManageLicense): ?>', $licenciaPhp);
+    flus_assert_contains('licencia-readonly-note', $licenciaPhp);
     flus_assert_contains('Cliente</dt><dd><?= h($licenseCustomer) ?></dd>', $licenciaPhp);
     flus_assert_contains('Clave</dt><dd class="mono"><?= h((string)(((string)($licenseMeta[\'license_key\'] ?? \'\'))', $licenciaPhp);
     flus_assert_contains('Emitida</dt><dd><?= h($formatDate((string)($licenseMeta[\'issued_at\']', $licenciaPhp);
