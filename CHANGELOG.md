@@ -4,12 +4,35 @@
 
 ### Changed
 
+- Se agrega el ritual documentado de trabajo entre dos maquinas usando GitHub como fuente de verdad.
+- Se agrega checklist de piloto controlado para instalacion limpia y operacion real de kiosco/comercio.
+- Ventas e inventario de analisis dejan de depender obligatoriamente del CDN de Chart.js y usan el asset local versionado.
 - Caja mueve el alta de movimientos operativos a un modal, sin salir del flujo de venta y sin mostrar KPIs sensibles al cajero.
 - Movimientos de caja suma respuestas JSON, proteccion contra doble envio por `request_uid` y control de historial solo para usuarios con permiso de supervision.
 
 ### Validation
 
-- PHP lint, JavaScript syntax check, smoke `160/160 OK` y `git diff --check` para el bloque de movimientos de caja.
+- PHP lint, JavaScript syntax check, smoke `162/162 OK` y `git diff --check` para los bloques de UI operativa y consolidacion documental.
+
+---
+
+## [4.2.1] - 2026-07-05
+
+### Added
+
+- Validacion cloud de licencias integrada al flujo operativo, manteniendo cache offline firmado.
+- Documentacion de release `docs/RELEASE_4_2_1.md` para instalador servidor y terminal.
+
+### Changed
+
+- FLUS puede suspender, vencer, revocar o reactivar la instalacion segun respuesta firmada de FLUS Admin/Wiros.
+- Si internet falla, FLUS conserva la ultima respuesta firmada dentro de la ventana de gracia configurada.
+- `src/version.php` actualizado a `4.2.1` build `2026-07-05`.
+
+### Validation
+
+- Mantiene compatibilidad con instalaciones existentes de `4.2.0`.
+- Validaciones requeridas: PHP lint, smoke, build de instalador servidor/terminal y prueba local antes de distribuir.
 
 ---
 

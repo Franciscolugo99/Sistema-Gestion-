@@ -1102,7 +1102,7 @@ $queryParams = array_filter($queryParams, static fn($value) => $value !== null &
 <!-- Datos para JS -->
 <script>
 window.VENTAS_CONFIG = {
-  chartJsUrl: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+  chartJsUrl: 'assets/vendor/chartjs/chart.umd.min.js'
 };
 window.VENTAS_DATA = {
   chartRangeLabel: <?= json_encode($chartRangeLabel) ?>,

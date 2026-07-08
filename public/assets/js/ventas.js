@@ -29,7 +29,7 @@ const VentasManager = {
   config: {
     DEBOUNCE_SEARCH_MS: 300,
     TOAST_DURATION: 3500,
-    CHART_JS_URL: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
+    CHART_JS_URL: 'assets/vendor/chartjs/chart.umd.min.js',
   },
 
   // ============================================

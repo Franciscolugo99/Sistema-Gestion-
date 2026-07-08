@@ -2,26 +2,28 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.2.0
-**Build:** 2026-06-28
-**Release objetivo:** 4.2.0
+**Version:** 4.2.1
+**Build:** 2026-07-05
+**Release objetivo:** 4.2.1
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.2.0 (2026-06-28)
+## Estado de release 4.2.1 (2026-07-05)
 
-- Smoke tecnico fuente: `160 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `162 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
+- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.1`.
 - Ruta activa real de XAMPP/Apache: `C:\xampp82\htdocs\kiosco`
+- Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
 - Migraciones y baseline: versionados hasta `043_ventas_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.0`, pensada como corte operativo para instalador/actualizador.
+- Salida actual: `4.2.1`, pensada como corte operativo para instalador/actualizador.
 
 ### Nota sobre ARCA y entorno simulado
 
@@ -34,6 +36,9 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_2_1.md](docs/RELEASE_4_2_1.md)
+- [docs/TRABAJO_DOS_MAQUINAS.md](docs/TRABAJO_DOS_MAQUINAS.md)
+- [docs/QA_PILOTO_CONTROLADO_4_2_1.md](docs/QA_PILOTO_CONTROLADO_4_2_1.md)
 - [docs/RELEASE_4_2_0.md](docs/RELEASE_4_2_0.md)
 - [docs/RELEASE_4_1_1.md](docs/RELEASE_4_1_1.md)
 - [docs/QA_COMPRAS_STOCK_TESORERIA_4_1_1.md](docs/QA_COMPRAS_STOCK_TESORERIA_4_1_1.md)

@@ -2253,6 +2253,36 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
 });
 
+$results[] = flus_run_test('release 4.2.1 alinea version docs flujo dos maquinas y assets offline', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $versionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'version.php');
+    $readme = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'README.md');
+    $changelog = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'CHANGELOG.md');
+    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_1.md');
+    $twoMachinesDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'TRABAJO_DOS_MAQUINAS.md');
+    $pilotDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'QA_PILOTO_CONTROLADO_4_2_1.md');
+    $ventasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ventas.php');
+    $ventasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'ventas.js');
+    $inventarioAnalisisPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php');
+
+    flus_assert_contains("define('FLUS_VERSION', '4.2.1')", $versionPhp);
+    flus_assert_contains("define('FLUS_BUILD',   '2026-07-05')", $versionPhp);
+    flus_assert_contains('**Version:** 4.2.1', $readme);
+    flus_assert_contains('**Build:** 2026-07-05', $readme);
+    flus_assert_contains('la rama conserva el nombre historico `Ver-4.0.0`', $readme);
+    flus_assert_contains('## [4.2.1] - 2026-07-05', $changelog);
+    flus_assert_contains('Version visible: `4.2.1`', $releaseDoc);
+    flus_assert_contains('pull --ff-only origin Ver-4.0.0', $twoMachinesDoc);
+    flus_assert_contains('src/config_mp.php', $twoMachinesDoc);
+    flus_assert_contains('Smoke queda en verde.', $pilotDoc);
+    flus_assert_contains('assets/vendor/chartjs/chart.umd.min.js', $ventasPhp);
+    flus_assert_contains("CHART_JS_URL: 'assets/vendor/chartjs/chart.umd.min.js'", $ventasJs);
+    flus_assert_contains("'assets/vendor/chartjs/chart.umd.min.js'", $inventarioAnalisisPhp);
+    flus_assert_not_contains('cdn.jsdelivr.net/npm/chart.js@4.4.0', $ventasPhp);
+    flus_assert_not_contains('cdn.jsdelivr.net/npm/chart.js@4.4.0', $ventasJs);
+    flus_assert_not_contains('cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js\',', $inventarioAnalisisPhp);
+});
+
 $results[] = flus_run_test('migraciones bloquean nuevas secuencias duplicadas y conservan 031 legacy', function (): void {
     $repoRoot = dirname(__DIR__);
     require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'migrations_runner.php';

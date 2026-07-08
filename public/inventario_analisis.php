@@ -1,12 +1,12 @@
 <?php
+declare(strict_types=1);
+
 /**
  * inventario_analisis.php
  * Dashboard de Análisis de Inventario - VERSIÓN CON AYUDA INTEGRADA
  *
  * @version 2.1.0
  */
-
-declare(strict_types=1);
 
 /* ============================================================================
    Bootstrap FLUS
@@ -373,8 +373,8 @@ $extraCss = [
     'assets/css/inventario_ayuda.css'
 ];
 $extraJs = [
-    // Chart.js (mismo CDN que Dashboard/Ventas). Necesario para los gráficos de este módulo.
-    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    // Chart.js local para que el modulo opere offline en instalaciones POS.
+    'assets/vendor/chartjs/chart.umd.min.js',
     'assets/js/inventario_analisis.js',
     'assets/js/inventario_ayuda.js'
 ];
@@ -535,10 +535,10 @@ require __DIR__ . '/partials/header.php';
     <div class="panel inv-filters-panel">
         <form method="get" class="inv-filters">
             <input type="hidden" name="tab" value="<?= htmlspecialchars($tabActivo) ?>">
-            
+
             <div class="inv-filter-group">
                 <label>Buscar</label>
-                <input type="text" name="q" value="<?= htmlspecialchars($filtros['busqueda']) ?>" 
+                <input type="text" name="q" value="<?= htmlspecialchars($filtros['busqueda']) ?>"
                        placeholder="Nombre o código..." class="inv-filter-input">
             </div>
 
@@ -600,7 +600,7 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <!-- ==================== CONTENIDO SEGÚN TAB ==================== -->
-    
+
     <?php if ($tabActivo === 'resumen'): ?>
     <!-- ==================== TAB RESUMEN ==================== -->
     <div class="inv-main-grid">
@@ -854,7 +854,7 @@ require __DIR__ . '/partials/header.php';
 
     <?php elseif ($tabActivo === 'rotacion'): ?>
     <!-- ==================== TAB ROTACIÓN ==================== -->
-    
+
     <!-- Leyenda ABC -->
     <div class="inv-abc-legend-panel">
         <div class="inv-abc-legend-title">
@@ -875,7 +875,7 @@ require __DIR__ . '/partials/header.php';
             </span>
         </div>
     </div>
-    
+
     <div class="panel inv-table-panel">
         <div class="panel-header">
             <h2 class="panel-title">Rotacion de productos (ultimos 30 dias) <?= renderTooltipAyuda('rotacion') ?></h2>
@@ -978,7 +978,7 @@ require __DIR__ . '/partials/header.php';
         <div class="panel-header">
             <h2 class="panel-title">Productos sin venta (<?= $diasParados ?>+ dias) <?= renderTooltipAyuda('productos_parados') ?></h2>
             <div class="panel-info">
-                <?= count($productosParados) ?> de <?= (int)$totalParados ?> productos | Capital parado: 
+                <?= count($productosParados) ?> de <?= (int)$totalParados ?> productos | Capital parado:
                 <strong><?= $fmtMoney(array_sum(array_column($productosParados, 'capital_parado'))) ?></strong>
             </div>
         </div>
@@ -1032,7 +1032,7 @@ require __DIR__ . '/partials/header.php';
         </div>
     </div>
 
-    
+
 <?php elseif ($tabActivo === 'costos'): ?>
 <!-- ==================== TAB COSTOS ==================== -->
 <div class="panel inv-table-panel">
