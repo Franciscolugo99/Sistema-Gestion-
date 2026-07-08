@@ -44,7 +44,7 @@
 
         <?php if (!empty($categoriasDisponibles)): ?>
         <div class="dash-cat-filter">
-          <select name="categoria" id="dashCategoria" class="dash-select" onchange="this.form.submit()">
+          <select name="categoria" id="dashCategoria" class="dash-select">
             <option value="">Todas las categorias</option>
             <?php foreach ($categoriasDisponibles as $cat): ?>
               <option value="<?= h($cat) ?>" <?= $categoriaFiltro === $cat ? 'selected' : '' ?>><?= h($cat) ?></option>
@@ -90,13 +90,7 @@
             </div>
           </label>
           <?php if ($horaDesde || $horaHasta): ?>
-          <button type="button" class="dash-clear-hours"
-            onclick="
-              document.getElementById('dashHoraDesde').value='';
-              document.getElementById('dashHoraHasta').value='';
-              this.form.submit();
-            "
-            title="Limpiar filtro de horas">x</button>
+          <button type="button" class="dash-clear-hours" data-dash-clear-hours title="Limpiar filtro de horas">x</button>
           <?php endif; ?>
           <button type="submit" class="dash-apply">Aplicar</button>
         </div>

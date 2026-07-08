@@ -1693,6 +1693,20 @@ $results[] = flus_run_test('navegacion cobranzas y tesoreria evitan dialogos nat
     flus_assert_contains('.tesoreria-payment-panel', $tesoreriaCss);
 });
 
+$results[] = flus_run_test('dashboard centraliza filtros sin handlers inline', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $topPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'dashboard' . DIRECTORY_SEPARATOR . 'top.php');
+    $dashboardJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'dashboard.js');
+
+    flus_assert_not_contains('onchange=', $topPhp);
+    flus_assert_not_contains('onclick=', $topPhp);
+    flus_assert_contains('id="dashCategoria" class="dash-select"', $topPhp);
+    flus_assert_contains('data-dash-clear-hours', $topPhp);
+    flus_assert_contains('form.submit();', $dashboardJs);
+    flus_assert_contains('document.querySelector("[data-dash-clear-hours]")', $dashboardJs);
+    flus_assert_contains('clearHoursButton.addEventListener("click"', $dashboardJs);
+});
+
 $results[] = flus_run_test('factura manual identifica y enfoca el campo invalido', function (): void {
     $repoRoot = dirname(__DIR__);
     $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
@@ -4267,6 +4281,10 @@ $results[] = flus_run_test('facturacion nc muestra flash visible y conserva hist
     flus_assert_contains("val === 'PARTIAL' && $$('.nc-line-row').some", $ncJs);
     flus_assert_contains('HTMLFormElement.prototype.submit.call(formParcial);', $ncJs);
     flus_assert_contains('partialConfirmationOpen', $ncJs);
+    flus_assert_contains('data-nc-submit-parcial-bar', $ncPhp);
+    flus_assert_contains('function initStickyPartialSubmit()', $ncJs);
+    flus_assert_contains("const stickyButton = $('[data-nc-submit-parcial-bar]');", $ncJs);
+    flus_assert_contains("stickyButton.addEventListener('click'", $ncJs);
     flus_assert_contains("formTotal.closest('#nc-form-total')?.querySelector('.nc-total-amount-value')", $ncJs);
     flus_assert_not_contains('style="', $ncJs);
     flus_assert_contains('.nc-confirm-lines {', $ncCss);
@@ -4276,6 +4294,7 @@ $results[] = flus_run_test('facturacion nc muestra flash visible y conserva hist
     flus_assert_contains('assets/css/facturacion_nc.css?v=4', $ncPhp);
     flus_assert_contains('assets/js/facturacion_nc.js?v=4', $ncPhp);
     flus_assert_not_contains('style="', $ncPhp);
+    flus_assert_not_contains('onclick=', $ncPhp);
     flus_assert_contains('nc-total-submit-button', $ncPhp);
     flus_assert_contains('nc-credit-bar-fill--p<?= $creditPctStep ?>', $ncPhp);
     flus_assert_contains('.nc-total-submit-button', $ncCss);
@@ -5025,6 +5044,7 @@ $results[] = flus_run_test('inventario fisico valida esquema versionado sin ddl 
     $repoRoot = dirname(__DIR__);
     $inventarioPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'inventario_fisico.php');
     $inventarioPagePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_fisico.php');
+    $inventarioJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'inventario_fisico.js');
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '025_inventario_fisico_schema.sql');
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
 
@@ -5036,6 +5056,13 @@ $results[] = flus_run_test('inventario fisico valida esquema versionado sin ddl 
     flus_assert_not_contains('ALTER TABLE inventario_sesiones', $inventarioPhp);
     flus_assert_not_contains('ALTER TABLE inventario_conteos', $inventarioPhp);
     flus_assert_contains('Inventario fisico: falta esquema compatible.', $inventarioPagePhp);
+    flus_assert_not_contains('onclick=', $inventarioPagePhp);
+    flus_assert_contains('data-inv-open-modal="modalNuevaSesion"', $inventarioPagePhp);
+    flus_assert_contains('data-inv-cancel-selection', $inventarioPagePhp);
+    flus_assert_contains('function initViewActions()', $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-open-modal]')", $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-close-modal]')", $inventarioJs);
+    flus_assert_contains("document.querySelectorAll('[data-inv-cancel-selection]')", $inventarioJs);
 
     flus_assert_contains('ADD COLUMN IF NOT EXISTS categoria_nombre', $migrationSql);
     flus_assert_contains('ADD COLUMN IF NOT EXISTS stock_sistema_snapshot', $migrationSql);
@@ -5048,8 +5075,10 @@ $results[] = flus_run_test('inventario analisis orienta prioridades y evita hand
     $inventarioAnalisisPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php';
     $inventarioAnalisisCssPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'inventario_analisis.css';
     $inventarioAnalisisJsPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'inventario_analisis.js';
+    $inventarioAyudaCssPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'inventario_ayuda.css';
+    $inventarioAyudaJsPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'inventario_ayuda.js';
 
-    foreach ([$inventarioAnalisisPath, $inventarioAnalisisCssPath, $inventarioAnalisisJsPath] as $requiredPath) {
+    foreach ([$inventarioAnalisisPath, $inventarioAnalisisCssPath, $inventarioAnalisisJsPath, $inventarioAyudaCssPath, $inventarioAyudaJsPath] as $requiredPath) {
         if (!is_file($requiredPath)) {
             throw new RuntimeException('Missing file: ' . $requiredPath);
         }
@@ -5058,6 +5087,8 @@ $results[] = flus_run_test('inventario analisis orienta prioridades y evita hand
     $inventarioPhp = (string)file_get_contents($inventarioAnalisisPath);
     $inventarioCss = (string)file_get_contents($inventarioAnalisisCssPath);
     $inventarioJs = (string)file_get_contents($inventarioAnalisisJsPath);
+    $inventarioAyudaCss = (string)file_get_contents($inventarioAyudaCssPath);
+    $inventarioAyudaJs = (string)file_get_contents($inventarioAyudaJsPath);
 
     flus_assert_contains('class="inv-radar inv-radar--', $inventarioPhp);
     flus_assert_contains('Radar operativo', $inventarioPhp);
@@ -5076,6 +5107,13 @@ $results[] = flus_run_test('inventario analisis orienta prioridades y evita hand
     flus_assert_contains("document.querySelectorAll('[data-inv-print]')", $inventarioJs);
     flus_assert_contains("document.querySelectorAll('[data-inv-auto-submit]')", $inventarioJs);
     flus_assert_contains("document.querySelectorAll('[data-inv-order-url]')", $inventarioJs);
+    flus_assert_contains('data-inv-tour-skip', $inventarioAyudaJs);
+    flus_assert_contains("tooltip.querySelector('[data-inv-tour-next]')", $inventarioAyudaJs);
+    flus_assert_contains('class="inv-tour-progress"', $inventarioAyudaJs);
+    flus_assert_contains('.inv-glosario-inline-row', $inventarioAyudaCss);
+    flus_assert_contains('.inv-tour-progress', $inventarioAyudaCss);
+    flus_assert_not_contains('console.log(', $inventarioAyudaJs);
+    flus_assert_not_contains('onclick=', $inventarioAyudaJs);
 });
 
 $results[] = flus_run_test('ui fiscal y ticket sharing respetan permisos operativos', function (): void {
@@ -5508,6 +5546,7 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     $kpiCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'kpis.css');
     $movimientosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'movimientos.css');
     $cajaMovimientosCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'caja_movimientos.css');
+    $cobranzasCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'cobranzas.css');
     $ventasKpisCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'ventas_kpis.css');
 
     flus_assert_contains('assets/css/kpis.css', $headerPhp);
@@ -5522,6 +5561,10 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     flus_assert_contains('body.cuenta-corriente-page .kpi-card', $kpiCss);
     flus_assert_contains('body.cajeros-rendimiento-page .rend-kpi', $kpiCss);
     flus_assert_contains('color-mix(in oklch', $kpiCss);
+    flus_assert_contains('overflow-wrap: anywhere;', $kpiCss);
+    flus_assert_not_contains('font-size: clamp(', $kpiCss);
+    flus_assert_contains('white-space: normal;', $cobranzasCss);
+    flus_assert_not_contains(".cobranzas-page .fact-kpi-card__value {\n  max-width: 100%;\n  white-space: nowrap;", $cobranzasCss);
 
     $extraCssPos = strpos($headerPhp, '<?php foreach ($extraCss as $href): ?>');
     $kpiCssPos = strpos($headerPhp, 'assets/css/kpis.css');

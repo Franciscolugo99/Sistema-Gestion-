@@ -447,6 +447,11 @@
     color: var(--inv-muted, #64748b);
 }
 
+.inv-help-intro {
+    margin: 0 0 20px;
+    color: var(--inv-muted, #64748b);
+}
+
 .inv-glosario-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -466,6 +471,33 @@
 .inv-glosario-item:hover {
     border-color: var(--help-primary);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.inv-glosario-item-inline {
+    cursor: pointer;
+    margin-bottom: 12px;
+}
+
+.inv-glosario-inline-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.inv-glosario-inline-row strong {
+    color: var(--inv-text, #0f172a);
+}
+
+.inv-glosario-inline-row p {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: var(--inv-muted, #64748b);
+    line-height: 1.4;
+}
+
+.inv-glosario-inline-action {
+    margin-left: auto;
+    color: var(--inv-muted, #64748b);
 }
 
 .inv-glosario-icon {
@@ -628,6 +660,13 @@
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+}
+
+.inv-tour-progress {
+    margin-top: 10px;
+    color: var(--inv-muted);
+    font-size: 0.75rem;
+    text-align: center;
 }
 
 /* ========== Botón de Ayuda General ========== */

@@ -326,9 +326,9 @@
 
         // Mostrar confirmación
         const _yaContadoOk = await Notif.confirmar(
-          '🔄 Producto ya contado',
-          `<p>Este producto ya fue contado: <strong>${formatNumber(yaContadoCantidad)} unidades</strong>.</p><p style='color:var(--muted,#94a3b8);font-size:.88rem;margin-top:6px'>¿Querés actualizar el conteo?</p>`,
-          { icon: 'warning', confirmText: '✅ Actualizar', cancelText: '❌ Cancelar' }
+          'Producto ya contado',
+          `<p>Este producto ya fue contado: <strong>${formatNumber(yaContadoCantidad)} unidades</strong>.</p><p class="inv-confirm-hint">¿Querés actualizar el conteo?</p>`,
+          { icon: 'warning', confirmText: 'Actualizar conteo', cancelText: 'Cancelar' }
         );
         if (!_yaContadoOk) { cancelarSeleccion(); return; }
       } else {
@@ -591,16 +591,40 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // MODAL DE AYUDA
+  // CONTROLES DE MODALES Y ACCIONES DE VISTA
   // ═══════════════════════════════════════════════════════════════════════════
-  function initModalAyuda() {
-    const btnAyuda = $('btnAyuda');
-    const modalAyuda = $('modalAyuda');
+  function openDialogById(id) {
+    const dialog = $(id);
+    if (!dialog || typeof dialog.showModal !== 'function') return;
+    if (!dialog.open) dialog.showModal();
+  }
 
-    if (btnAyuda && modalAyuda) {
-      btnAyuda.addEventListener('click', function () {
-        modalAyuda.showModal();
+  function closeDialogById(id) {
+    const dialog = $(id);
+    if (!dialog || typeof dialog.close !== 'function') return;
+    if (dialog.open) dialog.close();
+  }
+
+  function initViewActions() {
+    document.querySelectorAll('[data-inv-open-modal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        openDialogById(button.dataset.invOpenModal || '');
       });
+    });
+
+    document.querySelectorAll('[data-inv-close-modal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        closeDialogById(button.dataset.invCloseModal || '');
+      });
+    });
+
+    document.querySelectorAll('[data-inv-cancel-selection]').forEach((button) => {
+      button.addEventListener('click', () => cancelarSeleccion());
+    });
+
+    const btnAyuda = $('btnAyuda');
+    if (btnAyuda) {
+      btnAyuda.addEventListener('click', () => openDialogById('modalAyuda'));
     }
   }
 
@@ -643,6 +667,11 @@
       .inv-notificacion--error {
         border-color: rgba(239, 68, 68, 0.3);
         color: #dc2626;
+      }
+      .inv-confirm-hint {
+        color: var(--muted, #64748b);
+        font-size: 0.88rem;
+        margin-top: 6px;
       }
       [data-theme="dark"] .inv-notificacion--success { color: #4ade80; }
       [data-theme="dark"] .inv-notificacion--error { color: #f87171; }
@@ -741,10 +770,9 @@
     initFormSubmit();
     initFiltroTabla();
     initAtajos();
-    initModalAyuda();
+    initViewActions();
     initConfirmForms();
 
-    console.log('📋 Inventario Físico v2.0 iniciado');
   }
 
   if (document.readyState === 'loading') {

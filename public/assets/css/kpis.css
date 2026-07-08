@@ -165,10 +165,15 @@ html[data-theme="dark"] {
   body.cliente-detalle-page .cliente-metric-money
 ) {
   color: var(--flus-kpi-text);
-  font-size: clamp(1.22rem, 1rem + 0.45vw, 1.55rem);
+  display: block;
+  max-width: 100%;
+  font-size: 1.32rem;
   font-weight: 850;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1.08;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 :is(

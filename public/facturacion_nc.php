@@ -1174,7 +1174,7 @@ require __DIR__ . '/partials/header.php';
     type="button"
     id="nc-submit-parcial-bar"
     class="v-btn v-btn--primary"
-    onclick="document.getElementById('nc-submit-parcial')?.click()"
+    data-nc-submit-parcial-bar
   >
     Emitir NC parcial →
   </button>

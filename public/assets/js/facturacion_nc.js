@@ -308,6 +308,16 @@
   }
 
   /* ─── stepper init ────────────────────────────────────── */
+  function initStickyPartialSubmit() {
+    const stickyButton = $('[data-nc-submit-parcial-bar]');
+    const submitParcial = $('#nc-submit-parcial');
+    if (!stickyButton || !submitParcial) return;
+
+    stickyButton.addEventListener('click', () => {
+      submitParcial.click();
+    });
+  }
+
   function initStepper() {
     const pageWrap = document.querySelector('[data-nc-has-factura]');
     const hasFact  = pageWrap?.dataset.ncHasFactura === '1';
@@ -325,5 +335,6 @@
     initTypeSelector();
     initLiveTotals();
     initConfirmations();
+    initStickyPartialSubmit();
   });
 })();

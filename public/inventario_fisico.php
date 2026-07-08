@@ -305,7 +305,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         <?php if ($vista === 'sesiones'): ?>
         <div class="module-header-actions">
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('modalNuevaSesion').showModal()">
+            <button type="button" class="btn btn-primary" data-inv-open-modal="modalNuevaSesion">
                 <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
@@ -401,7 +401,7 @@ require __DIR__ . '/partials/header.php';
             </div>
             <p class="inv-empty-title">No hay sesiones de inventario</p>
             <p class="inv-empty-text">Creá una nueva sesión para empezar a contar productos</p>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('modalNuevaSesion').showModal()">
+            <button type="button" class="btn btn-primary" data-inv-open-modal="modalNuevaSesion">
                 Crear primera sesión
             </button>
         </div>
@@ -603,7 +603,7 @@ require __DIR__ . '/partials/header.php';
                         <div class="producto-codigo" id="selCodigo"></div>
                         <div class="producto-nombre" id="selNombre"></div>
                     </div>
-                    <button type="button" class="btn-clear-selection" onclick="window.cancelarSeleccion && window.cancelarSeleccion()" title="Cambiar producto">
+                    <button type="button" class="btn-clear-selection" data-inv-cancel-selection title="Cambiar producto">
                         <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                         </svg>
@@ -668,7 +668,7 @@ require __DIR__ . '/partials/header.php';
                     Registrar Conteo
                     <kbd>Enter</kbd>
                 </button>
-                <button type="button" class="btn btn-ghost" onclick="window.cancelarSeleccion && window.cancelarSeleccion()">Cancelar</button>
+                <button type="button" class="btn btn-ghost" data-inv-cancel-selection>Cancelar</button>
             </div>
         </form>
     </div>
@@ -955,7 +955,7 @@ require __DIR__ . '/partials/header.php';
                 </svg>
                 Nueva Sesión de Inventario
             </h3>
-            <button type="button" class="inv-modal-close" onclick="document.getElementById('modalNuevaSesion').close()">
+            <button type="button" class="inv-modal-close" data-inv-close-modal="modalNuevaSesion">
                 <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -986,7 +986,7 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
 
         <div class="inv-modal-actions">
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalNuevaSesion').close()">Cancelar</button>
+            <button type="button" class="btn btn-secondary" data-inv-close-modal="modalNuevaSesion">Cancelar</button>
             <button type="submit" class="btn btn-primary">
                 <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="20 6 9 17 4 12"/>
@@ -1009,7 +1009,7 @@ require __DIR__ . '/partials/header.php';
                 </svg>
                 Ayuda - Inventario Físico
             </h3>
-            <button type="button" class="inv-modal-close" onclick="document.getElementById('modalAyuda').close()">
+            <button type="button" class="inv-modal-close" data-inv-close-modal="modalAyuda">
                 <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -1018,7 +1018,7 @@ require __DIR__ . '/partials/header.php';
 
         <div class="ayuda-content">
             <div class="ayuda-section">
-                <h4>📋 ¿Cómo funciona?</h4>
+                <h4>Como funciona</h4>
                 <ol>
                     <li><strong>Crear sesión:</strong> Iniciá un nuevo inventario con un nombre descriptivo</li>
                     <li><strong>Contar:</strong> Escaneá o buscá productos y registrá la cantidad física</li>
@@ -1028,7 +1028,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="ayuda-section">
-                <h4>⚡ Modos de conteo</h4>
+                <h4>Modos de conteo</h4>
                 <dl>
                     <dt>
                         <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1050,7 +1050,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="ayuda-section">
-                <h4>⌨️ Atajos de teclado</h4>
+                <h4>Atajos de teclado</h4>
                 <div class="ayuda-shortcuts">
                     <div class="ayuda-shortcut"><kbd>F5</kbd> Ir al buscador</div>
                     <div class="ayuda-shortcut"><kbd>Enter</kbd> Registrar conteo</div>
@@ -1059,7 +1059,7 @@ require __DIR__ . '/partials/header.php';
             </div>
 
             <div class="ayuda-section">
-                <h4>💡 Consejos</h4>
+                <h4>Consejos</h4>
                 <ul>
                     <li>Podés recontar un producto las veces que quieras. Solo se usa el último valor.</li>
                     <li>El campo "Ubicación" te ayuda a organizar el conteo por zonas.</li>
@@ -1070,7 +1070,7 @@ require __DIR__ . '/partials/header.php';
         </div>
 
         <div class="inv-modal-actions">
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('modalAyuda').close()">Entendido</button>
+            <button type="button" class="btn btn-primary" data-inv-close-modal="modalAyuda">Entendido</button>
         </div>
     </div>
 </dialog>

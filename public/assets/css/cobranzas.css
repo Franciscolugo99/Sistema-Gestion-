@@ -12,8 +12,9 @@
 
 .cobranzas-page .fact-kpi-card__value {
   max-width: 100%;
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .cobranzas-page .cobranzas-alert {

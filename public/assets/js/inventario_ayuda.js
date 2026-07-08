@@ -40,7 +40,6 @@
             // Crear botón flotante si no existe
             this.createFloatingButton();
             
-            console.log('[FLUS] Sistema de ayuda inicializado');
         },
 
         /**
@@ -188,27 +187,26 @@
                     <span class="inv-help-header-icon">Guia</span>
                     <h3>Glosario: todas las metricas</h3>
                 </div>
-                <p style="color: var(--inv-muted); margin-bottom: 20px;">
+                <p class="inv-help-intro">
                     Tocá cualquier concepto para ver la explicación completa.
                 </p>
             `;
             
             for (const [key, ayuda] of Object.entries(this.data)) {
                 html += `
-                    <div class="inv-glosario-item-inline" 
+                    <div class="inv-glosario-item-inline"
                          role="button" 
                          tabindex="0"
-                        data-help-key="${key}"
-                        style="cursor: pointer; margin-bottom: 12px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                        data-help-key="${key}">
+                        <div class="inv-glosario-inline-row">
                             <span class="inv-help-metric-chip">${this.escapeHtml(ayuda.icono || 'Info')}</span>
                             <div>
-                                <strong style="color: var(--inv-text);">${this.escapeHtml(ayuda.titulo)}</strong>
-                                <p style="margin: 4px 0 0; font-size: 0.85rem; color: var(--inv-muted); line-height: 1.4;">
+                                <strong>${this.escapeHtml(ayuda.titulo)}</strong>
+                                <p>
                                     ${this.truncate(ayuda.descripcion, 80)}
                                 </p>
                             </div>
-                            <span style="margin-left: auto; color: var(--inv-muted);">Ver</span>
+                            <span class="inv-glosario-inline-action">Ver</span>
                         </div>
                     </div>
                 `;
@@ -347,12 +345,12 @@
                     <h4>${step.title}</h4>
                     <p>${step.content}</p>
                     <div class="inv-tour-actions">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="GuidedTour.skip()">Saltar</button>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="GuidedTour.next()">
+                        <button type="button" class="btn btn-secondary btn-sm" data-inv-tour-skip>Saltar</button>
+                        <button type="button" class="btn btn-primary btn-sm" data-inv-tour-next>
                             ${this.currentStep < this.steps.length - 1 ? 'Siguiente' : 'Finalizar'}
                         </button>
                     </div>
-                    <div style="font-size: 0.75rem; color: var(--inv-muted); margin-top: 10px; text-align: center;">
+                    <div class="inv-tour-progress">
                         ${this.currentStep + 1} de ${this.steps.length}
                     </div>
                 `;
@@ -362,6 +360,8 @@
                 tooltip.style.top = (rect.bottom + window.scrollY + 12) + 'px';
                 tooltip.style.left = rect.left + 'px';
                 
+                tooltip.querySelector('[data-inv-tour-skip]')?.addEventListener('click', () => this.skip());
+                tooltip.querySelector('[data-inv-tour-next]')?.addEventListener('click', () => this.next());
                 document.body.appendChild(tooltip);
             }, 300);
         },

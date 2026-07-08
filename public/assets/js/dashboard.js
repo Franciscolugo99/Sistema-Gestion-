@@ -311,16 +311,15 @@ function initCategoryFilter() {
   const select = document.getElementById("dashCategoria");
   if (!select) return;
   
-  // Agregar efecto visual al cambiar
   select.addEventListener("change", function() {
     const form = document.getElementById("dashFilters");
     if (form) {
-      // Mostrar loading
       const panel = document.querySelector(".dashboard-panel");
       if (panel) {
         panel.style.opacity = "0.6";
         panel.style.pointerEvents = "none";
       }
+      form.submit();
     }
   });
 }
@@ -1225,6 +1224,7 @@ function initTimeFilters() {
   const ampmHasta = document.getElementById("dashHoraHastaAmpm");
   const fromInput = document.getElementById("dashFrom");
   const toInput   = document.getElementById("dashTo");
+  const clearHoursButton = document.querySelector("[data-dash-clear-hours]");
 
   if (!horaDesde || !horaHasta) return;
 
@@ -1287,6 +1287,14 @@ function initTimeFilters() {
   if (ampmHasta) ampmHasta.addEventListener("change", validate);
   if (fromInput) fromInput.addEventListener("change", validate);
   if (toInput)   toInput.addEventListener("change", validate);
+  if (clearHoursButton) {
+    clearHoursButton.addEventListener("click", () => {
+      horaDesde.value = "";
+      horaHasta.value = "";
+      const form = document.getElementById("dashFilters");
+      if (form) form.submit();
+    });
+  }
 
   // Init
   syncAmpmLock(horaDesde, ampmDesde);
