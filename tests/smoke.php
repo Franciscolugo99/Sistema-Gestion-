@@ -4799,6 +4799,15 @@ $results[] = flus_run_test('session registry wires login logout bootstrap heartb
     flus_assert_contains("case 'revoked': \$errorMsg = 'Tu sesi", $loginPhp);
     flus_assert_contains("value=\"revocar_sesion\"", $diagnosticoPhp);
     flus_assert_contains("value=\"liberar_terminal_sesion\"", $diagnosticoPhp);
+    flus_assert_contains('$canManageDiagnosticSessions = function_exists(\'user_has_permission\') && user_has_permission(\'administrar_config\');', $diagnosticoPhp);
+    flus_assert_contains("} elseif (\$accion === 'revocar_sesion') {", $diagnosticoPhp);
+    flus_assert_contains("} elseif (\$accion === 'liberar_terminal_sesion') {", $diagnosticoPhp);
+    flus_assert_contains("require_permission('administrar_config');", $diagnosticoPhp);
+    flus_assert_contains("if (\$canManageDiagnosticSessions && function_exists('flus_session_list_active')) {", $diagnosticoPhp);
+    flus_assert_contains("\$recentAdminActions = \$canManageDiagnosticSessions ? flus_diag_recent_admin_actions(\$pdo, 8) : [];", $diagnosticoPhp);
+    flus_assert_contains("if (!\$canManageDiagnosticSessions) {", $diagnosticoPhp);
+    flus_assert_contains("'error' => 'FORBIDDEN'", $diagnosticoPhp);
+    flus_assert_contains('Este bloque requiere permiso de administracion.', $diagnosticoPhp);
     flus_assert_contains("audit_event('SESSION_REVOKE', AuditEntities::USER", $diagnosticoPhp);
     flus_assert_contains("audit_event('TERMINAL_FORCE_RELEASE', AuditEntities::TERMINAL", $diagnosticoPhp);
     flus_assert_contains("if (isset(\$_GET['panel']) && (string)\$_GET['panel'] === 'sessions_json') {", $diagnosticoPhp);

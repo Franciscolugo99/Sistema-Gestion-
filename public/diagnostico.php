@@ -26,6 +26,7 @@ $currentUserId = function_exists('session_user_id')
     ? session_user_id()
     : (int)(($user['id'] ?? 0));
 $recentAdminActions = [];
+$canManageDiagnosticSessions = function_exists('user_has_permission') && user_has_permission('administrar_config');
 
 function flus_diag_recent_admin_actions(PDO $pdo, int $limit = 8): array
 {
@@ -154,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "No se pudo eliminar el paquete (archivo inválido o no existe).";
             }
         } elseif ($accion === 'revocar_sesion') {
+            require_permission('administrar_config');
             $targetSessionId = trim((string)($_POST['session_id'] ?? ''));
             if ($targetSessionId === '') {
                 $error = 'Sesion invalida.';
@@ -177,6 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $info = 'Sesion revocada y terminal liberada si estaba en uso.';
             }
         } elseif ($accion === 'liberar_terminal_sesion') {
+            require_permission('administrar_config');
             $targetSessionId = trim((string)($_POST['session_id'] ?? ''));
             if ($targetSessionId === '') {
                 $error = 'Sesion invalida.';
@@ -248,12 +251,25 @@ if (is_dir($diagDir)) {
     usort($existingPackages, fn($a, $b) => $b['mtime'] <=> $a['mtime']);
 }
 
-if (function_exists('flus_session_list_active')) {
+if ($canManageDiagnosticSessions && function_exists('flus_session_list_active')) {
     $activeSessions = flus_session_list_active($pdo, 120);
 }
-$recentAdminActions = flus_diag_recent_admin_actions($pdo, 8);
+$recentAdminActions = $canManageDiagnosticSessions ? flus_diag_recent_admin_actions($pdo, 8) : [];
 
 if (isset($_GET['panel']) && (string)$_GET['panel'] === 'sessions_json') {
+    if (!$canManageDiagnosticSessions) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+        }
+        http_response_code(403);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'FORBIDDEN',
+            'message' => 'Requiere permiso de administracion para ver sesiones activas.',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
     if (!headers_sent()) {
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
@@ -1013,6 +1029,7 @@ require __DIR__ . '/partials/header.php';
     </div>
 
 
+    <?php if ($canManageDiagnosticSessions): ?>
     <div class="health-card mb-2">
         <h3>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1144,6 +1161,12 @@ require __DIR__ . '/partials/header.php';
             <?php endif; ?>
         </div>
     </div>
+    <?php else: ?>
+    <div class="health-card mb-2">
+        <h3>Sesiones activas y terminales</h3>
+        <p class="muted">Este bloque requiere permiso de administracion. Las herramientas de diagnostico y backups siguen disponibles segun el rol.</p>
+    </div>
+    <?php endif; ?>
     <!-- Paquetes de diagnóstico -->
 <div class="health-card">
     <h3>

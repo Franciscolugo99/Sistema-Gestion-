@@ -78,6 +78,7 @@ Validar:
 - Cajero puede vender, abrir/cerrar caja si el negocio lo permite y reimprimir ticket.
 - Cajero no puede anular venta si no tiene permiso.
 - Cajero no accede a usuarios, permisos, diagnostico, backups, licencias ni reportes sensibles.
+- Usuarios con acceso a backups/diagnostico no pueden forzar salida ni liberar terminales si no tienen `administrar_config`.
 - Acciones sensibles fallan tambien por backend si se intenta entrar por URL o API.
 
 ## Facturacion y Mercado Pago
