@@ -329,7 +329,7 @@ Si la instalacion va a usar facturacion real:
 4. Ingresar con:
    - usuario: `admin`
    - clave: `flusadmin123`
-5. Cambiar la clave inicial apenas termine la instalacion.
+5. Cambiar la clave inicial apenas termine la instalacion. Si se ingresa con la clave provisoria, FLUS fuerza el cambio antes de operar.
 6. Dejar `public/install.php` solo como verificador: si existe `src/config.php`, no reconfigura ni crea tablas desde el navegador.
 
 ## Requisitos

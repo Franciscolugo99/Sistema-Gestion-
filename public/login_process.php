@@ -96,6 +96,15 @@ function login_throttle_check(string $username, string $ip): int {
   return $wait;
 }
 
+function login_uses_initial_admin_password(array $user, string $password): bool {
+  $hash = (string)($user['password_hash'] ?? '');
+  return (int)($user['id'] ?? 0) === 1
+    && strtolower((string)($user['username'] ?? '')) === 'admin'
+    && $password === 'flusadmin123'
+    && $hash !== ''
+    && password_verify('flusadmin123', $hash);
+}
+
 function login_throttle_record_failure(string $username, string $ip): void {
   $windowSeconds = 15 * 60;
   $maxAttempts = 5;
@@ -206,6 +215,13 @@ $_SESSION['user_email']  = (string)($user['email'] ?? '');
 $_SESSION['user_role']   = (string)($user['role_slug'] ?? '');
 $_SESSION['permissions'] = $perms;
 
+if (login_uses_initial_admin_password($user, $password)) {
+  $_SESSION['force_password_change'] = true;
+  $_SESSION['force_password_change_user_id'] = (int)$user['id'];
+} else {
+  unset($_SESSION['force_password_change'], $_SESSION['force_password_change_user_id']);
+}
+
 try {
   $pdo->prepare("UPDATE users SET ultimo_acceso = NOW() WHERE id = :id")
       ->execute([':id' => (int)$user['id']]);
@@ -218,6 +234,11 @@ if (function_exists('flus_session_register')) {
 }
 
 $next = (string)($_POST['next'] ?? $_GET['next'] ?? '');
+if (!empty($_SESSION['force_password_change'])) {
+  header('Location: usuario_editar.php?id=' . (int)$user['id'] . '&force_password=1');
+  exit;
+}
+
 if ($next !== '' && $next[0] === '/' && strpos($next, '://') === false && strpos($next, "\n") === false && strpos($next, "\r") === false) {
   header('Location: ' . $next);
   exit;

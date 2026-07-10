@@ -4434,6 +4434,34 @@ $results[] = flus_run_test('configuracion y login usan csrf centralizado y boots
     flus_assert_contains("if (!csrf_verify((string)(\$_POST['csrf_token'] ?? ''))) {", $loginProcessPhp);
 });
 
+$results[] = flus_run_test('login fuerza cambio de clave inicial admin antes de operar', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $loginProcessPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'login_process.php');
+    $bootstrapPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'bootstrap.php');
+    $authHardeningPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'auth_hardening.php');
+    $usuarioEditarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'usuario_editar.php');
+
+    flus_assert_contains('function login_uses_initial_admin_password(array $user, string $password): bool', $loginProcessPhp);
+    flus_assert_contains("\$_SESSION['force_password_change'] = true;", $loginProcessPhp);
+    flus_assert_contains("header('Location: usuario_editar.php?id=' . (int)\$user['id'] . '&force_password=1');", $loginProcessPhp);
+    flus_assert_true(strrpos($loginProcessPhp, "if (!empty(\$_SESSION['force_password_change'])) {") < strrpos($loginProcessPhp, "if (\$next !== ''"));
+
+    flus_assert_contains("\$authHardening = FLUS_ROOT . '/src/auth_hardening.php';", $bootstrapPhp);
+    flus_assert_contains("flus_enforce_initial_password_change(\$user);", $bootstrapPhp);
+    flus_assert_contains('function flus_enforce_initial_password_change(array $user): void', $authHardeningPhp);
+    flus_assert_contains('PASSWORD_CHANGE_REQUIRED', $authHardeningPhp);
+    flus_assert_contains('Cambia la clave inicial antes de operar FLUS.', $authHardeningPhp);
+    flus_assert_contains("in_array(\$base, ['usuario_editar.php', 'logout.php'], true)", $authHardeningPhp);
+
+    flus_assert_contains('$mustChangeInitialPassword = !empty($_SESSION[\'force_password_change\'])', $usuarioEditarPhp);
+    flus_assert_contains("header('Location: usuario_editar.php?id=' . \$currentUserId . '&force_password=1');", $usuarioEditarPhp);
+    flus_assert_contains('Cambia la contrasena inicial antes de operar FLUS.', $usuarioEditarPhp);
+    flus_assert_contains('La nueva contrasena no puede ser la clave provisoria.', $usuarioEditarPhp);
+    flus_assert_contains("unset(\$_SESSION['force_password_change'], \$_SESSION['force_password_change_user_id']);", $usuarioEditarPhp);
+    flus_assert_contains('Nueva clave obligatoria', $usuarioEditarPhp);
+    flus_assert_contains('No uses la clave provisoria en produccion.', $usuarioEditarPhp);
+});
+
 $results[] = flus_run_test('pdo reconnection helpers stay centralized in config and scaffold files', function (): void {
     $repoRoot = dirname(__DIR__);
     $dbHelpersPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'db_helpers.php');

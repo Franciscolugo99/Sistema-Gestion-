@@ -211,8 +211,10 @@ require_once __DIR__ . '/auth.php';
 $coreHelpers    = FLUS_ROOT . '/src/helpers.php';
 $schemaHelpers = FLUS_ROOT . '/src/db_schema.php';
 $sessionRegistry = FLUS_ROOT . '/src/session_registry.php';
+$authHardening = FLUS_ROOT . '/src/auth_hardening.php';
 if (file_exists($schemaHelpers)) require_once $schemaHelpers;
 if (file_exists($sessionRegistry)) require_once $sessionRegistry;
+if (file_exists($authHardening)) require_once $authHardening;
 $coreMiddleware = FLUS_ROOT . '/src/Middleware.php';
 $coreBase       = FLUS_ROOT . '/src/BaseController.php';
 
@@ -268,6 +270,10 @@ try {
   exit;
 }
 $user = current_user();
+
+if (is_array($user) && function_exists('flus_enforce_initial_password_change')) {
+  flus_enforce_initial_password_change($user);
+}
 
 if (
   !defined('FLUS_SESSION_ENFORCE_BYPASS') &&

@@ -18,6 +18,15 @@ if ($userId <= 0) {
     exit;
 }
 
+$currentUserId = (int)($_SESSION['user_id'] ?? 0);
+$mustChangeInitialPassword = !empty($_SESSION['force_password_change'])
+    && (int)($_SESSION['force_password_change_user_id'] ?? 0) === $currentUserId;
+
+if ($mustChangeInitialPassword && $userId !== $currentUserId) {
+    header('Location: usuario_editar.php?id=' . $currentUserId . '&force_password=1');
+    exit;
+}
+
 /* ============================================================
    OBTENER DATOS DEL USUARIO
 ============================================================ */
@@ -59,6 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
     $data = $validation['data'];
     $errors = array_merge($errors, $validation['errors']);
+
+    if ($mustChangeInitialPassword && (string)$data['password'] === '') {
+        $errors[] = 'Cambia la contrasena inicial antes de operar FLUS.';
+    }
+    if ($mustChangeInitialPassword && (string)$data['password'] === 'flusadmin123') {
+        $errors[] = 'La nueva contrasena no puede ser la clave provisoria.';
+    }
 
     if (empty($errors)) {
         $guardError = flus_guard_user_admin_mutation(
@@ -106,7 +122,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ];
             }
             $pdo->prepare($sql)->execute($params);
-            $_SESSION['flash_success'] = 'Usuario actualizado correctamente';
+            if ((string)$data['password'] !== '' && $userId === $currentUserId) {
+                unset($_SESSION['force_password_change'], $_SESSION['force_password_change_user_id']);
+            }
+            $_SESSION['flash_success'] = $mustChangeInitialPassword
+                ? 'Clave actualizada. Ya podes operar FLUS.'
+                : 'Usuario actualizado correctamente';
+            if ($mustChangeInitialPassword) {
+                header('Location: index.php');
+                exit;
+            }
             header('Location: usuarios.php');
             exit;
         } catch (PDOException $e) {
@@ -154,7 +179,7 @@ $extraJs        = ['assets/js/usuario_form.js?v=3'];
 
 require __DIR__ . '/partials/header.php';
 
-$esMiUsuario = ($userId === (int)($_SESSION['user_id'] ?? 0));
+$esMiUsuario = ($userId === $currentUserId);
 $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
 ?>
 
@@ -188,6 +213,16 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
           <?php endforeach; ?>
         </ul>
       </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($mustChangeInitialPassword): ?>
+    <div class="alert alert-warning">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+        <path d="M12 8v4"/><path d="M12 16h.01"/>
+      </svg>
+      Cambia la clave inicial antes de cargar productos, ventas o datos reales del comercio.
     </div>
   <?php endif; ?>
 
@@ -262,8 +297,9 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
             <label for="password" class="form-label">Nueva Contraseña</label>
             <div class="password-input-wrap">
               <input type="password" id="password" name="password" class="form-input<?= $passwordFieldError !== '' ? ' is-invalid' : '' ?>"
-                placeholder="Dejar vacío para no cambiar"
+                placeholder="<?= $mustChangeInitialPassword ? 'Nueva clave obligatoria' : 'Dejar vacío para no cambiar' ?>"
                 minlength="6" maxlength="255" autocomplete="new-password"
+                <?= $mustChangeInitialPassword ? 'required' : '' ?>
                 aria-invalid="<?= $passwordFieldError !== '' ? 'true' : 'false' ?>"
                 aria-describedby="password-hint password-error"
                 <?= $puedeCambiarPasswordResguardo ? '' : 'disabled' ?>>
@@ -273,7 +309,7 @@ $puedeCambiarPasswordResguardo = !$esUsuarioResguardo || $esMiUsuario;
                 </svg>
               </button>
             </div>
-            <span class="form-hint" id="password-hint"><?= $puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.' ?></span>
+            <span class="form-hint" id="password-hint"><?= $mustChangeInitialPassword ? 'No uses la clave provisoria en produccion.' : ($puedeCambiarPasswordResguardo ? 'Dejá vacío si no querés cambiar la contraseña' : 'La contraseña de esta cuenta solo la puede cambiar el propio usuario admin.') ?></span>
             <span class="form-error<?= $passwordFieldError !== '' ? ' visible' : '' ?>" id="password-error" data-error-for="password" aria-live="polite"><?= h($passwordFieldError) ?></span>
           </div>
         </div>
