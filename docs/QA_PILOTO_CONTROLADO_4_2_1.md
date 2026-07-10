@@ -19,7 +19,7 @@ Objetivo: validar FLUS como POS/gestion para kiosco o comercio chico antes de in
 3. Ejecutar `scripts/migrate.php`.
 4. Entrar con el usuario inicial.
 5. Cambiar la clave inicial de administrador antes de operar.
-6. Confirmar que `install.php` no permita reconfigurar una instalacion ya configurada.
+6. Confirmar que `install.php` no permita reconfigurar una instalacion ya configurada y que no muestre rutas locales ni errores internos.
 7. Confirmar que la app funcione sin internet para pantallas que no requieren servicios externos.
 
 Resultado esperado:
@@ -109,4 +109,3 @@ El piloto se considera aprobado si:
 - No aparecen duplicaciones de ventas, pagos, caja, stock ni compras.
 - Los errores son entendibles para cajero o administrador.
 - Las observaciones quedan documentadas antes de vender o instalar en otro cliente.
-

@@ -4455,6 +4455,22 @@ $results[] = flus_run_test('pdo reconnection helpers stay centralized in config 
     flus_assert_contains('function flus_pdo_fresh(int \\$timeout = 3): PDO {\\n', $installPhp);
 });
 
+$results[] = flus_run_test('install web queda guiado y no expone errores internos', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'install.php');
+
+    flus_assert_contains('FLUS no reconfigura la base desde esta pantalla.', $installPhp);
+    flus_assert_contains('El instalador web no crea ni modifica tablas.', $installPhp);
+    flus_assert_contains('error_log(\'[FLUS install] config failed: \' . $e->getMessage());', $installPhp);
+    flus_assert_contains('Usuario inicial: <code>admin</code>', $installPhp);
+    flus_assert_contains('Clave provisoria: <code>flusadmin123</code>', $installPhp);
+    flus_assert_contains('Cambiala antes de cargar productos, ventas o datos reales del comercio.', $installPhp);
+    flus_assert_contains('Archivo esperado: <code>src/config.php</code>', $installPhp);
+    flus_assert_not_contains('Detalle: \' . $e->getMessage()', $installPhp);
+    flus_assert_not_contains('<?=h($cfgFile)?>', $installPhp);
+    flus_assert_not_contains('<?=h($example)?>', $installPhp);
+});
+
 $results[] = flus_run_test('terminal selection no longer acquires locks before caja permissions', function (): void {
     $repoRoot = dirname(__DIR__);
     $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');

@@ -20,6 +20,7 @@ $schemaReady = false;
 $schemaMsg = '';
 $schemaErr = '';
 $schemaLog = [];
+$schemaDbName = 'kiosco';
 
 $defaults = [
   'db_host' => '127.0.0.1',
@@ -32,7 +33,7 @@ $defaults = [
 $vals = $defaults;
 
 if (is_file($cfgFile)) {
-  $msg = '✅ Ya existe src/config.php. Si querés reconfigurar, borrá ese archivo primero.';
+  $msg = 'Instalacion ya configurada. FLUS no reconfigura la base desde esta pantalla.';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -191,7 +192,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !is_file($cfgFile) && $err === '') 
       exit;
 
     } catch (Throwable $e) {
-      $err = 'No se pudo conectar a la DB o escribir config.php. Detalle: ' . $e->getMessage();
+      error_log('[FLUS install] config failed: ' . $e->getMessage());
+      $err = 'No se pudo crear la configuracion. Verifica host, base de datos, usuario, permisos de escritura y volve a intentar.';
     }
   }
 }
@@ -206,6 +208,9 @@ if (is_file($cfgFile)) {
   try {
     // Cargar credenciales + PDO desde config.php
     require_once $cfgFile;
+    if (defined('DB_NAME')) {
+      $schemaDbName = (string)DB_NAME;
+    }
     $pdo = null;
     if (function_exists('getPDO')) {
       $pdo = getPDO();
@@ -226,21 +231,22 @@ if (is_file($cfgFile)) {
     $schemaReady = in_array('ventas', $detectedTables, true);
 
     if ($detectedTables === []) {
-      $schemaMsg = '✅ Config OK. No se detectó el esquema base todavía. Instalación limpia: importá install.sql (baseline) y luego corré scripts/migrate.php.';
+      $schemaMsg = 'Config OK. No se detecto el esquema base todavia. Instalacion limpia: importa install.sql y luego corre scripts/migrate.php.';
     } elseif ($schemaReady) {
-      $schemaMsg = '✅ Estructura detectada. Ya podés ir a login.';
+      $schemaMsg = 'Estructura detectada. Ya podes entrar a FLUS.';
     } else {
-      $schemaErr = '⚠️ La base de datos no está vacía pero no se detectó el esquema esperado. Recomendado: revisar DB_NAME o usar el runner CLI scripts/migrate.php.';
+      $schemaErr = 'La base de datos no esta vacia pero no se detecto el esquema esperado. Revisa DB_NAME o usa scripts/migrate.php desde consola.';
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'create_schema') {
       // En releases actuales no inicializamos schema desde el instalador web.
       // El baseline real es install.sql (import) + luego migraciones por CLI.
-      throw new RuntimeException('Inicialización de schema desde install.php deshabilitada. Importá install.sql y luego ejecutá: php scripts/migrate.php');
+      $schemaErr = 'El instalador web no crea ni modifica tablas. Importa install.sql y luego ejecuta php scripts/migrate.php.';
     }
 
   } catch (Throwable $e) {
-    $schemaErr = $e->getMessage();
+    error_log('[FLUS install] schema check failed: ' . $e->getMessage());
+    $schemaErr = 'No se pudo validar la instalacion. Revisa la configuracion de base de datos y ejecuta scripts/migrate.php si corresponde.';
   }
 }
 
@@ -249,10 +255,10 @@ if (is_file($cfgFile)) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>FLUS - Instalación</title>
+  <title>FLUS - Instalacion</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Arial;margin:32px;max-width:820px}
-    .card{border:1px solid #ddd;border-radius:12px;padding:18px}
+    body{font-family:system-ui,Segoe UI,Arial;margin:32px;max-width:920px;color:#0f172a;background:#f5f7fb}
+    .card{border:1px solid #d9e2ef;border-radius:12px;padding:18px;background:#fff;box-shadow:0 12px 36px rgba(15,23,42,.08)}
     label{display:block;margin-top:10px;font-weight:600}
     input{width:100%;padding:10px;border:1px solid #ccc;border-radius:10px}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -260,11 +266,16 @@ if (is_file($cfgFile)) {
     .msg{margin:12px 0;padding:10px;border-radius:10px}
     .ok{background:#ecfdf5;border:1px solid #10b981}
     .err{background:#fef2f2;border:1px solid #ef4444}
+    .muted{color:#64748b}
+    .steps{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:14px;margin-top:14px}
+    .steps li{margin:6px 0}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+    @media (max-width:760px){body{margin:18px}.row,.split{grid-template-columns:1fr}}
     code{background:#f4f4f4;padding:2px 6px;border-radius:6px}
   </style>
 </head>
 <body>
-  <h1>FLUS - Instalación</h1>
+  <h1>FLUS - Instalacion</h1>
 
   <?php if ($msg): ?>
     <div class="msg ok"><?=h($msg)?></div>
@@ -274,7 +285,7 @@ if (is_file($cfgFile)) {
   <?php endif; ?>
 
   <div class="card">
-    <p>Este asistente crea <code>src/config.php</code> y prueba conexión a la base de datos.</p>
+    <p>Este asistente crea <code>src/config.php</code> y prueba conexion a la base de datos. El esquema se instala por consola para evitar cambios accidentales desde el navegador.</p>
 
     <?php if (!is_file($cfgFile)): ?>
       <form method="post" autocomplete="off">
@@ -325,23 +336,37 @@ if (is_file($cfgFile)) {
       <?php endif; ?>
 
       <?php if (!$schemaReady): ?>
-        <p>Instalación limpia (recomendado):</p>
-        <ol>
-          <li>Importá <code>install.sql</code> en la base <code><?=h((string)($vals['db_name'] ?? 'kiosco'))?></code></li>
-          <li>Ejecutá <code>php scripts/migrate.php</code></li>
-          <li>Volvé a esta pantalla y recargá</li>
-        </ol>
+        <div class="steps">
+          <strong>Instalacion limpia recomendada</strong>
+          <ol>
+            <li>Importa <code>install.sql</code> en la base <code><?=h($schemaDbName)?></code>.</li>
+            <li>Ejecuta <code>php scripts/migrate.php</code> desde la carpeta del proyecto.</li>
+            <li>Recarga esta pantalla para confirmar que el esquema quedo detectado.</li>
+          </ol>
+        </div>
 
       <?php else: ?>
-        <p>Listo. Ir a <a href="login.php">login</a>.</p>
+        <div class="split">
+          <div class="steps">
+            <strong>Primer ingreso</strong>
+            <p>Usuario inicial: <code>admin</code></p>
+            <p>Clave provisoria: <code>flusadmin123</code></p>
+            <p class="muted">Cambiala antes de cargar productos, ventas o datos reales del comercio.</p>
+          </div>
+          <div class="steps">
+            <strong>Operacion segura</strong>
+            <p>El instalador queda en modo solo lectura mientras exista <code>src/config.php</code>.</p>
+            <p><a class="btn" href="login.php">Ir a login</a></p>
+          </div>
+        </div>
       <?php endif; ?>
 
     <?php endif; ?>
   </div>
 
-  <p style="margin-top:18px;color:#555">
-    Archivo esperado: <code><?=h($cfgFile)?></code><br>
-    Ejemplo: <code><?=h($example)?></code>
+  <p class="muted" style="margin-top:18px">
+    Archivo esperado: <code>src/config.php</code><br>
+    Ejemplo: <code>src/config.example.php</code>
   </p>
 </body>
 </html>
