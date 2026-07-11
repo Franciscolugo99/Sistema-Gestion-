@@ -655,5 +655,6 @@ try {
   }
 
 } catch (Throwable $e) {
-  json_fail($e->getMessage(), 500);
+  error_log('api/index action ' . $action . ': ' . $e->getMessage());
+  json_fail('SERVER_ERROR', 500, ['error_code' => 'SERVER_ERROR']);
 }

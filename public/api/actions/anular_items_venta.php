@@ -273,5 +273,6 @@ try {
         $pdo->rollBack();
     }
 
-    $__fail('DB_ERROR', 500, ['detail' => $e->getMessage()]);
+    error_log('anular_items_venta: ' . $e->getMessage());
+    $__fail('No se pudo anular items de la venta.', 500, ['error_code' => 'DB_ERROR']);
 }

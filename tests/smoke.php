@@ -1114,6 +1114,7 @@ $results[] = flus_run_test('flus_sale_helpers keep annulled criteria consistent'
 $results[] = flus_run_test('anulacion total comparte trazabilidad con anulaciones parciales', function () use ($repoRoot): void {
     $lib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
     $action = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_venta.php');
+    $itemsAction = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_items_venta.php');
 
     flus_assert_contains('function flus_venta_anulacion_registrar_total_restante', $lib);
     flus_assert_contains("flus_column_exists(\$pdo, 'venta_anulaciones', 'monto_total')", $lib);
@@ -1121,6 +1122,9 @@ $results[] = flus_run_test('anulacion total comparte trazabilidad con anulacione
     flus_assert_contains("flus_column_exists(\$pdo, 'venta_anulacion_items', 'cantidad_anulada')", $lib);
     flus_assert_contains("flus_venta_anulacion_registrar_total_restante(\$pdo, \$ventaId, \$venta, \$itemsRestantes, \$motivo, \$userId)", $action);
     flus_assert_contains("\$payload['anulacion_id']", $action);
+    flus_assert_contains("error_log('anular_items_venta: ' . \$e->getMessage());", $itemsAction);
+    flus_assert_contains("\$__fail('No se pudo anular items de la venta.', 500, ['error_code' => 'DB_ERROR']);", $itemsAction);
+    flus_assert_not_contains("['detail' => \$e->getMessage()]", $itemsAction);
 });
 
 $results[] = flus_run_test('caja ventas recientes expone reimpresion y anulacion con permisos dedicados', function () use ($repoRoot): void {
@@ -2799,6 +2803,9 @@ $results[] = flus_run_test('registrar venta delega logica interna a venta_api_li
     flus_assert_contains("'registrar_venta' => [", $indexPhp);
     flus_assert_not_contains("case 'registrar_venta': {", $indexPhp);
     flus_assert_contains("require_once __DIR__ . '/../../src/venta_api_lib.php';", $indexPhp);
+    flus_assert_contains("error_log('api/index action ' . \$action . ': ' . \$e->getMessage());", $indexPhp);
+    flus_assert_contains("json_fail('SERVER_ERROR', 500, ['error_code' => 'SERVER_ERROR']);", $indexPhp);
+    flus_assert_not_contains("json_fail(\$e->getMessage(), 500);", $indexPhp);
     flus_assert_contains('require_terminal_lock_json();', $registrarVentaPhp);
     flus_assert_not_contains('require_login_json();', $registrarVentaPhp);
     flus_assert_not_contains('require_csrf_json(', $registrarVentaPhp);
