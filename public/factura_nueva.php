@@ -47,7 +47,9 @@ if ($facturaExistenteId !== null && !isset($_GET['force'])) {
 try {
     flus_facturacion_assert_venta_emitible($venta);
 } catch (Throwable $e) {
-    header('Location: venta_detalle.php?id=' . $ventaId . '&fact_error=' . urlencode($e->getMessage()));
+    error_log('factura_nueva venta emitible: ' . $e->getMessage());
+    $errorUsuario = flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se puede facturar esta venta. Revisa su estado e intenta nuevamente.');
+    header('Location: venta_detalle.php?id=' . $ventaId . '&fact_error=' . urlencode($errorUsuario));
     exit;
 }
 
@@ -115,13 +117,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $cfgError === null) {
             header('Location: factura_ver.php?id=' . $facturaId);
             exit;
         } catch (Throwable $e) {
+            error_log('factura_nueva emitir: ' . $e->getMessage());
             $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
             if ($facturaExistenteId !== null) {
                 header('Location: factura_ver.php?id=' . $facturaExistenteId);
                 exit;
             }
 
-            $errores[] = 'Error al emitir la factura: ' . $e->getMessage();
+            $errores[] = 'Error al emitir la factura: ' . flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se pudo completar la emision. Revisa los datos e intenta nuevamente.');
         }
     }
 }

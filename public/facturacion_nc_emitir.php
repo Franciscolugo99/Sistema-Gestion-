@@ -131,6 +131,8 @@ try {
 
     throw new RuntimeException('Modo de operación inválido.');
 } catch (Throwable $e) {
-    header('Location: ' . $redirectWith('nc_error', $e->getMessage()));
+    error_log('facturacion_nc_emitir: ' . $e->getMessage());
+    $errorUsuario = flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se pudo emitir la nota de credito. Revisa los datos e intenta nuevamente.');
+    header('Location: ' . $redirectWith('nc_error', $errorUsuario));
     exit;
 }

@@ -56,6 +56,7 @@ try {
     header('Location: venta_detalle.php?id=' . $ventaId . '&fact_ok=1');
     exit;
 } catch (Throwable $e) {
+    error_log('factura_emitir: ' . $e->getMessage());
     $facturaExistenteId = flus_facturacion_factura_existente_id($pdo, $ventaId);
     if ($facturaExistenteId !== null) {
         $stFactura = $pdo->prepare('SELECT id, cae, estado_fiscal FROM facturas WHERE id = ? LIMIT 1');
@@ -71,6 +72,7 @@ try {
         exit;
     }
 
-    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode($e->getMessage()));
+    $errorUsuario = flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se pudo emitir la factura. Revisa los datos e intenta nuevamente.');
+    header('Location: factura_nueva.php?venta_id=' . $ventaId . '&fact_error=' . urlencode($errorUsuario));
     exit;
 }

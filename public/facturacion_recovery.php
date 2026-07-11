@@ -46,7 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $facturaRegularizadaId = flus_facturacion_regularizar_factura($pdo, $facturaId);
         header('Location: facturacion_recovery.php?msg=' . urlencode('Factura #' . $facturaRegularizadaId . ' regularizada o confirmada sin duplicar emision.') . '&factura_id=' . $facturaRegularizadaId);
     } catch (Throwable $e) {
-        header('Location: facturacion_recovery.php?msgerr=' . urlencode($e->getMessage()) . '&factura_id=' . $facturaId);
+        error_log('facturacion_recovery: ' . $e->getMessage());
+        $errorUsuario = flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se pudo regularizar la incidencia fiscal. Revisa el caso e intenta nuevamente.');
+        header('Location: facturacion_recovery.php?msgerr=' . urlencode($errorUsuario) . '&factura_id=' . $facturaId);
     }
     exit;
 }

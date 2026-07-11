@@ -1230,6 +1230,7 @@ $results[] = flus_run_test('facturacion runtime helpers quedan extraidos del hot
     flus_assert_contains("require_once __DIR__ . '/facturacion_runtime_lib.php';", $facturacionLib);
     flus_assert_contains('function flus_facturacion_modo_db_value', $runtimeLib);
     flus_assert_contains('function flus_facturacion_estado_fiscal_label', $runtimeLib);
+    flus_assert_contains('function flus_facturacion_mensaje_operativo_seguro', $runtimeLib);
     flus_assert_contains('function flus_facturacion_request_uid_manual', $runtimeLib);
     flus_assert_not_contains('function flus_facturacion_modo_db_value', $facturacionLib);
     flus_assert_not_contains('function flus_facturacion_estado_fiscal_label', $facturacionLib);
@@ -3935,6 +3936,8 @@ flus_assert_same('ERROR_TRANSITORIO', flus_facturacion_estado_fiscal_por_error('
 flus_assert_same('RECHAZADA', flus_facturacion_estado_fiscal_por_error('[10015] El numero de documento es invalido'));
     flus_assert_same('TRANSIENT', flus_facturacion_error_code('SOAP Fault: timeout al conectar con WSAA'));
     flus_assert_same('10015', flus_facturacion_error_code('[10015] El numero de documento es invalido'));
+    flus_assert_same('Cliente invalido o no disponible.', flus_facturacion_mensaje_operativo_seguro('Cliente invalido o no disponible.'));
+    flus_assert_same('No se pudo completar la operacion fiscal. Revisa la incidencia e intenta nuevamente.', flus_facturacion_mensaje_operativo_seguro('SQLSTATE[42S22]: Unknown column foo'));
     flus_assert_true(flus_facturacion_manual_retry_state_es_reutilizable('ERROR_POST_ARCA'));
     flus_assert_true(flus_facturacion_manual_retry_state_es_reutilizable('RECUPERADA'));
 });
@@ -4202,9 +4205,14 @@ $results[] = flus_run_test('preflight de emision queda cableado en pantallas y c
     flus_assert_contains('function flus_facturacion_assert_preflight_emision(PDO $pdo, ?array $config = null, array $opciones = []): array', $preflightLib);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaNuevaPhp);
     flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaNuevaPhp);
+    flus_assert_contains('flus_facturacion_mensaje_operativo_seguro($e->getMessage()', $facturaNuevaPhp);
+    flus_assert_not_contains('urlencode($e->getMessage())', $facturaNuevaPhp);
+    flus_assert_not_contains("'Error al emitir la factura: ' . \$e->getMessage()", $facturaNuevaPhp);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $config);', $facturaManualPhp);
     flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaManualPhp);
     flus_assert_contains('flus_facturacion_assert_preflight_emision($pdo, $config);', $facturaEmitirPhp);
+    flus_assert_contains('flus_facturacion_mensaje_operativo_seguro($e->getMessage()', $facturaEmitirPhp);
+    flus_assert_not_contains('urlencode($e->getMessage())', $facturaEmitirPhp);
     flus_assert_contains('$emitPreflight = flus_facturacion_preflight_emision($pdo, $configRow ?? null, [\'modo\' => $configModo]);', $facturacionConfigPhp);
     flus_assert_contains('Preflight de emision', $facturacionConfigPhp);
     flus_assert_contains('assets/css/facturacion_config.css?v=3', $facturacionConfigPhp);
@@ -4238,6 +4246,8 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     flus_assert_not_contains('facturacion_subnav', $manualPhp);
     flus_assert_not_contains('facturacion_subnav', $facturaVerPhp);
     flus_assert_contains('assets/js/facturacion_recovery.js', $recoveryPhp);
+    flus_assert_contains('flus_facturacion_mensaje_operativo_seguro($e->getMessage()', $recoveryPhp);
+    flus_assert_not_contains('urlencode($e->getMessage())', $recoveryPhp);
     flus_assert_contains('assets/css/facturacion.css?v=21', $recoveryPhp);
     flus_assert_contains('class="js-fiscal-confirm"', $recoveryPhp);
     flus_assert_contains('window.Notif.confirmar', $recoveryJs);
@@ -4246,6 +4256,8 @@ $results[] = flus_run_test('facturacion recovery tolera collations mixtas y nave
     flus_assert_not_contains('form.submit();', $recoveryJs);
     flus_assert_contains('assets/css/facturacion.css?v=21', $ncRecoveryPhp);
     flus_assert_contains('assets/js/facturacion_recovery.js?v=2', $ncRecoveryPhp);
+    flus_assert_contains('flus_facturacion_mensaje_operativo_seguro($e->getMessage()', $ncRecoveryPhp);
+    flus_assert_not_contains('urlencode($e->getMessage())', $ncRecoveryPhp);
     flus_assert_contains('class="js-fiscal-confirm"', $ncRecoveryPhp);
     flus_assert_contains('data-confirm-text="Reaplicar"', $ncRecoveryPhp);
     flus_assert_contains('data-confirm-danger="true"', $ncRecoveryPhp);
@@ -5245,6 +5257,8 @@ $results[] = flus_run_test('nc parcial soporta detalle manual legacy sin reponer
     flus_assert_contains("'source' => 'factura_manual_items'", $ncPhp);
     flus_assert_contains('detalle manual', $ncPhp);
     flus_assert_contains('if ($itemId === 0 || $cantidad <= 0) {', $ncEmitirPhp);
+    flus_assert_contains('flus_facturacion_mensaje_operativo_seguro($e->getMessage()', $ncEmitirPhp);
+    flus_assert_not_contains('urlencode($e->getMessage())', $ncEmitirPhp);
     flus_assert_contains('if ($itemId === 0 || $cantidad <= 0) {', $dtoPhp);
     flus_assert_contains('manualLegacyItemId((int)($row[\'id\'] ?? 0)) ?: null', $arcaPhp);
     flus_assert_contains('if ($ventaItemId !== 0) {', $arcaPhp);

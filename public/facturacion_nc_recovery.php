@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: facturacion_nc_recovery.php?msgerr=' . urlencode($result->errorMessage ?? 'Error desconocido.'));
         }
     } catch (Throwable $e) {
-        header('Location: facturacion_nc_recovery.php?msgerr=' . urlencode($e->getMessage()));
+        error_log('facturacion_nc_recovery: ' . $e->getMessage());
+        $errorUsuario = flus_facturacion_mensaje_operativo_seguro($e->getMessage(), 'No se pudo aplicar el recovery de NC. Revisa el caso e intenta nuevamente.');
+        header('Location: facturacion_nc_recovery.php?msgerr=' . urlencode($errorUsuario));
     }
     exit;
 }

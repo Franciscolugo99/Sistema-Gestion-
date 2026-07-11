@@ -400,6 +400,41 @@ function flus_facturacion_evento_arca_operacion_label(?string $raw): string
     };
 }
 
+function flus_facturacion_mensaje_operativo_seguro(?string $raw, string $fallback = 'No se pudo completar la operacion fiscal. Revisa la incidencia e intenta nuevamente.'): string
+{
+    $message = trim((string)$raw);
+    if ($message === '') {
+        return $fallback;
+    }
+
+    $message = preg_replace('/\s+/', ' ', $message) ?? $message;
+    $message = trim($message);
+    if ($message === '') {
+        return $fallback;
+    }
+
+    foreach ([
+        '/SQLSTATE\[/i',
+        '/\b(PDOException|mysqli_sql_exception|Fatal error|Warning|Notice|Stack trace)\b/i',
+        '/\b(Unknown column|Base table or view not found|Integrity constraint violation|Access denied for user|syntax error|Call to undefined|Cannot modify header information)\b/i',
+        '/\bUndefined (array key|index|variable)\b/i',
+        '~[A-Z]:\\\\~i',
+        '~/(?:xampp|htdocs|var/www|home)/~i',
+        '~\.php(?:\s+on\s+line|:\d+)~i',
+        '~\b(?:password|passwd|token|secret|authorization|bearer)\b\s*[:=]?~i',
+    ] as $pattern) {
+        if (preg_match($pattern, $message) === 1) {
+            return $fallback;
+        }
+    }
+
+    if (strlen($message) > 320) {
+        return $fallback;
+    }
+
+    return $message;
+}
+
 function flus_facturacion_error_es_transitorio(?string $raw): bool
 {
     $message = trim((string)$raw);
