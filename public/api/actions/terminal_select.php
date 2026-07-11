@@ -41,8 +41,6 @@ if ($requestedTerminalId <= 0) {
 
     $terminal['status'] = $locked ? 'locked' : 'free';
     $terminal['locked'] = $locked;
-    $terminal['locked_by_user_id'] = $lockUserId;
-    $terminal['locked_by_session_id'] = $lockSessionId;
     $terminal['locked_by_name'] = $lockedBy;
     $terminal['lockedBy'] = $lockedBy !== '' ? $lockedBy : ($locked ? 'Otro usuario' : '');
     $terminal['last_seen_at'] = (string)($lock['updated_at'] ?? $lock['expires_at'] ?? '');
@@ -79,7 +77,26 @@ $lockedByOther = is_array($currentLock)
     || (string)($currentLock['session_id'] ?? '') !== $sid
   );
 if ($lockedByOther) {
-  json_fail('LOCKED', 409, ['detail' => $currentLock]);
+  $lockedBy = '';
+  $lockUserId = (int)($currentLock['user_id'] ?? 0);
+  if ($lockUserId > 0) {
+    try {
+      $st = $pdo->prepare('SELECT nombre, username FROM users WHERE id = :id LIMIT 1');
+      $st->execute([':id' => $lockUserId]);
+      $lockUser = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+      $lockedBy = trim((string)($lockUser['nombre'] ?? ''));
+      if ($lockedBy === '') {
+        $lockedBy = trim((string)($lockUser['username'] ?? ''));
+      }
+    } catch (Throwable $e) {
+      $lockedBy = '';
+    }
+  }
+
+  json_fail('LOCKED', 409, [
+    'error_code' => 'TERMINAL_LOCKED',
+    'locked_by_name' => $lockedBy !== '' ? $lockedBy : 'Otro usuario',
+  ]);
 }
 
 if ($currentTid > 0 && $requestedTerminalId !== $currentTid && $uid > 0) {

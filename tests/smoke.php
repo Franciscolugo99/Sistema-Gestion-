@@ -4533,6 +4533,10 @@ $results[] = flus_run_test('terminal selection no longer acquires locks before c
     flus_assert_contains("'terminal_select' => [", $apiIndexPhp);
     flus_assert_not_contains('terminal_lock_acquire($pdo, $requestedTerminalId', $terminalSelectActionPhp);
     flus_assert_contains('terminal_lock_status($pdo, $requestedTerminalId);', $terminalSelectActionPhp);
+    flus_assert_contains("'locked_by_name' => \$lockedBy !== '' ? \$lockedBy : 'Otro usuario'", $terminalSelectActionPhp);
+    flus_assert_not_contains("\$terminal['locked_by_user_id']", $terminalSelectActionPhp);
+    flus_assert_not_contains("\$terminal['locked_by_session_id']", $terminalSelectActionPhp);
+    flus_assert_not_contains("['detail' => \$currentLock]", $terminalSelectActionPhp);
     flus_assert_contains("!empty(\$open['id']) && caja_user_can_operar_turno(\$open, \$uid)", $terminalSelectActionPhp);
     flus_assert_contains('$canHistCaja               || $canRendCajeros;', (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
     flus_assert_contains("'label' => 'Control de turnos'", (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php'));
@@ -5133,6 +5137,8 @@ $results[] = flus_run_test('terminal switch y tickets por mail endurecen validac
     flus_assert_contains("!empty(\$open['id']) && caja_user_can_operar_turno(\$open, \$uid)", $terminalSwitchPhp);
     flus_assert_contains("json_fail('CAJA_ABIERTA', 409, ['error_code' => 'CAJA_ABIERTA']);", $terminalSwitchPhp);
     flus_assert_contains("'error_code' => 'TERMINAL_LOCKED'", $terminalSwitchPhp);
+    flus_assert_contains("'locked_by_name' => \$lockedBy !== '' ? \$lockedBy : 'Otro usuario'", $terminalSwitchPhp);
+    flus_assert_not_contains("'detail' => \$currentLock", $terminalSwitchPhp);
     flus_assert_contains("'terminal_nombre' => (string)(\$terminal['nombre'] ?? ('Caja #' . \$newTid))", $terminalSwitchPhp);
 
     flus_assert_contains('function flus_mail_header_safe_value(string $value): string {', $ventasApiPhp);
