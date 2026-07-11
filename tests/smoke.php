@@ -1591,6 +1591,8 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     $rolesJs = (string)file_get_contents($jsRoot . 'roles.js');
     $permisosJs = (string)file_get_contents($jsRoot . 'rol_permisos.js');
     $clientesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'clientes.php');
+    $apiIndexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $clienteConsultarCuitPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'cliente_consultar_cuit.php');
     $proveedoresPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'proveedores.php');
     $rolesPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'roles.php');
     $permisosPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'rol_permisos.php');
@@ -1606,6 +1608,9 @@ $results[] = flus_run_test('clientes proveedores y roles confirman acciones sens
     flus_assert_contains('id="cuitError"', $clientesPhp);
     flus_assert_contains('initClientesFilters', $clientesJs);
     flus_assert_contains('setCuitFeedback', $clientesJs);
+    flus_assert_contains("'cliente_consultar_cuit' => [", $apiIndexPhp);
+    flus_assert_contains("'any_permissions' => ['editar_clientes', 'emitir_factura', 'administrar_config'],", $apiIndexPhp);
+    flus_assert_contains("require_any_perm_json(['editar_clientes', 'emitir_factura', 'administrar_config']);", $clienteConsultarCuitPhp);
     flus_assert_contains('ccPanel.classList.toggle("is-hidden"', $clientesJs);
     flus_assert_contains('.field-error.is-visible', $clientesCss);
     flus_assert_contains('.cli-cc-config.is-hidden', $clientesCss);

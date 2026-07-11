@@ -437,6 +437,7 @@ function flus_action_guard_policies(): array {
     ],
     'cliente_consultar_cuit' => [
       'methods' => ['GET'],
+      'any_permissions' => ['editar_clientes', 'emitir_factura', 'administrar_config'],
     ],
     'listar_promos_activas' => [
       'methods' => ['GET'],

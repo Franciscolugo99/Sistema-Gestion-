@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../bootstrap.php';
+require_once __DIR__ . '/../../../src/api_helpers.php';
 require_once __DIR__ . '/../../includes/AfipApi.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -14,6 +15,8 @@ if ($uid <= 0) {
     echo json_encode(['success' => false, 'error' => 'No autenticado'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+require_any_perm_json(['editar_clientes', 'emitir_factura', 'administrar_config']);
 
 $cuit = trim((string)($_GET['cuit'] ?? ''));
 if ($cuit === '') {
