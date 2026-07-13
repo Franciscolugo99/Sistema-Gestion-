@@ -12,7 +12,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## Estado de release 4.2.2 (2026-07-11)
 
-- Smoke tecnico fuente: `167 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `168 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.2`.
 - Ruta fuente local validada: `C:\xampp\htdocs\kiosco`.
@@ -21,9 +21,11 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
+- Busqueda de stock: conserva el foco y el cursor despues del filtrado automatico o al presionar Enter, facilitando teclado y lector de codigos.
 - Migraciones y baseline: versionados hasta `044_movimientos_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
 - Salida actual: `4.2.2`, pensada como corte operativo para instalador/actualizador.
+- Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
 
 ### Nota sobre ARCA y entorno simulado
 

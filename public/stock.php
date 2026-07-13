@@ -58,7 +58,7 @@ $breadcrumbs    = [
     ['label' => 'Stock', 'url' => null],
 ];
 $extraCss       = ["assets/css/stock.css", "assets/css/stock-enhanced.css?v=1"];
-$extraJs        = ["assets/js/stock.js?v=5.0"];
+$extraJs        = ["assets/js/stock.js?v=5.1"];
 
 /* ============================
    TAB ACTIVO

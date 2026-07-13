@@ -1546,6 +1546,12 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('id="searchInput"', $stockPhp);
     flus_assert_contains('id="limitSelect"', $stockPhp);
     flus_assert_contains('DEBOUNCE_SEARCH_MS', $stockJs);
+    flus_assert_contains('assets/js/stock.js?v=5.1', $stockPhp);
+    flus_assert_contains("SEARCH_FOCUS_KEY: 'flus_stock_restore_search_focus'", $stockJs);
+    flus_assert_contains("sessionStorage.setItem(this.SEARCH_FOCUS_KEY, '1')", $stockJs);
+    flus_assert_contains("if (event.key === 'Enter')", $stockJs);
+    flus_assert_contains('restoreSearchFocus()', $stockJs);
+    flus_assert_contains('searchInput.setSelectionRange(cursor, cursor)', $stockJs);
     flus_assert_contains('stock-adjust-preview', $stockPhp);
     flus_assert_contains('stock_anterior, stock_nuevo', $stockAjax);
     flus_assert_contains('renderStockFlow(stockAnteriorRaw, stockNuevoRaw)', $stockJs);
@@ -2382,6 +2388,36 @@ $results[] = flus_run_test('technical panel access stays centralized and visible
     flus_assert_contains('Operacion tecnica', $tecnicoPhp);
     flus_assert_contains('user_can_access_technical_panel', $navPhp);
 });
+
+$results[] = flus_run_test('technical panel controls pending migrations with permission csrf lock and audit', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $tecnicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
+    $migrationLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'technical_migrations_lib.php');
+    $tecnicoCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'tecnico.css');
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/technical_migrations_lib.php';", $tecnicoPhp);
+    flus_assert_contains("} elseif (\$action === 'run_migrations') {", $tecnicoPhp);
+    flus_assert_contains("require_permission('administrar_config');", $tecnicoPhp);
+    flus_assert_contains('csrf_verify($token)', $tecnicoPhp);
+    flus_assert_contains('flus_technical_run_pending_migrations(', $tecnicoPhp);
+    flus_assert_contains('id="tecnicoMigrationForm"', $tecnicoPhp);
+    flus_assert_contains('Aplicar migraciones pendientes', $tecnicoPhp);
+    flus_assert_contains('window.Notif.confirmar', $tecnicoPhp);
+    flus_assert_contains('HTMLFormElement.prototype.submit.call(migrationForm)', $tecnicoPhp);
+    flus_assert_contains("\$migrationPendingCount === 0 ? 'disabled' : ''", $tecnicoPhp);
+    flus_assert_contains('function flus_technical_migration_status(PDO $pdo, string $migrationsDir): array', $migrationLib);
+    flus_assert_contains("require_once __DIR__ . '/audit_events.php';", $migrationLib);
+    flus_assert_contains('flock($handle, LOCK_EX | LOCK_NB)', $migrationLib);
+    flus_assert_contains("fopen(\$maintenancePath, 'x')", $migrationLib);
+    flus_assert_contains('flus_apply_migrations($pdo, $migrationsDir, true)', $migrationLib);
+    flus_assert_contains('audit_event(AuditEvents::SYSTEM_CONFIG_CHANGE, AuditEntities::SYSTEM', $migrationLib);
+    flus_assert_contains('information_schema.TABLES', $migrationLib);
+    flus_assert_contains("TABLE_NAME = 'schema_migrations'", $migrationLib);
+    flus_assert_not_contains('flus_ensure_schema_migrations($pdo)', $migrationLib);
+    flus_assert_contains('.tecnico-migration-actions', $tecnicoCss);
+    flus_assert_contains("assets/css/tecnico.css?v=2", $tecnicoPhp);
+});
+
 $results[] = flus_run_test('technical panel runs smoke with lock timeout and sanitized excerpts', function (): void {
     $repoRoot = dirname(__DIR__);
     $tecnicoPath = $repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php';

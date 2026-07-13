@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- El Panel Tecnico muestra migraciones pendientes y permite aplicarlas con permiso `administrar_config`, CSRF, confirmacion, lock, mantenimiento temporal y auditoria.
+
+### Fixed
+
+- El buscador de stock recupera el foco y deja el cursor al final despues de la busqueda automatica o al presionar Enter.
+
 ---
 
 ## [4.2.2] - 2026-07-11

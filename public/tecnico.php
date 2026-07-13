@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
+require_once FLUS_ROOT . '/src/technical_migrations_lib.php';
 require_login();
 require_technical_permission();
 
@@ -602,13 +603,13 @@ function tecnico_build_check(string $label, bool $ok, string $okDetail, string $
 
 $pageTitle = 'Tecnico - FLUS';
 $currentSection = 'tecnico';
-$extraCss = ['assets/css/tecnico.css'];
+$extraCss = ['assets/css/tecnico.css?v=2'];
 $extraJs = [];
 $inlineJs = <<<'JS'
 (() => {
   const copyBtn = document.getElementById("tecnicoSmokeCopyBtn");
   const copyEl = document.getElementById("tecnicoSmokeCopyText");
-  if (!copyBtn || !copyEl) return;
+  const migrationForm = document.getElementById("tecnicoMigrationForm");
 
   const notify = (message, type = "info", ms = 2600) => {
     const text = String(message || "").trim();
@@ -638,7 +639,7 @@ $inlineJs = <<<'JS'
     }
   };
 
-  copyBtn.addEventListener("click", async () => {
+  if (copyBtn && copyEl) copyBtn.addEventListener("click", async () => {
     const text = copyEl.textContent || "";
     if (!text.trim()) {
       notify("Todavia no hay salida para copiar", "warn", 2600);
@@ -665,11 +666,41 @@ $inlineJs = <<<'JS'
       notify("No se pudo copiar el smoke", "error", 2800);
     }
   });
+
+  migrationForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (migrationForm.dataset.submitting === "1") return;
+    if (!window.Notif || typeof window.Notif.confirmar !== "function") {
+      notify("No se pudo abrir la confirmacion de seguridad", "error", 2800);
+      return;
+    }
+
+    const button = migrationForm.querySelector('button[type="submit"]');
+    const confirmed = await window.Notif.confirmar(
+      "Aplicar migraciones pendientes",
+      "FLUS activara mantenimiento mientras actualiza la base. Antes de continuar, confirma que tenes un backup reciente.",
+      {
+        icon: "warning",
+        confirmText: "Aplicar migraciones",
+        cancelText: "Cancelar",
+        useText: true,
+      }
+    );
+    if (!confirmed) return;
+
+    migrationForm.dataset.submitting = "1";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Aplicando...";
+    }
+    HTMLFormElement.prototype.submit.call(migrationForm);
+  });
 })();
 JS;
 
 $info = null;
 $error = null;
+$migrationRun = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -692,6 +723,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         : 'Pruebas rapidas ejecutadas con fallas. Revisa el extracto sanitizado.';
                 }
             }
+        } elseif ($action === 'run_migrations') {
+            require_permission('administrar_config');
+            $runError = null;
+            $migrationRun = flus_technical_run_pending_migrations(
+                $pdo,
+                FLUS_ROOT,
+                (int)(function_exists('session_user_id') ? session_user_id() : ($_SESSION['user_id'] ?? 0)),
+                $runError
+            );
+            if ($migrationRun === null) {
+                $error = $runError ?: 'No se pudieron ejecutar las migraciones pendientes.';
+            } else {
+                $appliedCount = count((array)($migrationRun['applied'] ?? []));
+                $info = $appliedCount > 0
+                    ? 'Base actualizada correctamente. Se aplicaron ' . $appliedCount . ' migracion(es).'
+                    : 'La base ya estaba actualizada. No habia migraciones pendientes.';
+            }
+        } elseif ($action !== '') {
+            $error = 'Accion tecnica no registrada.';
         }
     }
 }
@@ -706,6 +756,22 @@ $partialPages = tecnico_list_php_files(__DIR__ . '/partials');
 $publicPageCount = count($publicPages);
 $apiPageCount = tecnico_count_php_files(__DIR__ . '/api');
 $phpBinary = tecnico_detect_php_binary();
+$canManageMigrations = function_exists('user_has_permission') && user_has_permission('administrar_config');
+$migrationStatus = null;
+$migrationStatusError = null;
+try {
+    $migrationStatus = flus_technical_migration_status($pdo, FLUS_ROOT . '/migrations');
+} catch (Throwable $e) {
+    flus_log_error('technical migration status failed', [
+        'exception' => get_class($e),
+        'message' => $e->getMessage(),
+    ]);
+    $migrationStatusError = 'No se pudo consultar el estado de las migraciones.';
+}
+$migrationPendingCount = (int)($migrationStatus['pending_count'] ?? 0);
+$migrationAppliedCount = (int)($migrationStatus['applied'] ?? 0);
+$migrationTotalCount = (int)($migrationStatus['total'] ?? 0);
+$migrationChipClass = $migrationStatus === null ? 'error' : ($migrationPendingCount > 0 ? 'warning' : 'ok');
 
 $paginationPages = array_map(
     static fn(string $path): string => FLUS_ROOT . '/' . $path,
@@ -891,6 +957,20 @@ require __DIR__ . '/partials/header.php';
       </div>
       <div class="stat-note">Chequeos de saneamiento activos en el repo.</div>
     </div>
+
+    <div class="tecnico-card stat-card">
+      <div class="stat-label">Migraciones</div>
+      <div class="stat-value <?= $migrationChipClass === 'ok' ? 'ok' : ($migrationChipClass === 'error' ? 'error' : '') ?>">
+        <?php if ($migrationStatus === null): ?>
+          Sin datos
+        <?php elseif ($migrationPendingCount > 0): ?>
+          <?= $migrationPendingCount ?> pendiente(s)
+        <?php else: ?>
+          Al dia
+        <?php endif; ?>
+      </div>
+      <div class="stat-note"><?= $migrationAppliedCount ?>/<?= $migrationTotalCount ?> archivos registrados.</div>
+    </div>
   </div>
 
   <div class="tecnico-grid">
@@ -913,6 +993,59 @@ require __DIR__ . '/partials/header.php';
           </article>
         <?php endforeach; ?>
       </div>
+    </section>
+
+    <section class="tecnico-card">
+      <div class="section-head">
+        <h2>Migraciones de base</h2>
+        <span class="chip <?= $migrationChipClass ?>">
+          <?= $migrationStatus === null ? 'No disponible' : ($migrationPendingCount > 0 ? 'Pendientes' : 'Actualizada') ?>
+        </span>
+      </div>
+
+      <?php if ($migrationStatusError !== null): ?>
+        <p class="tecnico-copy tecnico-copy--error"><?= tecnico_h($migrationStatusError) ?></p>
+      <?php else: ?>
+        <div class="meta-grid tecnico-migration-meta">
+          <div><strong>Registradas:</strong> <?= $migrationAppliedCount ?>/<?= $migrationTotalCount ?></div>
+          <div><strong>Ultima disponible:</strong> <?= tecnico_h((string)($migrationStatus['latest'] ?? '-')) ?></div>
+        </div>
+
+        <?php if ($migrationPendingCount > 0): ?>
+          <p class="tecnico-copy">Hay actualizaciones de estructura pendientes. Se aplican en orden y cada archivo se registra una sola vez.</p>
+          <ul class="tecnico-migration-list" aria-label="Migraciones pendientes">
+            <?php foreach (array_slice((array)$migrationStatus['pending'], 0, 6) as $pendingMigration): ?>
+              <li><code><?= tecnico_h((string)$pendingMigration) ?></code></li>
+            <?php endforeach; ?>
+            <?php if ($migrationPendingCount > 6): ?>
+              <li>y <?= $migrationPendingCount - 6 ?> mas</li>
+            <?php endif; ?>
+          </ul>
+        <?php else: ?>
+          <p class="tecnico-copy">La base coincide con todas las migraciones incluidas en esta version.</p>
+        <?php endif; ?>
+
+        <?php if (!empty($migrationStatus['checksum_warnings'])): ?>
+          <p class="tecnico-copy tecnico-copy--warning">Hay migraciones historicas cuyo archivo cambio despues de aplicarse. No se volveran a ejecutar automaticamente.</p>
+        <?php endif; ?>
+
+        <div class="tecnico-migration-actions">
+          <?php if ($canManageMigrations): ?>
+            <form method="post" id="tecnicoMigrationForm" class="inline-form">
+              <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
+              <input type="hidden" name="accion" value="run_migrations">
+              <button class="btn btn-primary" type="submit" <?= $migrationPendingCount === 0 ? 'disabled' : '' ?>>
+                <?= $migrationPendingCount > 0 ? 'Aplicar migraciones pendientes' : 'Base actualizada' ?>
+              </button>
+            </form>
+          <?php else: ?>
+            <span class="tecnico-copy-hint">Necesitas permiso para administrar la configuracion.</span>
+          <?php endif; ?>
+          <?php if (function_exists('user_has_permission') && user_has_permission('gestionar_backups')): ?>
+            <a href="backups.php" class="btn btn-ghost">Revisar backups</a>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
     </section>
 
     <section class="tecnico-card">

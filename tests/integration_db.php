@@ -32,6 +32,7 @@ if (!extension_loaded('pdo_mysql')) {
 }
 
 require_once $root . '/src/migrations_runner.php';
+require_once $root . '/src/technical_migrations_lib.php';
 require_once $root . '/src/facturacion_lib.php';
 require_once $root . '/src/venta_anulaciones_lib.php';
 require_once $root . '/src/Fiscal/bootstrap.php';
@@ -1805,6 +1806,35 @@ try {
         ->fetchColumn();
 
     flus_it_assert($latest === '044_movimientos_request_uid_idempotencia.sql', 'latest migration is 044');
+
+    $technicalMigrationStatus = flus_technical_migration_status($pdo, $root . '/migrations');
+    flus_it_assert((int)$technicalMigrationStatus['pending_count'] === 0, 'technical migration status reports clean schema');
+    flus_it_assert((string)$technicalMigrationStatus['latest'] === '044_movimientos_request_uid_idempotencia.sql', 'technical migration status reports latest file');
+
+    $pdo->exec("DELETE FROM schema_migrations WHERE filename = '044_movimientos_request_uid_idempotencia.sql'");
+    $technicalMigrationPending = flus_technical_migration_status($pdo, $root . '/migrations');
+    flus_it_assert(
+        $technicalMigrationPending['pending'] === ['044_movimientos_request_uid_idempotencia.sql'],
+        'technical migration status detects missing tracking row'
+    );
+    $technicalMigrationError = null;
+    $technicalMigrationApply = flus_technical_run_pending_migrations($pdo, $root, 1, $technicalMigrationError);
+    flus_it_assert(
+        $technicalMigrationApply !== null
+        && $technicalMigrationError === null
+        && count($technicalMigrationApply['applied']) === 1
+        && (string)($technicalMigrationApply['applied'][0] ?? '') === '044_movimientos_request_uid_idempotencia.sql',
+        'technical migration action applies only pending file'
+    );
+    flus_it_assert(!is_file($root . '/storage/maintenance.flag'), 'technical migration action clears maintenance flag');
+    flus_it_assert(
+        (int)$pdo->query("SELECT COUNT(*) FROM audit_log WHERE action = 'SYSTEM_CONFIG_CHANGE'")->fetchColumn() >= 1,
+        'technical migration action writes audit event'
+    );
+    flus_it_assert(
+        (int)flus_technical_migration_status($pdo, $root . '/migrations')['pending_count'] === 0,
+        'technical migration status returns clean after apply'
+    );
 
     $pdo->exec('ALTER TABLE `caja_movimientos` DROP INDEX `ux_caja_movimientos_request_uid`, DROP COLUMN `request_uid`');
     $pdo->exec('ALTER TABLE `movimientos_stock` DROP INDEX `ux_movimientos_stock_request_uid`, DROP COLUMN `request_uid`');
