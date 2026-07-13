@@ -53,6 +53,22 @@ function caja_get_abierta(PDO $pdo, int $terminalId): ?array {
   return $row ?: null;
 }
 
+function caja_session_is_open($fechaCierre): bool {
+  $value = (string)($fechaCierre ?? '');
+  return $value === '' || $value === '0000-00-00 00:00:00';
+}
+
+function caja_lock_session_for_update(PDO $pdo, int $cajaId): ?array {
+  if ($cajaId <= 0 || !$pdo->inTransaction()) {
+    return null;
+  }
+
+  $st = $pdo->prepare("\n    SELECT cs.*, u.username\n    FROM caja_sesiones cs\n    JOIN users u ON u.id = cs.user_id\n    WHERE cs.id = :id\n    LIMIT 1\n    FOR UPDATE\n  ");
+  $st->execute([':id' => $cajaId]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  return $row ?: null;
+}
+
 /**
  * Abre una nueva sesión de caja.
  */

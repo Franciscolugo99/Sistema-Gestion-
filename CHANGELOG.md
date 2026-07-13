@@ -2,17 +2,44 @@
 
 ## [Unreleased]
 
+---
+
+## [4.2.2] - 2026-07-11
+
+### Added
+
+- Documentacion y corte de instalador para upgrade controlado desde 4.2.0/4.2.1.
+- Cobertura del orden de busqueda de stock con prioridad para productos activos.
+
 ### Changed
 
+- El instalador repara el stack portable de PHP/Apache para OpenSSL y conserva la base configurada durante upgrades.
+- Licencias, sesiones, terminales, consultas fiscales y errores operativos exponen menos informacion sensible.
+- La pantalla de licencia sigue accesible en modo bloqueado para diagnostico y renovacion.
+- El buscador de stock mantiene el codigo exacto como primera coincidencia y deja registros inactivos al final.
+- `src/version.php` actualizado a `4.2.2` build `2026-07-11`.
 - Se agrega el ritual documentado de trabajo entre dos maquinas usando GitHub como fuente de verdad.
 - Se agrega checklist de piloto controlado para instalacion limpia y operacion real de kiosco/comercio.
 - Ventas e inventario de analisis dejan de depender obligatoriamente del CDN de Chart.js y usan el asset local versionado.
 - Caja mueve el alta de movimientos operativos a un modal, sin salir del flujo de venta y sin mostrar KPIs sensibles al cajero.
 - Movimientos de caja suma respuestas JSON, proteccion contra doble envio por `request_uid` y control de historial solo para usuarios con permiso de supervision.
+- Ventas, movimientos de caja y cierre de turno se serializan sobre la sesion de caja para evitar escrituras durante el cierre.
+- Movimientos manuales de caja y ajustes de stock usan idempotencia persistente respaldada por indices unicos.
+- El acceso web desde la raiz redirige a `public/` y bloquea metadatos Git, tests, migraciones y documentacion interna.
+
+### Fixed
+
+- Se evita que productos inactivos con stock cero aparezcan antes que productos activos con el mismo nombre.
+- Se endurece la deteccion de base del actualizador para instalaciones que usan nombres legacy como `kiosco` o `flus_db`.
+- Se corrigen mensajes internos de API, facturacion y terminales que podian filtrar detalles tecnicos.
+- Se evita que reintentos del navegador dupliquen movimientos de caja o ajustes de stock.
+- Se evita que una venta confirme totales sobre una caja que acaba de cerrarse.
 
 ### Validation
 
-- PHP lint, JavaScript syntax check, smoke `162/162 OK` y `git diff --check` para los bloques de UI operativa y consolidacion documental.
+- PHP lint en archivos modificados y smoke fuente `167/167 OK`.
+- JavaScript syntax check y `git diff --check` para los bloques de UI operativa y consolidacion documental.
+- Upgrade requerido sobre instalacion local 4.2.0 antes de distribuir.
 
 ---
 

@@ -45,6 +45,47 @@ function col_exists(PDO $pdo, string $table, string $column): bool
     return false;
 }
 
+final class FlusCajaCierreValidationException extends RuntimeException {}
+
+function caja_cierre_recalcular_criticos(
+  PDO $pdo,
+  array $caja,
+  int $cajaId,
+  string $anulacionesJoinVentas,
+  string $importeVigenteExpr,
+  string $anulacionesItemsJoin,
+  string $cantidadVigenteExpr,
+  string $whereMovEfectivo
+): array {
+  $st = $pdo->prepare("\n    SELECT COALESCE(SUM($importeVigenteExpr), 0)\n    FROM ventas v\n    $anulacionesJoinVentas\n    WHERE v.caja_id = ?\n      AND (v.estado IS NULL OR v.estado <> 'ANULADA')\n  ");
+  $st->execute([$cajaId]);
+  $totalVentas = (float)($st->fetchColumn() ?: 0);
+
+  $st = $pdo->prepare("\n    SELECT COALESCE(SUM($cantidadVigenteExpr), 0)\n    FROM ventas v\n    JOIN venta_items vi ON vi.venta_id = v.id\n    $anulacionesItemsJoin\n    WHERE v.caja_id = ?\n      AND (v.estado IS NULL OR v.estado <> 'ANULADA')\n  ");
+  $st->execute([$cajaId]);
+  $itemsVendidos = (float)($st->fetchColumn() ?: 0);
+
+  $st = $pdo->prepare("\n    SELECT COUNT(*)\n    FROM ventas\n    WHERE caja_id = ?\n      AND estado IS NOT NULL\n      AND UPPER(estado) LIKE '%ANUL%'\n  ");
+  $st->execute([$cajaId]);
+  $totalAnulaciones = (int)($st->fetchColumn() ?: 0);
+
+  $st = $pdo->prepare("\n    SELECT\n      COALESCE(SUM(CASE WHEN UPPER(tipo) = 'INGRESO' THEN monto ELSE 0 END), 0) AS ingresos,\n      COALESCE(SUM(CASE WHEN UPPER(tipo) = 'EGRESO' THEN monto ELSE 0 END), 0) AS egresos\n    FROM caja_movimientos\n    WHERE {$whereMovEfectivo}\n  ");
+  $st->execute([$cajaId]);
+  $movimientos = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+
+  $saldoInicial = (float)($caja['saldo_inicial'] ?? 0);
+  $totalEfectivo = (float)($caja['total_efectivo'] ?? 0);
+  $ingresos = (float)($movimientos['ingresos'] ?? 0);
+  $egresos = (float)($movimientos['egresos'] ?? 0);
+
+  return [
+    'saldo_sistema' => $saldoInicial + $totalEfectivo + $ingresos - $egresos,
+    'total_ventas' => $totalVentas,
+    'total_productos' => $itemsVendidos,
+    'total_anulaciones' => $totalAnulaciones,
+  ];
+}
+
 
 $terminalId = (int)($_SESSION['terminal_id'] ?? current_terminal_id());
 
@@ -273,24 +314,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errores[] = 'El saldo declarado no puede ser negativo.';
       } else {
 
-        $diferencia = $saldoDeclarado - $saldoSistema;
-        $requiereNotaControl = abs($diferencia) > 0.009 || $cierrePorSupervisor || $motivoCierre === 'CIERRE_FORZADO';
+        $pdo->beginTransaction();
+        try {
+          $cajaBloqueada = caja_lock_session_for_update($pdo, $cajaId);
+          if (!$cajaBloqueada || !caja_session_is_open($cajaBloqueada['fecha_cierre'] ?? null)) {
+            throw new FlusCajaCierreValidationException('No se pudo cerrar la caja: ya estaba cerrada.');
+          }
 
-        if ($requiereNotaControl && mb_strlen($notas) < 8) {
-          $sentidoDiferencia = $diferencia < -0.009 ? 'faltan' : 'sobran';
-          $errores[] = 'Hay una diferencia: ' . $sentidoDiferencia . ' ' . money_ar(abs($diferencia)) . '. Podes cerrar igual, pero escribi una observacion breve para dejar registro.';
-        } else {
+          $criticos = caja_cierre_recalcular_criticos(
+            $pdo,
+            $cajaBloqueada,
+            $cajaId,
+            $anulacionesJoinVentas,
+            $importeVigenteExpr,
+            $anulacionesItemsJoin,
+            $cantidadVigenteExpr,
+            $whereMovEfectivo
+          );
+          $saldoSistema = (float)$criticos['saldo_sistema'];
+          $totalVentas = (float)$criticos['total_ventas'];
+          $itemsVendidos = (float)$criticos['total_productos'];
+          $totalAnulaciones = (int)$criticos['total_anulaciones'];
+          $diferencia = $saldoDeclarado - $saldoSistema;
 
-          $pdo->beginTransaction();
-          try {
-          $stLock = $pdo->prepare("SELECT fecha_cierre FROM caja_sesiones WHERE id = ? FOR UPDATE");
-          $stLock->execute([$cajaId]);
-          $fechaCierreActual = $stLock->fetchColumn();
-
-          if (!caja_is_open($fechaCierreActual)) {
-            $pdo->rollBack();
-            $errores[] = 'No se pudo cerrar la caja: ya estaba cerrada.';
-          } else {
+          $requiereNotaControl = abs($diferencia) > 0.009 || $cierrePorSupervisor || $motivoCierre === 'CIERRE_FORZADO';
+          if ($requiereNotaControl && mb_strlen($notas) < 8) {
+            $sentidoDiferencia = $diferencia < -0.009 ? 'faltan' : 'sobran';
+            throw new FlusCajaCierreValidationException(
+              'Hay una diferencia: ' . $sentidoDiferencia . ' ' . money_ar(abs($diferencia))
+              . '. Podes cerrar igual, pero escribi una observacion breve para dejar registro.'
+            );
+          }
 
             // ═══════════════════════════════════════════════════════════════
             // UPDATE DE CIERRE
@@ -348,12 +402,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               header('Location: caja.php?ok=' . urlencode('Caja cerrada correctamente.'));
               exit;
             }
-          }
+        } catch (FlusCajaCierreValidationException $e) {
+          if ($pdo->inTransaction()) $pdo->rollBack();
+          $errores[] = $e->getMessage();
         } catch (Throwable $e) {
           if ($pdo->inTransaction()) $pdo->rollBack();
-          $errores[] = 'Error al cerrar caja: ' . $e->getMessage();
+          error_log('caja_cerrar.php error: ' . $e->getMessage());
+          $errores[] = 'No se pudo cerrar la caja. Recarga la pagina e intenta de nuevo.';
         }
-      }
     }
   }
 }

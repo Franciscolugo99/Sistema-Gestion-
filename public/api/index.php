@@ -78,9 +78,12 @@ function update_caja_venta_totales(PDO $pdo, int $cajaId, float $importe, float 
 
   if (!$sets) return;
 
-  $sql = "UPDATE caja_sesiones SET " . implode(", ", $sets) . " WHERE id = :id";
+  $sql = "UPDATE caja_sesiones SET " . implode(", ", $sets) . "\n          WHERE id = :id\n            AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')";
   $st = $pdo->prepare($sql);
   $st->execute($params);
+  if ($st->rowCount() !== 1) {
+    throw new RuntimeException('La caja se cerro antes de actualizar los totales de la venta.');
+  }
 }
 
 // ? FIX: delta por medio nunca puede quedar negativo
@@ -134,9 +137,13 @@ function update_caja_medio_delta(PDO $pdo, int $cajaId, string $medio, float $de
 
   $sql = "UPDATE caja_sesiones
           SET {$campo} = GREATEST(COALESCE({$campo},0) + :d, 0)
-          WHERE id = :id";
+          WHERE id = :id
+            AND (fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00')";
   $st = $pdo->prepare($sql);
   $st->execute([':d' => $delta, ':id' => $cajaId]);
+  if ($st->rowCount() !== 1) {
+    throw new RuntimeException('La caja se cerro antes de actualizar el medio de pago.');
+  }
 }
 
 // ------------------ DESCUENTO GLOBAL ------------------

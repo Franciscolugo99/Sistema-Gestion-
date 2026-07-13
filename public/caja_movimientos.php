@@ -23,6 +23,29 @@ function caja_movimiento_json_response(bool $ok, string $message, int $status = 
   exit;
 }
 
+final class FlusCajaMovimientoException extends RuntimeException {
+  public function __construct(string $message, public readonly int $status = 409) {
+    parent::__construct($message);
+  }
+}
+
+function caja_movimiento_idempotency_ready(PDO $pdo): bool {
+  if (!function_exists('flus_column_exists') || !flus_column_exists($pdo, 'caja_movimientos', 'request_uid')) {
+    return false;
+  }
+
+  $st = $pdo->query("\n    SELECT INDEX_NAME\n    FROM information_schema.STATISTICS\n    WHERE TABLE_SCHEMA = DATABASE()\n      AND TABLE_NAME = 'caja_movimientos'\n      AND NON_UNIQUE = 0\n    GROUP BY INDEX_NAME\n    HAVING COUNT(*) = 1\n       AND SUM(CASE WHEN COLUMN_NAME = 'request_uid' THEN 1 ELSE 0 END) = 1\n    LIMIT 1\n  ");
+  return $st ? (bool)$st->fetchColumn() : false;
+}
+
+function caja_movimiento_find_by_request_uid(PDO $pdo, string $requestUid): ?array {
+  if ($requestUid === '') return null;
+  $st = $pdo->prepare('SELECT id, caja_id FROM caja_movimientos WHERE request_uid = ? LIMIT 1');
+  $st->execute([$requestUid]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  return $row ?: null;
+}
+
 if (!function_exists('format_datetime_ar')) {
   function format_datetime_ar(?string $dt): string {
     if (!$dt || $dt === '0000-00-00 00:00:00') return '-';
@@ -75,7 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $monto = parse_money_ar($_POST['monto'] ?? '');
     $requestUid = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_POST['request_uid'] ?? ''));
     $requestUid = mb_substr($requestUid, 0, 80);
-    $requestKey = $requestUid !== '' ? ($cajaId . ':' . $userId . ':' . $requestUid) : '';
 
     if ($concepto === '') {
       $error = 'Ingresa un concepto.';
@@ -83,57 +105,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($monto <= 0) {
       $error = 'Monto invalido. Debe ser mayor a 0.';
       if ($wantsJson) caja_movimiento_json_response(false, $error, 422);
+    } elseif (strlen($requestUid) < 8) {
+      $error = 'Identificador de solicitud invalido. Recarga e intenta de nuevo.';
+      if ($wantsJson) caja_movimiento_json_response(false, $error, 422);
+    } elseif (!caja_movimiento_idempotency_ready($pdo)) {
+      $error = 'Falta aplicar la migracion de idempotencia de movimientos.';
+      if ($wantsJson) caja_movimiento_json_response(false, $error, 409, ['error_code' => 'CAJA_MOVIMIENTO_IDEMPOTENCIA_NO_DISPONIBLE']);
     } else {
       try {
-        if ($requestKey !== '') {
-          $seen = $_SESSION['caja_movimiento_request_uids'] ?? [];
-          if (is_array($seen) && isset($seen[$requestKey])) {
+        $existing = caja_movimiento_find_by_request_uid($pdo, $requestUid);
+        if ($existing !== null) {
+          if ($wantsJson) {
+            caja_movimiento_json_response(true, 'Movimiento registrado.', 200, [
+              'duplicate' => true,
+              'id' => (int)$existing['id'],
+            ]);
+          }
+          header('Location: caja.php?ok=' . urlencode('Movimiento registrado.'));
+          exit;
+        }
+
+        $pdo->beginTransaction();
+        $cajaBloqueada = caja_lock_session_for_update($pdo, $cajaId);
+        if (!$cajaBloqueada || !caja_session_is_open($cajaBloqueada['fecha_cierre'] ?? null)) {
+          throw new FlusCajaMovimientoException('La caja ya esta cerrada. No podes cargar movimientos.', 409);
+        }
+        if (!caja_user_can_operar_turno($cajaBloqueada, $userId)) {
+          throw new FlusCajaMovimientoException('El turno de caja ya no pertenece a este usuario.', 403);
+        }
+
+        $st = $pdo->prepare("
+            INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, request_uid)
+            VALUES (:caja_id, :tipo, :concepto, :monto, :usr, :request_uid)
+        ");
+        $st->execute([
+          ':caja_id' => $cajaId,
+          ':tipo' => $tipo,
+          ':concepto' => $concepto,
+          ':monto' => $monto,
+          ':usr' => mb_substr($username, 0, 100),
+          ':request_uid' => $requestUid,
+        ]);
+        $movimientoId = (int)$pdo->lastInsertId();
+        $pdo->commit();
+
+        if ($wantsJson) {
+          caja_movimiento_json_response(true, 'Movimiento registrado.', 200, ['id' => $movimientoId]);
+        }
+        header('Location: caja.php?ok=' . urlencode('Movimiento registrado.'));
+        exit;
+      } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ((int)($e->errorInfo[1] ?? 0) === 1062) {
+          $existing = caja_movimiento_find_by_request_uid($pdo, $requestUid);
+          if ($existing !== null) {
             if ($wantsJson) {
-              caja_movimiento_json_response(true, 'Movimiento registrado.', 200, ['duplicate' => true]);
+              caja_movimiento_json_response(true, 'Movimiento registrado.', 200, [
+                'duplicate' => true,
+                'id' => (int)$existing['id'],
+              ]);
             }
             header('Location: caja.php?ok=' . urlencode('Movimiento registrado.'));
             exit;
           }
         }
-
-        $lock = $pdo->prepare("SELECT fecha_cierre FROM caja_sesiones WHERE id = ? LIMIT 1");
-        $lock->execute([$cajaId]);
-        $fc = (string)($lock->fetchColumn() ?? '');
-
-        if ($fc !== '' && $fc !== '0000-00-00 00:00:00') {
-          $error = 'La caja ya esta cerrada. No podes cargar movimientos.';
-          if ($wantsJson) caja_movimiento_json_response(false, $error, 409);
-        } else {
-          $st = $pdo->prepare("
-            INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro)
-            VALUES (:caja_id, :tipo, :concepto, :monto, :usr)
-          ");
-          $st->execute([
-            ':caja_id'  => $cajaId,
-            ':tipo'     => $tipo,
-            ':concepto' => $concepto,
-            ':monto'    => $monto,
-            ':usr'      => mb_substr($username, 0, 100),
-          ]);
-
-          if ($requestKey !== '') {
-            $seen = $_SESSION['caja_movimiento_request_uids'] ?? [];
-            if (!is_array($seen)) $seen = [];
-            $seen[$requestKey] = time();
-            if (count($seen) > 40) {
-              asort($seen);
-              $seen = array_slice($seen, -40, null, true);
-            }
-            $_SESSION['caja_movimiento_request_uids'] = $seen;
-          }
-
-          if ($wantsJson) {
-            caja_movimiento_json_response(true, 'Movimiento registrado.', 200, ['id' => (int)$pdo->lastInsertId()]);
-          }
-          header('Location: caja.php?ok=' . urlencode('Movimiento registrado.'));
-          exit;
-        }
+        error_log('caja_movimiento.php error: ' . $e->getMessage());
+        $error = 'No se pudo registrar el movimiento.';
+        if ($wantsJson) caja_movimiento_json_response(false, $error, 500);
+      } catch (FlusCajaMovimientoException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $error = $e->getMessage();
+        if ($wantsJson) caja_movimiento_json_response(false, $error, $e->status);
       } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('caja_movimiento.php error: ' . $e->getMessage());
         $error = 'No se pudo registrar el movimiento.';
         if ($wantsJson) caja_movimiento_json_response(false, $error, 500);

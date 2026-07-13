@@ -49,49 +49,6 @@ function calcular_sugerido(float $stock, float $stock_minimo, bool $es_pesable):
    FUNCIÓN: Paginación numérica (consistente con ventas)
 ============================ */
 
-function stock_search_order_sql(string $buscar): array {
-    $buscar = trim($buscar);
-    if ($buscar === '') {
-        return [
-            'sql' => "ORDER BY
-                CASE
-                    WHEN stock <= 0 THEN 1
-                    WHEN stock <= stock_minimo THEN 2
-                    ELSE 3
-                END,
-                nombre ASC",
-            'params' => [],
-        ];
-    }
-
-    return [
-        'sql' => "ORDER BY
-            CASE
-                WHEN codigo = :order_codigo_exact THEN 0
-                WHEN codigo LIKE :order_codigo_prefix THEN 1
-                WHEN nombre LIKE :order_nombre THEN 2
-                WHEN categoria LIKE :order_categoria THEN 3
-                WHEN marca LIKE :order_marca THEN 4
-                WHEN proveedor LIKE :order_proveedor THEN 5
-                ELSE 6
-            END,
-            CASE
-                WHEN stock <= 0 THEN 1
-                WHEN stock <= stock_minimo THEN 2
-                ELSE 3
-            END,
-            nombre ASC",
-        'params' => [
-            ':order_codigo_exact' => $buscar,
-            ':order_codigo_prefix' => $buscar . '%',
-            ':order_nombre' => '%' . $buscar . '%',
-            ':order_categoria' => '%' . $buscar . '%',
-            ':order_marca' => '%' . $buscar . '%',
-            ':order_proveedor' => '%' . $buscar . '%',
-        ],
-    ];
-}
-
 /* ============================
    CONFIG PÁGINA
 ============================ */
@@ -210,7 +167,7 @@ if ($tab === 'alertas') {
 }
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
-$orderSpec = stock_search_order_sql($buscar);
+$orderSpec = flus_stock_search_order_sql($buscar);
 $orderSql = $orderSpec['sql'];
 $orderParams = $orderSpec['params'];
 

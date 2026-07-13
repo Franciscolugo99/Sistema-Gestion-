@@ -6,10 +6,13 @@ AddDefaultCharset UTF-8
   RewriteEngine On
 
   # Bloqueo directo de carpetas sensibles si el proyecto se expone desde la raíz
-  RewriteRule ^(?:src|storage|scripts|views)(?:/|$) - [F,L]
+  RewriteRule ^(?:\.git|\.agents|\.codex|\.codex_worktrees|src|storage|scripts|views|tests|migrations|docs|vendor|node_modules)(?:/|$) - [F,L,NC]
 
   # ✅ Evitar loops: si ya estás pidiendo /public/... NO reescribas
   RewriteRule ^public(?:/|$) - [L]
+
+  # La raiz del proyecto es un directorio real, pero debe entrar por public/.
+  RewriteRule ^$ public/ [L]
 
   # Si existe archivo/carpeta real en /kiosco, servilo
   RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -22,5 +25,9 @@ AddDefaultCharset UTF-8
 
 # Bloqueo de archivos sensibles por extensión
 <FilesMatch "(?i)\.(sql|sqlite|sqlite3|bak|zip|rar|7z|env|log|ini)$">
+  Require all denied
+</FilesMatch>
+
+<FilesMatch "(?i)^(AGENTS|README|CHANGELOG|PRODUCT|DESIGN)(\.[^.]+)?$">
   Require all denied
 </FilesMatch>

@@ -1804,7 +1804,16 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '043_ventas_request_uid_idempotencia.sql', 'latest migration is 043');
+    flus_it_assert($latest === '044_movimientos_request_uid_idempotencia.sql', 'latest migration is 044');
+
+    $pdo->exec('ALTER TABLE `caja_movimientos` DROP INDEX `ux_caja_movimientos_request_uid`, DROP COLUMN `request_uid`');
+    $pdo->exec('ALTER TABLE `movimientos_stock` DROP INDEX `ux_movimientos_stock_request_uid`, DROP COLUMN `request_uid`');
+    flus_exec_sql_file($pdo, $root . '/migrations/044_movimientos_request_uid_idempotencia.sql');
+    flus_it_assert(flus_it_table_has_column($pdo, 'caja_movimientos', 'request_uid'), 'migration 044 restores caja_movimientos.request_uid');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'caja_movimientos', 'request_uid'), 'migration 044 restores caja movement idempotency index');
+    flus_it_assert(flus_it_table_has_column($pdo, 'movimientos_stock', 'request_uid'), 'migration 044 restores movimientos_stock.request_uid');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'movimientos_stock', 'request_uid'), 'migration 044 restores stock movement idempotency index');
+
     $pdo->exec('DROP TRIGGER IF EXISTS `before_insert_movimiento_stock`');
     $pdo->exec('ALTER TABLE `movimientos_stock` DROP COLUMN `stock_anterior`, DROP COLUMN `stock_nuevo`');
     flus_exec_sql_file($pdo, $root . '/migrations/040_movimientos_stock_snapshots_compat.sql');
@@ -1824,6 +1833,10 @@ try {
     flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'ajuste_precio_redondeo_total'), 'ventas.ajuste_precio_redondeo_total exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'ventas', 'request_uid'), 'ventas.request_uid exists');
     flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'ventas', 'request_uid'), 'ventas.request_uid has unique idempotency index');
+    flus_it_assert(flus_it_table_has_column($pdo, 'caja_movimientos', 'request_uid'), 'caja_movimientos.request_uid exists');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'caja_movimientos', 'request_uid'), 'caja_movimientos.request_uid has unique idempotency index');
+    flus_it_assert(flus_it_table_has_column($pdo, 'movimientos_stock', 'request_uid'), 'movimientos_stock.request_uid exists');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'movimientos_stock', 'request_uid'), 'movimientos_stock.request_uid has unique idempotency index');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'precio_unit_base'), 'venta_items.precio_unit_base exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_tipo'), 'venta_items.ajuste_precio_tipo exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_regla_unit_monto'), 'venta_items.ajuste_precio_regla_unit_monto exists');
@@ -1844,6 +1857,33 @@ try {
         (int)($posSale['caja_id'] ?? 0) === 1,
         'first cash session from a clean install uses id 1'
     );
+
+    $cajaRequestUid = 'it-caja-movement-request-uid';
+    $stmt = $pdo->prepare("INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, request_uid) VALUES (?, 'ingreso', 'Prueba idempotencia', 10.00, 'integration', ?)");
+    $stmt->execute([(int)$posSale['caja_id'], $cajaRequestUid]);
+    $cajaDuplicateBlocked = false;
+    try {
+        $stmt->execute([(int)$posSale['caja_id'], $cajaRequestUid]);
+    } catch (PDOException $e) {
+        $cajaDuplicateBlocked = (int)($e->errorInfo[1] ?? 0) === 1062;
+    }
+    flus_it_assert($cajaDuplicateBlocked, 'caja movement request_uid rejects duplicate writes');
+    $stmt = $pdo->prepare('DELETE FROM caja_movimientos WHERE request_uid = ?');
+    $stmt->execute([$cajaRequestUid]);
+
+    $stockRequestUid = 'it-stock-movement-request-uid';
+    $stmt = $pdo->prepare("INSERT INTO movimientos_stock (producto_id, tipo, cantidad, comentario, usuario_id, request_uid) VALUES (?, 'AJUSTE_POSITIVO', 1.000, 'Prueba idempotencia', 1, ?)");
+    $stmt->execute([(int)$posSale['producto_id'], $stockRequestUid]);
+    $stockDuplicateBlocked = false;
+    try {
+        $stmt->execute([(int)$posSale['producto_id'], $stockRequestUid]);
+    } catch (PDOException $e) {
+        $stockDuplicateBlocked = (int)($e->errorInfo[1] ?? 0) === 1062;
+    }
+    flus_it_assert($stockDuplicateBlocked, 'stock movement request_uid rejects duplicate writes');
+    $stmt = $pdo->prepare('DELETE FROM movimientos_stock WHERE request_uid = ?');
+    $stmt->execute([$stockRequestUid]);
+
     $fiscalCase = flus_it_run_non_remote_fiscal_case($pdo, (int)$posSale['venta_id']);
     flus_it_run_non_remote_nc_total_case($pdo, $fiscalCase);
 

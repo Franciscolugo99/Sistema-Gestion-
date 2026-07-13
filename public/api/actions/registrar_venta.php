@@ -47,6 +47,14 @@ if (!caja_user_can_operar_turno($caja, $userId)) {
 try {
   $pdo->beginTransaction();
 
+  $cajaBloqueada = caja_lock_session_for_update($pdo, $cajaId);
+  if (!$cajaBloqueada || !caja_session_is_open($cajaBloqueada['fecha_cierre'] ?? null)) {
+    flus_venta_fail('La caja fue cerrada antes de completar la venta.', 'CAJA_CERRADA', 409);
+  }
+  if (!caja_user_can_operar_turno($cajaBloqueada, $userId)) {
+    flus_venta_fail('El turno de caja ya no pertenece a este usuario.', 'CAJA_TURNO_AJENO', 409);
+  }
+
   $snapshot = flus_venta_build_items_snapshot($pdo, $items, $puedeCambiarPrecio, $descGlobalReq, $userId);
   $srvItems = $snapshot['srv_items'];
   $calc = $snapshot['calc'];

@@ -40,45 +40,53 @@ function stock_adjust_request_id(): string {
     return preg_match('/^[A-Za-z0-9._:-]{8,80}$/', $requestId) ? $requestId : '';
 }
 
-function stock_adjust_idempotency_key(int $userId, string $requestId): string {
-    return $userId . ':' . $requestId;
+function stock_adjust_idempotency_ready(PDO $pdo): bool {
+    if (!function_exists('flus_column_exists') || !flus_column_exists($pdo, 'movimientos_stock', 'request_uid')) {
+        return false;
+    }
+
+    $st = $pdo->query("\n        SELECT INDEX_NAME\n        FROM information_schema.STATISTICS\n        WHERE TABLE_SCHEMA = DATABASE()\n          AND TABLE_NAME = 'movimientos_stock'\n          AND NON_UNIQUE = 0\n        GROUP BY INDEX_NAME\n        HAVING COUNT(*) = 1\n           AND SUM(CASE WHEN COLUMN_NAME = 'request_uid' THEN 1 ELSE 0 END) = 1\n        LIMIT 1\n    ");
+    return $st ? (bool)$st->fetchColumn() : false;
 }
 
-function stock_adjust_cache_cleanup(): void {
-    if (!isset($_SESSION['stock_adjust_idempotency']) || !is_array($_SESSION['stock_adjust_idempotency'])) {
-        $_SESSION['stock_adjust_idempotency'] = [];
-        return;
-    }
-
-    $now = time();
-    foreach ($_SESSION['stock_adjust_idempotency'] as $key => $entry) {
-        $createdAt = (int)($entry['created_at'] ?? 0);
-        if ($createdAt <= 0 || ($now - $createdAt) > 3600) {
-            unset($_SESSION['stock_adjust_idempotency'][$key]);
-        }
-    }
+function stock_adjust_find_by_request_uid(PDO $pdo, string $requestId): ?array {
+    if ($requestId === '') return null;
+    $st = $pdo->prepare("\n        SELECT ms.id, ms.producto_id, ms.cantidad, ms.stock_anterior, ms.stock_nuevo,\n               p.nombre, p.stock_minimo, p.es_pesable, p.activo, p.unidad_venta\n        FROM movimientos_stock ms\n        JOIN productos p ON p.id = ms.producto_id\n        WHERE ms.request_uid = ?\n        LIMIT 1\n    ");
+    $st->execute([$requestId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
 }
 
-function stock_adjust_cached_response(string $key): ?array {
-    stock_adjust_cache_cleanup();
-    $entry = $_SESSION['stock_adjust_idempotency'][$key] ?? null;
-    if (!is_array($entry) || !is_array($entry['response'] ?? null)) {
-        return null;
-    }
+function stock_adjust_existing_response(array $row): array {
+    $stockAnterior = (float)($row['stock_anterior'] ?? 0);
+    $stockNuevo = (float)($row['stock_nuevo'] ?? $stockAnterior);
+    $stockMinimo = (float)($row['stock_minimo'] ?? 0);
+    $activo = (bool)($row['activo'] ?? false);
+    $esPesable = function_exists('is_pesable_row') ? is_pesable_row($row) : (bool)($row['es_pesable'] ?? false);
+    $unidadVenta = strtoupper(trim((string)($row['unidad_venta'] ?? 'UNIDAD')));
+    $unidadLabel = function_exists('flus_producto_unidad_descripcion')
+        ? flus_producto_unidad_descripcion($unidadVenta, $esPesable)
+        : ($esPesable ? 'Pesable' : 'Unidad');
 
-    $response = $entry['response'];
-    $response['idempotent'] = true;
-    return $response;
-}
-
-function stock_adjust_remember_response(string $key, array $response): void {
-    if ($key === '') {
-        return;
-    }
-    stock_adjust_cache_cleanup();
-    $_SESSION['stock_adjust_idempotency'][$key] = [
-        'created_at' => time(),
-        'response' => $response,
+    return [
+        'message' => 'Stock actualizado correctamente',
+        'idempotent' => true,
+        'data' => [
+            'producto_id' => (int)($row['producto_id'] ?? 0),
+            'producto_nombre' => (string)($row['nombre'] ?? ''),
+            'stock_anterior' => format_stock_con_unidad(array_merge($row, ['stock' => $stockAnterior]), 'stock'),
+            'stock_nuevo' => format_stock_con_unidad(array_merge($row, ['stock' => $stockNuevo]), 'stock'),
+            'stock_nuevo_raw' => $stockNuevo,
+            'stock_minimo' => format_stock_con_unidad($row, 'stock_minimo'),
+            'stock_minimo_raw' => $stockMinimo,
+            'cambio' => format_stock_con_unidad(array_merge($row, ['cambio_abs' => abs((float)($row['cantidad'] ?? 0))]), 'cambio_abs'),
+            'estado_nuevo' => calcular_estado_stock($stockNuevo, $stockMinimo, $activo),
+            'stock_pct' => round(calcular_stock_pct($stockNuevo, $stockMinimo), 1),
+            'es_pesable' => $esPesable,
+            'activo' => $activo,
+            'unidad_venta' => $unidadVenta,
+            'unidad_label' => $unidadLabel,
+        ],
     ];
 }
 
@@ -179,15 +187,16 @@ try {
     $cantidad    = (float)($_POST['cantidad'] ?? 0);
     $motivo      = trim((string)($_POST['motivo'] ?? ''));
     $requestId   = stock_adjust_request_id();
-    $requestKey  = $requestId !== ''
-        ? stock_adjust_idempotency_key((int)($_SESSION['user_id'] ?? 0), $requestId)
-        : '';
 
-    if ($requestKey !== '') {
-        $cachedResponse = stock_adjust_cached_response($requestKey);
-        if ($cachedResponse !== null) {
-            stock_json_ok($cachedResponse);
-        }
+    if ($requestId === '') {
+        stock_json_fail('Identificador de solicitud invalido. Recarga la pagina y proba de nuevo.', 422);
+    }
+    if (!stock_adjust_idempotency_ready($pdo)) {
+        stock_json_fail('Falta aplicar la migracion de idempotencia de stock.', 409);
+    }
+    $existingAdjustment = stock_adjust_find_by_request_uid($pdo, $requestId);
+    if ($existingAdjustment !== null) {
+        stock_json_ok(stock_adjust_existing_response($existingAdjustment));
     }
 
     // Validaciones
@@ -261,11 +270,11 @@ $tipoConfig = $tiposAjuste[$tipo];
     // Insertar movimiento
     $ins = $pdo->prepare("
         INSERT INTO movimientos_stock
-          (venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario)
+          (venta_id, fecha, producto_id, tipo, cantidad, referencia_venta_id, referencia_compra_id, comentario, request_uid)
         VALUES
-          (NULL, NOW(), ?, ?, ?, NULL, NULL, ?)
+          (NULL, NOW(), ?, ?, ?, NULL, NULL, ?, ?)
     ");
-    $ins->execute([$producto_id, $tipo_mov, $cantidad, $motivo]);
+    $ins->execute([$producto_id, $tipo_mov, $cantidad, $motivo, $requestId]);
 
     // Actualizar stock despues del movimiento para que el trigger guarde stock_anterior/stock_nuevo correctos.
     $upd = $pdo->prepare("UPDATE productos SET stock = ? WHERE id = ?");
@@ -297,9 +306,20 @@ $tipoConfig = $tiposAjuste[$tipo];
             'unidad_label'    => $unidadLabel,
         ]
     ];
-    stock_adjust_remember_response($requestKey, $responsePayload);
     stock_json_ok($responsePayload);
 
+} catch (PDOException $e) {
+    if (isset($pdo) && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    if ((int)($e->errorInfo[1] ?? 0) === 1062 && isset($requestId) && $requestId !== '') {
+        $existingAdjustment = stock_adjust_find_by_request_uid($pdo, $requestId);
+        if ($existingAdjustment !== null) {
+            stock_json_ok(stock_adjust_existing_response($existingAdjustment));
+        }
+    }
+    error_log('stock_ajax error: ' . $e->getMessage());
+    stock_json_fail('No se pudo actualizar el stock.', 500);
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();

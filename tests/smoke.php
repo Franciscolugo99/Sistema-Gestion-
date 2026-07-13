@@ -1212,6 +1212,21 @@ $results[] = flus_run_test('flus_calcular_estado_producto keeps product status r
         'stock_minimo' => 5,
     ]));
 });
+
+$results[] = flus_run_test('stock search prioritizes active products without hiding an exact inactive code', function (): void {
+    $emptyOrder = flus_stock_search_order_sql('');
+    flus_assert_contains('WHEN activo = 1 AND stock <= 0 THEN 1', (string)$emptyOrder['sql']);
+    flus_assert_contains('WHEN activo = 1 THEN 3', (string)$emptyOrder['sql']);
+    flus_assert_contains('ELSE 4', (string)$emptyOrder['sql']);
+    flus_assert_same([], $emptyOrder['params']);
+
+    $searchOrder = flus_stock_search_order_sql(' 779089 ');
+    flus_assert_contains('WHEN codigo = :order_codigo_exact THEN 0', (string)$searchOrder['sql']);
+    flus_assert_contains('WHEN activo = 1 AND nombre LIKE :order_nombre THEN 2', (string)$searchOrder['sql']);
+    flus_assert_same('779089', $searchOrder['params'][':order_codigo_exact'] ?? null);
+    flus_assert_same('779089%', $searchOrder['params'][':order_codigo_prefix'] ?? null);
+    flus_assert_same('%779089%', $searchOrder['params'][':order_nombre'] ?? null);
+});
 $results[] = flus_run_test('facturacion mode helpers normalize aliases consistently', function (): void {
     flus_assert_same('homologacion', flus_facturacion_normalizar_modo('homo'));
     flus_assert_same('produccion', flus_facturacion_normalizar_modo('prod'));
@@ -1487,6 +1502,7 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '031_movimientos_stock_tipo_compat.sql');
     $snapshotMigrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '040_movimientos_stock_snapshots_compat.sql');
+    $idempotencyMigrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '044_movimientos_request_uid_idempotencia.sql');
     $ventaApiLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_api_lib.php');
     $ventaAnulacionesLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'venta_anulaciones_lib.php');
     $stockAjax = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'stock_ajax.php');
@@ -1549,8 +1565,13 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_not_contains('class="table-wrapper" style="margin-top:16px;"', $productosConsultaPhp);
     flus_assert_not_contains('button[onclick', $stockJs);
     flus_assert_not_contains("setAttribute('onclick'", $stockJs);
-    flus_assert_contains('function stock_adjust_cached_response(string $key): ?array', $stockAjax);
-    flus_assert_contains('stock_adjust_remember_response($requestKey, $responsePayload);', $stockAjax);
+    flus_assert_contains('function stock_adjust_idempotency_ready(PDO $pdo): bool', $stockAjax);
+    flus_assert_contains('function stock_adjust_find_by_request_uid(PDO $pdo, string $requestId): ?array', $stockAjax);
+    flus_assert_contains('request_uid)', $stockAjax);
+    flus_assert_not_contains("\$_SESSION['stock_adjust_idempotency']", $stockAjax);
+    flus_assert_contains('ADD COLUMN `request_uid` VARCHAR(80)', $idempotencyMigrationSql);
+    flus_assert_contains('ux_movimientos_stock_request_uid', $idempotencyMigrationSql);
+    flus_assert_contains('UNIQUE KEY `ux_movimientos_stock_request_uid` (`request_uid`)', $installSql);
 });
 
 $results[] = flus_run_test('pulido operativo usa solo acciones disponibles y feedback FLUS en usuarios', function (): void {
@@ -2216,7 +2237,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 043", $integrationPhp);
+    flus_assert_contains("latest migration is 044", $integrationPhp);
     flus_assert_contains('function flus_it_table_has_single_column_unique_index', $integrationPhp);
     flus_assert_contains('ventas.request_uid exists', $integrationPhp);
     flus_assert_contains('ventas.request_uid has unique idempotency index', $integrationPhp);
@@ -2263,25 +2284,26 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
 });
 
-$results[] = flus_run_test('release 4.2.1 alinea version docs flujo dos maquinas y assets offline', function (): void {
+$results[] = flus_run_test('release 4.2.2 alinea version docs flujo dos maquinas y assets offline', function (): void {
     $repoRoot = dirname(__DIR__);
     $versionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'version.php');
     $readme = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'README.md');
     $changelog = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'CHANGELOG.md');
-    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_1.md');
+    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_2.md');
     $twoMachinesDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'TRABAJO_DOS_MAQUINAS.md');
     $pilotDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'QA_PILOTO_CONTROLADO_4_2_1.md');
     $ventasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ventas.php');
     $ventasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'ventas.js');
     $inventarioAnalisisPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php');
 
-    flus_assert_contains("define('FLUS_VERSION', '4.2.1')", $versionPhp);
-    flus_assert_contains("define('FLUS_BUILD',   '2026-07-05')", $versionPhp);
-    flus_assert_contains('**Version:** 4.2.1', $readme);
-    flus_assert_contains('**Build:** 2026-07-05', $readme);
+    flus_assert_contains("define('FLUS_VERSION', '4.2.2')", $versionPhp);
+    flus_assert_contains("define('FLUS_BUILD',   '2026-07-11')", $versionPhp);
+    flus_assert_contains('**Version:** 4.2.2', $readme);
+    flus_assert_contains('**Build:** 2026-07-11', $readme);
     flus_assert_contains('la rama conserva el nombre historico `Ver-4.0.0`', $readme);
-    flus_assert_contains('## [4.2.1] - 2026-07-05', $changelog);
-    flus_assert_contains('Version visible: `4.2.1`', $releaseDoc);
+    flus_assert_contains('## [4.2.2] - 2026-07-11', $changelog);
+    flus_assert_contains('Version visible: `4.2.2`', $releaseDoc);
+    flus_assert_contains('FLUS_Server_Setup_4.2.2.exe', $releaseDoc);
     flus_assert_contains('pull --ff-only origin Ver-4.0.0', $twoMachinesDoc);
     flus_assert_contains('src/config_mp.php', $twoMachinesDoc);
     flus_assert_contains('Smoke queda en verde.', $pilotDoc);
@@ -4694,8 +4716,11 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_contains('if (!$canVerControlMovimientos) {', $cajaMovimientosPhp);
     flus_assert_contains('caja_movimiento_json_response(false, \'No tenes permiso para ver los movimientos.\'', $cajaMovimientosPhp);
     flus_assert_contains('caja_movimiento_json_response(true, \'Movimientos cargados.\'', $cajaMovimientosPhp);
-    flus_assert_contains('$requestKey = $requestUid !== \'\' ? ($cajaId . \':\' . $userId . \':\' . $requestUid) : \'\';', $cajaMovimientosPhp);
-    flus_assert_contains('$_SESSION[\'caja_movimiento_request_uids\']', $cajaMovimientosPhp);
+    flus_assert_contains('function caja_movimiento_idempotency_ready(PDO $pdo): bool', $cajaMovimientosPhp);
+    flus_assert_contains('function caja_movimiento_find_by_request_uid(PDO $pdo, string $requestUid): ?array', $cajaMovimientosPhp);
+    flus_assert_contains('caja_lock_session_for_update($pdo, $cajaId)', $cajaMovimientosPhp);
+    flus_assert_contains('request_uid)', $cajaMovimientosPhp);
+    flus_assert_not_contains('$_SESSION[\'caja_movimiento_request_uids\']', $cajaMovimientosPhp);
     flus_assert_contains('caja_movimiento_json_response(true, \'Movimiento registrado.\'', $cajaMovimientosPhp);
     flus_assert_contains('$canVerControlMovimientos = caja_user_can_supervisar_turnos();', $cajaMovimientosPhp);
     flus_assert_contains('if ($canVerControlMovimientos) {', $cajaMovimientosPhp);
@@ -4766,6 +4791,40 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_contains('inputPagado2.dataset.auto !== "0";', $cajaJs);
     flus_assert_not_contains('inputPagado2.disabled = slot2EsExacto;', $cajaJs);
     flus_assert_not_contains('inputPagado2.dataset.auto !== "0" || medioEsExacto(medio2)', $cajaJs);
+});
+
+$results[] = flus_run_test('caja serializa ventas movimientos y cierre con idempotencia persistente', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $cajaLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_lib.php');
+    $registrarVenta = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $apiIndex = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $cajaCerrar = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
+    $cajaMovimientos = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_movimientos.php');
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '044_movimientos_request_uid_idempotencia.sql');
+    $htaccess = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . '.htaccess');
+
+    flus_assert_contains('function caja_lock_session_for_update(PDO $pdo, int $cajaId): ?array', $cajaLib);
+    flus_assert_contains('FOR UPDATE', $cajaLib);
+    $ventaBegin = strpos($registrarVenta, '$pdo->beginTransaction();');
+    $ventaLock = strpos($registrarVenta, 'caja_lock_session_for_update($pdo, $cajaId)');
+    $ventaSnapshot = strpos($registrarVenta, 'flus_venta_build_items_snapshot');
+    flus_assert_true($ventaBegin !== false && $ventaLock !== false && $ventaSnapshot !== false && $ventaBegin < $ventaLock && $ventaLock < $ventaSnapshot);
+    flus_assert_contains("fecha_cierre IS NULL OR fecha_cierre = '0000-00-00 00:00:00'", $apiIndex);
+    flus_assert_contains('caja_cierre_recalcular_criticos(', $cajaCerrar);
+    flus_assert_contains('caja_lock_session_for_update($pdo, $cajaId)', $cajaCerrar);
+    $cierreBegin = strpos($cajaCerrar, '$pdo->beginTransaction();');
+    $cierreNota = strpos($cajaCerrar, '$requiereNotaControl =');
+    flus_assert_true($cierreBegin !== false && $cierreNota !== false && $cierreBegin < $cierreNota);
+    flus_assert_contains('caja_lock_session_for_update($pdo, $cajaId)', $cajaMovimientos);
+    flus_assert_contains('INSERT INTO caja_movimientos (caja_id, tipo, concepto, monto, usuario_registro, request_uid)', $cajaMovimientos);
+    flus_assert_contains('ux_caja_movimientos_request_uid', $migrationSql);
+    flus_assert_contains('ux_movimientos_stock_request_uid', $migrationSql);
+    flus_assert_contains('UNIQUE KEY `ux_caja_movimientos_request_uid` (`request_uid`)', $installSql);
+    flus_assert_contains('UNIQUE KEY `ux_movimientos_stock_request_uid` (`request_uid`)', $installSql);
+    flus_assert_contains('RewriteRule ^$ public/ [L]', $htaccess);
+    flus_assert_contains('\\.git|\\.agents|\\.codex', $htaccess);
+    flus_assert_contains('|tests|migrations|docs|', $htaccess);
 });
 
 $results[] = flus_run_test('caja bloquea doble cobro en boton atajos y cancelacion mientras procesa', function (): void {
