@@ -344,6 +344,7 @@ require __DIR__ . "/partials/header.php";
     </div>
 
     <div class="header-actions module-header-actions">
+      <a class="v-btn v-btn--outline" href="stock_consulta.php">Vista consulta</a>
       <a class="v-btn v-btn--outline" href="movimientos.php">Ver movimientos</a>
     </div>
   </header>

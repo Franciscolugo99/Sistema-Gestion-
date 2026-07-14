@@ -623,6 +623,19 @@
   border-left: 3px solid var(--inv-success);
 }
 
+.search-result-state {
+  cursor: default;
+  font-weight: 600;
+}
+
+.search-result-state--muted {
+  color: var(--inv-muted);
+}
+
+.search-result-state--danger {
+  color: var(--inv-danger);
+}
+
 .search-result-ya-badge {
   display: inline-flex;
   align-items: center;

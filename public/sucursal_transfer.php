@@ -88,41 +88,31 @@ $summary = flus_sucursal_transfer_export($pdo, [
 
 $pageTitle = 'Apertura de sucursal - FLUS';
 $currentSection = 'sucursal_transfer';
-$inlineCss = <<<CSS
-.branch-transfer-page { max-width: 1180px; margin: 0 auto; }
-.branch-transfer-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color, #d8e2ef); }
-.branch-transfer-eyebrow { margin: 0 0 .35rem; color: var(--muted, #64748b); font-size: .78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.branch-transfer-title { margin: 0; font-size: clamp(1.7rem, 2.4vw, 2.45rem); line-height: 1.05; }
-.branch-transfer-sub { margin: .55rem 0 0; max-width: 680px; color: var(--muted, #64748b); }
-.branch-transfer-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
-.branch-card { border: 1px solid var(--border-color, #d8e2ef); border-radius: 8px; background: var(--panel-bg, #fff); box-shadow: var(--shadow-sm, 0 8px 24px rgba(15,23,42,.06)); overflow: hidden; }
-.branch-card__head { padding: 1rem 1.1rem; background: #eef6ff; border-bottom: 1px solid var(--border-color, #d8e2ef); }
-.branch-card__head h2 { margin: 0; font-size: 1.05rem; }
-.branch-card__body { padding: 1.1rem; }
-.branch-option { display: flex; gap: .65rem; align-items: flex-start; margin: .85rem 0; color: var(--text, #0f172a); }
-.branch-option input { margin-top: .22rem; }
-.branch-option strong { display: block; }
-.branch-option span { display: block; margin-top: .15rem; color: var(--muted, #64748b); font-size: .92rem; }
-.branch-actions { margin-top: 1rem; display: flex; gap: .7rem; flex-wrap: wrap; }
-.branch-kpis { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .7rem; margin: 0 0 1rem; }
-.branch-kpi { padding: .8rem; border: 1px solid var(--border-color, #d8e2ef); border-radius: 8px; background: #f8fbff; }
-.branch-kpi strong { display: block; font-size: 1.35rem; }
-.branch-kpi span { display: block; color: var(--muted, #64748b); font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
-.branch-result { margin-top: 1rem; border: 1px solid #b7ebc6; background: #f0fdf4; border-radius: 8px; padding: .9rem; }
-.branch-result ul { margin: .5rem 0 0; padding-left: 1rem; }
-.branch-note { margin-top: 1rem; padding: .85rem; border-radius: 8px; background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; }
-@media (max-width: 860px) { .branch-transfer-hero, .branch-transfer-grid { display: block; } .branch-card { margin-bottom: 1rem; } .branch-kpis { grid-template-columns: 1fr; } }
-CSS;
+$extraCss = array_merge($extraCss ?? [], ['assets/css/sucursal_transfer.css']);
 
 require __DIR__ . '/partials/header.php';
 ?>
 
 <main class="branch-transfer-page">
-    <section class="branch-transfer-hero">
-        <div>
-            <p class="branch-transfer-eyebrow">Catalogo portable</p>
-            <h1 class="branch-transfer-title">Apertura de sucursal</h1>
-            <p class="branch-transfer-sub">Exporta productos, proveedores y reglas de reposicion para iniciar otra sucursal sin cargar todo de nuevo. No mueve ventas, cajas, facturas, cuenta corriente ni historial fiscal.</p>
+    <section class="panel branch-transfer-hero module-header">
+        <div class="module-header-main">
+            <div class="module-header-hero">
+                <span class="module-header-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                        <path d="M4 21V7a2 2 0 0 1 2-2h6"></path>
+                        <path d="M12 21V3l8 4v14"></path>
+                        <path d="M8 10h.01"></path>
+                        <path d="M8 14h.01"></path>
+                        <path d="M16 10h.01"></path>
+                        <path d="M16 14h.01"></path>
+                    </svg>
+                </span>
+                <div class="module-header-copy">
+                    <span class="page-eyebrow module-eyebrow">Catalogo portable</span>
+                    <h1 class="page-title module-title">Apertura de sucursal</h1>
+                    <p class="page-sub module-subtitle">Exporta productos, proveedores y reglas de reposicion sin mover ventas, cajas, facturas, cuenta corriente ni historial fiscal.</p>
+                </div>
+            </div>
         </div>
     </section>
 

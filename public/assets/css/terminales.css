@@ -1,6 +1,6 @@
 .terminales-shell {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .terminales-alert {
@@ -13,16 +13,16 @@
 
 .terminales-stats {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .terminales-stat-card {
   border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
-  border-radius: 18px;
+  border-radius: 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--panel, #ffffff) 94%, transparent), color-mix(in srgb, var(--bg-alt, #f8fafc) 90%, var(--panel, #ffffff)));
   box-shadow: var(--panel-shadow, 0 10px 30px rgba(15, 23, 42, 0.06));
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: grid;
   gap: 6px;
 }
@@ -60,7 +60,7 @@
 
 .terminales-card {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   margin: 0;
   border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.2));
   background: var(--panel, #ffffff);
@@ -86,7 +86,7 @@
 
 .terminales-create-form {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   grid-template-columns: minmax(220px, 1.6fr) minmax(180px, 1fr) auto;
   align-items: end;
 }
@@ -104,9 +104,7 @@
 }
 
 .terminales-field input,
-.terminales-inline-field input,
-.terminales-field select,
-.terminales-inline-field select {
+.terminales-field select {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--input-border, rgba(148, 163, 184, 0.3));
@@ -114,6 +112,18 @@
   background: var(--input-bg, rgba(255, 255, 255, 0.95));
   padding: 0 14px;
   color: var(--input-text, var(--text, #0f172a));
+}
+
+.terminales-inline-field input,
+.terminales-inline-field select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--input-border, rgba(148, 163, 184, 0.3));
+  border-radius: 12px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.95));
+  padding: 0 10px;
+  color: var(--input-text, var(--text, #0f172a));
+  font-size: 0.92rem;
 }
 
 .terminales-field input::placeholder,
@@ -131,7 +141,7 @@
 }
 
 .terminales-submit {
-  min-height: 44px;
+  min-height: 42px;
   white-space: nowrap;
 }
 
@@ -140,7 +150,7 @@
 }
 
 .terminales-table {
-  min-width: 1220px;
+  min-width: 1120px;
 }
 
 .terminales-table th {
@@ -149,6 +159,8 @@
 
 .terminales-table thead th {
   color: var(--table-header-text, #f9fafb);
+  padding: 11px 12px;
+  font-size: 0.74rem;
 }
 
 .terminales-table tbody tr {
@@ -169,6 +181,42 @@
 
 .terminales-table td {
   vertical-align: top;
+  padding: 12px 12px;
+}
+
+.terminales-table th:nth-child(1),
+.terminales-table td:nth-child(1) {
+  width: 54px;
+}
+
+.terminales-table th:nth-child(2),
+.terminales-table td:nth-child(2) {
+  width: 126px;
+}
+
+.terminales-table th:nth-child(3),
+.terminales-table td:nth-child(3) {
+  width: 120px;
+}
+
+.terminales-table th:nth-child(4),
+.terminales-table td:nth-child(4) {
+  width: 170px;
+}
+
+.terminales-table th:nth-child(5),
+.terminales-table td:nth-child(5) {
+  width: 150px;
+}
+
+.terminales-table th:nth-child(6),
+.terminales-table td:nth-child(6) {
+  width: 165px;
+}
+
+.terminales-table th:nth-child(8),
+.terminales-table td:nth-child(8) {
+  width: 138px;
 }
 
 .terminales-id {
@@ -183,18 +231,18 @@
 .terminales-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 5px;
+  margin-bottom: 6px;
 }
 
 .terminales-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 28px;
+  min-height: 24px;
   border-radius: 999px;
-  padding: 0 10px;
-  font-size: 0.78rem;
+  padding: 0 8px;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -221,7 +269,7 @@
 
 .terminales-usage {
   display: inline-flex;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
@@ -243,16 +291,27 @@
 
 .terminales-detail-lines {
   display: grid;
-  gap: 5px;
-  font-size: 0.9rem;
+  gap: 3px;
+  max-width: 360px;
+  font-size: 0.84rem;
+  line-height: 1.45;
   color: var(--muted, #64748b);
 }
 
 .terminales-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 7px;
+  min-width: 118px;
+}
+
+.terminales-actions .btn {
+  min-height: 36px;
+  padding: 0 12px;
+  justify-content: center;
+  box-shadow: none;
 }
 
 .terminales-empty {

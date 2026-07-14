@@ -1545,6 +1545,7 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('requestInput.value = this.createRequestId();', $stockJs);
     flus_assert_contains('id="searchInput"', $stockPhp);
     flus_assert_contains('id="limitSelect"', $stockPhp);
+    flus_assert_contains('href="stock_consulta.php">Vista consulta</a>', $stockPhp);
     flus_assert_contains('DEBOUNCE_SEARCH_MS', $stockJs);
     flus_assert_contains('assets/js/stock.js?v=5.1', $stockPhp);
     flus_assert_contains("SEARCH_FOCUS_KEY: 'flus_stock_restore_search_focus'", $stockJs);
@@ -1563,9 +1564,17 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_not_contains('onclick=', $stockPhp);
     flus_assert_not_contains('onsubmit=', $stockPhp);
     flus_assert_not_contains('style="', $stockPhp);
-    flus_assert_contains('class="table-wrapper consulta-table-wrapper"', $stockConsultaPhp);
+    $stockConsultaCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'stock_consulta.css');
+
+    flus_assert_contains("assets/css/stock_consulta.css", $stockConsultaPhp);
+    flus_assert_contains('module-header stock-consulta-header', $stockConsultaPhp);
+    flus_assert_contains('class="table-wrapper stock-consulta-table-wrapper"', $stockConsultaPhp);
     flus_assert_contains('class="table-wrapper consulta-table-wrapper"', $productosConsultaPhp);
-    flus_assert_contains('.consulta-table-wrapper{margin-top:16px}', $stockConsultaPhp);
+    flus_assert_contains('.stock-consulta-table-wrapper', $stockConsultaCss);
+    flus_assert_contains('.page-consulta-stock .pagination', $stockConsultaCss);
+    flus_assert_contains('.page-consulta-stock .pg-btn', $stockConsultaCss);
+    flus_assert_not_contains('<style>', $stockConsultaPhp);
+    flus_assert_not_contains('class="consulta-panel"', $stockConsultaPhp);
     flus_assert_contains('.consulta-table-wrapper{margin-top:16px}', $productosConsultaPhp);
     flus_assert_not_contains('class="table-wrapper" style="margin-top:16px;"', $stockConsultaPhp);
     flus_assert_not_contains('class="table-wrapper" style="margin-top:16px;"', $productosConsultaPhp);
@@ -4992,12 +5001,17 @@ $results[] = flus_run_test('apertura de sucursal exporta catalogo sin arrastrar 
     $repoRoot = dirname(__DIR__);
     $transferPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'sucursal_transfer.php');
     $transferLib = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'sucursal_transfer_lib.php');
+    $transferCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'sucursal_transfer.css');
     $navPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'nav.php');
 
     flus_assert_contains("require_permission('editar_productos');", $transferPhp);
     flus_assert_contains('flus_sucursal_transfer_export($pdo', $transferPhp);
     flus_assert_contains('flus_sucursal_transfer_import($pdo', $transferPhp);
-    flus_assert_contains('No mueve ventas, cajas, facturas, cuenta corriente ni historial fiscal.', $transferPhp);
+    flus_assert_contains('sin mover ventas, cajas, facturas, cuenta corriente ni historial fiscal.', $transferPhp);
+    flus_assert_contains('assets/css/sucursal_transfer.css', $transferPhp);
+    flus_assert_contains('branch-transfer-hero module-header', $transferPhp);
+    flus_assert_contains('.branch-transfer-grid', $transferCss);
+    flus_assert_not_contains('$inlineCss', $transferPhp);
     flus_assert_contains("const FLUS_SUCURSAL_TRANSFER_FORMAT = 'flus_catalogo_sucursal_v1';", $transferLib);
     flus_assert_contains('function flus_sucursal_transfer_export(PDO $pdo, array $options = []): array', $transferLib);
     flus_assert_contains('function flus_sucursal_transfer_import(PDO $pdo, array $payload, array $options = []): array', $transferLib);

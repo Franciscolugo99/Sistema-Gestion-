@@ -184,7 +184,7 @@
               const yaContado = state.productosContados[id];
               const yaContadoClass = yaContado ? 'ya-contado' : '';
               const yaContadoBadge = yaContado
-                ? `<span class="search-result-ya-badge">✓ Contado: ${formatNumber(yaContado.cantidad)}</span>`
+                ? `<span class="search-result-ya-badge">Contado: ${formatNumber(yaContado.cantidad)}</span>`
                 : '';
 
               return `
@@ -204,12 +204,12 @@
 
           showResults(html);
         } else {
-          showResults('<div class="search-result-item" style="color: var(--inv-muted);">No se encontraron productos</div>');
+          showResults('<div class="search-result-item search-result-state search-result-state--muted">No se encontraron productos</div>');
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.warn('Error buscando productos:', err);
-          showResults('<div class="search-result-item" style="color: var(--inv-danger);">Error al buscar</div>');
+          showResults('<div class="search-result-item search-result-state search-result-state--danger">Error al buscar</div>');
         }
       }
     }
