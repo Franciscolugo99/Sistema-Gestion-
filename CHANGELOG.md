@@ -9,6 +9,15 @@
 ### Fixed
 
 - El buscador de stock recupera el foco y deja el cursor al final despues de la busqueda automatica o al presionar Enter.
+- La consulta de stock ya no rompe al buscar texto en codigo, nombre, categoria o proveedor.
+- Caja muestra confirmacion visible tambien cuando una venta se registra sin vuelto, incluido el fallback manual de Mercado Pago.
+
+### Validation
+
+- QA operativo en navegador sobre PC de prueba: caja, Mercado Pago manual, stock, stock consulta, inventario fisico, sucursales, terminales, tecnico, compras, movimientos y control de turnos sin errores 500, consola ni overflow horizontal de escritorio.
+- Venta efectivo real, cancelacion de QR con registro manual y ajuste real de stock `+10` verificados contra base local.
+- Smoke fuente `168/168 OK`.
+- Integracion DB con instalacion limpia, 44 migraciones, ventas, stock, facturacion/NC, cobranzas, tesoreria y compras: `EXIT=0`.
 
 ---
 

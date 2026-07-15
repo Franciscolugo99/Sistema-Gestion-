@@ -23,8 +23,12 @@ $offset = ($page - 1) * $limit;
 $where = [];
 $params = [];
 if ($q !== '') {
-    $where[] = '(codigo LIKE :q OR nombre LIKE :q OR categoria LIKE :q OR proveedor LIKE :q)';
-    $params[':q'] = '%' . $q . '%';
+    $where[] = '(codigo LIKE :q_codigo OR nombre LIKE :q_nombre OR categoria LIKE :q_categoria OR proveedor LIKE :q_proveedor)';
+    $like = '%' . $q . '%';
+    $params[':q_codigo'] = $like;
+    $params[':q_nombre'] = $like;
+    $params[':q_categoria'] = $like;
+    $params[':q_proveedor'] = $like;
 }
 if ($estado === 'sin') {
     $where[] = 'activo = 1 AND stock <= 0';

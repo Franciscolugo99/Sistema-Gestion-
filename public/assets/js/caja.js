@@ -3634,6 +3634,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let autoCloseTimer  = null;
 
+      function showSaleDone(totalNumero, ventaLine) {
+        let flash = document.getElementById("cajaSaleDoneFlash");
+        if (!flash) {
+          flash = document.createElement("div");
+          flash.id = "cajaSaleDoneFlash";
+          flash.className = "caja-sale-done-flash";
+          flash.setAttribute("role", "status");
+          flash.setAttribute("aria-live", "polite");
+          document.body.appendChild(flash);
+        }
+
+        flash.replaceChildren();
+        const title = document.createElement("strong");
+        title.textContent = ventaLine || "Venta registrada";
+        const detail = document.createElement("span");
+        detail.textContent = `${formatearMoneda(totalNumero)} · Pago confirmado`;
+        flash.append(title, detail);
+        flash.classList.add("is-visible");
+        clearTimeout(autoCloseTimer);
+        autoCloseTimer = setTimeout(() => {
+          flash.classList.remove("is-visible");
+        }, 5200);
+      }
+
       function showOverlay(vueltoNumero, ventaLine) {
         const vueltoTexto = formatearMoneda(vueltoNumero);
         if (vueltoTexto === "$0,00" || vueltoTexto === "$0") return;
@@ -3655,10 +3679,13 @@ document.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("flus:caja-venta-registrada", (ev) => {
         const detail = ev?.detail || {};
         const vueltoNumero = Number(detail.vuelto) || 0;
-        if (vueltoNumero <= 0.009) return;
-
         const ventaId = Number(detail.ventaId) || 0;
         const ventaLine = ventaId > 0 ? `Venta #${ventaId} registrada` : "";
+        if (vueltoNumero <= 0.009) {
+          showSaleDone(Number(detail.total) || 0, ventaLine);
+          return;
+        }
+
         showOverlay(vueltoNumero, ventaLine);
       });
 

@@ -1567,6 +1567,9 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     $stockConsultaCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'stock_consulta.css');
 
     flus_assert_contains("assets/css/stock_consulta.css", $stockConsultaPhp);
+    flus_assert_contains('codigo LIKE :q_codigo', $stockConsultaPhp);
+    flus_assert_contains("':q_proveedor'", $stockConsultaPhp);
+    flus_assert_not_contains('codigo LIKE :q OR nombre LIKE :q', $stockConsultaPhp);
     flus_assert_contains('module-header stock-consulta-header', $stockConsultaPhp);
     flus_assert_contains('class="table-wrapper stock-consulta-table-wrapper"', $stockConsultaPhp);
     flus_assert_contains('class="table-wrapper consulta-table-wrapper"', $productosConsultaPhp);
@@ -4751,8 +4754,13 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_contains('caja-notif-money caja-notif-money--danger', $cajaJs);
     flus_assert_contains('caja-notif-money caja-notif-money--warning', $cajaJs);
     flus_assert_contains('class="caja-notif-help"', $cajaJs);
+    flus_assert_contains('function showSaleDone(totalNumero, ventaLine)', $cajaJs);
+    flus_assert_contains('cajaSaleDoneFlash', $cajaJs);
+    flus_assert_contains('Pago confirmado', $cajaJs);
     flus_assert_contains('.denom-chips.is-hidden {', $cajaPosCss);
     flus_assert_contains('.caja-flash {', $cajaPosCss);
+    flus_assert_contains('.caja-sale-done-flash {', $cajaPosCss);
+    flus_assert_contains('.caja-sale-done-flash.is-visible', $cajaPosCss);
     flus_assert_contains('.caja-notif-help {', $cajaPosCss);
     flus_assert_contains('class="alert alert-error mov-error"', $cajaMovimientosPhp);
     flus_assert_contains('function caja_movimiento_wants_json(): bool', $cajaMovimientosPhp);
