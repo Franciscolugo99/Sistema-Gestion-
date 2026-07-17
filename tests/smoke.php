@@ -2302,26 +2302,26 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
 });
 
-$results[] = flus_run_test('release 4.2.2 alinea version docs flujo dos maquinas y assets offline', function (): void {
+$results[] = flus_run_test('release 4.2.3 alinea version docs flujo dos maquinas y assets offline', function (): void {
     $repoRoot = dirname(__DIR__);
     $versionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'version.php');
     $readme = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'README.md');
     $changelog = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'CHANGELOG.md');
-    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_2.md');
+    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_3.md');
     $twoMachinesDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'TRABAJO_DOS_MAQUINAS.md');
     $pilotDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'QA_PILOTO_CONTROLADO_4_2_1.md');
     $ventasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ventas.php');
     $ventasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'ventas.js');
     $inventarioAnalisisPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php');
 
-    flus_assert_contains("define('FLUS_VERSION', '4.2.2')", $versionPhp);
-    flus_assert_contains("define('FLUS_BUILD',   '2026-07-11')", $versionPhp);
-    flus_assert_contains('**Version:** 4.2.2', $readme);
-    flus_assert_contains('**Build:** 2026-07-11', $readme);
+    flus_assert_contains("define('FLUS_VERSION', '4.2.3')", $versionPhp);
+    flus_assert_contains("define('FLUS_BUILD',   '2026-07-17')", $versionPhp);
+    flus_assert_contains('**Version:** 4.2.3', $readme);
+    flus_assert_contains('**Build:** 2026-07-17', $readme);
     flus_assert_contains('la rama conserva el nombre historico `Ver-4.0.0`', $readme);
-    flus_assert_contains('## [4.2.2] - 2026-07-11', $changelog);
-    flus_assert_contains('Version visible: `4.2.2`', $releaseDoc);
-    flus_assert_contains('FLUS_Server_Setup_4.2.2.exe', $releaseDoc);
+    flus_assert_contains('## [4.2.3] - 2026-07-17', $changelog);
+    flus_assert_contains('Version visible: `4.2.3`', $releaseDoc);
+    flus_assert_contains('FLUS_Server_Setup_4.2.3.exe', $releaseDoc);
     flus_assert_contains('pull --ff-only origin Ver-4.0.0', $twoMachinesDoc);
     flus_assert_contains('src/config_mp.php', $twoMachinesDoc);
     flus_assert_contains('Smoke queda en verde.', $pilotDoc);

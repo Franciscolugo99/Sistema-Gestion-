@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [4.2.3] - 2026-07-17
+
 ### Added
 
 - El Panel Tecnico muestra migraciones pendientes y permite aplicarlas con permiso `administrar_config`, CSRF, confirmacion, lock, mantenimiento temporal y auditoria.

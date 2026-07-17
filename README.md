@@ -2,19 +2,19 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.2.2
-**Build:** 2026-07-11
-**Release objetivo:** 4.2.2
+**Version:** 4.2.3
+**Build:** 2026-07-17
+**Release objetivo:** 4.2.3
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.2.2 (2026-07-11)
+## Estado de release 4.2.3 (2026-07-17)
 
 - Smoke tecnico fuente: `168 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
-- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.2`.
+- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.3`.
 - Ruta fuente local validada: `C:\xampp\htdocs\kiosco`.
 - Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
@@ -24,7 +24,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Busqueda de stock: conserva el foco y el cursor despues del filtrado automatico o al presionar Enter, facilitando teclado y lector de codigos.
 - Migraciones y baseline: versionados hasta `044_movimientos_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.2`, pensada como corte operativo para instalador/actualizador.
+- Salida actual: `4.2.3`, pensada como corte operativo para instalador/actualizador.
 - Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
 
 ### Nota sobre ARCA y entorno simulado
