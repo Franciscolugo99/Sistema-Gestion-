@@ -1756,6 +1756,33 @@ $results[] = flus_run_test('dashboard centraliza filtros sin handlers inline', f
     flus_assert_contains('clearHoursButton.addEventListener("click"', $dashboardJs);
 });
 
+$results[] = flus_run_test('dashboard top productos permite criterio y limite operativo', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $filtersPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Dashboard' . DIRECTORY_SEPARATOR . 'Filters.php');
+    $metricsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Dashboard' . DIRECTORY_SEPARATOR . 'Metrics.php');
+    $dashboardPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'dashboard.php');
+    $chartsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'dashboard' . DIRECTORY_SEPARATOR . 'charts.php');
+    $bootPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'dashboard' . DIRECTORY_SEPARATOR . 'boot.php');
+    $dashboardJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'dashboard.js');
+
+    flus_assert_contains('$topProductosMetric', $filtersPhp);
+    flus_assert_contains("['unidades', 'ventas', 'ganancia']", $filtersPhp);
+    flus_assert_contains('$topProductosRows = []', $metricsPhp);
+    flus_assert_contains('$topProductosSets = []', $metricsPhp);
+    flus_assert_contains('LIMIT {$topProductosMaxLimit}', $metricsPhp);
+    flus_assert_contains("'topProductosMetric'     => \$topProductosMetric", $dashboardPhp);
+    flus_assert_contains("'topProductosSets'       => \$topProductosSets", $dashboardPhp);
+    flus_assert_contains('name="top_metric"', $chartsPhp);
+    flus_assert_contains('name="top_limit"', $chartsPhp);
+    flus_assert_contains('data-dash-top-control', $chartsPhp);
+    flus_assert_contains('id="chartTopProductosData" open', $chartsPhp);
+    flus_assert_contains("'topProdRows' => \$topProductosRows", $bootPhp);
+    flus_assert_contains("'topProdSets' => \$topProductosSets", $bootPhp);
+    flus_assert_contains('function initTopProductControls(data)', $dashboardJs);
+    flus_assert_contains('window.history.replaceState', $dashboardJs);
+    flus_assert_contains('window.dashboardData?.topProdMetric', $dashboardJs);
+});
+
 $results[] = flus_run_test('factura manual identifica y enfoca el campo invalido', function (): void {
     $repoRoot = dirname(__DIR__);
     $manualPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'factura_manual.php');
@@ -4763,8 +4790,15 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_contains('.caja-sale-done-flash.is-visible', $cajaPosCss);
     flus_assert_contains('.caja-notif-help {', $cajaPosCss);
     flus_assert_contains('class="alert alert-error mov-error"', $cajaMovimientosPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/api_helpers.php';", $cajaMovimientosPhp);
     flus_assert_contains('function caja_movimiento_wants_json(): bool', $cajaMovimientosPhp);
+    flus_assert_contains("parse_str((string)(\$_SERVER['QUERY_STRING'] ?? ''), \$query);", $cajaMovimientosPhp);
+    flus_assert_contains("(\$_GET['response'] ?? \$_POST['response'] ?? \$_REQUEST['response'] ?? \$query['response'] ?? '')", $cajaMovimientosPhp);
     flus_assert_contains('function caja_movimiento_json_response(bool $ok, string $message', $cajaMovimientosPhp);
+    flus_assert_contains('$wantsJsonRequest = caja_movimiento_wants_json();', $cajaMovimientosPhp);
+    flus_assert_contains('require_login_json();', $cajaMovimientosPhp);
+    flus_assert_contains("require_perm_json('realizar_ventas');", $cajaMovimientosPhp);
+    flus_assert_contains('require_pos_json();', $cajaMovimientosPhp);
     flus_assert_contains('if ($_SERVER[\'REQUEST_METHOD\'] === \'GET\' && caja_movimiento_wants_json()) {', $cajaMovimientosPhp);
     flus_assert_contains('if (!$canVerControlMovimientos) {', $cajaMovimientosPhp);
     flus_assert_contains('caja_movimiento_json_response(false, \'No tenes permiso para ver los movimientos.\'', $cajaMovimientosPhp);
@@ -4844,6 +4878,39 @@ $results[] = flus_run_test('caja mantiene un unico resumen operativo de cobro', 
     flus_assert_contains('inputPagado2.dataset.auto !== "0";', $cajaJs);
     flus_assert_not_contains('inputPagado2.disabled = slot2EsExacto;', $cajaJs);
     flus_assert_not_contains('inputPagado2.dataset.auto !== "0" || medioEsExacto(medio2)', $cajaJs);
+});
+
+$results[] = flus_run_test('codigo desplegable evita sintaxis PHP 8.1+ incompatible con runtime 8.0', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $roots = [
+        $repoRoot . DIRECTORY_SEPARATOR . 'public',
+        $repoRoot . DIRECTORY_SEPARATOR . 'src',
+    ];
+    $offenders = [];
+
+    foreach ($roots as $root) {
+        if (!is_dir($root)) {
+            continue;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file instanceof SplFileInfo || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $path = $file->getPathname();
+            $contents = (string)file_get_contents($path);
+            if (preg_match('/\breadonly\s+\$|\breadonly\s+(?:int|string|bool|float|array|object|self|[A-Z_\\\\][A-Za-z0-9_\\\\]*)\s+\$/', $contents)) {
+                $offenders[] = str_replace($repoRoot . DIRECTORY_SEPARATOR, '', $path);
+            }
+        }
+    }
+
+    flus_assert_same([], $offenders, 'No usar readonly en public/src: las instalaciones FLUS actuales corren PHP 8.0');
 });
 
 $results[] = flus_run_test('caja serializa ventas movimientos y cierre con idempotencia persistente', function (): void {

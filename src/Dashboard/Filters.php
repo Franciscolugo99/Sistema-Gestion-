@@ -13,6 +13,15 @@ if (!function_exists('dashboard_resolve_filters')) {
 
     $horaDesde = isset($query['hora_desde']) && $query['hora_desde'] !== '' ? trim((string)$query['hora_desde']) : null;
     $horaHasta = isset($query['hora_hasta']) && $query['hora_hasta'] !== '' ? trim((string)$query['hora_hasta']) : null;
+    $topProductosMetric = isset($query['top_metric']) ? trim((string)$query['top_metric']) : 'unidades';
+    $topProductosLimit = isset($query['top_limit']) ? (int)$query['top_limit'] : 10;
+
+    if (!in_array($topProductosMetric, ['unidades', 'ventas', 'ganancia'], true)) {
+      $topProductosMetric = 'unidades';
+    }
+    if (!in_array($topProductosLimit, [5, 10, 15, 20], true)) {
+      $topProductosLimit = 10;
+    }
 
     if ($horaDesde && !preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', $horaDesde)) {
       $horaDesde = null;
@@ -69,6 +78,8 @@ if (!function_exists('dashboard_resolve_filters')) {
       'horaHasta' => $horaHasta,
       'horaDesdeSql' => $horaDesdeSql,
       'horaHastaSql' => $horaHastaSql,
+      'topProductosMetric' => $topProductosMetric,
+      'topProductosLimit' => $topProductosLimit,
       'toastMessage' => $toastMessage,
       'toastFrom' => $toastFrom,
       'toastTo' => $toastTo,

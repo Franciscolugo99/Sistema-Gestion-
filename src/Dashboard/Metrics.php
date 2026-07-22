@@ -699,6 +699,8 @@ if (!function_exists('dashboard_compute_visual_datasets')) {
     $ventasData = [];
     $topProductosLabels = [];
     $topProductosData = [];
+    $topProductosRows = [];
+    $topProductosSets = [];
     $ventasPorHora = [];
     $ventasPorDiaSemana = [];
 
@@ -721,6 +723,18 @@ if (!function_exists('dashboard_compute_visual_datasets')) {
     $toDT = $ctx['toDT'] ?? null;
     $ventasTotalSQL = (string)($ctx['ventasTotalSQL'] ?? 'total');
     $prodNombreCol = $ctx['prodNombreCol'] ?? null;
+    $prodCostoCol = $ctx['prodCostoCol'] ?? null;
+    $lineExprVi = $ctx['lineExprVi'] ?? null;
+    $lineExprVi2 = $ctx['lineExprVi2'] ?? null;
+    $topMetric = (string)($ctx['topProductosMetric'] ?? 'unidades');
+    $topLimit = (int)($ctx['topProductosLimit'] ?? 10);
+
+    if (!in_array($topMetric, ['unidades', 'ventas', 'ganancia'], true)) {
+      $topMetric = 'unidades';
+    }
+    if (!in_array($topLimit, [5, 10, 15, 20], true)) {
+      $topLimit = 10;
+    }
 
     if ($hasVentas && $ventasFechaCol) {
       if ($categoriaFiltro && $hasVentaItems && $viVentaIdCol && $hasProductos && $prodCatCol) {
@@ -763,21 +777,98 @@ if (!function_exists('dashboard_compute_visual_datasets')) {
     }
 
     if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
-      $stmt = $pdo->prepare("
-        SELECT p.`{$prodNombreCol}` AS nombre, SUM(vi.`{$viQtyCol}`) AS total
-        FROM venta_items vi
-        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
-        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
-        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
-          {$catCondP}
-        GROUP BY p.id, p.`{$prodNombreCol}`
-        ORDER BY total DESC
-        LIMIT 5
-      ");
-      $stmt->execute([$fromStart, $toEnd]);
-      while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $topProductosLabels[] = (string)($row['nombre'] ?? '');
-        $topProductosData[] = (float)($row['total'] ?? 0);
+      $canLineAmounts = $lineExprVi && $lineExprVi2 && $ventasTotalCol;
+      $topProductosMaxLimit = 20;
+
+      foreach (['unidades', 'ventas', 'ganancia'] as $metricCandidate) {
+        $orderColumn = $metricCandidate;
+        if ($metricCandidate === 'ganancia' && !($canLineAmounts && $prodCostoCol)) {
+          $orderColumn = 'ventas';
+        }
+        if (($metricCandidate === 'ventas' || $orderColumn === 'ventas') && !$canLineAmounts) {
+          $orderColumn = 'unidades';
+        }
+
+        if ($canLineAmounts) {
+          $costExpr = $prodCostoCol ? "COALESCE(p.`{$prodCostoCol}`, 0)" : "0";
+          $profitWhere = ($metricCandidate === 'ganancia' && $prodCostoCol) ? "AND p.`{$prodCostoCol}` IS NOT NULL" : "";
+          $sqlTopProductos = "
+            SELECT
+              p.`{$prodNombreCol}` AS nombre,
+              SUM(vi.`{$viQtyCol}`) AS unidades,
+              COALESCE(SUM(v.{$ventasTotalSQL} * ({$lineExprVi} / NULLIF(vt.subtotal_total,0))), 0) AS ventas,
+              COALESCE(SUM(vi.`{$viQtyCol}` * {$costExpr}), 0) AS costos,
+              COALESCE(SUM((v.{$ventasTotalSQL} * ({$lineExprVi} / NULLIF(vt.subtotal_total,0))) - (vi.`{$viQtyCol}` * {$costExpr})), 0) AS ganancia
+            FROM venta_items vi
+            JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+            JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+            JOIN (
+              SELECT vi2.`{$viVentaIdCol}` AS venta_id, SUM({$lineExprVi2}) AS subtotal_total
+              FROM venta_items vi2
+              JOIN ventas v2 ON v2.id = vi2.`{$viVentaIdCol}`
+              WHERE v2.{$ventasDateSQL} >= ? AND v2.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+              GROUP BY vi2.`{$viVentaIdCol}`
+            ) vt ON vt.venta_id = vi.`{$viVentaIdCol}`
+            WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+              AND vt.subtotal_total > 0
+              {$profitWhere}
+              {$catCondP}
+            GROUP BY p.id, p.`{$prodNombreCol}`
+            ORDER BY {$orderColumn} DESC
+            LIMIT {$topProductosMaxLimit}
+          ";
+          $stmt = $pdo->prepare($sqlTopProductos);
+          $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
+        } else {
+          $sqlTopProductos = "
+            SELECT
+              p.`{$prodNombreCol}` AS nombre,
+              SUM(vi.`{$viQtyCol}`) AS unidades,
+              0 AS ventas,
+              0 AS costos,
+              0 AS ganancia
+            FROM venta_items vi
+            JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+            JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+            WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$ventasEmitidaCond}
+              {$catCondP}
+            GROUP BY p.id, p.`{$prodNombreCol}`
+            ORDER BY unidades DESC
+            LIMIT {$topProductosMaxLimit}
+          ";
+          $stmt = $pdo->prepare($sqlTopProductos);
+          $stmt->execute([$fromStart, $toEnd]);
+        }
+
+        $rows = [];
+        $labels = [];
+        $data = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          $row = [
+            'nombre' => (string)($row['nombre'] ?? ''),
+            'unidades' => (float)($row['unidades'] ?? 0),
+            'ventas' => (float)($row['ventas'] ?? 0),
+            'ganancia' => (float)($row['ganancia'] ?? 0),
+          ];
+          $rows[] = $row;
+          $labels[] = $row['nombre'];
+          $data[] = (float)($row[$orderColumn] ?? 0);
+        }
+
+        $topProductosSets[$metricCandidate] = [
+          'metric' => $metricCandidate,
+          'effective_metric' => $orderColumn,
+          'rows' => $rows,
+          'labels' => $labels,
+          'data' => $data,
+        ];
+      }
+
+      $selectedSet = $topProductosSets[$topMetric] ?? ($topProductosSets['unidades'] ?? null);
+      if (is_array($selectedSet)) {
+        $topProductosRows = array_slice((array)($selectedSet['rows'] ?? []), 0, $topLimit);
+        $topProductosLabels = array_slice((array)($selectedSet['labels'] ?? []), 0, $topLimit);
+        $topProductosData = array_slice((array)($selectedSet['data'] ?? []), 0, $topLimit);
       }
     }
 
@@ -860,6 +951,8 @@ if (!function_exists('dashboard_compute_visual_datasets')) {
       'ventasData' => $ventasData,
       'topProductosLabels' => $topProductosLabels,
       'topProductosData' => $topProductosData,
+      'topProductosRows' => $topProductosRows,
+      'topProductosSets' => $topProductosSets,
       'ventasPorHora' => $ventasPorHora,
       'ventasPorDiaSemana' => $ventasPorDiaSemana,
     ];

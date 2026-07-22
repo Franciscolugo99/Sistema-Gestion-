@@ -3,17 +3,18 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/api_helpers.php';
 require_once __DIR__ . '/caja_lib.php';
-
-require_permission('realizar_ventas');
-require_pos();
 
 function caja_movimiento_wants_json(): bool {
   $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
   $xhr = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+  $query = [];
+  parse_str((string)($_SERVER['QUERY_STRING'] ?? ''), $query);
+  $response = strtolower(trim((string)($_GET['response'] ?? $_POST['response'] ?? $_REQUEST['response'] ?? $query['response'] ?? '')));
   return $xhr === 'xmlhttprequest'
     || str_contains($accept, 'application/json')
-    || (string)($_REQUEST['response'] ?? '') === 'json';
+    || $response === 'json';
 }
 
 function caja_movimiento_json_response(bool $ok, string $message, int $status = 200, array $extra = []): void {
@@ -23,8 +24,21 @@ function caja_movimiento_json_response(bool $ok, string $message, int $status = 
   exit;
 }
 
+$wantsJsonRequest = caja_movimiento_wants_json();
+if ($wantsJsonRequest) {
+  require_login_json();
+  require_perm_json('realizar_ventas');
+  require_pos_json();
+} else {
+  require_permission('realizar_ventas');
+  require_pos();
+}
+
 final class FlusCajaMovimientoException extends RuntimeException {
-  public function __construct(string $message, public readonly int $status = 409) {
+  public int $status;
+
+  public function __construct(string $message, int $status = 409) {
+    $this->status = $status;
     parent::__construct($message);
   }
 }

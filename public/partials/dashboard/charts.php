@@ -32,28 +32,62 @@
     </details>
   </div>
 
-  <div class="dash-card">
+  <div class="dash-card dash-card-top-products">
     <div class="dash-card-header">
-      <h2>Top productos</h2>
-      <span class="dash-card-sub">Mas vendidos <?= $categoriaFiltro ? '(' . h($categoriaFiltro) . ')' : '' ?></span>
+      <div>
+        <h2>Top productos</h2>
+        <span class="dash-card-sub">
+          <?php
+            $topMetricLabel = [
+              'unidades' => 'por cantidad vendida',
+              'ventas' => 'por importe vendido',
+              'ganancia' => 'por ganancia estimada',
+            ][(string)($topProductosMetric ?? 'unidades')] ?? 'por cantidad vendida';
+          ?>
+          <?= h($topMetricLabel) ?><?= $categoriaFiltro ? ' (' . h($categoriaFiltro) . ')' : '' ?>
+        </span>
+      </div>
+      <div class="dash-card-actions dash-top-controls" aria-label="Control de top productos">
+        <label>
+          <span>Criterio</span>
+          <select name="top_metric" form="dashFilters" class="dash-mini-select" data-dash-top-control>
+            <option value="unidades" <?= ($topProductosMetric ?? 'unidades') === 'unidades' ? 'selected' : '' ?>>Unidades</option>
+            <option value="ventas" <?= ($topProductosMetric ?? 'unidades') === 'ventas' ? 'selected' : '' ?>>Importe</option>
+            <option value="ganancia" <?= ($topProductosMetric ?? 'unidades') === 'ganancia' ? 'selected' : '' ?>>Ganancia</option>
+          </select>
+        </label>
+        <label>
+          <span>Mostrar</span>
+          <select name="top_limit" form="dashFilters" class="dash-mini-select dash-mini-select--short" data-dash-top-control>
+            <?php foreach ([5, 10, 15, 20] as $limitOption): ?>
+              <option value="<?= $limitOption ?>" <?= (int)($topProductosLimit ?? 10) === $limitOption ? 'selected' : '' ?>><?= $limitOption ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+      </div>
     </div>
     <div class="chart-wrap">
       <canvas id="chartTopProductos" role="img" tabindex="0" aria-label="Top productos mas vendidos" aria-describedby="chartTopProductosData"></canvas>
       <div id="noTopMsg" class="chart-empty" style="display:none;">Sin datos</div>
     </div>
 
-    <details class="chart-data" id="chartTopProductosData">
-      <summary>Ver datos</summary>
+    <details class="chart-data" id="chartTopProductosData" open>
+      <summary id="chartTopProductosSummary">Ver datos<?= !empty($topProductosRows) ? ' (' . count($topProductosRows) . ' registros)' : '' ?></summary>
       <div class="chart-data-inner">
         <table class="chart-data-table">
-          <thead><tr><th>Producto</th><th>Unidades</th></tr></thead>
-          <tbody>
-            <?php foreach ($topProductosLabels as $i => $nombre): ?>
+          <thead><tr><th>Producto</th><th>Unidades</th><th>Importe</th><th>Ganancia</th></tr></thead>
+          <tbody id="chartTopProductosRows">
+            <?php foreach (($topProductosRows ?? []) as $row): ?>
               <tr>
-                <td><?= h((string)$nombre) ?></td>
-                <td><?= h(format_qty_trim((float)($topProductosData[$i] ?? 0))) ?></td>
+                <td><?= h((string)($row['nombre'] ?? '')) ?></td>
+                <td><?= h(format_qty_trim((float)($row['unidades'] ?? 0))) ?></td>
+                <td>$ <?= number_format((float)($row['ventas'] ?? 0), 0, ',', '.') ?></td>
+                <td>$ <?= number_format((float)($row['ganancia'] ?? 0), 0, ',', '.') ?></td>
               </tr>
             <?php endforeach; ?>
+            <?php if (empty($topProductosRows)): ?>
+              <tr><td colspan="4" class="muted">Sin datos</td></tr>
+            <?php endif; ?>
           </tbody>
         </table>
       </div>

@@ -164,6 +164,8 @@ $dashCacheState = dashboard_load_cache([
   (string)($categoriaFiltro ?? ''),
   (string)($horaDesdeSql ?? ''),
   (string)($horaHastaSql ?? ''),
+  (string)($topProductosMetric ?? 'unidades'),
+  (string)($topProductosLimit ?? 10),
 ]);
 $dashCacheTtl = (int)($dashCacheState['ttl'] ?? 300);
 $dashCacheHit = (bool)($dashCacheState['hit'] ?? false);
@@ -582,30 +584,42 @@ $categoryMetrics = dashboard_compute_categories([
 ]);
 extract($categoryMetrics, EXTR_OVERWRITE);
 
-[$ventasLabels, $ventasData, $topProductosLabels, $topProductosData, $ventasPorHora, $ventasPorDiaSemana] = array_values(
-  dashboard_compute_visual_datasets([
-    'pdo' => $pdo,
-    'hasVentas' => $hasVentas,
-    'ventasFechaCol' => $ventasFechaCol,
-    'ventasTotalCol' => $ventasTotalCol,
-    'categoriaFiltro' => $categoriaFiltro,
-    'hasVentaItems' => $hasVentaItems,
-    'viVentaIdCol' => $viVentaIdCol,
-    'viProdIdCol' => $viProdIdCol,
-    'viQtyCol' => $viQtyCol,
-    'hasProductos' => $hasProductos,
-    'prodCatCol' => $prodCatCol,
-    'catCondP' => $catCondP,
-    'fromStart' => $fromStart,
-    'toEnd' => $toEnd,
-    'ventasDateSQL' => $ventasDateSQL,
-    'ventasEmitidaCond' => $ventasEmitidaCond,
-    'fromDT' => $fromDT,
-    'toDT' => $toDT,
-    'ventasTotalSQL' => $ventasTotalSQL,
-    'prodNombreCol' => $prodNombreCol,
-  ])
-);
+$visualDatasets = dashboard_compute_visual_datasets([
+  'pdo' => $pdo,
+  'hasVentas' => $hasVentas,
+  'ventasFechaCol' => $ventasFechaCol,
+  'ventasTotalCol' => $ventasTotalCol,
+  'categoriaFiltro' => $categoriaFiltro,
+  'hasVentaItems' => $hasVentaItems,
+  'viVentaIdCol' => $viVentaIdCol,
+  'viProdIdCol' => $viProdIdCol,
+  'viQtyCol' => $viQtyCol,
+  'hasProductos' => $hasProductos,
+  'prodCatCol' => $prodCatCol,
+  'catCondP' => $catCondP,
+  'fromStart' => $fromStart,
+  'toEnd' => $toEnd,
+  'ventasDateSQL' => $ventasDateSQL,
+  'ventasEmitidaCond' => $ventasEmitidaCond,
+  'fromDT' => $fromDT,
+  'toDT' => $toDT,
+  'ventasTotalSQL' => $ventasTotalSQL,
+  'prodNombreCol' => $prodNombreCol,
+  'prodCostoCol' => $prodCostoCol,
+  'lineExprVi' => $lineExprVi,
+  'lineExprVi2' => $lineExprVi2,
+  'topProductosMetric' => $topProductosMetric ?? 'unidades',
+  'topProductosLimit' => $topProductosLimit ?? 10,
+]);
+
+$ventasLabels = $visualDatasets['ventasLabels'] ?? [];
+$ventasData = $visualDatasets['ventasData'] ?? [];
+$topProductosLabels = $visualDatasets['topProductosLabels'] ?? [];
+$topProductosData = $visualDatasets['topProductosData'] ?? [];
+$topProductosRows = $visualDatasets['topProductosRows'] ?? [];
+$topProductosSets = $visualDatasets['topProductosSets'] ?? [];
+$ventasPorHora = $visualDatasets['ventasPorHora'] ?? [];
+$ventasPorDiaSemana = $visualDatasets['ventasPorDiaSemana'] ?? [];
 
 $cierreCajaHoy = array_merge([
   'fecha' => $today,
@@ -639,6 +653,8 @@ $ventasLabels = is_array($ventasLabels ?? null) ? $ventasLabels : [];
 $ventasData = is_array($ventasData ?? null) ? $ventasData : [];
 $topProductosLabels = is_array($topProductosLabels ?? null) ? $topProductosLabels : [];
 $topProductosData = is_array($topProductosData ?? null) ? $topProductosData : [];
+$topProductosRows = is_array($topProductosRows ?? null) ? $topProductosRows : [];
+$topProductosSets = is_array($topProductosSets ?? null) ? $topProductosSets : [];
 $ventasPorHora = is_array($ventasPorHora ?? null) ? $ventasPorHora : [];
 $ventasPorDiaSemana = is_array($ventasPorDiaSemana ?? null) ? $ventasPorDiaSemana : [];
 $ventasDelta = array_merge(['class' => '', 'text' => '', 'title' => ''], is_array($ventasDelta ?? null) ? $ventasDelta : []);
@@ -665,6 +681,10 @@ $dashPayload = [
   'ventasData'             => $ventasData,
   'topProductosLabels'     => $topProductosLabels,
   'topProductosData'       => $topProductosData,
+  'topProductosRows'       => $topProductosRows,
+  'topProductosSets'       => $topProductosSets,
+  'topProductosMetric'     => $topProductosMetric ?? 'unidades',
+  'topProductosLimit'      => $topProductosLimit ?? 10,
   'metodosPago'            => $metodosPago,
   'categorias'             => $categorias,
   'ventasPorHora'          => $ventasPorHora,

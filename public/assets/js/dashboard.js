@@ -14,6 +14,7 @@ if (window.__flus_dashboard_js_loaded) {
     initExportLinks();
     initSparklines();
     initCategoryFilter();
+    initTopProductControls(data);
     initScrollShadows();
     initTimeFilters();
 
@@ -62,6 +63,15 @@ function numFromText(value, fallback = 0) {
 
 function hasSomePositive(arr) {
   return Array.isArray(arr) && arr.length > 0 && arr.some((v) => num(v, 0) > 0);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /* =========================
@@ -179,7 +189,7 @@ function getDataWithDomFallback(data) {
     }
   }
 
-  if (!hasSomePositive(resolved.topProdData)) {
+  if (!hasSomePositive(resolved.topProdData) && !Array.isArray(resolved.topProdRows) && !resolved.topProdSets) {
     const rows = getDetailRows("chartTopProductosData");
     if (rows.length) {
       resolved.topProdLabels = rows.map((row) => row.cells[0]?.textContent?.trim() || "");
@@ -321,6 +331,103 @@ function initCategoryFilter() {
       }
       form.submit();
     }
+  });
+}
+
+function topProductMetricLabel(metric) {
+  if (metric === "ganancia") return "Ganancia";
+  if (metric === "ventas") return "Importe";
+  return "Unidades";
+}
+
+function topProductMetricSuffix(metric) {
+  return metric === "unidades" ? " un." : "";
+}
+
+function formatTopProductMetric(metric, value) {
+  return metric === "unidades"
+    ? nfNum1.format(num(value, 0))
+    : "$ " + nfMoney0.format(num(value, 0));
+}
+
+function resolveTopProductRows(data) {
+  const metric = String(data.topProdMetric || "unidades");
+  const limit = Number.parseInt(data.topProdLimit, 10) || 10;
+  const set = data.topProdSets?.[metric] || data.topProdSets?.unidades || {};
+  const rows = Array.isArray(set.rows)
+    ? set.rows.slice(0, limit)
+    : (Array.isArray(data.topProdRows) ? data.topProdRows.slice(0, limit) : []);
+  const effectiveMetric = String(set.effective_metric || metric);
+  const labels = rows.map((row) => String(row?.nombre || ""));
+  const values = rows.map((row) => num(row?.[effectiveMetric], 0));
+
+  return { rows, labels, values, metric, effectiveMetric, limit };
+}
+
+function renderTopProductTable(data) {
+  const tbody = document.getElementById("chartTopProductosRows");
+  const summary = document.getElementById("chartTopProductosSummary");
+  if (!tbody) return;
+
+  const { rows, limit } = resolveTopProductRows(data);
+  if (summary) {
+    summary.textContent = rows.length
+      ? `Ver datos (${rows.length} de ${limit} solicitados)`
+      : "Ver datos";
+  }
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">Sin datos</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => `
+    <tr>
+      <td>${escapeHtml(String(row?.nombre || ""))}</td>
+      <td>${escapeHtml(nfNum1.format(num(row?.unidades, 0)))}</td>
+      <td>$ ${escapeHtml(nfMoney0.format(num(row?.ventas, 0)))}</td>
+      <td>$ ${escapeHtml(nfMoney0.format(num(row?.ganancia, 0)))}</td>
+    </tr>
+  `).join("");
+}
+
+function applyTopProductSelection(data, options = {}) {
+  const metricSelect = document.querySelector('select[name="top_metric"]');
+  const limitSelect = document.querySelector('select[name="top_limit"]');
+  const metric = String(options.metric || metricSelect?.value || data.topProdMetric || "unidades");
+  const limit = Number.parseInt(String(options.limit || limitSelect?.value || data.topProdLimit || 10), 10);
+
+  data.topProdMetric = ["unidades", "ventas", "ganancia"].includes(metric) ? metric : "unidades";
+  data.topProdLimit = [5, 10, 15, 20].includes(limit) ? limit : 10;
+
+  const resolved = resolveTopProductRows(data);
+  data.topProdLabels = resolved.labels;
+  data.topProdData = resolved.values;
+  data.topProdRows = resolved.rows;
+  data.topProdEffectiveMetric = resolved.effectiveMetric;
+
+  renderTopProductTable(data);
+  renderAllCharts(data);
+
+  if (options.updateUrl !== false) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("top_metric", data.topProdMetric);
+    url.searchParams.set("top_limit", String(data.topProdLimit));
+    window.history.replaceState({}, "", url);
+  }
+}
+
+function initTopProductControls(data) {
+  const resolved = resolveTopProductRows(data);
+  data.topProdLabels = resolved.labels;
+  data.topProdData = resolved.values;
+  data.topProdRows = resolved.rows;
+  data.topProdEffectiveMetric = resolved.effectiveMetric;
+  renderTopProductTable(data);
+  document.querySelectorAll("[data-dash-top-control]").forEach((control) => {
+    control.addEventListener("change", function() {
+      applyTopProductSelection(data);
+    });
   });
 }
 
@@ -579,6 +686,16 @@ function renderBarChart(
   const safeLabels = Array.isArray(labels)
     ? labels.map((s) => String(s ?? ""))
     : [];
+  const metric = String(window.dashboardData?.topProdEffectiveMetric || window.dashboardData?.topProdMetric || "unidades");
+  const metricLabel = metric === "ganancia"
+    ? "Ganancia"
+    : metric === "ventas"
+      ? "Importe"
+      : "Unidades";
+  const suffix = metric === "unidades" ? " un." : "";
+  const formatMetric = (value) => metric === "unidades"
+    ? nfNum1.format(num(value, 0))
+    : "$ " + nfMoney0.format(num(value, 0));
 
   const chart = new Chart(canvas.getContext("2d"), {
     type: "bar",
@@ -586,7 +703,7 @@ function renderBarChart(
       labels: safeLabels,
       datasets: [
         {
-          label: "Unidades",
+          label: metricLabel,
           data: safeVals,
           backgroundColor: palette.secondaryFill,
           borderColor: palette.secondary,
@@ -604,7 +721,7 @@ function renderBarChart(
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${nfNum1.format(num(ctx.parsed.x, 0))} un.`,
+            label: (ctx) => ` ${formatMetric(ctx.parsed.x)}${suffix}`,
           },
         },
       },
@@ -624,7 +741,7 @@ function renderBarChart(
 
   __dashCharts.push(chart);
   const topLabel = safeLabels[0] || "";
-  if (topLabel) updateCardSub(canvasId, `Top: ${topLabel} — ${nfNum1.format(safeVals[0] || 0)} un.`);
+  if (topLabel) updateCardSub(canvasId, `Top: ${topLabel} - ${formatMetric(safeVals[0] || 0)}${suffix}`);
 }
 
 /* =========================
