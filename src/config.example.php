@@ -69,6 +69,20 @@ define('FLUS_LICENSE_CLOUD_PUBKEY_PEM', flus_env('FLUS_LICENSE_CLOUD_PUBKEY_PEM'
 define('FLUS_LICENSE_CLOUD_CHECK_EVERY_REQUEST', flus_env_bool('FLUS_LICENSE_CLOUD_CHECK_EVERY_REQUEST', false));
 
 // ============================================
+// SINCRONIZACION CLOUD OPERATIVA
+// ============================================
+// Si FLUS_CLOUD_SYNC_URL queda vacio, FLUS intenta derivarlo desde FLUS_LICENSE_CLOUD_URL.
+// La venta local nunca depende de este envio: los eventos quedan en cola y se reintentan.
+define('FLUS_CLOUD_SYNC_ENABLED', flus_env_bool('FLUS_CLOUD_SYNC_ENABLED', flus_env('FLUS_LICENSE_CLOUD_URL', '') !== ''));
+define('FLUS_CLOUD_SYNC_URL', flus_env('FLUS_CLOUD_SYNC_URL', ''));
+define('FLUS_CLOUD_SYNC_TOKEN', flus_env('FLUS_CLOUD_SYNC_TOKEN', ''));
+define('FLUS_CLOUD_SYNC_TIMEOUT_SEC', (int)flus_env('FLUS_CLOUD_SYNC_TIMEOUT_SEC', '5'));
+define('FLUS_CLOUD_BRANCH_CODE', flus_env('FLUS_CLOUD_BRANCH_CODE', 'central'));
+define('FLUS_CLOUD_BRANCH_NAME', flus_env('FLUS_CLOUD_BRANCH_NAME', 'Casa central'));
+define('FLUS_CLOUD_BRANCH_ADDRESS', flus_env('FLUS_CLOUD_BRANCH_ADDRESS', ''));
+define('FLUS_CLOUD_INSTALLATION_NAME', flus_env('FLUS_CLOUD_INSTALLATION_NAME', ''));
+
+// ============================================
 // CONEXION PDO
 // ============================================
 if (!function_exists('flus_pdo_dsn')) {

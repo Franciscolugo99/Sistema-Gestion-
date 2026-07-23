@@ -497,6 +497,11 @@ function flus_action_guard_policies(): array {
       'permissions' => ['realizar_ventas'],
       'csrf' => true,
     ],
+    'cloud_sync_push' => [
+      'methods' => ['POST'],
+      'permissions' => ['administrar_config'],
+      'csrf' => true,
+    ],
     'mp_qr_create' => [
       'methods' => ['POST'],
       'any_permissions' => ['realizar_ventas', 'administrar_config'],

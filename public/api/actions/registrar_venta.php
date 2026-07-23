@@ -2,6 +2,8 @@
 declare(strict_types=1);
 // public/api/actions/registrar_venta.php
 
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
+
 $pdo = $pdo ?? getPDO();
 $user = current_user();
 $userId = (int)($user['id'] ?? 0);
@@ -159,6 +161,36 @@ try {
   if ($requestUid !== null) {
     $response['request_uid'] = $requestUid;
   }
+
+  flus_cloud_sync_enqueue_sale($pdo, [
+    'venta_id' => $ventaId,
+    'request_uid' => $requestUid,
+    'fecha' => date('Y-m-d H:i:s'),
+    'caja_id' => $cajaId,
+    'terminal_id' => $terminalId,
+    'user_id' => $userId,
+    'total' => $totalNetoFinal,
+    'total_bruto' => $totalBruto,
+    'descuento_total' => $descTotalFinal,
+    'ajuste_precio_total' => $ajustePrecioTotal,
+    'ajuste_precio_redondeo_total' => $ajustePrecioRedondeoTotal,
+    'medio_pago' => $medio,
+    'monto_pagado' => $montoPagado,
+    'vuelto' => $vuelto,
+    'monto_cc' => $montoCC,
+    'pagos' => $pagosValidos,
+    'items_count' => count($srvItems),
+    'items' => array_map(static function (array $item): array {
+      return [
+        'producto_id' => (int)($item['id'] ?? $item['producto_id'] ?? 0),
+        'codigo' => (string)($item['codigo'] ?? ''),
+        'nombre' => (string)($item['nombre'] ?? ''),
+        'cantidad' => (float)($item['cantidad'] ?? 0),
+        'precio' => round((float)($item['precio'] ?? 0), 2),
+        'subtotal' => round((float)($item['subtotal'] ?? 0), 2),
+      ];
+    }, $srvItems),
+  ]);
 
   json_ok($response);
 } catch (FlusVentaDomainException $e) {

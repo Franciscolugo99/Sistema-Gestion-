@@ -6,6 +6,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
 require_once FLUS_ROOT . '/src/technical_migrations_lib.php';
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
 require_login();
 require_technical_permission();
 
@@ -740,6 +741,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ? 'Base actualizada correctamente. Se aplicaron ' . $appliedCount . ' migracion(es).'
                     : 'La base ya estaba actualizada. No habia migraciones pendientes.';
             }
+        } elseif ($action === 'cloud_sync_push') {
+            require_permission('administrar_config');
+            $syncResult = flus_cloud_sync_push($pdo, 50);
+            if (!empty($syncResult['ok'])) {
+                $sent = (int)($syncResult['sent'] ?? 0);
+                $info = $sent > 0
+                    ? 'Sincronizacion cloud enviada: ' . $sent . ' evento(s).'
+                    : 'Sincronizacion cloud al dia. No habia eventos pendientes.';
+            } else {
+                $error = 'No se pudo sincronizar con la nube: ' . (string)($syncResult['error'] ?? 'SYNC_FAILED');
+            }
         } elseif ($action !== '') {
             $error = 'Accion tecnica no registrada.';
         }
@@ -772,6 +784,14 @@ $migrationPendingCount = (int)($migrationStatus['pending_count'] ?? 0);
 $migrationAppliedCount = (int)($migrationStatus['applied'] ?? 0);
 $migrationTotalCount = (int)($migrationStatus['total'] ?? 0);
 $migrationChipClass = $migrationStatus === null ? 'error' : ($migrationPendingCount > 0 ? 'warning' : 'ok');
+$cloudSyncConfig = flus_cloud_sync_config();
+$cloudSyncCounts = flus_cloud_sync_pending_counts($pdo);
+$cloudSyncReady = !empty($cloudSyncCounts['ready']);
+$cloudSyncPending = (int)($cloudSyncCounts['pending'] ?? 0);
+$cloudSyncFailed = (int)($cloudSyncCounts['failed'] ?? 0);
+$cloudSyncSent = (int)($cloudSyncCounts['sent'] ?? 0);
+$cloudSyncConfigured = !empty($cloudSyncConfig['enabled']) && !empty($cloudSyncConfig['url']) && !empty($cloudSyncConfig['token']);
+$cloudSyncChipClass = !$cloudSyncReady || !$cloudSyncConfigured ? 'warning' : (($cloudSyncFailed > 0) ? 'error' : 'ok');
 
 $paginationPages = array_map(
     static fn(string $path): string => FLUS_ROOT . '/' . $path,
@@ -971,6 +991,22 @@ require __DIR__ . '/partials/header.php';
       </div>
       <div class="stat-note"><?= $migrationAppliedCount ?>/<?= $migrationTotalCount ?> archivos registrados.</div>
     </div>
+
+    <div class="tecnico-card stat-card">
+      <div class="stat-label">Cloud sync</div>
+      <div class="stat-value <?= $cloudSyncChipClass === 'ok' ? 'ok' : ($cloudSyncChipClass === 'error' ? 'error' : '') ?>">
+        <?php if (!$cloudSyncReady): ?>
+          Sin tabla
+        <?php elseif (!$cloudSyncConfigured): ?>
+          Inactivo
+        <?php elseif ($cloudSyncPending + $cloudSyncFailed > 0): ?>
+          <?= $cloudSyncPending + $cloudSyncFailed ?> pendiente(s)
+        <?php else: ?>
+          Al dia
+        <?php endif; ?>
+      </div>
+      <div class="stat-note"><?= $cloudSyncSent ?> enviados / <?= $cloudSyncFailed ?> con error.</div>
+    </div>
   </div>
 
   <div class="tecnico-grid">
@@ -1103,6 +1139,38 @@ require __DIR__ . '/partials/header.php';
           <strong>API publica</strong>
           <span><?= (int)$apiPageCount ?> endpoints PHP relevados en `public/api/`.</span>
         </div>
+      </div>
+    </section>
+
+    <section class="tecnico-card">
+      <div class="section-head">
+        <h2>Sincronizacion cloud</h2>
+        <span class="chip <?= $cloudSyncChipClass ?>">
+          <?= !$cloudSyncReady ? 'Requiere migracion' : (!$cloudSyncConfigured ? 'Inactiva' : 'Operativa') ?>
+        </span>
+      </div>
+      <div class="meta-grid">
+        <div><strong>Pendientes:</strong> <?= $cloudSyncPending ?></div>
+        <div><strong>Con error:</strong> <?= $cloudSyncFailed ?></div>
+        <div><strong>Enviados:</strong> <?= $cloudSyncSent ?></div>
+        <div><strong>Endpoint:</strong> <?= !empty($cloudSyncConfig['url']) ? 'Configurado' : 'Sin URL' ?></div>
+      </div>
+      <p class="tecnico-copy">La cola manda eventos a FLUS Web sin frenar ventas ni caja. Si internet falla, queda pendiente y se puede reintentar.</p>
+      <div class="tecnico-migration-actions">
+        <?php if ($canManageMigrations): ?>
+          <form method="post" class="inline-form">
+            <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
+            <input type="hidden" name="accion" value="cloud_sync_push">
+            <button class="btn btn-primary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
+              Enviar pendientes
+            </button>
+          </form>
+        <?php else: ?>
+          <span class="tecnico-copy-hint">Necesitas permiso para administrar la configuracion.</span>
+        <?php endif; ?>
+        <?php if (!$cloudSyncReady): ?>
+          <span class="tecnico-copy-hint">Primero aplica las migraciones pendientes.</span>
+        <?php endif; ?>
       </div>
     </section>
   </div>

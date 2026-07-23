@@ -2985,6 +2985,45 @@ $results[] = flus_run_test('registrar venta es idempotente ante doble envio de c
     flus_assert_true(substr_count($cajaJs, 'ventaRequestFingerprint = null;') >= 2);
 });
 
+$results[] = flus_run_test('cloud sync local encola ventas sin bloquear la operacion', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
+    $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '045_cloud_sync_queue.sql');
+    $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
+    $cloudLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_lib.php');
+    $tecnicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
+    $scriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_push.php');
+    $configExamplePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.example.php');
+
+    flus_assert_contains('CREATE TABLE `cloud_sync_queue`', $installSql);
+    flus_assert_contains('UNIQUE KEY `ux_cloud_sync_queue_event_uid` (`event_uid`)', $installSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `cloud_sync_queue`', $migrationSql);
+    flus_assert_contains('UNIQUE KEY `ux_cloud_sync_queue_event_uid` (`event_uid`)', $migrationSql);
+
+    flus_assert_contains("require_once FLUS_ROOT . '/src/cloud_sync_lib.php';", $registrarVentaPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_sale($pdo, [', $registrarVentaPhp);
+    flus_assert_contains("'items' => array_map(static function (array \$item): array", $registrarVentaPhp);
+    flus_assert_contains('function flus_cloud_sync_enqueue_event(PDO $pdo, string $eventType, string $eventUid', $cloudLibPhp);
+    flus_assert_contains("return ['queued' => false, 'reason' => 'schema_missing'];", $cloudLibPhp);
+    flus_assert_contains("error_log('[FLUS][cloud-sync] enqueue failed:", $cloudLibPhp);
+    flus_assert_contains("return flus_cloud_sync_enqueue_event(\$pdo, 'sale.created'", $cloudLibPhp);
+    flus_assert_contains('function flus_cloud_sync_push(PDO $pdo, int $limit = 50): array', $cloudLibPhp);
+    flus_assert_contains("'Authorization: Bearer ' . \$token", $cloudLibPhp);
+
+    flus_assert_contains("'cloud_sync_push' => [", $indexPhp);
+    flus_assert_contains("'permissions' => ['administrar_config']", $indexPhp);
+    flus_assert_contains("'csrf' => true", $indexPhp);
+    flus_assert_contains('flus_cloud_sync_push($pdo, $limit)', $scriptPhp);
+    flus_assert_contains('flus_cloud_sync_push($pdo, 50)', $tecnicoPhp);
+    flus_assert_contains('Cloud sync', $tecnicoPhp);
+    flus_assert_contains("define('FLUS_CLOUD_SYNC_URL'", $configExamplePhp);
+
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_lib.php';
+    $derived = flus_cloud_sync_derive_url('https://panel.example.com/flus-web/admin/api/license-check.php');
+    flus_assert_same('https://panel.example.com/flus-web/admin/api/sync-ingest.php', $derived);
+});
+
 $results[] = flus_run_test('mercado pago queda cableado sin exponer credenciales', function (): void {
     $repoRoot = dirname(__DIR__);
     $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
