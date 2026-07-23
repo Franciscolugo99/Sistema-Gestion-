@@ -125,11 +125,11 @@
     </div>
     <?php endif; ?>
 
-    <div class="cierre-caja-section">
+    <div class="cierre-caja-section" aria-labelledby="dashboardCierreTitle">
       <div class="cierre-caja-header">
         <div class="cierre-caja-title-row">
-          <h2 class="section-title">Cierre de caja - Hoy <?= date('d/m/Y') ?></h2>
-          <span class="cierre-caja-note" title="Este resumen siempre muestra el dia de hoy, independiente del filtro de fechas seleccionado">Solo dia actual</span>
+          <h2 id="dashboardCierreTitle" class="section-title">Resumen de hoy</h2>
+          <span class="cierre-caja-note" title="Este bloque no usa el filtro de fechas del panel">No usa filtro</span>
         </div>
         <span class="cierre-caja-horario">
           <?php if ($cierreCajaHoy['primera_venta']): ?>
@@ -142,35 +142,31 @@
 
       <div class="cierre-caja-grid">
         <div class="cierre-caja-card cierre-main">
-          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Total del dia</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['monto_total'], 0, ',', '.') ?></span>
-            <span class="cierre-sub"><?= $cierreCajaHoy['total_ventas'] ?> ventas | Ticket prom: $ <?= number_format($cierreCajaHoy['ticket_promedio'], 0, ',', '.') ?></span>
+            <span class="cierre-sub"><?= $cierreCajaHoy['total_ventas'] ?> ventas, ticket prom. $ <?= number_format($cierreCajaHoy['ticket_promedio'], 0, ',', '.') ?></span>
           </div>
         </div>
 
         <div class="cierre-caja-card cierre-efectivo">
-          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Efectivo en caja</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['efectivo'], 0, ',', '.') ?></span>
-            <span class="cierre-sub">Para arqueo</span>
+            <span class="cierre-sub">Base para arqueo</span>
           </div>
         </div>
 
         <div class="cierre-caja-card cierre-otros">
-          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Otros medios</span>
             <span class="cierre-value">$ <?= number_format($cierreCajaHoy['otros_medios'], 0, ',', '.') ?></span>
-            <span class="cierre-sub">Tarjetas, transferencias, etc.</span>
+            <span class="cierre-sub">Tarjetas, QR y transferencias</span>
           </div>
         </div>
 
         <?php if ($cierreCajaHoy['anulaciones'] > 0): ?>
         <div class="cierre-caja-card cierre-anulaciones">
-          <div class="cierre-icon"></div>
           <div class="cierre-content">
             <span class="cierre-label">Anulaciones</span>
             <span class="cierre-value"><?= $cierreCajaHoy['anulaciones'] ?></span>
@@ -182,7 +178,7 @@
 
       <?php if (!empty($cierreCajaHoy['desglose_medios'])): ?>
       <details class="cierre-desglose">
-        <summary>Ver desglose por metodo de pago</summary>
+        <summary>Desglose por medio de pago</summary>
         <div class="cierre-desglose-grid">
           <?php foreach ($cierreCajaHoy['desglose_medios'] as $medio): ?>
           <div class="cierre-desglose-item">
@@ -196,7 +192,12 @@
     </div>
 
     <div class="insights-container">
-      <h2 class="section-title">Indicadores clave</h2>
+      <div class="dashboard-section-head">
+        <div>
+          <h2 class="section-title">Lecturas del periodo</h2>
+          <p>Se calculan con los filtros activos del panel.</p>
+        </div>
+      </div>
       <div class="insights-grid">
         <?php
           $insights = [];
@@ -208,49 +209,60 @@
               $mejorDia = (new DateTime($ventasLabels[$maxIdx]))->format('d/m');
               $diaSemana = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'][(int)(new DateTime($ventasLabels[$maxIdx]))->format('w')];
               $insights[] = [
+                'class' => 'info',
+                'label' => 'Pico',
                 'html' => 'Tu mejor dia fue el <strong>' . h($mejorDia) . '</strong> (' . $diaSemana . ') con <strong>' . (int)$maxVentas . ' ventas</strong>',
-                'tip' => 'Considera reforzar personal los ' . $diaSemana . '.'
+                'tip' => 'Revisa stock y cobertura para ese dia.'
               ];
             }
           }
 
           if (($ventasDelta['class'] ?? '') === 'kpi-up') {
-            $insights[] = ['html' => 'Ventas crecieron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Analiza que funciono bien para sostener la tendencia.'];
+            $insights[] = ['class' => 'good', 'label' => 'Tendencia', 'html' => 'Ventas crecieron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Identifica que productos o turnos empujaron la suba.'];
           } elseif (($ventasDelta['class'] ?? '') === 'kpi-down') {
-            $insights[] = ['html' => 'Ventas bajaron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Revisa factores externos o considera una promocion.'];
+            $insights[] = ['class' => 'warn', 'label' => 'Tendencia', 'html' => 'Ventas bajaron <strong>' . h($ventasDelta['text']) . '</strong> vs periodo anterior', 'tip' => 'Revisa faltantes, precios y horarios flojos.'];
           }
 
           if (!empty($productosRentables)) {
             $top = $productosRentables[0];
             $nombre = h((string)($top['nombre'] ?? 'Producto'));
             $ganancia = number_format((float)($top['ganancia'] ?? 0), 0, ',', '.');
-            $insights[] = ['html' => "<strong>{$nombre}</strong> es tu producto mas rentable (<strong>$ {$ganancia}</strong>)", 'tip' => 'Asegura stock suficiente de este producto.'];
+            $insights[] = ['class' => 'good', 'label' => 'Margen', 'html' => "<strong>{$nombre}</strong> es tu producto mas rentable (<strong>$ {$ganancia}</strong>)", 'tip' => 'Asegura reposicion y exhibicion.'];
           }
 
           if ($tasaAnulacion > 5) {
-            $insights[] = ['html' => 'Tasa de anulacion alta: <strong>' . h(number_format($tasaAnulacion, 1)) . '%</strong>', 'tip' => 'Investiga las causas: errores de caja, devoluciones, etc.'];
+            $insights[] = ['class' => 'danger', 'label' => 'Control', 'html' => 'Tasa de anulacion alta: <strong>' . h(number_format($tasaAnulacion, 1)) . '%</strong>', 'tip' => 'Revisa permisos, cajeros y motivos de anulacion.'];
           } elseif ($ventasAnuladas === 0 && $ventasRango > 10) {
-            $insights[] = ['html' => 'Excelente: <strong>0 anulaciones</strong> en el periodo', 'tip' => ''];
+            $insights[] = ['class' => 'good', 'label' => 'Control', 'html' => '<strong>0 anulaciones</strong> en el periodo', 'tip' => 'Buen indicador de operacion estable.'];
           }
 
           if ($capitalDormido > 0) {
             $countDormidos = count($productosDormidos);
             $insights[] = [
+              'class' => 'warn',
+              'label' => 'Stock',
               'html' => "<strong>{$countDormidos} productos</strong> sin movimiento en 30 dias. Capital parado: <strong>$ " . number_format($capitalDormido, 0, ',', '.') . "</strong>",
-              'tip' => 'Considera promociones o liquidacion para liberar capital.'
+              'tip' => 'Evalua promocion, exhibicion o baja de compra.'
             ];
           }
 
           if (count($stockCritico) > 5) {
-            $insights[] = ['html' => '<strong>' . count($stockCritico) . ' productos</strong> con stock critico. Revisar reposicion.', 'tip' => 'Haz pedido a proveedores urgentemente.'];
+            $insights[] = ['class' => 'danger', 'label' => 'Reposicion', 'html' => '<strong>' . count($stockCritico) . ' productos</strong> con stock critico', 'tip' => 'Prioriza los que mas rotan antes de vender sin stock.'];
           }
 
-          foreach ($insights as $in) {
-            echo "<div class='insight-item'> {$in['html']}";
-            if (!empty($in['tip'])) {
-              echo "<span class='insight-tip'>{$in['tip']}</span>";
+          if (empty($insights)) {
+            echo "<div class='insight-item insight-empty'><span class='insight-label'>Estado</span><strong>Sin alertas relevantes</strong><span class='insight-tip'>El periodo no muestra desvios importantes con los datos actuales.</span></div>";
+          } else {
+            foreach ($insights as $in) {
+              $class = preg_replace('/[^a-z0-9_-]/i', '', (string)($in['class'] ?? 'info'));
+              echo "<div class='insight-item insight-{$class}'>";
+              echo "<span class='insight-label'>" . h((string)($in['label'] ?? 'Lectura')) . "</span>";
+              echo "<div class='insight-main'>{$in['html']}</div>";
+              if (!empty($in['tip'])) {
+                echo "<span class='insight-tip'>" . h((string)$in['tip']) . "</span>";
+              }
+              echo "</div>";
             }
-            echo "</div>";
           }
         ?>
       </div>
@@ -261,8 +273,10 @@
 
       if ($margenPorcentaje < 20 && $totalVentas > 0) {
         $acciones[] = [
+          'level' => 'warn',
+          'area' => 'Margen',
           'title' => 'Revisar margenes',
-          'desc' => 'Tu margen esta por debajo del 20%. Considera ajustar precios o negociar con proveedores.',
+          'desc' => 'El margen esta por debajo del 20%. Revisar costos y precios de los productos principales.',
           'link' => 'productos.php',
           'linkText' => 'Ver productos'
         ];
@@ -270,8 +284,10 @@
 
       if (count($stockCritico) > 3) {
         $acciones[] = [
+          'level' => 'danger',
+          'area' => 'Stock',
           'title' => 'Reponer stock',
-          'desc' => count($stockCritico) . ' productos necesitan reposicion urgente.',
+          'desc' => count($stockCritico) . ' productos estan por debajo del minimo.',
           'link' => 'stock.php',
           'linkText' => 'Ir a stock'
         ];
@@ -279,8 +295,10 @@
 
       if (count($productosDormidos) > 5) {
         $acciones[] = [
+          'level' => 'warn',
+          'area' => 'Capital',
           'title' => 'Liquidar productos parados',
-          'desc' => 'Tienes $' . number_format($capitalDormido, 0, ',', '.') . ' en mercaderia sin movimiento.',
+          'desc' => '$ ' . number_format($capitalDormido, 0, ',', '.') . ' en mercaderia sin movimiento reciente.',
           'link' => 'promos.php',
           'linkText' => 'Crear promocion'
         ];
@@ -288,8 +306,10 @@
 
       if ($tasaAnulacion > 5) {
         $acciones[] = [
+          'level' => 'danger',
+          'area' => 'Control',
           'title' => 'Investigar anulaciones',
-          'desc' => 'Tasa de anulacion del ' . number_format($tasaAnulacion, 1) . '%. Revisar causas.',
+          'desc' => 'Tasa de anulacion del ' . number_format($tasaAnulacion, 1) . '%. Revisar ventas anuladas y permisos.',
           'link' => 'ventas.php?estado=ANULADA',
           'linkText' => 'Ver anuladas'
         ];
@@ -297,8 +317,10 @@
 
       if ($ventasDelta['class'] === 'kpi-down') {
         $acciones[] = [
+          'level' => 'info',
+          'area' => 'Ventas',
           'title' => 'Ventas en baja',
-          'desc' => 'Las ventas cayeron vs el periodo anterior. Considera acciones promocionales.',
+          'desc' => 'Comparar turnos, categorias y productos contra el periodo anterior.',
           'link' => 'promos.php',
           'linkText' => 'Ver promociones'
         ];
@@ -308,18 +330,22 @@
     <?php if (!empty($acciones)): ?>
     <div class="dash-actions-section">
       <div class="dash-actions-header">
-        <span></span>
-        <h3>Acciones recomendadas</h3>
+        <div>
+          <h3>Proximas acciones</h3>
+          <p>Prioridades operativas segun el periodo filtrado.</p>
+        </div>
       </div>
       <div class="dash-actions-grid">
         <?php foreach ($acciones as $accion): ?>
-        <div class="dash-action-item">
+        <?php $level = preg_replace('/[^a-z0-9_-]/i', '', (string)($accion['level'] ?? 'info')); ?>
+        <div class="dash-action-item dash-action-<?= h($level) ?>">
           <div class="dash-action-content">
+            <span class="dash-action-area"><?= h((string)($accion['area'] ?? 'Operacion')) ?></span>
             <div class="dash-action-title"><?= h($accion['title']) ?></div>
             <div class="dash-action-desc"><?= h($accion['desc']) ?></div>
             <?php if (!empty($accion['link'])): ?>
             <a href="<?= h($accion['link']) ?>" class="dash-action-link">
-              <?= h($accion['linkText']) ?> ->
+              <?= h($accion['linkText']) ?>
             </a>
             <?php endif; ?>
           </div>
