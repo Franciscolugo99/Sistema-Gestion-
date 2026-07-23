@@ -757,6 +757,81 @@ body[data-theme="dark"] .chart-data {
   font-weight: 600;
 }
 
+.top-products-detail {
+  border-style: solid;
+  padding: 10px 12px 12px;
+}
+
+.top-products-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.top-products-detail-head h3 {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.top-products-detail-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.top-products-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.top-products-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.top-products-table th:first-child,
+.top-products-table td:first-child {
+  width: 42%;
+}
+
+.top-products-table .num-col {
+  width: 19.3%;
+}
+
+.chart-data-table .num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.top-products-table .is-selected-metric {
+  color: var(--text-main);
+  font-weight: 800;
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 8px;
+}
+
+body[data-theme="dark"] .top-products-table .is-selected-metric {
+  background: rgba(56, 189, 248, 0.13);
+}
+
+@media (max-width: 640px) {
+  .top-products-detail-head {
+    display: grid;
+  }
+
+  .top-products-detail-meta {
+    text-align: left;
+  }
+
+  .top-products-table {
+    min-width: 520px;
+  }
+}
+
 /* =========================================================
    Loading states (charts)
 ========================================================= */

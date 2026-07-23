@@ -71,18 +71,21 @@
       <div id="noTopMsg" class="chart-empty" style="display:none;">Sin datos</div>
     </div>
 
-    <details class="chart-data" id="chartTopProductosData" open>
-      <summary id="chartTopProductosSummary">Ver datos<?= !empty($topProductosRows) ? ' (' . count($topProductosRows) . ' registros)' : '' ?></summary>
-      <div class="chart-data-inner">
-        <table class="chart-data-table">
-          <thead><tr><th>Producto</th><th>Unidades</th><th>Importe</th><th>Ganancia</th></tr></thead>
+    <section class="top-products-detail chart-data" id="chartTopProductosData" aria-labelledby="chartTopProductosSummary">
+      <div class="top-products-detail-head">
+        <h3 id="chartTopProductosSummary">Ranking de productos<?= !empty($topProductosRows) ? ' (' . count($topProductosRows) . ')' : '' ?></h3>
+        <span class="top-products-detail-meta" data-top-products-meta><?= h($topMetricLabel) ?></span>
+      </div>
+      <div class="chart-data-inner top-products-table-wrap">
+        <table class="chart-data-table top-products-table">
+          <thead><tr><th>Producto</th><th class="num-col">Unidades</th><th class="num-col">Importe</th><th class="num-col">Ganancia</th></tr></thead>
           <tbody id="chartTopProductosRows">
             <?php foreach (($topProductosRows ?? []) as $row): ?>
               <tr>
                 <td><?= h((string)($row['nombre'] ?? '')) ?></td>
-                <td><?= h(format_qty_trim((float)($row['unidades'] ?? 0))) ?></td>
-                <td>$ <?= number_format((float)($row['ventas'] ?? 0), 0, ',', '.') ?></td>
-                <td>$ <?= number_format((float)($row['ganancia'] ?? 0), 0, ',', '.') ?></td>
+                <td class="num-col"><?= h(format_qty_trim((float)($row['unidades'] ?? 0))) ?></td>
+                <td class="num-col">$ <?= number_format((float)($row['ventas'] ?? 0), 0, ',', '.') ?></td>
+                <td class="num-col">$ <?= number_format((float)($row['ganancia'] ?? 0), 0, ',', '.') ?></td>
               </tr>
             <?php endforeach; ?>
             <?php if (empty($topProductosRows)): ?>
@@ -91,7 +94,7 @@
           </tbody>
         </table>
       </div>
-    </details>
+    </section>
   </div>
 
   <div class="dash-card">

@@ -57,6 +57,14 @@ $horaDesde = isset($_GET['hora_desde']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0
 $horaHasta = isset($_GET['hora_hasta']) && preg_match('/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/', (string)$_GET['hora_hasta']) ? (string)$_GET['hora_hasta'] : null;
 $horaDesdeSql = $horaDesde ?: null;
 $horaHastaSql = $horaHasta ?: null;
+$topProductosMetric = isset($_GET['top_metric']) ? trim((string)$_GET['top_metric']) : 'unidades';
+$topProductosLimit = isset($_GET['top_limit']) ? (int)$_GET['top_limit'] : 50;
+if (!in_array($topProductosMetric, ['unidades', 'ventas', 'ganancia'], true)) {
+  $topProductosMetric = 'unidades';
+}
+if (!in_array($topProductosLimit, [5, 10, 15, 20, 50], true)) {
+  $topProductosLimit = 50;
+}
 
 // Aplicar filtros de hora a las fechas
 if ($horaDesdeSql) {
@@ -109,7 +117,7 @@ $ventasTotalSQL = ($ventasTotalCol) ? "`{$ventasTotalCol}`" : "total";
 $emitidaCond = ($ventasEstadoCol) ? " AND (`{$ventasEstadoCol}` IS NULL OR `{$ventasEstadoCol}` <> 'ANULADA') " : "";
 
 // Construir condición de filtro de categoría
-$esSinCategoria = ($categoriaFiltro === 'Sin Categoría');
+$esSinCategoria = in_array($categoriaFiltro, ['Sin categoria', 'Sin Categoria', 'Sin Categoría'], true);
 $catCondP = "";  // Para alias 'p' (productos)
 if ($categoriaFiltro && $hasProductos && $prodCatCol) {
   if ($esSinCategoria) {
@@ -245,25 +253,80 @@ try {
      TOP PRODUCTOS
   ========================= */
   if ($type === 'top_productos') {
-    csvOut(['producto', 'unidades'], $out, $D);
+    csvOut(['producto', 'unidades', 'importe', 'costos', 'ganancia', 'criterio_orden'], $out, $D);
     if ($categoriaFiltro) csvOut(['filtro_categoria', $categoriaFiltro], $out, $D);
 
     if ($hasVentas && $hasVentaItems && $hasProductos && $ventasFechaCol && $viVentaIdCol && $viProdIdCol && $viQtyCol && $prodNombreCol) {
-      $sql = "
-        SELECT p.`{$prodNombreCol}` AS producto, COALESCE(SUM(vi.`{$viQtyCol}`),0) AS unidades
-        FROM venta_items vi
-        JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
-        JOIN productos p ON p.id = vi.`{$viProdIdCol}`
-        WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
-          {$catCondP}
-        GROUP BY p.id
-        ORDER BY unidades DESC
-        LIMIT 50
-      ";
-      $stmt = $pdo->prepare($sql);
-      $stmt->execute([$fromStart, $toEnd]);
+      $lineVi  = $lineExprForAlias('vi');
+      $lineVi2 = $lineExprForAlias('vi2');
+      $canAmounts = $ventasTotalCol && $lineVi && $lineVi2;
+      $effectiveMetric = $topProductosMetric;
+      if ($effectiveMetric === 'ganancia' && !($canAmounts && $prodCostoCol)) {
+        $effectiveMetric = $canAmounts ? 'ventas' : 'unidades';
+      }
+      if ($effectiveMetric === 'ventas' && !$canAmounts) {
+        $effectiveMetric = 'unidades';
+      }
+
+      if ($canAmounts) {
+        $costExpr = $prodCostoCol ? "COALESCE(p.`{$prodCostoCol}`, 0)" : "0";
+        $profitWhere = ($topProductosMetric === 'ganancia' && $prodCostoCol) ? "AND p.`{$prodCostoCol}` IS NOT NULL" : "";
+        $sql = "
+          SELECT
+            p.`{$prodNombreCol}` AS producto,
+            COALESCE(SUM(vi.`{$viQtyCol}`),0) AS unidades,
+            COALESCE(SUM(v.{$ventasTotalSQL} * ({$lineVi} / NULLIF(vt.subtotal_total,0))), 0) AS ventas,
+            COALESCE(SUM(vi.`{$viQtyCol}` * {$costExpr}), 0) AS costos,
+            COALESCE(SUM((v.{$ventasTotalSQL} * ({$lineVi} / NULLIF(vt.subtotal_total,0))) - (vi.`{$viQtyCol}` * {$costExpr})), 0) AS ganancia
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          JOIN (
+            SELECT vi2.`{$viVentaIdCol}` AS venta_id, SUM({$lineVi2}) AS subtotal_total
+            FROM venta_items vi2
+            JOIN ventas v2 ON v2.id = vi2.`{$viVentaIdCol}`
+            WHERE v2.{$ventasDateSQL} >= ? AND v2.{$ventasDateSQL} < ? {$emitidaCond}
+            GROUP BY vi2.`{$viVentaIdCol}`
+          ) vt ON vt.venta_id = vi.`{$viVentaIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+            AND vt.subtotal_total > 0
+            {$profitWhere}
+            {$catCondP}
+          GROUP BY p.id, p.`{$prodNombreCol}`
+          ORDER BY {$effectiveMetric} DESC
+          LIMIT {$topProductosLimit}
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$fromStart, $toEnd, $fromStart, $toEnd]);
+      } else {
+        $sql = "
+          SELECT
+            p.`{$prodNombreCol}` AS producto,
+            COALESCE(SUM(vi.`{$viQtyCol}`),0) AS unidades,
+            0 AS ventas,
+            0 AS costos,
+            0 AS ganancia
+          FROM venta_items vi
+          JOIN ventas v ON v.id = vi.`{$viVentaIdCol}`
+          JOIN productos p ON p.id = vi.`{$viProdIdCol}`
+          WHERE v.{$ventasDateSQL} >= ? AND v.{$ventasDateSQL} < ? {$emitidaCond}
+            {$catCondP}
+          GROUP BY p.id, p.`{$prodNombreCol}`
+          ORDER BY unidades DESC
+          LIMIT {$topProductosLimit}
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$fromStart, $toEnd]);
+      }
       while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        csvOut([$r['producto'], (int)$r['unidades']], $out, $D);
+        csvOut([
+          $r['producto'],
+          number_format((float)($r['unidades'] ?? 0), 3, '.', ''),
+          number_format((float)($r['ventas'] ?? 0), 2, '.', ''),
+          number_format((float)($r['costos'] ?? 0), 2, '.', ''),
+          number_format((float)($r['ganancia'] ?? 0), 2, '.', ''),
+          $effectiveMetric
+        ], $out, $D);
       }
     } else {
       csvOut(['ERROR', 'Faltan tablas/columnas para top_productos'], $out, $D);

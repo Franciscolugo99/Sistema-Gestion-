@@ -1761,6 +1761,7 @@ $results[] = flus_run_test('dashboard top productos permite criterio y limite op
     $filtersPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Dashboard' . DIRECTORY_SEPARATOR . 'Filters.php');
     $metricsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'Dashboard' . DIRECTORY_SEPARATOR . 'Metrics.php');
     $dashboardPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'dashboard.php');
+    $exportPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'dashboard_export.php');
     $chartsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'dashboard' . DIRECTORY_SEPARATOR . 'charts.php');
     $bootPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'dashboard' . DIRECTORY_SEPARATOR . 'boot.php');
     $dashboardJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'dashboard.js');
@@ -1775,12 +1776,17 @@ $results[] = flus_run_test('dashboard top productos permite criterio y limite op
     flus_assert_contains('name="top_metric"', $chartsPhp);
     flus_assert_contains('name="top_limit"', $chartsPhp);
     flus_assert_contains('data-dash-top-control', $chartsPhp);
-    flus_assert_contains('id="chartTopProductosData" open', $chartsPhp);
+    flus_assert_contains('class="top-products-detail chart-data"', $chartsPhp);
+    flus_assert_contains('class="chart-data-table top-products-table"', $chartsPhp);
+    flus_assert_contains('$topProductosMetric = isset($_GET', $exportPhp);
+    flus_assert_contains('criterio_orden', $exportPhp);
+    flus_assert_contains('ORDER BY {$effectiveMetric} DESC', $exportPhp);
     flus_assert_contains("'topProdRows' => \$topProductosRows", $bootPhp);
     flus_assert_contains("'topProdSets' => \$topProductosSets", $bootPhp);
     flus_assert_contains('function initTopProductControls(data)', $dashboardJs);
     flus_assert_contains('window.history.replaceState', $dashboardJs);
     flus_assert_contains('window.dashboardData?.topProdMetric', $dashboardJs);
+    flus_assert_contains('type === "top_productos"', $dashboardJs);
 });
 
 $results[] = flus_run_test('factura manual identifica y enfoca el campo invalido', function (): void {

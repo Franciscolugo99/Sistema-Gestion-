@@ -340,6 +340,12 @@ function topProductMetricLabel(metric) {
   return "Unidades";
 }
 
+function topProductMetricDescription(metric) {
+  if (metric === "ganancia") return "por ganancia estimada";
+  if (metric === "ventas") return "por importe vendido";
+  return "por cantidad vendida";
+}
+
 function topProductMetricSuffix(metric) {
   return metric === "unidades" ? " un." : "";
 }
@@ -367,13 +373,20 @@ function resolveTopProductRows(data) {
 function renderTopProductTable(data) {
   const tbody = document.getElementById("chartTopProductosRows");
   const summary = document.getElementById("chartTopProductosSummary");
+  const meta = document.querySelector("[data-top-products-meta]");
   if (!tbody) return;
 
-  const { rows, limit } = resolveTopProductRows(data);
+  const { rows, metric, effectiveMetric, limit } = resolveTopProductRows(data);
   if (summary) {
     summary.textContent = rows.length
-      ? `Ver datos (${rows.length} de ${limit} solicitados)`
-      : "Ver datos";
+      ? `Ranking de productos (${rows.length})`
+      : "Ranking de productos";
+  }
+  if (meta) {
+    const fallback = metric !== effectiveMetric
+      ? `, ordenado por ${topProductMetricDescription(effectiveMetric)} por falta de datos`
+      : "";
+    meta.textContent = `${topProductMetricDescription(metric)}${fallback}`;
   }
 
   if (!rows.length) {
@@ -381,12 +394,13 @@ function renderTopProductTable(data) {
     return;
   }
 
+  const selectedClass = (field) => field === effectiveMetric ? ' class="num-col is-selected-metric"' : ' class="num-col"';
   tbody.innerHTML = rows.map((row) => `
     <tr>
       <td>${escapeHtml(String(row?.nombre || ""))}</td>
-      <td>${escapeHtml(nfNum1.format(num(row?.unidades, 0)))}</td>
-      <td>$ ${escapeHtml(nfMoney0.format(num(row?.ventas, 0)))}</td>
-      <td>$ ${escapeHtml(nfMoney0.format(num(row?.ganancia, 0)))}</td>
+      <td${selectedClass("unidades")}>${escapeHtml(nfNum1.format(num(row?.unidades, 0)))}</td>
+      <td${selectedClass("ventas")}>$ ${escapeHtml(nfMoney0.format(num(row?.ventas, 0)))}</td>
+      <td${selectedClass("ganancia")}>$ ${escapeHtml(nfMoney0.format(num(row?.ganancia, 0)))}</td>
     </tr>
   `).join("");
 }
@@ -1273,12 +1287,14 @@ function initExportLinks() {
   const horaHastaInput = document.getElementById("dashHoraHasta");
   const horaDesdeAmpm = document.getElementById("dashHoraDesdeAmpm");
   const horaHastaAmpm = document.getElementById("dashHoraHastaAmpm");
+  const topMetricSelect = document.querySelector('select[name="top_metric"]');
+  const topLimitSelect = document.querySelector('select[name="top_limit"]');
   const links = Array.from(document.querySelectorAll(".dash-export"));
   const dd = document.getElementById("dashExportDD");
 
   if (!fromInput || !toInput || links.length === 0) return;
 
-  const buildHref = (type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH) => {
+  const buildHref = (type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH, topMetric, topLimit) => {
     let url = `dashboard_export.php?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
 
     if (categoria) url += `&categoria=${encodeURIComponent(categoria)}`;
@@ -1286,6 +1302,10 @@ function initExportLinks() {
     if (horaHasta) url += `&hora_hasta=${encodeURIComponent(horaHasta)}`;
     if (ampmD) url += `&hora_desde_ampm=${encodeURIComponent(ampmD)}`;
     if (ampmH) url += `&hora_hasta_ampm=${encodeURIComponent(ampmH)}`;
+    if (type === "top_productos") {
+      if (topMetric) url += `&top_metric=${encodeURIComponent(topMetric)}`;
+      if (topLimit) url += `&top_limit=${encodeURIComponent(topLimit)}`;
+    }
 
     return url;
   };
@@ -1300,11 +1320,13 @@ function initExportLinks() {
 
     const ampmD = horaDesdeAmpm ? horaDesdeAmpm.value : "";
     const ampmH = horaHastaAmpm ? horaHastaAmpm.value : "";
+    const topMetric = topMetricSelect ? topMetricSelect.value : "";
+    const topLimit = topLimitSelect ? topLimitSelect.value : "";
 
     links.forEach((a) => {
       const type = a.dataset.exportType || "";
       if (!type || !from || !to) return;
-      a.setAttribute("href", buildHref(type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH));
+      a.setAttribute("href", buildHref(type, from, to, categoria, horaDesde, horaHasta, ampmD, ampmH, topMetric, topLimit));
     });
   };
 
@@ -1322,6 +1344,8 @@ function initExportLinks() {
 
   if (horaDesdeAmpm) horaDesdeAmpm.addEventListener("change", refresh);
   if (horaHastaAmpm) horaHastaAmpm.addEventListener("change", refresh);
+  if (topMetricSelect) topMetricSelect.addEventListener("change", refresh);
+  if (topLimitSelect) topLimitSelect.addEventListener("change", refresh);
 
   links.forEach((a) => {
     a.addEventListener("click", () => {
