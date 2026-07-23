@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+defined('FLUS_ROOT') || define('FLUS_ROOT', $root);
+
 $config = $root . '/src/config.php';
 if (!is_file($config)) {
     fwrite(STDERR, "CONFIG_MISSING\n");

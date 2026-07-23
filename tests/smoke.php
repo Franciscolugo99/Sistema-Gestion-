@@ -3010,10 +3010,12 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains("return flus_cloud_sync_enqueue_event(\$pdo, 'sale.created'", $cloudLibPhp);
     flus_assert_contains('function flus_cloud_sync_push(PDO $pdo, int $limit = 50): array', $cloudLibPhp);
     flus_assert_contains("'Authorization: Bearer ' . \$token", $cloudLibPhp);
+    flus_assert_contains("'X-Flus-Cloud-Token: ' . \$token", $cloudLibPhp);
 
     flus_assert_contains("'cloud_sync_push' => [", $indexPhp);
     flus_assert_contains("'permissions' => ['administrar_config']", $indexPhp);
     flus_assert_contains("'csrf' => true", $indexPhp);
+    flus_assert_contains("defined('FLUS_ROOT') || define('FLUS_ROOT', \$root);", $scriptPhp);
     flus_assert_contains('flus_cloud_sync_push($pdo, $limit)', $scriptPhp);
     flus_assert_contains('flus_cloud_sync_push($pdo, 50)', $tecnicoPhp);
     flus_assert_contains('Cloud sync', $tecnicoPhp);

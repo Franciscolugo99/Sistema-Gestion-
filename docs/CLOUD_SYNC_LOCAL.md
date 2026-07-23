@@ -22,6 +22,7 @@ define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja mostrador');
 ```
 
 El token debe coincidir con `license.cloud_api_token` en `flus-web/admin/config/config.php`.
+FLUS envia el token por `Authorization: Bearer` y tambien por `X-Flus-Cloud-Token` para cubrir Apache/XAMPP en Windows, donde el header `Authorization` puede no llegar a PHP.
 
 ## Migracion requerida
 
@@ -49,11 +50,13 @@ Tambien se puede empujar desde consola:
 & "C:\xampp82\php\php.exe" scripts\cloud_sync_push.php 50
 ```
 
+El script de consola carga el mismo contexto local que la web, incluyendo `FLUS_ROOT`, `storage/license.json` y el ID de instalacion cloud.
+
 ## Diagnostico
 
 - `TOKEN_MISSING`: falta token local o no coincide con FLUS Web.
 - `URL_MISSING`: falta `FLUS_CLOUD_SYNC_URL` y no se pudo derivar desde licencia cloud.
 - `LICENSE_KEY_MISSING`: no hay licencia local con clave FLUS.
 - `SCHEMA_MISSING`: falta aplicar la migracion `045`.
-- `HTTP_STATUS_401`: token incorrecto.
+- `HTTP_STATUS_401`: token incorrecto, ausente o no recibido por Apache/PHP.
 - `HTTP_STATUS_403`: licencia suspendida, vencida o cliente inactivo en FLUS Web.

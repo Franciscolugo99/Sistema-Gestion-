@@ -389,6 +389,7 @@ if (!function_exists('flus_cloud_sync_http_post')) {
                 'Content-Type: application/json',
                 'Accept: application/json',
                 'Authorization: Bearer ' . $token,
+                'X-Flus-Cloud-Token: ' . $token,
                 'User-Agent: FLUS-Cloud-Sync/1',
             ],
         ]);

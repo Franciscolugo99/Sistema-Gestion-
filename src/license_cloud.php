@@ -342,6 +342,7 @@ if (!function_exists('flus_license_cloud_http_post')) {
     ];
     if (trim($token) !== '') {
       $headers[] = 'Authorization: Bearer ' . trim($token);
+      $headers[] = 'X-Flus-Cloud-Token: ' . trim($token);
     }
 
     curl_setopt_array($ch, [
