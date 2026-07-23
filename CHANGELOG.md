@@ -4,6 +4,28 @@
 
 ---
 
+## [4.2.4] - 2026-07-23
+
+### Added
+
+- Dashboard permite analizar Top productos por unidades, ventas o ganancia, con limite operativo configurable sin recargar toda la pagina.
+- Smoke agrega una guarda para evitar sintaxis PHP 8.1+ en codigo desplegable `public/` y `src/`, manteniendo compatibilidad con instalaciones en PHP 8.0.
+
+### Fixed
+
+- Movimientos de caja ya no usa `readonly`, evitando parse error en instalaciones portables con PHP 8.0.
+- El endpoint `caja_movimientos.php` detecta `response=json` de forma robusta y responde JSON para llamadas AJAX, incluso ante sesion, permiso o terminal faltante.
+- El modal de Caja deja de recibir HTML completo cuando espera JSON para ultimos movimientos.
+
+### Validation
+
+- PHP lint sobre archivos PHP modificados.
+- `node --check public/assets/js/dashboard.js`.
+- Smoke fuente `170/170 OK`.
+- Prueba manual en instalacion portable: movimientos de caja vuelve a cargar y los movimientos manuales aparecen al registrarse en la apertura actual.
+
+---
+
 ## [4.2.3] - 2026-07-17
 
 ### Added

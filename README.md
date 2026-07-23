@@ -2,29 +2,31 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.2.3
-**Build:** 2026-07-17
-**Release objetivo:** 4.2.3
+**Version:** 4.2.4
+**Build:** 2026-07-23
+**Release objetivo:** 4.2.4
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.2.3 (2026-07-17)
+## Estado de release 4.2.4 (2026-07-23)
 
-- Smoke tecnico fuente: `168 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `170 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
-- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.3`.
-- Ruta fuente local validada: `C:\xampp\htdocs\kiosco`.
+- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.4`.
+- Ruta fuente local validada: `C:\xampp82\htdocs\kiosco`.
 - Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
+- Caja movimientos: el modal y la vista responden JSON de forma consistente en llamadas AJAX, incluso ante sesion/permisos faltantes, y evitan sintaxis PHP 8.1+ para instalaciones con PHP 8.0.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
+- Dashboard: Top productos permite cambiar criterio por unidades, ventas o ganancia y ampliar el limite visible sin recargar toda la pagina.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
 - Busqueda de stock: conserva el foco y el cursor despues del filtrado automatico o al presionar Enter, facilitando teclado y lector de codigos.
 - Migraciones y baseline: versionados hasta `044_movimientos_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.3`, pensada como corte operativo para instalador/actualizador.
+- Salida actual: `4.2.4`, pensada como hotfix operativo para instalador/actualizador.
 - Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
 
 ### Nota sobre ARCA y entorno simulado
@@ -38,6 +40,8 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_2_4.md](docs/RELEASE_4_2_4.md)
+- [docs/RELEASE_MESSAGE_4.2.4.md](docs/RELEASE_MESSAGE_4.2.4.md)
 - [docs/RELEASE_4_2_2.md](docs/RELEASE_4_2_2.md)
 - [docs/RELEASE_4_2_1.md](docs/RELEASE_4_2_1.md)
 - [docs/TRABAJO_DOS_MAQUINAS.md](docs/TRABAJO_DOS_MAQUINAS.md)
