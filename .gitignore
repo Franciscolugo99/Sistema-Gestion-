@@ -106,6 +106,7 @@ storage/license_state.json
 storage/license_state.json
 storage/license_cloud_state.json
 storage/license_installation_id
+storage/cloud_sync_tick_state.json
 license.json
 flus_fixes.patch
 *.patch

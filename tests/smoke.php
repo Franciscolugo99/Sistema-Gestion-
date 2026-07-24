@@ -5224,6 +5224,12 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains("flus_license_cloud_validate_document(\$response['document'], \$licenseKey, \$installationId)", $licenseCloudPhp);
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_public_key.php';
+    flus_assert_same(
+        '4829D823E1277F663084F7DE155360763DF3D33C415D3BD4B2EC37BEC91657EF',
+        strtoupper(hash('sha256', flus_license_public_key_pem())),
+        'La clave publica embebida de FLUS debe coincidir con la clave publica vigente de flus-web/Wiroos.'
+    );
     flus_assert_contains('$licenseCustomerRaw = trim((string)($licenseMeta[\'customer\'] ?? \'\'));', $licenciaPhp);
     flus_assert_contains('$licenseLockedForPage = defined(\'FLUS_LICENSE_LOCKED\') && FLUS_LICENSE_LOCKED;', $licenciaPhp);
     flus_assert_contains('$canManageLicense = function_exists(\'user_has_permission\') && user_has_permission(\'administrar_config\');', $licenciaPhp);

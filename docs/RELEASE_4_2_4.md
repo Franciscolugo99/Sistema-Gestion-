@@ -17,6 +17,8 @@ pulido del Top productos del Dashboard.
 - Dashboard permite elegir Top productos por unidades, ventas o ganancia.
 - Dashboard permite cambiar el limite visible de Top productos sin recargar la
   pagina completa.
+- La clave publica embebida de FLUS queda alineada con la clave vigente de
+  Wiroos/flus-web para validar licencias firmadas nuevas.
 
 ## Version
 
@@ -30,7 +32,7 @@ No agrega migraciones nuevas sobre 4.2.3.
 
 El esquema vigente se mantiene hasta:
 
-- `044_movimientos_request_uid_idempotencia.sql`
+- `045_cloud_sync_queue.sql`
 
 ## Preservacion durante upgrade
 
@@ -67,6 +69,18 @@ Ruta de build local:
 - Confirmar version, licencia, login, caja, movimiento manual, ultimos
   movimientos y dashboard Top productos.
 
+## Validacion local realizada
+
+- Smoke fuente: `171 OK / 0 fallidas / 0 skipped`.
+- Smoke desde instalacion portable `C:\FLUS`: `171 OK / 0 fallidas / 0 skipped`.
+- Instalador servidor y terminal 4.2.4 recompilados.
+- Upgrade local sobre `C:\FLUS` desde 4.1.0: migraciones 039 a 045 aplicadas,
+  backup automatico de DB creado y servicios `FLUS_Apache`/`FLUS_MariaDB`
+  activos.
+- Licencia firmada desde flus-web valida en la instalacion portable.
+- Login HTTP real con `admin` validado; panel principal y panel tecnico
+  responden correctamente.
+
 ## QA operativo recomendado
 
 1. Hacer backup desde FLUS o copia externa de la instalacion.
@@ -77,4 +91,3 @@ Ruta de build local:
 6. Registrar un egreso manual y verificar que aparezca en Ultimos movimientos.
 7. Hacer una venta normal para confirmar que caja sigue operativa.
 8. Abrir Dashboard y cambiar Top productos entre unidades, ventas y ganancia.
-
