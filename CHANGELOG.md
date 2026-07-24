@@ -8,6 +8,9 @@
   en instalaciones existentes sin pisar base, licencia, ARCA ni Mercado Pago.
   Hace backup de `src/config.php`, configura endpoints productivos, valida PHP,
   ejecuta migraciones pendientes y puede enviar el primer snapshot de stock.
+- Acceso `scripts/Configurar Cloud FLUS.cmd` para abrir el asistente sin escribir
+  comandos largos; el instalador servidor lo expone como opcion post-instalacion
+  y como acceso en el menu FLUS.
 
 ---
 

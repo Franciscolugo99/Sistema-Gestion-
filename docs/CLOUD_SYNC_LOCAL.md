@@ -77,6 +77,10 @@ si sola. Para clientes que pagan plan Cloud, usar:
 PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -BranchCode central -BranchName "Casa central" -InstallationName "Caja principal" -SendInitialStock
 ```
 
+Desde el menu de Windows tambien se puede abrir `FLUS > Servidor >
+Configuracion > Configurar Cloud`. Ese acceso ejecuta el mismo asistente y evita
+tener que escribir la ruta completa.
+
 El asistente pide el token cloud oculto, hace backup de `src/config.php`,
 configura endpoints productivos de `flus.com.ar`, valida sintaxis PHP, aplica
 migraciones pendientes y, si se indica `-SendInitialStock`, manda el primer
