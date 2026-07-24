@@ -526,10 +526,12 @@ if (!function_exists('flus_cloud_sync_http_post')) {
         curl_close($ch);
 
         if ($raw === false || $status < 200 || $status >= 300) {
+            $decodedError = is_string($raw) ? json_decode($raw, true) : null;
+            $serverError = is_array($decodedError) ? trim((string)($decodedError['error'] ?? '')) : '';
             return [
                 'ok' => false,
                 'status' => $status,
-                'error' => $curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status,
+                'error' => $serverError !== '' ? $serverError : ($curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status),
             ];
         }
 

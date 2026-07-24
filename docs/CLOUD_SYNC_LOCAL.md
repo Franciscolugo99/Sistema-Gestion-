@@ -19,6 +19,7 @@ define('FLUS_LICENSE_CLOUD_TOKEN', 'token-compartido-con-flus-web');
 define('FLUS_CLOUD_SYNC_URL', 'https://tu-dominio.com/flus-web/admin/api/sync-ingest.php');
 define('FLUS_CLOUD_SYNC_TOKEN', 'token-compartido-con-flus-web');
 define('FLUS_CLOUD_SYNC_ENABLED', true);
+define('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC', 900);
 
 define('FLUS_CLOUD_BRANCH_CODE', 'central');
 define('FLUS_CLOUD_BRANCH_NAME', 'Casa central');
@@ -34,7 +35,9 @@ asi no depende de derivar la ruta desde el endpoint de licencia.
 
 ## Alta de una instalacion nueva
 
-1. En FLUS Web, crear el cliente y la licencia.
+1. En FLUS Web, crear el cliente y la licencia con plan `Cloud mensual` o
+   `Cloud multi-sucursal`. Una licencia `Local mensual/anual` no acepta eventos
+   de sincronizacion.
 2. Confirmar que `license.cloud_api_token` este configurado en
    `flus-web/admin/config/config.local.php`.
 3. En la PC del comercio, instalar FLUS y cargar la licencia correspondiente.
@@ -98,6 +101,15 @@ Para preparar y enviar stock desde consola:
 & "C:\xampp82\php\php.exe" scripts\cloud_sync_stock_snapshot.php 250
 ```
 
+Para dejar una tarea programada simple, ejecutar este script cada 5 minutos:
+
+```powershell
+& "C:\xampp82\php\php.exe" scripts\cloud_sync_tick.php 250 50
+```
+
+Ese tick envia pendientes siempre y prepara un snapshot completo de stock solo
+cuando paso `FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC`.
+
 El script de consola carga el mismo contexto local que la web, incluyendo `FLUS_ROOT`, `storage/license.json` y el ID de instalacion cloud.
 
 ## Datos enviados
@@ -119,4 +131,5 @@ envia costo ni margen.
 - `LICENSE_KEY_MISSING`: no hay licencia local con clave FLUS.
 - `SCHEMA_MISSING`: falta aplicar la migracion `045`.
 - `HTTP_STATUS_401`: token incorrecto, ausente o no recibido por Apache/PHP.
-- `HTTP_STATUS_403`: licencia suspendida, vencida o cliente inactivo en FLUS Web.
+- `HTTP_STATUS_403`: licencia suspendida, vencida, cliente inactivo o plan local.
+- `LICENSE_CLOUD_DISABLED`: la licencia existe, pero no tiene plan cloud.

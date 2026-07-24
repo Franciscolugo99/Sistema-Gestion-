@@ -2995,6 +2995,7 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     $tecnicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
     $scriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_push.php');
     $stockScriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_stock_snapshot.php');
+    $tickScriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_tick.php');
     $configExamplePhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'config.example.php');
 
     flus_assert_contains('CREATE TABLE `cloud_sync_queue`', $installSql);
@@ -3015,6 +3016,7 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains('flus_cloud_sync_enqueue_stock_snapshot(', $registrarVentaPhp);
     flus_assert_contains('function flus_cloud_sync_push(PDO $pdo, int $limit = 50): array', $cloudLibPhp);
     flus_assert_contains('$estimatedBytes + $eventBytes', $cloudLibPhp);
+    flus_assert_contains('$serverError !== \'\' ? $serverError', $cloudLibPhp);
     flus_assert_contains("'Authorization: Bearer ' . \$token", $cloudLibPhp);
     flus_assert_contains("'X-Flus-Cloud-Token: ' . \$token", $cloudLibPhp);
 
@@ -3027,7 +3029,11 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains('cloud_sync_stock_snapshot', $tecnicoPhp);
     flus_assert_contains('Enviar stock actual', $tecnicoPhp);
     flus_assert_contains('flus_cloud_sync_enqueue_stock_snapshot($pdo, null, \'cli\', $limit)', $stockScriptPhp);
+    flus_assert_contains('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC', $tickScriptPhp);
+    flus_assert_contains('flus_cloud_sync_push($pdo, $pushLimit)', $tickScriptPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_stock_snapshot($pdo, null, \'tick\', $stockLimit)', $tickScriptPhp);
     flus_assert_contains("define('FLUS_CLOUD_SYNC_URL'", $configExamplePhp);
+    flus_assert_contains("define('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC'", $configExamplePhp);
 
     require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_lib.php';
     $derived = flus_cloud_sync_derive_url('https://panel.example.com/flus-web/admin/api/license-check.php');
