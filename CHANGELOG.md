@@ -16,7 +16,7 @@
 - Movimientos de caja ya no usa `readonly`, evitando parse error en instalaciones portables con PHP 8.0.
 - El endpoint `caja_movimientos.php` detecta `response=json` de forma robusta y responde JSON para llamadas AJAX, incluso ante sesion, permiso o terminal faltante.
 - El modal de Caja deja de recibir HTML completo cuando espera JSON para ultimos movimientos.
-- La clave publica embebida para validar licencias queda alineada con la clave vigente de Wiroos/flus-web, evitando `INVALID_SIGNATURE_INVALID` al cargar licencias nuevas.
+- La clave publica embebida para validar licencias queda alineada con Wiroos productivo (`flus.com.ar`), evitando `INVALID_SIGNATURE_INVALID` al cargar licencias nuevas descargadas desde el panel real.
 
 ### Validation
 
@@ -26,6 +26,7 @@
 - Build de instaladores servidor y terminal 4.2.4.
 - Upgrade local portable desde 4.1.0 a 4.2.4: migraciones 039 a 045 aplicadas, backup DB creado, licencia valida, login y panel tecnico OK.
 - Prueba manual en instalacion portable: movimientos de caja vuelve a cargar y los movimientos manuales aparecen al registrarse en la apertura actual.
+- Licencia nueva descargada desde Wiroos validada contra la clave publica embebida de FLUS.
 
 ---
 

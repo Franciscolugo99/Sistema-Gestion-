@@ -17,8 +17,8 @@ pulido del Top productos del Dashboard.
 - Dashboard permite elegir Top productos por unidades, ventas o ganancia.
 - Dashboard permite cambiar el limite visible de Top productos sin recargar la
   pagina completa.
-- La clave publica embebida de FLUS queda alineada con la clave vigente de
-  Wiroos/flus-web para validar licencias firmadas nuevas.
+- La clave publica embebida de FLUS queda alineada con Wiroos productivo
+  (`flus.com.ar`) para validar licencias firmadas nuevas desde el panel real.
 
 ## Version
 
@@ -68,6 +68,9 @@ Ruta de build local:
   reales.
 - Confirmar version, licencia, login, caja, movimiento manual, ultimos
   movimientos y dashboard Top productos.
+- Descargar licencias desde Wiroos productivo. Un `flus-web` local con un par
+  RSA anterior puede generar archivos que esta build rechazara por firma
+  invalida.
 
 ## Validacion local realizada
 
@@ -77,7 +80,8 @@ Ruta de build local:
 - Upgrade local sobre `C:\FLUS` desde 4.1.0: migraciones 039 a 045 aplicadas,
   backup automatico de DB creado y servicios `FLUS_Apache`/`FLUS_MariaDB`
   activos.
-- Licencia firmada desde flus-web valida en la instalacion portable.
+- Licencia firmada desde Wiroos productivo valida contra la clave publica
+  embebida de FLUS.
 - Login HTTP real con `admin` validado; panel principal y panel tecnico
   responden correctamente.
 

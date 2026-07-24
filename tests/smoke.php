@@ -5226,7 +5226,7 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_public_key.php';
     flus_assert_same(
-        '4829D823E1277F663084F7DE155360763DF3D33C415D3BD4B2EC37BEC91657EF',
+        'CC6926AD9D67B4994CE3A98BB2B33B1C4B85CB313109159A062F6FE7A9A709B6',
         strtoupper(hash('sha256', flus_license_public_key_pem())),
         'La clave publica embebida de FLUS debe coincidir con la clave publica vigente de flus-web/Wiroos.'
     );
