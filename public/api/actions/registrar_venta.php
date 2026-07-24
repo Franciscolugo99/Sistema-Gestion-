@@ -191,6 +191,15 @@ try {
       ];
     }, $srvItems),
   ]);
+  flus_cloud_sync_enqueue_stock_snapshot(
+    $pdo,
+    array_values(array_unique(array_filter(array_map(
+      static fn(array $item): int => (int)($item['id'] ?? $item['producto_id'] ?? 0),
+      $srvItems
+    )))),
+    'sale:' . $ventaId,
+    80
+  );
 
   json_ok($response);
 } catch (FlusVentaDomainException $e) {

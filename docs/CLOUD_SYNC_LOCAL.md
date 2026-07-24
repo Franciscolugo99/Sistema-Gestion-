@@ -1,8 +1,11 @@
 # Cloud Sync Local
 
-FLUS local es offline-first: las ventas y movimientos operativos no dependen de internet.
+FLUS local es offline-first: las ventas, caja y stock operativo no dependen de
+internet.
 
-Esta base agrega una cola local (`cloud_sync_queue`) y un envio manual/seguro hacia FLUS Web. Por ahora se envia el evento `sale.created` despues de registrar una venta local correctamente. Si la nube no responde, el evento queda pendiente para reintentar.
+Esta base agrega una cola local (`cloud_sync_queue`) y un envio manual/seguro
+hacia FLUS Web. Por ahora envia ventas y stock de solo lectura para el portal
+cloud. Si la nube no responde, el evento queda pendiente para reintentar.
 
 ## Configuracion
 
@@ -54,6 +57,8 @@ define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja principal');
 8. En FLUS Web, revisar `Sucursales cloud`.
 9. Si el cliente va a mirar desde el celular, crearle un usuario de portal en
    FLUS Web y probar `portal/login.php`.
+10. Presionar `Enviar stock actual` desde el panel tecnico para cargar el primer
+    snapshot de inventario en el portal.
 
 El alta queda correcta cuando FLUS local vende aunque no haya internet, deja los
 eventos pendientes y los envia despues sin duplicarlos.
@@ -76,7 +81,10 @@ La migracion nueva es `045_cloud_sync_queue.sql`.
 3. Aplicar migraciones pendientes si aparece la migracion `045`.
 4. Hacer una venta normal desde caja.
 5. Volver a `Tecnico` y presionar `Enviar pendientes`.
-6. En FLUS Web, abrir `Sucursales cloud` y confirmar que aparezca la instalacion y el evento.
+6. En FLUS Web, abrir `Sucursales cloud` y confirmar que aparezca la instalacion
+   y el evento.
+7. En FLUS local, presionar `Enviar stock actual`.
+8. En el portal del cliente, confirmar que aparezca `Stock por sucursal`.
 
 Tambien se puede empujar desde consola:
 
@@ -84,7 +92,25 @@ Tambien se puede empujar desde consola:
 & "C:\xampp82\php\php.exe" scripts\cloud_sync_push.php 50
 ```
 
+Para preparar y enviar stock desde consola:
+
+```powershell
+& "C:\xampp82\php\php.exe" scripts\cloud_sync_stock_snapshot.php 250
+```
+
 El script de consola carga el mismo contexto local que la web, incluyendo `FLUS_ROOT`, `storage/license.json` y el ID de instalacion cloud.
+
+## Datos enviados
+
+Eventos actuales:
+
+- `sale.created`: resumen de venta, medio de pago e items.
+- `stock.updated`: stock de productos afectados por una venta.
+- `stock.snapshot`: stock actual enviado manualmente desde tecnico o consola.
+
+El stock enviado es de solo lectura para FLUS Web. Incluye codigo, nombre,
+categoria, marca, precio de venta, stock, stock minimo, unidad y estado. No se
+envia costo ni margen.
 
 ## Diagnostico
 

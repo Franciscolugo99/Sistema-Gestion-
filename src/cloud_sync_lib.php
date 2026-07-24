@@ -301,6 +301,132 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
     }
 }
 
+if (!function_exists('flus_cloud_sync_stock_rows')) {
+    function flus_cloud_sync_stock_rows(PDO $pdo, ?array $productIds = null, int $limit = 250): array
+    {
+        $limit = max(1, min(500, $limit));
+        $params = [];
+        $where = 'WHERE p.activo = 1';
+        if (is_array($productIds)) {
+            $ids = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn(int $id): bool => $id > 0)));
+            if (!$ids) {
+                return [];
+            }
+            $where = 'WHERE p.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+            $params = $ids;
+            $limit = count($ids);
+        }
+
+        $stmt = $pdo->prepare("
+            SELECT
+                p.id,
+                p.codigo,
+                p.nombre,
+                p.categoria,
+                p.marca,
+                p.precio,
+                p.stock,
+                p.stock_minimo,
+                p.es_pesable,
+                p.unidad_venta,
+                p.activo,
+                p.fecha_modificacion
+            FROM productos p
+            {$where}
+            ORDER BY p.nombre ASC, p.codigo ASC
+            LIMIT {$limit}
+        ");
+        $stmt->execute($params);
+
+        $rows = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $row) {
+            $stock = round((float)($row['stock'] ?? 0), 3);
+            $min = round((float)($row['stock_minimo'] ?? 0), 3);
+            $rows[] = [
+                'product_uid' => 'id:' . (int)($row['id'] ?? 0),
+                'producto_id' => (int)($row['id'] ?? 0),
+                'codigo' => (string)($row['codigo'] ?? ''),
+                'nombre' => (string)($row['nombre'] ?? ''),
+                'categoria' => (string)($row['categoria'] ?? ''),
+                'marca' => (string)($row['marca'] ?? ''),
+                'precio' => round((float)($row['precio'] ?? 0), 2),
+                'stock' => $stock,
+                'stock_minimo' => $min,
+                'estado_stock' => $stock <= 0 ? 'sin_stock' : ($min > 0 && $stock <= $min ? 'bajo_minimo' : 'ok'),
+                'es_pesable' => (int)($row['es_pesable'] ?? 0) === 1,
+                'unidad_venta' => (string)($row['unidad_venta'] ?? 'UNIDAD'),
+                'activo' => (int)($row['activo'] ?? 1) === 1,
+                'updated_at' => (string)($row['fecha_modificacion'] ?? date('Y-m-d H:i:s')),
+            ];
+        }
+
+        return $rows;
+    }
+}
+
+if (!function_exists('flus_cloud_sync_enqueue_stock_snapshot')) {
+    function flus_cloud_sync_enqueue_stock_snapshot(PDO $pdo, ?array $productIds = null, string $reason = 'manual', int $limit = 250): array
+    {
+        if (!flus_cloud_sync_schema_ready($pdo)) {
+            return ['queued' => 0, 'reason' => 'schema_missing'];
+        }
+
+        $rows = flus_cloud_sync_stock_rows($pdo, $productIds, $limit);
+        if (!$rows) {
+            return ['queued' => 0, 'reason' => 'empty_stock'];
+        }
+
+        $reason = preg_replace('/[^A-Za-z0-9._:@-]/', '', trim($reason)) ?: 'manual';
+        $eventType = is_array($productIds) ? 'stock.updated' : 'stock.snapshot';
+        $occurredAt = date('Y-m-d H:i:s');
+        $uidReason = is_array($productIds) ? $reason : $reason . ':' . date('YmdHis');
+        $chunks = array_chunk($rows, 40);
+        $queued = 0;
+        $failed = 0;
+
+        foreach ($chunks as $index => $products) {
+            $outCount = 0;
+            $lowCount = 0;
+            foreach ($products as $product) {
+                if (($product['estado_stock'] ?? '') === 'sin_stock') {
+                    $outCount++;
+                } elseif (($product['estado_stock'] ?? '') === 'bajo_minimo') {
+                    $lowCount++;
+                }
+            }
+
+            $summary = [
+                'reason' => $reason,
+                'products_count' => count($products),
+                'out_count' => $outCount,
+                'low_count' => $lowCount,
+                'full_snapshot' => !is_array($productIds),
+            ];
+            $payload = [
+                'reason' => $reason,
+                'products' => $products,
+            ];
+
+            $result = flus_cloud_sync_enqueue_event(
+                $pdo,
+                $eventType,
+                'stock:' . $uidReason . ':' . ($index + 1),
+                $summary,
+                $payload,
+                $occurredAt
+            );
+
+            if (!empty($result['queued'])) {
+                $queued++;
+            } else {
+                $failed++;
+            }
+        }
+
+        return ['queued' => $queued, 'failed' => $failed, 'products' => count($rows), 'event_type' => $eventType];
+    }
+}
+
 if (!function_exists('flus_cloud_sync_pending_counts')) {
     function flus_cloud_sync_pending_counts(PDO $pdo): array
     {
@@ -452,6 +578,17 @@ if (!function_exists('flus_cloud_sync_push')) {
         $stmt->bindValue(':max_attempts', (int)$config['max_attempts'], PDO::PARAM_INT);
         $stmt->execute();
         $events = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $selected = [];
+        $estimatedBytes = 4096;
+        foreach ($events as $event) {
+            $eventBytes = strlen((string)($event['summary_json'] ?? '')) + strlen((string)($event['payload_json'] ?? '')) + 512;
+            if ($selected && ($estimatedBytes + $eventBytes) > 220000) {
+                break;
+            }
+            $selected[] = $event;
+            $estimatedBytes += $eventBytes;
+        }
+        $events = $selected;
 
         if (!$events) {
             return ['ok' => true, 'sent' => 0, 'message' => 'NO_PENDING', 'counts' => flus_cloud_sync_pending_counts($pdo)];

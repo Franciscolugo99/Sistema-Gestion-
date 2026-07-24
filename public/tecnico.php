@@ -752,6 +752,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = 'No se pudo sincronizar con la nube: ' . (string)($syncResult['error'] ?? 'SYNC_FAILED');
             }
+        } elseif ($action === 'cloud_sync_stock_snapshot') {
+            require_permission('administrar_config');
+            $snapshotResult = flus_cloud_sync_enqueue_stock_snapshot($pdo, null, 'manual');
+            if ((int)($snapshotResult['queued'] ?? 0) <= 0) {
+                $error = 'No se pudo preparar el stock para la nube: ' . (string)($snapshotResult['reason'] ?? 'STOCK_EMPTY');
+            } else {
+                $syncResult = flus_cloud_sync_push($pdo, 20);
+                if (!empty($syncResult['ok'])) {
+                    $info = 'Stock preparado y sincronizacion ejecutada. Productos incluidos: ' . (int)($snapshotResult['products'] ?? 0) . '.';
+                } else {
+                    $error = 'Stock preparado, pero no se pudo enviar a la nube: ' . (string)($syncResult['error'] ?? 'SYNC_FAILED');
+                }
+            }
         } elseif ($action !== '') {
             $error = 'Accion tecnica no registrada.';
         }
@@ -1163,6 +1176,13 @@ require __DIR__ . '/partials/header.php';
             <input type="hidden" name="accion" value="cloud_sync_push">
             <button class="btn btn-primary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
               Enviar pendientes
+            </button>
+          </form>
+          <form method="post" class="inline-form">
+            <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
+            <input type="hidden" name="accion" value="cloud_sync_stock_snapshot">
+            <button class="btn btn-secondary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
+              Enviar stock actual
             </button>
           </form>
         <?php else: ?>
