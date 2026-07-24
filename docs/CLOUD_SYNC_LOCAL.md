@@ -15,6 +15,7 @@ define('FLUS_LICENSE_CLOUD_TOKEN', 'token-compartido-con-flus-web');
 // Opcional: si no se define, FLUS deriva /admin/api/sync-ingest.php desde FLUS_LICENSE_CLOUD_URL.
 define('FLUS_CLOUD_SYNC_URL', 'https://tu-dominio.com/flus-web/admin/api/sync-ingest.php');
 define('FLUS_CLOUD_SYNC_TOKEN', 'token-compartido-con-flus-web');
+define('FLUS_CLOUD_SYNC_ENABLED', true);
 
 define('FLUS_CLOUD_BRANCH_CODE', 'central');
 define('FLUS_CLOUD_BRANCH_NAME', 'Casa central');
@@ -23,6 +24,39 @@ define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja mostrador');
 
 El token debe coincidir con `license.cloud_api_token` en `flus-web/admin/config/config.php`.
 FLUS envia el token por `Authorization: Bearer` y tambien por `X-Flus-Cloud-Token` para cubrir Apache/XAMPP en Windows, donde el header `Authorization` puede no llegar a PHP.
+
+Si `FLUS_CLOUD_SYNC_TOKEN` queda vacio, FLUS usa `FLUS_LICENSE_CLOUD_TOKEN`.
+Para instalaciones nuevas conviene definir `FLUS_CLOUD_SYNC_URL` explicitamente,
+asi no depende de derivar la ruta desde el endpoint de licencia.
+
+## Alta de una instalacion nueva
+
+1. En FLUS Web, crear el cliente y la licencia.
+2. Confirmar que `license.cloud_api_token` este configurado en
+   `flus-web/admin/config/config.local.php`.
+3. En la PC del comercio, instalar FLUS y cargar la licencia correspondiente.
+4. En `src/config.php`, configurar como minimo:
+
+```php
+define('FLUS_LICENSE_CLOUD_URL', 'https://tu-dominio.com/flus-web/admin/api/license-check.php');
+define('FLUS_LICENSE_CLOUD_TOKEN', 'token-cloud-compartido');
+define('FLUS_CLOUD_SYNC_ENABLED', true);
+define('FLUS_CLOUD_SYNC_URL', 'https://tu-dominio.com/flus-web/admin/api/sync-ingest.php');
+define('FLUS_CLOUD_BRANCH_CODE', 'central');
+define('FLUS_CLOUD_BRANCH_NAME', 'Casa central');
+define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja principal');
+```
+
+5. Ejecutar migraciones locales.
+6. Entrar al panel tecnico de FLUS y verificar que `Sincronizacion cloud` figure
+   operativa, con endpoint configurado.
+7. Hacer una venta de prueba y presionar `Enviar pendientes`.
+8. En FLUS Web, revisar `Sucursales cloud`.
+9. Si el cliente va a mirar desde el celular, crearle un usuario de portal en
+   FLUS Web y probar `portal/login.php`.
+
+El alta queda correcta cuando FLUS local vende aunque no haya internet, deja los
+eventos pendientes y los envia despues sin duplicarlos.
 
 ## Migracion requerida
 

@@ -77,6 +77,7 @@ define('FLUS_CLOUD_SYNC_ENABLED', flus_env_bool('FLUS_CLOUD_SYNC_ENABLED', flus_
 define('FLUS_CLOUD_SYNC_URL', flus_env('FLUS_CLOUD_SYNC_URL', ''));
 define('FLUS_CLOUD_SYNC_TOKEN', flus_env('FLUS_CLOUD_SYNC_TOKEN', ''));
 define('FLUS_CLOUD_SYNC_TIMEOUT_SEC', (int)flus_env('FLUS_CLOUD_SYNC_TIMEOUT_SEC', '5'));
+define('FLUS_CLOUD_SYNC_MAX_ATTEMPTS', (int)flus_env('FLUS_CLOUD_SYNC_MAX_ATTEMPTS', '8'));
 define('FLUS_CLOUD_BRANCH_CODE', flus_env('FLUS_CLOUD_BRANCH_CODE', 'central'));
 define('FLUS_CLOUD_BRANCH_NAME', flus_env('FLUS_CLOUD_BRANCH_NAME', 'Casa central'));
 define('FLUS_CLOUD_BRANCH_ADDRESS', flus_env('FLUS_CLOUD_BRANCH_ADDRESS', ''));
