@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Nuevo asistente `scripts/cloud_sync_setup.ps1` para activar o desactivar Cloud
+  en instalaciones existentes sin pisar base, licencia, ARCA ni Mercado Pago.
+  Hace backup de `src/config.php`, configura endpoints productivos, valida PHP,
+  ejecuta migraciones pendientes y puede enviar el primer snapshot de stock.
+
 ---
 
 ## [4.2.4] - 2026-07-23

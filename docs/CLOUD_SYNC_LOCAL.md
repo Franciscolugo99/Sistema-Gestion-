@@ -66,6 +66,35 @@ define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja principal');
 El alta queda correcta cuando FLUS local vende aunque no haya internet, deja los
 eventos pendientes y los envia despues sin duplicarlos.
 
+## Activacion recomendada en una PC instalada
+
+El instalador de FLUS preserva `src/config.php`, `storage/`, licencia, base,
+ARCA y Mercado Pago. Por eso una actualizacion de version no activa Cloud por
+si sola. Para clientes que pagan plan Cloud, usar:
+
+```powershell
+& "C:\FLUS\stack\php\php.exe" C:\FLUS\app\scripts\migrate.php
+PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -BranchCode central -BranchName "Casa central" -InstallationName "Caja principal" -SendInitialStock
+```
+
+El asistente pide el token cloud oculto, hace backup de `src/config.php`,
+configura endpoints productivos de `flus.com.ar`, valida sintaxis PHP, aplica
+migraciones pendientes y, si se indica `-SendInitialStock`, manda el primer
+snapshot de stock.
+
+Para desactivar Cloud sin borrar ventas ni licencia:
+
+```powershell
+PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -DisableCloud
+```
+
+Despues de activarlo, entrar a `Tecnico > Sincronizacion cloud` y confirmar:
+
+- estado `Operativa`;
+- endpoint `Configurado`;
+- `Enviar pendientes` no devuelve error;
+- `Enviar stock actual` aparece en FLUS Web bajo el cliente y sucursal correctos.
+
 ## Migracion requerida
 
 Aplicar:

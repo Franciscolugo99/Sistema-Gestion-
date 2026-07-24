@@ -71,6 +71,9 @@ Ruta de build local:
 - Descargar licencias desde Wiroos productivo. Un `flus-web` local con un par
   RSA anterior puede generar archivos que esta build rechazara por firma
   invalida.
+- Para clientes con plan Cloud, activar la sincronizacion con
+  `scripts/cloud_sync_setup.ps1` despues del upgrade. El instalador preserva
+  `src/config.php` y no habilita Cloud automaticamente.
 
 ## Validacion local realizada
 
