@@ -1548,11 +1548,7 @@ $results[] = flus_run_test('movimientos stock quedan versionados y respetan stoc
     flus_assert_contains('href="stock_consulta.php">Vista consulta</a>', $stockPhp);
     flus_assert_contains('DEBOUNCE_SEARCH_MS', $stockJs);
     flus_assert_contains('assets/js/stock.js?v=5.1', $stockPhp);
-    flus_assert_contains("SEARCH_FOCUS_KEY: 'flus_stock_restore_search_focus'", $stockJs);
-    flus_assert_contains("sessionStorage.setItem(this.SEARCH_FOCUS_KEY, '1')", $stockJs);
-    flus_assert_contains("if (event.key === 'Enter')", $stockJs);
-    flus_assert_contains('restoreSearchFocus()', $stockJs);
-    flus_assert_contains('searchInput.setSelectionRange(cursor, cursor)', $stockJs);
+    flus_assert_not_contains('flus_stock_restore_search_focus', $stockJs);
     flus_assert_contains('stock-adjust-preview', $stockPhp);
     flus_assert_contains('stock_anterior, stock_nuevo', $stockAjax);
     flus_assert_contains('renderStockFlow(stockAnteriorRaw, stockNuevoRaw)', $stockJs);
@@ -2432,6 +2428,31 @@ $results[] = flus_run_test('technical panel access stays centralized and visible
     flus_assert_contains('Estado actual', $tecnicoPhp);
     flus_assert_contains('Operacion tecnica', $tecnicoPhp);
     flus_assert_contains('user_can_access_technical_panel', $navPhp);
+});
+
+$results[] = flus_run_test('list search behavior is shared across get filter pages', function (): void {
+    $repoRoot = dirname(__DIR__);
+    $searchJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'flus_list_search.js');
+    $searchCss = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'flus_list_search.css');
+    $headerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'header.php');
+    $footerPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'partials' . DIRECTORY_SEPARATOR . 'footer.php');
+
+    flus_assert_contains("new Set(['q', 'search', 'buscar', 'busqueda'])", $searchJs);
+    flus_assert_contains("String(form.method || 'get').toLowerCase() !== 'get'", $searchJs);
+    flus_assert_contains("input.dataset.flusSearchSpecialized !== 'true'", $searchJs);
+    flus_assert_contains("input.classList.add('flus-list-search')", $searchJs);
+    flus_assert_contains("input.setAttribute('enterkeyhint', 'search')", $searchJs);
+    flus_assert_contains("if (event.key === 'Enter') markForRestore(input, key)", $searchJs);
+    flus_assert_contains("window.addEventListener('beforeunload'", $searchJs);
+    flus_assert_contains("event.key.toLowerCase() !== 'k'", $searchJs);
+    flus_assert_contains('target.focus({ preventScroll: true })', $searchJs);
+    flus_assert_contains('target.setSelectionRange?.(cursor, cursor)', $searchJs);
+    flus_assert_contains('assets/css/flus_list_search.css', $headerPhp);
+    flus_assert_contains('assets/js/flus_list_search.js', $footerPhp);
+    flus_assert_true(strpos($footerPhp, 'assets/js/flus_list_search.js') < strpos($footerPhp, '<?php foreach ($extraJs as $src): ?>'));
+    flus_assert_contains('input.flus-list-search', $searchCss);
+    flus_assert_contains('min-height: 40px', $searchCss);
+    flus_assert_contains('border-radius: 8px', $searchCss);
 });
 
 $results[] = flus_run_test('technical panel controls pending migrations with permission csrf lock and audit', function (): void {
@@ -5225,9 +5246,10 @@ $results[] = flus_run_test('apis de cuenta corriente y licencia mantienen contra
     flus_assert_contains('function flus_license_public_key_pem(): string', $licensePublicKeyPhp);
     flus_assert_contains('BEGIN PUBLIC KEY', $licensePublicKeyPhp);
     require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'license_public_key.php';
+    $normalizedPublicKey = str_replace(["\r\n", "\r"], "\n", flus_license_public_key_pem());
     flus_assert_same(
         'CC6926AD9D67B4994CE3A98BB2B33B1C4B85CB313109159A062F6FE7A9A709B6',
-        strtoupper(hash('sha256', flus_license_public_key_pem())),
+        strtoupper(hash('sha256', $normalizedPublicKey)),
         'La clave publica embebida de FLUS debe coincidir con la clave publica vigente de flus-web/Wiroos.'
     );
     flus_assert_contains('$licenseCustomerRaw = trim((string)($licenseMeta[\'customer\'] ?? \'\'));', $licenciaPhp);

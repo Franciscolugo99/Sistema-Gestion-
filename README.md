@@ -12,7 +12,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## Estado de release 4.2.4 (2026-07-23)
 
-- Smoke tecnico fuente: `170 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `172 OK / 0 fallidas / 0 skipped`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.4`.
 - Ruta fuente local validada: `C:\xampp82\htdocs\kiosco`.
@@ -23,7 +23,7 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Reglas de precio: trazabilidad generica de ajustes automaticos y redondeo por item y venta.
 - Dashboard: Top productos permite cambiar criterio por unidades, ventas o ganancia y ampliar el limite visible sin recargar toda la pagina.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
-- Busqueda de stock: conserva el foco y el cursor despues del filtrado automatico o al presionar Enter, facilitando teclado y lector de codigos.
+- Buscadores de listados: comparten foco persistente, cursor, Enter, `Ctrl+K` y tratamiento de teclado movil; los buscadores operativos con autocompletado conservan su flujo especializado.
 - Migraciones y baseline: versionados hasta `044_movimientos_request_uid_idempotencia.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
 - Salida actual: `4.2.4`, pensada como hotfix operativo para instalador/actualizador.

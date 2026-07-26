@@ -11,6 +11,12 @@
 - Acceso `scripts/Configurar Cloud FLUS.cmd` para abrir el asistente sin escribir
   comandos largos; el instalador servidor lo expone como opcion post-instalacion
   y como acceso en el menu FLUS.
+- Los buscadores de listados GET comparten un componente global para foco persistente, cursor, Enter, `Ctrl+K` y tratamiento de teclado movil.
+
+### Fixed
+
+- Los buscadores de listados recuperan el foco y dejan el cursor al final despues de recargar filtros.
+- La validacion de la huella publica de licencias es estable en Windows y Linux al normalizar los finales de linea del PEM.
 
 ---
 

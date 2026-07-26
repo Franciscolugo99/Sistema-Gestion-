@@ -9,8 +9,6 @@
 ============================================================================ */
 
 const StockManager = {
-  SEARCH_FOCUS_KEY: 'flus_stock_restore_search_focus',
-
   // ============================================
   // ESTADO
   // ============================================
@@ -44,7 +42,6 @@ const StockManager = {
     console.log('[StockManager] Inicializando v5.1...');
 
     this.setupEventListeners();
-    this.restoreSearchFocus();
     this.setupKeyboardShortcuts();
     this.setupKPIClickFilters();
     this.setupFiltrosRemove();
@@ -95,15 +92,8 @@ const StockManager = {
       if (this.state.searchTimer) clearTimeout(this.state.searchTimer);
       this.state.searchTimer = setTimeout(() => {
         if (pageInput) pageInput.value = '1';
-        sessionStorage.setItem(this.SEARCH_FOCUS_KEY, '1');
         filtersForm.requestSubmit ? filtersForm.requestSubmit() : filtersForm.submit();
       }, this.config.DEBOUNCE_SEARCH_MS);
-    });
-
-    searchInput?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        sessionStorage.setItem(this.SEARCH_FOCUS_KEY, '1');
-      }
     });
 
     [
@@ -155,18 +145,6 @@ const StockManager = {
       this.updateCantidadHint();
       this.updateAdjustPreview();
     });
-  },
-
-  restoreSearchFocus() {
-    if (sessionStorage.getItem(this.SEARCH_FOCUS_KEY) !== '1') return;
-    sessionStorage.removeItem(this.SEARCH_FOCUS_KEY);
-
-    const searchInput = document.getElementById('searchInput');
-    if (!searchInput) return;
-
-    searchInput.focus({ preventScroll: true });
-    const cursor = searchInput.value.length;
-    searchInput.setSelectionRange(cursor, cursor);
   },
 
   syncStockBars() {

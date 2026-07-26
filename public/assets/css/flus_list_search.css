@@ -1,0 +1,18 @@
+input.flus-list-search {
+  box-sizing: border-box;
+  min-height: 40px;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+input.flus-list-search:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, .24);
+  outline-offset: 1px;
+}
+
+@media (max-width: 720px) {
+  input.flus-list-search {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
