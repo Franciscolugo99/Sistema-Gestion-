@@ -4651,6 +4651,7 @@ $results[] = flus_run_test('login fuerza cambio de clave inicial admin antes de 
 
     flus_assert_contains("\$authHardening = FLUS_ROOT . '/src/auth_hardening.php';", $bootstrapPhp);
     flus_assert_contains("flus_enforce_initial_password_change(\$user);", $bootstrapPhp);
+    flus_assert_contains("'usuario_editar.php',", $bootstrapPhp);
     flus_assert_contains('function flus_enforce_initial_password_change(array $user): void', $authHardeningPhp);
     flus_assert_contains('PASSWORD_CHANGE_REQUIRED', $authHardeningPhp);
     flus_assert_contains('Cambia la clave inicial antes de operar FLUS.', $authHardeningPhp);

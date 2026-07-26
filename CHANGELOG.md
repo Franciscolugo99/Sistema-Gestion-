@@ -17,6 +17,7 @@
 
 - Los buscadores de listados recuperan el foco y dejan el cursor al final despues de recargar filtros.
 - La validacion de la huella publica de licencias es estable en Windows y Linux al normalizar los finales de linea del PEM.
+- El bloqueo de licencia permite completar el cambio obligatorio de contrasena inicial sin entrar en un ciclo de redirecciones.
 
 ---
 

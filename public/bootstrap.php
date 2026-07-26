@@ -143,7 +143,7 @@ if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE) && function_exists('flus_i
     $lockReason = $licReason !== '' ? $licReason : strtoupper($licStatus !== '' ? $licStatus : 'LOCKED');
   }
 
-  // Si está locked, solo permitimos: login, login_process, licencia, logout y assets estáticos
+  // Si esta locked, permitimos autenticacion, recuperacion de clave/licencia y assets estaticos.
   if ($locked) {
     if (!defined('FLUS_LICENSE_LOCKED')) define('FLUS_LICENSE_LOCKED', true);
     if (!defined('FLUS_LICENSE_LOCK_REASON')) define('FLUS_LICENSE_LOCK_REASON', $lockReason);
@@ -158,6 +158,7 @@ if (defined('FLUS_LICENSE') && is_array(FLUS_LICENSE) && function_exists('flus_i
       'login.php',
       'login_process.php',
       'licencia.php',
+      'usuario_editar.php',
       'logout.php',
     ], true);
 
