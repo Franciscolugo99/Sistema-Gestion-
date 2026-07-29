@@ -17,6 +17,19 @@ function tecnico_h(string $value): string
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+function tecnico_cloud_error_message(string $code): string
+{
+    return match (strtoupper(trim($code))) {
+        'BOT_PROTECTION_BLOCKED' => 'El hosting bloqueo la llamada automatizada antes de llegar a la API.',
+        'HTTP_CONTRACT_INVALID' => 'El servidor respondio, pero no entrego el formato esperado por FLUS.',
+        'HTTP_JSON_INVALID' => 'El servidor no devolvio una respuesta JSON valida.',
+        'HTTP_TRANSPORT_ERROR' => 'No se pudo establecer la conexion HTTPS con la API.',
+        'UNAUTHORIZED' => 'El token cloud fue rechazado.',
+        'LICENSE_NOT_ACTIVE', 'LICENSE_SUSPENDED', 'LICENSE_EXPIRED', 'LICENSE_REVOKED' => 'La licencia cloud no esta habilitada para sincronizar.',
+        default => $code !== '' ? $code : 'SYNC_FAILED',
+    };
+}
+
 function tecnico_status_file(): string
 {
     $dir = FLUS_ROOT . '/storage/cache';
@@ -746,11 +759,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $syncResult = flus_cloud_sync_push($pdo, 50);
             if (!empty($syncResult['ok'])) {
                 $sent = (int)($syncResult['sent'] ?? 0);
-                $info = $sent > 0
+                $info = !empty($syncResult['busy'])
+                    ? 'La sincronizacion automatica ya esta procesando la cola.'
+                    : ($sent > 0
                     ? 'Sincronizacion cloud enviada: ' . $sent . ' evento(s).'
-                    : 'Sincronizacion cloud al dia. No habia eventos pendientes.';
+                    : 'Sincronizacion cloud al dia. No habia eventos pendientes.');
             } else {
-                $error = 'No se pudo sincronizar con la nube: ' . (string)($syncResult['error'] ?? 'SYNC_FAILED');
+                $error = 'No se pudo sincronizar con la nube: ' . tecnico_cloud_error_message((string)($syncResult['error'] ?? 'SYNC_FAILED'));
+            }
+        } elseif ($action === 'cloud_sync_retry_failed') {
+            require_permission('administrar_config');
+            $retryResult = flus_cloud_sync_retry_failed($pdo, 25);
+            if (empty($retryResult['ok'])) {
+                $error = 'No se reactivaron eventos: ' . tecnico_cloud_error_message((string)($retryResult['error'] ?? 'PREFLIGHT_FAILED'));
+            } else {
+                $reactivated = (int)($retryResult['reactivated'] ?? 0);
+                $syncResult = $reactivated > 0 ? flus_cloud_sync_push($pdo, 25) : ['ok' => true, 'sent' => 0];
+                if (!empty($syncResult['ok'])) {
+                    $info = $reactivated > 0
+                        ? 'Recuperacion controlada completada: ' . $reactivated . ' reactivado(s), ' . (int)($syncResult['sent'] ?? 0) . ' enviado(s).'
+                        : 'No habia eventos fallidos para recuperar.';
+                } else {
+                    $error = 'Los eventos se reactivaron, pero el envio fallo: ' . tecnico_cloud_error_message((string)($syncResult['error'] ?? 'SYNC_FAILED'));
+                }
             }
         } elseif ($action === 'cloud_sync_stock_snapshot') {
             require_permission('administrar_config');
@@ -762,7 +793,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($syncResult['ok'])) {
                     $info = 'Stock preparado y sincronizacion ejecutada. Productos incluidos: ' . (int)($snapshotResult['products'] ?? 0) . '.';
                 } else {
-                    $error = 'Stock preparado, pero no se pudo enviar a la nube: ' . (string)($syncResult['error'] ?? 'SYNC_FAILED');
+                $error = 'Stock preparado, pero no se pudo enviar a la nube: ' . tecnico_cloud_error_message((string)($syncResult['error'] ?? 'SYNC_FAILED'));
                 }
             }
         } elseif ($action !== '') {
@@ -798,13 +829,18 @@ $migrationAppliedCount = (int)($migrationStatus['applied'] ?? 0);
 $migrationTotalCount = (int)($migrationStatus['total'] ?? 0);
 $migrationChipClass = $migrationStatus === null ? 'error' : ($migrationPendingCount > 0 ? 'warning' : 'ok');
 $cloudSyncConfig = flus_cloud_sync_config();
+$cloudSyncReadiness = flus_cloud_sync_config_readiness($cloudSyncConfig);
 $cloudSyncCounts = flus_cloud_sync_pending_counts($pdo);
 $cloudSyncReady = !empty($cloudSyncCounts['ready']);
 $cloudSyncPending = (int)($cloudSyncCounts['pending'] ?? 0);
 $cloudSyncFailed = (int)($cloudSyncCounts['failed'] ?? 0);
 $cloudSyncSent = (int)($cloudSyncCounts['sent'] ?? 0);
-$cloudSyncConfigured = !empty($cloudSyncConfig['enabled']) && !empty($cloudSyncConfig['url']) && !empty($cloudSyncConfig['token']);
-$cloudSyncChipClass = !$cloudSyncReady || !$cloudSyncConfigured ? 'warning' : (($cloudSyncFailed > 0) ? 'error' : 'ok');
+$cloudSyncConfigured = !empty($cloudSyncReadiness['ready']);
+$cloudSyncWorker = flus_cloud_sync_worker_state($pdo);
+$cloudSyncAutomatic = !empty($cloudSyncWorker['scheduler_enabled']) && !empty($cloudSyncWorker['scheduler_task']);
+$cloudSyncChipClass = !$cloudSyncReady || !$cloudSyncConfigured || !$cloudSyncAutomatic
+    ? 'warning'
+    : (($cloudSyncFailed > 0 || !empty($cloudSyncWorker['last_error'])) ? 'error' : 'ok');
 
 $paginationPages = array_map(
     static fn(string $path): string => FLUS_ROOT . '/' . $path,
@@ -1012,6 +1048,8 @@ require __DIR__ . '/partials/header.php';
           Sin tabla
         <?php elseif (!$cloudSyncConfigured): ?>
           Inactivo
+        <?php elseif (!$cloudSyncAutomatic): ?>
+          Sin tarea
         <?php elseif ($cloudSyncPending + $cloudSyncFailed > 0): ?>
           <?= $cloudSyncPending + $cloudSyncFailed ?> pendiente(s)
         <?php else: ?>
@@ -1159,7 +1197,7 @@ require __DIR__ . '/partials/header.php';
       <div class="section-head">
         <h2>Sincronizacion cloud</h2>
         <span class="chip <?= $cloudSyncChipClass ?>">
-          <?= !$cloudSyncReady ? 'Requiere migracion' : (!$cloudSyncConfigured ? 'Inactiva' : 'Operativa') ?>
+          <?= !$cloudSyncReady ? 'Requiere migracion' : (!$cloudSyncConfigured ? 'Inactiva' : (!$cloudSyncAutomatic ? 'Automatizacion pendiente' : 'Automatica')) ?>
         </span>
       </div>
       <div class="meta-grid">
@@ -1167,17 +1205,37 @@ require __DIR__ . '/partials/header.php';
         <div><strong>Con error:</strong> <?= $cloudSyncFailed ?></div>
         <div><strong>Enviados:</strong> <?= $cloudSyncSent ?></div>
         <div><strong>Endpoint:</strong> <?= !empty($cloudSyncConfig['url']) ? 'Configurado' : 'Sin URL' ?></div>
+        <div><strong>Tarea automatica:</strong> <?= $cloudSyncAutomatic ? 'Activa cada ' . (int)$cloudSyncWorker['scheduler_interval_minutes'] . ' min' : 'No verificada' ?></div>
+        <div><strong>Ultimo intento:</strong> <?= !empty($cloudSyncWorker['last_attempt_at']) ? tecnico_h((string)$cloudSyncWorker['last_attempt_at']) : 'Sin ejecuciones' ?></div>
+        <div><strong>Ultimo envio:</strong> <?= !empty($cloudSyncWorker['last_sent_at']) ? tecnico_h((string)$cloudSyncWorker['last_sent_at']) : 'Sin envios' ?></div>
+        <div><strong>Proximo reintento:</strong> <?= !empty($cloudSyncWorker['next_attempt_at']) ? tecnico_h((string)$cloudSyncWorker['next_attempt_at']) : 'Sin espera' ?></div>
+        <div><strong>Prueba endpoint:</strong> <?= !empty($cloudSyncWorker['endpoint_probe_at']) ? (!empty($cloudSyncWorker['endpoint_probe_ok']) ? 'Correcta' : 'Con error') . ' - ' . tecnico_h((string)$cloudSyncWorker['endpoint_probe_at']) : 'Sin verificar' ?></div>
       </div>
-      <p class="tecnico-copy">La cola manda eventos a FLUS Web sin frenar ventas ni caja. Si internet falla, queda pendiente y se puede reintentar.</p>
+      <?php if (!empty($cloudSyncWorker['last_error'])): ?>
+        <p class="tecnico-copy"><strong>Ultima causa:</strong> <?= tecnico_h(tecnico_cloud_error_message((string)$cloudSyncWorker['last_error'])) ?> La cola conserva los eventos y reintenta con espera progresiva.</p>
+      <?php elseif (!empty($cloudSyncWorker['endpoint_probe_error'])): ?>
+        <p class="tecnico-copy"><strong>Prueba endpoint:</strong> <?= tecnico_h(tecnico_cloud_error_message((string)$cloudSyncWorker['endpoint_probe_error'])) ?></p>
+      <?php else: ?>
+        <p class="tecnico-copy">La tarea local envia la cola automaticamente sin frenar ventas ni caja. Si internet falla, conserva los eventos y reintenta con espera progresiva.</p>
+      <?php endif; ?>
       <div class="tecnico-migration-actions">
         <?php if ($canManageMigrations): ?>
           <form method="post" class="inline-form">
             <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="accion" value="cloud_sync_push">
             <button class="btn btn-primary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
-              Enviar pendientes
+              Reintentar ahora
             </button>
           </form>
+          <?php if ($cloudSyncFailed > 0): ?>
+            <form method="post" class="inline-form">
+              <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
+              <input type="hidden" name="accion" value="cloud_sync_retry_failed">
+              <button class="btn btn-secondary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
+                Recuperar 25 fallidos
+              </button>
+            </form>
+          <?php endif; ?>
           <form method="post" class="inline-form">
             <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="accion" value="cloud_sync_stock_snapshot">
@@ -1190,6 +1248,21 @@ require __DIR__ . '/partials/header.php';
         <?php endif; ?>
         <?php if (!$cloudSyncReady): ?>
           <span class="tecnico-copy-hint">Primero aplica las migraciones pendientes.</span>
+        <?php endif; ?>
+        <?php if ($cloudSyncReady && !$cloudSyncConfigured): ?>
+          <?php if (empty($cloudSyncReadiness['license_url'])): ?>
+            <span class="tecnico-copy-hint">Falta configurar una URL HTTPS valida para la licencia cloud.</span>
+          <?php endif; ?>
+          <?php if (empty($cloudSyncReadiness['sync_url'])): ?>
+            <span class="tecnico-copy-hint">Falta configurar la URL de sincronizacion cloud.</span>
+          <?php endif; ?>
+          <?php if (empty($cloudSyncReadiness['token'])): ?>
+            <span class="tecnico-copy-hint">Falta configurar el token cloud compartido o ambos valores no coinciden.</span>
+          <?php endif; ?>
+          <span class="tecnico-copy-hint">Usa FLUS &gt; Servidor &gt; Configuracion &gt; Configurar Cloud.</span>
+        <?php endif; ?>
+        <?php if ($cloudSyncReady && $cloudSyncConfigured && !$cloudSyncAutomatic): ?>
+          <span class="tecnico-copy-hint">Ejecuta Configurar Cloud FLUS como administrador para instalar o reparar la tarea automatica.</span>
         <?php endif; ?>
       </div>
     </section>

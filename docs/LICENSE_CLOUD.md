@@ -5,7 +5,7 @@ FLUS keeps the offline signed license in `storage/license.json`. Cloud validatio
 To enable it in a test installation, define these constants in the local config before `src/license.php` is loaded:
 
 ```php
-define('FLUS_LICENSE_CLOUD_URL', 'https://flus.com.ar/admin/api/license-check.php');
+define('FLUS_LICENSE_CLOUD_URL', 'https://api.flus.com.ar/license-check.php');
 define('FLUS_LICENSE_CLOUD_REQUIRED', true);
 define('FLUS_LICENSE_CLOUD_INTERVAL_SEC', 300);
 define('FLUS_LICENSE_CLOUD_OFFLINE_GRACE_DAYS', 7);
@@ -21,6 +21,13 @@ define('FLUS_LICENSE_CLOUD_CHECK_EVERY_REQUEST', false);
 - If `FLUS_LICENSE_CLOUD_REQUIRED` is true and the cloud URL is missing, FLUS enters limited mode.
 - When enabled, FLUS sends `license_key`, `installation_id`, version/build and current local status.
 - If `FLUS_LICENSE_CLOUD_TOKEN` is set, FLUS sends it as a Bearer token.
+- Cloud plans must finish installation with URL and token configured. Loading
+  the signed license alone is reported as an incomplete activation.
+- Existing 4.2.4/4.2.5 installations can be repaired by rerunning
+  `scripts/cloud_sync_setup.ps1`; valid current values are preserved.
+- FLUS 4.2.5 registers a local scheduled task for Cloud plans. The task does
+  not receive URL or token arguments and can be removed explicitly with
+  `cloud_sync_setup.ps1 -DisableCloud`.
 - The response must be signed. FLUS verifies it before trusting any status.
 - FLUS verifies that the signed payload belongs to the same `license_key` and local `installation_id`.
 - `FLUS_LICENSE_CLOUD_PUBKEY_PEM` should be the public key paired with the cloud/admin private key. It can differ from the offline license public key.

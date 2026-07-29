@@ -12,6 +12,11 @@ if not exist "%SETUP_SCRIPT%" (
   exit /b 1
 )
 
-powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%SETUP_SCRIPT%" -Root "%APP_ROOT%" -SendInitialStock
+fltmc.exe >nul 2>&1
+if errorlevel 1 (
+  powershell.exe -NoProfile -Command "$line = '-ExecutionPolicy Bypass -NoProfile -File ''%SETUP_SCRIPT%'' -Root ''%APP_ROOT%'''; $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $line -Verb RunAs -Wait -PassThru; exit $process.ExitCode"
+) else (
+  powershell.exe -ExecutionPolicy Bypass -NoProfile -File "%SETUP_SCRIPT%" -Root "%APP_ROOT%"
+)
 echo.
 pause

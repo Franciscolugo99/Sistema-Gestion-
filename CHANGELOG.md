@@ -2,6 +2,86 @@
 
 ## [Unreleased]
 
+---
+
+## [4.2.8] - 2026-07-29
+
+### Added
+
+- Heartbeat cloud periodico desde el worker, incluso con la cola vacia, para
+  mantener actualizado el estado online de cada instalacion y sucursal.
+- Estado persistido del ultimo heartbeat y su error sanitizado para diagnostico
+  desde Tecnico sin exponer credenciales.
+
+### Fixed
+
+- Una instalacion activa ya no queda marcada como `Sin contacto` solo porque no
+  tuvo ventas o movimientos pendientes durante los ultimos minutos.
+- El heartbeat reutiliza el preflight idempotente, no crea eventos comerciales
+  ni bloquea Caja cuando internet no esta disponible.
+
+### Validation
+
+- PHP lint, smoke completo e integracion DB de la cola cloud.
+- Contrato coordinado con Wiroos para actualizar la instalacion durante el
+  preflight sin insertar ventas, pagos ni movimientos de stock.
+
+---
+
+## [4.2.7] - 2026-07-29
+
+### Added
+
+- Nuevo `api.flus.com.ar` como endpoint dedicado de licencia y sincronizacion.
+- Prueba de contrato para licencia y preflight de sincronizacion antes de crear
+  la tarea automatica, sin enviar eventos ni exponer el token en argumentos.
+- Recuperacion controlada desde Tecnico de hasta 25 eventos fallidos por lote,
+  solo despues de comprobar que la API acepta la instalacion.
+
+### Fixed
+
+- Las respuestas de Imunify360 ahora se informan como
+  `BOT_PROTECTION_BLOCKED` en lugar de un error vacio o una firma invalida.
+- Los upgrades migran solamente las URLs oficiales antiguas y conservan URLs
+  personalizadas, token, licencia, base y configuraciones existentes.
+- Si la prueba de endpoints falla, el configurador restaura `config.php` y deja
+  desactivada la tarea para evitar reintentos masivos.
+
+### Validation
+
+- PHP lint correcto en los archivos modificados y smoke fuente con `173`
+  pruebas, `0` fallidas y `1` omitida por no disponer de MySQL local.
+- `api.flus.com.ar` ya alcanza el contrato PHP: una credencial ficticia obtiene
+  `401 UNAUTHORIZED` en lugar de la respuesta de Bot Protection.
+- Preflight autenticado correcto para licencia y sincronizacion desde una
+  instalacion 4.2.6, sin enviar eventos ni modificar su cola local.
+
+---
+
+## [4.2.6] - 2026-07-28
+
+### Added
+
+- Las aperturas y cierres de caja se agregan a la cola Cloud sin frenar la
+  operacion local, para que el portal muestre cajas abiertas, ultimo cierre y
+  diferencias por sucursal.
+- Los eventos de caja usan una identidad estable por caja y accion para evitar
+  duplicados ante reintentos, cortes de internet o doble ejecucion del worker.
+- Nuevo instalador servidor/terminal 4.2.6 preparado para actualizar 4.2.5 con
+  backup previo y preservacion de base, licencia y configuraciones existentes.
+
+### Validation
+
+- PHP lint sobre los archivos modificados.
+- Smoke fuente y payload portable.
+- Verificacion del payload sin configuraciones reales, licencias, backups ni
+  claves privadas.
+- Compilacion Inno Setup y manifiesto SHA256 de los artefactos.
+
+---
+
+## [4.2.5] - 2026-07-26
+
 ### Added
 
 - Nuevo asistente `scripts/cloud_sync_setup.ps1` para activar o desactivar Cloud
@@ -11,6 +91,20 @@
 - Acceso `scripts/Configurar Cloud FLUS.cmd` para abrir el asistente sin escribir
   comandos largos; el instalador servidor lo expone como opcion post-instalacion
   y como acceso en el menu FLUS.
+- El activador Cloud reutiliza configuracion existente, valida endpoints, exige
+  token para planes cloud y restaura `config.php` si la comprobacion final falla.
+- La carga de una licencia cloud avisa cuando la activacion queda incompleta y
+  Tecnico identifica URL o token faltantes sin exponer secretos.
+- El acceso directo de configuracion ya no envia stock inicial automaticamente.
+- La sincronizacion Cloud se instala como tarea local automatica, ejecuta la
+  cola fuera de Caja, evita ejecutores concurrentes y reintenta con espera
+  progresiva cuando no hay red.
+- Tecnico muestra estado de la tarea, ultimo intento, ultimo envio, proximo
+  reintento y una causa sanitizada; la accion manual queda como reintento.
+- El instalador 4.2.5 se genera desde un staging reproducible basado en Git y
+  rechaza configuraciones reales, licencias, backups o claves privadas.
+- Todo upgrade de servidor crea y verifica backup de DB, configuracion,
+  storage y codigo antes de copiar, y restaura el estado previo de Apache.
 - Los buscadores de listados GET comparten un componente global para foco persistente, cursor, Enter, `Ctrl+K` y tratamiento de teclado movil.
 
 ### Fixed
@@ -18,6 +112,21 @@
 - Los buscadores de listados recuperan el foco y dejan el cursor al final despues de recargar filtros.
 - La validacion de la huella publica de licencias es estable en Windows y Linux al normalizar los finales de linea del PEM.
 - El bloqueo de licencia permite completar el cambio obligatorio de contrasena inicial sin entrar en un ciclo de redirecciones.
+- La prueba de integracion reconoce `045_cloud_sync_queue.sql` como ultima
+  migracion y valida la identidad unica de eventos Cloud.
+- El upgrade reconoce configuraciones con constantes dinamicas y, si hace
+  falta, recupera `DB_NAME` solo desde el manifiesto del backup verificado.
+- Los errores tempranos del migrador quedan registrados en `logs` y el
+  instalador muestra las rutas de backup y diagnostico.
+
+### Validation
+
+- PHP lint y parser PowerShell sobre archivos modificados.
+- Smoke fuente `173/173 OK`.
+- Integracion DB real descartable: 45 migraciones y flujos comerciales OK.
+- Piloto de pre-upgrade: configuracion dinamica, dump, storage, recuperacion
+  desde manifiesto verificado y limpieza OK.
+- Build Inno servidor/terminal 4.2.5 y verificacion SHA256 sin diferencias.
 
 ---
 

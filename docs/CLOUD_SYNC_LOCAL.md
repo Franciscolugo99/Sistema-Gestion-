@@ -3,9 +3,10 @@
 FLUS local es offline-first: las ventas, caja y stock operativo no dependen de
 internet.
 
-Esta base agrega una cola local (`cloud_sync_queue`) y un envio manual/seguro
-hacia FLUS Web. Por ahora envia ventas y stock de solo lectura para el portal
-cloud. Si la nube no responde, el evento queda pendiente para reintentar.
+Esta base agrega una cola local (`cloud_sync_queue`) y un envio automatico y
+seguro hacia FLUS Web. Envia ventas y stock de solo lectura para el portal
+cloud. Si la nube no responde, el evento queda pendiente y se reintenta con
+espera progresiva sin bloquear Caja.
 
 ## Configuracion
 
@@ -16,7 +17,7 @@ define('FLUS_LICENSE_CLOUD_URL', 'https://tu-dominio.com/flus-web/admin/api/lice
 define('FLUS_LICENSE_CLOUD_TOKEN', 'token-compartido-con-flus-web');
 
 // Opcional: si no se define, FLUS deriva /admin/api/sync-ingest.php desde FLUS_LICENSE_CLOUD_URL.
-define('FLUS_CLOUD_SYNC_URL', 'https://tu-dominio.com/flus-web/admin/api/sync-ingest.php');
+define('FLUS_CLOUD_SYNC_URL', 'https://api.flus.com.ar/sync-ingest.php');
 define('FLUS_CLOUD_SYNC_TOKEN', 'token-compartido-con-flus-web');
 define('FLUS_CLOUD_SYNC_ENABLED', true);
 define('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC', 900);
@@ -47,7 +48,7 @@ asi no depende de derivar la ruta desde el endpoint de licencia.
 define('FLUS_LICENSE_CLOUD_URL', 'https://tu-dominio.com/flus-web/admin/api/license-check.php');
 define('FLUS_LICENSE_CLOUD_TOKEN', 'token-cloud-compartido');
 define('FLUS_CLOUD_SYNC_ENABLED', true);
-define('FLUS_CLOUD_SYNC_URL', 'https://tu-dominio.com/flus-web/admin/api/sync-ingest.php');
+define('FLUS_CLOUD_SYNC_URL', 'https://api.flus.com.ar/sync-ingest.php');
 define('FLUS_CLOUD_BRANCH_CODE', 'central');
 define('FLUS_CLOUD_BRANCH_NAME', 'Casa central');
 define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja principal');
@@ -56,25 +57,28 @@ define('FLUS_CLOUD_INSTALLATION_NAME', 'Caja principal');
 5. Ejecutar migraciones locales.
 6. Entrar al panel tecnico de FLUS y verificar que `Sincronizacion cloud` figure
    operativa, con endpoint configurado.
-7. Hacer una venta de prueba y presionar `Enviar pendientes`.
+7. Hacer una venta de prueba y esperar el envio automatico de la tarea local.
 8. En FLUS Web, revisar `Sucursales cloud`.
 9. Si el cliente va a mirar desde el celular, crearle un usuario de portal en
    FLUS Web y probar `portal/login.php`.
-10. Presionar `Enviar stock actual` desde el panel tecnico para cargar el primer
-    snapshot de inventario en el portal.
+10. Confirmar el primer snapshot automatico de stock. `Enviar stock actual`
+    queda disponible solo como accion operativa manual.
 
 El alta queda correcta cuando FLUS local vende aunque no haya internet, deja los
 eventos pendientes y los envia despues sin duplicarlos.
 
 ## Activacion recomendada en una PC instalada
 
-El instalador de FLUS preserva `src/config.php`, `storage/`, licencia, base,
-ARCA y Mercado Pago. Por eso una actualizacion de version no activa Cloud por
-si sola. Para clientes que pagan plan Cloud, usar:
+El instalador 4.2.5 preserva `src/config.php`, `storage/`, licencia, base, ARCA
+y Mercado Pago. Si detecta una licencia Cloud con configuracion valida, instala
+o repara automaticamente la tarea local. Si falta URL o token, abre la
+reparacion guiada sin tocar datos operativos.
+
+Para una configuracion manual o una instalacion anterior, usar:
 
 ```powershell
 & "C:\FLUS\stack\php\php.exe" C:\FLUS\app\scripts\migrate.php
-PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -BranchCode central -BranchName "Casa central" -InstallationName "Caja principal" -SendInitialStock
+PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -BranchCode central -BranchName "Casa central" -InstallationName "Caja principal"
 ```
 
 Desde el menu de Windows tambien se puede abrir `FLUS > Servidor >
@@ -82,9 +86,23 @@ Configuracion > Configurar Cloud`. Ese acceso ejecuta el mismo asistente y evita
 tener que escribir la ruta completa.
 
 El asistente pide el token cloud oculto, hace backup de `src/config.php`,
-configura endpoints productivos de `flus.com.ar`, valida sintaxis PHP, aplica
-migraciones pendientes y, si se indica `-SendInitialStock`, manda el primer
-snapshot de stock.
+configura endpoints productivos de `flus.com.ar`, valida URLs y sintaxis PHP,
+aplica migraciones pendientes y comprueba que URL y token hayan quedado
+persistidos. Si falla la verificacion final, restaura el `config.php` anterior.
+
+Para recuperar el token, entrar con un administrador en FLUS Web y abrir
+`Configuracion cloud`. El valor solo se revela despues de confirmar la
+contraseña actual. No debe enviarse por email, chat ni incluirse en comandos o
+logs.
+
+El acceso directo no bloquea esperando un envio. La tarea procesa la cola y el
+primer snapshot en segundo plano cuando la configuracion queda valida.
+
+Para diagnosticar una instalacion sin modificarla:
+
+```powershell
+PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sync_setup.ps1 -Root C:\FLUS\app -StatusOnly
+```
 
 Para desactivar Cloud sin borrar ventas ni licencia:
 
@@ -94,9 +112,9 @@ PowerShell -ExecutionPolicy Bypass -NoProfile -File C:\FLUS\app\scripts\cloud_sy
 
 Despues de activarlo, entrar a `Tecnico > Sincronizacion cloud` y confirmar:
 
-- estado `Operativa`;
+- estado `Automatica`;
 - endpoint `Configurado`;
-- `Enviar pendientes` no devuelve error;
+- tarea local activa y ultimo intento visible;
 - `Enviar stock actual` aparece en FLUS Web bajo el cliente y sucursal correctos.
 
 ## Migracion requerida
@@ -112,11 +130,11 @@ La migracion nueva es `045_cloud_sync_queue.sql`.
 ## Prueba rapida
 
 1. Verificar en FLUS Web que la licencia este activa y que exista el endpoint:
-   `https://tu-dominio.com/flus-web/admin/api/sync-ingest.php`
+   `https://api.flus.com.ar/sync-ingest.php`
 2. En FLUS local, entrar a `Tecnico`.
 3. Aplicar migraciones pendientes si aparece la migracion `045`.
 4. Hacer una venta normal desde caja.
-5. Volver a `Tecnico` y presionar `Enviar pendientes`.
+5. Volver a `Tecnico` y confirmar que la cola se envio automaticamente.
 6. En FLUS Web, abrir `Sucursales cloud` y confirmar que aparezca la instalacion
    y el evento.
 7. En FLUS local, presionar `Enviar stock actual`.
@@ -134,14 +152,20 @@ Para preparar y enviar stock desde consola:
 & "C:\xampp82\php\php.exe" scripts\cloud_sync_stock_snapshot.php 250
 ```
 
-Para dejar una tarea programada simple, ejecutar este script cada 5 minutos:
+El instalador registra `FLUS_CloudSync` al iniciar Windows y cada minuto. Para
+ejecutar un tick diagnostico manual:
 
 ```powershell
 & "C:\xampp82\php\php.exe" scripts\cloud_sync_tick.php 250 50
 ```
 
-Ese tick envia pendientes siempre y prepara un snapshot completo de stock solo
-cuando paso `FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC`.
+El worker ejecuta un latido liviano cada 5 minutos aunque no existan eventos
+pendientes. Ese preflight actualiza la presencia, version y nombre de la
+instalacion en el portal sin crear ventas ni movimientos de stock.
+
+Ese tick usa locks local y MySQL, envia pendientes y prepara un snapshot
+completo de stock solo cuando paso
+`FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC`.
 
 El script de consola carga el mismo contexto local que la web, incluyendo `FLUS_ROOT`, `storage/license.json` y el ID de instalacion cloud.
 
@@ -151,7 +175,7 @@ Eventos actuales:
 
 - `sale.created`: resumen de venta, medio de pago e items.
 - `stock.updated`: stock de productos afectados por una venta.
-- `stock.snapshot`: stock actual enviado manualmente desde tecnico o consola.
+- `stock.snapshot`: stock actual enviado automaticamente o bajo accion manual.
 
 El stock enviado es de solo lectura para FLUS Web. Incluye codigo, nombre,
 categoria, marca, precio de venta, stock, stock minimo, unidad y estado. No se

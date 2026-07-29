@@ -1805,16 +1805,16 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '044_movimientos_request_uid_idempotencia.sql', 'latest migration is 044');
+    flus_it_assert($latest === '045_cloud_sync_queue.sql', 'latest migration is 045');
 
     $technicalMigrationStatus = flus_technical_migration_status($pdo, $root . '/migrations');
     flus_it_assert((int)$technicalMigrationStatus['pending_count'] === 0, 'technical migration status reports clean schema');
-    flus_it_assert((string)$technicalMigrationStatus['latest'] === '044_movimientos_request_uid_idempotencia.sql', 'technical migration status reports latest file');
+    flus_it_assert((string)$technicalMigrationStatus['latest'] === '045_cloud_sync_queue.sql', 'technical migration status reports latest file');
 
-    $pdo->exec("DELETE FROM schema_migrations WHERE filename = '044_movimientos_request_uid_idempotencia.sql'");
+    $pdo->exec("DELETE FROM schema_migrations WHERE filename = '045_cloud_sync_queue.sql'");
     $technicalMigrationPending = flus_technical_migration_status($pdo, $root . '/migrations');
     flus_it_assert(
-        $technicalMigrationPending['pending'] === ['044_movimientos_request_uid_idempotencia.sql'],
+        $technicalMigrationPending['pending'] === ['045_cloud_sync_queue.sql'],
         'technical migration status detects missing tracking row'
     );
     $technicalMigrationError = null;
@@ -1823,7 +1823,7 @@ try {
         $technicalMigrationApply !== null
         && $technicalMigrationError === null
         && count($technicalMigrationApply['applied']) === 1
-        && (string)($technicalMigrationApply['applied'][0] ?? '') === '044_movimientos_request_uid_idempotencia.sql',
+        && (string)($technicalMigrationApply['applied'][0] ?? '') === '045_cloud_sync_queue.sql',
         'technical migration action applies only pending file'
     );
     flus_it_assert(!is_file($root . '/storage/maintenance.flag'), 'technical migration action clears maintenance flag');
@@ -1867,6 +1867,8 @@ try {
     flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'caja_movimientos', 'request_uid'), 'caja_movimientos.request_uid has unique idempotency index');
     flus_it_assert(flus_it_table_has_column($pdo, 'movimientos_stock', 'request_uid'), 'movimientos_stock.request_uid exists');
     flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'movimientos_stock', 'request_uid'), 'movimientos_stock.request_uid has unique idempotency index');
+    flus_it_assert(flus_it_table_has_column($pdo, 'cloud_sync_queue', 'event_uid'), 'cloud_sync_queue event identity exists');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'cloud_sync_queue', 'event_uid'), 'cloud_sync_queue event identity is unique');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'precio_unit_base'), 'venta_items.precio_unit_base exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_tipo'), 'venta_items.ajuste_precio_tipo exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_regla_unit_monto'), 'venta_items.ajuste_precio_regla_unit_monto exists');

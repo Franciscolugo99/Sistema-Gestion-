@@ -7,8 +7,8 @@ declare(strict_types=1);
  * El instalador/updater solo tiene que reemplazar este archivo.
  */
 
-defined('FLUS_VERSION') || define('FLUS_VERSION', '4.2.4');
-defined('FLUS_BUILD')   || define('FLUS_BUILD',   '2026-07-23');
+defined('FLUS_VERSION') || define('FLUS_VERSION', '4.2.8');
+defined('FLUS_BUILD')   || define('FLUS_BUILD',   '2026-07-29');
 
 if (!function_exists('flus_version_label')) {
   function flus_version_label(): string {

@@ -2,21 +2,36 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.2.4
-**Build:** 2026-07-23
-**Release objetivo:** 4.2.4
+**Version:** 4.2.8
+**Build:** 2026-07-29
+**Release objetivo:** 4.2.8
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.2.4 (2026-07-23)
+## Estado de release 4.2.8 (2026-07-29)
 
-- Smoke tecnico fuente: `172 OK / 0 fallidas / 0 skipped`.
+- Smoke tecnico fuente: `173 pruebas / 0 fallidas / 1 omitida` (la prueba de
+  alineacion de permisos requiere una base MySQL local disponible).
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
-- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.4`.
+- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.8`.
 - Ruta fuente local validada: `C:\xampp82\htdocs\kiosco`.
 - Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
+- Activacion cloud: el configurador exige URL y token, permite reparar equipos
+  4.2.4/4.2.5 sin tocar datos operativos y ofrece diagnostico seguro con `-StatusOnly`.
+- Sincronizacion cloud: una tarea local envia la cola automaticamente sin
+  bloquear Caja, con idempotencia, exclusividad y reintentos progresivos.
+- Presencia cloud: el worker informa un heartbeat cada cinco minutos aunque no
+  existan ventas pendientes, para que el portal refleje correctamente si una
+  sucursal esta conectada.
+- Endpoints cloud: nuevas instalaciones usan `api.flus.com.ar`; el configurador
+  valida licencia y sincronizacion antes de habilitar la tarea, conserva URLs
+  personalizadas y migra solamente las URLs oficiales anteriores.
+- Recuperacion cloud: Tecnico identifica bloqueos del hosting y permite
+  reactivar hasta 25 eventos fallidos por vez despues de un preflight correcto.
+- Cajas cloud: apertura y cierre se reportan una sola vez para visualizar
+  estado operativo, ultimo cierre y diferencias por sucursal en el portal.
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
 - Caja: control de turnos, terminales, permisos de cajero y ventas recientes endurecidos.
 - Caja movimientos: el modal y la vista responden JSON de forma consistente en llamadas AJAX, incluso ante sesion/permisos faltantes, y evitan sintaxis PHP 8.1+ para instalaciones con PHP 8.0.
@@ -24,9 +39,11 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Dashboard: Top productos permite cambiar criterio por unidades, ventas o ganancia y ampliar el limite visible sin recargar toda la pagina.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
 - Buscadores de listados: comparten foco persistente, cursor, Enter, `Ctrl+K` y tratamiento de teclado movil; los buscadores operativos con autocompletado conservan su flujo especializado.
-- Migraciones y baseline: versionados hasta `044_movimientos_request_uid_idempotencia.sql`.
+- Migraciones y baseline: versionados hasta `045_cloud_sync_queue.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.4`, pensada como hotfix operativo para instalador/actualizador.
+- Salida actual: `4.2.8`, preparada en fuente; `api.flus.com.ar` supero el
+  preflight autenticado de licencia y sincronizacion desde una instalacion
+  4.2.6, sin enviar eventos ni modificar su cola.
 - Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
 
 ### Nota sobre ARCA y entorno simulado
@@ -40,6 +57,15 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_2_8.md](docs/RELEASE_4_2_8.md)
+- [docs/RELEASE_MESSAGE_4.2.8.md](docs/RELEASE_MESSAGE_4.2.8.md)
+
+- [docs/RELEASE_4_2_7.md](docs/RELEASE_4_2_7.md)
+- [docs/RELEASE_MESSAGE_4.2.7.md](docs/RELEASE_MESSAGE_4.2.7.md)
+- [docs/RELEASE_4_2_6.md](docs/RELEASE_4_2_6.md)
+- [docs/RELEASE_MESSAGE_4.2.6.md](docs/RELEASE_MESSAGE_4.2.6.md)
+- [docs/RELEASE_4_2_5.md](docs/RELEASE_4_2_5.md)
+- [docs/RELEASE_MESSAGE_4.2.5.md](docs/RELEASE_MESSAGE_4.2.5.md)
 - [docs/RELEASE_4_2_4.md](docs/RELEASE_4_2_4.md)
 - [docs/RELEASE_MESSAGE_4.2.4.md](docs/RELEASE_MESSAGE_4.2.4.md)
 - [docs/RELEASE_4_2_2.md](docs/RELEASE_4_2_2.md)
@@ -318,7 +344,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `044_movimientos_request_uid_idempotencia.sql`.
+- Verificar que corran las migraciones pendientes hasta `045_cloud_sync_queue.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

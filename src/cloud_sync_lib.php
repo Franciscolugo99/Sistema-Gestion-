@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/cloud_http_lib.php';
+
 /**
  * Cola local de sincronizacion cloud.
  *
@@ -57,7 +59,10 @@ if (!function_exists('flus_cloud_sync_derive_url')) {
 
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $url) === 1) {
-                return preg_replace($pattern, '/admin/api/sync-ingest.php', $url) ?: '';
+                $path = str_contains(strtolower($url), 'api.flus.com.ar')
+                    ? '/sync-ingest.php'
+                    : '/admin/api/sync-ingest.php';
+                return preg_replace($pattern, $path, $url) ?: '';
             }
         }
 
@@ -88,6 +93,71 @@ if (!function_exists('flus_cloud_sync_config')) {
             'branch_name' => flus_cloud_sync_env('FLUS_CLOUD_BRANCH_NAME', 'FLUS_CLOUD_BRANCH_NAME'),
             'branch_address' => flus_cloud_sync_env('FLUS_CLOUD_BRANCH_ADDRESS', 'FLUS_CLOUD_BRANCH_ADDRESS'),
             'display_name' => flus_cloud_sync_env('FLUS_CLOUD_INSTALLATION_NAME', 'FLUS_CLOUD_INSTALLATION_NAME'),
+        ];
+    }
+}
+
+if (!function_exists('flus_cloud_sync_plan_is_cloud')) {
+    function flus_cloud_sync_plan_is_cloud(string $plan): bool
+    {
+        return str_starts_with(strtolower(trim($plan)), 'cloud');
+    }
+}
+
+if (!function_exists('flus_cloud_sync_url_is_safe')) {
+    function flus_cloud_sync_url_is_safe(string $url): bool
+    {
+        $parts = parse_url(trim($url));
+        if (!is_array($parts)) {
+            return false;
+        }
+
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        $host = strtolower((string)($parts['host'] ?? ''));
+        if ($scheme === 'https' && $host !== '') {
+            return true;
+        }
+
+        return $scheme === 'http' && in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+    }
+}
+
+if (!function_exists('flus_cloud_sync_config_readiness')) {
+    function flus_cloud_sync_config_readiness(?array $config = null): array
+    {
+        $config = $config ?? flus_cloud_sync_config();
+        $enabled = !empty($config['enabled']);
+        $licenseUrlReady = flus_cloud_sync_url_is_safe(
+            flus_cloud_sync_env('FLUS_LICENSE_CLOUD_URL', 'FLUS_LICENSE_CLOUD_URL')
+        );
+        $syncUrlReady = flus_cloud_sync_url_is_safe((string)($config['url'] ?? ''));
+        $licenseToken = flus_cloud_sync_env('FLUS_LICENSE_CLOUD_TOKEN', 'FLUS_LICENSE_CLOUD_TOKEN');
+        $syncToken = trim((string)($config['token'] ?? ''));
+        $tokenReady = $licenseToken !== ''
+            && $syncToken !== ''
+            && hash_equals($licenseToken, $syncToken);
+        $missing = [];
+        if (!$enabled) {
+            $missing[] = 'enabled';
+        }
+        if (!$licenseUrlReady) {
+            $missing[] = 'license_url';
+        }
+        if (!$syncUrlReady) {
+            $missing[] = 'sync_url';
+        }
+        if (!$tokenReady) {
+            $missing[] = 'token';
+        }
+
+        return [
+            'ready' => $enabled && $licenseUrlReady && $syncUrlReady && $tokenReady,
+            'enabled' => $enabled,
+            'url' => $licenseUrlReady && $syncUrlReady,
+            'license_url' => $licenseUrlReady,
+            'sync_url' => $syncUrlReady,
+            'token' => $tokenReady,
+            'missing' => $missing,
         ];
     }
 }
@@ -301,6 +371,50 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
     }
 }
 
+if (!function_exists('flus_cloud_sync_enqueue_cash_session')) {
+    function flus_cloud_sync_enqueue_cash_session(PDO $pdo, string $action, array $cashSession): array
+    {
+        $cashId = (int)($cashSession['caja_id'] ?? $cashSession['id'] ?? 0);
+        $action = strtolower(trim($action));
+        if ($cashId <= 0 || !in_array($action, ['opened', 'closed'], true)) {
+            return ['queued' => false, 'reason' => 'invalid_cash_session'];
+        }
+
+        $occurredAt = (string)(
+            $cashSession[$action === 'opened' ? 'fecha_apertura' : 'fecha_cierre']
+            ?? date('Y-m-d H:i:s')
+        );
+        $summary = [
+            'caja_id' => $cashId,
+            'terminal_id' => (int)($cashSession['terminal_id'] ?? 0),
+            'terminal_name' => substr(trim((string)($cashSession['terminal_name'] ?? '')), 0, 120),
+            'user_id' => (int)($cashSession['user_id'] ?? 0),
+            'cashier_name' => substr(trim((string)($cashSession['cashier_name'] ?? '')), 0, 120),
+            'fecha_apertura' => (string)($cashSession['fecha_apertura'] ?? ''),
+        ];
+
+        if ($action === 'closed') {
+            $summary += [
+                'fecha_cierre' => (string)($cashSession['fecha_cierre'] ?? $occurredAt),
+                'total_ventas' => round((float)($cashSession['total_ventas'] ?? 0), 2),
+                'saldo_sistema' => round((float)($cashSession['saldo_sistema'] ?? 0), 2),
+                'saldo_declarado' => round((float)($cashSession['saldo_declarado'] ?? 0), 2),
+                'diferencia' => round((float)($cashSession['diferencia'] ?? 0), 2),
+                'motivo' => substr(strtoupper(trim((string)($cashSession['motivo'] ?? ''))), 0, 40),
+            ];
+        }
+
+        return flus_cloud_sync_enqueue_event(
+            $pdo,
+            'cash.' . $action,
+            'cash-session:' . $cashId . ':' . $action,
+            $summary,
+            [],
+            $occurredAt
+        );
+    }
+}
+
 if (!function_exists('flus_cloud_sync_stock_rows')) {
     function flus_cloud_sync_stock_rows(PDO $pdo, ?array $productIds = null, int $limit = 250): array
     {
@@ -451,6 +565,112 @@ if (!function_exists('flus_cloud_sync_pending_counts')) {
     }
 }
 
+if (!function_exists('flus_cloud_sync_retry_delay_minutes')) {
+    function flus_cloud_sync_retry_delay_minutes(int $attempts): int
+    {
+        $attempts = max(0, min(10, $attempts));
+        return min(60, 1 << min(6, $attempts));
+    }
+}
+
+if (!function_exists('flus_cloud_sync_acquire_push_lock')) {
+    function flus_cloud_sync_acquire_push_lock(PDO $pdo): array
+    {
+        try {
+            $database = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+            $lockName = 'flus_cloud_sync:' . substr(hash('sha256', $database), 0, 32);
+            $stmt = $pdo->prepare('SELECT GET_LOCK(?, 0)');
+            $stmt->execute([$lockName]);
+            $result = $stmt->fetchColumn();
+
+            return [
+                'acquired' => (int)$result === 1,
+                'busy' => (int)$result === 0,
+                'name' => $lockName,
+            ];
+        } catch (Throwable $e) {
+            error_log('[FLUS][cloud-sync] push lock unavailable');
+            return ['acquired' => false, 'busy' => false, 'name' => ''];
+        }
+    }
+}
+
+if (!function_exists('flus_cloud_sync_release_push_lock')) {
+    function flus_cloud_sync_release_push_lock(PDO $pdo, string $lockName): void
+    {
+        if ($lockName === '') {
+            return;
+        }
+
+        try {
+            $stmt = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+            $stmt->execute([$lockName]);
+        } catch (Throwable $e) {
+            error_log('[FLUS][cloud-sync] push lock release failed');
+        }
+    }
+}
+
+if (!function_exists('flus_cloud_sync_worker_state')) {
+    function flus_cloud_sync_worker_state(PDO $pdo): array
+    {
+        $root = defined('FLUS_ROOT') ? (string)FLUS_ROOT : dirname(__DIR__);
+        $statePath = $root . '/storage/cloud_sync_tick_state.json';
+        $schedulerPath = $root . '/storage/cloud_sync_scheduler_state.json';
+        $probePath = $root . '/storage/cloud_sync_probe_state.json';
+        $state = [];
+        $scheduler = [];
+        $probe = [];
+
+        foreach ([$statePath => 'worker', $schedulerPath => 'scheduler', $probePath => 'probe'] as $path => $type) {
+            if (!is_file($path)) {
+                continue;
+            }
+            $raw = @file_get_contents($path);
+            $decoded = is_string($raw) ? json_decode($raw, true) : null;
+            if (!is_array($decoded)) {
+                continue;
+            }
+            if ($type === 'worker') {
+                $state = $decoded;
+            } elseif ($type === 'scheduler') {
+                $scheduler = $decoded;
+            } else {
+                $probe = $decoded;
+            }
+        }
+
+        $lastQueueError = null;
+        $nextAttemptAt = null;
+        $lastSentAt = null;
+        if (flus_cloud_sync_schema_ready($pdo)) {
+            $lastQueueError = $pdo->query("SELECT last_error FROM cloud_sync_queue WHERE last_error IS NOT NULL AND last_error <> '' ORDER BY updated_at DESC, id DESC LIMIT 1")->fetchColumn();
+            $nextAttemptAt = $pdo->query("SELECT MIN(next_attempt_at) FROM cloud_sync_queue WHERE status IN ('pending','failed') AND next_attempt_at IS NOT NULL")->fetchColumn();
+            $lastSentAt = $pdo->query("SELECT MAX(sent_at) FROM cloud_sync_queue WHERE status = 'sent'")->fetchColumn();
+        }
+
+        $error = trim((string)($state['last_error'] ?? $lastQueueError ?? ''));
+        $error = preg_replace('/[^A-Za-z0-9._:-]/', '', $error) ?: '';
+        $probeError = trim((string)($probe['sync']['error'] ?? $probe['license']['error'] ?? ''));
+        $probeError = preg_replace('/[^A-Za-z0-9._:-]/', '', $probeError) ?: '';
+
+        return [
+            'scheduler_enabled' => !empty($scheduler['enabled']),
+            'scheduler_task' => !empty($scheduler['task_registered']),
+            'scheduler_interval_minutes' => max(0, (int)($scheduler['interval_minutes'] ?? 0)),
+            'last_attempt_at' => (string)($state['last_attempt_at'] ?? ''),
+            'last_success_at' => (string)($state['last_success_at'] ?? ''),
+            'last_sent_at' => (string)($lastSentAt ?: ''),
+            'last_error' => substr($error, 0, 80),
+            'next_attempt_at' => (string)($nextAttemptAt ?: ''),
+            'last_sent_count' => max(0, (int)($state['last_sent_count'] ?? 0)),
+            'endpoint_probe_ok' => !empty($probe['ok']),
+            'endpoint_probe_at' => (string)($probe['checked_at'] ?? ''),
+            'endpoint_probe_error' => substr($probeError, 0, 80),
+        ];
+    }
+}
+
 if (!function_exists('flus_cloud_sync_build_push_payload')) {
     function flus_cloud_sync_build_push_payload(array $events, array $config): array
     {
@@ -527,11 +747,14 @@ if (!function_exists('flus_cloud_sync_http_post')) {
 
         if ($raw === false || $status < 200 || $status >= 300) {
             $decodedError = is_string($raw) ? json_decode($raw, true) : null;
-            $serverError = is_array($decodedError) ? trim((string)($decodedError['error'] ?? '')) : '';
+            $serverError = flus_cloud_http_contract_error(
+                is_array($decodedError) ? $decodedError : null,
+                $curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status
+            );
             return [
                 'ok' => false,
                 'status' => $status,
-                'error' => $serverError !== '' ? $serverError : ($curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status),
+                'error' => $serverError,
             ];
         }
 
@@ -540,7 +763,87 @@ if (!function_exists('flus_cloud_sync_http_post')) {
             return ['ok' => false, 'status' => $status, 'error' => 'HTTP_JSON_INVALID'];
         }
 
-        return ['ok' => !empty($decoded['ok']), 'status' => $status, 'body' => $decoded, 'error' => (string)($decoded['error'] ?? '')];
+        if (!flus_cloud_http_sync_contract_valid($decoded)) {
+            return [
+                'ok' => false,
+                'status' => $status,
+                'error' => flus_cloud_http_contract_error($decoded),
+            ];
+        }
+
+        return [
+            'ok' => !empty($decoded['ok']),
+            'status' => $status,
+            'body' => $decoded,
+            'error' => empty($decoded['ok']) ? flus_cloud_http_contract_error($decoded) : '',
+        ];
+    }
+}
+
+if (!function_exists('flus_cloud_sync_preflight')) {
+    function flus_cloud_sync_preflight(?array $config = null): array
+    {
+        $config = $config ?? flus_cloud_sync_config();
+        if (empty($config['enabled'])) {
+            return ['ok' => false, 'error' => 'DISABLED'];
+        }
+        if (!flus_cloud_sync_url_is_safe((string)($config['url'] ?? ''))) {
+            return ['ok' => false, 'error' => 'URL_MISSING'];
+        }
+        if (trim((string)($config['token'] ?? '')) === '') {
+            return ['ok' => false, 'error' => 'TOKEN_MISSING'];
+        }
+        if (flus_cloud_sync_license_key() === '') {
+            return ['ok' => false, 'error' => 'LICENSE_KEY_MISSING'];
+        }
+        if (flus_cloud_sync_installation_id() === '') {
+            return ['ok' => false, 'error' => 'INSTALLATION_ID_MISSING'];
+        }
+
+        $payload = flus_cloud_sync_build_push_payload([], $config);
+        $payload['preflight'] = true;
+        $response = flus_cloud_sync_http_post(
+            (string)$config['url'],
+            (string)$config['token'],
+            $payload,
+            (int)$config['timeout_sec']
+        );
+        return !empty($response['ok'])
+            ? ['ok' => true, 'error' => null]
+            : ['ok' => false, 'error' => (string)($response['error'] ?? 'HTTP_CONTRACT_INVALID')];
+    }
+}
+
+if (!function_exists('flus_cloud_sync_retry_failed')) {
+    function flus_cloud_sync_retry_failed(PDO $pdo, int $limit = 25): array
+    {
+        if (!flus_cloud_sync_schema_ready($pdo)) {
+            return ['ok' => false, 'error' => 'SCHEMA_MISSING', 'reactivated' => 0];
+        }
+
+        $preflight = flus_cloud_sync_preflight();
+        if (empty($preflight['ok'])) {
+            return [
+                'ok' => false,
+                'error' => (string)($preflight['error'] ?? 'PREFLIGHT_FAILED'),
+                'reactivated' => 0,
+            ];
+        }
+
+        $limit = max(1, min(25, $limit));
+        $stmt = $pdo->prepare("
+            UPDATE cloud_sync_queue
+            SET status = 'pending',
+                attempts = 0,
+                last_error = NULL,
+                next_attempt_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'failed'
+            ORDER BY updated_at ASC, id ASC
+            LIMIT {$limit}
+        ");
+        $stmt->execute();
+        return ['ok' => true, 'error' => null, 'reactivated' => $stmt->rowCount()];
     }
 }
 
@@ -566,6 +869,23 @@ if (!function_exists('flus_cloud_sync_push')) {
         if (!flus_cloud_sync_schema_ready($pdo)) {
             return ['ok' => false, 'error' => 'SCHEMA_MISSING', 'counts' => flus_cloud_sync_pending_counts($pdo)];
         }
+
+        $pushLock = flus_cloud_sync_acquire_push_lock($pdo);
+        if (empty($pushLock['acquired'])) {
+            if (!empty($pushLock['busy'])) {
+                return [
+                    'ok' => true,
+                    'busy' => true,
+                    'sent' => 0,
+                    'message' => 'SYNC_ALREADY_RUNNING',
+                    'counts' => flus_cloud_sync_pending_counts($pdo),
+                ];
+            }
+
+            return ['ok' => false, 'error' => 'LOCK_UNAVAILABLE', 'counts' => flus_cloud_sync_pending_counts($pdo)];
+        }
+
+        try {
 
         $limit = max(1, min(50, $limit));
         $stmt = $pdo->prepare("
@@ -630,7 +950,11 @@ if (!function_exists('flus_cloud_sync_push')) {
             $error = (string)($response['error'] ?? 'SYNC_FAILED');
         }
 
-        $retryMinutes = min(60, max(1, count($events)));
+        $highestAttempts = 0;
+        foreach ($events as $event) {
+            $highestAttempts = max($highestAttempts, (int)($event['attempts'] ?? 0));
+        }
+        $retryMinutes = flus_cloud_sync_retry_delay_minutes($highestAttempts);
         $params = array_merge([substr($error, 0, 190)], $ids);
         $update = $pdo->prepare("
             UPDATE cloud_sync_queue
@@ -643,6 +967,16 @@ if (!function_exists('flus_cloud_sync_push')) {
         ");
         $update->execute($params);
 
-        return ['ok' => false, 'error' => $error, 'sent' => 0, 'attempted' => count($ids), 'counts' => flus_cloud_sync_pending_counts($pdo)];
+        return [
+            'ok' => false,
+            'error' => $error,
+            'sent' => 0,
+            'attempted' => count($ids),
+            'retry_minutes' => $retryMinutes,
+            'counts' => flus_cloud_sync_pending_counts($pdo),
+        ];
+        } finally {
+            flus_cloud_sync_release_push_lock($pdo, (string)$pushLock['name']);
+        }
     }
 }

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/cloud_http_lib.php';
+
 /**
  * Validacion nube de licencias FLUS.
  *
@@ -360,15 +362,23 @@ if (!function_exists('flus_license_cloud_http_post')) {
     curl_close($ch);
 
     if ($raw === false || $status < 200 || $status >= 300) {
+      $decodedError = is_string($raw) ? json_decode($raw, true) : null;
       return [
         'ok' => false,
-        'error' => $curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status,
+        'error' => flus_cloud_http_contract_error(
+          is_array($decodedError) ? $decodedError : null,
+          $curlError !== '' ? 'HTTP_TRANSPORT_ERROR' : 'HTTP_STATUS_' . $status
+        ),
       ];
     }
 
     $decoded = json_decode((string)$raw, true);
     if (!is_array($decoded)) {
       return ['ok' => false, 'error' => 'HTTP_JSON_INVALID'];
+    }
+
+    if (trim((string)($decoded['payload_b64'] ?? '')) === '' || trim((string)($decoded['sig_b64'] ?? '')) === '') {
+      return ['ok' => false, 'error' => flus_cloud_http_contract_error($decoded)];
     }
 
     return ['ok' => true, 'document' => $decoded];

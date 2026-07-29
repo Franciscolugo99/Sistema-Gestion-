@@ -7,6 +7,7 @@ require_once __DIR__ . '/caja_lib.php';
 require_once FLUS_ROOT . '/src/recargo_horario.php';
 require_once FLUS_ROOT . '/src/mercadopago_qr_lib.php';
 require_once FLUS_ROOT . '/src/ticket_config_lib.php';
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
 
 $canRealizarVentas = function_exists('user_has_permission') && user_has_permission('realizar_ventas');
 $canAbrirCaja = (function_exists('user_has_permission') && user_has_permission('abrir_caja')) || $canRealizarVentas;
@@ -46,7 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion_caja'] ?? '') === '
       if ($tmp && is_array($tmp) && !empty($tmp['id'])) {
         $aperturaError = 'Ya hay un turno abierto en esta terminal por ' . caja_turno_owner_label($tmp) . '.';
       } else {
-        caja_abrir($pdo, $terminalId, (int)($user['id'] ?? 0), $saldoIni);
+        $cajaIdAbierta = caja_abrir($pdo, $terminalId, (int)($user['id'] ?? 0), $saldoIni);
+        $terminalCloud = terminal_get($pdo, $terminalId);
+        flus_cloud_sync_enqueue_cash_session($pdo, 'opened', [
+          'caja_id' => $cajaIdAbierta,
+          'terminal_id' => $terminalId,
+          'terminal_name' => (string)($terminalCloud['nombre'] ?? $terminalName),
+          'user_id' => (int)($user['id'] ?? 0),
+          'cashier_name' => (string)($user['username'] ?? ''),
+          'fecha_apertura' => date('Y-m-d H:i:s'),
+        ]);
         header('Location: caja.php');
         exit;
       }

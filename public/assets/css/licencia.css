@@ -28,6 +28,17 @@
   color: #991b1b;
 }
 
+.licencia-alert.alert-warning {
+  background: #fff8e8;
+  border-color: #e9b949;
+  color: #6f4c00;
+}
+
+.licencia-alert .btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .licencia-titlebar {
   border-bottom: 1px solid var(--panel-border, rgba(148, 163, 184, 0.16));
   display: flex;

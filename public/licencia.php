@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
 
 require_login();
 
@@ -15,6 +16,7 @@ csrf_init();
 
 $errors = [];
 $successMessage = '';
+$warningMessage = '';
 $licenseMeta = function_exists('flus_license_meta') ? flus_license_meta() : [];
 
 $formatDate = static function (?string $value, bool $withTime = false): string {
@@ -111,7 +113,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                     if (function_exists('flus_license_cloud_save_state')) {
                                         flus_license_cloud_save_state([]);
                                     }
-                                    header('Location: licencia.php?saved=1');
+                                    $savedPlan = (string)($decoded['plan'] ?? '');
+                                    $cloudPending = flus_cloud_sync_plan_is_cloud($savedPlan)
+                                        && empty(flus_cloud_sync_config_readiness()['ready']);
+                                    header('Location: licencia.php?saved=' . ($cloudPending ? 'cloud_pending' : '1'));
                                     exit;
                                 }
                             } else {
@@ -122,7 +127,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 if ($saved === false) {
                                     $errors[] = 'No se pudo guardar la licencia en storage/license.json.';
                                 } else {
-                                    header('Location: licencia.php?saved=1');
+                                    $savedPlan = (string)($decoded['plan'] ?? '');
+                                    $cloudPending = flus_cloud_sync_plan_is_cloud($savedPlan)
+                                        && empty(flus_cloud_sync_config_readiness()['ready']);
+                                    header('Location: licencia.php?saved=' . ($cloudPending ? 'cloud_pending' : '1'));
                                     exit;
                                 }
                             }
@@ -137,6 +145,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 if (isset($_GET['saved']) && $_GET['saved'] === '1') {
     $successMessage = 'Licencia guardada correctamente.';
 }
+if (isset($_GET['saved']) && $_GET['saved'] === 'cloud_pending') {
+    $warningMessage = 'La licencia cloud se guardo, pero la activacion no esta completa: falta configurar URL y token cloud.';
+}
 if (isset($_GET['revalidated']) && $_GET['revalidated'] === '1') {
     $successMessage = 'Validacion en la nube actualizada.';
 }
@@ -149,6 +160,11 @@ $lockMessage = (isset($_GET['locked']) && $_GET['locked'] === '1' && $lockReason
 $licenseLimited = !empty($licenseMeta['limited']);
 $licenseStatus = (string)($licenseMeta['status'] ?? 'N/D');
 $licensePlan = (string)($licenseMeta['plan'] ?? 'N/D');
+$cloudSyncReadiness = flus_cloud_sync_config_readiness();
+$cloudSetupPending = flus_cloud_sync_plan_is_cloud($licensePlan) && empty($cloudSyncReadiness['ready']);
+if ($cloudSetupPending && $warningMessage === '') {
+    $warningMessage = 'Este plan requiere Cloud, pero la sincronizacion esta inactiva. Ejecuta Configurar Cloud FLUS antes de dar la instalacion por terminada.';
+}
 $licenseCustomerRaw = trim((string)($licenseMeta['customer'] ?? ''));
 $licenseCustomer = $licenseCustomerRaw !== '' ? $licenseCustomerRaw : 'Cliente no informado';
 $licenseReasonLabel = (string)($licenseMeta['reason_label'] ?? 'Sin observaciones');
@@ -203,6 +219,15 @@ require __DIR__ . '/partials/header.php';
 
   <?php if ($successMessage !== ''): ?>
     <div class="alert alert-success licencia-alert"><?= h($successMessage) ?></div>
+  <?php endif; ?>
+
+  <?php if ($warningMessage !== ''): ?>
+    <div class="alert alert-warning licencia-alert">
+      <?= h($warningMessage) ?>
+      <?php if ($canManageLicense): ?>
+        <a class="btn btn-secondary" href="tecnico.php">Ver diagnostico</a>
+      <?php endif; ?>
+    </div>
   <?php endif; ?>
 
   <?php if ($errors !== []): ?>

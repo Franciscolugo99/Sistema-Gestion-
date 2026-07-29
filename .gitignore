@@ -107,6 +107,7 @@ storage/license_state.json
 storage/license_cloud_state.json
 storage/license_installation_id
 storage/cloud_sync_tick_state.json
+storage/cloud_sync_scheduler_state.json
 license.json
 flus_fixes.patch
 *.patch
@@ -123,3 +124,6 @@ AGENTS.local.md
 claude-mem/
 claude-men/
 graphify-out/
+/installer/.build/
+/installer/output/
+/installer/.pilot/

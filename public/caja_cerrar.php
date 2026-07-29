@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/caja_lib.php';
 require_once __DIR__ . '/../src/venta_anulaciones_lib.php';
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
 
 // permiso
 require_permission('cerrar_caja');
@@ -399,6 +400,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $errores[] = 'No se pudo cerrar la caja (ya estaba cerrada o ID inválido).';
             } else {
               $pdo->commit();
+              $terminalCloud = terminal_get($pdo, (int)($cajaBloqueada['terminal_id'] ?? $terminalId));
+              flus_cloud_sync_enqueue_cash_session($pdo, 'closed', [
+                'caja_id' => $cajaId,
+                'terminal_id' => (int)($cajaBloqueada['terminal_id'] ?? $terminalId),
+                'terminal_name' => (string)($terminalCloud['nombre'] ?? ''),
+                'user_id' => (int)($cajaBloqueada['user_id'] ?? 0),
+                'cashier_name' => (string)($caja['username'] ?? ''),
+                'fecha_apertura' => (string)($cajaBloqueada['fecha_apertura'] ?? ''),
+                'fecha_cierre' => date('Y-m-d H:i:s'),
+                'total_ventas' => $totalVentas,
+                'saldo_sistema' => $saldoSistema,
+                'saldo_declarado' => $saldoDeclarado,
+                'diferencia' => $diferencia,
+                'motivo' => $motivoCierre,
+              ]);
               header('Location: caja.php?ok=' . urlencode('Caja cerrada correctamente.'));
               exit;
             }
