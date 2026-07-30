@@ -1,7 +1,7 @@
 ; FLUS Terminal installer - acceso al servidor remoto
 #define MyAppName "FLUS Terminal"
-#define MyAppVersion "4.2.8"
-#define MyAppVersionNumeric "4.2.8.0"
+#define MyAppVersion "4.2.10"
+#define MyAppVersionNumeric "4.2.10.0"
 #define MyAppId "{{2D0D8E69-8F59-43E7-9C83-013D7D7EF1A2}}"
 
 [Setup]

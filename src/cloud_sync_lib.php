@@ -336,6 +336,9 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
         $requestUid = trim((string)($sale['request_uid'] ?? ''));
         $eventUid = $requestUid !== '' ? ('sale:' . $requestUid) : ('sale-id:' . $ventaId);
         $occurredAt = (string)($sale['fecha'] ?? date('Y-m-d H:i:s'));
+        $cashierName = substr(trim((string)($sale['cajero_nombre'] ?? '')), 0, 120);
+        $saleStatus = substr(strtoupper(trim((string)($sale['estado'] ?? 'EMITIDA'))), 0, 30);
+        $annulledAmount = round(max(0, (float)($sale['monto_anulado'] ?? 0)), 2);
 
         $summary = [
             'venta_id' => $ventaId,
@@ -344,6 +347,9 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
             'caja_id' => (int)($sale['caja_id'] ?? 0),
             'terminal_id' => (int)($sale['terminal_id'] ?? 0),
             'user_id' => (int)($sale['user_id'] ?? 0),
+            'cajero_nombre' => $cashierName,
+            'estado' => $saleStatus,
+            'monto_anulado' => $annulledAmount,
             'items_count' => (int)($sale['items_count'] ?? 0),
         ];
 
@@ -354,6 +360,9 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
             'caja_id' => (int)($sale['caja_id'] ?? 0),
             'terminal_id' => (int)($sale['terminal_id'] ?? 0),
             'user_id' => (int)($sale['user_id'] ?? 0),
+            'cajero_nombre' => $cashierName,
+            'estado' => $saleStatus,
+            'monto_anulado' => $annulledAmount,
             'total' => round((float)($sale['total'] ?? 0), 2),
             'total_bruto' => round((float)($sale['total_bruto'] ?? 0), 2),
             'descuento_total' => round((float)($sale['descuento_total'] ?? 0), 2),
@@ -368,6 +377,54 @@ if (!function_exists('flus_cloud_sync_enqueue_sale')) {
         ];
 
         return flus_cloud_sync_enqueue_event($pdo, 'sale.created', $eventUid, $summary, $payload, $occurredAt);
+    }
+}
+
+if (!function_exists('flus_cloud_sync_user_name')) {
+    function flus_cloud_sync_user_name(PDO $pdo, int $userId): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+        try {
+            $stmt = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(nombre), ''), username, '') FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$userId]);
+            return substr(trim((string)$stmt->fetchColumn()), 0, 120);
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+}
+
+if (!function_exists('flus_cloud_sync_enqueue_sale_annulment')) {
+    function flus_cloud_sync_enqueue_sale_annulment(PDO $pdo, array $annulment): array
+    {
+        $saleId = (int)($annulment['venta_id'] ?? 0);
+        $annulmentId = (int)($annulment['anulacion_id'] ?? 0);
+        if ($saleId <= 0) {
+            return ['queued' => false, 'reason' => 'invalid_sale'];
+        }
+
+        $type = substr(strtoupper(trim((string)($annulment['tipo'] ?? 'TOTAL'))), 0, 20);
+        $eventUid = $annulmentId > 0
+            ? ('sale-annulment:' . $annulmentId)
+            : ('sale-annulled:' . $saleId . ':' . strtolower($type));
+        $occurredAt = (string)($annulment['fecha'] ?? date('Y-m-d H:i:s'));
+        $summary = [
+            'venta_id' => $saleId,
+            'anulacion_id' => $annulmentId,
+            'tipo' => $type,
+            'estado_nuevo' => substr(strtoupper(trim((string)($annulment['estado_nuevo'] ?? 'ANULADA'))), 0, 30),
+            'monto_anulado' => round(max(0, (float)($annulment['monto_anulado'] ?? 0)), 2),
+            'user_id' => (int)($annulment['user_id'] ?? 0),
+            'cajero_nombre' => substr(trim((string)($annulment['cajero_nombre'] ?? '')), 0, 120),
+        ];
+        $payload = $summary + [
+            'motivo' => substr(trim((string)($annulment['motivo'] ?? '')), 0, 255),
+            'items' => is_array($annulment['items'] ?? null) ? $annulment['items'] : [],
+        ];
+
+        return flus_cloud_sync_enqueue_event($pdo, 'sale.annulled', $eventUid, $summary, $payload, $occurredAt);
     }
 }
 

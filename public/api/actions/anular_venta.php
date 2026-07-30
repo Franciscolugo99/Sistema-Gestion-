@@ -5,6 +5,7 @@ if (!function_exists('insert_dynamic')) { @require_once FLUS_ROOT . '/src/api_he
 if (!function_exists('getPDO')) { require_once __DIR__ . '/../../../src/db_helpers.php'; }
 require_once FLUS_ROOT . '/src/venta_anulaciones_lib.php';
 require_once FLUS_ROOT . '/src/facturacion_lib.php';
+require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
 $pdo = $pdo ?? (function_exists('getPDO') ? getPDO() : null);
 if (!$pdo instanceof PDO) { http_response_code(500); header('Content-Type: application/json; charset=utf-8'); echo json_encode(['ok'=>false,'error'=>'PDO no disponible']); exit; }
 if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
@@ -233,6 +234,17 @@ try {
   // -------------------------
 
   $pdo->commit();
+  flus_cloud_sync_enqueue_sale_annulment($pdo, [
+    'venta_id' => $ventaId,
+    'anulacion_id' => $anulacionId,
+    'tipo' => 'TOTAL',
+    'estado_nuevo' => 'ANULADA',
+    'monto_anulado' => (float)($venta['total'] ?? 0),
+    'user_id' => (int)($userId ?? 0),
+    'cajero_nombre' => flus_cloud_sync_user_name($pdo, (int)($userId ?? 0)),
+    'motivo' => $motivo,
+    'items' => $items,
+  ]);
   $payload = ['id' => $ventaId];
   if ($ventaYaAnulada) $payload['already'] = true;
   if ($anulacionId !== null) $payload['anulacion_id'] = (int)$anulacionId;

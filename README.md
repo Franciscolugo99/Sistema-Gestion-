@@ -2,20 +2,20 @@
 
 Sistema web tipo **POS / gestión** para kioscos y comercios.
 
-**Version:** 4.2.8
-**Build:** 2026-07-29
-**Release objetivo:** 4.2.8
+**Version:** 4.2.10
+**Build:** 2026-07-30
+**Release objetivo:** 4.2.10
 **PHP:** 8.0+  
 **Base de datos:** MySQL/MariaDB
 
 ---
 
-## Estado de release 4.2.8 (2026-07-29)
+## Estado de release 4.2.10 (2026-07-30)
 
 - Smoke tecnico fuente: `173 pruebas / 0 fallidas / 1 omitida` (la prueba de
   alineacion de permisos requiere una base MySQL local disponible).
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
-- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.8`.
+- Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.10`.
 - Ruta fuente local validada: `C:\xampp82\htdocs\kiosco`.
 - Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
 - Activacion cloud: el configurador exige URL y token, permite reparar equipos
@@ -30,6 +30,9 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
   personalizadas y migra solamente las URLs oficiales anteriores.
 - Recuperacion cloud: Tecnico identifica bloqueos del hosting y permite
   reactivar hasta 25 eventos fallidos por vez despues de un preflight correcto.
+- Historial cloud: Tecnico permite previsualizar y agregar por lotes ventas
+  anteriores a Cloud sin modificar ventas, pagos, caja ni stock, con reintentos
+  idempotentes y sin envio inmediato desde la accion manual.
 - Cajas cloud: apertura y cierre se reportan una sola vez para visualizar
   estado operativo, ultimo cierre y diferencias por sucursal en el portal.
 - Promociones: control global de disponibilidad y pausa diaria configurable para que Caja cobre sin promos en horarios definidos.
@@ -39,9 +42,12 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 - Dashboard: Top productos permite cambiar criterio por unidades, ventas o ganancia y ampliar el limite visible sin recargar toda la pagina.
 - UI operativa: Caja, movimientos, detalle de sesion, roles/permisos, usuarios y consultas de productos/stock reducen handlers inline y estilos sueltos, con estados visuales movidos a clases CSS.
 - Buscadores de listados: comparten foco persistente, cursor, Enter, `Ctrl+K` y tratamiento de teclado movil; los buscadores operativos con autocompletado conservan su flujo especializado.
-- Migraciones y baseline: versionados hasta `045_cloud_sync_queue.sql`.
+- Precios remotos: FLUS consulta ordenes de Wiroos desde el worker, vuelve a
+  validar producto y precio esperado, bloquea la fila y registra historial una
+  sola vez antes de confirmar el resultado al portal.
+- Migraciones y baseline: versionados hasta `046_cloud_command_receipts.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.8`, preparada en fuente; `api.flus.com.ar` supero el
+- Salida actual: `4.2.10`, preparada en fuente; `api.flus.com.ar` supero el
   preflight autenticado de licencia y sincronizacion desde una instalacion
   4.2.6, sin enviar eventos ni modificar su cola.
 - Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
@@ -57,6 +63,10 @@ Esta base de trabajo se usa con datos simulados y homologacion tecnica.
 
 Ver tambien:
 
+- [docs/RELEASE_4_2_10.md](docs/RELEASE_4_2_10.md)
+
+- [docs/RELEASE_4_2_9.md](docs/RELEASE_4_2_9.md)
+- [docs/RELEASE_MESSAGE_4.2.9.md](docs/RELEASE_MESSAGE_4.2.9.md)
 - [docs/RELEASE_4_2_8.md](docs/RELEASE_4_2_8.md)
 - [docs/RELEASE_MESSAGE_4.2.8.md](docs/RELEASE_MESSAGE_4.2.8.md)
 
@@ -344,7 +354,7 @@ Migraciones relacionadas:
 
 - Hacer backup de archivos y base de datos antes de desplegar.
 - Copiar la nueva version y ejecutar `php scripts/migrate.php`.
-- Verificar que corran las migraciones pendientes hasta `045_cloud_sync_queue.sql`.
+- Verificar que corran las migraciones pendientes hasta `046_cloud_command_receipts.sql`.
 - Validar modulos criticos despues del deploy, incluyendo facturación, documentos comerciales, cobranzas/recibos y recovery fiscal mínimo.
 - Usar la guia de [docs/UPGRADE_3.8.3.md](docs/UPGRADE_3.8.3.md).
 

@@ -80,35 +80,51 @@ function precio_actualizar(
     string $tipo = 'VENTA',
     ?string $motivo = null
 ): bool {
+    $pdo = null;
     try {
         $pdo = getPDO();
-        
-        // Obtener precio actual
+        if (!is_finite($precioNuevo) || $precioNuevo <= 0 || $precioNuevo > 999999999.99) {
+            return false;
+        }
+
         $campo = $tipo === 'COSTO' ? 'costo' : 'precio';
-        $stmt = $pdo->prepare("SELECT {$campo} FROM productos WHERE id = ?");
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare("SELECT {$campo} FROM productos WHERE id = ? AND activo = 1 LIMIT 1 FOR UPDATE");
         $stmt->execute([$productoId]);
-        $precioAnterior = (float)$stmt->fetchColumn();
+        $precioAnteriorRaw = $stmt->fetchColumn();
+        if ($precioAnteriorRaw === false) {
+            $pdo->rollBack();
+            return false;
+        }
+        $precioAnterior = (float)$precioAnteriorRaw;
         
-        // Si no hay cambio, no hacer nada
         if (abs($precioAnterior - $precioNuevo) < 0.001) {
+            $pdo->commit();
             return true;
         }
-        
-        $pdo->beginTransaction();
-        
-        // Actualizar producto
+
         $stmt = $pdo->prepare("UPDATE productos SET {$campo} = ? WHERE id = ?");
         $stmt->execute([$precioNuevo, $productoId]);
-        
-        // Registrar historial
-        precio_registrar_cambio($productoId, $precioAnterior, $precioNuevo, $tipo, $motivo);
+
+        $historyId = precio_registrar_cambio(
+            $productoId,
+            $precioAnterior,
+            $precioNuevo,
+            $tipo,
+            $motivo,
+            isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null,
+            $pdo
+        );
+        if ($historyId === null) {
+            throw new RuntimeException('PRICE_HISTORY_FAILED');
+        }
         
         $pdo->commit();
         
         return true;
         
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
+        if ($pdo instanceof PDO && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
         flus_log_error('precio_actualizar failed', ['error' => $e->getMessage()]);

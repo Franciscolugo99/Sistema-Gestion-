@@ -125,14 +125,14 @@ Aplicar:
 & "C:\xampp82\php\php.exe" scripts\migrate.php
 ```
 
-La migracion nueva es `045_cloud_sync_queue.sql`.
+Las migraciones Cloud requeridas llegan hasta `046_cloud_command_receipts.sql`.
 
 ## Prueba rapida
 
 1. Verificar en FLUS Web que la licencia este activa y que exista el endpoint:
    `https://api.flus.com.ar/sync-ingest.php`
 2. En FLUS local, entrar a `Tecnico`.
-3. Aplicar migraciones pendientes si aparece la migracion `045`.
+3. Aplicar migraciones pendientes hasta la migracion `046`.
 4. Hacer una venta normal desde caja.
 5. Volver a `Tecnico` y confirmar que la cola se envio automaticamente.
 6. En FLUS Web, abrir `Sucursales cloud` y confirmar que aparezca la instalacion
@@ -173,20 +173,48 @@ El script de consola carga el mismo contexto local que la web, incluyendo `FLUS_
 
 Eventos actuales:
 
-- `sale.created`: resumen de venta, medio de pago e items.
+- `sale.created`: resumen de venta, cajero, medio de pago e items.
+- `sale.annulled`: anulacion total o parcial, importe anulado y estado vigente.
 - `stock.updated`: stock de productos afectados por una venta.
 - `stock.snapshot`: stock actual enviado automaticamente o bajo accion manual.
+
+El mismo worker consulta comandos remotos en `command-poll.php`. Para un cambio
+de precio, FLUS bloquea el producto, compara el precio esperado, actualiza el
+precio y registra el historial dentro de una unica transaccion. Luego confirma
+el resultado en `command-ack.php`. Los recibos locales impiden aplicar dos veces
+la misma orden ante reintentos o perdida de conexion.
 
 El stock enviado es de solo lectura para FLUS Web. Incluye codigo, nombre,
 categoria, marca, precio de venta, stock, stock minimo, unidad y estado. No se
 envia costo ni margen.
+
+## Importacion de ventas anteriores a Cloud
+
+La importacion historica solo agrega eventos a la cola. No crea ventas, no
+registra pagos y no mueve stock. Primero ejecutar una vista previa:
+
+```powershell
+& "C:\FLUS\stack\php\php.exe" "C:\FLUS\app\scripts\cloud_sync_sales_backfill.php" --from=2026-01-01 --to=2026-07-31 --limit=100
+```
+
+Si el resumen es correcto, encolar el mismo lote de forma explicita:
+
+```powershell
+& "C:\FLUS\stack\php\php.exe" "C:\FLUS\app\scripts\cloud_sync_sales_backfill.php" --enqueue --from=2026-01-01 --to=2026-07-31 --after-id=0 --limit=100
+```
+
+Repetir con el `last_id` informado como nuevo `--after-id`. Las ventas que ya
+existen en `cloud_sync_queue` se omiten por su `request_uid` o `venta_id`. El
+script no llama al endpoint remoto; la tarea `FLUS_CloudSync` envia luego los
+eventos con sus reintentos normales.
 
 ## Diagnostico
 
 - `TOKEN_MISSING`: falta token local o no coincide con FLUS Web.
 - `URL_MISSING`: falta `FLUS_CLOUD_SYNC_URL` y no se pudo derivar desde licencia cloud.
 - `LICENSE_KEY_MISSING`: no hay licencia local con clave FLUS.
-- `SCHEMA_MISSING`: falta aplicar la migracion `045`.
+- `SCHEMA_MISSING`: faltan migraciones Cloud; para comandos remotos se requiere
+  `046_cloud_command_receipts.sql`.
 - `HTTP_STATUS_401`: token incorrecto, ausente o no recibido por Apache/PHP.
 - `HTTP_STATUS_403`: licencia suspendida, vencida, cliente inactivo o plan local.
 - `LICENSE_CLOUD_DISABLED`: la licencia existe, pero no tiene plan cloud.

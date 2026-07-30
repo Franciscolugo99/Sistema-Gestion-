@@ -2284,7 +2284,7 @@ $results[] = flus_run_test('install baseline includes core POS sale tables', fun
     flus_assert_contains("TABLE_NAME = 'venta_items' AND COLUMN_NAME = 'ajuste_precio_redondeo_modo'", $redondeoMigrationSql);
 
     flus_assert_contains('DROP DATABASE IF EXISTS {$quotedDb}', $integrationPhp);
-    flus_assert_contains("latest migration is 045", $integrationPhp);
+    flus_assert_contains("latest migration is 046", $integrationPhp);
     flus_assert_contains('function flus_it_table_has_single_column_unique_index', $integrationPhp);
     flus_assert_contains('ventas.request_uid exists', $integrationPhp);
     flus_assert_contains('ventas.request_uid has unique idempotency index', $integrationPhp);
@@ -2332,26 +2332,26 @@ $results[] = flus_run_test('integration db runner queda formalizado para release
     flus_assert_contains('docs/INTEGRATION_DB_RUNNER.md', $integrationPhp);
 });
 
-$results[] = flus_run_test('release 4.2.8 alinea version docs flujo dos maquinas y assets offline', function (): void {
+$results[] = flus_run_test('release 4.2.10 alinea version docs y comandos remotos', function (): void {
     $repoRoot = dirname(__DIR__);
     $versionPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'version.php');
     $readme = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'README.md');
     $changelog = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'CHANGELOG.md');
-    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_8.md');
+    $releaseDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'RELEASE_4_2_10.md');
     $twoMachinesDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'TRABAJO_DOS_MAQUINAS.md');
     $pilotDoc = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'docs' . DIRECTORY_SEPARATOR . 'QA_PILOTO_CONTROLADO_4_2_1.md');
     $ventasPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'ventas.php');
     $ventasJs = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR . 'ventas.js');
     $inventarioAnalisisPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'inventario_analisis.php');
 
-    flus_assert_contains("define('FLUS_VERSION', '4.2.8')", $versionPhp);
-    flus_assert_contains("define('FLUS_BUILD',   '2026-07-29')", $versionPhp);
-    flus_assert_contains('**Version:** 4.2.8', $readme);
-    flus_assert_contains('**Build:** 2026-07-29', $readme);
+    flus_assert_contains("define('FLUS_VERSION', '4.2.10')", $versionPhp);
+    flus_assert_contains("define('FLUS_BUILD',   '2026-07-30')", $versionPhp);
+    flus_assert_contains('**Version:** 4.2.10', $readme);
+    flus_assert_contains('**Build:** 2026-07-30', $readme);
     flus_assert_contains('la rama conserva el nombre historico `Ver-4.0.0`', $readme);
-    flus_assert_contains('## [4.2.8] - 2026-07-29', $changelog);
-    flus_assert_contains('Version visible: `4.2.8`', $releaseDoc);
-    flus_assert_contains('FLUS_Server_Setup_4.2.8.exe', $releaseDoc);
+    flus_assert_contains('## [4.2.10] - 2026-07-30', $changelog);
+    flus_assert_contains('Version visible: `4.2.10`', $releaseDoc);
+    flus_assert_contains('FLUS_Server_Setup_4.2.10.exe', $releaseDoc);
     flus_assert_contains('pull --ff-only origin Ver-4.0.0', $twoMachinesDoc);
     flus_assert_contains('src/config_mp.php', $twoMachinesDoc);
     flus_assert_contains('Smoke queda en verde.', $pilotDoc);
@@ -3013,16 +3013,22 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     $repoRoot = dirname(__DIR__);
     $installSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'install.sql');
     $migrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '045_cloud_sync_queue.sql');
+    $commandMigrationSql = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '046_cloud_command_receipts.sql');
     $registrarVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'registrar_venta.php');
+    $anularVentaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_venta.php');
+    $anularItemsPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'actions' . DIRECTORY_SEPARATOR . 'anular_items_venta.php');
     $cajaPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja.php');
     $cajaCerrarPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'caja_cerrar.php');
     $indexPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php');
     $cloudLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_lib.php');
+    $commandLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_command_lib.php');
     $tecnicoPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'tecnico.php');
     $scriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_push.php');
     $stockScriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_stock_snapshot.php');
     $tickScriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_tick.php');
     $probeScriptPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_probe.php');
+    $salesBackfillPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_sales_backfill.php');
+    $salesBackfillLibPhp = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_sales_backfill_lib.php');
     $setupScriptPs1 = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_setup.ps1');
     $taskSetupPs1 = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_task_setup.ps1');
     $taskRunnerPs1 = (string)file_get_contents($repoRoot . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'cloud_sync_task_runner.ps1');
@@ -3033,9 +3039,13 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains('UNIQUE KEY `ux_cloud_sync_queue_event_uid` (`event_uid`)', $installSql);
     flus_assert_contains('CREATE TABLE IF NOT EXISTS `cloud_sync_queue`', $migrationSql);
     flus_assert_contains('UNIQUE KEY `ux_cloud_sync_queue_event_uid` (`event_uid`)', $migrationSql);
+    flus_assert_contains('CREATE TABLE `cloud_command_receipts`', $installSql);
+    flus_assert_contains('CREATE TABLE IF NOT EXISTS `cloud_command_receipts`', $commandMigrationSql);
+    flus_assert_contains('UNIQUE KEY `ux_cloud_command_receipts_uid` (`command_uid`)', $commandMigrationSql);
 
     flus_assert_contains("require_once FLUS_ROOT . '/src/cloud_sync_lib.php';", $registrarVentaPhp);
     flus_assert_contains('flus_cloud_sync_enqueue_sale($pdo, [', $registrarVentaPhp);
+    flus_assert_contains("'cajero_nombre' => \$cajeroNombre", $registrarVentaPhp);
     flus_assert_contains("'items' => array_map(static function (array \$item): array", $registrarVentaPhp);
     flus_assert_contains('function flus_cloud_sync_enqueue_event(PDO $pdo, string $eventType, string $eventUid', $cloudLibPhp);
     flus_assert_contains('function flus_cloud_sync_config_readiness(?array $config = null): array', $cloudLibPhp);
@@ -3045,6 +3055,18 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains("return ['queued' => false, 'reason' => 'schema_missing'];", $cloudLibPhp);
     flus_assert_contains("error_log('[FLUS][cloud-sync] enqueue failed:", $cloudLibPhp);
     flus_assert_contains("return flus_cloud_sync_enqueue_event(\$pdo, 'sale.created'", $cloudLibPhp);
+    flus_assert_contains("'cajero_nombre' => \$cashierName", $cloudLibPhp);
+    flus_assert_contains('function flus_cloud_sync_enqueue_sale_annulment(PDO $pdo, array $annulment): array', $cloudLibPhp);
+    flus_assert_contains("return flus_cloud_sync_enqueue_event(\$pdo, 'sale.annulled'", $cloudLibPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_sale_annulment($pdo, [', $anularVentaPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_sale_annulment($pdo, [', $anularItemsPhp);
+    flus_assert_contains("array_key_exists('enqueue', \$options)", $salesBackfillPhp);
+    flus_assert_contains('flus_cloud_sync_sales_backfill($pdo, $backfillOptions, $enqueue)', $salesBackfillPhp);
+    flus_assert_not_contains('flus_cloud_sync_push(', $salesBackfillPhp);
+    flus_assert_contains('function flus_cloud_sync_sales_backfill(PDO $pdo, array $options, bool $enqueue = false): array', $salesBackfillLibPhp);
+    flus_assert_contains("'sale-id:' . \$saleId", $salesBackfillLibPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_sale($pdo, [', $salesBackfillLibPhp);
+    flus_assert_not_contains('flus_cloud_sync_push(', $salesBackfillLibPhp);
     flus_assert_contains('function flus_cloud_sync_enqueue_cash_session(PDO $pdo, string $action, array $cashSession): array', $cloudLibPhp);
     flus_assert_contains("'cash-session:' . \$cashId . ':' . \$action", $cloudLibPhp);
     flus_assert_contains("flus_cloud_sync_enqueue_cash_session(\$pdo, 'opened'", $cajaPhp);
@@ -3073,10 +3095,19 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains('Enviar stock actual', $tecnicoPhp);
     flus_assert_contains('Recuperar 25 fallidos', $tecnicoPhp);
     flus_assert_contains("'cloud_sync_retry_failed'", $tecnicoPhp);
+    flus_assert_contains("require_once FLUS_ROOT . '/src/cloud_sync_sales_backfill_lib.php';", $tecnicoPhp);
+    flus_assert_contains("require_permission('administrar_config');", $tecnicoPhp);
+    flus_assert_contains('name="csrf_token"', $tecnicoPhp);
+    flus_assert_contains('cloud_sales_backfill_preview', $tecnicoPhp);
+    flus_assert_contains('cloud_sales_backfill_enqueue', $tecnicoPhp);
+    flus_assert_contains('sin envio inmediato', $tecnicoPhp);
     flus_assert_contains('flus_cloud_sync_enqueue_stock_snapshot($pdo, null, \'cli\', $limit)', $stockScriptPhp);
     flus_assert_contains('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC', $tickScriptPhp);
     flus_assert_contains('FLUS_CLOUD_SYNC_HEARTBEAT_INTERVAL_SEC', $tickScriptPhp);
     flus_assert_contains('flus_cloud_sync_preflight()', $tickScriptPhp);
+    flus_assert_contains("require_once \$root . '/src/cloud_command_lib.php';", $tickScriptPhp);
+    flus_assert_contains('flus_cloud_commands_run($pdo, 5)', $tickScriptPhp);
+    flus_assert_contains("'commands' => \$commands", $tickScriptPhp);
     flus_assert_contains("'heartbeat' => \$heartbeat", $tickScriptPhp);
     flus_assert_contains('last_heartbeat_ts', $tickScriptPhp);
     flus_assert_contains('flus_cloud_sync_push($pdo, $pushLimit)', $tickScriptPhp);
@@ -3109,10 +3140,22 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_contains("define('FLUS_CLOUD_SYNC_STOCK_SNAPSHOT_INTERVAL_SEC'", $configExamplePhp);
     flus_assert_contains("define('FLUS_CLOUD_SYNC_HEARTBEAT_INTERVAL_SEC'", $configExamplePhp);
 
+    flus_assert_contains('function flus_cloud_command_process(PDO $pdo, array $command): array', $commandLibPhp);
+    flus_assert_contains("LIMIT 1 FOR UPDATE", $commandLibPhp);
+    flus_assert_contains("\$productUid !== 'id:' . \$productId", $commandLibPhp);
+    flus_assert_contains("'PRICE_CHANGED_LOCALLY'", $commandLibPhp);
+    flus_assert_contains('precio_registrar_cambio(', $commandLibPhp);
+    flus_assert_contains('flus_cloud_sync_enqueue_stock_snapshot($pdo, [$productId], \'command\')', $commandLibPhp);
+    flus_assert_contains("flus_cloud_command_complete_receipt(\$pdo, \$receiptId, 'applied', \$result)", $commandLibPhp);
+    flus_assert_not_contains('FLUS_LICENSE_CLOUD_TOKEN', $commandLibPhp);
+
     require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_lib.php';
     $derived = flus_cloud_sync_derive_url('https://panel.example.com/flus-web/admin/api/license-check.php');
     flus_assert_same('https://panel.example.com/flus-web/admin/api/sync-ingest.php', $derived);
     flus_assert_same('https://api.flus.com.ar/sync-ingest.php', flus_cloud_sync_derive_url('https://api.flus.com.ar/license-check.php'));
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_command_lib.php';
+    flus_assert_same('https://api.flus.com.ar/command-poll.php', flus_cloud_command_endpoint('https://api.flus.com.ar/sync-ingest.php', 'command-poll.php'));
+    flus_assert_same('https://panel.example.com/admin/api/command-ack.php', flus_cloud_command_endpoint('https://panel.example.com/admin/api/sync-ingest.php', 'command-ack.php'));
     flus_assert_same('BOT_PROTECTION_BLOCKED', flus_cloud_http_contract_error([
         'message' => 'Access denied by Imunify360 bot-protection.',
     ]));
@@ -3127,20 +3170,30 @@ $results[] = flus_run_test('cloud sync local encola ventas sin bloquear la opera
     flus_assert_same(1, flus_cloud_sync_retry_delay_minutes(0));
     flus_assert_same(2, flus_cloud_sync_retry_delay_minutes(1));
     flus_assert_same(60, flus_cloud_sync_retry_delay_minutes(10));
+    require_once $repoRoot . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'cloud_sync_sales_backfill_lib.php';
+    flus_assert_same(500, flus_cloud_sync_sales_backfill_normalize_options(['limit' => 999])['limit']);
+    flus_assert_same(0, flus_cloud_sync_sales_backfill_normalize_options(['after_id' => -5])['after_id']);
+    $invalidRangeBlocked = false;
+    try {
+        flus_cloud_sync_sales_backfill_normalize_options(['from' => '2026-07-30', 'to' => '2026-07-29']);
+    } catch (InvalidArgumentException $e) {
+        $invalidRangeBlocked = $e->getMessage() === 'DATE_RANGE_INVALID';
+    }
+    flus_assert_true($invalidRangeBlocked);
 });
 
-$results[] = flus_run_test('instalador 4.2.8 preserva datos y exige backup previo', function (): void {
+$results[] = flus_run_test('instalador 4.2.10 preserva datos y exige backup previo', function (): void {
     $repoRoot = dirname(__DIR__);
     $installerRoot = $repoRoot . DIRECTORY_SEPARATOR . 'installer';
     if (!is_dir($installerRoot)) {
-        flus_skip('instalador 4.2.8 preserva datos y exige backup previo: fuentes de build excluidas del payload productivo');
+        flus_skip('instalador 4.2.10 preserva datos y exige backup previo: fuentes de build excluidas del payload productivo');
     }
     $serverIss = (string)file_get_contents($installerRoot . DIRECTORY_SEPARATOR . 'flus_server_custom.iss');
     $preupgrade = (string)file_get_contents($installerRoot . DIRECTORY_SEPARATOR . 'preupgrade.ps1');
     $upgrade = (string)file_get_contents($installerRoot . DIRECTORY_SEPARATOR . 'upgrade_db.ps1');
     $build = (string)file_get_contents($installerRoot . DIRECTORY_SEPARATOR . 'build_release.ps1');
 
-    flus_assert_contains('#define MyAppVersion "4.2.8"', $serverIss);
+    flus_assert_contains('#define MyAppVersion "4.2.10"', $serverIss);
     flus_assert_contains('src\config_mp.php', $serverIss);
     flus_assert_contains("ExtractTemporaryFile('preupgrade.ps1')", $serverIss);
     flus_assert_contains("ExtractTemporaryFile('postupgrade.ps1')", $serverIss);

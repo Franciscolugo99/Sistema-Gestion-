@@ -162,6 +162,8 @@ try {
     $response['request_uid'] = $requestUid;
   }
 
+  $cajeroNombre = flus_cloud_sync_user_name($pdo, $userId);
+
   flus_cloud_sync_enqueue_sale($pdo, [
     'venta_id' => $ventaId,
     'request_uid' => $requestUid,
@@ -169,6 +171,9 @@ try {
     'caja_id' => $cajaId,
     'terminal_id' => $terminalId,
     'user_id' => $userId,
+    'cajero_nombre' => $cajeroNombre,
+    'estado' => 'EMITIDA',
+    'monto_anulado' => 0,
     'total' => $totalNetoFinal,
     'total_bruto' => $totalBruto,
     'descuento_total' => $descTotalFinal,

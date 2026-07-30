@@ -40,6 +40,8 @@ require_once $root . '/src/cobranzas_lib.php';
 require_once $root . '/src/tesoreria_lib.php';
 require_once $root . '/src/compras_tesoreria_lib.php';
 require_once $root . '/src/compras_precio_historial_lib.php';
+require_once $root . '/src/cloud_sync_sales_backfill_lib.php';
+require_once $root . '/src/cloud_command_lib.php';
 require_once $root . '/public/includes/CuentaCorrienteController.php';
 
 function flus_it_env(string $name, string $default = ''): string
@@ -1805,16 +1807,16 @@ try {
         ->query("SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1")
         ->fetchColumn();
 
-    flus_it_assert($latest === '045_cloud_sync_queue.sql', 'latest migration is 045');
+    flus_it_assert($latest === '046_cloud_command_receipts.sql', 'latest migration is 046');
 
     $technicalMigrationStatus = flus_technical_migration_status($pdo, $root . '/migrations');
     flus_it_assert((int)$technicalMigrationStatus['pending_count'] === 0, 'technical migration status reports clean schema');
-    flus_it_assert((string)$technicalMigrationStatus['latest'] === '045_cloud_sync_queue.sql', 'technical migration status reports latest file');
+    flus_it_assert((string)$technicalMigrationStatus['latest'] === '046_cloud_command_receipts.sql', 'technical migration status reports latest file');
 
-    $pdo->exec("DELETE FROM schema_migrations WHERE filename = '045_cloud_sync_queue.sql'");
+    $pdo->exec("DELETE FROM schema_migrations WHERE filename = '046_cloud_command_receipts.sql'");
     $technicalMigrationPending = flus_technical_migration_status($pdo, $root . '/migrations');
     flus_it_assert(
-        $technicalMigrationPending['pending'] === ['045_cloud_sync_queue.sql'],
+        $technicalMigrationPending['pending'] === ['046_cloud_command_receipts.sql'],
         'technical migration status detects missing tracking row'
     );
     $technicalMigrationError = null;
@@ -1823,7 +1825,7 @@ try {
         $technicalMigrationApply !== null
         && $technicalMigrationError === null
         && count($technicalMigrationApply['applied']) === 1
-        && (string)($technicalMigrationApply['applied'][0] ?? '') === '045_cloud_sync_queue.sql',
+        && (string)($technicalMigrationApply['applied'][0] ?? '') === '046_cloud_command_receipts.sql',
         'technical migration action applies only pending file'
     );
     flus_it_assert(!is_file($root . '/storage/maintenance.flag'), 'technical migration action clears maintenance flag');
@@ -1869,6 +1871,8 @@ try {
     flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'movimientos_stock', 'request_uid'), 'movimientos_stock.request_uid has unique idempotency index');
     flus_it_assert(flus_it_table_has_column($pdo, 'cloud_sync_queue', 'event_uid'), 'cloud_sync_queue event identity exists');
     flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'cloud_sync_queue', 'event_uid'), 'cloud_sync_queue event identity is unique');
+    flus_it_assert(flus_it_table_has_column($pdo, 'cloud_command_receipts', 'command_uid'), 'cloud command receipt identity exists');
+    flus_it_assert(flus_it_table_has_single_column_unique_index($pdo, 'cloud_command_receipts', 'command_uid'), 'cloud command receipt identity is unique');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'precio_unit_base'), 'venta_items.precio_unit_base exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_tipo'), 'venta_items.ajuste_precio_tipo exists');
     flus_it_assert(flus_it_table_has_column($pdo, 'venta_items', 'ajuste_precio_regla_unit_monto'), 'venta_items.ajuste_precio_regla_unit_monto exists');
@@ -1888,6 +1892,68 @@ try {
     flus_it_assert(
         (int)($posSale['caja_id'] ?? 0) === 1,
         'first cash session from a clean install uses id 1'
+    );
+    $commandProductId = (int) $posSale['producto_id'];
+    $commandProductCodeStmt = $pdo->prepare('SELECT codigo FROM productos WHERE id = ?');
+    $commandProductCodeStmt->execute([$commandProductId]);
+    $commandProductCode = (string) $commandProductCodeStmt->fetchColumn();
+    $priceCommand = [
+        'command_uid' => 'it-price-command-001',
+        'command_type' => 'price.update',
+        'claim_token' => str_repeat('a', 48),
+        'payload' => [
+            'schema_version' => 1,
+            'operation' => 'price.update',
+            'product_uid' => 'id:' . $commandProductId,
+            'local_product_id' => $commandProductId,
+            'product_code' => $commandProductCode,
+            'expected_price' => '75.00',
+            'new_price' => '82.50',
+            'reason' => 'price_list',
+            'reason_label' => 'Nueva lista',
+        ],
+    ];
+    $priceCommandResult = flus_cloud_command_process($pdo, $priceCommand);
+    flus_it_assert(($priceCommandResult['status'] ?? '') === 'applied', 'cloud price command applies once');
+    flus_it_assert(round((float) $pdo->query("SELECT precio FROM productos WHERE id = {$commandProductId}")->fetchColumn(), 2) === 82.50, 'cloud price command updates product price');
+    $priceHistoryCountStmt = $pdo->prepare("SELECT COUNT(*) FROM producto_precios_hist WHERE producto_id = ? AND motivo LIKE 'Cloud:%'");
+    $priceHistoryCountStmt->execute([$commandProductId]);
+    flus_it_assert((int) $priceHistoryCountStmt->fetchColumn() === 1, 'cloud price command writes one history row');
+    $priceCommand['claim_token'] = str_repeat('b', 48);
+    $priceCommandReplay = flus_cloud_command_process($pdo, $priceCommand);
+    flus_it_assert(($priceCommandReplay['status'] ?? '') === 'applied', 'cloud price command replay returns stored result');
+    $priceHistoryCountStmt->execute([$commandProductId]);
+    flus_it_assert((int) $priceHistoryCountStmt->fetchColumn() === 1, 'cloud price command replay does not duplicate history');
+    $conflictCommand = $priceCommand;
+    $conflictCommand['command_uid'] = 'it-price-command-002';
+    $conflictCommand['claim_token'] = str_repeat('c', 48);
+    $conflictCommand['payload']['new_price'] = '90.00';
+    $conflictResult = flus_cloud_command_process($pdo, $conflictCommand);
+    flus_it_assert(($conflictResult['status'] ?? '') === 'conflict', 'cloud price command rejects stale expected price');
+    flus_it_assert(round((float) $pdo->query("SELECT precio FROM productos WHERE id = {$commandProductId}")->fetchColumn(), 2) === 82.50, 'stale cloud command preserves current price');
+    putenv('FLUS_CLOUD_SYNC_URL=https://api.example.test/sync-ingest.php');
+    putenv('FLUS_CLOUD_SYNC_ENABLED=1');
+    $backfillOptions = ['after_id' => (int)$posSale['venta_id'] - 1, 'limit' => 1];
+    $backfillPreview = flus_cloud_sync_sales_backfill($pdo, $backfillOptions, false);
+    flus_it_assert(
+        (int)$backfillPreview['selected'] === 1
+        && (int)$backfillPreview['queued'] === 1
+        && (int)$backfillPreview['existing'] === 0,
+        'historical sales preview is read-only and identifies one missing event'
+    );
+    flus_it_assert(
+        (int)$pdo->query("SELECT COUNT(*) FROM cloud_sync_queue WHERE event_type = 'sale.created'")->fetchColumn() === 0,
+        'historical sales preview does not write queue rows'
+    );
+    $backfillQueued = flus_cloud_sync_sales_backfill($pdo, $backfillOptions, true);
+    flus_it_assert(
+        (int)$backfillQueued['queued'] === 1 && (int)$backfillQueued['failed'] === 0,
+        'historical sales enqueue creates one cloud event'
+    );
+    $backfillDuplicate = flus_cloud_sync_sales_backfill($pdo, $backfillOptions, true);
+    flus_it_assert(
+        (int)$backfillDuplicate['queued'] === 0 && (int)$backfillDuplicate['existing'] === 1,
+        'historical sales enqueue is idempotent on retry'
     );
 
     $cajaRequestUid = 'it-caja-movement-request-uid';

@@ -11,7 +11,7 @@ $appRoot = Join-Path $Root 'app'
 $configPath = Join-Path $appRoot 'src\config.php'
 $backupBase = Join-Path $Root 'upgrade_backups'
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-$backupRoot = Join-Path $backupBase ('FLUS_pre_4.2.8_' + $stamp)
+$backupRoot = Join-Path $backupBase ('FLUS_pre_4.2.10_' + $stamp)
 $apacheWasRunning = $false
 
 function Ensure-Directory([string]$Path) {
@@ -138,7 +138,7 @@ try {
   }
 
   $manifest = [ordered]@{
-    release = '4.2.8'
+    release = '4.2.10'
     created_at = (Get-Date).ToString('o')
     database = $dbName
     database_dump = [System.IO.Path]::GetFileName($dumpPath)

@@ -13,6 +13,7 @@ if (!is_file($config)) {
 require_once $config;
 require_once $root . '/src/db_helpers.php';
 require_once $root . '/src/cloud_sync_lib.php';
+require_once $root . '/src/cloud_command_lib.php';
 
 $storageDir = $root . '/storage';
 $statePath = $storageDir . '/cloud_sync_tick_state.json';
@@ -89,6 +90,14 @@ try {
         }
     }
 
+    $commands = flus_cloud_commands_run($pdo, 5);
+    $state['last_command_attempt_at'] = date(DATE_ATOM, $now);
+    $state['last_command_received'] = max(0, (int) ($commands['received'] ?? 0));
+    $state['last_command_applied'] = max(0, (int) ($commands['applied'] ?? 0));
+    $state['last_command_error'] = !empty($commands['ok'])
+        ? null
+        : flus_cloud_tick_error_code((string) ($commands['error'] ?? 'COMMAND_SYNC_FAILED'));
+
     $lastStockSnapshotTs = (int)($state['last_stock_snapshot_ts'] ?? 0);
     $shouldSnapshotStock = $lastStockSnapshotTs <= 0 || ($now - $lastStockSnapshotTs) >= $interval;
     $snapshot = null;
@@ -102,7 +111,9 @@ try {
     }
 
     $push = flus_cloud_sync_push($pdo, $pushLimit);
-    $ok = !empty($push['ok']) && ($heartbeat === null || !empty($heartbeat['ok']));
+    $ok = !empty($push['ok'])
+        && !empty($commands['ok'])
+        && ($heartbeat === null || !empty($heartbeat['ok']));
     $state['last_duration_ms'] = (int)round((microtime(true) - $startedAt) * 1000);
     $state['last_sent_count'] = max(0, (int)($push['sent'] ?? 0));
     $state['last_counts'] = is_array($push['counts'] ?? null) ? $push['counts'] : [];
@@ -119,6 +130,7 @@ try {
     echo json_encode([
         'ok' => $ok,
         'heartbeat' => $heartbeat,
+        'commands' => $commands,
         'stock_snapshot' => $snapshot,
         'push' => $push,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;

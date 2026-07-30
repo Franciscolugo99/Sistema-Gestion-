@@ -7,6 +7,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once FLUS_ROOT . '/src/logger.php';
 require_once FLUS_ROOT . '/src/technical_migrations_lib.php';
 require_once FLUS_ROOT . '/src/cloud_sync_lib.php';
+require_once FLUS_ROOT . '/src/cloud_sync_sales_backfill_lib.php';
 require_login();
 require_technical_permission();
 
@@ -624,6 +625,7 @@ $inlineJs = <<<'JS'
   const copyBtn = document.getElementById("tecnicoSmokeCopyBtn");
   const copyEl = document.getElementById("tecnicoSmokeCopyText");
   const migrationForm = document.getElementById("tecnicoMigrationForm");
+  const salesBackfillForm = document.getElementById("tecnicoSalesBackfillForm");
 
   const notify = (message, type = "info", ms = 2600) => {
     const text = String(message || "").trim();
@@ -709,12 +711,49 @@ $inlineJs = <<<'JS'
     }
     HTMLFormElement.prototype.submit.call(migrationForm);
   });
+
+  salesBackfillForm?.addEventListener("submit", async (event) => {
+    const submitter = event.submitter;
+    if (!submitter || submitter.dataset.action !== "cloud_sales_backfill_enqueue") return;
+    event.preventDefault();
+    if (salesBackfillForm.dataset.submitting === "1") return;
+    if (!window.Notif || typeof window.Notif.confirmar !== "function") {
+      notify("No se pudo abrir la confirmacion de seguridad", "error", 2800);
+      return;
+    }
+
+    const confirmed = await window.Notif.confirmar(
+      "Agregar ventas historicas a Cloud",
+      "Se agregara este lote a la cola. No se modifican ventas, pagos, caja ni stock, y el envio queda a cargo de la tarea automatica.",
+      {
+        icon: "warning",
+        confirmText: "Agregar lote",
+        cancelText: "Cancelar",
+        useText: true,
+      }
+    );
+    if (!confirmed) return;
+
+    salesBackfillForm.dataset.submitting = "1";
+    const actionInput = salesBackfillForm.querySelector('input[name="accion"]');
+    if (actionInput) actionInput.value = "cloud_sales_backfill_enqueue";
+    submitter.disabled = true;
+    submitter.textContent = "Agregando...";
+    HTMLFormElement.prototype.submit.call(salesBackfillForm);
+  });
 })();
 JS;
 
 $info = null;
 $error = null;
 $migrationRun = null;
+$salesBackfillResult = null;
+$salesBackfillInput = [
+    'from' => '',
+    'to' => '',
+    'after_id' => 0,
+    'limit' => 50,
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -795,6 +834,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                 $error = 'Stock preparado, pero no se pudo enviar a la nube: ' . tecnico_cloud_error_message((string)($syncResult['error'] ?? 'SYNC_FAILED'));
                 }
+            }
+        } elseif ($action === 'cloud_sales_backfill_preview' || $action === 'cloud_sales_backfill_enqueue') {
+            require_permission('administrar_config');
+            $salesBackfillInput = [
+                'from' => trim((string)($_POST['backfill_from'] ?? '')),
+                'to' => trim((string)($_POST['backfill_to'] ?? '')),
+                'after_id' => max(0, (int)($_POST['backfill_after_id'] ?? 0)),
+                'limit' => max(1, min(250, (int)($_POST['backfill_limit'] ?? 50))),
+            ];
+            $enqueueBackfill = $action === 'cloud_sales_backfill_enqueue';
+            try {
+                $salesBackfillResult = flus_cloud_sync_sales_backfill($pdo, $salesBackfillInput, $enqueueBackfill);
+                if ($enqueueBackfill) {
+                    $queued = (int)($salesBackfillResult['queued'] ?? 0);
+                    $failed = (int)($salesBackfillResult['failed'] ?? 0);
+                    $info = $failed > 0
+                        ? 'El lote termino con ' . $failed . ' evento(s) que no pudieron agregarse.'
+                        : 'Lote historico preparado: ' . $queued . ' venta(s) agregadas a la cola, sin envio inmediato.';
+                    $salesBackfillInput['after_id'] = (int)($salesBackfillResult['last_id'] ?? $salesBackfillInput['after_id']);
+                }
+            } catch (InvalidArgumentException $e) {
+                $error = $e->getMessage() === 'DATE_RANGE_INVALID'
+                    ? 'El rango historico es invalido: la fecha desde debe ser anterior o igual a la fecha hasta.'
+                    : 'Revisa las fechas del rango historico.';
+            } catch (Throwable $e) {
+                flus_log_error('technical cloud sales backfill failed', ['action' => $action]);
+                $error = 'No se pudo preparar el lote historico. Revisa la configuracion Cloud y las migraciones.';
             }
         } elseif ($action !== '') {
             $error = 'Accion tecnica no registrada.';
@@ -1265,6 +1331,61 @@ require __DIR__ . '/partials/header.php';
           <span class="tecnico-copy-hint">Ejecuta Configurar Cloud FLUS como administrador para instalar o reparar la tarea automatica.</span>
         <?php endif; ?>
       </div>
+    </section>
+
+    <section class="tecnico-card">
+      <div class="section-head">
+        <h2>Ventas historicas Cloud</h2>
+        <span class="chip chip-inline">Voluntario</span>
+      </div>
+      <p class="tecnico-copy">Prepara ventas anteriores a la activacion Cloud en lotes controlados. La vista previa no escribe datos; al agregar un lote solo se completa la cola y no se modifican ventas, pagos, caja ni stock.</p>
+      <form method="post" id="tecnicoSalesBackfillForm" class="tecnico-backfill-form">
+        <input type="hidden" name="csrf_token" value="<?= tecnico_h($_SESSION['csrf_token']) ?>">
+        <input type="hidden" name="accion" value="cloud_sales_backfill_preview">
+        <label>
+          <span>Desde</span>
+          <input type="date" name="backfill_from" value="<?= tecnico_h((string)$salesBackfillInput['from']) ?>">
+        </label>
+        <label>
+          <span>Hasta</span>
+          <input type="date" name="backfill_to" value="<?= tecnico_h((string)$salesBackfillInput['to']) ?>">
+        </label>
+        <label>
+          <span>Continuar despues del ID</span>
+          <input type="number" name="backfill_after_id" min="0" step="1" value="<?= (int)$salesBackfillInput['after_id'] ?>">
+        </label>
+        <label>
+          <span>Tamano del lote</span>
+          <select name="backfill_limit">
+            <?php foreach ([25, 50, 100, 250] as $backfillLimit): ?>
+              <option value="<?= $backfillLimit ?>" <?= (int)$salesBackfillInput['limit'] === $backfillLimit ? 'selected' : '' ?>><?= $backfillLimit ?> ventas</option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <div class="tecnico-migration-actions tecnico-backfill-actions">
+          <?php if ($canManageMigrations): ?>
+            <button class="btn btn-secondary" type="submit" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
+              Vista previa
+            </button>
+            <button class="btn btn-primary" type="submit" data-action="cloud_sales_backfill_enqueue" <?= (!$cloudSyncReady || !$cloudSyncConfigured) ? 'disabled' : '' ?>>
+              Agregar lote a Cloud
+            </button>
+          <?php else: ?>
+            <span class="tecnico-copy-hint">Necesitas permiso para administrar la configuracion.</span>
+          <?php endif; ?>
+        </div>
+      </form>
+      <?php if (is_array($salesBackfillResult)): ?>
+        <div class="meta-grid tecnico-backfill-result" role="status">
+          <div><strong>Revisadas:</strong> <?= (int)($salesBackfillResult['selected'] ?? 0) ?></div>
+          <div><strong><?= ($salesBackfillResult['mode'] ?? '') === 'preview' ? 'Faltan en Cloud:' : 'Agregadas:' ?></strong> <?= (int)($salesBackfillResult['queued'] ?? 0) ?></div>
+          <div><strong>Ya existentes:</strong> <?= (int)($salesBackfillResult['existing'] ?? 0) ?></div>
+          <div><strong>Ultimo ID:</strong> <?= (int)($salesBackfillResult['last_id'] ?? 0) ?></div>
+        </div>
+      <?php endif; ?>
+      <?php if (!$cloudSyncReady || !$cloudSyncConfigured): ?>
+        <p class="tecnico-copy-hint">La herramienta se habilita cuando la migracion 045 y la configuracion Cloud estan listas.</p>
+      <?php endif; ?>
     </section>
   </div>
 </div>

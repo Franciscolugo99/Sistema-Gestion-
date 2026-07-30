@@ -210,7 +210,7 @@ function Get-VerifiedPreupgradeDbName {
     $database = ('' + $manifest.database).Trim()
     $dumpName = [System.IO.Path]::GetFileName(('' + $manifest.database_dump).Trim())
     $dumpPath = Join-Path $backupRoot $dumpName
-    if (('' + $manifest.release) -ne '4.2.8' -or
+    if (('' + $manifest.release) -ne '4.2.10' -or
         $database -notmatch '^[A-Za-z0-9_]+$' -or
         $dumpName -eq '' -or
         -not (Test-Path -LiteralPath $dumpPath) -or

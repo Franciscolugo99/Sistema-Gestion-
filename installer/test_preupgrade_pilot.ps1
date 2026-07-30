@@ -9,7 +9,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $pilotBase = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '.pilot'))
 $pilotRoot = [System.IO.Path]::GetFullPath((Join-Path $pilotBase 'preupgrade'))
 $allowedPrefix = $pilotBase.TrimEnd('\') + '\'
-$database = 'flus_it_pilot_428'
+$database = 'flus_it_pilot_4210'
 $mysqlRoot = 'C:\xampp\mysql'
 $phpRoot = 'C:\xampp\php'
 $mysql = Join-Path $mysqlRoot 'bin\mysql.exe'
@@ -86,7 +86,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo preparar la DB piloto.' }
 
   & powershell.exe -ExecutionPolicy Bypass -NoProfile -File (Join-Path $PSScriptRoot 'preupgrade.ps1') `
-    -Root $pilotRoot -ApacheServiceName 'FLUS_Apache_Pilot_428'
+    -Root $pilotRoot -ApacheServiceName 'FLUS_Apache_Pilot_4210'
   if ($LASTEXITCODE -ne 0) { throw 'El preupgrade piloto fallo.' }
 
   $pointer = Join-Path $pilotRoot 'upgrade_backups\last_upgrade_backup.txt'
@@ -108,7 +108,7 @@ try {
   $upgradeFallbackOk = $LASTEXITCODE -eq 0
 
   & powershell.exe -ExecutionPolicy Bypass -NoProfile -File (Join-Path $PSScriptRoot 'postupgrade.ps1') `
-    -Root $pilotRoot -ApacheServiceName 'FLUS_Apache_Pilot_428'
+    -Root $pilotRoot -ApacheServiceName 'FLUS_Apache_Pilot_4210'
   $postUpgradeOk = $LASTEXITCODE -eq 0
 
   Write-Host "PILOT_CONFIG_BACKUP=$configOk"

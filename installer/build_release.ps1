@@ -608,13 +608,17 @@ $portablePhp = Join-Path $PayloadRoot 'stack\php\php.exe'
 if (-not (Test-Path -LiteralPath $portablePhp)) {
   throw 'El runtime staged no contiene php.exe.'
 }
-Log 'Corriendo smoke tests sobre el payload portable...'
-Push-Location $PayloadApp
-try {
-  & $portablePhp -n 'tests\smoke.php'
-  if ($LASTEXITCODE -ne 0) { throw "Smoke del payload fallo (exit=$LASTEXITCODE)" }
-} finally {
-  Pop-Location
+if (-not $SkipSmoke) {
+  Log 'Corriendo smoke tests sobre el payload portable...'
+  Push-Location $PayloadApp
+  try {
+    & $portablePhp -n 'tests\smoke.php'
+    if ($LASTEXITCODE -ne 0) { throw "Smoke del payload fallo (exit=$LASTEXITCODE)" }
+  } finally {
+    Pop-Location
+  }
+} else {
+  Log 'Smoke del payload omitido por parametro explicito.'
 }
 
 $serverIss = Join-Path $InstallerDir 'flus_server_custom.iss'
@@ -660,7 +664,7 @@ FLUS $version - instaladores
 - Todo upgrade de servidor exige y verifica un backup previo antes de copiar archivos.
 - Cloud queda automatizado mediante una tarea local sin secretos en argumentos.
 
-Antes de actualizar una PC productiva, validar el hash SHA256 y realizar primero el piloto indicado en docs/RELEASE_4_2_8.md.
+Antes de actualizar una PC productiva, validar el hash SHA256 y realizar primero el piloto indicado en docs/RELEASE_$($version.Replace('.', '_')).md.
 "@
 [System.IO.File]::WriteAllText((Join-Path $OutputRoot "README_INSTALADOR_$version.txt"), $readme, (New-Object System.Text.UTF8Encoding($false)))
 

@@ -1,7 +1,7 @@
 ; FLUS Servidor installer - ES + Servicios OK (Admin)
 #define MyAppName "FLUS Servidor (Multi-caja)"
-#define MyAppVersion "4.2.8"
-#define MyAppVersionNumeric "4.2.8.0"
+#define MyAppVersion "4.2.10"
+#define MyAppVersionNumeric "4.2.10.0"
 #define MyAppId "{{8F8B8A6E-4C8B-4C7D-9B7C-5A1D4F1C15A1}}"
 
 [Setup]

@@ -4,6 +4,52 @@
 
 ---
 
+## [4.2.10] - 2026-07-30
+
+### Added
+
+- Cambio remoto de precio desde el portal movil hacia una sola sucursal.
+- Cola de comandos Wiroos con reclamo temporal y confirmacion de resultado.
+- Recibos locales `cloud_command_receipts` para aplicar cada orden exactamente
+  una vez aun ante timeout, doble envio o reintento del worker.
+
+### Security
+
+- El portal exige permiso, POST y CSRF; Wiroos toma el precio vigente desde su
+  stock sincronizado y no confia en un precio anterior enviado por el celular.
+- FLUS vuelve a validar producto, codigo, precio esperado y rango, bloquea la
+  fila con `FOR UPDATE` y actualiza precio e historial en una transaccion.
+- Una orden vencida o dirigida a otra instalacion no puede aplicarse.
+
+### Fixed
+
+- La fusion segura de clientes reconoce y conserva la nueva cola de comandos.
+
+---
+
+## [4.2.9] - 2026-07-29
+
+### Added
+
+- Las ventas cloud nuevas incluyen el nombre del cajero resuelto por el servidor.
+- Las anulaciones totales y parciales generan eventos `sale.annulled`
+  idempotentes despues de confirmar la transaccion local.
+- Nuevo `scripts/cloud_sync_sales_backfill.php` para previsualizar y encolar por
+  lotes ventas anteriores a la activacion Cloud sin alterar caja, pagos o stock.
+- Tecnico incorpora una carga historica guiada, voluntaria y por lotes, con
+  vista previa de solo lectura y permiso backend `administrar_config`.
+
+### Security
+
+- El backfill historico es solo lectura por defecto y exige `--enqueue` para
+  modificar la cola. Nunca empuja eventos automaticamente.
+- Los errores de conexion del backfill quedan sanitizados y no muestran rutas,
+  credenciales ni trazas al operador.
+- La accion web de encolado exige POST, CSRF, permiso especifico y confirmacion;
+  no dispara el envio ni expone el token Cloud.
+
+---
+
 ## [4.2.8] - 2026-07-29
 
 ### Added

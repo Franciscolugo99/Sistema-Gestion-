@@ -137,6 +137,40 @@
   opacity: .58;
 }
 
+.tecnico-backfill-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .85rem;
+}
+
+.tecnico-backfill-form label {
+  display: grid;
+  gap: .4rem;
+  color: var(--text);
+  font-weight: 700;
+  font-size: .9rem;
+}
+
+.tecnico-backfill-form input,
+.tecnico-backfill-form select {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.tecnico-backfill-actions,
+.tecnico-backfill-result {
+  grid-column: 1 / -1;
+}
+
+.tecnico-backfill-result {
+  margin: 1rem 0 0;
+  padding: .9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--bg-alt);
+}
+
 .tecnico-copy-source {
   display: none;
 }
@@ -314,5 +348,9 @@ body[data-theme="dark"] .health-item.is-warning {
   .tecnico-migration-actions .inline-form,
   .tecnico-migration-actions .btn {
     width: 100%;
+  }
+
+  .tecnico-backfill-form {
+    grid-template-columns: 1fr;
   }
 }
