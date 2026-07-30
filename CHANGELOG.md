@@ -24,6 +24,9 @@
 ### Fixed
 
 - La fusion segura de clientes reconoce y conserva la nueva cola de comandos.
+- El instalador final se genera desde un arbol limpio y conserva configuracion,
+  base y storage durante upgrades; el piloto local PHP 8.2 valido el ciclo
+  remoto completo antes de habilitarlo en sucursales.
 
 ---
 

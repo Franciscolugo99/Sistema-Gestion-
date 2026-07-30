@@ -12,11 +12,10 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
 
 ## Estado de release 4.2.10 (2026-07-30)
 
-- Smoke tecnico fuente: `173 pruebas / 0 fallidas / 1 omitida` (la prueba de
-  alineacion de permisos requiere una base MySQL local disponible).
+- Smoke tecnico fuente y payload: `173 pruebas / 0 fallidas / 0 omitidas`.
 - Rama base local: `Ver-4.0.0`, creada desde `Ver-3.9.0`
 - Nota operativa: la rama conserva el nombre historico `Ver-4.0.0`, aunque la version visible actual es `4.2.10`.
-- Ruta fuente local validada: `C:\xampp82\htdocs\kiosco`.
+- Ruta fuente local validada: `C:\xampp\htdocs\kiosco` con PHP 8.2.
 - Licencias: validacion cloud contra FLUS Admin/Wiros con cache offline firmado para tolerar cortes de internet.
 - Activacion cloud: el configurador exige URL y token, permite reparar equipos
   4.2.4/4.2.5 sin tocar datos operativos y ofrece diagnostico seguro con `-StatusOnly`.
@@ -47,9 +46,10 @@ Sistema web tipo **POS / gestión** para kioscos y comercios.
   sola vez antes de confirmar el resultado al portal.
 - Migraciones y baseline: versionados hasta `046_cloud_command_receipts.sql`.
 - Tesoreria v1, facturacion, documentos comerciales, cuenta corriente y notas de credito quedan como base funcional de la linea 4.x.
-- Salida actual: `4.2.10`, preparada en fuente; `api.flus.com.ar` supero el
-  preflight autenticado de licencia y sincronizacion desde una instalacion
-  4.2.6, sin enviar eventos ni modificar su cola.
+- Salida actual: `4.2.10`, compilada desde `a6016db` con arbol limpio. El piloto
+  local XAMPP aplico y confirmo un cambio de precio idempotente; Wiroos y
+  `api.flus.com.ar` quedaron publicados y verificados. Falta el piloto de
+  upgrade en una sucursal antes de actualizar la segunda.
 - Panel Tecnico: consulta migraciones pendientes y permite aplicarlas de forma controlada a usuarios con permiso de configuracion.
 
 ### Nota sobre ARCA y entorno simulado

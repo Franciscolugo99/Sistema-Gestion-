@@ -4,8 +4,8 @@ FLUS 4.2.10 habilita cambios de precio remotos, auditados e idempotentes desde
 el portal movil hacia una sucursal concreta.
 
 - Version visible: `4.2.10`
-- Servidor previsto: `FLUS_Server_Setup_4.2.10.exe`
-- Terminal previsto: `FLUS_Terminal_Setup_4.2.10.exe`
+- Servidor: `FLUS_Server_Setup_4.2.10.exe`
+- Terminal: `FLUS_Terminal_Setup_4.2.10.exe`
 
 ## Meta y estado actual
 
@@ -14,15 +14,18 @@ de un producto desde el portal movil y que la sucursal correcta lo aplique una
 sola vez, con validacion local, conflicto ante precios desactualizados e
 historial auditable.
 
-Al 30/07/2026, el codigo de FLUS 4.2.10 esta implementado y validado en fuente,
-payload portable, smoke, integracion MariaDB y piloto de upgrade. El staging no
-contiene configuraciones ni secretos reales. El ejecutable definitivo todavia
-debe compilarse despues de publicar y validar primero el lado Wiroos; ninguna
-sucursal productiva fue actualizada con 4.2.10 durante este trabajo.
+Al 30/07/2026, FLUS 4.2.10 esta implementado y validado en fuente, payload
+portable, smoke, integracion MariaDB y piloto local sobre XAMPP/PHP 8.2. El
+piloto aplico una orden de precio una sola vez, registro historial, confirmo el
+resultado y devolvio `NO_COMMANDS` al repetir el ciclo. Wiroos y
+`api.flus.com.ar` ya publican los endpoints de comandos y responden JSON
+protegido. Los instaladores definitivos fueron compilados desde un arbol limpio
+y el payload no contiene configuraciones ni secretos reales.
 
-Proximo hito: publicar Wiroos con `cloud_commands` y sus endpoints, ejecutar una
-prueba controlada, compilar el instalador final y actualizar primero una sola
-sucursal piloto antes de extenderlo a la segunda.
+Ninguna sucursal productiva fue actualizada con 4.2.10 durante esta validacion.
+Proximo hito: actualizar primero una sucursal, verificar backup, migracion 046,
+tarea `FLUS_CloudSync` y un cambio sobre un producto no critico; solo despues
+extender el upgrade a la segunda sucursal.
 
 ## Flujo
 
@@ -48,8 +51,7 @@ comandos. Es aditiva y no modifica ventas, pagos, caja ni movimientos de stock.
 
 ## Publicacion coordinada
 
-1. Respaldar Wiroos y publicar tabla, portal y endpoints de comandos.
-2. Verificar `command-poll.php` y `command-ack.php` por HTTPS.
-3. Construir y validar instalador 4.2.10 sin secretos.
-4. Actualizar primero una sucursal piloto y aplicar migracion 046.
-5. Probar un producto no critico, confirmar historial y luego actualizar la otra.
+1. Wiroos, portal y endpoints de comandos: publicado y verificado.
+2. Instaladores y manifiestos: compilados y verificados sin secretos.
+3. Actualizar primero una sucursal piloto y aplicar migracion 046.
+4. Probar un producto no critico, confirmar historial y luego actualizar la otra.
