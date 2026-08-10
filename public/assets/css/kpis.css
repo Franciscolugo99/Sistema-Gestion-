@@ -37,6 +37,12 @@ html[data-theme="dark"] {
   .fact-kpi-grid,
   .repo-kpi-grid,
   .compra-kpis,
+  .terminales-stats,
+  .audit-summary,
+  .bk-stats,
+  .promo-stats,
+  .tecnico-stats,
+  .productos-page .quick-stats,
   .metric-row,
   .anulacion-kpis,
   .branch-kpis,
@@ -58,6 +64,8 @@ html[data-theme="dark"] {
   .fact-kpi-card,
   .repo-kpi-card,
   .terminales-stat-card,
+  .audit-summary-card,
+  .productos-page .quick-stats .stat-item,
   .cc-stat-card,
   .compra-kpi,
   .metric-card,
@@ -73,7 +81,9 @@ html[data-theme="dark"] {
   border-radius: var(--flus-kpi-radius);
   box-shadow: var(--flus-kpi-shadow);
   color: var(--flus-kpi-text);
+  min-height: 88px;
   min-width: 0;
+  padding: 14px 16px;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
 
@@ -85,6 +95,8 @@ html[data-theme="dark"] {
   .fact-kpi-card,
   .repo-kpi-card,
   .terminales-stat-card,
+  .audit-summary-card,
+  .productos-page .quick-stats .stat-item,
   .cc-stat-card,
   .compra-kpi,
   .metric-card,
@@ -97,6 +109,25 @@ html[data-theme="dark"] {
 ):hover {
   border-color: color-mix(in oklch, var(--flus-kpi-info) 38%, var(--flus-kpi-border));
   box-shadow: 0 6px 16px color-mix(in oklch, var(--flus-kpi-text) 10%, transparent);
+}
+
+/* Stock keeps its label and value stacked, even if another module stylesheet
+   defines a generic .stat-card layout. */
+.stats-row > .stat-card,
+.tecnico-stats > .stat-card {
+  display: block;
+  min-width: 0;
+}
+
+.promo-stats {
+  background: transparent;
+  border-bottom: 0;
+  padding: 14px 16px;
+}
+
+.promo-stats > .stat-card {
+  display: block;
+  text-align: left;
 }
 
 :is(.stat-clickable, .vkpi-clickable) {
@@ -116,7 +147,9 @@ html[data-theme="dark"] {
   .inv-card-icon,
   .fact-kpi-card__label,
   .repo-kpi-label,
-  .terminales-stat-card span,
+  .terminales-stat-label,
+  .audit-summary-label,
+  .productos-page .quick-stats .stat-label,
   .cc-stat-card span,
   .cc-stat-label,
   .compra-kpi__label,
@@ -152,6 +185,8 @@ html[data-theme="dark"] {
   .fact-kpi-card__value,
   .repo-kpi-value,
   .terminales-stat-value,
+  .audit-summary-card strong,
+  .productos-page .quick-stats .stat-value,
   .cc-stat-value,
   .compra-kpi__value,
   .metric-value,
@@ -177,11 +212,28 @@ html[data-theme="dark"] {
 }
 
 :is(
+  .stat-value--ok,
+  .vkpi-diff.positive
+) {
+  color: var(--flus-kpi-success);
+}
+
+:is(
+  .stat-value--warn,
+  .vkpi-diff.negative,
+  .vkpi-danger
+) {
+  color: var(--flus-kpi-danger);
+}
+
+:is(
   .vkpi-sub,
   .inv-card-sub,
   .inv-card-footnote,
   .fact-kpi-card__help,
   .repo-kpi-card small,
+  .terminales-stat-help,
+  .stat-sub,
   .compra-kpi__hint,
   .anulacion-kpi-help,
   body.cajeros-rendimiento-page .rend-kpi small,
@@ -217,6 +269,8 @@ html[data-theme="dark"] {
 :is(
   .stat-bajo,
   .terminales-stat-card--warning,
+  .audit-summary-card--attention,
+  .fact-kpi-card--accent,
   .cc-stat-card.cc-stat-warning,
   body.cuenta-corriente-page .kpi-card.kpi-warning
 ) {
@@ -259,13 +313,18 @@ body.cuenta-corriente-page .kpi-icon {
     .fact-kpi-grid,
     .repo-kpi-grid,
     .compra-kpis,
+    .terminales-stats,
+    .audit-summary,
+    .bk-stats,
+    .promo-stats,
+    .productos-page .quick-stats,
     body.cuenta-corriente-page .cc-kpis,
     body.cajeros-rendimiento-page .rend-kpis
   ) {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
-  :is(.stat-card, .vkpi-card, .inv-card, .fact-kpi-card, .repo-kpi-card) {
+  :is(.stat-card, .vkpi-card, .inv-card, .fact-kpi-card, .repo-kpi-card, .terminales-stat-card, .audit-summary-card, .productos-page .quick-stats .stat-item) {
     padding: 13px;
   }
 }

@@ -6108,6 +6108,14 @@ $results[] = flus_run_test('kpis de modulos usan capa global de consistencia vis
     flus_assert_contains('.fact-kpi-card', $kpiCss);
     flus_assert_contains('.repo-kpi-card', $kpiCss);
     flus_assert_contains('.terminales-stat-card', $kpiCss);
+    flus_assert_contains('.terminales-stat-help', $kpiCss);
+    flus_assert_contains('.audit-summary-card', $kpiCss);
+    flus_assert_contains('.audit-summary-card--attention', $kpiCss);
+    flus_assert_contains('.bk-stats', $kpiCss);
+    flus_assert_contains('.stats-row > .stat-card', $kpiCss);
+    flus_assert_contains('.promo-stats > .stat-card', $kpiCss);
+    flus_assert_contains('.productos-page .quick-stats .stat-item', $kpiCss);
+    flus_assert_contains('.tecnico-stats', $kpiCss);
     flus_assert_contains('body.cuenta-corriente-page .kpi-card', $kpiCss);
     flus_assert_contains('body.cajeros-rendimiento-page .rend-kpi', $kpiCss);
     flus_assert_contains('color-mix(in oklch', $kpiCss);
